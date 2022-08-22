@@ -71,13 +71,15 @@ local tagC=setmetatable({}, {
 
 local hintC={
 	string=function(pattBegin,pattScript,pattEndOrNil)
-		pattScript = pattScript/function() end
+		pattScript = pattScript/function(...) end
 		local pattEndPos = (pattEndOrNil and pattEndOrNil * Cpos or Cpos)
 		local patt = Cenv * Cpos * pattBegin * Cpos * pattScript * Cpos * pattEndPos / function(env,p1,p2,p3,p4)
 			env:markDel(p1, p4-1)
 			return env:subScript(p2, p3-1)
 		end
-		return vv"HintBegin" * (patt * vv"HintSuccessEnd" + vv"HintFailEnd")
+		local thluaPatt = vv"HintBegin" * (patt * vv"HintSuccessEnd" + vv"HintFailEnd")
+		local commentPatt = lpeg.P("--[[") * pattBegin * lpeg.C((lpeg.P(1) - lpeg.P("]]"))^0) * lpeg.P("]]") * lpeg.V"Skip"
+		return thluaPatt + commentPatt
 	end,
 	char=function(char)
 		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
@@ -142,7 +144,7 @@ local G = lpeg.P { "TypeHintLua";
 
   OverrideHint = hintC.char("?");
 
-  AtHint = hintC.string(symb("@"), vv("SuffixedExp"));
+  AtHint = hintC.string(symb("@"), vv("SimpleExp"));
 
   ColonHint = hintC.string(symb(":"), vv("Expr"));
 
@@ -309,8 +311,8 @@ local G = lpeg.P { "TypeHintLua";
 
   -- lexer
   Skip     = (lpeg.space^1 + vv"Comment")^0;
-  Comment  = lpeg.P"--" * vv"LongString" / function () return end
-           + lpeg.P"--" * (lpeg.P(1) - lpeg.P"\n")^0;
+  Comment  = lpeg.P"--" * -(lpeg.P("[[")*lpeg.S("@:")) * (
+									vv"LongString" / function () return end + (lpeg.P(1) - lpeg.P"\n")^0);
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1

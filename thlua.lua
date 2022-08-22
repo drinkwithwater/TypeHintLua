@@ -6,7 +6,7 @@ end
 local CodeEnv = require "thlua.code.CodeEnv"
 
 local function thluaSearcher(name)
-	local ok, content, fileName = CodeEnv.thluaSearchContent(name)
+	local ok, content, fileName = CodeEnv.thluaSearchContent(name, false)
 	if not ok then
 		return content
 	end

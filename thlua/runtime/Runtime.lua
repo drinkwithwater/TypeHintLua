@@ -128,7 +128,7 @@ end
 function Runtime:require(vPath)
 	local nRequireEnv = self._requireDict[vPath]
 	if not nRequireEnv then
-		local nOkay, nContent, nFileName = CodeEnv.thluaSearchContent(vPath)
+		local nOkay, nContent, nFileName = CodeEnv.thluaSearchContent(vPath, true)
 		if not nOkay then
 				error(nContent)
 		end
