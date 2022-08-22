@@ -1,4 +1,4 @@
---[[
+--[[(@do
 
 var.node = namespace()
 
@@ -224,14 +224,12 @@ node.NameList = NodeStruct {
 	[Number] = node.Id,
 }
 
-]]
+end)]]
 
 local Node = {}
 
-function Node.tagNode(vTag)
-	return function(pos, ...)
-		return {tag=vTag, pos=pos, ...}
-	end
+function Node.__tostring(self)
+	return self.tag ..":".. self.l .."," .. self.c
 end
 
 return Node

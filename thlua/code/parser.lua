@@ -78,7 +78,10 @@ local hintC={
 			return env:subScript(p2, p3-1)
 		end
 		local thluaPatt = vv"HintBegin" * (patt * vv"HintSuccessEnd" + vv"HintFailEnd")
-		local commentPatt = lpeg.P("--[[") * pattBegin * lpeg.C((lpeg.P(1) - lpeg.P("]]"))^0) * lpeg.P("]]") * lpeg.V"Skip"
+		local commentPatt = lpeg.P"--[["*Cenv*pattBegin*
+		Cpos*pattScript*Cpos*pattEndPos*lpeg.P"]]"*lpeg.V"Skip"/function(env,p1,p2,p3)
+			return env:subScript(p1, p2-1)
+		end
 		return thluaPatt + commentPatt
 	end,
 	char=function(char)
@@ -114,7 +117,6 @@ local G = lpeg.P { "TypeHintLua";
 
 	ErrUnknown = lpeg.Carg(1) * (lpeg.C(lpeg.P(1))) / function (vEnv, vUnexpectToken)
 		vEnv.unexpect = vUnexpectToken
-		vEnv.ffp = vEnv.ffp or 1
 		return false
 	end;
 
@@ -311,7 +313,7 @@ local G = lpeg.P { "TypeHintLua";
 
   -- lexer
   Skip     = (lpeg.space^1 + vv"Comment")^0;
-  Comment  = lpeg.P"--" * -(lpeg.P("[[")*lpeg.S("@:")) * (
+  Comment  = lpeg.P"--" * -(lpeg.P("[[")*lpeg.S("(@:")) * (
 									vv"LongString" / function () return end + (lpeg.P(1) - lpeg.P"\n")^0);
 
 	Number = (function()

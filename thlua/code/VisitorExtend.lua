@@ -1,9 +1,11 @@
 
 require "thlua.code.Node"
 
---[[ (@function(self)
+--[[(@do
 
-TNodeVisitor = function(IVisitor)
+var.node = import("thlua.code.Node").node
+
+local TNodeVisitor = function(IVisitor)
 	return Struct {
 		Chunk=Fn(IVisitor, node.Chunk),
 		Block=Fn(IVisitor, node.Block),
@@ -51,12 +53,12 @@ TNodeVisitor = function(IVisitor)
 	}
 end
 
-IVisitor = Struct {
-	realVisit=Fn(IVisitor, Truth),
-	rawVisit=Fn(IVisitor, Truth),
+node.IVisitor = Struct {
+	realVisit=Fn(node.IVisitor, Truth),
+	rawVisit=Fn(node.IVisitor, Truth),
 }
 
-end) ]]
+end)]]
 
 local TagToTraverse = {
 	Chunk=function(self, node)
@@ -203,7 +205,7 @@ local TagToTraverse = {
 	end,
 }
 
-local function VisitorExtend(vTable, vDictOrFunc) --=@ "native"
+local function VisitorExtend(vTable, vDictOrFunc) --[[::open()]]
 	local t = vTable
 	local nType = type(vDictOrFunc)
 	if nType == "table" then
@@ -216,13 +218,13 @@ local function VisitorExtend(vTable, vDictOrFunc) --=@ "native"
 			f(self, node)
 		end
 	elseif nType == "function" then
-		function t:realVisit(node) --=@ "nocheck"
+		function t:realVisit(node) --[[::nocheck()]]
 			vDictOrFunc(self, node)
 		end
 	else
 		error("VisitorExtend must take a function or dict for override")
 	end
-	function t:rawVisit(node) --=@ "nocheck"
+	function t:rawVisit(node) --[[::nocheck()]]
 		TagToTraverse[node.tag](self, node)
 	end
 	return t

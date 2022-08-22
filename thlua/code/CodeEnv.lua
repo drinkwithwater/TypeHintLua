@@ -1,5 +1,6 @@
 
 local parser = require "thlua.code.parser"
+local Node = require "thlua.code.Node"
 local VisitorExtend = require "thlua.code.VisitorExtend"
 local Exception = require "thlua.Exception"
 local CodeEnv = {}
@@ -25,12 +26,12 @@ function CodeEnv.new(vSubject, vFileName, vPath)
 		subject = vSubject,
 		path = vPath or false,
 		filename = vFileName,
-		ffp = 0,
 		hinting = false,
 		posToChange = {}, -- if value is string then insert else remove
 		expectSet = {},
 		unexpect = "",
 		ast = nil,
+		nodeList = {},
 		scope_list = {},
 		region_list = nil, -- region_list = scope_list
 		ident_list = {},
@@ -65,7 +66,7 @@ function CodeEnv:_parse()
 	-- 1. gen ast
 	local ast = parser.parse(self, self.subject)
 	if not ast then
-		local nLine, nColumn = self:fixupPos(self.ffp)
+		local nLine, nColumn = self:fixupPos(0)
 		local l = {
 			self.filename, ":", nLine, ":", nColumn, ":",
 			" syntax error, unexpected '",
@@ -89,12 +90,17 @@ function CodeEnv:_parse()
 	self.ast = ast
 	-- 2. set line & column, parent
 	local nStack = {}
+	local nNodeList = self.nodeList
 	self:visit(function(visitor, vNode)
+		local nIndex = #nNodeList + 1
+		nNodeList[nIndex] = vNode
+		vNode.index = nIndex
 		vNode.parent = nStack[#nStack] or false
 		vNode.l, vNode.c = self:fixupPos(vNode.pos)
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
+		setmetatable(vNode, Node)
 	end)
 end
 
