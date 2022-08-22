@@ -1,0 +1,50 @@
+
+local TypeClass = require "thlua.type.TypeClass"
+
+local function UnionClass()::open()
+	local t = TypeClass()
+    function t:__len()
+        error("union class len TODO")
+    end
+	function t:detailString?(v)
+		local l = {}
+		self:foreach(function(vType)
+			l[#l+1] = vType
+		end)
+		table.sort(l, function(vLeft, vRight)
+			return vLeft.id < vRight.id
+		end)
+		for i=1, #l do
+			l[i] = l[i]:detailString(v)
+		end
+		return "Union("..table.concat(l,",")..")"
+	end
+	function t:isUnion()
+		return true
+	end
+	function t:isSingleton()
+		return false
+	end
+	function t:_mapContinue?(vContinue, vFunc)
+		error("map continue TODO")
+	end
+	function t:unionSign?()
+		local nSign = self._unionSign
+		local l = {}
+		if not nSign then
+			self:foreach(function(vType)
+				l[#l + 1] = vType.id
+			end)
+			table.sort(l)
+			nSign = table.concat(l, "-")
+			self._unionSign = nSign
+		end
+		return nSign
+	end
+	function t:_put?(vType)
+		error("this union type can't put anything")
+	end
+	return t
+end
+
+return UnionClass

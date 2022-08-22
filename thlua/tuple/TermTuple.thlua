@@ -1,0 +1,103 @@
+
+local TermTuple = {}
+
+TermTuple.__index=TermTuple
+TermTuple.__tostring=function(self)
+	local re = {}
+	for i=1, #self do
+		re[i] = tostring(self._list[i])
+	end
+	local nRepeatType = self:getRepeatType()
+	if nRepeatType then
+		re[#re + 1] = tostring(nRepeatType) .."*"
+	end
+	return "TermTuple("..table.concat(re, ",")..")"
+end
+
+TermTuple.__bor=function(vLeftTuple, vRightTuple)
+	local nLen = math.max(#vLeftTuple, #vRightTuple)
+	local l = {}
+	local nNil = vLeftTuple._manager.type.Nil
+	for i=1, nLen do
+		local nLeftTerm = vLeftTuple:get(i)
+		local nRightTerm = vRightTuple:get(i)
+		l[i] = nLeftTerm | nRightTerm
+	end
+	return vLeftTuple._manager:TermTuple(l)
+end
+
+TermTuple.__len=function(self)
+    return #self._list
+end
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.UnionTerm), vTypeTuple:class.TypeTuple)::NewTable(class.TermTuple)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_repeatTermList={}@List(class.UnionTerm),
+		_context=false,
+		_typeTuple=vTypeTuple,
+        _list=vTermList,
+	}, TermTuple)
+	return self
+end
+
+function TermTuple:select(i)
+	local nList = {}
+	for n=i,#self._list do
+		nList[#nList + 1] = self._list[n]
+	end
+	for n=1,#self._repeatTermList do
+		nList[#nList + 1] = self._repeatTermList[n]
+	end
+	return self._manager:TermTuple(nList)
+end
+
+function TermTuple:get(i)::Ret(class.UnionTerm)
+	local more = i - #self
+	if more <= 0 then
+		return self._list[i]!
+	else
+		local nTerm = self._repeatTermList[more]
+		local nRepeatType = self:getRepeatType()
+		if not nTerm then
+			local nNil = self._manager.type.Nil
+			if nRepeatType then
+				nTerm = self._manager:UnionTerm(self._manager:Union(nRepeatType, nNil))
+			else
+				nTerm = self._manager:UnionTerm(nNil)
+			end
+			self._repeatTermList[more] = nTerm
+            return nTerm
+        else
+            return nTerm
+		end
+	end
+end
+
+function TermTuple:getDots(vStart)
+	return self._typeTuple:select(vStart):makeTermTuple()
+end
+
+function TermTuple:getTypeTuple()
+    return self._typeTuple
+end
+
+function TermTuple:getRepeatType()
+	return self._typeTuple:getRepeatType()
+end
+
+function TermTuple.is(t)
+	return getmetatable(t) == TermTuple
+end
+
+function TermTuple:setContext(vContext)
+	self._context = vContext
+end
+
+function TermTuple:getContext()
+	return self._context
+end
+
+return TermTuple

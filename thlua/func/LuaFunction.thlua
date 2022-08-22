@@ -1,0 +1,261 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local Exception = require "thlua.Exception"
+local Variable = require "thlua.func.Variable"
+
+local LuaFunction = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+LuaFunction.OPEN="open"
+
+LuaFunction.NOCHECK="nocheck"
+
+LuaFunction.DEFINE="define"
+
+LuaFunction.DEFAULT="default"
+
+(@do
+
+--[[
+OpenFn = Struct {
+	tag="open",
+	fn=class.NativeFunction,
+	isGuard=Boolean,
+}
+
+NocheckFn = Struct {
+	tag="nocheck",
+	fn=class.TypeFunction,
+}
+
+DefineFn = Struct {
+	tag="define",
+	fn=Union(false, class.TypeFunction),
+	argList=List(Union(class.Variable, class.IValueType)),
+	argDots=Union(False, class.IKeyType),
+	runFunc=Truth,
+	newTypeRefer=Union(class.Reference, False),
+	once=Boolean,
+}
+
+DefaultFn = Struct {
+	tag="default",
+	fn=Union(false, class.TypeFunction),
+	autoArgs=class.AutoArguments,
+	retTuples=Union(false, class.RetTuples),
+	runFunc=Truth,
+	once=Boolean,
+}
+]]
+
+end)
+
+function LuaFunction.new(vManager:class.TypeManager)::NewTable(class.LuaFunction, class.IAtomType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_runtime=false,
+		_unionTagFn=false,
+		_context=false,
+		_tupleSet={},
+		pos="??",
+		bits=TYPE_BITS.FUNCTION,
+		name="unknown",
+		id=vManager:genTypeId(),
+		implType=false,
+	}, LuaFunction)
+	return self
+end
+
+function LuaFunction:init(vContext, vUnionTagFn)
+	self._context = vContext
+	self._unionTagFn = vUnionTagFn
+end
+
+function LuaFunction:newContext()
+	return self._runtime:newContext(self, self._context)
+end
+
+function LuaFunction:isNative()
+	local nTag = self._unionTagFn.tag
+	return nTag == LuaFunction.OPEN
+end
+
+function LuaFunction:detailString(v)
+	return "LuaFunction-"..self._unionTagFn.tag.."-"..self.name
+end
+
+function LuaFunction:setRuntime(vRuntime)
+	self._runtime = vRuntime
+end
+
+function LuaFunction:setName(name)
+	self.name = name
+end
+
+-- TODO
+function LuaFunction:getPath()
+	return self.name
+end
+
+function LuaFunction:getNewTypeRefer()
+	local nTagFn = self._unionTagFn
+	assert(nTagFn.tag == LuaFunction.DEFINE, "only define function can get new")
+	return nTagFn.newTypeRefer
+end
+
+function LuaFunction:checkDefine()
+	local nTagFn = self._unionTagFn
+	local nManager = self._manager
+	if nTagFn.tag ~= LuaFunction.DEFINE then
+		error("only def-fn can be refer's ctor")
+		return
+	end
+	if nTagFn.once then
+		return
+	end
+	nTagFn.once = true
+	local nTypeList = {}
+	for i, arg in pairs(nTagFn.argList) do
+		if Variable.is(arg) then
+			error("define-fn must hint args type,"..tostring(self))
+		else
+			nTypeList[i] = arg
+		end
+	end
+	local nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
+	-- TODO check only return once in func running
+	local nRetTermTuple = nTagFn.runFunc(self:newContext(), nTypeTuple:makeTermTuple(), self)
+	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
+	if #nRightTypeTuple ~= 1 then
+		error("define-fn can't return more than one value")
+	end
+	local nReturnType = nRightTypeTuple:get(1):checkType()
+	local nDefineType = nTagFn.newTypeRefer:checkType()
+	if nDefineType ~= nReturnType then
+		error("define function must return table")
+	end
+	local nRetTuples = nManager:EmptyRetTuples():Add(nManager:Tuple(nDefineType))
+	nTagFn.fn = nManager:Function(nTypeTuple, nRetTuples)
+end
+
+-- called outside
+function LuaFunction:checkLateRun()
+	local nTagFn = self._unionTagFn
+	local nTermTuple = nTagFn.fn:getArgTuple():makeTermTuple()
+	local nRetTermTuple = nTagFn.runFunc(self:newContext(), nTermTuple, self)
+	local nRetTypeTuple = nRetTermTuple:getTypeTuple()
+	local nRetTuples = nTagFn.fn:getReturnTuples()
+	if not nRetTuples:containTuple(nRetTypeTuple) then
+		self._context:error("return not match", nRetTuples, nRetTypeTuple)
+	end
+end
+
+function LuaFunction:_checkLateCall(vTypeTuple)
+	local nContext = self:newContext()
+	local nTagFn = self._unionTagFn
+	if nTagFn.tag ~= LuaFunction.DEFAULT then
+		nContext:error("unexcept branch")
+		return
+	end
+	if nTagFn.once then
+		return
+	end
+	nTagFn.once = true
+	local nTypeTuple = nTagFn.autoArgs:check(nContext, vTypeTuple)
+	local nRetTuples = nTagFn.retTuples
+	if nRetTuples then
+		nTagFn.fn = self._manager:Function(nTypeTuple, nRetTuples)
+		nContext:recordLateLuaFunction(self)
+		return
+	end
+	-- not late function
+	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
+	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
+	nRetTuples = self._manager:EmptyRetTuples():Add(nRightTypeTuple)
+	nTagFn.fn = self._manager:Function(nTypeTuple, nRetTuples)
+end
+
+function LuaFunction:implement(vContext, vFuncType)
+	local nTagFn = self._unionTagFn
+	local nTag = nTagFn.tag
+	if nTag ~= LuaFunction.DEFAULT then
+		error(nTag.." fn can't implement typefunction")
+	end
+	if self.implType then
+		vContext:error("implement more than once")
+		return
+	end
+	self.implType = vFuncType
+	if not nTagFn.retTuples then
+		nTagFn.retTuples = vFuncType:getReturnTuples()
+	end
+	self:_checkLateCall(vFuncType:getArgTuple())
+end
+
+function LuaFunction:meta_native_call(vContext, vTermTuple)
+	local nTagFn = self._unionTagFn
+	local nTag = nTagFn.tag
+	if nTag == LuaFunction.OPEN then
+		return nTagFn.fn:meta_native_call(self:newContext(), vTermTuple)
+	else
+		error("only native fn can call meta_native_call")
+	end
+end
+
+function LuaFunction:meta_call(vContext, vTypeTuple)
+	local nTagFn = self._unionTagFn
+	local nTag = nTagFn.tag
+	if nTag == LuaFunction.OPEN then
+		error("native fn can't call meta_native_call")
+	elseif nTag == LuaFunction.NOCHECK then
+		return nTagFn.fn:meta_call(vContext, vTypeTuple)
+	else
+		local nImplType = self.implType
+		if nImplType then
+			return nImplType:meta_call(vContext, vTypeTuple)
+		end
+		if nTag == LuaFunction.DEFAULT then
+			self:_checkLateCall(vTypeTuple)
+		elseif nTag == LuaFunction.DEFINE then
+			self:checkDefine()
+		else
+			vContext:error("error occur for tag unexcept:"..tostring(nTag))
+		end
+		local nFn = nTagFn.fn
+		if not nFn then
+			vContext:error("error occur in function but rettuple not setted")
+		else
+			return nFn:meta_call(vContext, vTypeTuple)
+		end
+	end
+end
+
+function LuaFunction:_intersectOneNotRefer(vType)
+	if vType == self then
+		return self
+	elseif vType:_containOneNotRefer(self) then
+		return self
+	else
+		return false
+	end
+end
+
+function LuaFunction:_containOneNotRefer(vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function LuaFunction:isSingleton()
+	return false
+end
+
+function LuaFunction:native_type()
+	return self._manager:Literal("function")
+end
+
+return LuaFunction

@@ -1,0 +1,66 @@
+
+local OPER_ENUM = require "thlua.type.OPER_ENUM"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+
+local BooleanLiteral = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function BooleanLiteral.new(vManager:class.TypeManager, vLiteral:Boolean)::NewTable(class.BooleanLiteral, class.IAtomType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		literal=vLiteral,
+		id=vManager:genTypeId(),
+		bits=vLiteral and TYPE_BITS.TRUE or TYPE_BITS.FALSE,
+	}, BooleanLiteral)
+	return self
+end
+
+function BooleanLiteral:detailString(v, vVerbose)
+	if vVerbose then
+		return "Literal("..tostring(self.literal)..")"
+	else
+		return tostring(self.literal)
+	end
+end
+
+function BooleanLiteral:isSingleton()
+	return true
+end
+
+function BooleanLiteral:_intersectOneNotRefer(vType)
+    if self == vType then
+        return self
+    elseif vType == self._manager.type.Truth then
+		return self
+	else
+        return false
+    end
+end
+
+function BooleanLiteral:_containOneNotRefer(vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function BooleanLiteral:trueType()
+    if self.literal then
+        return self
+    else
+        return self._manager.type.Never
+    end
+end
+
+function BooleanLiteral:falseType()
+    if self.literal then
+        return self._manager.type.Never
+    else
+        return self
+    end
+end
+
+return BooleanLiteral

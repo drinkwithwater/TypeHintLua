@@ -1,0 +1,139 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+
+local StringLiteralUnion = require "thlua.union.StringLiteralUnion"
+local NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
+local ObjectUnion = require "thlua.union.ObjectUnion"
+local FuncUnion = require "thlua.union.FuncUnion"
+local ComplexUnion = require "thlua.union.ComplexUnion"
+local FalsableUnion = require "thlua.union.FalsableUnion"
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+local FastTypeBitsToTrue = {
+	[TYPE_BITS.NIL]=true,
+	[TYPE_BITS.FALSE]=true,
+	[TYPE_BITS.TRUE]=true,
+	[TYPE_BITS.TRUTH]=true,
+}
+
+local TrueBitToTrue = {
+	[TYPE_BITS.TRUE]=true,
+	[TYPE_BITS.OBJECT]=true,
+	[TYPE_BITS.FUNCTION]=true,
+	[TYPE_BITS.NUMBER]=true,
+	[TYPE_BITS.STRING]=true,
+}
+
+local TypeCollection = {}
+TypeCollection.__index=TypeCollection
+TypeCollection.__len=function(self)
+	return self.count
+end
+
+function TypeCollection.new(vManager:class.TypeManager)::Ret(class.TypeCollection)
+	local self = {
+		_manager=vManager,
+		_type=vManager.type,
+		bitsToSet={} @ Dict(Number,Dict(class.IAtomType,True)),
+		bits=0 @ Number,
+ 		count=0 @ Number,
+	}
+	return (setmetatable(self, TypeCollection)) @ class.TypeCollection
+end
+
+function TypeCollection:_putOne(vType)
+	local nBitsToSet = self.bitsToSet
+	local nBits = vType.bits
+	local nSet = nBitsToSet[nBits]
+	if not nSet then
+		nSet = {}
+		nBitsToSet[nBits] = nSet
+	end
+	if not nSet[vType] then
+		nSet[vType] = true
+		self.count = self.count + 1
+	end
+end
+
+function TypeCollection:put(vType:class.IKeyType)
+	vType:foreach(function(vSubType)
+		self.bits = self.bits | vSubType.bits
+		self:_putOne(vSubType)
+	end)
+end
+
+function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.IKeyType)
+	local nUnionType:class.IUnionType = nil
+	if vBit == TYPE_BITS.TRUE then
+		return self._type.True
+	elseif vBit == TYPE_BITS.NUMBER then
+		local nNumberType = self._type.Number
+		if vSet[nNumberType] then
+			return nNumberType
+		end
+		nUnionType = NumberLiteralUnion.new(self._manager)
+	elseif vBit == TYPE_BITS.STRING then
+		local nStringType = self._type.String
+		if vSet[nStringType] then
+			return nStringType
+		end
+		nUnionType = StringLiteralUnion.new(self._manager)
+	elseif vBit == TYPE_BITS.OBJECT then
+		nUnionType = ObjectUnion.new(self._manager)
+	elseif vBit == TYPE_BITS.FUNCTION then
+		nUnionType = FuncUnion.new(self._manager)
+	else
+		error("bit can't be="..tostring(vBit))
+	end
+	for nType, _ in pairs(vSet) do
+		nUnionType:_put(nType)
+	end
+	return self._manager:_unifyUnion(nUnionType)
+end
+
+function TypeCollection:mergeToType()::Ret(class.IKeyType)
+	local nBits = self.bits
+	-- 0. only one type
+	if self.count == 1 then
+		return (next(self.bitsToSet[nBits]))
+	end
+	-- 1. fast type
+	if nBits == 0 then
+		-- 1) bits=0 for never
+		return self._type.Never
+	elseif FastTypeBitsToTrue[nBits] then
+		-- 2) some bit for only one type
+		return (next(self.bitsToSet[nBits]))
+	end
+	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
+	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
+	-- 2. make true part
+	local nTrueBitToType:Dict(Number, class.IKeyType) = {}
+	for nBit, nSet in pairs(self.bitsToSet) do
+		if TrueBitToTrue[nBit] then
+			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
+		end
+	end
+	local nTrueType:class.IKeyType = self._type.Never
+	if TrueBitToTrue[nTruableBits] then
+		-- if truablebits is bit, then just one case
+		nTrueType = nTrueBitToType[nTruableBits]
+	elseif nTruableBits == TYPE_BITS.TRUTH then
+		-- truetype is truth
+		nTrueType = self._type.Truth
+	elseif next(nTrueBitToType) then
+		-- if truablebits is not bit and has true part, then true part must has more than one case
+		local nComplexUnion = ComplexUnion.new(self._manager, nTruableBits, nTrueBitToType)
+		nTrueType = self._manager:_unifyUnion(nComplexUnion)
+	end
+	-- 3. check false part
+	if nFalsableBits == 0 then
+		return nTrueType
+	else
+		local nUnionType = FalsableUnion.new(self._manager, nTrueType, nFalsableBits)
+		return self._manager:_unifyUnion(nUnionType)
+	end
+end
+
+return TypeCollection

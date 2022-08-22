@@ -1,0 +1,71 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+
+local NativeFunction = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function NativeFunction.new(vManager:class.TypeManager, vFunc)::NewTable(class.NativeFunction, class.IAtomType)
+	return setmetatable({::New()
+		_manager=vManager,
+		func=vFunc,
+		name="unknown",
+		bits=TYPE_BITS.FUNCTION,
+		id=vManager:genTypeId(),
+	}, NativeFunction)
+end
+
+function NativeFunction:isNative()
+	return true
+end
+
+function NativeFunction:detailString(v)
+	return "NativeFunction-"..self.name
+end
+
+function NativeFunction:set_name(name)
+	self.name = name
+end
+
+function NativeFunction:meta_native_call(vContext, vTermTuple)
+	return self.func(vContext, vTermTuple)
+end
+
+function NativeFunction:check_call(vTermTuple)
+	local nData1 = vTermTuple:get(1)
+	local meta_native_func = nData1["native_"..self.name]
+	if not meta_native_func then
+		print("error, "..self.name.."("..tostring(nData1.type)..", ...) type invalid")
+	end
+	return meta_native_func(table.unpack(vTermTuple))
+end
+
+function NativeFunction:argnum_warn(vArgNum, vTermTuple)
+	local n = #vTermTuple
+	if n ~= vArgNum then
+		print("warning, "..self.name.." take "..vArgNum.." arguments but "..n.." getted")
+	end
+end
+
+function NativeFunction:_intersectOneNotRefer(vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function NativeFunction:_containOneNotRefer(vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function NativeFunction:isSingleton()
+	return true
+end
+
+return NativeFunction

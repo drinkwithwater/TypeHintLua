@@ -1,0 +1,160 @@
+
+local TypeClass = require "thlua.type.TypeClass"
+local Exception = require "thlua.Exception"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+
+local Reference = TypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function Reference.new(vManager:class.TypeManager, vNameOrFalse:String)::NewTable(class.Reference)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_name=vNameOrFalse,
+		id=vManager:genTypeId(),
+		bits=false,
+		_waitRefer=false,
+		_referType=(false @ Union(class.IKeyType, False)),
+		_thread=false,
+		_waitThreads={},
+		_ctorFunc=false,
+		implType=false,
+	}, Reference)
+	return self
+end
+
+function Reference:detailString(v)
+	if self._referType and not self._name then
+		return "`"..self._referType:detailString(v)
+	else
+		return "Reference("..(self._name or "!nameless")..")"
+	end
+end
+
+function Reference:setTypeCtor(vLuaFunc)
+	self._ctorFunc = vLuaFunc
+end
+
+function Reference:setTypeAsync(vFunc)::Ret():nocheck()
+	assert(not self._thread, "refer has been setted")
+	assert(not self._referType, "refer has type")
+	local co = coroutine.create(function()
+		local nOkay, nErrMsg = xpcall(function()
+			local nType = vFunc()
+			self._referType = nType
+			if nType.setReferName and self._name then
+				nType:setReferName(self._name)
+			end
+		end, function(exc)
+			print("error in setTypeAsync:", self._name, tostring(exc), debug.traceback())
+			return exc
+		end)
+		if not nOkay then
+			return
+		end
+		local l = self._waitThreads
+		for i=#l,1,-1 do
+			coroutine.resume(l[i])
+		end
+	end)
+	self._manager.coToRefer[co] = self
+	self._thread = co
+	coroutine.resume(co)
+end
+
+function Reference:getTypeAwait()
+	if not self._referType then
+        local co, _ = coroutine.running()
+        local nWaitingRefer = self._manager.coToRefer[co]
+        assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
+		nWaitingRefer._waitRefer = self
+		local nCurRefer = self._waitRefer
+		while nCurRefer do
+			if nCurRefer == self then
+				error(Exception.new("recursive build type"))
+			else
+				nCurRefer = nCurRefer._waitRefer
+			end
+		end
+		local l = self._waitThreads
+		l[#l+1] = coroutine.running()
+		coroutine.yield()
+		nWaitingRefer._waitRefer = false
+	end
+	return self._referType
+end
+
+function Reference:getType()
+	return self._referType
+end
+
+function Reference:checkType()::Ret(class.IKeyType)
+	if not self._referType then
+		local nCtorFunc = self._ctorFunc
+		if nCtorFunc then
+			nCtorFunc:checkDefine()
+		end
+		while true do
+			local nWaitRefer = self._waitRefer
+			if not nWaitRefer then
+				break
+			else
+				nWaitRefer:checkType()
+			end
+		end
+	end
+	local nReferType = self._referType
+	if not nReferType then
+		error(Exception.new("reference "..tostring(self).." has not been setted"))
+	else
+		return nReferType
+	end
+end
+
+function Reference:isNilable()
+	return self:checkType():isNilable()
+end
+
+function Reference:isUnion()
+	return self:checkType():isUnion()
+end
+
+function Reference:isSingleton()
+	return self:checkType():isSingleton()
+end
+
+function Reference:isReference()
+	return true
+end
+
+function Reference:_mapContinue(vContinue, vFunc)
+	return self:checkType():_mapContinue(vContinue, vFunc)
+end
+
+function Reference:_intersectOneNotRefer(vType)
+	return self:checkType():_intersectOneNotRefer(vType)
+end
+
+function Reference:_containOneNotRefer(vType)
+	return self:checkType():_containOneNotRefer(vType)
+end
+
+function Reference:trueType()
+	return self:checkType():trueType()
+end
+
+function Reference:falseType()
+	return self:checkType():falseType()
+end
+
+function Reference:impl(vType)
+	local nReferType = self._referType
+	if nReferType then
+		error("call impl before reference assign")
+	else
+		self.implType=vType
+	end
+	return self
+end
+
+return Reference

@@ -1,0 +1,123 @@
+
+local RetTuples = {}
+RetTuples.__index=RetTuples
+RetTuples.__tostring=function(self)
+	return self:detailString({})
+end
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function RetTuples.new(vManager:class.TypeManager)::NewTable(class.RetTuples)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_signToTuple=({} @ Dict(String, class.TypeTuple)),
+		_tupleCount=(0 @ Number),
+		_tupleSizeMin=(0x7FFFFFFF @ Number),
+		_tupleSizeMax=(0 @ Number),
+		_structSign=(false @ Union(False, String))
+	}, RetTuples)
+	return self
+end
+
+function RetTuples:getTupleCount()
+	return self._tupleCount
+end
+
+function RetTuples:getTupleMinMax()
+	return self._tupleSizeMin, self._tupleSizeMax
+end
+
+function RetTuples:Merge(vRetTuples)
+	assert(RetTuples.is(vRetTuples), "ret tuples must merge with ret tuples")
+	local re = self
+	for _, t in pairs(vRetTuples._signToTuple) do
+		re = re:Add(t)
+	end
+	return re
+end
+
+function RetTuples:Add(vTypeTuple)
+	assert(not vTypeTuple:getRepeatType(), "RetTuples can't take TypeTuple with repeatType")
+	if self._signToTuple[vTypeTuple:structSign()] then
+		return self
+	else
+		local nNew = RetTuples.new(self._manager)
+		for nSign, nTuple in pairs(self._signToTuple) do
+			nNew._signToTuple[nSign] = nTuple
+		end
+		local nLength = #vTypeTuple
+		if nLength > self._tupleSizeMax then
+			nNew._tupleSizeMax = nLength
+		else
+			nNew._tupleSizeMax = self._tupleSizeMax
+		end
+		if nLength < nNew._tupleSizeMin then
+			nNew._tupleSizeMin = nLength
+		else
+			nNew._tupleSizeMin = self._tupleSizeMin
+		end
+		nNew._signToTuple[vTypeTuple:structSign()] = vTypeTuple
+		nNew._tupleCount = self._tupleCount + 1
+		return nNew
+	end
+end
+
+function RetTuples:detailString(vCache)
+	local re = {}
+	for _, t in pairs(self._signToTuple) do
+		re[#re+1] = t:detailString(vCache)
+	end
+	return "("..table.concat(re, "|")..")"
+end
+
+function RetTuples:containTuples(vRetTuples:class.RetTuples)::Ret(Boolean)
+	for _, t in pairs(vRetTuples._signToTuple) do
+		if not self:containTuple(t) then
+			return false
+		end
+	end
+	return true
+end
+
+function RetTuples:containTuple(vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
+	for _, t in pairs(self._signToTuple) do
+		if t:contain(vRightTypeTuple) then
+			return true
+		end
+	end
+	return false
+end
+
+function RetTuples:structSign()::Ret(String)
+	local nSign = self._structSign
+	if not nSign then
+		local l = ({} @ List(String))
+		for nSign, nTuple in pairs(self._signToTuple) do
+			l[#l + 1] = nSign
+		end
+		table.sort(l)
+		nSign = table.concat(l, ",")
+		self._structSign = nSign
+	end
+	return nSign
+end
+
+function RetTuples:foreach(vFunc)
+	for _, t in pairs(self._signToTuple) do
+		vFunc(t)
+	end
+end
+
+function RetTuples:makeFirstType()
+	local nCollection = self._manager:TypeCollection()
+	for _, nTuple in pairs(self._signToTuple) do
+		nCollection:put(nTuple:get(1))
+	end
+	return nCollection:mergeToType()
+end
+
+function RetTuples.is(t)
+	return getmetatable(t) == RetTuples
+end
+
+return RetTuples

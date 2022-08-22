@@ -1,0 +1,62 @@
+
+local StringLiteral = require "thlua.type.StringLiteral"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+
+local String = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function String.new(vManager:class.TypeManager)::NewTable(class.String, class.IAtomType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		id=vManager:genTypeId(),
+		bits=TYPE_BITS.STRING,
+	}, String)
+	return self
+end
+
+function String:detailString(v)
+	return "String"
+end
+
+function String:native_getmetatable()
+end
+
+function String:native_tostring()
+	return self._manager.type.String
+end
+
+function String:native_type()
+	return self._manager:Literal("string")
+end
+
+function String:meta_len(vContext)
+	return self._manager.type.Number
+end
+
+function String:_intersectOneNotRefer(vType)
+    if StringLiteral.is(vType) then
+        return vType
+    elseif (vType.bits & TYPE_BITS.STRING) == TYPE_BITS.STRING then
+        return self
+    else
+        return false
+    end
+end
+
+function String:_containOneNotRefer(vType)
+	if StringLiteral.is(vType) then
+		return self
+	elseif self == vType then
+		return self
+	else
+		return false
+	end
+end
+
+function String:isSingleton()
+	return false
+end
+
+return String

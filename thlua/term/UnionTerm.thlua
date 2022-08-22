@@ -1,0 +1,190 @@
+
+local TermCase = require "thlua.term.TermCase"
+local Nil = require "thlua.type.Nil"
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+local UnionTerm = {}
+UnionTerm.__index=UnionTerm
+UnionTerm.__bor=function(vLeft, vRight)
+    local nTypeCaseList = {}
+    vLeft:foreach(function(vType, vCase)
+        nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
+    end)
+    vRight:foreach(function(vType, vCase)
+        nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
+    end)
+	return vLeft._manager:mergeToUnionTerm(nTypeCaseList)
+end
+UnionTerm.__tostring=function(self)
+	local l = {}
+	for nType, nTermCase in pairs(self._typeToCase) do
+		l[#l + 1] = tostring(nType) .."=>"..tostring(nTermCase)
+	end
+	return "UnionTerm("..table.concat(l, ",")..")"
+end
+
+function UnionTerm.new(
+	vManager:class.TypeManager,
+	vType:class.IKeyType,
+	vTypeToCase:Dict(class.IAtomType, class.TermCase))::NewTable(class.UnionTerm)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_typeToCase=vTypeToCase or {},
+		_type=vType,
+		_unionSymbol=(false @ Union(False, class.Symbol)),
+		const=false,
+	}, UnionTerm)
+	vType:foreach(function(vType)
+		if not self._typeToCase[vType] then
+			self._typeToCase[vType] = TermCase.new()
+		end
+	end)
+	return self
+end
+
+function UnionTerm:foreach(func)
+	for nType, nTermCase in pairs(self._typeToCase) do
+		func(nType, nTermCase)
+	end
+end
+
+function UnionTerm.is(v)
+	return getmetatable(v) == UnionTerm
+end
+
+function UnionTerm:caseTrue()
+	local reCase = nil
+	self._type:trueType():foreach(function(vType)
+        local nCase = self._typeToCase[vType]
+		if not reCase then
+			reCase = nCase
+		else
+			reCase = reCase | nCase
+		end
+	end)
+	return reCase
+end
+
+function UnionTerm:notnilTerm()
+    local nNotnilType = self._type:notnilType()
+	local nTypeCaseList = {}
+    nNotnilType:foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
+    end)
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function UnionTerm:caseNotnil()
+	local reCase = nil
+	self._type:foreach(function(vType)
+		if not Nil.is(vType) then
+			local nCase = self._typeToCase[vType]
+			if not reCase then
+				reCase = nCase
+			else
+				reCase = reCase | nCase
+			end
+		end
+	end)
+	return reCase
+end
+
+-- return TermCase | nil
+function UnionTerm:caseFalse()
+	local reCase = nil
+	self._type:falseType():foreach(function(vType)
+        local nCase = self._typeToCase[vType]
+		if not reCase then
+			reCase = nCase
+		else
+			reCase = reCase | nCase
+		end
+	end)
+	return reCase
+end
+
+function UnionTerm:falseTerm()
+    local nFalseType = self._type:falseType()
+	local nTypeCaseList = {}
+    nFalseType:foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
+    end)
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function UnionTerm:trueTerm()
+    local nTrueType = self._type:trueType()
+	local nTypeCaseList:List(Truth) = {}
+    nTrueType:foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
+    end)
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function UnionTerm:notTerm()
+	local nTypeCaseList = {}
+    self._type:falseType():foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			self._manager.type.True,
+			self._typeToCase[vType]
+		}
+    end)
+    self._type:trueType():foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			self._manager.type.False,
+			self._typeToCase[vType]
+		}
+    end)
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function UnionTerm:getType()
+	return self._type
+end
+
+function UnionTerm:and_case(vCase1)
+	for nType, nCase2 in pairs(self._typeToCase) do
+		self._typeToCase[nType] = vCase1 & nCase2
+	end
+end
+
+function UnionTerm:add_self(vUnionSymbol)
+	self._unionSymbol = vUnionSymbol
+	for nType, nTermCase in pairs(self._typeToCase) do
+		local nNewTermCase = TermCase.new() & nTermCase
+		nNewTermCase:put_and(self, nType)
+		self._typeToCase[nType] = nNewTermCase
+	end
+end
+
+function UnionTerm:each_type(func)
+	-- TODO push maybe
+	for nType, nTermCase in pairs(self._typeToCase) do
+		local nReturnType = func(nType)
+		if nReturnType then
+			re:put(nReturnType, nTermCase)
+		end
+	end
+	return re
+end
+
+function UnionTerm:filter(vType)
+    local nTypeCaseList = {}
+	vType:foreach(function(vSubType)
+		local nContainType = self._type:contain(vSubType)
+		if nContainType then
+			local nCase = self._typeToCase[nContainType]
+			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, nCase}
+		else
+			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, TermCase.new()}
+		end
+	end)
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function UnionTerm:getUnionSymbol()
+	return self._unionSymbol
+end
+
+return UnionTerm

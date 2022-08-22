@@ -1,0 +1,129 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local Exception = require "thlua.Exception"
+local LuaFunction = require "thlua.func.LuaFunction"
+
+local TypeFunction = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function TypeFunction.new(vManager:class.TypeManager,
+	vArgTuple:Union(class.TypeTuple, class.TypeTupleDots),
+	vRetTuples:class.RetTuples,
+	vMember:Boolean)::NewTable(class.TypeFunction, class.IAtomType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_argTuple=vArgTuple,
+		_retTuples=vRetTuples,
+		_member=vMember,
+		_structSign=false,
+		pos="??",
+		id=0,
+		bits=TYPE_BITS.FUNCTION,
+	}, TypeFunction)
+	return self
+end
+
+function TypeFunction:Dots(vType)
+	if self._member then
+		return self._manager:MemberFunction(self._argTuple:Dots(vType), self._retTuples)
+	else
+		return self._manager:Function(self._argTuple:Dots(vType), self._retTuples)
+	end
+end
+
+function TypeFunction:isMember()
+	return self._member
+end
+
+function TypeFunction:isNative()
+	return false
+end
+
+function TypeFunction:Ret(...:Truth)
+	local nTypeTuple = self._manager:Tuple(...)
+	local nRetTuples = self._retTuples:Add(nTypeTuple)
+	if self._member then
+		return self._manager:MemberFunction(self._argTuple, nRetTuples)
+	else
+		return self._manager:Function(self._argTuple, nRetTuples)
+	end
+end
+
+function TypeFunction:detailString(v)
+	return (self._member and "mfn-" or "fn-") ..
+		self._argTuple:detailString(v).."->"..self._retTuples:detailString(v)
+end
+
+function TypeFunction:meta_call(vContext, vTypeTuple)
+	if not self._argTuple:cast(vContext, vTypeTuple) then
+		vContext:error("args error when call", self._argTuple, vTypeTuple)
+	end
+	return self._retTuples
+end
+
+function TypeFunction:_intersectOneNotRefer(vType)
+	if vType == self then
+		return self
+	elseif vType:_containOneNotRefer(self) then
+		return self
+	elseif self:_containOneNotRefer(vType) then
+		return vType
+	else
+		return false
+	end
+end
+
+function TypeFunction:_containOneNotRefer(vRight)
+	if not (TypeFunction.is(vRight) or LuaFunction.is(vRight)) then
+		return false
+	end
+	if TypeFunction.is(vRight) then
+		if not vRight._argTuple:contain(self._argTuple) then
+			return false
+		end
+		if not self._retTuples:containTuples(vRight._retTuples) then
+			return false
+		end
+		return self
+	elseif LuaFunction.is(vRight) then
+		local nImplType = vRight.implType
+		if nImplType and self:contain(nImplType) then
+			return self
+		else
+			return false
+		end
+	else
+		return false
+	end
+end
+
+function TypeFunction:getArgTuple()
+	return self._argTuple
+end
+
+function TypeFunction:getReturnTuples()
+	return self._retTuples
+end
+
+function TypeFunction:structSign()
+	local nSign = self._structSign
+	if not nSign then
+		local l = {
+			self._member and "mfn" or "fn",
+			self._argTuple:structSign(),
+			"->",
+			self._retTuples:structSign(),
+		}
+		nSign = table.concat(l)
+		self._structSign = nSign
+	end
+	return nSign
+end
+
+function TypeFunction:isSingleton()
+	return false
+end
+
+return TypeFunction

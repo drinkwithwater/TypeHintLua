@@ -1,0 +1,36 @@
+
+local UnionTerm = require "thlua.term.UnionTerm"
+(@var.class = import("thlua.type.TypeClass").class)
+
+local Symbol = {}
+Symbol.__index=Symbol
+Symbol.__tostring=function(self)
+	return "Symbol-"..self._name.."-"..tostring(self._type)
+end
+
+function Symbol.new(vRuntime:Truth, vRegion, vName:String, vType:class.IKeyType)::NewTable(class.Symbol)
+	return setmetatable({::New()
+		_region=vRegion,
+		_runtime=vRuntime,
+		_name=vName,
+		_type=vType,
+	}, Symbol)
+end
+
+function Symbol:getType()
+	return self._type
+end
+
+function Symbol:getName()
+	return self._name
+end
+
+function Symbol:GET()
+	return self._region:top_branch():symbol_get(self)
+end
+
+function Symbol:SET(vTerm)
+	return self._region:top_branch():symbol_set(self, vTerm)
+end
+
+return Symbol

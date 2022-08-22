@@ -1,0 +1,530 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local TypeCollection = require "thlua.manager.TypeCollection"
+local Namespace = require "thlua.manager.Namespace"
+local Exception = require "thlua.Exception"
+
+local Never = require "thlua.union.Never"
+local StringLiteral = require "thlua.type.StringLiteral"
+local String = require "thlua.type.String"
+local NumberLiteral = require "thlua.type.NumberLiteral"
+local Number = require "thlua.type.Number"
+local BooleanLiteral= require "thlua.type.BooleanLiteral"
+local Nil = require "thlua.type.Nil"
+local Truth = require "thlua.type.Truth"
+local Struct = require "thlua.object.Struct"
+local LuaTable = require "thlua.object.LuaTable"
+local LuaFunction = require "thlua.func.LuaFunction"
+local NativeFunction = require "thlua.func.NativeFunction"
+local TypeFunction = require "thlua.func.TypeFunction"
+local Reference = require "thlua.type.Reference"
+local Variable = require "thlua.func.Variable"
+
+local StringLiteralUnion = require "thlua.union.StringLiteralUnion"
+local NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
+local ObjectUnion = require "thlua.union.ObjectUnion"
+local FuncUnion = require "thlua.union.FuncUnion"
+local FalsableUnion = require "thlua.union.FalsableUnion"
+local ComplexUnion = require "thlua.union.ComplexUnion"
+
+local RetTuples = require "thlua.tuple.RetTuples"
+local TypeTuple = require "thlua.tuple.TypeTuple"
+local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
+local TermTuple = require "thlua.tuple.TermTuple"
+local UnionTerm = require "thlua.term.UnionTerm"
+
+local native = require "thlua.native"
+
+local TypeManager = {}
+TypeManager.__index=TypeManager
+
+function TypeManager.new(vRuntime)
+	--<< Pure():Argument(class.Runtime):Return(class.TypeManager)
+	local self = setmetatable({
+		_runtime=vRuntime,
+		type={},
+		builtin={},
+		coToRefer={},
+		_literalDict={}, -- {[string|number]=StringLiteral|NumberLiteral}
+		_unionSignToType={},
+		_structSignToType={},
+		_typeIdCounter=0,
+	}, TypeManager) -->> thlua.class.TypeManager
+	self.type.Never = Never.new(self)
+	self.type.Nil = Nil.new(self)
+	self.type.False = BooleanLiteral.new(self, false)
+	self.type.True = BooleanLiteral.new(self, true)
+	self.type.Number = Number.new(self)
+	self.type.String = String.new(self)
+	self.type.Truth = Truth.new(self)
+	for k, nType in pairs(self.type) do
+		self:_recordTypeUnionSign(nType)
+	end
+	self.type.Boolean = self:Union(self.type.False, self.type.True)
+	self.type.Any = self:Union(self.type.False, self.type.Nil, self.type.Truth)
+	self.builtin.next=native.make_next(self)
+	self.builtin.inext=native.make_inext(self)
+	self.builtin.bop={
+		mathematic=native.make_mathematic(self),
+		comparison=native.make_comparison(self),
+		bitwise=native.make_bitwise(self),
+		concat=native.make_concat(self),
+	}
+	self.global = self:_buildSimpleGlobal()
+	return self
+end
+
+function TypeManager:_buildSimpleGlobal()
+	local nGlobal = {}
+	for k,v in pairs(self.type) do
+		nGlobal[k] = v
+	end
+	local l = {
+		Literal=1,
+		Union=1,
+		Struct=1,
+		Dict=1,
+		List=1,
+		Fn=1,
+		Mfn=1,
+	}
+	for k,v in pairs(l) do
+		nGlobal[k]=function(...)
+			return self[k](self, ...)
+		end
+	end
+	nGlobal.namespace=function()
+		return self:EmptyNamespace().localExport
+	end
+	nGlobal.import=function(vPath)
+		return self._runtime:import(vPath)
+	end
+	for k,v in pairs(_G) do
+		nGlobal[k]=v
+	end
+	return nGlobal
+end
+
+local tableToTypeFuncDict = {
+	[Nil]=true,
+	[Never]=true,
+	[String]=true,
+	[StringLiteral]=true,
+	[Number]=true,
+	[NumberLiteral]=true,
+	[BooleanLiteral]=true,
+	[Struct]=true,
+	[Truth]=true,
+	[LuaTable]=true,
+	[NumberLiteralUnion]=true,
+	[StringLiteralUnion]=true,
+	[FalsableUnion]=true,
+	[ObjectUnion]=true,
+	[FuncUnion]=true,
+	[ComplexUnion]=true,
+	[LuaFunction]=true,
+	[TypeFunction]=true,
+	[NativeFunction]=true,
+}
+
+function TypeManager:assertValueType(vData)
+    local meta = getmetatable(vData)
+    if meta and (tableToTypeFuncDict[meta] or meta == Reference) then
+        return vData
+    else
+        error("assertValueType failed, type="..type(vData))
+    end
+end
+
+function TypeManager:_toType(vData)
+	local t = type(vData)
+	if t == "table" then
+		local meta = getmetatable(vData)
+		if tableToTypeFuncDict[meta] then
+			return vData
+		else
+			error("to type failed")
+		end
+	elseif t == "number" or t == "string" or t == "boolean" then
+		return self:Literal(vData)
+	elseif t == "nil" then
+		return self.type.Nil
+	elseif t == "userdata" then
+		error("userdata todo")
+	elseif t == "thread" then
+		error("thread todo")
+	else
+		error("_toType("..t..") todo")
+	end
+end
+
+function TypeManager:TypeCollection()
+	return TypeCollection.new(self)
+end
+
+function TypeManager:Union(...)
+	local n = select("#", ...)
+	local l = {...}
+	local nNewRefer = self:Reference(false)
+	nNewRefer:setTypeAsync(function()
+		local nCollection = self:TypeCollection()
+		for i=1, n do
+			local nItem = l[i]
+			if Reference.is(nItem) then
+				local nReferType = nItem:getTypeAwait()
+				nCollection:put(nReferType)
+			else
+				nCollection:put(self:_toType(nItem))
+			end
+		end
+		return nCollection:mergeToType()
+	end)
+	return nNewRefer:getType() or nNewRefer
+end
+
+function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
+	::Ret(class.IKeyType, Dict(class.IAtomType, class.IValueType))
+	local nCount = 0
+	local nCollection = self:TypeCollection()
+	local nTypeDict = {}
+	local function putToDict(vKeyType, vValue)::Ret(class.IValueType)
+		if vKeyType:isSingleton() then
+			if Reference.is(vValue) then
+				nTypeDict[vKeyType] = vValue
+			else
+				nTypeDict[vKeyType] = self:_toType(vValue)
+			end
+		else
+			nTypeDict[vKeyType] = self:Union(vValue, self.type.Nil)
+		end
+	end
+	for nKeyType, nValue in pairs(vBothTable) do
+		putToDict(nKeyType, nValue)
+		nCount = nCount + 1
+		nCollection:put(nKeyType)
+	end
+	for nKey, nValue in pairs(vOneTable) do
+		local nKeyType
+		if Reference.is(nKey) then
+			nKeyType = nKey:getTypeAwait()
+			if nKeyType:isUnion() then
+				error("key can't be union")
+			end
+		else
+			nKeyType = self:_toType(nKey)
+		end
+		putToDict(nKeyType, nValue)
+		nCount = nCount + 1
+		nCollection:put(nKeyType)
+	end
+	if #nCollection ~= nCount then
+		error("struct must take isolate type")
+	end
+	return nCollection:mergeToType(), nTypeDict
+end
+
+(@
+
+class.StructMetaTable = Struct {
+	get=Union(Dict(Truth, Truth), Nil),
+	set=Union(Dict(Truth, Truth), Nil),
+	next=Struct {Truth, Truth},
+	len=Union(Truth, Nil),
+}
+
+)
+
+
+
+
+function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(class.StructMetaTable, Nil))
+	vMetaTable = vMetaTable or {}@class.StructMetaTable
+	local nNewRefer = self:Reference(false)
+	-- TODO error when type intersect
+	nNewRefer:setTypeAsync(function()
+		local nBothTable:Dict(class.IAtomType, Truth) = {}
+		for nKey, nValue in pairs(vTable) do
+			local nKeyType
+			if Reference.is(nKey) then
+				nKeyType = nKey:getTypeAwait()
+				if nKeyType:isUnion() then
+					error("key can't be union")
+				end
+			else
+				nKeyType = self:_toType(nKey)
+			end
+			if nBothTable[nKeyType] then
+				error("key conflict when build struct:"..tostring(nKeyType))
+			else
+				nBothTable[nKeyType] = nValue
+			end
+		end
+		local nEmptyTable = {}@Dict(Truth, Truth)
+		local nGetKey, nGetDict = self:_strictMergeWait(nBothTable, vMetaTable.get or nEmptyTable)
+		local nSetKey, nSetDict = self:_strictMergeWait(nBothTable, vMetaTable.set or nEmptyTable)
+		local nNextKey, nNextDict
+		local nMetaNext = vMetaTable.next
+		if nMetaNext == true then
+			nNextKey, nNextDict = self:_strictMergeWait(nBothTable, nEmptyTable)
+		elseif type(nMetaNext) == "table" then
+			nNextKey, nNextDict = self:_strictMergeWait(nEmptyTable, nMetaNext)
+		else
+			nNextKey, nNextDict = false, false
+		end
+		local nNewStruct = Struct.new(self, self:Union(nGetKey, nSetKey),
+							nGetKey, nGetDict, nSetKey, nSetDict, nNextDict)
+		return self:_recordTypeUnionSign(self:_unifyStruct(nNewStruct))
+	end)
+	return nNewRefer:getType() or nNewRefer
+end
+
+function TypeManager:Dict(vKey, vValue)
+	-- TODO struct use meta
+	return self:Struct({[vKey]=vValue}, {next=true})
+end
+
+function TypeManager:List(vValue)
+	-- TODO struct use meta
+	return self:Struct({[self.type.Number]=vValue}, {next=true})
+end
+
+function TypeManager:_unifyStruct(vNewType)
+	local nSign = vNewType:structSign()
+	local nSignToType = self._structSignToType
+	local nOldType = nSignToType[nSign]
+	if not nOldType then
+		assert(vNewType.id == 0, "newunion's id must be 0")
+		vNewType.id = self:genTypeId()
+		nSignToType[nSign] = vNewType
+		return vNewType
+	else
+		return nOldType
+	end
+end
+
+function TypeManager:_unifyUnion(vNewType)
+	local nSign = vNewType:unionSign()
+	local nSignToType = self._unionSignToType
+	local nOldType = nSignToType[nSign]
+	if not nOldType then
+		assert(vNewType.id == 0, "newunion's id must be 0")
+		vNewType.id = self:genTypeId()
+		nSignToType[nSign] = vNewType
+		return vNewType
+	else
+		return nOldType
+	end
+end
+
+function TypeManager:mergePairList(vTypeBorablePairList)
+    local nTypeToBorable = {}
+	local nCollection = self:TypeCollection()
+    for _, nPair in ipairs(vTypeBorablePairList) do
+		local nFieldType = nPair[1]
+		if nFieldType:isReference() then
+			nFieldType = nFieldType:checkType()
+			nPair[1] = nFieldType
+		end
+		nCollection:put(nFieldType)
+    end
+	local nKeyUnion = nCollection:mergeToType()
+	local nTypeDict = {}
+    for _, nPair in ipairs(vTypeBorablePairList) do
+		local nKey = nPair[1]
+		local nBorableValue = nPair[2]
+		nKey:foreach(function(vSubType)
+			local nContainType = assert(nKeyUnion:contain(vSubType), "merge error")
+			local nOld = nTypeDict[nContainType]
+			if nOld then
+				nTypeDict[nContainType] = nOld | nBorableValue
+			else
+				nTypeDict[nContainType] = nBorableValue
+			end
+		end)
+    end
+    return nKeyUnion, nTypeDict
+end
+
+function TypeManager:_recordTypeUnionSign(vType)
+	self._unionSignToType[vType:unionSign()] = vType
+	return vType
+end
+
+function TypeManager:NativeFunction(vFunc)
+	return self:_recordTypeUnionSign(NativeFunction.new(self, vFunc))
+end
+
+function TypeManager:LuaFunction()
+	return self:_recordTypeUnionSign(LuaFunction.new(self))
+end
+
+function TypeManager:LuaTable()
+	return self:_recordTypeUnionSign(LuaTable.new(self))
+end
+
+function TypeManager:Literal(vValue)
+	local t = type(vValue)
+	if t == "boolean" then
+		if vValue then
+			return self.type.True
+		else
+			return self.type.False
+		end
+	else
+		local nLiteralDict = self._literalDict
+		local nLiteralType = nLiteralDict[vValue]
+		if not nLiteralType then
+			if t == "number" then
+				nLiteralType = NumberLiteral.new(self, vValue)
+			elseif t == "string" then
+				nLiteralType = StringLiteral.new(self, vValue)
+			else
+				error("literal must take number or boolean or string value")
+			end
+			self:_recordTypeUnionSign(nLiteralType)
+			nLiteralDict[vValue] = nLiteralType
+		end
+		return nLiteralType
+	end
+end
+
+function TypeManager:Tuple(...)
+	local nTypeList = {...}
+	for i=1, select("#", ...) do
+		local nType = nTypeList[i]
+		if Reference.is(nType) then
+			nTypeList[i] = nType
+		else
+			nTypeList[i] = self:assertValueType(nType)
+		end
+	end
+	return TypeTuple.new(self, nTypeList)
+end
+
+function TypeManager:Variable(vIsGeneric)
+	return Variable.new(self, vIsGeneric)
+end
+
+function TypeManager:EmptyRetTuples()
+	return RetTuples.new(self)
+end
+
+function TypeManager:Mfn(...)
+	local nArgTuple = self:Tuple(self.type.Truth, ...)
+	return self:MemberFunction(nArgTuple, self:EmptyRetTuples())
+end
+
+function TypeManager:Fn(...)
+	local nArgTuple = self:Tuple(...)
+	return self:Function(nArgTuple, self:EmptyRetTuples())
+end
+
+function TypeManager:Function(vArgTuple, vRetTuples)
+	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
+	assert(RetTuples.is(vRetTuples))
+	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
+	return self:_unifyStruct(nFunc)
+end
+
+function TypeManager:MemberFunction(vArgTuple, vRetTuples)
+	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
+	assert(RetTuples.is(vRetTuples))
+	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
+	return self:_unifyStruct(nFunc)
+end
+
+function TypeManager:error(...)
+	self._runtime:error(...)
+end
+
+function TypeManager:UnionTerm(vType)
+    return UnionTerm.new(self, vType:checkType())
+end
+
+function TypeManager:TermTuple(vTermList, vTermTupleOrNil)
+	local nTermList = {}
+	local nTypeList = {}
+	for _, nTerm in ipairs(vTermList) do
+		local i = #nTermList + 1
+		nTermList[i] = nTerm
+		nTypeList[i] = nTerm:getType()
+	end
+	local nRepeatType = false
+	if vTermTupleOrNil then
+		for i1=1, #vTermTupleOrNil do
+            local nTerm = vTermTupleOrNil:get(i1)
+			local i2 = #nTermList + 1
+			nTermList[i2] = nTerm
+			nTypeList[i2] = nTerm:getType()
+		end
+		nRepeatType = vTermTupleOrNil:getRepeatType()
+	end
+    local nTypeTuple = self:Tuple(table.unpack(nTypeList))
+	if nRepeatType then
+        nTypeTuple = nTypeTuple:Dots(nRepeatType)
+    end
+    return TermTuple.new(self, nTermList, nTypeTuple)
+end
+
+function TypeManager:Reference(vName)
+	return Reference.new(self, vName)
+end
+
+function TypeManager:RootNamespace()
+	return Namespace.new(self, self.global)
+end
+
+function TypeManager:EmptyNamespace()
+	return Namespace.new(self)
+end
+
+function TypeManager:mergeToUnionTerm(vTypeCasePairList)
+    local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
+    return UnionTerm.new(self, nType, nTypeToCase)
+end
+
+function TypeManager:cast(vContext, vLuaType, vType)
+	if LuaFunction.is(vLuaType) and TypeFunction.is(vType) then
+		local nImplType = vLuaType.implType
+		if not nImplType then
+			vLuaType:implement(vContext, vType)
+		else
+			if not nImplType:contain(vType) then
+				vContext:error("lua type cast failed:", nImplType, vType)
+			end
+		end
+	else
+	--[[if LuaTable.is(vLuaType) and Struct.is(vType) then
+		vLuaType:implement(vContext, vType)
+		local nImplType = vLuaType.implType
+		if not nImplType then
+			vLuaType:implement(vContext, vType)
+		else
+			if not nImplType:contain(vType) then
+				vContext:error("lua type cast failed:", nImplType, vType)
+			end
+		end]]
+	end
+end
+
+function TypeManager:genTypeId()
+	local nNewId = self._typeIdCounter + 1
+	self._typeIdCounter = nNewId
+	return nNewId
+end
+
+function TypeManager:dump()
+	for k,v in pairs(self._unionSignToType) do
+		print(k, tostring(v))
+	end
+end
+
+function TypeManager:isLuaTable(v)
+	return getmetatable(v) == LuaTable
+end
+
+function TypeManager:isLuaFunction(v)
+	return getmetatable(v) == isLuaFunction
+end
+
+return TypeManager

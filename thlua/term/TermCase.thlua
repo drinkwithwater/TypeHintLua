@@ -1,0 +1,78 @@
+
+
+local TermCase = {}
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+TermCase.__index = TermCase
+TermCase.__bor=function(vLeftTermCase, vRightTermCase)
+	local nNewTermCase = TermCase.new()
+	for nUnionTerm, nLeftType in pairs(vLeftTermCase) do
+		local nRightType = vRightTermCase[nUnionTerm]
+		if nRightType then
+			nNewTermCase[nUnionTerm] = nLeftType | nRightType
+		end
+	end
+	return nNewTermCase
+end
+TermCase.__band=function(vLeftTermCase, vRightTermCase)
+	local nNewTermCase = TermCase.new()
+	for nUnionTerm, nLeftType in pairs(vLeftTermCase) do
+		local nRightType = vRightTermCase[nUnionTerm]
+		if nRightType then
+			nNewTermCase[nUnionTerm] = nLeftType & nRightType
+		else
+			nNewTermCase[nUnionTerm] = nLeftType
+		end
+	end
+	for nUnionTerm, nRightType in pairs(vRightTermCase) do
+		if not vLeftTermCase[nUnionTerm] then
+			nNewTermCase[nUnionTerm] = nRightType
+		end
+	end
+	return nNewTermCase
+end
+TermCase.__tostring=function(self)
+	local l={"TermCase("}
+	for nUnionTerm, vType in pairs(self) do
+		local nUnionSymbol = nUnionTerm:getUnionSymbol()
+		l[#l + 1] = (nUnionSymbol and nUnionSymbol:getName() or "?").."->"..tostring(vType)
+	end
+	l[#l + 1] = ")"
+	return table.concat(l)
+end
+
+function TermCase.new()::NewTable(class.TermCase, Dict(class.UnionTerm, class.IKeyType))
+	return setmetatable({::New()
+	}, TermCase)
+end
+
+function TermCase:put_and(vUnionTerm, vType)
+	local nCurType = self[vUnionTerm]
+	if not nCurType then
+		self[vUnionTerm] = vType
+	else
+		self[vUnionTerm] = nCurType & vType
+	end
+end
+
+function TermCase:put_or(vUnionTerm, vType)
+	local nCurType = self[vUnionTerm]
+	if nCurType then
+		self[vUnionTerm] = nCurType | vType
+	end
+end
+
+function TermCase:empty()
+	if next(self) then
+		return true
+	else
+		return false
+	end
+end
+
+function TermCase.is(t)
+	return getmetatable(t) == TermCase
+end
+
+return TermCase

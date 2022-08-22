@@ -1,0 +1,352 @@
+
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local StringLiteral = require "thlua.type.StringLiteral"
+local Exception = require "thlua.Exception"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+
+local Struct = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function Struct.new(
+		vManager:class.TypeManager,
+		vKeyType:class.IKeyType,
+		vGetKey:class.IKeyType,
+		vGetDict:Dict(class.IAtomType, class.IValueType),
+		vSetKey:class.IKeyType,
+		vSetDict:Dict(class.IAtomType, class.IValueType),
+		vNextDict:Dict(class.IAtomType, class.IValueType)
+	)::NewTable(class.Struct, class.IAtomType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_keyType=vKeyType,
+		_getKey=vGetKey,
+		_getDict=vGetDict,
+		_setKey=vSetKey,
+		_setDict=vSetDict,
+		_nextValue=false,
+		_nextDict=vNextDict,
+		bits=TYPE_BITS.OBJECT,
+		id=0,
+		_unionSign=false,
+		_structSign=false,
+		_containCache={} @Dict(Truth, Boolean),
+	}, Struct)
+	return self
+end
+
+function Struct:_intersectOneNotRefer(vRightType)
+	if self == vRightType then
+		return self
+	elseif self:_containOneNotRefer(vRightType) then
+		return vRightType
+	else
+		return false
+	end
+end
+
+function Struct:_containOneNotRefer(vRightType)
+	if not (Struct.is(vRightType) or self._manager:isLuaTable(vRightType)) then
+		return false
+	end
+	local nContainCache = self._containCache
+	local nCacheResult = nContainCache[vRightType]
+	if nCacheResult == true then
+		return self
+	elseif nCacheResult == false then
+		return false
+	end
+	nContainCache[vRightType] = true
+	if Struct.is(vRightType) then
+		-- struct contain TODO
+		--[[
+		-- 1. check all left strict keys contain by right keys
+		if not self:checkMustKeyType():every(function(vLeftKey)
+			local nLeftValue = self._valueDict[vLeftKey]
+			local nRightKey = vRightType:checkMustKeyType():contain(vLeftKey)
+			if not nRightKey then
+				return false
+			end
+			local nRightValue = vRightType._valueDict[nRightKey]
+			if not nLeftValue:contain(nRightValue) then
+				return false
+			end
+			return true
+		end) then
+			nContainCache[vRightType] = false
+			return false
+		end
+		-- 2. check all right key-value contain by right key-value
+		if not vRightType._keyType:every(function(vRightKey)
+			local nLeftKey = self._keyType:contain(vRightKey)
+			if not nLeftKey then
+				return false
+			end
+			local nLeftValue = self._valueDict[nLeftKey]
+			local nRightValue = vRightType._valueDict[vRightKey]
+			if not nLeftValue:contain(nRightValue) then
+				return false
+			end
+			return true
+		end) then
+			nContainCache[vRightType] = false
+			return false
+		end
+		]]
+		--[[
+		-- check as interface
+		local nResult = self._keyType:every(function(vLeftKey)
+			local nLeftValue = self._valueDict[vLeftKey]
+			local nRightValue = vRightType._valueDict[vLeftKey]
+			if not nRightValue then
+				return false
+			end
+			if not nLeftValue:contain(nRightValue) then
+				return false
+			end
+			return true
+		end)
+		if nResult then
+			nContainCache[vRightType] = true
+			return self
+		else
+			nContainCache[vRightType] = false
+			return false
+		end]]
+		if self == vRightType then
+			nContainCache[vRightType] = true
+			return self
+		else
+			nContainCache[vRightType] = true
+			if self._getKey ~= vRightType._getKey then
+				nContainCache[vRightType] = false
+				return false
+			end
+			if self._setKey ~= vRightType._setKey then
+				nContainCache[vRightType] = false
+				return false
+			end
+			-- check for not late type
+			local nLatePairList:List(Struct {class.IValueType, class.IValueType}) = {}
+			for nKey, nValue in pairs(self._getDict) do
+				local nValueType = nValue:getType()
+				local nRightValue = vRightType._getDict[nKey]!
+				local nRightValueType = nRightValue:getType()
+				if nValueType and nRightValueType then
+					if not nValueType:contain(nRightValueType) then
+						nContainCache[vRightType] = false
+						return false
+					end
+				else
+					nLatePairList[#nLatePairList + 1] = {
+						nValue, nRightValue
+					}
+				end
+			end
+			for nKey, nValue in pairs(self._setDict) do
+				local nValueType = nValue:getType()
+				local nRightValue = vRightType._setDict[nKey]!
+				local nRightValueType = nRightValue:getType()
+				if nValueType and nRightValueType then
+					if not nRightValueType:contain(nValueType) then
+						nContainCache[vRightType] = false
+						return false
+					end
+				else
+					nLatePairList[#nLatePairList + 1] = {
+						nRightValue, nValue
+					}
+				end
+			end
+			for _, nPair in pairs(nLatePairList) do
+				local nBig, nSmall = nPair[1], nPair[2]
+				-- TODO raise error if checkType failed
+				if not nBig:contain(nSmall) then
+					nContainCache[vRightType] = false
+					return false
+				end
+			end
+			nContainCache[vRightType] = true
+			return self
+		end
+	elseif self._manager:isLuaTable(vRightType) then
+		local nImplType = vRightType.implType
+		if nImplType and self:contain(nImplType) then
+			nContainCache[vRightType] = true
+			return self
+		else
+			-- TODO
+			nContainCache[vRightType] = false
+			return false
+		end
+	else
+		nContainCache[vRightType] = false
+		return false
+	end
+end
+
+function Struct:meta_len(vContext)
+	return self._manager.type.Number
+end
+
+function Struct:meta_uop_some(vContext, vOper)
+	vContext:error("other oper invalid:"..tostring(vOper))
+	return self._manager.type.Never
+end
+
+function Struct:meta_pairs(vContext)
+	local nManager = self._manager
+	return nManager.builtin.next, self, nManager.type.Nil
+end
+
+function Struct:meta_ipairs(vContext)
+	local nManager = self._manager
+	return nManager.builtin.inext, self, nManager:Literal(0)
+end
+
+function Struct:native_next(vContext, vInitType)
+	local nValueDict = self._nextDict
+	if not nValueDict then
+		vContext:error("struct can't put by next")
+		return self._manager.type.Never, {}
+	end
+	local nValueType = self._nextValue
+	local nNil = self._manager.type.Nil
+	if not nValueType then
+		local nCollection = self._manager:TypeCollection()
+		for nOneKey, nOneValue in pairs(nValueDict) do
+			nOneValue = nOneValue:checkType():notnilType()
+			nValueDict[nOneKey] = nOneValue
+			nCollection:put(nOneValue)
+		end
+		nCollection:put(nNil)
+		nValueType = nCollection:mergeToType()
+		self._nextValue = nValueType
+		self._nextDict[nNil] = nNil
+	end
+	return nValueType, nValueDict
+end
+
+function Struct:isSingleton(v)
+	return false
+end
+
+function Struct:structSign()
+	local nSign = self._structSign
+	if not nSign then
+		local nKeyList = {}
+		self._keyType:foreach(function(vType)
+			nKeyList[#nKeyList + 1] = vType
+		end)
+		table.sort(nKeyList, function(vLeft, vRight)
+			return vLeft.id < vRight.id
+		end)
+		local nBuildList = {"S"}
+		for i=1, #nKeyList do
+			local nKeyType = nKeyList[i]
+			nBuildList[#nBuildList + 1] = tostring(nKeyType.id)
+			nBuildList[#nBuildList + 1] = ":"
+			local nGetValue = self._getDict[nKeyType]
+			if nGetValue then
+				nBuildList[#nBuildList + 1] = tostring(nGetValue.id)
+			end
+			nBuildList[#nBuildList + 1] = ","
+			local nSetValue = self._setDict[nKeyType]
+			if nSetValue then
+				nBuildList[#nBuildList + 1] = tostring(nSetValue.id)
+			end
+		end
+		nSign = table.concat(nBuildList, "|")
+		self._structSign = nSign
+	end
+	return nSign
+end
+
+function Struct:meta_get(vContext, vType)
+	local nKey = self._getKey:_containOneNotRefer(vType)
+	if nKey then
+		return self._getDict[nKey]!:checkType()
+	else
+		vContext:error("error get("..tostring(vType)..") in struct")
+		return self._manager.type.Nil
+	end
+end
+
+function Struct:meta_set(vContext, vKeyType, vValueType)
+	local nKey = self._setKey:_containOneNotRefer(vKeyType)
+	if nKey then
+		local nValue = self._getDict[nKey]!:checkType()
+		if nValue:contain(vValueType) then
+			return
+		end
+	end
+	vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct")
+end
+
+function Struct:foreachPair(vFunc)
+	self._getKey:foreach(function(vKeyType)
+		vFunc(vKeyType, self._getDict[vKeyType])
+	end)
+end
+
+--[[function Struct:checkMustKeyType()
+	local nMustKeyType = self._mustKeyType
+	if not nMustKeyType then
+		local nMustCollection = self._manager:TypeCollection()
+		local nTypeDict = self._valueDict
+		self._keyType:foreach(function(vSubType)
+			if not nTypeDict[vSubType]:isNilable() then
+				nMustCollection:put(vSubType)
+			end
+		end)
+		nMustKeyType = nMustCollection:mergeToType()
+		self._mustKeyType = nMustKeyType
+	end
+	return nMustKeyType
+end]]
+
+function Struct:detailString(vToStringCache, vVerbose)
+	if self._referName then
+		return self._referName
+	end
+	local nCache = vToStringCache[self]
+	if nCache == true then
+		return "Struct {~}"
+	elseif nCache then
+		return nCache
+	end
+	vToStringCache[self] = true
+	local lsetter = {}
+	for k,v in pairs(self._getDict) do
+		local nKeyString
+		if StringLiteral.is(k) and not vVerbose then
+			nKeyString = k:getLiteral()
+		else
+			nKeyString = "["..k:detailString(vToStringCache, vVerbose).."]"
+		end
+		lsetter[#lsetter+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
+	end
+	local lgetter = {}
+	for k,v in pairs(self._setDict) do
+		local nKeyString
+		if StringLiteral.is(k) and not vVerbose then
+			nKeyString = k:getLiteral()
+		else
+			nKeyString = "["..k:detailString(vToStringCache, vVerbose).."]"
+		end
+		lgetter[#lgetter+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
+	end
+	local nResult = "Struct({},{get={"..table.concat(lsetter, ",").."},{set={"..table.concat(lgetter,",").."}}"
+	vToStringCache[self] = nResult
+	return nResult
+end
+
+function Struct:getKeyType()
+	return self._keyType
+end
+
+function Struct.is(v)::isguard(class.Struct)
+	return getmetatable(v) == Struct
+end
+
+return Struct

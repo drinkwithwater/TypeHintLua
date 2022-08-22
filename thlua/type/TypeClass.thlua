@@ -1,0 +1,264 @@
+
+(@do
+
+var.class = namespace()
+
+class.TypeCollection = Struct {
+	put=Mfn(class.IKeyType):Ret(),
+	mergeToType=Mfn():Ret(class.IKeyType)
+}
+
+class.Context = Struct {
+	_manager=class.TypeManager,
+	error=Mfn(Truth):Ret(),
+	info=Mfn(Truth):Ret(),
+	warn=Mfn(Truth):Ret(),
+}
+
+class.TypeManager = Struct {
+	type=Struct {
+		Nil=class.IAtomType,
+		False=class.IAtomType,
+		True=class.IAtomType,
+		Number=class.IAtomType,
+		String=class.IAtomType,
+		Truth=class.IAtomType,
+		Boolean=class.IUnionType,
+		Never=class.IUnionType,
+	},
+	builtin=Struct {
+		next=class.IAtomType,
+		inext=class.IAtomType,
+		bop=Struct {
+			mathematic=class.IAtomType,
+			comparison=class.IAtomType,
+			bitwise=class.IAtomType,
+			concat=class.IAtomType,
+		}
+	},
+	_toType=Fn(class.TypeManager, Truth):Ret(class.IKeyType),
+	genTypeId=Fn(class.TypeManager):Ret(Number),
+	Literal=Fn(class.TypeManager, Union(String, Number, Boolean)):Ret(class.IAtomType),
+	Union=Fn(class.TypeManager):Dots(Truth):Ret(class.IValueType),
+	Tuple=Fn(class.TypeManager):Dots(Truth):Ret(class.TypeTuple),
+	_unifyUnion=Fn(class.TypeManager):Ret(class.IKeyType),
+	TypeCollection=Mfn():Ret(class.TypeCollection),
+	mergeToUnionTerm=Mfn(Truth):Ret(class.UnionTerm),
+	EmptyRetTuples=Mfn():Ret(class.RetTuples),
+	UnionTerm=Mfn(class.IValueType):Ret(class.UnionTerm),
+}
+
+class.IKeyType = Union(class.IAtomType, class.IUnionType)
+class.IValueType = Union(class.IAtomType, class.IUnionType, class.Reference)
+
+class.IAtomType = Struct ({
+	id=Number,
+	_manager=class.TypeManager,
+	bits=Number,
+}, {get={
+	isReference=Mfn():Ret(False),
+	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
+	every=Mfn(Fn(class.IAtomType):Ret(Boolean)):Ret(Boolean),
+	checkType=Mfn():Ret(class.IAtomType),
+	getType=Mfn():Ret(class.IAtomType),
+
+	isUnion=Mfn():Ret(False),
+	isSingleton=Mfn():Ret(Boolean),
+	isNilable=Mfn():Ret(Boolean),
+
+
+	contain=Mfn(class.IValueType):Ret(Union(class.IKeyType, False)),
+
+	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IKeyType, False)),
+	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
+
+	native_rawget=Mfn(class.Context, class.IAtomType, Union(Nil, True)):Ret(class.IKeyType),
+	native_rawset=Mfn(class.Context, class.IAtomType, class.IKeyType, Union(Nil, Boolean)):Ret(),
+
+	meta_get=Mfn(class.Context, class.IAtomType):Ret(class.IKeyType),
+	meta_set=Mfn(class.Context, class.IAtomType, class.IKeyType):Ret(),
+	meta_set_override=Mfn(class.Context, class.IAtomType, class.IKeyType):Ret(),
+
+	meta_len=Mfn(class.Context):Ret(class.IAtomType),
+	meta_uop_some=Mfn(class.Context, String):Ret(class.IKeyType),
+	meta_bop_func=Mfn(class.Context, String):Ret(Boolean, Union(class.IAtomType, Nil)),
+
+	meta_call=Mfn(class.Context, class.TypeTuple):Ret(class.RetTuples),
+
+	notnilType=Mfn():Ret(class.IKeyType),
+	trueType=Mfn():Ret(class.IKeyType),
+	falseType=Mfn():Ret(class.IKeyType),
+
+	same=Mfn(class.IValueType):Ret(Boolean),
+}})
+
+class.IUnionType = Struct ({
+	id=Number,
+	_manager=class.TypeManager,
+	bits=Number,
+}, {get={
+	isReference=Mfn():Ret(False),
+	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
+	every=Mfn(Fn(class.IAtomType):Ret(Boolean)):Ret(Boolean),
+	checkType=Mfn():Ret(class.IUnionType),
+	getType=Mfn():Ret(class.IUnionType),
+
+	isUnion=Mfn():Ret(True),
+	isNilable=Mfn():Ret(Boolean),
+	contain=Mfn(class.IValueType):Ret(Union(class.IKeyType, False)),
+
+	notnilType=Mfn():Ret(class.IKeyType),
+	trueType=Mfn():Ret(class.IKeyType),
+	falseType=Mfn():Ret(class.IKeyType),
+
+	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IKeyType, False)),
+	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
+
+	same=Mfn(class.IValueType):Ret(Boolean),
+	_put=Mfn(class.IAtomType):Ret()
+}})
+
+
+end)
+
+local OPER_ENUM = require "thlua.type.OPER_ENUM"
+local function TypeClass()::open()
+	local t = {}
+	t.__index=t
+	function t.__tostring(self)
+		local cache = {}
+		return self:detailString(cache, false)
+	end
+	function t.is?(v)::Ret(Boolean):nocheck()
+		return getmetatable(v) == t
+	end
+	function t:isReference?()
+		return false
+	end
+	function t:checkType?()
+		return self
+	end
+	function t:getType?()
+		return self
+	end
+	function t:isSingleton?(v)
+		error(tostring(self).."is singleton TODO")
+	end
+	function t:isNilable?()
+		return false
+	end
+    function t:_intersectOneNotRefer?(vRight)
+		error(tostring(self).."_intersectOneNotRefer TODO")
+    end
+	function t:_containOneNotRefer?(vRight)
+		error(tostring(self).."_containOneNotRefer TODO")
+	end
+	function t:contain(vRight)
+		local nLeft:class.IKeyType = self
+		if nLeft:isReference() then
+			nLeft = nLeft:checkType()
+		end
+		if vRight:isReference() then
+			vRight = vRight:checkType()
+		end
+		if not vRight:isUnion() then
+			return nLeft:_containOneNotRefer(vRight)
+		else
+			local nCollection = nLeft._manager:TypeCollection()
+			local nContain = vRight:every(function(vSubType)
+				local nContainType = nLeft:_containOneNotRefer(vSubType)
+				if not nContainType then
+					return false
+				else
+					nCollection:put(nContainType)
+					return true
+				end
+			end)
+			if nContain then
+				return nCollection:mergeToType()
+			else
+				return false
+			end
+		end
+	end
+	function t:intersect(vRight)
+		local vLeft = self
+		if vLeft:isReference() then
+			vLeft = vLeft:checkType()
+		end
+		if vRight:isReference() then
+			vRight = vRight:checkType()
+		end
+        if not vRight:isUnion() then
+            local sth = vLeft:_intersectOneNotRefer(vRight)
+			return sth or vLeft._manager.type.Never
+        else
+            local nTypeDict = {}
+			local nCollection = vLeft._manager:TypeCollection()
+            vRight:foreach(function(vSubType)
+                local nIntersect = vLeft:_intersectOneNotRefer(vSubType)
+                if nIntersect then
+					nCollection:put(nIntersect)
+                end
+            end)
+            return nCollection:mergeToType()
+        end
+	end
+	function t.__band(vLeft, vRight)
+		return vLeft:intersect(vRight)
+	end
+	function t:isUnion?()
+		return false
+	end
+	function t:_mapContinue?(vContinue, vFunc)::Ret(Boolean):nocheck()
+		return vFunc(self) or vContinue
+	end
+	function t:foreach(vFunc)
+		self:_mapContinue(true, vFunc)
+	end
+	function t:every(vFunc)
+		return self:_mapContinue(false, vFunc)
+	end
+	function t:unionSign?()
+		local nUnionSign = self._unionSign
+		if not nUnionSign then
+			nUnionSign = tostring(self.id)
+			self._unionSign = nUnionSign
+		end
+		return nUnionSign
+	end
+	function t.__bor(vLeft, vRight)
+		return vLeft._manager:Union(vLeft, vRight)
+	end
+    function t:isNever?()
+        return false
+    end
+	function t:notnilType?()
+		return self:checkType()
+	end
+    function t:trueType?()
+        return self:checkType()
+    end
+    function t:falseType?()
+        return self._manager.type.Never
+    end
+	function t:same(vType)
+		if vType:isReference() then
+			vType = vType:checkType()
+		end
+		if self:isReference() then
+			return self:checkType() == vType
+		else
+			return self == vType
+		end
+	end
+	function t:setReferName(vReferName)
+		self._referName = vReferName
+	end
+	function t:isNative?()
+		return false
+	end
+	return t
+end
+
+return TypeClass

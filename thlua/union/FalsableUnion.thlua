@@ -1,0 +1,120 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local UnionClass = require "thlua.union.UnionClass"
+local Truth = require "thlua.type.Truth"
+
+local FalsableUnion = UnionClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.IKeyType, vFalsableBits:Number)::NewTable(class.FalsableUnion, class.IUnionType)
+	local nNil = vTypeManager.type.Nil
+	local nFalse = vTypeManager.type.False
+	local self = setmetatable({::New()
+		_manager=vTypeManager,
+		_trueType=vTruableType,
+		_notnilType=nil @class.IKeyType,
+		_nil=vFalsableBits & TYPE_BITS.NIL > 0 and nNil or false,
+		_false=vFalsableBits & TYPE_BITS.FALSE > 0 and nFalse or false,
+		_falseType=false @Union(False, class.IKeyType),
+		bits=vTruableType.bits | vFalsableBits,
+		id=0,
+	}, FalsableUnion)
+    if self._trueType == vTypeManager.type.Never then
+        self._falseType = self
+    elseif self._nil and self._false then
+        self._falseType = vTypeManager:Union(nNil, nFalse):checkType()
+    else
+        self._falseType = self._nil or self._false
+    end
+	if self._false then
+		if not self._nil then
+			self._notnilType = self
+		else
+			local nFalse = self._false
+			if nFalse then
+				self._notnilType = vTypeManager:Union(self._trueType, nFalse):checkType()
+			else
+				self._notnilType = self._trueType
+			end
+		end
+	else
+		self._notnilType = self._trueType
+	end
+	return self
+end
+
+function FalsableUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+	if not self._trueType:_mapContinue(vContinue, vFunc) then
+		return false
+	end
+	local nNilType = self._nil
+	if nNilType then
+		if not (vFunc(nNilType) or vContinue) then
+			return false
+		end
+	end
+	local nFalseType = self._false
+	if nFalseType then
+		if not (vFunc(nFalseType) or vContinue) then
+			return false
+		end
+	end
+	return true
+end
+
+function FalsableUnion:_intersectOneNotRefer(vType)
+    if Truth.is(vType) then
+        return self:trueType()
+    else
+        local nTrueIntersect = self._trueType:_intersectOneNotRefer(vType)
+        if nTrueIntersect then
+            return nTrueIntersect
+        else
+            if self._nil and vType == self._manager.type.Nil then
+                return self._nil
+            elseif self._false and vType == self._manager.type.False then
+                return self._false
+            else
+                return false
+            end
+        end
+    end
+end
+
+function FalsableUnion:_containOneNotRefer(vType)
+	local nTrueContain = self._trueType:_containOneNotRefer(vType)
+	if nTrueContain then
+		return nTrueContain
+	else
+		if self._nil and vType == self._manager.type.Nil then
+			return self._nil
+		elseif self._false and vType == self._manager.type.False then
+			return self._false
+		else
+			return false
+		end
+	end
+end
+
+function FalsableUnion:isNilable()
+	return self._nil and true
+end
+
+function FalsableUnion:trueType()
+    return self._trueType
+end
+
+function FalsableUnion:notnilType()
+    return self._notnilType
+end
+
+function FalsableUnion:falseType()
+    return self._falseType or self._manager.type.Never
+end
+
+function FalsableUnion:_put(vType)
+	error("can't put")
+end
+
+return FalsableUnion

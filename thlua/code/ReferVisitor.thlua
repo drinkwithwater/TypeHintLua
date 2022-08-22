@@ -1,0 +1,216 @@
+
+local VisitorExtend = require "thlua.code.VisitorExtend"
+
+local CodeEnv = require "thlua.code.CodeEnv"
+
+local TagToVisiting = {
+	Do=function(self, stm)
+		self:scopeBegin(stm)
+		self:rawVisit(stm)
+		self:scopeEnd()
+	end,
+	While=function(self, stm)
+		self:scopeBegin(stm)
+		self:rawVisit(stm)
+		self:scopeEnd()
+	end,
+	Repeat=function(self, stm)
+		self:scopeBegin(stm)
+		self:rawVisit(stm)
+		self:scopeEnd()
+	end,
+	-- some complicate node
+	Fornum=function(self, stm)
+		local block_node = nil
+		self:realVisit(stm[2])
+		self:realVisit(stm[3])
+		if stm[5] then
+			self:realVisit(stm[4])
+			block_node = stm[5]
+		else
+			block_node = stm[4]
+		end
+		self:scopeBegin(stm)
+		self.define_pos = true
+		self:realVisit(stm[1])
+		self.define_pos = false
+		self:realVisit(block_node)
+		self:scopeEnd()
+	end,
+	Forin=function(self, stm)
+		self:realVisit(stm[2])
+		self:scopeBegin(stm)
+		self.define_pos = true
+		self:realVisit(stm[1])
+		self.define_pos = false
+		self:realVisit(stm[3])
+		self:scopeEnd()
+	end,
+	Function=function(self, func)
+		self:scopeBegin(func)
+		self.define_pos = true
+		self:realVisit(func[1])
+		self.define_pos = false
+		self:realVisit(func[2])
+		self:scopeEnd()
+	end,
+	Block=function(self, stm)
+		local if_stm = stm.parent
+		if if_stm and if_stm.tag == "If" then
+			self:scopeBegin(stm)
+			local nCurScope = self.scope_stack[#self.scope_stack]
+			stm.self_scope_refer = nCurScope.scope_refer
+			self:rawVisit(stm)
+			self:scopeEnd()
+		else
+			local nCurScope = self.scope_stack[#self.scope_stack]
+			stm.self_scope_refer = nCurScope.scope_refer
+			self:rawVisit(stm)
+		end
+	end,
+	Local=function(self, stm)
+		self:realVisit(stm[2])
+		self.define_pos = true
+		self:realVisit(stm[1])
+		self.define_pos = false
+	end,
+	Localrec=function(self, stm)
+		self.define_pos = true
+		self:realVisit(stm[1])
+		self.define_pos = false
+		self:realVisit(stm[2])
+	end,
+	Dots=function(self, node)
+		if self.define_pos then
+			self:identDefine(node)
+		else
+			self:identUse(node)
+		end
+	end,
+	Id=function(self, node)
+		if self.define_pos then
+			self:identDefine(node)
+		else
+			self:identUse(node)
+		end
+	end,
+	Chunk=function(self, chunk)
+		self:scopeBegin(chunk)
+		self:rawVisit(chunk)
+		self:scopeEnd()
+	end
+}
+
+local ReferVisitor = VisitorExtend({}, setmetatable({}, {
+	__index=function(t, tag)
+		local nTraverse = TagToVisiting[tag]
+		local nFunc
+		if nTraverse then
+			nFunc = function(self, node)
+				self:beforeTraverse(node)
+				nTraverse(self, node)
+			end
+		else
+			nFunc = function(self, node)
+				self:beforeTraverse(node)
+				self:rawVisit(node)
+			end
+		end
+		t[tag] = nFunc
+		return nFunc
+	end
+}))
+
+ReferVisitor.__index=ReferVisitor
+
+function ReferVisitor:scopeBegin(vNode)
+	local nCurScope = self.scope_stack[#self.scope_stack]
+	local nCurRegion = self.region_stack[#self.region_stack]
+	local nNextScope = nil
+	-- if function or chunk then create region
+	if vNode.tag == "Function" or vNode.tag == "Chunk" then
+		nNextScope = self._env:create_region(nCurRegion, nCurScope, vNode)
+		table.insert(self.region_stack, nNextScope)
+	-- else create scope
+	else
+		nNextScope = self._env:create_scope(nCurScope, vNode)
+	end
+	vNode.self_scope_refer = nNextScope.scope_refer
+	table.insert(self.scope_stack, nNextScope)
+	return nNextScope
+end
+
+function ReferVisitor:scopeEnd()
+	local nScope = table.remove(self.scope_stack)
+	if nScope.sub_tag == "Region" then
+		table.remove(self.region_stack)
+	end
+end
+
+function ReferVisitor:identDefine(vIdentNode)
+	-- create and set ident_refer
+	local nCurScope = self.scope_stack[#self.scope_stack]
+	local nNewIdent = self._env:create_ident(nCurScope, vIdentNode)
+	vIdentNode.ident_refer = nNewIdent.ident_refer
+	vIdentNode.is_define = true
+end
+
+function ReferVisitor:beforeTraverse(vNode)
+	local nCurScope = self.scope_stack[#self.scope_stack]
+	local nCurRegion = self.region_stack[#self.region_stack]
+	vNode.parent_region_refer = assert(nCurRegion.region_refer)
+	vNode.parent_scope_refer = assert(nCurScope.scope_refer)
+end
+
+
+function ReferVisitor:identUse(vIdentNode)
+	local nCurScope = self.scope_stack[#self.scope_stack]
+	if vIdentNode.tag == "Id" then
+		local nName = vIdentNode[1]
+		local nIdentRefer = nCurScope.record_dict[nName]
+		if nIdentRefer then
+			vIdentNode.ident_refer = nIdentRefer
+			vIdentNode.is_define = false
+		else
+			vIdentNode.ident_refer = CodeEnv.G_IDENT_REFER
+			vIdentNode.is_define = false
+			-- unrefered ident converse to global
+			--vIdentNode.tag = "Index"
+
+			-- ident
+			--local e1 = tlast.ident(vIdentNode.pos, "_ENV")
+			--e1.l, e1.c = vIdentNode.l, vIdentNode.c
+			--e1.ident_refer = CodeEnv.G_IDENT_REFER
+			--e1.self_scope_refer = CodeEnv.G_SCOPE_REFER
+
+			-- key
+			--local e2 = tlast.exprString(vIdentNode.pos, vIdentNode[1])
+			--e2.l, e2.c = vIdentNode.l, vIdentNode.c
+
+			--vIdentNode[1] = e1
+			--vIdentNode[2] = e2
+		end
+	elseif vIdentNode.tag == "Dots" then
+		local nName = "..."
+		vIdentNode.ident_refer = assert(nCurScope.record_dict[nName], "dot no refer")
+	else
+		error("ident refer error tag"..tostring(vIdentNode.tag))
+	end
+end
+
+function ReferVisitor.new(vFileEnv)
+	local self = setmetatable({
+		_env = vFileEnv,
+		scope_stack = {
+			vFileEnv.root_scope
+		},
+		region_stack = {
+			vFileEnv.root_scope
+		},
+		stack = {},
+		define_pos=false,
+	}, ReferVisitor)
+	return self
+end
+
+return ReferVisitor

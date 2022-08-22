@@ -1,0 +1,51 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local UnionClass = require "thlua.union.UnionClass"
+local Truth = require "thlua.type.Truth"
+
+local FuncUnion = UnionClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function FuncUnion.new(vManager:class.TypeManager)::NewTable(class.FuncUnion, class.IUnionType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_funcTypeDict={} @Dict(Truth, True),
+		bits=TYPE_BITS.FUNCTION,
+		id=0,
+	}, FuncUnion)
+	return self
+end
+
+function FuncUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+	for nType, _ in pairs(self._funcTypeDict) do
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
+	end
+	return true
+end
+
+function FuncUnion:_put(vType)
+	assert(vType.bits == TYPE_BITS.FUNCTION, "FuncUnion must _put function")
+	assert(not FuncUnion.is(vType), "FuncUnion can't _put FuncUnion")
+	self._funcTypeDict[vType] = true
+end
+
+function FuncUnion:_intersectOneNotRefer(vType)
+    if Truth.is(vType) then
+        return self
+    else
+        return self:_containOneNotRefer(vType)
+    end
+end
+
+function FuncUnion:_containOneNotRefer(vType)
+	if self._funcTypeDict[vType] then
+		return vType
+	else
+		return vType
+	end
+end
+
+return FuncUnion

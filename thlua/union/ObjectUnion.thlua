@@ -1,0 +1,97 @@
+
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local UnionClass = require "thlua.union.UnionClass"
+local LuaTable = require "thlua.object.LuaTable"
+local Struct = require "thlua.object.Struct"
+local Truth = require "thlua.type.Truth"
+
+local ObjectUnion = UnionClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function ObjectUnion.new(vManager:class.TypeManager)::NewTable(class.ObjectUnion, class.IUnionType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_structDict={} @Dict(class.Struct, True),
+		_luaTableDict={} @Dict(class.LuaTable, True),
+		bits=TYPE_BITS.OBJECT,
+		id=0,
+	}, ObjectUnion)
+	return self
+end
+
+function ObjectUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+	for nType, _ in pairs(self._structDict) do
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
+	end
+	for nType, _ in pairs(self._luaTableDict) do
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
+	end
+	return true
+end
+
+function ObjectUnion:_put(vType)
+	if self:_containOneNotRefer(vType) then
+		return
+	end
+	if Struct.is(vType) then
+		-- delete small lua table
+		local nDeleteList1:List(class.LuaTable) = {}
+		for nLuaTable, _ in pairs(self._luaTableDict) do
+			if vType:contain(nLuaTable) then
+				nDeleteList1[#nDeleteList1 + 1] = nLuaTable
+			end
+		end
+		for _, nLuaTable in pairs(nDeleteList1) do
+			self._luaTableDict[nLuaTable] = nil
+		end
+		-- delete small struct
+		local nDeleteList2:List(class.Struct) = {}
+		for nStruct, _ in pairs(self._structDict) do
+			if vType:contain(nStruct) then
+				nDeleteList2[#nDeleteList2 + 1] = nStruct
+			end
+		end
+		for _, nStruct in pairs(nDeleteList2) do
+			self._structDict[nStruct] = nil
+		end
+		self._structDict[vType] = true
+	elseif LuaTable.is(vType) then
+		for nStructType, _ in pairs(self._structDict) do
+			if nStructType:contain(vType) then
+				return
+			end
+		end
+		self._luaTableDict[vType] = true
+	else
+		error("type unexpected")
+	end
+end
+
+function ObjectUnion:_intersectOneNotRefer(vType)
+    if Truth.is(vType) then
+        return self
+    else
+        return self:_containOneNotRefer(vType)
+    end
+end
+
+function ObjectUnion:_containOneNotRefer(vType)
+	if LuaTable.is(vType) then
+		if self._luaTableDict[vType] then
+			return vType
+		end
+	end
+	for nStructType, _ in pairs(self._structDict) do
+		if nStructType:contain(vType) then
+			return nStructType
+		end
+	end
+	return false
+end
+
+return ObjectUnion

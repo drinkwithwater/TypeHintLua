@@ -1,0 +1,86 @@
+
+
+local function TupleClass()::open()
+	local t = {}
+	t.__index=t
+	t.__tostring=function(self)
+		return self:detailString({})
+	end
+	function t.__len(self)
+		return #self._list
+	end
+	function t:detailString(vCache)
+		local re = {}
+		for i=1, #self do
+			re[i] = self._list[i]:detailString(vCache)
+		end
+		local nRepeatType = self:getRepeatType()
+		if nRepeatType then
+			re[#re + 1] = nRepeatType:detailString(vCache) .."*"
+		end
+		return "Tuple("..table.concat(re, ",")..")"
+	end
+	function t:structSign()::Ret(String)
+		local nSign = self._structSign
+		if not nSign then
+			local l = ({"t1"} @ List(Union(String, Number)))
+			for k, v in ipairs(self._list) do
+				l[#l + 1] = v.id
+			end
+			local nRepType = self._repeatType
+			if nRepType then
+				l[1] = "t2"
+				l[#l + 1] = nRepType.id
+			end
+			nSign = table.concat(l, ",")
+			self._structSign = nSign
+		end
+		return nSign
+	end
+	function t:makeTermTuple()
+		local nTermList = {}
+		for i=1, #self do
+			nTermList[i] = self._manager:UnionTerm(self._list[i])
+		end
+		local nTermTuple = self._manager:TermTuple(nTermList)
+		nTermTuple._typeTuple = self
+		return nTermTuple
+	end
+	function t:contain(vRightTypeTuple)
+		local nLeftRepeatType = self:getRepeatType()
+		local nRightRepeatType = vRightTypeTuple:getRepeatType()
+		if (not nLeftRepeatType) and nRightRepeatType then
+			return false
+		end
+		if nLeftRepeatType and nRightRepeatType then
+			if not nLeftRepeatType:contain(nRightRepeatType) then
+				return false
+			end
+		end
+		-- TODO thinking more for nilable
+		for i=1, #vRightTypeTuple do
+			local nLeftType = self._list[i] or nLeftRepeatType
+			if not nLeftType then
+				return false
+			end
+			if not nLeftType:contain(vRightTypeTuple:get(i)) then
+				return false
+			end
+		end
+		for i=#vRightTypeTuple + 1, #self do
+			local nLeftType = self._list[i]
+			if not nLeftType:isNilable() then
+				return false
+			end
+			if nRightRepeatType then
+				if not nLeftType:contain(nRightRepeatType) then
+					return false
+				end
+			end
+		end
+		return true
+	end
+	return t
+end
+
+return TupleClass

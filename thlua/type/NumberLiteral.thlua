@@ -1,0 +1,52 @@
+
+local OPER_ENUM = require "thlua.type.OPER_ENUM"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local AtomTypeClass = require "thlua.type.AtomTypeClass"
+
+local NumberLiteral = AtomTypeClass()
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function NumberLiteral.new(vManager:class.TypeManager, vLiteral:Number)::NewTable(class.NumberLiteral, class.IAtomType)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		literal=vLiteral,
+		id=vManager:genTypeId(),
+		bits=TYPE_BITS.NUMBER,
+	}, NumberLiteral)
+	return self
+end
+
+function NumberLiteral:detailString(vCache, vVerbose)
+	if vVerbose then
+		return "Literal("..self.literal..")"
+	else
+		return tostring(self.literal)
+	end
+end
+
+function NumberLiteral:_intersectOneNotRefer(vType)
+	if vType:_containOneNotRefer(self) then
+		return self
+	else
+		return false
+	end
+end
+
+function NumberLiteral:_containOneNotRefer(vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function NumberLiteral:isSingleton()
+	return true
+end
+
+function NumberLiteral.is(v)::isguard(class.NumberLiteral)
+	return getmetatable(v) == NumberLiteral
+end
+
+return NumberLiteral

@@ -1,0 +1,46 @@
+
+local Variable = {}
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+Variable.__index=Variable
+
+function Variable.new(vManager:class.TypeManager, vIsGeneric:Boolean)::NewTable(class.Variable)
+	local self = setmetatable({::New()
+		_manager=vManager,
+		_generic=vIsGeneric,
+		_assignType=false,
+	}, Variable)
+	return self
+end
+
+function Variable:setGeneric()
+	self._generic = true
+end
+
+function Variable:isGeneric()
+	return self._generic
+end
+
+function Variable:checkAssignType(vType)
+	assert(self._generic, "variable assign must be generic")
+	local nAssignType = self._assignType
+	if not nAssignType then
+		self._assignType = vType
+		return vType
+	else
+		local nContainType = nAssignType:contain(vType)
+		if nContainType then
+			return nContainType
+		else
+			self._assignType = self._manager:Union(vType, nAssignType)
+			return vType
+		end
+	end
+end
+
+function Variable.is(t)
+	return getmetatable(t) == Variable
+end
+
+return Variable
