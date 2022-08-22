@@ -6,10 +6,10 @@ local AutoArguments = require "thlua.func.AutoArguments"
 local TermCase = require "thlua.term.TermCase"
 local FunctionBuilder = {}
 
-function FunctionBuilder.Begin(vContext, vRunFunc, vPos)
+function FunctionBuilder.Begin(vContext, vRunFunc, vNode)
 	local nData = {
 		context=vContext,
-		pos=vPos,
+		node=vNode,
 		argList={},
 		argDots=false,
 		retTuples=false,
@@ -96,7 +96,7 @@ function FunctionBuilder.End(vData)
 	local nContext = vData.context
 	local nManager = nContext._manager
 	local nLuaFunc = nManager:LuaFunction()
-	nLuaFunc:setName("("..nContext:getPath()..":"..vData.pos..")")
+	nLuaFunc:setName("("..nContext:getPath().."-"..tostring(vData.node)..")")
 	nLuaFunc:setRuntime(nContext._runtime)
 	local nTag = vData.tag
 	if nTag == LuaFunction.OPEN then

@@ -10,19 +10,19 @@ local function ContextClass()
 		return "context:"..self:getPath()
 	end
 
-	function Context:Hook(vPos)
-		return Hook.new(self._runtime, self._filename, vPos, self, self._region)
+	function Context:Hook(vNode)
+		return Hook.new(self._runtime, self._filename, vNode, self, self._region)
 	end
 
-	function Context:TABLE_NEW(vPos, vTableFunc, vHinterHandler)
-		local nData, nHintMethod = TableBuilder.Begin(self, vTableFunc, vPos)
+	function Context:TABLE_NEW(vNode, vTableFunc, vHinterHandler)
+		local nData, nHintMethod = TableBuilder.Begin(self, vTableFunc, vNode)
 		vHinterHandler(nHintMethod)
 		local nTableType = TableBuilder.End(nData)
 		return self._manager:UnionTerm(nTableType)
 	end
 
-	function Context:FUNC_NEW(vPos, vFunc, vHinterHandler)
-		local nData, nHintMethod = FunctionBuilder.Begin(self, vFunc, vPos)
+	function Context:FUNC_NEW(vNode, vFunc, vHinterHandler)
+		local nData, nHintMethod = FunctionBuilder.Begin(self, vFunc, vNode)
 		vHinterHandler(nHintMethod)
 		local nLuaFunc = FunctionBuilder.End(nData)
 		local nTerm = self._manager:UnionTerm(nLuaFunc)

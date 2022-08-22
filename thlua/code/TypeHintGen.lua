@@ -31,14 +31,15 @@ function TypeHintGen:print(...)
 	end
 end
 
-function TypeHintGen:pos()
+function TypeHintGen:codeTopNode()
 	local nTopNode = self.stack[#self.stack]
-	return "\'"..nTopNode.l..","..nTopNode.c.."\'"
+	-- return "\'"..nTopNode.l..","..nTopNode.c.."\'"
+	return "____nodes["..nTopNode.index.."]"
 end
 
 function TypeHintGen:rgn(vName)
 	local nTopNode = self.stack[#self.stack]
-	return "rgn:"..vName.."(\'"..nTopNode.l..","..nTopNode.c.."\'"
+	return "rgn:"..vName.."("..self:codeTopNode()
 end
 
 function TypeHintGen:hook(vName)
@@ -62,7 +63,7 @@ end
 local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
-			visitor:print("local rgn,var,_ENV=self:REGION(", visitor:pos(), ")\n")
+			visitor:print("local rgn,var,_ENV=self:REGION(", visitor:codeTopNode(), ")\n")
 		end
 	},
 	Block={
@@ -417,7 +418,7 @@ local visitor_exp = {
 	},
 	Function={
 		override=function(visitor, node)
-			visitor:print("self:FUNC_NEW(", visitor:pos(), ", function(self, vArgTuple) \n")
+			visitor:print("self:FUNC_NEW(", visitor:codeTopNode(), ", function(self, vArgTuple) \n")
 			visitor:indent()
 			visitor:indent()
 			local nParList = node[1]
@@ -430,7 +431,7 @@ local visitor_exp = {
 				end
 			end
 			visitor:indent()
-			visitor:print("\tlocal rgn,var,_ENV=self:REGION(", visitor:pos(), ")\n")
+			visitor:print("\tlocal rgn,var,_ENV=self:REGION(", visitor:codeTopNode(), ")\n")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()
@@ -464,7 +465,7 @@ local visitor_exp = {
 	},
 	Table={
 		override=function(visitor, node)
-			visitor:print("self:TABLE_NEW(", visitor:pos(), ", function() return {")
+			visitor:print("self:TABLE_NEW(", visitor:codeTopNode(), ", function() return {")
 			local count = 0
 			local tailDots = nil
 			for i=1, #node do
@@ -617,6 +618,7 @@ local visitor_object_dict = oldvisitor.concat(visitor_block, visitor_stm, visito
 
 function TypeHintGen.visit(vFileEnv, vPath)
 	local pre_codes = {
+		'local ____nodes=...',
 		'return function(self, vArgTuple)\n',
 		"\n----------------------------\n",
 		"local s"..CodeEnv.G_SCOPE_REFER.."=".."self:getGlobalTerm()\n",

@@ -258,6 +258,10 @@ function CodeEnv:create_region(vParentRegion, vCurScope, vNode)
 	return nRegion
 end
 
+function CodeEnv:getNodeList()
+	return self.nodeList
+end
+
 function CodeEnv:create_ident(vCurScope, vIdentNode)
 	local nNewIndex = #self.ident_list + 1
 	local nName

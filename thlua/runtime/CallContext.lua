@@ -28,7 +28,7 @@ function CallContext:getLuaFunction()
 	return self._fn
 end
 
-function CallContext:REGION(vPos)
+function CallContext:REGION(vNode)
 	return self:getRegion(), self._namespace.localExport, self._namespace.globalExport
 end
 

@@ -62,21 +62,21 @@ function Region:get_path()
 	return self.path
 end
 
-function Region:SYMBOL(vPos, vTerm, vHintType)
+function Region:SYMBOL(vNode, vTerm, vHintType)
 	if not vHintType then
 		local nType = vTerm:getType()
-		local nSymbol = Symbol.new(self._runtime, self, vPos, nType)
+		local nSymbol = Symbol.new(self._runtime, self, vNode, nType)
 		self:top_branch():symbol_init(nSymbol, vTerm)
 		return nSymbol
 	else
 		local nTerm = self._manager:UnionTerm(vHintType)
-		local nSymbol = Symbol.new(self._runtime, self, vPos, vHintType)
+		local nSymbol = Symbol.new(self._runtime, self, vNode, vHintType)
 		self:top_branch():symbol_init(nSymbol, nTerm)
 		return nSymbol
 	end
 end
 
-function Region:IF(vPos, vTerm, vTrueFunction, vFalseFunction)
+function Region:IF(vNode, vTerm, vTrueFunction, vFalseFunction)
 	local nTrueCase = vTerm:caseTrue()
 	self:push_branch(nTrueCase)
 	if nTrueCase then
@@ -92,7 +92,7 @@ function Region:IF(vPos, vTerm, vTrueFunction, vFalseFunction)
 	self:top_branch():merge_from(self, nTrueBranch, nFalseBranch)
 end
 
-function Region:WHILE(vPos, vTerm, vTrueFunction)
+function Region:WHILE(vNode, vTerm, vTrueFunction)
 	local nTrueCase = vTerm:caseTrue()
 	self:push_branch(nTrueCase)
 	if nTrueCase then
@@ -103,8 +103,8 @@ function Region:WHILE(vPos, vTerm, vTrueFunction)
 	local nTrueBranch = self.region:pop_branch()
 end
 
-function Region:FOR_IN(vPos, vFunc, vNext, vSelf, vInit)
-	local nTuple = self._context:Hook(vPos):META_CALL(vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
+function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
+	local nTuple = self._context:Hook(vNode):META_CALL(vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:error("FOR_IN must receive at least 1 value")
 		return
@@ -125,11 +125,11 @@ function Region:FOR_IN(vPos, vFunc, vNext, vSelf, vInit)
 	self:pop_branch()
 end
 
-function Region:FOR_NUM(vPos, vFunc, vStart, vStop, vStepOrNil)
+function Region:FOR_NUM(vNode, vFunc, vStart, vStop, vStepOrNil)
 	vFunc(self._manager:UnionTerm(self._runtime.type.Number))
 end
 
-function Region:LOGIC_OR(vPos, vLeftTerm, vRightFunction)
+function Region:LOGIC_OR(vNode, vLeftTerm, vRightFunction)
 	local nLeftTrueTerm = vLeftTerm:trueTerm()
 	local nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
@@ -143,7 +143,7 @@ function Region:LOGIC_OR(vPos, vLeftTerm, vRightFunction)
 	end
 end
 
-function Region:LOGIC_AND(vPos, vLeftTerm, vRightFunction)
+function Region:LOGIC_AND(vNode, vLeftTerm, vRightFunction)
 	local nLeftFalseTerm = vLeftTerm:falseTerm()
 	local nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
@@ -157,15 +157,15 @@ function Region:LOGIC_AND(vPos, vLeftTerm, vRightFunction)
 	end
 end
 
-function Region:LOGIC_NOT(vPos, vData)
+function Region:LOGIC_NOT(vNode, vData)
 	return vData:notTerm()
 end
 
-function Region:RETURN(vPos, vTermTuple)
+function Region:RETURN(vNode, vTermTuple)
 	self:or_return(vTermTuple)
 end
 
-function Region:CLOSE(vPos)
+function Region:CLOSE(vNode)
 	self._context._namespace:close()
 	return self:get_return()
 end

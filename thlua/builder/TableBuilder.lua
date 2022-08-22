@@ -2,10 +2,10 @@
 local UnionTerm = require "thlua.term.UnionTerm"
 local TableBuilder = {}
 
-function TableBuilder.Begin(vContext, vPairMaker, vPos)
+function TableBuilder.Begin(vContext, vPairMaker, vNode)
 	local nData = {
 		context=vContext,
-		pos=vPos,
+		node=vNode,
 		pairMaker=vPairMaker,
 		newTypeRefer=false,
 	}
@@ -27,7 +27,7 @@ function TableBuilder.End(vData)
 	-- 2. refer table
 	if not nRefer then
 		nTableType = nManager:LuaTable()
-		nTableType:setName("("..nContext:getPath()..":"..vData.pos..")")
+		nTableType:setName("("..nContext:getPath().."-"..tostring(vData.node)..")")
 	else
 		nTableType = nRefer:checkType()
 	end

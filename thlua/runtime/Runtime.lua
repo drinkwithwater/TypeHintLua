@@ -72,8 +72,8 @@ function Runtime:checkLateLuaFunction()
 	end
 end
 
-function Runtime:Hook(vFileName, vPos, vRegion)
-	local nHook = Hook.new(self, vFileName, vPos, vRegion)
+function Runtime:Hook(vFileName, vNode, vRegion)
+	local nHook = Hook.new(self, vFileName, vNode, vRegion)
 	return nHook
 end
 
@@ -109,7 +109,7 @@ function Runtime:load(vCode, vPath)
 	if not nFunc then
 		error(nInfo)
 	end
-	local nRunFunc = nFunc()
+	local nRunFunc = nFunc(nEnv:getNodeList())
 	local nLuaFunc = self.typeManager:LuaFunction()
 	nLuaFunc:setName(vPath)
 	nLuaFunc:setRuntime(self)
