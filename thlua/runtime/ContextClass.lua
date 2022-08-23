@@ -1,5 +1,5 @@
 
-local Hook = require "thlua.Hook"
+local Meta = require "thlua.runtime.Meta"
 local FunctionBuilder = require "thlua.builder.FunctionBuilder"
 local TableBuilder = require "thlua.builder.TableBuilder"
 local UnionTerm = require "thlua.term.UnionTerm"
@@ -10,8 +10,8 @@ local function ContextClass()
 		return "context:"..self:getPath()
 	end
 
-	function Context:Hook(vNode)
-		return Hook.new(self._runtime, self._filename, vNode, self, self._region)
+	function Context:Meta(vNode)
+		return Meta.new(self._runtime, vNode, self, self._region)
 	end
 
 	function Context:TABLE_NEW(vNode, vTableFunc, vHinterHandler)
@@ -43,10 +43,6 @@ local function ContextClass()
 
 	function Context:Literal(vValue)
 		return self._manager:Literal(vValue)
-	end
-
-	function Context:getRootRegion()
-		return self._runtime.root_region
 	end
 
 	function Context:getGlobalTerm()

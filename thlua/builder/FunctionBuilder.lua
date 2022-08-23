@@ -96,12 +96,11 @@ function FunctionBuilder.End(vData)
 	local nContext = vData.context
 	local nManager = nContext._manager
 	local nLuaFunc = nManager:LuaFunction()
-	nLuaFunc:setName("("..nContext:getPath().."-"..tostring(vData.node)..")")
-	nLuaFunc:setRuntime(nContext._runtime)
+	nLuaFunc:init(nContext._runtime, nContext, vData.node)
 	local nTag = vData.tag
 	if nTag == LuaFunction.OPEN then
 		assert(not vData.retTuples, "native function can't set ret")
-		nLuaFunc:init(nContext, {
+		nLuaFunc:setUnionFn({
 			tag=nTag,
 			fn=nManager:NativeFunction(vData.guardFunc or vData.runFunc),
 			isGuard=vData.guardFunc and true,
@@ -119,12 +118,12 @@ function FunctionBuilder.End(vData)
 			error("nocheck-fn must set ret")
 		end
 		local nTypeTuple = nManager:Tuple(table.unpack(nList))
-		nLuaFunc:init(nContext, {
+		nLuaFunc:setUnionFn({
 			tag=nTag,
 			fn=nManager:Function(nTypeTuple, vData.retTuples)
 		})
 	elseif vData.tag == LuaFunction.DEFINE then
-		nLuaFunc:init(nContext, {
+		nLuaFunc:setUnionFn({
 			tag=nTag,
 			fn=false,
 			argList=vData.argList,
@@ -137,7 +136,7 @@ function FunctionBuilder.End(vData)
 	elseif vData.tag == LuaFunction.DEFAULT then
 		local nAutoArgs = AutoArguments.new(nManager, vData.argList, vData.argDots)
 		local nRetTuples = vData.retTuples
-		nLuaFunc:init(nContext, {
+		nLuaFunc:setUnionFn({
 			tag=nTag,
 			fn=false,
 			autoArgs=nAutoArgs,

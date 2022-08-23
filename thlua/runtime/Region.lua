@@ -104,7 +104,7 @@ function Region:WHILE(vNode, vTerm, vTrueFunction)
 end
 
 function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
-	local nTuple = self._context:Hook(vNode):META_CALL(vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
+	local nTuple = self._context:Meta(vNode):CALL(vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:error("FOR_IN must receive at least 1 value")
 		return

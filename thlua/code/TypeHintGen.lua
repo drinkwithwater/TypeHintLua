@@ -42,9 +42,9 @@ function TypeHintGen:rgn(vName)
 	return "rgn:"..vName.."("..self:codeTopNode()
 end
 
-function TypeHintGen:hook(vName)
+function TypeHintGen:codeMeta(vName)
 	local nTopNode = self.stack[#self.stack]
-	return "self:Hook(\'"..nTopNode.l..","..nTopNode.c.."\'):"..vName
+	return "self:Meta("..self:codeTopNode().."):"..vName
 end
 
 function TypeHintGen:printn(c, n)
@@ -124,7 +124,7 @@ local visitor_stm = {
 		override=function(visitor, node)
 			visitor:print("local ")
 			visitor:printn("set_a", #node[1])
-			visitor:print("=", visitor:hook("EXPLIST_UNPACK"), "("..#node[1]..",")
+			visitor:print("=", visitor:codeMeta("EXPLIST_UNPACK"), "("..#node[1]..",")
 			visitor:print(node[2])
 			visitor:print(")\n")
 			for i=1, #node[1] do
@@ -135,12 +135,12 @@ local visitor_stm = {
 					if var.ident_refer ~= CodeEnv.G_IDENT_REFER then
 						visitor:print(var, ":SET(")
 					else
-						visitor:print(visitor:hook("META_SET"), "(")
+						visitor:print(visitor:codeMeta("SET"), "(")
 						visitor:print(var)
 						visitor:print(",")
 					end
 				elseif var.tag == "Index" then
-					visitor:print(visitor:hook("META_SET"), "(")
+					visitor:print(visitor:codeMeta("SET"), "(")
 					visitor:print(var[1])
 					visitor:print(", ")
 					visitor:print(var[2])
@@ -213,7 +213,7 @@ local visitor_stm = {
 			--[[visitor:print("local if_a=")
 			visitor:print(node[1])
 			visitor:print("\n")
-			visitor:print(visitor:hook("IF"), "(if_a, function()")
+			visitor:print(visitor:codeMeta("IF"), "(if_a, function()")
 			visitor:print(node[2])
 			visitor:indent()
 			visitor:print("end,function()")
@@ -258,12 +258,12 @@ local visitor_stm = {
 			--visitor:print(node[1])
 			--visitor:print(" in ")
 			visitor:indent()
-			visitor:print("local forin_next, forin_self, forin_init = ", visitor:hook("EXPLIST_UNPACK"), "(3,", node[2], ")\n")
+			visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeMeta("EXPLIST_UNPACK"), "(3,", node[2], ")\n")
 			visitor:print(visitor:rgn("FOR_IN"), ",function(vIterTuple)\n")
 			visitor:indent()
 			visitor:print("\tlocal ")
 			visitor:printn("forin_gen", #node[1])
-			visitor:print("=", visitor:hook("TUPLE_UNPACK"), "(vIterTuple,", #node[1], ",false)\n")
+			visitor:print("=", visitor:codeMeta("TUPLE_UNPACK"), "(vIterTuple,", #node[1], ",false)\n")
 			--visitor:print("for ")
 			--visitor:print(" in forin_gen do\n")
 			visitor:indent()
@@ -278,7 +278,7 @@ local visitor_stm = {
 			visitor:print("local ")
 			visitor:printn("local_a", #node[1])
 			if #node[2]>0 then
-				visitor:print("=", visitor:hook("EXPLIST_UNPACK"), "("..#node[1]..",")
+				visitor:print("=", visitor:codeMeta("EXPLIST_UNPACK"), "("..#node[1]..",")
 				visitor:print(node[2])
 				visitor:print(")")
 			end
@@ -312,7 +312,7 @@ local visitor_stm = {
 	},
 	Return={
 		override=function(visitor, node)
-			visitor:print(visitor:rgn("RETURN"), ",", visitor:hook("EXPLIST_PACK"), "(false, {")
+			visitor:print(visitor:rgn("RETURN"), ",", visitor:codeMeta("EXPLIST_PACK"), "(false, {")
 			visitor:print(node[1])
 			visitor:print("}))")
 		end,
@@ -325,11 +325,11 @@ local visitor_stm = {
 	Call={
 		override=function(visitor, node)
 			if visitor:autoUnpack() then
-				visitor:print(visitor:hook("EXPLIST_UNPACK"), "(1,")
+				visitor:print(visitor:codeMeta("EXPLIST_UNPACK"), "(1,")
 			end
-			visitor:print(visitor:hook("META_CALL"), "(")
+			visitor:print(visitor:codeMeta("CALL"), "(")
 			visitor:print(node[1], ",")
-			visitor:print(visitor:hook("EXPLIST_PACK"), "(true, {")
+			visitor:print(visitor:codeMeta("EXPLIST_PACK"), "(true, {")
 			if #node[2] > 0 then
 				node[2].is_args = true
 				visitor:print(node[2])
@@ -343,21 +343,21 @@ local visitor_stm = {
 	Invoke={
 		override=function(visitor, node)
 			if visitor:autoUnpack() then
-				visitor:print(visitor:hook("EXPLIST_UNPACK"), "(1,")
+				visitor:print(visitor:codeMeta("EXPLIST_UNPACK"), "(1,")
 			end
-			visitor:print(visitor:hook("META_INVOKE"), "(")
+			visitor:print(visitor:codeMeta("INVOKE"), "(")
 			visitor:print(node[1])
 			visitor:print(",\"")
 			visitor:print(node[2][1])
 			visitor:print("\"")
 			if #node[3] > 0 then
 				visitor:print(",")
-				visitor:print(visitor:hook("EXPLIST_PACK"), "(false, {")
+				visitor:print(visitor:codeMeta("EXPLIST_PACK"), "(false, {")
 				node[3].is_args = true
 				visitor:print(node[3])
 				visitor:print("})")
 			else
-				visitor:print(",", visitor:hook("EXPLIST_PACK"), "(false, {})")
+				visitor:print(",", visitor:codeMeta("EXPLIST_PACK"), "(false, {})")
 			end
 			visitor:print(")")
 			if visitor:autoUnpack() then
@@ -385,7 +385,7 @@ local visitor_exp = {
 			if not visitor:autoUnpack() then
 				visitor:print("vDOTS")
 			else
-				visitor:print(visitor:hook("EXPLIST_UNPACK"), "(1, vDOTS)")
+				visitor:print(visitor:codeMeta("EXPLIST_UNPACK"), "(1, vDOTS)")
 			end
 		end
 	},
@@ -423,7 +423,7 @@ local visitor_exp = {
 			visitor:indent()
 			local nParList = node[1]
 			if #nParList > 0 then
-				visitor:print("\tlocal ", node[1], "=", visitor:hook("TUPLE_UNPACK"))
+				visitor:print("\tlocal ", node[1], "=", visitor:codeMeta("TUPLE_UNPACK"))
 				if nParList[#nParList].tag == "Dots" then
 					visitor:print("(vArgTuple,",tostring(#nParList-1),",true)\n")
 				else
@@ -506,13 +506,13 @@ local visitor_exp = {
 				end
 			else
 				if #node == 2 then
-					visitor:print(visitor:hook("META_UOP"), "(\"", node[1], "\",", node[2], ")")
+					visitor:print(visitor:codeMeta("UOP"), "(\"", node[1], "\",", node[2], ")")
 				elseif node[1] == "==" then
-					visitor:print(visitor:hook("META_EQ_NE"), "(true,", node[2], ",", node[3], ")")
+					visitor:print(visitor:codeMeta("EQ_NE"), "(true,", node[2], ",", node[3], ")")
 				elseif node[1] == "~=" then
-					visitor:print(visitor:hook("META_EQ_NE"), "(false,", node[2], ",", node[3], ")")
+					visitor:print(visitor:codeMeta("EQ_NE"), "(false,", node[2], ",", node[3], ")")
 				else
-					visitor:print(visitor:hook("META_BOP_SOME"), "(\"", node[1], "\",", node[2], ",", node[3], ")")
+					visitor:print(visitor:codeMeta("BOP_SOME"), "(\"", node[1], "\",", node[2], ",", node[3], ")")
 				end
 			end
 		end
@@ -521,7 +521,7 @@ local visitor_exp = {
 		before=function(visitor, node)
 			local nHint = node.hintShort
 			if nHint then
-				visitor:print(visitor:hook("HINT("))
+				visitor:print(visitor:codeMeta("HINT("))
 			end
 			visitor:print("(")
 		end,
@@ -546,7 +546,7 @@ local visitor_exp = {
 					if node.is_define or node.is_set then
 						visitor:print(symbol)
 					else
-						visitor:print(visitor:hook("META_GET"), "(s1, self:LiteralTerm(", symbol, "))")
+						visitor:print(visitor:codeMeta("GET"), "(s1, self:LiteralTerm(", symbol, "))")
 					end
 				else
 					local ident_refer = node.ident_refer
@@ -570,7 +570,7 @@ local visitor_exp = {
 	},
 	Index = {
 		override=function(visitor, node)
-			visitor:print(visitor:hook("META_GET"), "(")
+			visitor:print(visitor:codeMeta("GET"), "(")
 			visitor:print(node[1])
 			visitor:print(",")
 			visitor:print(node[2])
@@ -618,7 +618,7 @@ local visitor_object_dict = oldvisitor.concat(visitor_block, visitor_stm, visito
 
 function TypeHintGen.visit(vFileEnv, vPath)
 	local pre_codes = {
-		'local ____nodes=...',
+		'local ____nodes=... ',
 		'return function(self, vArgTuple)\n',
 		"\n----------------------------\n",
 		"local s"..CodeEnv.G_SCOPE_REFER.."=".."self:getGlobalTerm()\n",

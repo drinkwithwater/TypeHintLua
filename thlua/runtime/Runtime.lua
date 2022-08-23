@@ -1,6 +1,5 @@
 
 local TypeManager = require "thlua.manager.TypeManager"
-local Hook = require "thlua.Hook"
 local TypeFunction = require "thlua.func.TypeFunction"
 local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
@@ -9,8 +8,9 @@ local Region = require "thlua.runtime.Region"
 local CallContext = require "thlua.runtime.CallContext"
 local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
+local Node = require "thlua.code.Node"
 
---[[@
+--[[
 
 var.RequireEnv = Struct {
 	fn=class.LuaFunction,
@@ -25,18 +25,22 @@ local Runtime = {}
 
 function Runtime.new()
 	local self = setmetatable({
-		hook=nil, --<< thlua.class.Hook
 		func={},
 		typeManager=nil, --<< thlua.class.TypeManager
 	}, {
 		__index=Runtime,
 	}) -->> thlua.class.Runtime
 	self._requireDict = {}
+	self._region = self:newRegion(self)
 	self.typeManager = TypeManager.new(self)
 	local nSpace = self.typeManager:RootNamespace()
 	nSpace:setContextName(self)
 	nSpace:close()
+	self._node = Node.newRootNode()
 	self._namespace = nSpace
+	self._lateFnDict = {}
+	self._defineFnDict = {}
+	self.global_term = native.make(self)
 	return self
 end
 
@@ -45,36 +49,26 @@ function Runtime:getPath()
 end
 
 function Runtime:init()
-	self.hook = Hook.new(self, "root", "0,0", nil)
-	self.global_term = native.make(self)
-	self.root_region = self:newRegion(self)
-	self.lateFnDict = {}
-	self.defineFnDict = {}
 end
 
 function Runtime:recordLateLuaFunction(vFunc)
-	self.lateFnDict[vFunc] = true
+	self._lateFnDict[vFunc] = true
 end
 
 function Runtime:recordDefineLuaFunction(vFunc)
-	self.defineFnDict[vFunc] = true
+	self._defineFnDict[vFunc] = true
 end
 
 function Runtime:checkDefineLuaFunction()
-	for fn, v in pairs(self.defineFnDict) do
+	for fn, v in pairs(self._defineFnDict) do
 		fn:checkDefine()
 	end
 end
 
 function Runtime:checkLateLuaFunction()
-	for fn, v in pairs(self.lateFnDict) do
+	for fn, v in pairs(self._lateFnDict) do
 		fn:checkLateRun()
 	end
-end
-
-function Runtime:Hook(vFileName, vNode, vRegion)
-	local nHook = Hook.new(self, vFileName, vNode, vRegion)
-	return nHook
 end
 
 function Runtime:getNamespace()
@@ -99,7 +93,7 @@ function Runtime:newContext(vLuaFunction, vLexContext)
 end
 
 function Runtime:load(vCode, vPath)
-	local nEnv = CodeEnv.new(vCode, vPath, vPath)
+	local nEnv = CodeEnv.new(vCode, vPath, vPath, self._node)
 	local nAfterContent = nEnv:genTypingCode()
 	local nFunc, nInfo = load(nAfterContent, "typing:"..vPath, "t", setmetatable({}, {
 		__index=function(t,k)
@@ -111,9 +105,8 @@ function Runtime:load(vCode, vPath)
 	end
 	local nRunFunc = nFunc(nEnv:getNodeList())
 	local nLuaFunc = self.typeManager:LuaFunction()
-	nLuaFunc:setName(vPath)
-	nLuaFunc:setRuntime(self)
-	nLuaFunc:init(self, {
+	nLuaFunc:init(self, self, self._node)
+	nLuaFunc:setUnionFn({
 		tag=LuaFunction.OPEN,
 		fn=self.typeManager:NativeFunction(nRunFunc),
 		isGuard=false,
@@ -152,7 +145,7 @@ function Runtime:require(vPath)
 end
 
 function Runtime:error(...)
-	self.hook:error(...)
+	print("runtime error TODO", ...)
 end
 
 return Runtime

@@ -56,8 +56,9 @@ function LuaFunction.new(vManager:class.TypeManager)::NewTable(class.LuaFunction
 	local self = setmetatable({::New()
 		_manager=vManager,
 		_runtime=false,
-		_unionTagFn=false,
 		_context=false,
+		_node=false,
+		_unionTagFn=false,
 		_tupleSet={},
 		pos="??",
 		bits=TYPE_BITS.FUNCTION,
@@ -68,9 +69,15 @@ function LuaFunction.new(vManager:class.TypeManager)::NewTable(class.LuaFunction
 	return self
 end
 
-function LuaFunction:init(vContext, vUnionTagFn)
-	self._context = vContext
+function LuaFunction:setUnionFn(vUnionTagFn)
 	self._unionTagFn = vUnionTagFn
+end
+
+function LuaFunction:init(vRuntime, vContext, vNode)
+	self._runtime = vRuntime
+	self._context = vContext
+	self._node = vNode
+	self.name = tostring(vNode)
 end
 
 function LuaFunction:newContext()
@@ -84,14 +91,6 @@ end
 
 function LuaFunction:detailString(v)
 	return "LuaFunction-"..self._unionTagFn.tag.."-"..self.name
-end
-
-function LuaFunction:setRuntime(vRuntime)
-	self._runtime = vRuntime
-end
-
-function LuaFunction:setName(name)
-	self.name = name
 end
 
 -- TODO

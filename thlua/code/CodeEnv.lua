@@ -7,17 +7,11 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-CodeEnv.G_IDENT_REFER = 1
+CodeEnv.G_IDENT_REFER = 0
 CodeEnv.G_SCOPE_REFER = 1
 CodeEnv.G_REGION_REFER = 1
 
-function CodeEnv.new(vSubject, vFileName, vPath)
-	-- TODO add what node ???
-	local nNode = {tag = "Id", pos = pos, [1] = "_G"}
-	nNode.l=0
-	nNode.c=0
-	-- nNode.type = tltPrime
-	nNode.ident_refer = CodeEnv.G_IDENT_REFER
+function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 
 	local nGlobalEnv = setmetatable({
 		_G_node = nil,
@@ -41,16 +35,11 @@ function CodeEnv.new(vSubject, vFileName, vPath)
 	nGlobalEnv.region_list = nGlobalEnv.scope_list
 
 	-- create and set root scope
-	local nRootScope = CodeEnv.create_region(nGlobalEnv, nil, nil, nNode)
+	local nRootScope = CodeEnv.create_region(nGlobalEnv, nil, nil, vNode or Node.newRootNode())
 
 	-- create and bind ident
-	local nIdent = CodeEnv.create_ident(nGlobalEnv, nRootScope, nNode)
-	nRootScope.record_dict["_G"] = CodeEnv.G_IDENT_REFER
 	nRootScope.record_dict["_ENV"] = CodeEnv.G_IDENT_REFER
-
 	nGlobalEnv.root_scope = nRootScope
-	nGlobalEnv._G_node = nNode
-	nGlobalEnv._G_ident = nIdent
 
 	nGlobalEnv:_initLinePosList()
 	nGlobalEnv:_parse()

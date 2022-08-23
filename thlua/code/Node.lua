@@ -232,5 +232,9 @@ function Node.__tostring(self)
 	return self.tag ..":".. self.l .."," .. self.c
 end
 
+function Node.newRootNode()
+	return setmetatable({tag = "Root", pos = 0, l=0, c=0}, Node)
+end
+
 return Node
 
