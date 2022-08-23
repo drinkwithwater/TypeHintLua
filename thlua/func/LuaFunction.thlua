@@ -81,7 +81,7 @@ function LuaFunction:init(vRuntime, vContext, vNode)
 end
 
 function LuaFunction:newContext()
-	return self._runtime:newContext(self, self._context)
+	return self._runtime:newContext(self)
 end
 
 function LuaFunction:isNative()
@@ -125,7 +125,9 @@ function LuaFunction:checkDefine()
 	end
 	local nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
 	-- TODO check only return once in func running
-	local nRetTermTuple = nTagFn.runFunc(self:newContext(), nTypeTuple:makeTermTuple(), self)
+	local nContext = self:newContext()
+	nContext:setNewTypeRefer(nTagFn.newTypeRefer)
+	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
 	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
 	if #nRightTypeTuple ~= 1 then
 		error("define-fn can't return more than one value")

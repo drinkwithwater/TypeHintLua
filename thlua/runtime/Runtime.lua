@@ -38,9 +38,9 @@ function Runtime.new()
 	local nSpace = self.typeManager:RootNamespace()
 	nSpace:setContextName(self)
 	nSpace:close()
+	self._namespace = nSpace
 	self._node = Node.newRootNode()
 	self._meta = self:Meta(self._node)
-	self._namespace = nSpace
 	self._lateFnDict = {}
 	self._defineFnDict = {}
 	self.global_term = native.make(self)
@@ -91,8 +91,8 @@ function Runtime:main(vFileName, vContent)
 	nLuaFunc:meta_native_call(self._meta, nTermTuple)
 end
 
-function Runtime:newContext(vLuaFunction, vLexContext)
-	return CallContext.new(self, vLuaFunction, vLexContext)
+function Runtime:newContext()
+	return CallContext.new(self)
 end
 
 function Runtime:load(vCode, vPath)
@@ -106,7 +106,7 @@ function Runtime:load(vCode, vPath)
 	if not nFunc then
 		error(nInfo)
 	end
-	local nRunFunc = nFunc(nEnv:getNodeList())
+	local nRunFunc = nFunc(self, nEnv:getNodeList())
 	local nLuaFunc = self.typeManager:LuaFunction()
 	nLuaFunc:init(self, self, self._node)
 	nLuaFunc:setUnionFn({

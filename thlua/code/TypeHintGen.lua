@@ -44,7 +44,7 @@ end
 
 function TypeHintGen:codeMeta(vName)
 	local nTopNode = self.stack[#self.stack]
-	return "self:Meta("..self:codeTopNode().."):"..vName
+	return "____ctx:Meta("..self:codeTopNode().."):"..vName
 end
 
 function TypeHintGen:printn(c, n)
@@ -63,7 +63,7 @@ end
 local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
-			visitor:print("local rgn,var,_ENV=self:REGION(", visitor:codeTopNode(), ")\n")
+			visitor:print("local ____ctx,rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ")\n")
 		end
 	},
 	Block={
@@ -377,7 +377,7 @@ local visitor_stm = {
 local visitor_exp = {
 	Nil={
 		before=function(visitor, node)
-			visitor:print("self:NilTerm()")
+			visitor:print("____ctx:NilTerm()")
 		end
 	},
 	Dots={
@@ -391,23 +391,23 @@ local visitor_exp = {
 	},
 	True={
 		before=function(visitor, node)
-			visitor:print("self:LiteralTerm(true)")
+			visitor:print("____ctx:LiteralTerm(true)")
 		end
 	},
 	False={
 		before=function(visitor, node)
-			visitor:print("self:LiteralTerm(false)")
+			visitor:print("____ctx:LiteralTerm(false)")
 		end
 	},
 	Number={
 		before=function(visitor, node)
-			visitor:print("self:LiteralTerm")
+			visitor:print("____ctx:LiteralTerm")
 			visitor:print("("..tostring(node[1])..")")
 		end
 	},
 	String={
 		before=function(visitor, node)
-			visitor:print("self:LiteralTerm")
+			visitor:print("____ctx:LiteralTerm")
 			local s = node[1]
 			if node.isLong then
 				visitor:print('([[' .. s .. ']])')
@@ -418,7 +418,7 @@ local visitor_exp = {
 	},
 	Function={
 		override=function(visitor, node)
-			visitor:print("self:FUNC_NEW(", visitor:codeTopNode(), ", function(self, vArgTuple) \n")
+			visitor:print("____ctx:FUNC_NEW(", visitor:codeTopNode(), ", function(____newCtx, vArgTuple) \n")
 			visitor:indent()
 			visitor:indent()
 			local nParList = node[1]
@@ -431,7 +431,7 @@ local visitor_exp = {
 				end
 			end
 			visitor:indent()
-			visitor:print("\tlocal rgn,var,_ENV=self:REGION(", visitor:codeTopNode(), ")\n")
+			visitor:print("\tlocal ____ctx,rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ")\n")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()
@@ -465,7 +465,7 @@ local visitor_exp = {
 	},
 	Table={
 		override=function(visitor, node)
-			visitor:print("self:TABLE_NEW(", visitor:codeTopNode(), ", function() return {")
+			visitor:print("____ctx:TABLE_NEW(", visitor:codeTopNode(), ", function() return {")
 			local count = 0
 			local tailDots = nil
 			for i=1, #node do
@@ -477,7 +477,7 @@ local visitor_exp = {
 					if i==#node and (nTag == "Dots" or nTag == "Invoke" or nTag == "Call") then
 						tailDots = node[i]
 					else
-						local key = "self:LiteralTerm("..count..")"
+						local key = "____ctx:LiteralTerm("..count..")"
 						visitor:print("{", key, ",", node[i], "}")
 					end
 				end
@@ -546,7 +546,7 @@ local visitor_exp = {
 					if node.is_define or node.is_set then
 						visitor:print(symbol)
 					else
-						visitor:print(visitor:codeMeta("GET"), "(s1, self:LiteralTerm(", symbol, "))")
+						visitor:print(visitor:codeMeta("GET"), "(s1, ____ctx:LiteralTerm(", symbol, "))")
 					end
 				else
 					local ident_refer = node.ident_refer
@@ -618,10 +618,10 @@ local visitor_object_dict = oldvisitor.concat(visitor_block, visitor_stm, visito
 
 function TypeHintGen.visit(vFileEnv, vPath)
 	local pre_codes = {
-		'local ____nodes=... ',
-		'return function(self, vArgTuple)\n',
+		'local ____ctx, ____nodes=... ',
+		"local s"..CodeEnv.G_SCOPE_REFER.."=".."____ctx:getGlobalTerm()\n",
+		'return function(____newCtx, vArgTuple)\n',
 		"\n----------------------------\n",
-		"local s"..CodeEnv.G_SCOPE_REFER.."=".."self:getGlobalTerm()\n",
 	}
 	local visitor = setmetatable({
 		object_dict = visitor_object_dict,

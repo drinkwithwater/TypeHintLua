@@ -11,7 +11,7 @@ function TableBuilder.Begin(vContext, vPairMaker, vNode)
 	}
 	local nHintMethod = {
 		New=function(self)
-			nData.newTypeRefer = vContext:getLuaFunction():getNewTypeRefer()
+			nData.newTypeRefer = vContext:getNewTypeRefer()
 			return self
 		end,
 	}
