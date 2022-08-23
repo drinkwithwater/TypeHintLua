@@ -14,11 +14,9 @@ CodeEnv.G_REGION_REFER = 1
 function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 
 	local nGlobalEnv = setmetatable({
-		_G_node = nil,
-		_G_ident = nil,
 		_linePosList = {},
 		subject = vSubject,
-		path = vPath or false,
+		path = vPath or vFileName,
 		filename = vFileName,
 		hinting = false,
 		posToChange = {}, -- if value is string then insert else remove
@@ -85,6 +83,7 @@ function CodeEnv:_parse()
 		nNodeList[nIndex] = vNode
 		vNode.index = nIndex
 		vNode.parent = nStack[#nStack] or false
+		vNode.path = self.path
 		vNode.l, vNode.c = self:fixupPos(vNode.pos)
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)

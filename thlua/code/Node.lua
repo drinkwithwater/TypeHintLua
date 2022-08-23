@@ -229,11 +229,11 @@ end)]]
 local Node = {}
 
 function Node.__tostring(self)
-	return self.tag ..":".. self.l .."," .. self.c
+	return self.path..":".. self.l .."," .. self.c
 end
 
 function Node.newRootNode()
-	return setmetatable({tag = "Root", pos = 0, l=0, c=0}, Node)
+	return setmetatable({tag = "Root", pos = 0, l=0, c=0, path="root"}, Node)
 end
 
 return Node
