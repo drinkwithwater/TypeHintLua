@@ -80,8 +80,8 @@ function LuaFunction:init(vRuntime, vContext, vNode)
 	self.name = tostring(vNode)
 end
 
-function LuaFunction:newContext()
-	return self._runtime:newContext(self)
+function LuaFunction:newInplaceContext()
+	return self._context:newContext(self._node)
 end
 
 function LuaFunction:isNative()
@@ -125,7 +125,7 @@ function LuaFunction:checkDefine()
 	end
 	local nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
 	-- TODO check only return once in func running
-	local nContext = self:newContext()
+	local nContext = self:newInplaceContext()
 	nContext:setNewTypeRefer(nTagFn.newTypeRefer)
 	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
 	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
@@ -145,7 +145,7 @@ end
 function LuaFunction:checkLateRun()
 	local nTagFn = self._unionTagFn
 	local nTermTuple = nTagFn.fn:getArgTuple():makeTermTuple()
-	local nRetTermTuple = nTagFn.runFunc(self:newContext(), nTermTuple, self)
+	local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
 	local nRetTypeTuple = nRetTermTuple:getTypeTuple()
 	local nRetTuples = nTagFn.fn:getReturnTuples()
 	if not nRetTuples:containTuple(nRetTypeTuple) then
@@ -154,7 +154,7 @@ function LuaFunction:checkLateRun()
 end
 
 function LuaFunction:_checkLateCall(vTypeTuple)
-	local nContext = self:newContext()
+	local nContext = self:newInplaceContext()
 	local nTagFn = self._unionTagFn
 	if nTagFn.tag ~= LuaFunction.DEFAULT then
 		nContext:error("unexcept branch")
@@ -195,40 +195,40 @@ function LuaFunction:implement(vContext, vFuncType)
 	self:_checkLateCall(vFuncType:getArgTuple())
 end
 
-function LuaFunction:meta_native_call(vMeta, vTermTuple)
+function LuaFunction:meta_native_call(vContext, vTermTuple)
 	local nTagFn = self._unionTagFn
 	local nTag = nTagFn.tag
 	if nTag == LuaFunction.OPEN then
-		return nTagFn.fn:meta_native_call(self:newContext(), vTermTuple)
+		return nTagFn.fn:meta_native_call(vContext, vTermTuple)
 	else
 		error("only native fn can call meta_native_call")
 	end
 end
 
-function LuaFunction:meta_call(vMeta, vTypeTuple)
+function LuaFunction:meta_call(vContext, vTypeTuple)
 	local nTagFn = self._unionTagFn
 	local nTag = nTagFn.tag
 	if nTag == LuaFunction.OPEN then
 		error("native fn can't call meta_native_call")
 	elseif nTag == LuaFunction.NOCHECK then
-		return nTagFn.fn:meta_call(vMeta, vTypeTuple)
+		return nTagFn.fn:meta_call(vContext, vTypeTuple)
 	else
 		local nImplType = self.implType
 		if nImplType then
-			return nImplType:meta_call(vMeta, vTypeTuple)
+			return nImplType:meta_call(vContext, vTypeTuple)
 		end
 		if nTag == LuaFunction.DEFAULT then
 			self:_checkLateCall(vTypeTuple)
 		elseif nTag == LuaFunction.DEFINE then
 			self:checkDefine()
 		else
-			vMeta:error("error occur for tag unexcept:"..tostring(nTag))
+			vContext:error("error occur for tag unexcept:"..tostring(nTag))
 		end
 		local nFn = nTagFn.fn
 		if not nFn then
-			vMeta:error("error occur in function but rettuple not setted")
+			vContext:error("error occur in function but rettuple not setted")
 		else
-			return nFn:meta_call(vMeta, vTypeTuple)
+			return nFn:meta_call(vContext, vTypeTuple)
 		end
 	end
 end

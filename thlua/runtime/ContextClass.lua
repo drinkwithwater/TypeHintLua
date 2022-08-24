@@ -11,7 +11,7 @@ local function ContextClass()
 	end
 
 	function Context:Meta(vNode)
-		return Meta.new(self._runtime, vNode, self, self._region)
+		return self:newContext(vNode)._meta
 	end
 
 	function Context:TABLE_NEW(vNode, vTableFunc, vHinterHandler)
@@ -27,6 +27,11 @@ local function ContextClass()
 		local nLuaFunc = FunctionBuilder.End(nData)
 		local nTerm = self._manager:UnionTerm(nLuaFunc)
 		return nTerm
+	end
+
+	function Context:HINT(vNode, vTerm, vType)
+		-- TODO check cast valid
+		return self._manager:UnionTerm(vType)
 	end
 
 	function Context:TruthTerm()

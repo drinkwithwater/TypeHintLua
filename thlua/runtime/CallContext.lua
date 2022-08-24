@@ -2,6 +2,7 @@
 local Region = require "thlua.runtime.Region"
 local UnionTerm = require "thlua.term.UnionTerm"
 local ContextClass = require "thlua.runtime.ContextClass"
+local Meta = require "thlua.runtime.Meta"
 local CallContext = ContextClass()
 
 function CallContext.new(vRuntime, vApplyNode)
@@ -11,9 +12,15 @@ function CallContext.new(vRuntime, vApplyNode)
 		_node=vApplyNode,
 		_namespace=false,
 		_newTypeRefer=false,
+		_meta=false,
 	}, CallContext)
 	self._region = vRuntime:newRegion(self)
+	self._meta = Meta.new(self._runtime, self._node, self, self._region)
 	return self
+end
+
+function CallContext:newContext(vApplyNode)
+	return self._runtime:newContext(vApplyNode)
 end
 
 function CallContext:getPath()

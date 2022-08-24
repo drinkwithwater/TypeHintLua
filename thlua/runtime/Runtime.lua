@@ -1,4 +1,5 @@
 
+local Meta = require "thlua.runtime.Meta"
 local TypeManager = require "thlua.manager.TypeManager"
 local TypeFunction = require "thlua.func.TypeFunction"
 local NativeFunction = require "thlua.func.NativeFunction"
@@ -19,7 +20,6 @@ var.RequireEnv = Struct {
 	context=class.CallContext,
 }
 
-
 ]]
 
 local Runtime = ContextClass()
@@ -35,12 +35,13 @@ function Runtime.new()
 	self._runtime = self
 	self._region = self:newRegion(self)
 	self.typeManager = TypeManager.new(self)
+	self._manager = self.typeManager
 	local nSpace = self.typeManager:RootNamespace()
 	nSpace:setContextName(self)
 	nSpace:close()
 	self._namespace = nSpace
 	self._node = Node.newRootNode()
-	self._meta = self:Meta(self._node)
+	self._meta = Meta.new(self._runtime, self._node, self, self._region)
 	self._lateFnDict = {}
 	self._defineFnDict = {}
 	self.global_term = native.make(self)
@@ -88,11 +89,11 @@ end
 function Runtime:main(vFileName, vContent)
 	local nLuaFunc = self:load(vContent, vFileName)
 	local nTermTuple = self.typeManager:TermTuple({})
-	nLuaFunc:meta_native_call(self._meta, nTermTuple)
+	nLuaFunc:meta_native_call(self:newContext(self._node), nTermTuple)
 end
 
-function Runtime:newContext()
-	return CallContext.new(self)
+function Runtime:newContext(vApplyNode)
+	return CallContext.new(self, vApplyNode)
 end
 
 function Runtime:load(vCode, vPath)
@@ -136,7 +137,7 @@ function Runtime:require(vPath)
 		}
 		self._requireDict[vPath] = nRequireEnv
 		local nTermTuple = self.typeManager:TermTuple({})
-		local ret = nLuaFunc:meta_native_call(self._meta, nTermTuple)
+		local ret = nLuaFunc:meta_native_call(self:newContext(self._node), nTermTuple)
 		nRequireEnv.term = ret:get(1)
 		nRequireEnv.context = ret:getContext()
 	end

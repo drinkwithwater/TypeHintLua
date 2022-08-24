@@ -521,7 +521,7 @@ local visitor_exp = {
 		before=function(visitor, node)
 			local nHint = node.hintShort
 			if nHint then
-				visitor:print(visitor:codeMeta("HINT("))
+				visitor:print("____ctx:HINT(", visitor:codeTopNode(), ",")
 			end
 			visitor:print("(")
 		end,

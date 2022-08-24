@@ -5,7 +5,7 @@ local Symbol = require "thlua.runtime.Symbol"
 
 Region.__index = Region
 Region.__tostring = function(self)
-	return "Region-"..self:getPath()..":"..tostring(self.pos)
+	return "Region-"..self:getPath()..":"..tostring(self._context._node)
 end
 
 function Region.new(vRuntime, vContext)
@@ -17,7 +17,6 @@ function Region.new(vRuntime, vContext)
 		cur_branch=nRootBranch,
 		branch_stack={nRootBranch},
 		ret_tuple=false,
-		pos="pos todo",
 	}, Region)
 end
 

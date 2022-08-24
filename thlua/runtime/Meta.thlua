@@ -13,17 +13,12 @@ function Meta.new(vRuntime, vNode, vContext, vRegion)
 		_runtime=vRuntime,
     _manager=vRuntime.typeManager,
 		_context=vContext,
-		fileName=vFileName,
-		node=vNode,
+		_node=vNode,
 		region=vRegion,
 	}, {
 		__index=Meta,
 	})
 	return self
-end
-
-function Meta:HINT(vTerm, vType)
-	return self._manager:UnionTerm(vType)
 end
 
 -- pack explist to termtuple
@@ -179,14 +174,14 @@ local function meta_call(vMeta, vNativePair, vFuncArgCaseList)
 			if nListLen ~= 0 then
 				error(Exception.new("can't mix call native function & not-native function"))
 			end
-			return vNativePair[1]:meta_native_call(vMeta, vNativePair[2])
+			return vNativePair[1]:meta_native_call(vMeta._context, vNativePair[2])
 		elseif nListLen >= 1 then
 			local nType1TupleCaseList = {}
 			local nMaxLength = 0
 			local nNil = vMeta._manager.type.Nil
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
-				local nRetTuples = f:meta_call(vMeta, a)
+				local nRetTuples = f:meta_call(vMeta._context, a)
 				nRetTuples:foreach(function(vTypeTuple)
 					local nLength = #vTypeTuple
 					if nLength > nMaxLength then
@@ -384,15 +379,15 @@ function Meta:pcall(vFunc, ...)
 end
 
 function Meta:error(...)
-	print("[ERROR] "..self.region:get_path().."-"..tostring(self.node), ...)
+	print("[ERROR] "..self.region:get_path().."-"..tostring(self._node), ...)
 end
 
 function Meta:warn(...)
-	print("[WARN] "..self.region:get_path().."-"..tostring(self.node), ...)
+	print("[WARN] "..self.region:get_path().."-"..tostring(self._node), ...)
 end
 
 function Meta:info(...)
-	print("[INFO] "..self.region:get_path().."-"..tostring(self.node), ...)
+	print("[INFO] "..self.region:get_path().."-"..tostring(self._node), ...)
 end
 
 return Meta
