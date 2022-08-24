@@ -6,7 +6,7 @@ local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local TermTuple = require "thlua.tuple.TermTuple"
 local Region = require "thlua.runtime.Region"
-local CallContext = require "thlua.runtime.CallContext"
+local ApplyContext = require "thlua.runtime.ApplyContext"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
@@ -17,7 +17,7 @@ local Node = require "thlua.code.Node"
 var.RequireEnv = Struct {
 	fn=class.LuaFunction,
 	term=Union(False, class.UnionTerm),
-	context=class.CallContext,
+	context=class.ApplyContext,
 }
 
 ]]
@@ -41,7 +41,6 @@ function Runtime.new()
 	nSpace:close()
 	self._namespace = nSpace
 	self._node = Node.newRootNode()
-	self._meta = Meta.new(self._runtime, self._node, self, self._region)
 	self._lateFnDict = {}
 	self._defineFnDict = {}
 	self.global_term = native.make(self)
@@ -93,7 +92,7 @@ function Runtime:main(vFileName, vContent)
 end
 
 function Runtime:newContext(vApplyNode)
-	return CallContext.new(self, vApplyNode)
+	return ApplyContext.new(self, vApplyNode)
 end
 
 function Runtime:load(vCode, vPath)

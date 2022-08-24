@@ -132,7 +132,7 @@ function FunctionBuilder.End(vData)
 			newTypeRefer=vData.newTypeRefer,
 			once=false,
 		})
-		nContext:recordDefineLuaFunction(nLuaFunc)
+		nContext:getRuntime():recordDefineLuaFunction(nLuaFunc)
 	elseif vData.tag == LuaFunction.DEFAULT then
 		local nAutoArgs = AutoArguments.new(nManager, vData.argList, vData.argDots)
 		local nRetTuples = vData.retTuples
@@ -145,7 +145,7 @@ function FunctionBuilder.End(vData)
 			once=false,
 		})
 		if (not nAutoArgs:hasVariable()) and nRetTuples then
-			nContext:recordLateLuaFunction(nLuaFunc)
+			nContext:getRuntime():recordLateLuaFunction(nLuaFunc)
 		end
 	end
 	return nLuaFunc

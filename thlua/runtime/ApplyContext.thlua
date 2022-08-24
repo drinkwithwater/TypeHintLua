@@ -3,9 +3,9 @@ local Region = require "thlua.runtime.Region"
 local UnionTerm = require "thlua.term.UnionTerm"
 local ContextClass = require "thlua.runtime.ContextClass"
 local Meta = require "thlua.runtime.Meta"
-local CallContext = ContextClass()
+local ApplyContext = ContextClass()
 
-function CallContext.new(vRuntime, vApplyNode)
+function ApplyContext.new(vRuntime, vApplyNode)
 	local self = setmetatable({
 		_runtime=vRuntime,
 		_manager=vRuntime.typeManager,
@@ -13,44 +13,40 @@ function CallContext.new(vRuntime, vApplyNode)
 		_namespace=false,
 		_newTypeRefer=false,
 		_meta=false,
-	}, CallContext)
+	}, ApplyContext)
 	self._region = vRuntime:newRegion(self)
 	self._meta = Meta.new(self._runtime, self._node, self, self._region)
 	return self
 end
 
-function CallContext:newContext(vApplyNode)
+function ApplyContext:newContext(vApplyNode)
 	return self._runtime:newContext(vApplyNode)
 end
 
-function CallContext:getPath()
+function ApplyContext:getPath()
 	return tostring(self._node)
 end
 
-function CallContext:getNamespace()
+function ApplyContext:getNamespace()
 	return self._namespace
 end
 
-function CallContext:setNewTypeRefer(vRefer)
+function ApplyContext:setNewTypeRefer(vRefer)
 	self._newTypeRefer = vRefer
 end
 
-function CallContext:getNewTypeRefer()
+function ApplyContext:getNewTypeRefer()
 	return self._newTypeRefer
 end
 
-function CallContext:BEGIN(vLexContext, vBlockNode)
+function ApplyContext:BEGIN(vLexContext, vBlockNode)
 	local nSpace = vLexContext:getNamespace():createChild(self)
 	self._namespace = nSpace
 	return self:getRegion(), nSpace.localExport, nSpace.globalExport
 end
 
-function CallContext:recordLateLuaFunction(vFunc)
-	self._runtime:recordLateLuaFunction(vFunc)
+function ApplyContext:getRuntime()
+	return self._runtime
 end
 
-function CallContext:recordDefineLuaFunction(vFunc)
-	self._runtime:recordDefineLuaFunction(vFunc)
-end
-
-return CallContext
+return ApplyContext
