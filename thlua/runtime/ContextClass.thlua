@@ -2,6 +2,7 @@
 local FunctionBuilder = require "thlua.builder.FunctionBuilder"
 local TableBuilder = require "thlua.builder.TableBuilder"
 local UnionTerm = require "thlua.term.UnionTerm"
+
 local function ContextClass()
 	local Context = {}
 	Context.__index=Context
@@ -27,6 +28,22 @@ local function ContextClass()
 	function Context:HINT(vNode, vTerm, vType)
 		-- TODO check cast valid
 		return self._manager:UnionTerm(vType)
+	end
+
+	function Context:TermTuple(a,b)
+		return self._manager:TermTuple(a,b)
+	end
+
+	function Context:UnionTerm(vType)
+		return UnionTerm.new(self._manager, vType:checkType())
+	end
+
+	function Context:NumberTerm()
+		return UnionTerm.new(self._manager, self._manager.type.Never)
+	end
+
+	function Context:NeverTerm()
+		return UnionTerm.new(self._manager, self._manager.type.Never)
 	end
 
 	function Context:TruthTerm()

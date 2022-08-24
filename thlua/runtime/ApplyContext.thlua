@@ -36,7 +36,7 @@ function ApplyContext:getNewTypeRefer()
 end
 
 function ApplyContext:BEGIN(vLexContext, vBlockNode)
-	local nRegion = Region.new(self._runtime, self)
+	local nRegion = Region.new(self)
 	self._region = nRegion
 	local nSpace = vLexContext:getNamespace():createChild(self)
 	self._namespace = nSpace
@@ -54,7 +54,7 @@ function ApplyContext:EXPLIST_PACK(vNode, vLazy:Boolean,
 			if #cur ~= 1 then
 				self:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
 			end
-			nTermList[i] = cur:get(1) or self._manager:UnionTerm(self._manager.type.Nil)
+			nTermList[i] = cur:get(1) or self:UnionTerm(self._manager.type.Nil)
 		elseif UnionTerm.is(cur) then
 			nTermList[i] = cur
 		elseif type(cur) == "function" then
@@ -74,13 +74,13 @@ function ApplyContext:EXPLIST_PACK(vNode, vLazy:Boolean,
 	local nLast = l[nIndex]
 	if not nLast then
 		reFunc = function()
-			return self._manager:TermTuple({})
+			return self:TermTuple({})
 		end
 	else
 		if TermTuple.is(nLast) then
 			reFunc = function()
 				lazyEvalFunc()
-				return self._manager:TermTuple(nTermList, nLast)
+				return self:TermTuple(nTermList, nLast)
 			end
 		else
 			if UnionTerm.is(nLast) then
@@ -93,7 +93,7 @@ function ApplyContext:EXPLIST_PACK(vNode, vLazy:Boolean,
 			end
 			reFunc = function()
 				lazyEvalFunc()
-				return self._manager:TermTuple(nTermList)
+				return self:TermTuple(nTermList)
 			end
 		end
 	end
@@ -115,13 +115,13 @@ function ApplyContext:EXPLIST_UNPACK(vNode, vNum, ...)
 				local value = last:get(i - #l + 1)
 				if not value then
 					self:nodeError(vNode, "tuple_unpack but right tuple value not enough")
-					re[i] = self._manager:UnionTerm(self._manager.type.Nil)
+					re[i] = self:UnionTerm(self._manager.type.Nil)
 				else
 					re[i] = value
 				end
 			else
 				self:nodeError(vNode, "tuple_unpack but right value not enough")
-				re[i] = self._manager:UnionTerm(self._manager.type.Nil)
+				re[i] = self:UnionTerm(self._manager.type.Nil)
 			end
 		else
 			local cur = l[i]
@@ -129,7 +129,7 @@ function ApplyContext:EXPLIST_UNPACK(vNode, vNum, ...)
 				if (i < #l and #cur ~= 1) then
 					self:nodeWarn(vNode, "tuple_unpack except 1 value but has "..#cur)
 				end
-				re[i] = cur:get(1) or self._manager:UnionTerm(self._manager.type.Nil)
+				re[i] = cur:get(1) or self:UnionTerm(self._manager.type.Nil)
 			else
 				re[i] = cur
 			end
@@ -212,7 +212,7 @@ function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
 				end)
 			end
 			if nMaxLength <= 0 then
-				return self._manager:TermTuple({})
+				return self:TermTuple({})
 			end
 			local nTermList = {}
 			for i=2,nMaxLength do
@@ -221,7 +221,7 @@ function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
 					nCollection:put(nType1TupleCase[2][i] or nNil)
 				end
 				local nTypeI = nCollection:mergeToType()
-				nTermList[i] = self._manager:UnionTerm(nTypeI)
+				nTermList[i] = self:UnionTerm(nTypeI)
 			end
 			local nTypeCaseList = {}
 			for _, nType1TupleCase in pairs(nType1TupleCaseList) do
@@ -236,7 +236,7 @@ function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
 				}
 			end
 			nTermList[1] = self._manager:mergeToUnionTerm(nTypeCaseList)
-			return self._manager:TermTuple(nTermList)
+			return self:TermTuple(nTermList)
 		else
 			error(Exception.new("meta_call function can't be Never"))
 		end
@@ -244,7 +244,7 @@ function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
 	if ok then
 		return err
 	else
-		return self._manager:TermTuple({})
+		return self:TermTuple({})
 	end
 end
 
@@ -281,8 +281,8 @@ function ApplyContext:META_INVOKE(vNode, vTerm, vName, vArgTuple)
 		if vType == nNil then
 			self:nodeWarn(vNode, "nil as invoke self")
 		else
-			local nNewArgTuple = self._manager:TermTuple({self._manager:UnionTerm(vType)}, vArgTuple)
-			local nFuncType = vType:meta_get(self, self._manager:Literal(vName))
+			local nNewArgTuple = self:TermTuple({self:UnionTerm(vType)}, vArgTuple)
+			local nFuncType = vType:meta_get(self, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self:nodeWarn(vNode, "nil as invoke func")

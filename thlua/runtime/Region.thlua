@@ -10,11 +10,9 @@ Region.__tostring = function(self)
 	return "Region-"..self:getPath()..":"..tostring(self._context._node)
 end
 
-function Region.new(vRuntime:Truth, vContext:Truth)::NewTable(class.Region)
-	local nRootBranch = Branch.new(vRuntime)
+function Region.new(vContext:Truth)::NewTable(class.Region)
+	local nRootBranch = Branch.new(vContext)
 	return setmetatable({::New()
-		_runtime=vRuntime,
-		_manager=vRuntime.typeManager,
 		_context=vContext,
 		cur_branch=nRootBranch,
 		branch_stack={nRootBranch},
@@ -23,7 +21,7 @@ function Region.new(vRuntime:Truth, vContext:Truth)::NewTable(class.Region)
 end
 
 function Region:push_branch(vTermCase)
-	local nNewBranch = Branch.new(self._runtime, self.cur_branch, vTermCase)
+	local nNewBranch = Branch.new(self._context, self.cur_branch, vTermCase)
 	self.branch_stack[#self.branch_stack + 1] = nNewBranch
 	self.cur_branch = nNewBranch
 end
@@ -51,7 +49,7 @@ end
 function Region:get_return()
 	local re = self.ret_tuple
 	if not re then
-		re = self._runtime.typeManager:TermTuple({})
+		re = self._context:TermTuple({})
 		self.ret_tuple = re
 	end
 	re:setContext(self._context)
@@ -65,12 +63,12 @@ end
 function Region:SYMBOL(vNode, vTerm, vHintType)
 	if not vHintType then
 		local nType = vTerm:getType()
-		local nSymbol = Symbol.new(self._runtime, self, vNode, nType)
+		local nSymbol = Symbol.new(self._context, self, vNode, nType)
 		self:top_branch():symbol_init(nSymbol, vTerm)
 		return nSymbol
 	else
-		local nTerm = self._manager:UnionTerm(vHintType)
-		local nSymbol = Symbol.new(self._runtime, self, vNode, vHintType)
+		local nTerm = self._context:UnionTerm(vHintType)
+		local nSymbol = Symbol.new(self._context, self, vNode, vHintType)
 		self:top_branch():symbol_init(nSymbol, nTerm)
 		return nSymbol
 	end
@@ -104,7 +102,7 @@ function Region:WHILE(vNode, vTerm, vTrueFunction)
 end
 
 function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
-	local nTuple = self._context:META_CALL(vNode, vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
+	local nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:nodeError(vNode, "FOR_IN must receive at least 1 value")
 		return
@@ -114,7 +112,7 @@ function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
 		self._context:nodeError(vNode, "FOR_IN must receive nilable type, TODO : run logic when error")
 		return
 	end
-	local nNewTuple = self._manager:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
+	local nNewTuple = self._context:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
 	local nCase = nFirstTerm:caseNotnil()
 	if not nCase then
 		self._context:nodeError(vNode, "FOR_IN into a empty loop")
@@ -126,7 +124,7 @@ function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
 end
 
 function Region:FOR_NUM(vNode, vFunc, vStart, vStop, vStepOrNil)
-	vFunc(self._manager:UnionTerm(self._manager.type.Number))
+	vFunc(self._context:NumberTerm())
 end
 
 function Region:LOGIC_OR(vNode, vLeftTerm, vRightFunction)

@@ -9,7 +9,7 @@ Branch.__tostring = function(self)
 	return "Branch"
 end
 
-function Branch.new(vRuntime, vPreBranch, vTermCase)
+function Branch.new(vContext, vPreBranch, vTermCase)
 	local nTermCase
 	if vPreBranch then
 		if vTermCase then
@@ -21,7 +21,7 @@ function Branch.new(vRuntime, vPreBranch, vTermCase)
 		nTermCase = TermCase.new()
 	end
 	return setmetatable({
-		_runtime=vRuntime,
+		_context=vContext,
 		case=nTermCase,
 		symbolToTerm=setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm}),
 	}, Branch)
@@ -32,7 +32,7 @@ function Branch:symbol_get(vSymbol)
 	if not nUnionTerm then
 		-- TODO, set upvalue symbol in prepre...prebranch
 		local nType = vSymbol:getType()
-		nUnionTerm = self._runtime.typeManager:UnionTerm(nType)
+		nUnionTerm = self._context:UnionTerm(nType)
 		nUnionTerm:add_self(vSymbol)
 		self.symbolToTerm[vSymbol] = nUnionTerm
 		return nUnionTerm
@@ -42,9 +42,8 @@ function Branch:symbol_get(vSymbol)
 		if not nType:isNever() then
 			return nUnionTerm:filter(nType)
 		else
-			local nManager = self._runtime.typeManager
 			print("TODO type is never when get symbol"..tostring(vSymbol), nUnionTerm)
-			return nManager:UnionTerm(nManager.type.Never)
+			return self._context:NeverTerm()
 		end
 	else
 		return nUnionTerm
@@ -59,7 +58,7 @@ end
 function Branch:symbol_set(vUnionSymbol, vValueTerm)
 	local nValueType = vValueTerm:getType()
 	if vUnionSymbol:getType():contain(nValueType) then
-		local nUnionTerm = self._runtime.typeManager:UnionTerm(nValueType)
+		local nUnionTerm = self._context:UnionTerm(nValueType)
 		nUnionTerm:add_self(vUnionSymbol)
 		self.symbolToTerm[vUnionSymbol] = nUnionTerm
 	else
@@ -78,7 +77,7 @@ function Branch:merge_from(vContext, vTrueBranch, vFalseBranch)
 	for nSymbol, _ in pairs(nModSymbolDict) do
 		if self.symbolToTerm[nSymbol] then
 			local nType = vTrueBranch:symbol_get(nSymbol):getType() | vFalseBranch:symbol_get(nSymbol):getType()
-			local nUnionTerm = self._runtime.typeManager:UnionTerm(nType)
+			local nUnionTerm = self._context:UnionTerm(nType)
 			self.symbolToTerm[nSymbol] = nUnionTerm
 			nUnionTerm:add_self(nSymbol)
 		end

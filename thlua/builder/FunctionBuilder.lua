@@ -96,7 +96,7 @@ function FunctionBuilder.End(vData)
 	local nContext = vData.context
 	local nManager = nContext._manager
 	local nLuaFunc = nManager:LuaFunction()
-	nLuaFunc:init(nContext._runtime, nContext, vData.node)
+	nLuaFunc:init(nContext, vData.node)
 	local nTag = vData.tag
 	if nTag == LuaFunction.OPEN then
 		assert(not vData.retTuples, "native function can't set ret")
