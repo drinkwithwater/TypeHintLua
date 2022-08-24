@@ -1,9 +1,15 @@
 
+local TermTuple = require "thlua.tuple.TermTuple"
 local Region = require "thlua.runtime.Region"
 local UnionTerm = require "thlua.term.UnionTerm"
+local TermCase = require "thlua.term.TermCase"
+local TypeFunction = require "thlua.func.TypeFunction"
 local ContextClass = require "thlua.runtime.ContextClass"
-local Meta = require "thlua.runtime.Meta"
+local Exception = require "thlua.Exception"
+local Reference = require "thlua.type.Reference"
+
 local ApplyContext = ContextClass()
+
 
 function ApplyContext.new(vRuntime, vApplyNode)
 	local self = setmetatable({
@@ -12,10 +18,8 @@ function ApplyContext.new(vRuntime, vApplyNode)
 		_node=vApplyNode,
 		_namespace=false,
 		_newTypeRefer=false,
-		_meta=false,
+		_region=false,
 	}, ApplyContext)
-	self._region = Region.new(self._runtime, self)
-	self._meta = Meta.new(self._runtime, self._node, self, self._region)
 	return self
 end
 
@@ -32,9 +36,379 @@ function ApplyContext:getNewTypeRefer()
 end
 
 function ApplyContext:BEGIN(vLexContext, vBlockNode)
+	local nRegion = Region.new(self._runtime, self)
+	self._region = nRegion
 	local nSpace = vLexContext:getNamespace():createChild(self)
 	self._namespace = nSpace
-	return self._region, nSpace.localExport, nSpace.globalExport
+	return nRegion, nSpace.localExport, nSpace.globalExport
+end
+
+-- pack explist to termtuple or lazyfunc
+function ApplyContext:EXPLIST_PACK(vNode, vLazy:Boolean,
+		l:List(class.TermTuple|class.UnionTerm|Fn():Ret(class.TermTuple|class.UnionTerm)))
+	local nTermList = {}
+	local nIndexToFunc = {}
+	for i=1, #l-1 do
+		local cur = l[i]
+		if TermTuple.is(cur) then
+			if #cur ~= 1 then
+				self:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
+			end
+			nTermList[i] = cur:get(1) or self._manager:UnionTerm(self._manager.type.Nil)
+		elseif UnionTerm.is(cur) then
+			nTermList[i] = cur
+		elseif type(cur) == "function" then
+			nIndexToFunc[i] = cur
+			nTermList[i] = false
+		else
+			error("unexcept branch")
+		end
+	end
+	local lazyEvalFunc = function()
+		for i, nFunc in pairs(nIndexToFunc) do
+			nTermList[i] = nFunc()
+		end
+	end
+	local reFunc
+	local nIndex = #l
+	local nLast = l[nIndex]
+	if not nLast then
+		reFunc = function()
+			return self._manager:TermTuple({})
+		end
+	else
+		if TermTuple.is(nLast) then
+			reFunc = function()
+				lazyEvalFunc()
+				return self._manager:TermTuple(nTermList, nLast)
+			end
+		else
+			if UnionTerm.is(nLast) then
+				nTermList[nIndex] = nLast
+			elseif type(nLast) == "function" then
+				nIndexToFunc[nIndex] = nLast
+				nTermList[nIndex] = false
+			else
+				error("unexcept branch")
+			end
+			reFunc = function()
+				lazyEvalFunc()
+				return self._manager:TermTuple(nTermList)
+			end
+		end
+	end
+	if vLazy then
+		return reFunc
+	else
+		return reFunc()
+	end
+end
+
+-- unpack explist to vNum term | termtuple
+function ApplyContext:EXPLIST_UNPACK(vNode, vNum, ...)
+	local l = {...}
+	local re = {}
+	for i=1, vNum do
+		if i > #l then
+			local last = l[#l]
+			if TermTuple.is(last) then
+				local value = last:get(i - #l + 1)
+				if not value then
+					self:nodeError(vNode, "tuple_unpack but right tuple value not enough")
+					re[i] = self._manager:UnionTerm(self._manager.type.Nil)
+				else
+					re[i] = value
+				end
+			else
+				self:nodeError(vNode, "tuple_unpack but right value not enough")
+				re[i] = self._manager:UnionTerm(self._manager.type.Nil)
+			end
+		else
+			local cur = l[i]
+			if TermTuple.is(cur) then
+				if (i < #l and #cur ~= 1) then
+					self:nodeWarn(vNode, "tuple_unpack except 1 value but has "..#cur)
+				end
+				re[i] = cur:get(1) or self._manager:UnionTerm(self._manager.type.Nil)
+			else
+				re[i] = cur
+			end
+		end
+	end
+	return table.unpack(re)
+end
+
+-- unpack in function's argument & for_in
+function ApplyContext:TUPLE_UNPACK(vNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)
+	local l = {}
+	for i=1, vNum do
+		l[i] = vTuple:get(i)
+	end
+	if vUseDots then
+		l[vNum + 1] = vTuple:getDots(vNum + 1)
+	end
+	return table.unpack(l)
+end
+
+-- meta items
+function ApplyContext:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
+    local nTypeCaseList = {}
+	local nOkay = self:nodePcall(vNode, function()
+		vTerm:foreach(function(vType, vTermCase)
+			vKeyTerm:foreach(function(vKeyType, vKeyTermCase)
+				local nReType = vType:meta_get(self, vKeyType)
+				if vNotnil then
+					nReType = nReType:notnilType()
+				end
+				nTypeCaseList[#nTypeCaseList + 1] = {nReType, vTermCase & vKeyTermCase}
+			end)
+		end)
+	end)
+	if nOkay then
+		return self._manager:mergeToUnionTerm(nTypeCaseList)
+	else
+		return self:TruthTerm()
+	end
+end
+
+function ApplyContext:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
+	self:nodePcall(vNode, function()
+		local nNil = self._manager.type.Nil
+		vTerm:foreach(function(vType, _)
+			vKeyTerm:foreach(function(vKeyType)
+				if vOverride then
+					vType:meta_set_override(self, vKeyType, vValueTerm:getType())
+				else
+					vType:meta_set(self, vKeyType, vValueTerm:getType())
+				end
+			end)
+		end)
+	end)
+end
+
+function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
+	local ok, err = self:nodePcall(vNode, function()
+		local nListLen = #vFuncArgCaseList
+		if vNativePair then
+			if nListLen ~= 0 then
+				error(Exception.new("can't mix call native function & not-native function"))
+			end
+			return vNativePair[1]:meta_native_call(self:newContext(vNode), vNativePair[2])
+		elseif nListLen >= 1 then
+			local nType1TupleCaseList = {}
+			local nMaxLength = 0
+			local nNil = self._manager.type.Nil
+			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
+				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
+				local nRetTuples = f:meta_call(self:newContext(vNode), a)
+				nRetTuples:foreach(function(vTypeTuple)
+					local nLength = #vTypeTuple
+					if nLength > nMaxLength then
+						nMaxLength = nLength
+					end
+					nType1TupleCaseList[#nType1TupleCaseList + 1] = {
+						vTypeTuple:get(1), vTypeTuple, TermCase.new() & c
+					}
+				end)
+			end
+			if nMaxLength <= 0 then
+				return self._manager:TermTuple({})
+			end
+			local nTermList = {}
+			for i=2,nMaxLength do
+				local nCollection = self._manager:TypeCollection()
+				for _, nType1TupleCase in pairs(nType1TupleCaseList) do
+					nCollection:put(nType1TupleCase[2][i] or nNil)
+				end
+				local nTypeI = nCollection:mergeToType()
+				nTermList[i] = self._manager:UnionTerm(nTypeI)
+			end
+			local nTypeCaseList = {}
+			for _, nType1TupleCase in pairs(nType1TupleCaseList) do
+				local nType1 = nType1TupleCase[1]
+				local nTypeTuple = nType1TupleCase[2]
+				local nCase = nType1TupleCase[3]
+				for i=2,nMaxLength do
+					nCase:put_and(nTermList[i], nTypeTuple:get(i))
+				end
+				nTypeCaseList[#nTypeCaseList + 1] = {
+					nType1, nCase
+				}
+			end
+			nTermList[1] = self._manager:mergeToUnionTerm(nTypeCaseList)
+			return self._manager:TermTuple(nTermList)
+		else
+			error(Exception.new("meta_call function can't be Never"))
+		end
+	end)
+	if ok then
+		return err
+	else
+		return self._manager:TermTuple({})
+	end
+end
+
+function ApplyContext:META_CALL(vNode, vFuncTerm, vLazyFunc)
+	local nNativePair = nil
+	local nFuncArgCaseList = {}
+	local nNil = self._manager.type.Nil
+	vFuncTerm:foreach(function(vFuncType, vTermCase)
+		self._region:push_branch(vTermCase)
+		local nArgTermTuple = vLazyFunc()
+		if vFuncType == nNil then
+			self:nodeWarn(vNode, "nil as call func")
+		elseif vFuncType:isNative() then
+			if not nNativePair then
+				nNativePair = {vFuncType, nArgTermTuple}
+			else
+				error("can't mix use native function")
+			end
+		else
+			nFuncArgCaseList[#nFuncArgCaseList + 1] = {
+				vFuncType, nArgTermTuple:getTypeTuple() , vTermCase
+			}
+		end
+		self._region:pop_branch()
+	end)
+	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
+end
+
+function ApplyContext:META_INVOKE(vNode, vTerm, vName, vArgTuple)
+	local nNativePair = nil
+	local nFuncArgCaseList = {}
+	local nNil = self._manager.type.Nil
+	vTerm:foreach(function(vType, vTermCase)
+		if vType == nNil then
+			self:nodeWarn(vNode, "nil as invoke self")
+		else
+			local nNewArgTuple = self._manager:TermTuple({self._manager:UnionTerm(vType)}, vArgTuple)
+			local nFuncType = vType:meta_get(self, self._manager:Literal(vName))
+			nFuncType:foreach(function(vSingleFuncType)
+				if vSingleFuncType == nNil then
+					self:nodeWarn(vNode, "nil as invoke func")
+				elseif vSingleFuncType:isNative() then
+					if not nNativePair then
+						nNativePair = {vSingleFuncType, nNewArgTuple}
+					else
+						error("can't mix use native function")
+					end
+				else
+					nFuncArgCaseList[#nFuncArgCaseList + 1] = {
+						vSingleFuncType, nNewArgTuple:getTypeTuple() , vTermCase
+					}
+				end
+			end)
+		end
+	end)
+	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
+end
+
+function ApplyContext:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)
+	local nTypeCaseList = {}
+	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
+		vRightTerm:foreach(function(vRightType, vRightTermCase)
+			local nReType
+			if vLeftType:isSingleton() and vRightType:isSingleton() then
+				-- TODO check for named type
+				local nTypeIsEq = vLeftType == vRightType
+				if vIsEq == nTypeIsEq then
+					nReType = self._manager.type.True
+				else
+					nReType = self._manager.type.False
+				end
+			elseif not (vLeftType & vRightType):isNever() then
+				nReType = self._manager.type.Boolean
+			else
+				if vIsEq then
+					nReType = self._manager.type.False
+				else
+					nReType = self._manager.type.True
+				end
+			end
+			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vLeftTermCase & vRightTermCase}
+		end)
+	end)
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function ApplyContext:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
+	local nCollection = self._manager:TypeCollection()
+	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
+		local nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(self, vOper)
+		if nLeftHigh then
+			local nTypeTuple = self._manager:Tuple(vLeftType, vRightTerm:getType())
+			local nRetTuples = nLeftFunc:meta_call(self, nTypeTuple)
+			nCollection:put(nRetTuples:makeFirstType())
+		else
+			vRightTerm:foreach(function(vRightType, vRightTermCase)
+				local nRightHigh, nRightFunc = vRightType:meta_bop_func(self, vOper)
+				if nRightHigh then
+					local nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
+					local nRetTuples = nLeftFunc:meta_call(self, nTypeTuple)
+					nCollection:put(nRetTuples:makeFirstType())
+				else
+					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
+						local nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
+						local nRetTuples = nLeftFunc:meta_call(self, nTypeTuple)
+						nCollection:put(nRetTuples:makeFirstType())
+					else
+						self:nodeError(vNode, "invalid bop:"..vOper)
+					end
+				end
+			end)
+		end
+	end)
+	return self._manager:UnionTerm(nCollection:mergeToType())
+end
+
+function ApplyContext:META_UOP(vNode, vOper, vData)
+	local nTypeCaseList = {}
+	if vOper == "#" then
+		vData:foreach(function(vType, vTermCase)
+			nTypeCaseList[#nTypeCaseList + 1] = {
+				vType:meta_len(self),
+				vTermCase
+			}
+		end)
+	else
+		vData:foreach(function(vType, vTermCase)
+			nTypeCaseList[#nTypeCaseList + 1] = {
+				vType:meta_uop_some(self, vOper),
+				vTermCase
+			}
+		end)
+	end
+	return self._manager:mergeToUnionTerm(nTypeCaseList)
+end
+
+function ApplyContext:nodePcall(vNode, vFunc, ...)
+	local ok, err = xpcall(vFunc, function(exc)
+		if Exception.is(exc) then
+			return exc
+		else
+			print(exc)
+			print(debug.traceback())
+			return false
+		end
+	end, ...)
+	if not ok then
+		if err then
+			self:nodeError(vNode, tostring(err))
+		end
+	end
+	return ok, err
+end
+
+function ApplyContext:nodeError(vNode, ...)
+  print("[ERROR] "..tostring(vNode), ...)
+end
+
+function ApplyContext:nodeWarn(vNode, ...)
+  print("[WARN] "..tostring(vNode), ...)
+end
+
+function ApplyContext:nodeInfo(vNode, ...)
+  print("[INFO] "..tostring(vNode), ...)
 end
 
 return ApplyContext

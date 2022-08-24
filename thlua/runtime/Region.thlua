@@ -98,26 +98,26 @@ function Region:WHILE(vNode, vTerm, vTrueFunction)
 	if nTrueCase then
 		vTrueFunction()
 	else
-		self._context:warn("while loop is unreachable scope")
+		self._context:nodeWarn(vNode, "while loop is unreachable scope")
 	end
 	local nTrueBranch = self:pop_branch()
 end
 
 function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
-	local nTuple = self._context:Meta(vNode):CALL(vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
+	local nTuple = self._context:META_CALL(vNode, vNext, function () return self._manager:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
-		self._context:error("FOR_IN must receive at least 1 value")
+		self._context:nodeError(vNode, "FOR_IN must receive at least 1 value")
 		return
 	end
 	local nFirstTerm = nTuple:get(1)
 	if not nFirstTerm:getType():isNilable() then
-		self._context:error("FOR_IN must receive nilable type, TODO : run logic when error")
+		self._context:nodeError(vNode, "FOR_IN must receive nilable type, TODO : run logic when error")
 		return
 	end
 	local nNewTuple = self._manager:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
 	local nCase = nFirstTerm:caseNotnil()
 	if not nCase then
-		self._context:error("FOR_IN into a empty loop")
+		self._context:nodeError(vNode, "FOR_IN into a empty loop")
 		return
 	end
 	self:push_branch(nCase)
