@@ -5,7 +5,6 @@ local TypeFunction = require "thlua.func.TypeFunction"
 local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local TermTuple = require "thlua.tuple.TermTuple"
-local Region = require "thlua.runtime.Region"
 local ApplyContext = require "thlua.runtime.ApplyContext"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
@@ -33,7 +32,6 @@ function Runtime.new()
 	})
 	self._requireDict = {}
 	self._runtime = self
-	self._region = self:newRegion(self)
 	self.typeManager = TypeManager.new(self)
 	self._manager = self.typeManager
 	local nSpace = self.typeManager:RootNamespace()
@@ -45,13 +43,6 @@ function Runtime.new()
 	self._defineFnDict = {}
 	self.global_term = native.make(self)
 	return self
-end
-
-function Runtime:getPath()
-	return "[root]"
-end
-
-function Runtime:init()
 end
 
 function Runtime:recordLateLuaFunction(vFunc)
@@ -72,10 +63,6 @@ function Runtime:checkLateLuaFunction()
 	for fn, v in pairs(self._lateFnDict) do
 		fn:checkLateRun()
 	end
-end
-
-function Runtime:getNamespace()
-	return self._namespace
 end
 
 function Runtime:import(vPath)
@@ -117,10 +104,6 @@ function Runtime:load(vCode, vPath)
 	return nLuaFunc
 end
 
-function Runtime:newRegion(vContext)
-	return Region.new(self, vContext)
-end
-
 function Runtime:require(vPath)
 	local nRequireEnv = self._requireDict[vPath]
 	if not nRequireEnv then
@@ -145,10 +128,6 @@ function Runtime:require(vPath)
 			error("recursive require:"..vPath)
 	end
 	return nTerm
-end
-
-function Runtime:error(...)
-	print("runtime error TODO", ...)
 end
 
 return Runtime

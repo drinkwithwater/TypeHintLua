@@ -23,6 +23,5 @@ local Runtime = require "thlua.runtime.Runtime"
 
 
 local thlua = Runtime.new()
-thlua:init()
 
 return thlua

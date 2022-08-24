@@ -14,21 +14,13 @@ function ApplyContext.new(vRuntime, vApplyNode)
 		_newTypeRefer=false,
 		_meta=false,
 	}, ApplyContext)
-	self._region = vRuntime:newRegion(self)
+	self._region = Region.new(self._runtime, self)
 	self._meta = Meta.new(self._runtime, self._node, self, self._region)
 	return self
 end
 
 function ApplyContext:newContext(vApplyNode)
 	return self._runtime:newContext(vApplyNode)
-end
-
-function ApplyContext:getPath()
-	return tostring(self._node)
-end
-
-function ApplyContext:getNamespace()
-	return self._namespace
 end
 
 function ApplyContext:setNewTypeRefer(vRefer)
@@ -42,11 +34,7 @@ end
 function ApplyContext:BEGIN(vLexContext, vBlockNode)
 	local nSpace = vLexContext:getNamespace():createChild(self)
 	self._namespace = nSpace
-	return self:getRegion(), nSpace.localExport, nSpace.globalExport
-end
-
-function ApplyContext:getRuntime()
-	return self._runtime
+	return self._region, nSpace.localExport, nSpace.globalExport
 end
 
 return ApplyContext
