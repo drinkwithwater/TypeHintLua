@@ -98,7 +98,7 @@ function Region:WHILE(vNode, vTerm, vTrueFunction)
 	else
 		self._context:warn("while loop is unreachable scope")
 	end
-	local nTrueBranch = self.region:pop_branch()
+	local nTrueBranch = self:pop_branch()
 end
 
 function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
@@ -124,7 +124,7 @@ function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
 end
 
 function Region:FOR_NUM(vNode, vFunc, vStart, vStop, vStepOrNil)
-	vFunc(self._manager:UnionTerm(self._runtime.type.Number))
+	vFunc(self._manager:UnionTerm(self._manager.type.Number))
 end
 
 function Region:LOGIC_OR(vNode, vLeftTerm, vRightFunction)

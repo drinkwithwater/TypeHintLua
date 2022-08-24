@@ -262,21 +262,23 @@ function Meta:INVOKE(vTerm, vName, vArgTuple)
 		if vType == nNil then
 			self:warn("nil as invoke self")
 		else
-			local nFuncType = vType:meta_get(self, self._manager:Literal(vName))
 			local nNewArgTuple = self._manager:TermTuple({self._manager:UnionTerm(vType)}, vArgTuple)
-			if nFuncType == nNil then
-				self:warn("nil as invoke func")
-			elseif nFuncType:isNative() then
-				if not nNativePair then
-					nNativePair = {nFuncType, nNewArgTuple}
+			local nFuncType = vType:meta_get(self, self._manager:Literal(vName))
+			nFuncType:foreach(function(vSingleFuncType)
+				if vSingleFuncType == nNil then
+					self:warn("nil as invoke func")
+				elseif vSingleFuncType:isNative() then
+					if not nNativePair then
+						nNativePair = {vSingleFuncType, nNewArgTuple}
+					else
+						error("can't mix use native function")
+					end
 				else
-					print("can't mix use native function")
+					nFuncArgCaseList[#nFuncArgCaseList + 1] = {
+						vSingleFuncType, nNewArgTuple:getTypeTuple() , vTermCase
+					}
 				end
-			else
-				nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-					nFuncType, nNewArgTuple:getTypeTuple() , vTermCase
-				}
-			end
+			end)
 		end
 	end)
 	return meta_call(self, nNativePair, nFuncArgCaseList)

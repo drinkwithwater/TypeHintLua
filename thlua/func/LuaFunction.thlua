@@ -98,12 +98,6 @@ function LuaFunction:getPath()
 	return self.name
 end
 
-function LuaFunction:getNewTypeRefer()
-	local nTagFn = self._unionTagFn
-	assert(nTagFn.tag == LuaFunction.DEFINE, "only define function can get new")
-	return nTagFn.newTypeRefer
-end
-
 function LuaFunction:checkDefine()
 	local nTagFn = self._unionTagFn
 	local nManager = self._manager
@@ -137,6 +131,7 @@ function LuaFunction:checkDefine()
 	if nDefineType ~= nReturnType then
 		error("define function must return table")
 	end
+	nDefineType:close()
 	local nRetTuples = nManager:EmptyRetTuples():Add(nManager:Tuple(nDefineType))
 	nTagFn.fn = nManager:Function(nTypeTuple, nRetTuples)
 end

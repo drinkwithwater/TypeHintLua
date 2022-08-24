@@ -32,17 +32,6 @@ function LuaTable.new(vManager:class.TypeManager)::NewTable(class.LuaTable, clas
 	return self
 end
 
-function LuaTable:initByMove(vContext, vLuaTable)::Ret():nocheck()
-	self._init = true
-	self._keyType = vLuaTable._keyType
-	self._valueDict = vLuaTable._valueDict
-	self._meta = vLuaTable._meta
-	self._overrideLiteralSet = vLuaTable._overrideLiteralSet
-	if self.implType then
-		self:implement(vContext)
-	end
-end
-
 function LuaTable:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict(class.IAtomType, class.IValueType))::Ret()
 	self._init = true
 	self._keyType = vKeyType
@@ -322,6 +311,13 @@ function LuaTable:_intersectOneNotRefer(vType)
 		return self
 	else
 		return false
+	end
+end
+
+function LuaTable:close(vContext)
+	local nImplType = self.implType
+	if nImplType then
+		self:implement(vContext)
 	end
 end
 

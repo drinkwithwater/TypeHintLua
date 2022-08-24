@@ -236,12 +236,11 @@ local visitor_stm = {
 	Fornum={
 		override=function(visitor, node)
 			local blockNode
+			visitor:print("local fornum_r1, fornum_r2, fornum_r3 = ")
 			if #node == 4 then
-				visitor:print("local fornum_r1, fornum_r2 = ")
 				visitor:print(node[2], ", ", node[3], "\n")
 				blockNode = node[4]
 			elseif #node == 5 then
-				visitor:print("local fornum_r1, fornum_r2, fornum_r3 =")
 				visitor:print(node[2], ", ", node[3], ", ", node[4], "\n")
 				blockNode = node[5]
 			end
