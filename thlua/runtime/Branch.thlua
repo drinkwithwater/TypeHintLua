@@ -4,12 +4,14 @@ local UnionTerm = require "thlua.term.UnionTerm"
 
 local Branch = {}
 
+(@var.class = import("thlua.type.TypeClass").class)
+
 Branch.__index = Branch
 Branch.__tostring = function(self)
 	return "Branch"
 end
 
-function Branch.new(vContext, vPreBranch, vTermCase)
+function Branch.new(vContext:class.Context, vPreBranch:class.Branch, vTermCase:class.TermCase)::NewTable(class.Branch)
 	local nTermCase
 	if vPreBranch then
 		if vTermCase then
@@ -20,7 +22,7 @@ function Branch.new(vContext, vPreBranch, vTermCase)
 	else
 		nTermCase = TermCase.new()
 	end
-	return setmetatable({
+	return setmetatable({::New()
 		_context=vContext,
 		case=nTermCase,
 		symbolToTerm=setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm}),

@@ -8,34 +8,35 @@ local ContextClass = require "thlua.runtime.ContextClass"
 local Exception = require "thlua.Exception"
 local Reference = require "thlua.type.Reference"
 
-local ApplyContext = ContextClass()
+local Context = ContextClass()
 
+(@var.class = import("thlua.type.TypeClass").class)
 
-function ApplyContext.new(vRuntime, vApplyNode)
-	local self = setmetatable({
+function Context.new(vRuntime:class.Runtime, vApplyNode:class.AstNode)::NewTable(class.Context)
+	local self = setmetatable({::New()
 		_runtime=vRuntime,
 		_manager=vRuntime.typeManager,
 		_node=vApplyNode,
 		_namespace=false,
 		_newTypeRefer=false,
 		_region=false,
-	}, ApplyContext)
+	}, Context)
 	return self
 end
 
-function ApplyContext:newContext(vApplyNode)
+function Context:newContext(vApplyNode:class.AstNode)
 	return self._runtime:newContext(vApplyNode)
 end
 
-function ApplyContext:setNewTypeRefer(vRefer)
+function Context:setNewTypeRefer(vRefer:class.Reference)
 	self._newTypeRefer = vRefer
 end
 
-function ApplyContext:getNewTypeRefer()
+function Context:getNewTypeRefer()
 	return self._newTypeRefer
 end
 
-function ApplyContext:BEGIN(vLexContext, vBlockNode)
+function Context:BEGIN(vLexContext:Union(class.Context, class.Runtime), vBlockNode)
 	local nRegion = Region.new(self)
 	self._region = nRegion
 	local nSpace = vLexContext:getNamespace():createChild(self)
@@ -44,7 +45,7 @@ function ApplyContext:BEGIN(vLexContext, vBlockNode)
 end
 
 -- pack explist to termtuple or lazyfunc
-function ApplyContext:EXPLIST_PACK(vNode, vLazy:Boolean,
+function Context:EXPLIST_PACK(vNode, vLazy:Boolean,
 		l:List(class.TermTuple|class.UnionTerm|Fn():Ret(class.TermTuple|class.UnionTerm)))
 	local nTermList = {}
 	local nIndexToFunc = {}
@@ -105,7 +106,7 @@ function ApplyContext:EXPLIST_PACK(vNode, vLazy:Boolean,
 end
 
 -- unpack explist to vNum term | termtuple
-function ApplyContext:EXPLIST_UNPACK(vNode, vNum, ...)
+function Context:EXPLIST_UNPACK(vNode, vNum, ...)
 	local l = {...}
 	local re = {}
 	for i=1, vNum do
@@ -139,7 +140,7 @@ function ApplyContext:EXPLIST_UNPACK(vNode, vNum, ...)
 end
 
 -- unpack in function's argument & for_in
-function ApplyContext:TUPLE_UNPACK(vNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)
+function Context:TUPLE_UNPACK(vNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)
 	local l = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(i)
@@ -151,7 +152,7 @@ function ApplyContext:TUPLE_UNPACK(vNode, vTuple:class.TermTuple, vNum:Number, v
 end
 
 -- meta items
-function ApplyContext:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
+function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
     local nTypeCaseList = {}
 	local nOkay = self:nodePcall(vNode, function()
 		vTerm:foreach(function(vType, vTermCase)
@@ -171,7 +172,7 @@ function ApplyContext:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
 	end
 end
 
-function ApplyContext:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
+function Context:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
 		vTerm:foreach(function(vType, _)
@@ -186,7 +187,7 @@ function ApplyContext:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
 	end)
 end
 
-function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
+function Context:_apply(vNode, vNativePair, vFuncArgCaseList)
 	local ok, err = self:nodePcall(vNode, function()
 		local nListLen = #vFuncArgCaseList
 		if vNativePair then
@@ -248,7 +249,7 @@ function ApplyContext:_apply(vNode, vNativePair, vFuncArgCaseList)
 	end
 end
 
-function ApplyContext:META_CALL(vNode, vFuncTerm, vLazyFunc)
+function Context:META_CALL(vNode, vFuncTerm, vLazyFunc)
 	local nNativePair = nil
 	local nFuncArgCaseList = {}
 	local nNil = self._manager.type.Nil
@@ -273,7 +274,7 @@ function ApplyContext:META_CALL(vNode, vFuncTerm, vLazyFunc)
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
 
-function ApplyContext:META_INVOKE(vNode, vTerm, vName, vArgTuple)
+function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)
 	local nNativePair = nil
 	local nFuncArgCaseList = {}
 	local nNil = self._manager.type.Nil
@@ -303,7 +304,7 @@ function ApplyContext:META_INVOKE(vNode, vTerm, vName, vArgTuple)
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
 
-function ApplyContext:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)
+function Context:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)
 	local nTypeCaseList = {}
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		vRightTerm:foreach(function(vRightType, vRightTermCase)
@@ -331,7 +332,7 @@ function ApplyContext:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)
 	return self._manager:mergeToUnionTerm(nTypeCaseList)
 end
 
-function ApplyContext:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
+function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
 	local nCollection = self._manager:TypeCollection()
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		local nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(self, vOper)
@@ -361,7 +362,7 @@ function ApplyContext:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
 	return self._manager:UnionTerm(nCollection:mergeToType())
 end
 
-function ApplyContext:META_UOP(vNode, vOper, vData)
+function Context:META_UOP(vNode, vOper, vData)
 	local nTypeCaseList = {}
 	if vOper == "#" then
 		vData:foreach(function(vType, vTermCase)
@@ -381,7 +382,7 @@ function ApplyContext:META_UOP(vNode, vOper, vData)
 	return self._manager:mergeToUnionTerm(nTypeCaseList)
 end
 
-function ApplyContext:nodePcall(vNode, vFunc, ...)
+function Context:nodePcall(vNode, vFunc, ...)
 	local ok, err = xpcall(vFunc, function(exc)
 		if Exception.is(exc) then
 			return exc
@@ -399,16 +400,16 @@ function ApplyContext:nodePcall(vNode, vFunc, ...)
 	return ok, err
 end
 
-function ApplyContext:nodeError(vNode, ...)
+function Context:nodeError(vNode, ...)
   print("[ERROR] "..tostring(vNode), ...)
 end
 
-function ApplyContext:nodeWarn(vNode, ...)
+function Context:nodeWarn(vNode, ...)
   print("[WARN] "..tostring(vNode), ...)
 end
 
-function ApplyContext:nodeInfo(vNode, ...)
+function Context:nodeInfo(vNode, ...)
   print("[INFO] "..tostring(vNode), ...)
 end
 
-return ApplyContext
+return Context

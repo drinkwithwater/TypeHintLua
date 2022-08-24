@@ -4,26 +4,25 @@ local TypeFunction = require "thlua.func.TypeFunction"
 local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local TermTuple = require "thlua.tuple.TermTuple"
-local ApplyContext = require "thlua.runtime.ApplyContext"
+local Context = require "thlua.runtime.Context"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
 local Node = require "thlua.code.Node"
 
---[[
 
-var.RequireEnv = Struct {
+(@var.RequireEnv = Struct {
 	fn=class.LuaFunction,
 	term=Union(False, class.UnionTerm),
-	context=class.ApplyContext,
-}
-
-]]
+	context=class.Context,
+})
 
 local Runtime = ContextClass()
 
-function Runtime.new()
-	local self = setmetatable({
+(@var.class = import("thlua.type.TypeClass").class)
+
+function Runtime.new()::NewTable(class.Runtime)
+	local self = setmetatable({::New()
 		func={},
 		typeManager=nil,
 	}, {
@@ -78,7 +77,7 @@ function Runtime:main(vFileName, vContent)
 end
 
 function Runtime:newContext(vApplyNode)
-	return ApplyContext.new(self, vApplyNode)
+	return Context.new(self, vApplyNode)
 end
 
 function Runtime:load(vCode, vPath)
