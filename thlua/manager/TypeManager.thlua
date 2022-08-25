@@ -35,21 +35,22 @@ local UnionTerm = require "thlua.term.UnionTerm"
 
 local native = require "thlua.native"
 
+(@var.class = import("thlua.type.TypeClass").class)
+
 local TypeManager = {}
 TypeManager.__index=TypeManager
 
-function TypeManager.new(vRuntime)
-	--<< Pure():Argument(class.Runtime):Return(class.TypeManager)
+function TypeManager.new(vRuntime:class.Runtime)::Ret(class.TypeManager):nocheck()
 	local self = setmetatable({
 		_runtime=vRuntime,
 		type={},
 		builtin={},
 		coToRefer={},
-		_literalDict={}, -- {[string|number]=StringLiteral|NumberLiteral}
+		_literalDict={},
 		_unionSignToType={},
 		_structSignToType={},
 		_typeIdCounter=0,
-	}, TypeManager) -->> thlua.class.TypeManager
+	}, TypeManager)
 	self.type.Never = Never.new(self)
 	self.type.Nil = Nil.new(self)
 	self.type.False = BooleanLiteral.new(self, false)
@@ -162,7 +163,7 @@ function TypeManager:TypeCollection()
 	return TypeCollection.new(self)
 end
 
-function TypeManager:Union(...)
+function TypeManager:Union(...:Truth)
 	local n = select("#", ...)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
@@ -388,7 +389,7 @@ function TypeManager:Literal(vValue)
 	end
 end
 
-function TypeManager:Tuple(...)
+function TypeManager:Tuple(...:Truth)
 	local nTypeList = {...}
 	for i=1, select("#", ...) do
 		local nType = nTypeList[i]
@@ -409,12 +410,12 @@ function TypeManager:EmptyRetTuples()
 	return RetTuples.new(self)
 end
 
-function TypeManager:Mfn(...)
+function TypeManager:Mfn(...:Truth)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
 	return self:MemberFunction(nArgTuple, self:EmptyRetTuples())
 end
 
-function TypeManager:Fn(...)
+function TypeManager:Fn(...:Truth)
 	local nArgTuple = self:Tuple(...)
 	return self:Function(nArgTuple, self:EmptyRetTuples())
 end
@@ -431,10 +432,6 @@ function TypeManager:MemberFunction(vArgTuple, vRetTuples)
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
 	return self:_unifyStruct(nFunc)
-end
-
-function TypeManager:error(...)
-	self._runtime:error(...)
 end
 
 function TypeManager:UnionTerm(vType)

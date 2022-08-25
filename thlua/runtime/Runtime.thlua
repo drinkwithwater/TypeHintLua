@@ -1,6 +1,6 @@
 
-local TypeManager = require "thlua.manager.TypeManager"
 local TypeFunction = require "thlua.func.TypeFunction"
+local TypeManager = require "thlua.manager.TypeManager"
 local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local TermTuple = require "thlua.tuple.TermTuple"
@@ -8,8 +8,8 @@ local Context = require "thlua.runtime.Context"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
-local Node = require "thlua.code.Node"
 
+(@var.class = import("thlua.type.TypeClass").class)
 
 (@var.RequireEnv = Struct {
 	fn=class.LuaFunction,
@@ -19,7 +19,6 @@ local Node = require "thlua.code.Node"
 
 local Runtime = ContextClass()
 
-(@var.class = import("thlua.type.TypeClass").class)
 
 function Runtime.new()::NewTable(class.Runtime)
 	local self = setmetatable({::New()
@@ -36,7 +35,7 @@ function Runtime.new()::NewTable(class.Runtime)
 	nSpace:setContextName(self)
 	nSpace:close()
 	self._namespace = nSpace
-	self._node = Node.newRootNode()
+	self._node = CodeEnv.makeRootNode()
 	self._lateFnDict = {}
 	self._defineFnDict = {}
 	self.global_term = native.make(self)
