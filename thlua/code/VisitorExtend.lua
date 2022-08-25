@@ -209,7 +209,7 @@ local function VisitorExtend(vTable, vDictOrFunc) --[[::open()]]
 	local t = vTable
 	local nType = type(vDictOrFunc)
 	if nType == "table" then
-		function t:realVisit(node) --[[::nocheck()]]
+		function t:realVisit(node) --[[::nocheck():Ret()]]
 			local tag = node.tag
 			local f = vDictOrFunc[tag] or TagToTraverse[tag]
 			if not f then
@@ -218,13 +218,13 @@ local function VisitorExtend(vTable, vDictOrFunc) --[[::open()]]
 			f(self, node)
 		end
 	elseif nType == "function" then
-		function t:realVisit(node) --[[::nocheck()]]
+		function t:realVisit(node) --[[::nocheck():Ret()]]
 			vDictOrFunc(self, node)
 		end
 	else
 		error("VisitorExtend must take a function or dict for override")
 	end
-	function t:rawVisit(node) --[[::nocheck()]]
+	function t:rawVisit(node) --[[::nocheck():Ret()]]
 		TagToTraverse[node.tag](self, node)
 	end
 	return t

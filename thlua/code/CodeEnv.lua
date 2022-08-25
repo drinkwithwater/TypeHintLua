@@ -84,7 +84,7 @@ function CodeEnv:_parse()
 		vNode.index = nIndex
 		vNode.parent = nStack[#nStack] or false
 		vNode.path = self.path
-		vNode.l, vNode.c = self:fixupPos(vNode.pos)
+		vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
@@ -98,7 +98,7 @@ function CodeEnv:visit(vDictOrFunc)
 end
 
 -- pos to line & column
-function CodeEnv:fixupPos(vPos)
+function CodeEnv:fixupPos(vPos, vNode)
 	if vPos == 0 then
 		return 0, 1
 	end
@@ -107,10 +107,10 @@ function CodeEnv:fixupPos(vPos)
 	local nRight = #nList
 	assert(nRight>=nLeft)
 	if vPos > nList[nRight].finishPos then
-		print("warning pos out of range, "..vPos)
+		print("warning pos out of range1, "..vPos, vNode and vNode.tag)
 		return nRight, nList[nRight].finishPos - nList[nRight].startPos + 1
 	elseif vPos < nList[nLeft].startPos then
-		print("warning pos out of range, "..vPos)
+		print("warning pos out of range2, "..vPos, vNode and vNode.tag)
 		return 1, 1
 	end
 	local nMiddle = (nLeft + nRight)// 2
