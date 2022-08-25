@@ -7,6 +7,9 @@ local TermCase = require "thlua.term.TermCase"
 local FunctionBuilder = {}
 
 function FunctionBuilder.Begin(vContext, vRunFunc, vNode)
+	local nManager = vContext._manager
+	local nLuaFunc = nManager:LuaFunction()
+	nLuaFunc:init(vContext, vNode)
 	local nData = {
 		context=vContext,
 		node=vNode,
@@ -18,8 +21,8 @@ function FunctionBuilder.Begin(vContext, vRunFunc, vNode)
 		isGuard=false,
 		tag=LuaFunction.DEFAULT,
 		newTypeRefer=false,
+		luaFunc=nLuaFunc,
 	}
-	local nManager = vContext._manager
 	local function setTag(vTag)
 		if nData.tag == vTag then
 			error(nData.tag.."-fn can only be set once")
@@ -95,8 +98,7 @@ end
 function FunctionBuilder.End(vData)
 	local nContext = vData.context
 	local nManager = nContext._manager
-	local nLuaFunc = nManager:LuaFunction()
-	nLuaFunc:init(nContext, vData.node)
+	local nLuaFunc = vData.luaFunc
 	local nTag = vData.tag
 	if nTag == LuaFunction.OPEN then
 		assert(not vData.retTuples, "native function can't set ret")
