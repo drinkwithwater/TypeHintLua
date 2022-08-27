@@ -5,6 +5,7 @@ AutoArguments.__index=AutoArguments
 
 function AutoArguments.new(vManager, vArgList, vArgDots)
 	if Variable.is(vArgDots) then
+		-- auto TODO
 		vArgDots = vManager.type.Truth
 	end
 	return setmetatable({
@@ -23,7 +24,43 @@ function AutoArguments:hasVariable()
 	return false
 end
 
-function AutoArguments:check(vContext, vTypeTuple)
+function AutoArguments:checkWhenNocheck(vContext)
+	local nTypeList = {}
+	for i, arg in pairs(self._argList) do
+		if Variable.is(arg) then
+			nTypeList[i] = self._manager.type.Truth
+		else
+			nTypeList[i] = arg
+		end
+	end
+	local nTuple = self._manager:Tuple(table.unpack(nTypeList))
+	local nArgDots = self._argDots
+	if nArgDots then
+		return nTuple:Dots(nArgDots)
+	else
+		return nTuple
+	end
+end
+
+function AutoArguments:checkWhenLate(vContext)
+	local nTypeList = {}
+	for i, arg in pairs(self._argList) do
+		if Variable.is(arg) then
+			error("define-fn must hint args type,"..tostring(arg))
+		else
+			nTypeList[i] = arg
+		end
+	end
+	local nTuple = self._manager:Tuple(table.unpack(nTypeList))
+	local nArgDots = self._argDots
+	if nArgDots then
+		return nTuple:Dots(nArgDots)
+	else
+		return nTuple
+	end
+end
+
+function AutoArguments:checkWhenApply(vContext, vTypeTuple)
 	local nConvertList = {}
 	for i=1, #self._argList do
 		local nInputType = vTypeTuple:get(i)

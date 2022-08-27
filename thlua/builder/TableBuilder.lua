@@ -2,7 +2,7 @@
 local UnionTerm = require "thlua.term.UnionTerm"
 local TableBuilder = {}
 
-function TableBuilder.Begin(vContext, vPairMaker, vNode)
+function TableBuilder.Begin(vContext, vNode, vPairMaker)
 	local nData = {
 		context=vContext,
 		node=vNode,

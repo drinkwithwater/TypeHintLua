@@ -417,23 +417,7 @@ local visitor_exp = {
 	},
 	Function={
 		override=function(visitor, node)
-			visitor:print("____ctx:FUNC_NEW(", visitor:codeTopNode(), ", function(____newCtx, vArgTuple) \n")
-			visitor:indent()
-			visitor:indent()
 			local nParList = node[1]
-			if #nParList > 0 then
-				visitor:print("\tlocal ", node[1], "=", visitor:codeCtx("TUPLE_UNPACK"))
-				if nParList[#nParList].tag == "Dots" then
-					visitor:print(",vArgTuple,",tostring(#nParList-1),",true)\n")
-				else
-					visitor:print(",vArgTuple,",tostring(#nParList),",false)\n")
-				end
-			end
-			visitor:indent()
-			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ")\n")
-			node[2].is_function_block = true
-			visitor:print(node[2])
-			visitor:indent()
 			local nParHintList = {}
 			local nDotsHintScript = false
 			for i=1, #nParList do
@@ -454,17 +438,36 @@ local visitor_exp = {
 					end
 				end
 			end
-			local nLongHintScript = node.hintLong or ""
-			visitor:print("end, function(____builder) return ____builder:Args(", table.concat(nParHintList,","), ")")
-			if nDotsHintScript then
-				visitor:print(":Dots(", nDotsHintScript, ")")
+			local nParPrint = "____ctx:AutoArguments({" .. table.concat(nParHintList, ",")
+			if not nDotsHintScript then
+				nParPrint = nParPrint .. "})"
+			else
+				nParPrint = nParPrint .. "},"..nDotsHintScript..") "
 			end
-			visitor:print(nLongHintScript, " end)")
+			local nLongHintPrint = " function(____builder) return ____builder" .. (node.hintLong or "") .. " end "
+			visitor:print(" ____ctx:FUNC_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
+			visitor:indent()
+			visitor:indent()
+			if #nParList > 0 then
+				visitor:print("\tlocal ", node[1], "=", visitor:codeCtx("TUPLE_UNPACK"))
+				if nParList[#nParList].tag == "Dots" then
+					visitor:print(",vArgTuple,",tostring(#nParList-1),",true)\n")
+				else
+					visitor:print(",vArgTuple,",tostring(#nParList),",false)\n")
+				end
+			end
+			visitor:indent()
+			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ")\n")
+			node[2].is_function_block = true
+			visitor:print(node[2])
+			visitor:indent()
+			visitor:print("end)")
 		end
 	},
 	Table={
 		override=function(visitor, node)
-			visitor:print("____ctx:TABLE_NEW(", visitor:codeTopNode(), ", function() return {")
+			local nLongHintPrint = " function(____builder) return ____builder" .. (node.hintLong or "") .. " end "
+			visitor:print("____ctx:TABLE_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ", function() return {")
 			local count = 0
 			local tailDots = nil
 			for i=1, #node do
@@ -483,14 +486,12 @@ local visitor_exp = {
 				visitor:print(i < #node and "," or "")
 			end
 			if not tailDots then
-				visitor:print("}, 0, nil end, ")
+				visitor:print("}, 0, nil end) ")
 			else
 				visitor:print("}, ", count, ", ")
 				tailDots.table_tail = true
-				visitor:print(tailDots, " end, ")
+				visitor:print(tailDots, " end) ")
 			end
-			local nLongHintScript = node.hintLong or ""
-			visitor:print("function(____builder) return ____builder", nLongHintScript, " end )")
 		end,
 	},
 	Op = {

@@ -33,8 +33,7 @@ NocheckFn = Struct {
 DefineFn = Struct {
 	tag="define",
 	fn=Union(false, class.TypeFunction),
-	argList=List(Union(class.Variable, class.IValueType)),
-	argDots=Union(False, class.IKeyType),
+	autoArgs=class.AutoArguments,
 	runFunc=Truth,
 	newTypeRefer=Union(class.Reference, False),
 	once=Boolean,
@@ -107,17 +106,8 @@ function LuaFunction:checkDefine()
 		return
 	end
 	nTagFn.once = true
-	local nTypeList = {}
-	for i, arg in pairs(nTagFn.argList) do
-		if Variable.is(arg) then
-			error("define-fn must hint args type,"..tostring(self))
-		else
-			nTypeList[i] = arg
-		end
-	end
-	local nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
-	-- TODO check only return once in func running
 	local nContext = self:newInplaceContext()
+	local nTypeTuple = nTagFn.autoArgs:checkWhenLate(nContext)
 	nContext:setNewTypeRefer(nTagFn.newTypeRefer)
 	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
 	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
@@ -157,7 +147,7 @@ function LuaFunction:_checkLateCall(vTypeTuple)
 		return
 	end
 	nTagFn.once = true
-	local nTypeTuple = nTagFn.autoArgs:check(nContext, vTypeTuple)
+	local nTypeTuple = nTagFn.autoArgs:checkWhenApply(nContext, vTypeTuple)
 	local nRetTuples = nTagFn.retTuples
 	if nRetTuples then
 		nTagFn.fn = self._manager:Function(nTypeTuple, nRetTuples)

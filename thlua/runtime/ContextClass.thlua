@@ -3,6 +3,7 @@ local FunctionBuilder = require "thlua.builder.FunctionBuilder"
 local TableBuilder = require "thlua.builder.TableBuilder"
 local UnionTerm = require "thlua.term.UnionTerm"
 local Variable = require "thlua.func.Variable"
+local AutoArguments = require "thlua.func.AutoArguments"
 
 local function ContextClass()
 	local Context = {}
@@ -11,19 +12,23 @@ local function ContextClass()
 		return "context:"..self:getPath()
 	end
 
-	function Context:TABLE_NEW(vNode, vTableFunc, vHinterHandler)
-		local nData, nHintMethod = TableBuilder.Begin(self, vTableFunc, vNode)
+	function Context:TABLE_NEW(vNode, vHinterHandler, vPairMaker)
+		local nData, nHintMethod = TableBuilder.Begin(self, vNode, vPairMaker)
 		vHinterHandler(nHintMethod)
 		local nTableType = TableBuilder.End(nData)
 		return self._manager:UnionTerm(nTableType)
 	end
 
-	function Context:FUNC_NEW(vNode, vFunc, vHinterHandler)
-		local nData, nHintMethod = FunctionBuilder.Begin(self, vFunc, vNode)
+	function Context:FUNC_NEW(vNode, vHinterHandler, vAutoArgs, vFunc)
+		local nData, nHintMethod = FunctionBuilder.Begin(self, vNode, vAutoArgs, vFunc)
 		vHinterHandler(nHintMethod)
 		local nLuaFunc = FunctionBuilder.End(nData)
 		local nTerm = self._manager:UnionTerm(nLuaFunc)
 		return nTerm
+	end
+
+	function Context:AutoArguments(vArgList, vArgDots)
+		return AutoArguments.new(self._manager, vArgList, vArgDots)
 	end
 
 	function Context:HINT(vNode, vTerm, vType)
