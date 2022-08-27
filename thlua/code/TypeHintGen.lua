@@ -442,15 +442,15 @@ local visitor_exp = {
 					if nParNode.hintShort then
 						nDotsHintScript = nParNode.hintShort
 					else
-						nDotsHintScript = "____builder:Variable(false)"
+						nDotsHintScript = "____ctx:Variable(false)"
 					end
 				else
 					if nParNode.hintShort then
 						nParHintList[#nParHintList + 1] = nParNode.hintShort
 					elseif nParNode.self then
-						nParHintList[#nParHintList + 1] = "____builder:Variable(true)"
+						nParHintList[#nParHintList + 1] = "____ctx:Variable(true)"
 					else
-						nParHintList[#nParHintList + 1] = "____builder:Variable(false)"
+						nParHintList[#nParHintList + 1] = "____ctx:Variable(false)"
 					end
 				end
 			end

@@ -3,7 +3,7 @@ local json = require "thlua.server.json"
 local methodHandler = require "thlua.server.methodHandler"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
 
-(@var.lsp=import("thlua.server.message").lsp)
+(@var.lsp=import("thlua.server.protocol").lsp)
 
 local Client = {}
 
@@ -26,7 +26,6 @@ end
 function Client:rpc()::Ret()
 	local request = self:readRequest()
 	local methodName = request.method
-	self:warn("recv method:", methodName)
 	local nId = request.id
 	if not methodName then
 		if nId then
@@ -91,6 +90,7 @@ function Client:readRequest()::Ret(Truth)
 	if obj.jsonrpc ~= "2.0" then
 		error("json-rpc is not 2.0, "..tostring(obj.jsonrpc))
 	end
+	self:info("recv data:", data)
 	return obj
 end
 

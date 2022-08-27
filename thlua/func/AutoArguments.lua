@@ -4,7 +4,9 @@ local AutoArguments = {}
 AutoArguments.__index=AutoArguments
 
 function AutoArguments.new(vManager, vArgList, vArgDots)
-	assert(not Variable.is(vArgDots), "argDots can't be Variable in auto argument")
+	if Variable.is(vArgDots) then
+		vArgDots = vManager.type.Truth
+	end
 	return setmetatable({
 		_manager=vManager,
 		_argList=vArgList,

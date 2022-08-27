@@ -6,6 +6,15 @@ local AutoArguments = require "thlua.func.AutoArguments"
 local TermCase = require "thlua.term.TermCase"
 local FunctionBuilder = {}
 
+(@do
+	var.class = import("thlua.type.TypeClass").class
+	class.ArgsBuilder = Struct {
+		[Number] = Union(class.Variable, class.IValueType),
+		Dots = Union(class.Variable, Nil)
+	}
+end)
+
+
 function FunctionBuilder.Begin(vContext, vRunFunc, vNode)
 	local nManager = vContext._manager
 	local nLuaFunc = nManager:LuaFunction()
@@ -58,13 +67,9 @@ function FunctionBuilder.Begin(vContext, vRunFunc, vNode)
 			local nRetTuples = nData.retTuples
 			if not nRetTuples then
 				nRetTuples = nManager:EmptyRetTuples()
-				nData.retTuples = nRetTuples
 			end
 			nData.retTuples = nRetTuples:Add(nManager:Tuple(...))
 			return self
-		end,
-		Variable=function(self, vIsGeneric)
-			return nManager:Variable(vIsGeneric)
 		end,
 		nocheck=function(self)
 			setTag(LuaFunction.NOCHECK)
