@@ -5,16 +5,6 @@ local Variable = require "thlua.func.Variable"
 local TermCase = require "thlua.term.TermCase"
 local FunctionBuilder = {}
 
-(@do
-	var.class = import("thlua.type.TypeClass").class
-	class.ArgsBuilder = Struct ({
-		[Number] = Union(class.Variable, class.IValueType),
-		Dots = Union(class.Variable, class.IValueType, Nil)
-	}, {
-		next=true,
-	})
-end)
-
 function FunctionBuilder.Begin(vContext, vNode, vAutoArgs, vRunFunc)
 	local nManager = vContext._manager
 	local nLuaFunc = nManager:LuaFunction()
@@ -39,7 +29,7 @@ function FunctionBuilder.Begin(vContext, vNode, vAutoArgs, vRunFunc)
 		nData.tag = vTag
 	end
 	local nHintMethod = {
-		NewTable=function(self, vRefer, vStruct)
+		RetNew=function(self, vRefer, vStruct)
 			vRefer:setTypeAsync(function()
 				if Reference.is(vStruct) then
 					vStruct = vStruct:getTypeAwait()
@@ -131,7 +121,7 @@ function FunctionBuilder.End(vData)
 			retTuples=nRetTuples,
 			once=false,
 		})
-		if (not vData.autoArgs:hasVariable()) and nRetTuples then
+		if (not vData.autoArgs:hasVariable()) then
 			nContext:getRuntime():recordLateLuaFunction(nLuaFunc)
 		end
 	end

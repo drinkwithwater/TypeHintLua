@@ -10,7 +10,7 @@ function TableBuilder.Begin(vContext, vNode, vPairMaker)
 		newTypeRefer=false,
 	}
 	local nHintMethod = {
-		New=function(self)
+		Self=function(self)
 			nData.newTypeRefer = vContext:getNewTypeRefer()
 			return self
 		end,

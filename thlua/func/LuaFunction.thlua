@@ -2,7 +2,6 @@
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
 local Exception = require "thlua.Exception"
-local Variable = require "thlua.func.Variable"
 
 local LuaFunction = AtomTypeClass()
 
@@ -51,8 +50,8 @@ DefaultFn = Struct {
 
 end)
 
-function LuaFunction.new(vManager:class.TypeManager)::NewTable(class.LuaFunction, class.IAtomType)
-	local self = setmetatable({::New()
+function LuaFunction.new(vManager:class.TypeManager)::RetNew(class.LuaFunction, class.IAtomType)
+	local self = setmetatable({::Self()
 		_manager=vManager,
 		_context=false,
 		_node=false,
@@ -127,12 +126,29 @@ end
 -- called outside
 function LuaFunction:checkLateRun()
 	local nTagFn = self._unionTagFn
-	local nTermTuple = nTagFn.fn:getArgTuple():makeTermTuple()
-	local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
-	local nRetTypeTuple = nRetTermTuple:getTypeTuple()
-	local nRetTuples = nTagFn.fn:getReturnTuples()
-	if not nRetTuples:containTuple(nRetTypeTuple) then
-		self._context:error("return not match", nRetTuples, nRetTypeTuple)
+	local nTypeFn = nTagFn.fn
+	if nTypeFn then
+		local nTermTuple = nTypeFn:getArgTuple():makeTermTuple()
+		local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
+		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
+		local nRetTuples = nTagFn.fn:getReturnTuples()
+		if not nRetTuples:containTuple(nRetTypeTuple) then
+			self._context:error("return not match", nRetTuples, nRetTypeTuple)
+		end
+	else
+		local nArgsTypeTuple = nTagFn.autoArgs:checkWhenLate(self._context)
+		local nTermTuple = nArgsTypeTuple:makeTermTuple()
+		local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
+		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
+		local nRetTuples = nTagFn.retTuples
+		if nRetTuples then
+			if not nRetTuples:containTuple(nRetTypeTuple) then
+				self._context:error("return not match", nRetTuples, nRetTypeTuple)
+			end
+		else
+			nTagFn.retTuples = nRetTuples
+			nTagFn.fn = self._manager:Function(nArgsTypeTuple, nRetTypeTuple)
+		end
 	end
 end
 
