@@ -23,8 +23,6 @@ function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.
 		name=nil,
 		singleton=false,
 		_unionSign=false,
-		_ctorFunc=false,
-		_init=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		implType=false @Union(class.Struct, False),
@@ -33,27 +31,8 @@ function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.
 end
 
 function LuaTable:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict(class.IAtomType, class.IValueType))::Ret()
-	self._init = true
 	self._keyType = vKeyType
 	self._valueDict = vValueDict
-end
-
-function LuaTable:setCtor(vFunc, vImplType)
-	self._ctorFunc = vFunc
-	if vImplType then
-		self.implType = vImplType
-	end
-end
-
-function LuaTable:checkInit(vContext)
-	if not self._init then
-		local nCtorFunc = self._ctorFunc
-		if nCtorFunc then
-			nCtorFunc:checkDefine()
-		else
-			error("lua table checkInit but ctor not found")
-		end
-	end
 end
 
 function LuaTable:detailString(v)
@@ -65,7 +44,6 @@ function LuaTable:setName(name)
 end
 
 function LuaTable:meta_pairs(vContext)
-	self:checkInit(vContext)
 	local nStruct = self.implType
 	if nStruct then
 		return nStruct:meta_pairs(vContext)
@@ -74,7 +52,6 @@ function LuaTable:meta_pairs(vContext)
 end
 
 function LuaTable:meta_ipairs(vContext)
-	self:checkInit(vContext)
 	local nStruct = self.implType
 	if nStruct then
 		return nStruct:meta_ipairs(vContext)
@@ -83,7 +60,6 @@ function LuaTable:meta_ipairs(vContext)
 end
 
 function LuaTable:native_next(vContext, vInitType)
-	self:checkInit(vContext)
 	local nStruct = self.implType
 	if nStruct then
 		return nStruct:native_next(vContext, vInitType)
@@ -93,13 +69,11 @@ end
 
 function LuaTable:native_setmetatable(vMetaTableType)
 	-- TODO thinking when to lock this ???
-	self:checkInit(vContext)
 	self._meta = vMetaTableType
 	return self
 end
 
 function LuaTable:native_getmetatable()
-	self:checkInit(vContext)
 	if self._meta then
 		return self._meta
 	else
@@ -112,7 +86,6 @@ function LuaTable:native_type()
 end
 
 function LuaTable:native_rawget(vContext, vKeyType, vSilent:Nil|True)::Ret(class.IKeyType)
-	self:checkInit(vContext)
 	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
 	if nKeyContainType then
 		return self._valueDict[nKeyContainType]!
@@ -126,7 +99,6 @@ function LuaTable:native_rawget(vContext, vKeyType, vSilent:Nil|True)::Ret(class
 end
 
 function LuaTable:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil, Boolean))
-	self:checkInit(vContext)
 	local nContainType = self._keyType:_containOneNotRefer(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
@@ -182,7 +154,6 @@ function LuaTable:_meta_get(vContext, vKeyType)::Ret(class.IKeyType)
 end
 
 function LuaTable:meta_get(vContext, vKeyType:class.IAtomType)
-	self:checkInit(vContext)
 	local nImplType = self.implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
@@ -236,7 +207,6 @@ function LuaTable:_meta_set(vContext, vKeyType:class.IAtomType, vValueType:class
 end
 
 function LuaTable:meta_set(vContext, vKeyType, vValueType)
-	self:checkInit(vContext)
 	local nImplType = self.implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
@@ -249,7 +219,6 @@ function LuaTable:meta_set(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
-	self:checkInit(vContext)
 	local nImplType = self.implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():contain(vKeyType)
@@ -262,18 +231,15 @@ function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:meta_len(vContext)
-	self:checkInit(vContext)
 	return self._manager.type.Number
 end
 
 function LuaTable:meta_uop_some(vContext, vOper)
-	self:checkInit(vContext)
 	vContext:error("meta uop TODO:"..tostring(vOper))
 	return self._manager.type.Never
 end
 
 function LuaTable:meta_bop_func(vContext, vOper)
-	self:checkInit(vContext)
 	local nMetaTable = self._meta
 	if not nMetaTable then
 		return false, nil
@@ -314,7 +280,7 @@ function LuaTable:_intersectOneNotRefer(vType)
 	end
 end
 
-function LuaTable:close(vContext)
+function LuaTable:seal(vContext)
 	local nImplType = self.implType
 	if nImplType then
 		self:implement(vContext)

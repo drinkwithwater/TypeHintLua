@@ -35,6 +35,7 @@ DefineFn = Struct {
 	autoArgs=class.AutoArguments,
 	runFunc=Truth,
 	newTypeRefer=Union(class.Reference, False),
+	newTypeImpl=Union(class.IValueType, False),
 	once=Boolean,
 }
 
@@ -107,7 +108,7 @@ function LuaFunction:checkDefine()
 	nTagFn.once = true
 	local nContext = self:newInplaceContext()
 	local nTypeTuple = nTagFn.autoArgs:checkWhenLate(nContext)
-	nContext:setNewTypeRefer(nTagFn.newTypeRefer)
+	nContext:setNewTagFn(nTagFn)
 	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
 	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
 	if #nRightTypeTuple ~= 1 then
@@ -118,7 +119,7 @@ function LuaFunction:checkDefine()
 	if nDefineType ~= nReturnType then
 		error("define function must return table")
 	end
-	nDefineType:close(nContext)
+	nDefineType:seal(nContext)
 	local nRetTuples = nManager:EmptyRetTuples():Add(nManager:Tuple(nDefineType))
 	nTagFn.fn = nManager:Function(nTypeTuple, nRetTuples)
 end

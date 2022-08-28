@@ -19,6 +19,7 @@ function FunctionBuilder.Begin(vContext, vNode, vAutoArgs, vRunFunc)
 		isGuard=false,
 		tag=LuaFunction.DEFAULT,
 		newTypeRefer=false,
+		newTypeImpl=false,
 		luaFunc=nLuaFunc,
 	}
 	local function setTag(vTag)
@@ -30,17 +31,10 @@ function FunctionBuilder.Begin(vContext, vNode, vAutoArgs, vRunFunc)
 	end
 	local nHintMethod = {
 		RetNew=function(self, vRefer, vStruct)
-			vRefer:setTypeAsync(function()
-				if Reference.is(vStruct) then
-					vStruct = vStruct:getTypeAwait()
-				end
-				local nTable = nManager:LuaTable()
-				nTable:setCtor(nLuaFunc, vStruct)
-				nTable.name = tostring(vRefer)
-				return nTable
-			end)
+			vRefer:setTypeCtor(nLuaFunc)
 			setTag(LuaFunction.DEFINE)
 			nData.newTypeRefer = vRefer
+			nData.newTypeImpl = vStruct
 			assert(not nData.retTuples, "define function can't return other")
 			return self
 		end,
