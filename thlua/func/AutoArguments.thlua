@@ -1,14 +1,21 @@
 
 local Variable = require "thlua.func.Variable"
+
+(@do
+	var.class = import("thlua.type.TypeClass").class
+	var.VariableOrType = Union(class.Variable, class.IValueType)
+end)
+
 local AutoArguments = {}
 AutoArguments.__index=AutoArguments
 
-function AutoArguments.new(vManager, vArgList, vArgDots)
+function AutoArguments.new(vManager:class.TypeManager,
+	vArgList:List(VariableOrType), vArgDots:VariableOrType)::RetNew(class.AutoArguments)
 	if Variable.is(vArgDots) then
 		-- auto TODO
 		vArgDots = vManager.type.Truth
 	end
-	return setmetatable({
+	return setmetatable({::New()
 		_manager=vManager,
 		_argList=vArgList,
 		_argDots=vArgDots,

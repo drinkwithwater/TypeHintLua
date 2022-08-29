@@ -5,60 +5,67 @@ local Variable = require "thlua.func.Variable"
 local TermCase = require "thlua.term.TermCase"
 local FunctionBuilder = {}
 
-function FunctionBuilder.Begin(vContext, vNode, vAutoArgs, vRunFunc)
+(@var.class = import("thlua.type.TypeClass").class)
+
+FunctionBuilder.__index=FunctionBuilder
+
+function FunctionBuilder.new(vContext:class.Context,
+	vNode:class.AstNode, vAutoArgs:class.AutoArguments, vRunFunc:class.GenFunc)::RetNew(class.FunctionBuilder)
 	local nManager = vContext._manager
 	local nLuaFunc = nManager:LuaFunction()
 	nLuaFunc:init(vContext, vNode)
-	local nData = {
-		context=vContext,
-		node=vNode,
-		autoArgs=vAutoArgs,
-		retTuples=false,
-		runFunc=vRunFunc,
-		guardFunc=false,
-		isGuard=false,
-		tag=LuaFunction.DEFAULT,
-		newTypeRefer=false,
-		newTypeImpl=false,
-		luaFunc=nLuaFunc,
-	}
+	return setmetatable({::New()
+		_context=vContext,
+		_manager=nManager,
+		_retTuples=false,
+		_runFunc=vRunFunc,
+		_newTypeRefer=false,
+		_newTypeImpl=false,
+		_luaFunc=nLuaFunc,
+		_autoArgs=vAutoArgs,
+		_guardFunc=false,
+		_tag=LuaFunction.DEFAULT,
+	}, FunctionBuilder)
+end
+
+function FunctionBuilder.newLongHint(self)
 	local function setTag(vTag)
-		if nData.tag == vTag then
-			error(nData.tag.."-fn can only be set once")
+		if self._tag == vTag then
+			error(self._tag.."-fn can only be set once")
 		end
-		assert(nData.tag == LuaFunction.DEFAULT, nData.tag.."-fn can't set "..vTag)
-		nData.tag = vTag
+		assert(self._tag == LuaFunction.DEFAULT, self._tag.."-fn can't set "..vTag)
+		self._tag = vTag
 	end
-	local nHintMethod = {
-		RetNew=function(self, vRefer, vStruct)
-			vRefer:setTypeCtor(nLuaFunc)
+	return {
+		RetNew=function(vLongHint, vRefer, vStruct)
+			vRefer:setTypeCtor(self._luaFunc)
 			setTag(LuaFunction.DEFINE)
-			nData.newTypeRefer = vRefer
-			nData.newTypeImpl = vStruct
-			assert(not nData.retTuples, "define function can't return other")
-			return self
+			self._newTypeRefer = vRefer
+			self._newTypeImpl = vStruct
+			assert(not self._retTuples, "define function can't return other")
+			return vLongHint
 		end,
-		Ret=function(self, ...)
-			local nRetTuples = nData.retTuples
+		Ret=function(vLongHint, ...)
+			local nRetTuples = self._retTuples
 			if not nRetTuples then
-				nRetTuples = nManager:EmptyRetTuples()
+				nRetTuples = self._manager:EmptyRetTuples()
 			end
-			nData.retTuples = nRetTuples:Add(nManager:Tuple(...))
-			return self
+			self._retTuples = nRetTuples:Add(self._manager:Tuple(...))
+			return vLongHint
 		end,
-		nocheck=function(self)
+		nocheck=function(vLongHint)
 			setTag(LuaFunction.NOCHECK)
-			return self
+			return vLongHint
 		end,
-		open=function(self)
+		open=function(vLongHint)
 			setTag(LuaFunction.OPEN)
-			return self
+			return vLongHint
 		end,
-		isguard=function(self, vType)
+		isguard=function(vLongHint, vType)
 			setTag(LuaFunction.OPEN)
-			local nTrue = nManager.type.True
-			local nFalse = nManager.type.False
-			nData.guardFunc=function(self, vTermTuple)
+			local nTrue = self._manager.type.True
+			local nFalse = self._manager.type.False
+			self._guardFunc=function(vLongHint, vTermTuple)
 				-- TODO isguard add refinement
 				local nTerm = vTermTuple:get(1)
 				local caseTrue = TermCase.new()
@@ -67,59 +74,56 @@ function FunctionBuilder.Begin(vContext, vNode, vAutoArgs, vRunFunc)
 					{nTrue, caseTrue},
 					{nFalse, TermCase.new()},
 				}
-				return nManager:mergeToUnionTerm(nTypeCaseList)
+				return self._manager:mergeToUnionTerm(nTypeCaseList)
 			end
-			return self
+			return vLongHint
 		end,
 	}
-	return nData, nHintMethod
 end
 
-function FunctionBuilder.End(vData)
-	local nContext = vData.context
-	local nManager = nContext._manager
-	local nLuaFunc = vData.luaFunc
-	local nTag = vData.tag
+function FunctionBuilder:build()
+	local nTag = self._tag
 	if nTag == LuaFunction.OPEN then
-		assert(not vData.retTuples, "native function can't set ret")
-		nLuaFunc:setUnionFn({
+		assert(not self._retTuples, "native function can't set ret")
+		self._luaFunc:setUnionFn({
 			tag=nTag,
-			fn=nManager:NativeFunction(vData.guardFunc or vData.runFunc),
-			isGuard=vData.guardFunc and true,
+			fn=self._manager:NativeFunction(self._guardFunc or self._runFunc),
+			isGuard=self._guardFunc and true,
 		})
 	elseif nTag == LuaFunction.NOCHECK then
-		if not vData.retTuples then
+		if not self._retTuples then
 			error("nocheck-fn must set ret")
 		end
-		nLuaFunc:setUnionFn({
+		self._luaFunc:setUnionFn({
 			tag=nTag,
-			fn=nManager:Function(vData.autoArgs:checkWhenNocheck(nContext), vData.retTuples)
+			fn=self._manager:Function(self._autoArgs:checkWhenNocheck(self._context), self._retTuples)
 		})
-	elseif vData.tag == LuaFunction.DEFINE then
-		nLuaFunc:setUnionFn({
+	elseif nTag == LuaFunction.DEFINE then
+		self._luaFunc:setUnionFn({
 			tag=nTag,
 			fn=false,
-			autoArgs=vData.autoArgs,
-			runFunc=vData.runFunc,
-			newTypeRefer=vData.newTypeRefer,
+			autoArgs=self._autoArgs,
+			runFunc=self._runFunc,
+			newTypeRefer=self._newTypeRefer,
 			once=false,
 		})
-		nContext:getRuntime():recordDefineLuaFunction(nLuaFunc)
-	elseif vData.tag == LuaFunction.DEFAULT then
-		local nRetTuples = vData.retTuples
-		nLuaFunc:setUnionFn({
+		self._context:getRuntime():recordDefineLuaFunction(self._luaFunc)
+	elseif nTag == LuaFunction.DEFAULT then
+		local nRetTuples = self._retTuples
+		self._luaFunc:setUnionFn({
 			tag=nTag,
 			fn=false,
-			autoArgs=vData.autoArgs,
-			runFunc=vData.runFunc,
+			autoArgs=self._autoArgs,
+			runFunc=self._runFunc,
 			retTuples=nRetTuples,
 			once=false,
 		})
-		if (not vData.autoArgs:hasVariable()) then
-			nContext:getRuntime():recordLateLuaFunction(nLuaFunc)
+		if (not self._autoArgs:hasVariable()) then
+			self._context:getRuntime():recordLateLuaFunction(self._luaFunc)
 		end
 	end
-	return nLuaFunc
+	return self._luaFunc
 end
+
 
 return FunctionBuilder
