@@ -52,7 +52,7 @@ DefaultFn = Struct {
 end)
 
 function LuaFunction.new(vManager:class.TypeManager)::RetNew(class.LuaFunction, class.IAtomType)
-	local self = setmetatable({::Self()
+	local self = setmetatable({::New()
 		_manager=vManager,
 		_context=false,
 		_node=false,
@@ -106,7 +106,11 @@ function LuaFunction:checkDefine()
 		return
 	end
 	nTagFn.once = true
+	local nRefer = nTagFn.newTypeRefer
 	local nContext = self:newInplaceContext()
+	nRefer:setTypeAsync(function()
+		return nContext._manager:LuaTable()
+	end)
 	local nTypeTuple = nTagFn.autoArgs:checkWhenLate(nContext)
 	nContext:setNewTagFn(nTagFn)
 	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
@@ -115,7 +119,7 @@ function LuaFunction:checkDefine()
 		error("define-fn can't return more than one value")
 	end
 	local nReturnType = nRightTypeTuple:get(1):checkType()
-	local nDefineType = nTagFn.newTypeRefer:checkType()
+	local nDefineType = nRefer:checkType()
 	if nDefineType ~= nReturnType then
 		error("define function must return table")
 	end

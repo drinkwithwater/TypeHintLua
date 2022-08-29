@@ -8,7 +8,7 @@ local Reference = TypeClass()
 (@var.class = import("thlua.type.TypeClass").class)
 
 function Reference.new(vManager:class.TypeManager, vNameOrFalse:String)::RetNew(class.Reference)
-	local self = setmetatable({::Self()
+	local self = setmetatable({::New()
 		_manager=vManager,
 		_name=vNameOrFalse,
 		id=vManager:genTypeId(),
@@ -17,7 +17,7 @@ function Reference.new(vManager:class.TypeManager, vNameOrFalse:String)::RetNew(
 		_referType=(false @ Union(class.IKeyType, False)),
 		_thread=false,
 		_waitThreads={},
-		_ctorFunc=false,
+		_newFunc=false,
 	}, Reference)
 	return self
 end
@@ -31,7 +31,8 @@ function Reference:detailString(v)
 end
 
 function Reference:setTypeCtor(vLuaFunc)
-	self._ctorFunc = vLuaFunc
+	assert(not self._newFunc, tostring(self._name).."NewFunc conflict")
+	self._newFunc = vLuaFunc
 end
 
 function Reference:setTypeAsync(vFunc)::Ret():nocheck()
@@ -63,9 +64,9 @@ end
 
 function Reference:getTypeAwait()
 	if not self._referType then
-        local co, _ = coroutine.running()
-        local nWaitingRefer = self._manager.coToRefer[co]
-        assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
+		local co, _ = coroutine.running()
+		local nWaitingRefer = self._manager.coToRefer[co]
+		assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
 		nWaitingRefer._waitRefer = self
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
@@ -89,16 +90,17 @@ end
 
 function Reference:checkType()::Ret(class.IKeyType)
 	if not self._referType then
-		local nCtorFunc = self._ctorFunc
+		local nCtorFunc = self._newFunc
 		if nCtorFunc then
 			nCtorFunc:checkDefine()
-		end
-		while true do
-			local nWaitRefer = self._waitRefer
-			if not nWaitRefer then
-				break
-			else
-				nWaitRefer:checkType()
+		else
+			while true do
+				local nWaitRefer = self._waitRefer
+				if not nWaitRefer then
+					break
+				else
+					nWaitRefer:checkType()
+				end
 			end
 		end
 	end

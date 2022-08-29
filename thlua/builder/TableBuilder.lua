@@ -3,27 +3,19 @@ local UnionTerm = require "thlua.term.UnionTerm"
 local TableBuilder = {}
 
 function TableBuilder.Begin(vContext, vNode, vPairMaker)
-	local nManager = vContext._manager
-	local nTableType = nManager:LuaTable()
-	nTableType:setName("("..vContext:getPath().."-"..tostring(vNode)..")")
 	local nData = {
 		context=vContext,
 		node=vNode,
 		pairMaker=vPairMaker,
-		luaTable=nTableType,
+		selfTable=false,
 	}
 	-- 1. create table
 	local nHintMethod = {
-		Self=function(self)
-			local nTagFn = vContext:getNewTagFn()
-			local nImpl = nTagFn.newTypeImpl
-			if nImpl then
-				nTableType.implType = nImpl
-			end
-			local nRefer = nTagFn.newTypeRefer
-			nRefer:setTypeAsync(function()
-				return nTableType
-			end)
+		New=function(self)
+			local nTagFn = assert(vContext:getNewTagFn(), "New() can only work with RetNew()")
+			local nRefer = assert(nTagFn.newTypeRefer, "New() can only work with RetNew()")
+			local nTableType = nRefer:checkType()
+			nData.selfTable = nTableType
 			return self
 		end,
 	}
@@ -33,8 +25,8 @@ end
 function TableBuilder.End(vData)
 	local nContext = vData.context
 	local nManager = nContext._manager
-	local nTableType = vData.luaTable
-	-- 3. set table's key value
+	local nTableType = vData.selfTable or nManager:LuaTable()
+	nTableType:setName("("..nContext:getPath().."-"..tostring(vNode)..")")
 	local vList, vDotsStart, vDotsTuple = vData.pairMaker()
 	local nTypePairList = {}
 	for i, nPair in ipairs(vList) do
