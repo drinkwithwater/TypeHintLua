@@ -2,41 +2,41 @@
 local Reference = require "thlua.type.Reference"
 local Namespace = {}
 Namespace.__tostring=function(self)
-	return "namespace-"..tostring(self._context:getPath())..tostring(self._name or "")
+	return (self:isVarSpace() and "varspace-" or "namespace-") .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 Namespace.__index=Namespace
 
-function Namespace.new(vManager, vIndexTable)
+function Namespace.new(vManager, vNode, vIndexTable)
 	local self = setmetatable({
 		_manager=vManager,
-		_name2type=vIndexTable and setmetatable({}, {__index=vIndexTable}) or {},
+		_key2type=vIndexTable and setmetatable({}, {__index=vIndexTable}) or {},
 		_closed=false,
-		_context=false,
-		_name=false,
+		_node=vNode,
+		_key=false,
 	}, Namespace)
 	self.localExport=setmetatable({}, {
 		__index=function(_,k)
-			local rawgetV = rawget(self._name2type, k)
+			local rawgetV = rawget(self._key2type, k)
 			if rawgetV ~= nil then
 				return rawgetV
 			end
 			if self._closed then
 				error("namespace closed, can't create key="..tostring(k))
 			end
-			local getV = self._name2type[k]
+			local getV = self._key2type[k]
 			if getV ~= nil then
 				error("var shadow get : key="..tostring(k))
 			end
 			local refer = self._manager:Reference(k)
-			self._name2type[k] = refer
+			self._key2type[k] = refer
 			return refer
 		end,
 		__newindex=function(_,k,newV)
 			if self._closed then
 				error("namespace closed, can't create key="..tostring(k))
 			end
-			local getV = self._name2type[k]
-			local rawgetV = rawget(self._name2type, k)
+			local getV = self._key2type[k]
+			local rawgetV = rawget(self._key2type, k)
 			if getV ~= nil and rawgetV == nil then
 				error("var shadow set : key="..tostring(k))
 			end
@@ -57,20 +57,18 @@ function Namespace.new(vManager, vIndexTable)
 			else
 				local namespace = Namespace.fromLocalExport(newV)
 				if namespace then
-					if not namespace._context then
-						namespace:setContextName(self._context, k)
-					end
-					self._name2type[k] = newV
+					namespace:trySetKey(k)
+					self._key2type[k] = newV
 				else
 					if Reference.is(newV) then
-						self._name2type[k] = newV
+						self._key2type[k] = newV
 					else
 						self._manager:assertValueType(newV)
 						local refer = self._manager:Reference(k)
 						refer:setTypeAsync(function()
 							return newV
 						end)
-						self._name2type[k] = refer
+						self._key2type[k] = refer
 					end
 				end
 			end
@@ -82,7 +80,7 @@ function Namespace.new(vManager, vIndexTable)
 	})
 	self.globalExport=setmetatable({}, {
 		__index=function(_,k)
-			local v = self._name2type[k]
+			local v = self._key2type[k]
 			if v ~= nil then
 				return v
 			end
@@ -98,12 +96,14 @@ function Namespace.new(vManager, vIndexTable)
 	return self
 end
 
-function Namespace:setContextName(vContext, vName)
-	assert(not self._context, "context can only be set once")
-	self._context = vContext
-	if vName then
-		self._name = vName
+function Namespace:trySetKey(vKey)
+	if not self._key then
+		self._key = vKey
 	end
+end
+
+function Namespace:isVarSpace()
+	return getmetatable(self._key2type) and true or false
 end
 
 function Namespace.fromLocalExport(t)
@@ -117,19 +117,12 @@ function Namespace.fromLocalExport(t)
 	return false
 end
 
-function Namespace:setName(vName)
-	assert(type(vName) == "string", "namespace's name must be string")
-	self._name = vName
-end
-
-function Namespace:createChild(vContext)
-	local nSpace = Namespace.new(self._manager, self._name2type)
-	nSpace:setContextName(vContext)
-	return nSpace
-end
-
 function Namespace:close()
 	self._closed=true
+end
+
+function Namespace:getKeyToType()
+	return self._key2type
 end
 
 return Namespace

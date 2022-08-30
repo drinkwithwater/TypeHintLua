@@ -295,8 +295,8 @@ function CodeEnv.thluaSearchContent(name, searchLua)
 	return true, thluaCode, fileName
 end
 
-function CodeEnv.makeRootNode()
-	return Node.newRootNode()
+function CodeEnv:getAstTree()
+	return self.ast
 end
 
 return CodeEnv

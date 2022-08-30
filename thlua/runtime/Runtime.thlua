@@ -8,6 +8,7 @@ local Context = require "thlua.runtime.Context"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
+local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
 
 (@var.class = import("thlua.type.TypeClass").class)
@@ -32,11 +33,8 @@ function Runtime.new()::RetNew(class.Runtime)
 	self._runtime = self
 	self.typeManager = TypeManager.new(self)
 	self._manager = self.typeManager
-	local nSpace = self:RootNamespace()
-	nSpace:setContextName(self)
-	nSpace:close()
-	self._namespace = nSpace
-	self._node = CodeEnv.makeRootNode()
+	self._node = Node.newRootNode()
+	self._namespace = self:RootNamespace()
 	self._lateFnDict = {}
 	self._defineFnDict = {}
 	self.global_term = native.make(self)
@@ -72,19 +70,19 @@ function Runtime:import(vPath)
 end
 
 function Runtime:main(vFileName, vContent)
-	local nLuaFunc = self:load(vContent, vFileName)
+	local nLuaFunc, nEnv = self:load(vContent, vFileName)
 	local nTermTuple = self.typeManager:TermTuple({})
-	nLuaFunc:meta_native_call(self:newContext(self._node), nTermTuple)
+	nLuaFunc:meta_native_call(self:newContext(nEnv:getAstTree()), nTermTuple)
 end
 
 function Runtime:newContext(vApplyNode)
 	return Context.new(self, vApplyNode)
 end
 
-function Runtime:load(vCode, vPath)
+function Runtime:load(vCode, vPath)::Ret(class.LuaFunction, class.CodeEnv)
 	local nEnv = CodeEnv.new(vCode, vPath, vPath, self._node)
 	local nAfterContent = nEnv:genTypingCode()
-	local nFunc, nInfo = load(nAfterContent, "typing:"..vPath, "t", setmetatable({}, {
+	local nFunc, nInfo = load(nAfterContent, "hint:"..vPath, "t", setmetatable({}, {
 		__index=function(t,k)
 			error("indexing global is logic error")
 		end
@@ -100,7 +98,7 @@ function Runtime:load(vCode, vPath)
 		fn=self.typeManager:NativeFunction(nRunFunc),
 		isGuard=false,
 	})
-	return nLuaFunc
+	return nLuaFunc, nEnv
 end
 
 function Runtime:require(vPath)
@@ -110,7 +108,7 @@ function Runtime:require(vPath)
 		if not nOkay then
 				error(nContent)
 		end
-		local nLuaFunc = self:load(nContent, vPath)
+		local nLuaFunc, nEnv = self:load(nContent, vPath)
 		nRequireEnv = {
 			term=false,
 			fn=nLuaFunc,
@@ -118,7 +116,7 @@ function Runtime:require(vPath)
 		}
 		self._requireDict[vPath] = nRequireEnv
 		local nTermTuple = self.typeManager:TermTuple({})
-		local ret = nLuaFunc:meta_native_call(self:newContext(self._node), nTermTuple)
+		local ret = nLuaFunc:meta_native_call(self:newContext(nEnv:getAstTree()), nTermTuple)
 		nRequireEnv.term = ret:get(1)
 		nRequireEnv.context = ret:getContext()
 	end
@@ -130,11 +128,24 @@ function Runtime:require(vPath)
 end
 
 function Runtime:TreeNamespace()
-	return Namespace.new(self._manager)
+	return Namespace.new(self._manager, Node.getDebugNode(4))
 end
 
 function Runtime:RootNamespace()
-	return Namespace.new(self._manager, self._manager:buildSimpleGlobal())
+	local nSpace = Namespace.new(self._manager, self._node, self._manager:buildSimpleGlobal())
+	nSpace:trySetKey("")
+	nSpace:close()
+	return nSpace
+end
+
+function Runtime:VarNamespace(vParentVar, vBlockNode)
+	local nSpace = Namespace.new(self._manager, vBlockNode, vParentVar:getKeyToType())
+	nSpace:trySetKey("")
+	return nSpace
+end
+
+function Runtime:makeDebugNode(vDepth)
+	return Node.getDebugNode(vDepth)
 end
 
 return Runtime

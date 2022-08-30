@@ -229,11 +229,16 @@ end)]]
 local Node = {}
 
 function Node.__tostring(self)
-	return self.path..":".. self.l .."," .. self.c
+	return self.path..":".. self.l ..(self.c and ("," .. self.c) or "")
 end
 
 function Node.newRootNode()
 	return setmetatable({tag = "Root", pos = 0, l=0, c=0, path="root"}, Node)
+end
+
+function Node.getDebugNode(vDepth)
+	local nInfo = debug.getinfo(vDepth)
+	return setmetatable({tag = "Root", pos=0, l=nInfo.currentline, path=nInfo.source}, Node)
 end
 
 return Node
