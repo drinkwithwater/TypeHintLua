@@ -142,8 +142,9 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 		v:set_name(k)
 	end
 
+	global.string=nManager.builtin.string
+
 	global.math=native.make_math(nManager)
-	global.string=native.make_string(nManager)
 	global.table=native.make_table(nManager)
 	global.io=native.make_io(nManager)
 
@@ -155,9 +156,10 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 end
 
 function native.make_math(vManager)
-	local nNumber = vManager.type.Number
+	local type = vManager.type
 	local math = {
-		random=vManager:Fn():Dots(nNumber):Ret(nNumber),
+		random=vManager:Fn():Dots(type.Number):Ret(type.Number),
+		tointeger=vManager:Fn(type.Any):Ret(vManager:Union(type.Number, type.Nil)),
 	}
 	local nTable = native._toTable(vManager, math)
 	nTable:setName("math")
@@ -169,7 +171,7 @@ function native.make_io(vManager)
 	local io = {
 		read=vManager:Fn(vManager:Union(type.String, type.Number)):Ret(vManager:Union(type.String, type.Nil)),
 		write=vManager:Fn(type.String),
-		flush=vManager:Fn()
+		flush=vManager:Fn(),
 	}
 	local nTable = native._toTable(vManager, io)
 	nTable:setName("io")
@@ -177,13 +179,15 @@ function native.make_io(vManager)
 end
 
 function native.make_string(vManager)
-	local nType = vManager.type
+	local type = vManager.type
 	local string = {
-		format=vManager:Fn(nType.String):Dots(nType.Truth):Ret(nType.String),
+		format=vManager:Fn(type.String):Dots(type.Truth):Ret(type.String),
+		gsub=vManager:Fn(type.String, type.String, type.String):Ret(type.String),
+		match=vManager:Fn(type.String, type.String):Ret():Ret(type.String),
 	}
 	local nTable = native._toTable(vManager, string)
-    nTable:setName("string")
-    return nTable
+	nTable:setName("string")
+	return nTable
 end
 
 function native.make_table(vManager)
