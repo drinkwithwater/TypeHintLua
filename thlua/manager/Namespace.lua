@@ -61,6 +61,7 @@ function Namespace.new(vManager, vNode, vIndexTable)
 					self._key2type[k] = newV
 				else
 					if Reference.is(newV) then
+						newV:trySetKey(k)
 						self._key2type[k] = newV
 					else
 						self._manager:assertValueType(newV)

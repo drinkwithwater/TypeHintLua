@@ -55,9 +55,9 @@ function Client:rpc()::Ret()
 	end
 end
 
-function Client:readRequest()::Ret(Truth)
+function Client:readRequest()::Ret(lsp.RequestMessage)
 	-- 1 get header
-	local length
+	local length:Number = -1
 	while true do
 		local line = io.read("*l")
 		if not line then
@@ -76,7 +76,7 @@ function Client:readRequest()::Ret(Truth)
 		end
 	end
 
-	if not length then
+	if length < 0 then
 		error("Content-Length failed in rpc")
 	end
 
@@ -136,7 +136,7 @@ MessageType.INFO = 3
 MessageType.DEBUG = 4
 
 local function packToString(...:Truth)::Ret(String)
-	local l = {}
+	local l = {} @ List(String)
 	for i=1,select("#", ...) do
 		l[#l + 1] = tostring(select(i, ...))
 	end

@@ -145,6 +145,7 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 	global.math=native.make_math(nManager)
 	global.string=native.make_string(nManager)
 	global.table=native.make_table(nManager)
+	global.io=native.make_io(nManager)
 
 	-- global.next = vRuntime.func.next
 	local nGlobalTable = native._toTable(vRuntime.typeManager, global)
@@ -159,8 +160,20 @@ function native.make_math(vManager)
 		random=vManager:Fn():Dots(nNumber):Ret(nNumber),
 	}
 	local nTable = native._toTable(vManager, math)
-    nTable:setName("math")
-    return nTable
+	nTable:setName("math")
+	return nTable
+end
+
+function native.make_io(vManager)
+	local type = vManager.type
+	local io = {
+		read=vManager:Fn(vManager:Union(type.String, type.Number)):Ret(vManager:Union(type.String, type.Nil)),
+		write=vManager:Fn(type.String),
+		flush=vManager:Fn()
+	}
+	local nTable = native._toTable(vManager, io)
+	nTable:setName("io")
+	return nTable
 end
 
 function native.make_string(vManager)

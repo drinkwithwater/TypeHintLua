@@ -153,11 +153,12 @@ end
 
 -- meta items
 function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
-    local nTypeCaseList = {}
+	local nGetContext = self:newContext(vNode)
+	local nTypeCaseList = {}
 	local nOkay = self:nodePcall(vNode, function()
 		vTerm:foreach(function(vType, vTermCase)
 			vKeyTerm:foreach(function(vKeyType, vKeyTermCase)
-				local nReType = vType:meta_get(self, vKeyType)
+				local nReType = vType:meta_get(nGetContext, vKeyType)
 				if vNotnil then
 					nReType = nReType:notnilType()
 				end
@@ -173,14 +174,15 @@ function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
 end
 
 function Context:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
+	local nSetContext = self:newContext(vNode)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
 		vTerm:foreach(function(vType, _)
 			vKeyTerm:foreach(function(vKeyType)
 				if vOverride then
-					vType:meta_set_override(self, vKeyType, vValueTerm:getType())
+					vType:meta_set_override(nSetContext, vKeyType, vValueTerm:getType())
 				else
-					vType:meta_set(self, vKeyType, vValueTerm:getType())
+					vType:meta_set(nSetContext, vKeyType, vValueTerm:getType())
 				end
 			end)
 		end)
@@ -275,6 +277,7 @@ function Context:META_CALL(vNode, vFuncTerm, vLazyFunc)
 end
 
 function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)
+	local nGetContext = self:newContext(vNode)
 	local nNativePair = nil
 	local nFuncArgCaseList = {}
 	local nNil = self._manager.type.Nil
@@ -283,7 +286,7 @@ function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)
 			self:nodeWarn(vNode, "nil as invoke self")
 		else
 			local nNewArgTuple = self:TermTuple({self:UnionTerm(vType)}, vArgTuple)
-			local nFuncType = vType:meta_get(self, self:Literal(vName))
+			local nFuncType = vType:meta_get(nGetContext, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self:nodeWarn(vNode, "nil as invoke func")
@@ -333,24 +336,25 @@ function Context:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)
 end
 
 function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
+	local nBopContext = self:newContext(vNode)
 	local nCollection = self._manager:TypeCollection()
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
-		local nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(self, vOper)
+		local nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			local nTypeTuple = self._manager:Tuple(vLeftType, vRightTerm:getType())
-			local nRetTuples = nLeftFunc:meta_call(self, nTypeTuple)
+			local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
 			nCollection:put(nRetTuples:makeFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightTermCase)
-				local nRightHigh, nRightFunc = vRightType:meta_bop_func(self, vOper)
+				local nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					local nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-					local nRetTuples = nLeftFunc:meta_call(self, nTypeTuple)
+					local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
 					nCollection:put(nRetTuples:makeFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						local nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-						local nRetTuples = nLeftFunc:meta_call(self, nTypeTuple)
+						local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
 						nCollection:put(nRetTuples:makeFirstType())
 					else
 						self:nodeError(vNode, "invalid bop:"..vOper)
@@ -363,18 +367,19 @@ function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
 end
 
 function Context:META_UOP(vNode, vOper, vData)
+	local nUopContext = self:newContext(vNode)
 	local nTypeCaseList = {}
 	if vOper == "#" then
 		vData:foreach(function(vType, vTermCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {
-				vType:meta_len(self),
+				vType:meta_len(nUopContext),
 				vTermCase
 			}
 		end)
 	else
 		vData:foreach(function(vType, vTermCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {
-				vType:meta_uop_some(self, vOper),
+				vType:meta_uop_some(nUopContext, vOper),
 				vTermCase
 			}
 		end)

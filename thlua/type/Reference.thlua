@@ -7,10 +7,10 @@ local Reference = TypeClass()
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function Reference.new(vManager:class.TypeManager, vNameOrFalse:String)::RetNew(class.Reference)
+function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, False))::RetNew(class.Reference)
 	local self = setmetatable({::New()
 		_manager=vManager,
-		_name=vNameOrFalse,
+		_key=vKeyOrFalse,
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false,
@@ -22,20 +22,22 @@ function Reference.new(vManager:class.TypeManager, vNameOrFalse:String)::RetNew(
 	return self
 end
 
-function Reference:getName()
-	return self._name
+function Reference:trySetKey(vKey)
+	if not self._key then
+		self._key = vKey
+	end
 end
 
 function Reference:detailString(v)
-	if self._referType and not self._name then
+	if self._referType and not self._key then
 		return "`"..self._referType:detailString(v)
 	else
-		return "Reference("..(self._name or "!nameless")..")"
+		return "Reference("..(self._key or "!nameless")..")"
 	end
 end
 
 function Reference:setTypeCtor(vLuaFunc)
-	assert(not self._newFunc, tostring(self._name).."NewFunc conflict")
+	assert(not self._newFunc, tostring(self._key).."NewFunc conflict")
 	self._newFunc = vLuaFunc
 end
 
@@ -46,11 +48,11 @@ function Reference:setTypeAsync(vFunc)::Ret():nocheck()
 		local nOkay, nErrMsg = xpcall(function()
 			local nType = vFunc()
 			self._referType = nType
-			if nType.setReferName and self._name then
-				nType:setReferName(self._name)
+			if nType.setReferName and self._key then
+				nType:setReferName(self._key)
 			end
 		end, function(exc)
-			print("error in setTypeAsync:", self._name, tostring(exc), debug.traceback())
+			print("error in setTypeAsync:", self._key, tostring(exc), debug.traceback())
 			return exc
 		end)
 		if not nOkay then
