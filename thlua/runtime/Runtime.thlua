@@ -8,6 +8,7 @@ local Context = require "thlua.runtime.Context"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
+local Namespace = require "thlua.manager.Namespace"
 
 (@var.class = import("thlua.type.TypeClass").class)
 
@@ -31,7 +32,7 @@ function Runtime.new()::RetNew(class.Runtime)
 	self._runtime = self
 	self.typeManager = TypeManager.new(self)
 	self._manager = self.typeManager
-	local nSpace = self.typeManager:RootNamespace()
+	local nSpace = self:RootNamespace()
 	nSpace:setContextName(self)
 	nSpace:close()
 	self._namespace = nSpace
@@ -126,6 +127,14 @@ function Runtime:require(vPath)
 			error("recursive require:"..vPath)
 	end
 	return nTerm
+end
+
+function Runtime:TreeNamespace()
+	return Namespace.new(self._manager)
+end
+
+function Runtime:RootNamespace()
+	return Namespace.new(self._manager, self._manager:buildSimpleGlobal())
 end
 
 return Runtime

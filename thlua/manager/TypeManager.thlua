@@ -1,7 +1,6 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local TypeCollection = require "thlua.manager.TypeCollection"
-local Namespace = require "thlua.manager.Namespace"
 local Exception = require "thlua.Exception"
 
 local Never = require "thlua.union.Never"
@@ -71,11 +70,10 @@ function TypeManager.new(vRuntime:class.Runtime)::Ret(class.TypeManager):nocheck
 		bitwise=native.make_bitwise(self),
 		concat=native.make_concat(self),
 	}
-	self.global = self:_buildSimpleGlobal()
 	return self
 end
 
-function TypeManager:_buildSimpleGlobal()
+function TypeManager:buildSimpleGlobal()
 	local nGlobal = {}
 	for k,v in pairs(self.type) do
 		nGlobal[k] = v
@@ -95,7 +93,7 @@ function TypeManager:_buildSimpleGlobal()
 		end
 	end
 	nGlobal.namespace=function()
-		return self:EmptyNamespace().localExport
+		return self._runtime:TreeNamespace().localExport
 	end
 	nGlobal.import=function(vPath)
 		return self._runtime:import(vPath)
@@ -465,14 +463,6 @@ end
 
 function TypeManager:Reference(vName)
 	return Reference.new(self, vName)
-end
-
-function TypeManager:RootNamespace()
-	return Namespace.new(self, self.global)
-end
-
-function TypeManager:EmptyNamespace()
-	return Namespace.new(self)
 end
 
 function TypeManager:mergeToUnionTerm(vTypeCasePairList)

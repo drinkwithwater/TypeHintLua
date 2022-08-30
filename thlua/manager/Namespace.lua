@@ -6,28 +6,26 @@ Namespace.__tostring=function(self)
 end
 Namespace.__index=Namespace
 
-function Namespace.new(vManager, vGlobalTable, vIndexTable)
+function Namespace.new(vManager, vIndexTable)
 	local self = setmetatable({
 		_manager=vManager,
-		_global=vGlobalTable or {},
-		_name2type=setmetatable({}, {__index=vIndexTable or {}}),
+		_name2type=vIndexTable and setmetatable({}, {__index=vIndexTable}) or {},
 		_closed=false,
 		_context=false,
 		_name=false,
 	}, Namespace)
 	self.localExport=setmetatable({}, {
 		__index=function(_,k)
-			local v = self._name2type[k]
-			if v ~= nil then
-				return v
-			end
-			local v = self._global[k]
-			if v ~= nil then
-				error("var can't index global field")
-				return v
+			local rawgetV = rawget(self._name2type, k)
+			if rawgetV ~= nil then
+				return rawgetV
 			end
 			if self._closed then
 				error("namespace closed, can't create key="..tostring(k))
+			end
+			local getV = self._name2type[k]
+			if getV ~= nil then
+				error("var shadow get : key="..tostring(k))
 			end
 			local refer = self._manager:Reference(k)
 			self._name2type[k] = refer
@@ -40,11 +38,7 @@ function Namespace.new(vManager, vGlobalTable, vIndexTable)
 			local getV = self._name2type[k]
 			local rawgetV = rawget(self._name2type, k)
 			if getV ~= nil and rawgetV == nil then
-				error("var shadow assign : key="..tostring(k))
-			end
-			local globalV = self._global[k]
-			if globalV then
-				error("global shadow assign : key="..tostring(k))
+				error("var shadow set : key="..tostring(k))
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
@@ -92,10 +86,6 @@ function Namespace.new(vManager, vGlobalTable, vIndexTable)
 			if v ~= nil then
 				return v
 			end
-			local v = self._global[k]
-			if v ~= nil then
-				return v
-			end
 			error("key with empty value, key="..tostring(k))
 		end,
 		__newindex=function(t,k,v)
@@ -133,7 +123,7 @@ function Namespace:setName(vName)
 end
 
 function Namespace:createChild(vContext)
-	local nSpace = Namespace.new(self._manager, self._global, self._name2type)
+	local nSpace = Namespace.new(self._manager, self._name2type)
 	nSpace:setContextName(vContext)
 	return nSpace
 end
