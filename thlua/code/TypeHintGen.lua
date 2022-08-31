@@ -63,7 +63,13 @@ end
 local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
-			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ")\n")
+			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
+			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
+			visitor:print("local ____fn\n____fn=____ctx:FUNC_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
+			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ", ____fn)\n")
+		end,
+		after=function(visitor, node)
+			visitor:print("end)\nreturn ____fn")
 		end
 	},
 	Block={
@@ -444,8 +450,8 @@ local visitor_exp = {
 			else
 				nParPrint = nParPrint .. "},"..nDotsHintScript..") "
 			end
-			local nLongHintPrint = " function(____builder) return ____builder" .. (node.hintLong or "") .. " end "
-			visitor:print(" ____ctx:FUNC_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
+			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
+			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
 			visitor:indent()
 			visitor:indent()
 			if #nParList > 0 then
@@ -457,17 +463,17 @@ local visitor_exp = {
 				end
 			end
 			visitor:indent()
-			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ")\n")
+			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ",____fn)\n")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()
-			visitor:print("end)")
+			visitor:print("end) return ____fn end)())")
 		end
 	},
 	Table={
 		override=function(visitor, node)
-			local nLongHintPrint = " function(____builder) return ____builder" .. (node.hintLong or "") .. " end "
-			visitor:print("____ctx:TABLE_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ", function() return {")
+			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
+			visitor:print("____ctx:UnionTerm(____ctx:TABLE_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ", function() return {")
 			local count = 0
 			local tailDots = nil
 			for i=1, #node do
@@ -486,11 +492,11 @@ local visitor_exp = {
 				visitor:print(i < #node and "," or "")
 			end
 			if not tailDots then
-				visitor:print("}, 0, nil end) ")
+				visitor:print("}, 0, nil end)) ")
 			else
 				visitor:print("}, ", count, ", ")
 				tailDots.table_tail = true
-				visitor:print(tailDots, " end) ")
+				visitor:print(tailDots, " end)) ")
 			end
 		end,
 	},
@@ -620,7 +626,6 @@ function TypeHintGen.visit(vFileEnv, vPath)
 	local pre_codes = {
 		'local ____ctx, ____nodes=... ',
 		"local s"..CodeEnv.G_SCOPE_REFER.."=".."____ctx:getGlobalTerm()\n",
-		'return function(____newCtx, vArgTuple)\n',
 		"\n----------------------------\n",
 	}
 	local visitor = setmetatable({
@@ -634,7 +639,6 @@ function TypeHintGen.visit(vFileEnv, vPath)
 	})
 
 	oldvisitor.visit_obj(vFileEnv.ast, visitor)
-	table.insert(visitor.buffer_list,"\nend")
 	return table.concat(visitor.buffer_list)
 end
 

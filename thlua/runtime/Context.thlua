@@ -18,7 +18,6 @@ function Context.new(vRuntime:class.Runtime, vApplyNode:class.AstNode)::RetNew(c
 		_manager=vRuntime.typeManager,
 		_node=vApplyNode,
 		_namespace=false,
-		_newTagFn=false,
 		_region=false,
 	}, Context)
 	return self
@@ -28,16 +27,8 @@ function Context:newContext(vApplyNode:class.AstNode)
 	return self._runtime:newContext(vApplyNode)
 end
 
-function Context:setNewTagFn(vNewTagFn)
-	self._newTagFn = vNewTagFn
-end
-
-function Context:getNewTagFn()
-	return self._newTagFn
-end
-
-function Context:BEGIN(vLexContext:Union(class.Context, class.Runtime), vBlockNode)
-	local nRegion = Region.new(self)
+function Context:BEGIN(vLexContext:Union(class.Context, class.Runtime), vBlockNode, vLuaFunc)
+	local nRegion = Region.new(self, vLuaFunc)
 	self._region = nRegion
 	local nSpace = self._runtime:VarNamespace(vLexContext:getNamespace(), vBlockNode)
 	self._namespace = nSpace
@@ -403,6 +394,10 @@ function Context:nodePcall(vNode, vFunc, ...:Truth)
 		end
 	end
 	return ok, err
+end
+
+function Context:getRegion()
+	return self._region
 end
 
 function Context:nodeError(vNode, ...:Truth)

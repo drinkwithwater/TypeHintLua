@@ -10,32 +10,37 @@ Region.__tostring = function(self)
 	return "Region-"..self:getPath()..":"..tostring(self._context._node)
 end
 
-function Region.new(vContext:Truth)::RetNew(class.Region)
+function Region.new(vContext:class.Context, vLuaFunction:class.LuaFunction)::RetNew(class.Region)
 	local nRootBranch = Branch.new(vContext)
 	return setmetatable({::New()
 		_context=vContext,
-		cur_branch=nRootBranch,
-		branch_stack={nRootBranch},
+		_curBranch=nRootBranch,
+		_branchStack={nRootBranch},
+		_luaFunction=vLuaFunction,
 		_retTermTuple=false,
 	}, Region)
 end
 
+function Region:getLuaFunction()
+	return self._luaFunction
+end
+
 function Region:push_branch(vTermCase)
-	local nNewBranch = Branch.new(self._context, self.cur_branch, vTermCase)
-	self.branch_stack[#self.branch_stack + 1] = nNewBranch
-	self.cur_branch = nNewBranch
+	local nNewBranch = Branch.new(self._context, self._curBranch, vTermCase)
+	self._branchStack[#self._branchStack + 1] = nNewBranch
+	self._curBranch = nNewBranch
 end
 
 function Region:pop_branch()
-	local len = #self.branch_stack
-	self.branch_stack[len] = nil
-	local old_branch = self.cur_branch
-	self.cur_branch = self.branch_stack[len - 1]
+	local len = #self._branchStack
+	self._branchStack[len] = nil
+	local old_branch = self._curBranch
+	self._curBranch = self._branchStack[len - 1]
 	return old_branch
 end
 
 function Region:top_branch()
-	return self.cur_branch
+	return self._curBranch
 end
 
 function Region:SYMBOL(vNode, vTerm, vHintType)
