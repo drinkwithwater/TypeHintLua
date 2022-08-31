@@ -24,7 +24,9 @@ function Branch.new(vContext:class.Context, vPreBranch:class.Branch, vTermCase:c
 	end
 	return setmetatable({::New()
 		_context=vContext,
+		_stop=false,
 		case=nTermCase,
+		headCase=vTermCase,
 		symbolToTerm=setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm}),
 	}, Branch)
 end
@@ -70,20 +72,54 @@ end
 
 function Branch:merge_from(vContext, vTrueBranch, vFalseBranch)
 	local nModSymbolDict = {}
+	local nTrueStop = vTrueBranch:getStop()
 	for nSymbol, nUnion in pairs(vTrueBranch.symbolToTerm) do
 		nModSymbolDict[nSymbol] = true
 	end
+	local nFalseStop = vFalseBranch:getStop()
 	for nSymbol, nUnion in pairs(vFalseBranch.symbolToTerm) do
 		nModSymbolDict[nSymbol] = true
 	end
-	for nSymbol, _ in pairs(nModSymbolDict) do
-		if self.symbolToTerm[nSymbol] then
-			local nType = vTrueBranch:symbol_get(nSymbol):getType() | vFalseBranch:symbol_get(nSymbol):getType()
-			local nUnionTerm = self._context:UnionTerm(nType)
-			self.symbolToTerm[nSymbol] = nUnionTerm
-			nUnionTerm:add_self(nSymbol)
+	if (not nTrueStop) or (not nFalseStop) then
+		for nSymbol, _ in pairs(nModSymbolDict) do
+			if self.symbolToTerm[nSymbol] then
+				local nType
+				if nFalseStop then
+					nType = vTrueBranch:symbol_get(nSymbol):getType()
+				elseif nTrueStop then
+					nType = vFalseBranch:symbol_get(nSymbol):getType()
+				else
+					nType = vTrueBranch:symbol_get(nSymbol):getType() | vFalseBranch:symbol_get(nSymbol):getType()
+				end
+				local nUnionTerm = self._context:UnionTerm(nType)
+				self.symbolToTerm[nSymbol] = nUnionTerm
+				nUnionTerm:add_self(nSymbol)
+			end
 		end
+		local nAndCase
+		if nFalseStop then
+			nAndCase = vTrueBranch.headCase
+		elseif nTrueStop then
+			nAndCase = vFalseBranch.headCase
+		end
+		if nAndCase then
+			self.case = self.case & nAndCase
+			self.headCase = self.headCase & nAndCase
+		end
+	else
+		nAndCase = vTrueBranch.headCase & vFalseBranch.headCase
+		self.case = self.case & nAndCase
+		self.headCase = self.headCase & nAndCase
+		self._stop = true
 	end
+end
+
+function Branch:setStop()
+	self._stop = true
+end
+
+function Branch:getStop()
+	return self._stop
 end
 
 return Branch

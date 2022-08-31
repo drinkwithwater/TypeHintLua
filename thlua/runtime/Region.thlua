@@ -1,5 +1,6 @@
 
 local Region = {}
+local TermCase = require "thlua.term.TermCase"
 local Branch = require "thlua.runtime.Branch"
 local Symbol = require "thlua.runtime.Symbol"
 
@@ -11,7 +12,7 @@ Region.__tostring = function(self)
 end
 
 function Region.new(vContext:class.Context, vLuaFunction:class.LuaFunction)::RetNew(class.Region)
-	local nRootBranch = Branch.new(vContext)
+	local nRootBranch = Branch.new(vContext, nil, TermCase.new())
 	return setmetatable({::New()
 		_context=vContext,
 		_curBranch=nRootBranch,
@@ -152,6 +153,7 @@ function Region:RETURN(vNode, vTermTuple)
 	else
 		self._retTermTuple = self._retTermTuple | vTermTuple
 	end
+	self:top_branch():setStop()
 end
 
 function Region:CLOSE(vNode)

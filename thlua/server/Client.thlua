@@ -62,6 +62,7 @@ function Client:readRequest()::Ret(lsp.RequestMessage)
 		local line = io.read("*l")
 		if not line then
 			error("io.read fail")
+			return
 		end
 		line = line:gsub("\13", "")
 		if line == "" then
@@ -82,10 +83,15 @@ function Client:readRequest()::Ret(lsp.RequestMessage)
 
 	-- 2 get body
 	local data = io.read(length)
+	if not data then
+		error("read nothing")
+		return
+	end
 	data = data:gsub("\13", "")
 	local obj, err = json.decode(data)
 	if type(obj) ~= "table" then
 		error("json decode error:"..tostring(err))
+		return
 	end
 	if obj.jsonrpc ~= "2.0" then
 		error("json-rpc is not 2.0, "..tostring(obj.jsonrpc))
