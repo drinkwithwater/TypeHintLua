@@ -16,7 +16,7 @@ function Region.new(vContext:Truth)::RetNew(class.Region)
 		_context=vContext,
 		cur_branch=nRootBranch,
 		branch_stack={nRootBranch},
-		ret_tuple=false,
+		_retTermTuple=false,
 	}, Region)
 end
 
@@ -36,28 +36,6 @@ end
 
 function Region:top_branch()
 	return self.cur_branch
-end
-
-function Region:or_return(vTermTuple)
-	if not self.ret_tuple then
-		self.ret_tuple = vTermTuple
-	else
-		self.ret_tuple = self.ret_tuple | vTermTuple
-	end
-end
-
-function Region:get_return()
-	local re = self.ret_tuple
-	if not re then
-		re = self._context:TermTuple({})
-		self.ret_tuple = re
-	end
-	re:setContext(self._context)
-	return re
-end
-
-function Region:get_path()
-	return self._context:getPath()
 end
 
 function Region:SYMBOL(vNode, vTerm, vHintType)
@@ -164,12 +142,22 @@ function Region:LOGIC_NOT(vNode, vData)
 end
 
 function Region:RETURN(vNode, vTermTuple)
-	self:or_return(vTermTuple)
+	if not self._retTermTuple then
+		self._retTermTuple = vTermTuple
+	else
+		self._retTermTuple = self._retTermTuple | vTermTuple
+	end
 end
 
 function Region:CLOSE(vNode)
-	self._context._namespace:close()
-	return self:get_return()
+	self._context:getNamespace():close()
+	local re = self._retTermTuple
+	if not re then
+		re = self._context:TermTuple({})
+		self._retTermTuple = re
+	end
+	re:setContext(self._context)
+	return re
 end
 
 return Region

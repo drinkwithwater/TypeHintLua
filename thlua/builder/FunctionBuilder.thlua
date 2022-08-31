@@ -43,6 +43,7 @@ function FunctionBuilder.newLongHint(self)
 			self._newTypeRefer = vRefer
 			self._newTypeImpl = vStruct
 			assert(not self._retTuples, "define function can't return other")
+			self._retTuples = self._manager:EmptyRetTuples():Add(self._manager:Tuple(vRefer))
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)
@@ -101,7 +102,8 @@ function FunctionBuilder:build()
 	elseif nTag == LuaFunction.DEFINE then
 		self._luaFunc:setUnionFn({
 			tag=nTag,
-			fn=false,
+			fn=self._manager:Function(self._autoArgs:checkWhenNocheck(self._context), self._retTuples),
+			retTuples=self._retTuples,
 			autoArgs=self._autoArgs,
 			runFunc=self._runFunc,
 			newTypeRefer=self._newTypeRefer,

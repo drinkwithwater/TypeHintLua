@@ -124,8 +124,6 @@ function LuaFunction:checkDefine()
 		error("define function must return table")
 	end
 	nDefineType:seal(nContext)
-	local nRetTuples = nManager:EmptyRetTuples():Add(nManager:Tuple(nDefineType))
-	nTagFn.fn = nManager:Function(nTypeTuple, nRetTuples)
 end
 
 -- called outside
@@ -136,7 +134,7 @@ function LuaFunction:checkLateRun()
 		local nTermTuple = nTypeFn:getArgTuple():makeTermTuple()
 		local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
 		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
-		local nRetTuples = nTagFn.fn:getReturnTuples()
+		local nRetTuples = nTagFn.fn:getRetTuples()
 		if not nRetTuples:containTuple(nRetTypeTuple) then
 			self._context:error("return not match", nRetTuples, nRetTypeTuple)
 		end
@@ -194,7 +192,7 @@ function LuaFunction:implement(vContext, vFuncType)
 	end
 	self.implType = vFuncType
 	if not nTagFn.retTuples then
-		nTagFn.retTuples = vFuncType:getReturnTuples()
+		nTagFn.retTuples = vFuncType:getRetTuples()
 	end
 	self:_checkLateCall(vContext, vFuncType:getArgTuple())
 end
