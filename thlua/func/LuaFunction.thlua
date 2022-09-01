@@ -57,6 +57,7 @@ function LuaFunction.new(vManager:class.TypeManager)::RetNew(class.LuaFunction, 
 		_context=false,
 		_node=false,
 		_unionTagFn=false,
+		_runFunc=false,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown",
 		id=vManager:genTypeId(),
@@ -96,36 +97,6 @@ end
 -- TODO
 function LuaFunction:getPath()
 	return self.name
-end
-
-function LuaFunction:checkDefine()
-	local nTagFn = self._unionTagFn
-	local nManager = self._manager
-	if nTagFn.tag ~= LuaFunction.DEFINE then
-		error("only def-fn can be refer's ctor")
-		return
-	end
-	if nTagFn.once then
-		return
-	end
-	nTagFn.once = true
-	local nRefer = nTagFn.newTypeRefer
-	local nContext = self:newInplaceContext()
-	nRefer:setTypeAsync(function()
-		return nContext._manager:LuaTable()
-	end)
-	local nTypeTuple = nTagFn.autoArgs:checkWhenLate(nContext)
-	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
-	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
-	if #nRightTypeTuple ~= 1 then
-		error("define-fn can't return more than one value")
-	end
-	local nReturnType = nRightTypeTuple:get(1):checkType()
-	local nDefineType = nRefer:checkType()
-	if nDefineType ~= nReturnType then
-		error("define function must return table")
-	end
-	nDefineType:seal(nContext)
 end
 
 -- called outside
@@ -215,18 +186,10 @@ function LuaFunction:meta_call(vContext, vTypeTuple)
 		error("native fn can't call meta_native_call")
 	elseif nTag == LuaFunction.NOCHECK then
 		return nTagFn:meta_call(vContext, vTypeTuple)
+	elseif nTag == LuaFunction.DEFINE then
+		return nTagFn:meta_call(vContext, vTypeTuple)
 	else
-		local nImplType = self.implType
-		if nImplType then
-			return nImplType:meta_call(vContext, vTypeTuple)
-		end
-		if nTag == LuaFunction.DEFAULT then
-			self:_checkLateCall(vContext, vTypeTuple)
-		elseif nTag == LuaFunction.DEFINE then
-			self:checkDefine()
-		else
-			vContext:error("error occur for tag unexcept:"..tostring(nTag))
-		end
+		self:_checkLateCall(vContext, vTypeTuple)
 		local nFn = nTagFn.fn
 		if not nFn then
 			vContext:error("error occur in function but rettuple not setted")

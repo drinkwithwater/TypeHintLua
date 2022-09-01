@@ -14,6 +14,7 @@ function NewFnInfo.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 		_typeFunction=false,
 		_newTypeRefer=false,
 		_newTypeImpl=false,
+		_once=false,
 	}, NewFnInfo)
 	vLuaFunction:setUnionFn(self)
 	return self
@@ -24,7 +25,28 @@ function NewFnInfo:initByRetNew(vRefer, vStruct)
 	self._newTypeImpl = vStruct
 end
 
+function NewFnInfo:setArgTuple(vArgTuple)
+	local nRetTuples = self._manager:EmptyRetTuples():Add(self._manager:Tuple(self._newTypeRefer))
+	self._typeFunction = self._manager:Function(vArgTuple, nRetTuples)
+end
+
+function NewFnInfo:checkDefine()
+	if self._once then
+		return
+	end
+	self._once = true
+	local nRefer = self._newTypeRefer
+	local nContext = self._luaFunction:newInplaceContext()
+	nRefer:setTypeAsync(function()
+		return nContext._manager:LuaTable()
+	end)
+	local nTypeTuple = self._typeFunction:getArgTuple()
+	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
+	nRefer:getType():seal(nContext)
+end
+
 function NewFnInfo:meta_call(vContext, vTermTuple)
+	self:checkDefine()
 	return self._typeFunction:meta_call(vContext, vTermTuple)
 end
 
