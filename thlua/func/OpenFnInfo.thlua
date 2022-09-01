@@ -1,0 +1,44 @@
+
+local TermCase = require "thlua.term.TermCase"
+local LuaFunction = require "thlua.func.LuaFunction"
+local OpenFnInfo = {}
+OpenFnInfo.__index=OpenFnInfo
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function OpenFnInfo.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.OpenFnInfo)
+	local self = setmetatable({::New()
+		tag=LuaFunction.OPEN,
+		_manager=vManager,
+		_luaFunction=vLuaFunction,
+		_nativeFunction=false,
+	}, OpenFnInfo)
+	vLuaFunction:setUnionFn(self)
+	return self
+end
+
+function OpenFnInfo:initByOpen(vRunFunc)
+	self._nativeFunction = self._manager:NativeFunction(vRunFunc)
+end
+
+function OpenFnInfo:initByGuard(vType)
+	local nTrue = self._manager.type.True
+	local nFalse = self._manager.type.False
+	self._nativeFunction=self._manager:NativeFunction(function(vContext, vTermTuple)
+		-- TODO isguard add refinement
+		local nTerm = vTermTuple:get(1)
+		local caseTrue = TermCase.new()
+		caseTrue:put_and(nTerm, vType)
+		local nTypeCaseList = {
+			{nTrue, caseTrue},
+			{nFalse, TermCase.new()},
+		}
+		return self._manager:mergeToUnionTerm(nTypeCaseList)
+	end)
+end
+
+function OpenFnInfo:meta_native_call(vContext, vTermTuple)
+	return self._nativeFunction:meta_native_call(vContext, vTermTuple)
+end
+
+return OpenFnInfo

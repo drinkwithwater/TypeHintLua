@@ -1,0 +1,31 @@
+
+local TermCase = require "thlua.term.TermCase"
+local LuaFunction = require "thlua.func.LuaFunction"
+local NewFnInfo = {}
+NewFnInfo.__index=NewFnInfo
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+function NewFnInfo.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.NewFnInfo)
+	local self = setmetatable({::New()
+		tag=LuaFunction.DEFINE,
+		_manager=vManager,
+		_luaFunction=vLuaFunction,
+		_typeFunction=false,
+		_newTypeRefer=false,
+		_newTypeImpl=false,
+	}, NewFnInfo)
+	vLuaFunction:setUnionFn(self)
+	return self
+end
+
+function NewFnInfo:initByRetNew(vRefer, vStruct)
+	self._newTypeRefer = vRefer
+	self._newTypeImpl = vStruct
+end
+
+function NewFnInfo:meta_call(vContext, vTermTuple)
+	return self._typeFunction:meta_call(vContext, vTermTuple)
+end
+
+return NewFnInfo

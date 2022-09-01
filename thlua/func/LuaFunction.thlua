@@ -57,8 +57,6 @@ function LuaFunction.new(vManager:class.TypeManager)::RetNew(class.LuaFunction, 
 		_context=false,
 		_node=false,
 		_unionTagFn=false,
-		_tupleSet={},
-		pos="??",
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown",
 		id=vManager:genTypeId(),
@@ -71,9 +69,10 @@ function LuaFunction:setUnionFn(vUnionTagFn)
 	self._unionTagFn = vUnionTagFn
 end
 
-function LuaFunction:init(vContext, vNode)
+function LuaFunction:init(vContext, vNode, vRunFunc)
 	self._context = vContext
 	self._node = vNode
+	self._runFunc = vRunFunc
 	self.name = tostring(vNode)
 end
 
@@ -202,9 +201,8 @@ end
 
 function LuaFunction:meta_native_call(vContext, vTermTuple)
 	local nTagFn = self._unionTagFn
-	local nTag = nTagFn.tag
-	if nTag == LuaFunction.OPEN then
-		return nTagFn.fn:meta_native_call(vContext, vTermTuple)
+	if nTagFn.tag == LuaFunction.OPEN then
+		return nTagFn:meta_native_call(vContext, vTermTuple)
 	else
 		error("only native fn can call meta_native_call")
 	end
@@ -216,7 +214,7 @@ function LuaFunction:meta_call(vContext, vTypeTuple)
 	if nTag == LuaFunction.OPEN then
 		error("native fn can't call meta_native_call")
 	elseif nTag == LuaFunction.NOCHECK then
-		return nTagFn.fn:meta_call(vContext, vTypeTuple)
+		return nTagFn:meta_call(vContext, vTypeTuple)
 	else
 		local nImplType = self.implType
 		if nImplType then
