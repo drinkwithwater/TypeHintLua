@@ -11,19 +11,19 @@ Region.__tostring = function(self)
 	return "Region-"..self:getPath()..":"..tostring(self._context._node)
 end
 
-function Region.new(vContext:class.Context, vLuaFunction:class.LuaFunction)::RetNew(class.Region)
+function Region.new(vContext:class.Context, vFnCom:class.IFnCom)::RetNew(class.Region)
 	local nRootBranch = Branch.new(vContext, nil, TermCase.new())
 	return setmetatable({::New()
 		_context=vContext,
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch},
-		_luaFunction=vLuaFunction,
+		_fnCom=vFnCom,
 		_retTermTuple=false,
 	}, Region)
 end
 
-function Region:getLuaFunction()
-	return self._luaFunction
+function Region:getFnCom()
+	return self._fnCom
 end
 
 function Region:push_branch(vTermCase)
@@ -156,7 +156,7 @@ function Region:RETURN(vNode, vTermTuple)
 	self:top_branch():setStop()
 end
 
-function Region:CLOSE(vNode)
+function Region:END(vNode)
 	self._context:getNamespace():close()
 	local re = self._retTermTuple
 	if not re then

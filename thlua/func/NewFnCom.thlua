@@ -1,12 +1,13 @@
 
 local TermCase = require "thlua.term.TermCase"
 local LuaFunction = require "thlua.func.LuaFunction"
-local NewFnCom = {}
-NewFnCom.__index=NewFnCom
+local FnComClass = require "thlua.func.FnComClass"
+
+local NewFnCom = FnComClass()
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function NewFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.NewFnCom)
+function NewFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.NewFnCom, class.IFnCom)
 	local self = setmetatable({::New()
 		tag=LuaFunction.NEW,
 		_manager=vManager,
@@ -15,8 +16,9 @@ function NewFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction
 		_newTypeRefer=false,
 		_newTypeImpl=false,
 		_once=false,
+		_onceHintNew=false,
 	}, NewFnCom)
-	vLuaFunction:setUnionFn(self)
+	vLuaFunction:setFnCom(self)
 	return self
 end
 
@@ -29,7 +31,9 @@ function NewFnCom:initByRetNew(vContext, vRefer, vStruct)
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 end
 
-function NewFnCom:getNewTable(vApplyContext)
+function NewFnCom:regionTableNew(vApplyContext)
+	assert(not self._onceHintNew, "New() can only be called once")
+	self._onceHintNew = true
 	local nRefer = self._newTypeRefer
 	local nTableType = nRefer:checkType()
 	return nTableType

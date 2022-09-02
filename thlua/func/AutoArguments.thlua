@@ -32,15 +32,12 @@ function AutoArguments:hasVariable()
 end
 
 function AutoArguments:checkWhenNocheck(vContext)
-	local nTypeList = {}
-	for i, arg in pairs(self._argList) do
-		if Variable.is(arg) then
-			nTypeList[i] = self._manager.type.Truth
-		else
-			nTypeList[i] = arg
+	for i, nArg in ipairs(self._argList) do
+		if Variable.is(nArg) then
+			self._argList[i] = self._manager.type.Truth
 		end
 	end
-	local nTuple = self._manager:Tuple(table.unpack(nTypeList))
+	local nTuple = self._manager:Tuple(table.unpack(self._argList))
 	local nArgDots = self._argDots
 	if nArgDots then
 		return nTuple:Dots(nArgDots)
@@ -50,15 +47,12 @@ function AutoArguments:checkWhenNocheck(vContext)
 end
 
 function AutoArguments:checkWhenLate(vContext)
-	local nTypeList = {}
-	for i, arg in pairs(self._argList) do
-		if Variable.is(arg) then
+	for i, nArg in ipairs(self._argList) do
+		if Variable.is(nArg) then
 			error("define-fn must hint args type,"..tostring(arg))
-		else
-			nTypeList[i] = arg
 		end
 	end
-	local nTuple = self._manager:Tuple(table.unpack(nTypeList))
+	local nTuple = self._manager:Tuple(table.unpack(self._argList))
 	local nArgDots = self._argDots
 	if nArgDots then
 		return nTuple:Dots(nArgDots)
@@ -69,39 +63,19 @@ end
 
 function AutoArguments:checkWhenApply(vContext, vTypeTuple)
 	local nConvertList = {}
-	for i=1, #self._argList do
+	for i, nArg in ipairs(self._argList) do
 		local nInputType = vTypeTuple:get(i)
-		local nFuncArg = self._argList[i]
-		if Variable.is(nFuncArg) then
+		if Variable.is(nArg) then
 			-- generic TODO
 			self._argList[i] = nInputType
-			nConvertList[i] = nInputType
-		else
-			self._manager:cast(vContext, nInputType, nFuncArg)
-			local nContainType = nFuncArg:contain(nInputType)
-			if not nContainType then
-				vContext:warn("variable "..tostring(nFuncArg).." not contain:"..tostring(nInputType))
-			end
-			nConvertList[i] = nFuncArg
 		end
 	end
 	local nDotsType = self._argDots
-	if #self._argList < #vTypeTuple then
-		if not nDotsType then
-			vContext:error("args check failed: arg num not match")
-		else
-			for i=#self._argList + 1, #vTypeTuple do
-				if not nDotsType:contain(vTypeTuple:get(i)) then
-					vContext:error("args check failed in dots")
-				end
-			end
-		end
-	end
-	local nArgTuple = self._manager:Tuple(table.unpack(nConvertList))
-	if not nDotsType then
-		return nArgTuple
-	else
+	local nArgTuple = self._manager:Tuple(table.unpack(self._argList))
+	if nDotsType then
 		return nArgTuple:Dots(nDotsType)
+	else
+		return nArgTuple
 	end
 end
 

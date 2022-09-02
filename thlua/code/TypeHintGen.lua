@@ -107,7 +107,7 @@ local visitor_block = {
 			local parent = visitor.stack[#visitor.stack-1]
 			if parent.tag == "Function" or parent.tag == "Chunk" then
 				visitor:indent()
-				visitor:print("return ", visitor:codeRgn("CLOSE"), ")\n")
+				visitor:print("return ", visitor:codeRgn("END"), ")\n")
 			end
 		end,
 		after=function(visitor, node)
