@@ -7,6 +7,7 @@ local TermCase = require "thlua.term.TermCase"
 local OpenFnInfo = require "thlua.func.OpenFnInfo"
 local NocheckFnInfo = require "thlua.func.NocheckFnInfo"
 local NewFnInfo = require "thlua.func.NewFnInfo"
+local DefaultFnInfo = require "thlua.func.DefaultFnInfo"
 
 local FunctionBuilder = {}
 
@@ -91,18 +92,9 @@ function FunctionBuilder:build()
 			error("invalid tag:"..tostring(nTag))
 		end
 	else
-		local nRetTuples = self._retTuples
-		self._luaFunc:setUnionFn({
-			tag=LuaFunction.DEFAULT,
-			fn=false,
-			autoArgs=self._autoArgs,
-			runFunc=self._runFunc,
-			retTuples=nRetTuples,
-			once=false,
-		})
-		if (not self._autoArgs:hasVariable()) then
-			self._context:getRuntime():recordLateLuaFunction(self._luaFunc)
-		end
+		local nFnInfo = DefaultFnInfo.new(self._manager, self._luaFunc)
+		nFnInfo:setArgRet(self._autoArgs, self._retTuples)
+		self._context:getRuntime():recordLateLuaFunction(nFnInfo)
 	end
 	return self._luaFunc
 end

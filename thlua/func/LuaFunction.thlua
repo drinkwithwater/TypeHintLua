@@ -180,23 +180,7 @@ function LuaFunction:meta_native_call(vContext, vTermTuple)
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
-	local nTagFn = self._unionTagFn
-	local nTag = nTagFn.tag
-	if nTag == LuaFunction.OPEN then
-		error("native fn can't call meta_native_call")
-	elseif nTag == LuaFunction.NOCHECK then
-		return nTagFn:meta_call(vContext, vTypeTuple)
-	elseif nTag == LuaFunction.DEFINE then
-		return nTagFn:meta_call(vContext, vTypeTuple)
-	else
-		self:_checkLateCall(vContext, vTypeTuple)
-		local nFn = nTagFn.fn
-		if not nFn then
-			vContext:error("error occur in function but rettuple not setted")
-		else
-			return nFn:meta_call(vContext, vTypeTuple)
-		end
-	end
+	return self._unionTagFn:meta_call(vContext, vTypeTuple)
 end
 
 function LuaFunction:_intersectOneNotRefer(vType)
