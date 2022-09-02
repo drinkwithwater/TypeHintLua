@@ -1,12 +1,12 @@
 
 local TermCase = require "thlua.term.TermCase"
 local LuaFunction = require "thlua.func.LuaFunction"
-local DefaultFnInfo = {}
-DefaultFnInfo.__index=DefaultFnInfo
+local DefaultFnCom = {}
+DefaultFnCom.__index=DefaultFnCom
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function DefaultFnInfo.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.DefaultFnInfo)
+function DefaultFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.DefaultFnCom)
 	local self = setmetatable({::New()
 		tag=LuaFunction.DEFAULT,
 		_manager=vManager,
@@ -15,17 +15,17 @@ function DefaultFnInfo.new(vManager:class.TypeManager, vLuaFunction:class.LuaFun
 		_once=false,
 		_autoArgs=false,
 		_retTuples=false,
-	}, DefaultFnInfo)
+	}, DefaultFnCom)
 	vLuaFunction:setUnionFn(self)
 	return self
 end
 
-function DefaultFnInfo:setArgRet(vAutoArgs, vRetTuples)
+function DefaultFnCom:setArgRet(vAutoArgs, vRetTuples)
 	self._autoArgs = vAutoArgs
 	self._retTuples = vRetTuples
 end
 
-function DefaultFnInfo:checkLateRun()
+function DefaultFnCom:checkLateRun()
 	if self._once then
 		return
 	end
@@ -59,7 +59,7 @@ function DefaultFnInfo:checkLateRun()
 	end
 end
 
-function DefaultFnInfo:meta_call(vContext, vTypeTuple)
+function DefaultFnCom:meta_call(vContext, vTypeTuple)
 	if not self._typeFunction then
 		local nTypeTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
 		local nRetTuples = self._retTuples
@@ -78,4 +78,4 @@ function DefaultFnInfo:meta_call(vContext, vTypeTuple)
 	return self._typeFunction:meta_call(vContext, vTypeTuple)
 end
 
-return DefaultFnInfo
+return DefaultFnCom

@@ -11,52 +11,17 @@ LuaFunction.OPEN="open"
 
 LuaFunction.NOCHECK="nocheck"
 
-LuaFunction.DEFINE="define"
+LuaFunction.NEW="new"
 
 LuaFunction.DEFAULT="default"
 
-(@do
-
---[[
-OpenFn = Struct {
-	tag="open",
-	fn=class.NativeFunction,
-	isGuard=Boolean,
-}
-
-NocheckFn = Struct {
-	tag="nocheck",
-	fn=class.TypeFunction,
-}
-
-DefineFn = Struct {
-	tag="define",
-	fn=Union(false, class.TypeFunction),
-	autoArgs=class.AutoArguments,
-	runFunc=Truth,
-	newTypeRefer=Union(class.Reference, False),
-	newTypeImpl=Union(class.IValueType, False),
-	once=Boolean,
-}
-
-DefaultFn = Struct {
-	tag="default",
-	fn=Union(false, class.TypeFunction),
-	autoArgs=class.AutoArguments,
-	retTuples=Union(false, class.RetTuples),
-	runFunc=Truth,
-	once=Boolean,
-}
-]]
-
-end)
 
 function LuaFunction.new(vManager:class.TypeManager)::RetNew(class.LuaFunction, class.IAtomType)
 	local self = setmetatable({::New()
 		_manager=vManager,
 		_context=false,
 		_node=false,
-		_unionTagFn=false,
+		_unionFnCom=false,
 		_runFunc=false,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown",
@@ -67,7 +32,7 @@ function LuaFunction.new(vManager:class.TypeManager)::RetNew(class.LuaFunction, 
 end
 
 function LuaFunction:setUnionFn(vUnionTagFn)
-	self._unionTagFn = vUnionTagFn
+	self._unionFnCom = vUnionTagFn
 end
 
 function LuaFunction:init(vContext, vNode, vRunFunc)
@@ -82,16 +47,16 @@ function LuaFunction:newInplaceContext()
 end
 
 function LuaFunction:isNative()
-	local nTag = self._unionTagFn.tag
+	local nTag = self._unionFnCom.tag
 	return nTag == LuaFunction.OPEN
 end
 
 function LuaFunction:detailString(v)
-	return "LuaFunction-"..self._unionTagFn.tag.."-"..self.name
+	return "LuaFunction-"..self._unionFnCom.tag.."-"..self.name
 end
 
-function LuaFunction:getTagFn()
-	return self._unionTagFn
+function LuaFunction:getFnCom()
+	return self._unionFnCom
 end
 
 -- TODO
@@ -99,79 +64,12 @@ function LuaFunction:getPath()
 	return self.name
 end
 
--- called outside
-function LuaFunction:checkLateRun()
-	local nTagFn = self._unionTagFn
-	local nTypeFn = nTagFn.fn
-	if nTypeFn then
-		local nTermTuple = nTypeFn:getArgTuple():makeTermTuple()
-		local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
-		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
-		local nRetTuples = nTagFn.fn:getRetTuples()
-		if not nRetTuples:containTuple(nRetTypeTuple) then
-			self._context:error("return not match", nRetTuples, nRetTypeTuple)
-		end
-	else
-		local nArgsTypeTuple = nTagFn.autoArgs:checkWhenLate(self._context)
-		local nTermTuple = nArgsTypeTuple:makeTermTuple()
-		local nRetTermTuple = nTagFn.runFunc(self:newInplaceContext(), nTermTuple, self)
-		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
-		local nRetTuples = nTagFn.retTuples
-		if nRetTuples then
-			if not nRetTuples:containTuple(nRetTypeTuple) then
-				self._context:error("return not match", nRetTuples, nRetTypeTuple)
-			end
-		else
-			nTagFn.retTuples = nRetTuples
-			nTagFn.fn = self._manager:Function(nArgsTypeTuple, nRetTypeTuple)
-		end
-	end
-end
-
-function LuaFunction:_checkLateCall(vContext, vTypeTuple)
-	local nTagFn = self._unionTagFn
-	if nTagFn.tag ~= LuaFunction.DEFAULT then
-		error("unexcept branch")
-		return
-	end
-	if nTagFn.once then
-		return
-	end
-	nTagFn.once = true
-	local nTypeTuple = nTagFn.autoArgs:checkWhenApply(vContext, vTypeTuple)
-	local nRetTuples = nTagFn.retTuples
-	if nRetTuples then
-		nTagFn.fn = self._manager:Function(nTypeTuple, nRetTuples)
-		vContext:getRuntime():recordLateLuaFunction(self)
-		return
-	end
-	-- not late function
-	local nContext = self:newInplaceContext()
-	local nRetTermTuple = nTagFn.runFunc(nContext, nTypeTuple:makeTermTuple(), self)
-	local nRightTypeTuple = nRetTermTuple:getTypeTuple()
-	nRetTuples = self._manager:EmptyRetTuples():Add(nRightTypeTuple)
-	nTagFn.fn = self._manager:Function(nTypeTuple, nRetTuples)
-end
-
 function LuaFunction:implement(vContext, vFuncType)
-	local nTagFn = self._unionTagFn
-	local nTag = nTagFn.tag
-	if nTag ~= LuaFunction.DEFAULT then
-		error(nTag.." fn can't implement typefunction")
-	end
-	if self.implType then
-		vContext:error("implement more than once")
-		return
-	end
-	self.implType = vFuncType
-	if not nTagFn.retTuples then
-		nTagFn.retTuples = vFuncType:getRetTuples()
-	end
-	self:_checkLateCall(vContext, vFuncType:getArgTuple())
+	vContext:error("implement TODO ")
 end
 
 function LuaFunction:meta_native_call(vContext, vTermTuple)
-	local nTagFn = self._unionTagFn
+	local nTagFn = self._unionFnCom
 	if nTagFn.tag == LuaFunction.OPEN then
 		return nTagFn:meta_native_call(vContext, vTermTuple)
 	else
@@ -180,7 +78,7 @@ function LuaFunction:meta_native_call(vContext, vTermTuple)
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
-	return self._unionTagFn:meta_call(vContext, vTypeTuple)
+	return self._unionFnCom:meta_call(vContext, vTypeTuple)
 end
 
 function LuaFunction:_intersectOneNotRefer(vType)

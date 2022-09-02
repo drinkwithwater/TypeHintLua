@@ -1,27 +1,27 @@
 
 local TermCase = require "thlua.term.TermCase"
 local LuaFunction = require "thlua.func.LuaFunction"
-local OpenFnInfo = {}
-OpenFnInfo.__index=OpenFnInfo
+local OpenFnCom = {}
+OpenFnCom.__index=OpenFnCom
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function OpenFnInfo.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.OpenFnInfo)
+function OpenFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.OpenFnCom)
 	local self = setmetatable({::New()
 		tag=LuaFunction.OPEN,
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_nativeFunction=false,
-	}, OpenFnInfo)
+	}, OpenFnCom)
 	vLuaFunction:setUnionFn(self)
 	return self
 end
 
-function OpenFnInfo:initByOpen(vRunFunc)
+function OpenFnCom:initByOpen(vRunFunc)
 	self._nativeFunction = self._manager:NativeFunction(vRunFunc)
 end
 
-function OpenFnInfo:initByGuard(vType)
+function OpenFnCom:initByGuard(vType)
 	local nTrue = self._manager.type.True
 	local nFalse = self._manager.type.False
 	self._nativeFunction=self._manager:NativeFunction(function(vContext, vTermTuple)
@@ -37,8 +37,8 @@ function OpenFnInfo:initByGuard(vType)
 	end)
 end
 
-function OpenFnInfo:meta_native_call(vContext, vTermTuple)
+function OpenFnCom:meta_native_call(vContext, vTermTuple)
 	return self._nativeFunction:meta_native_call(vContext, vTermTuple)
 end
 
-return OpenFnInfo
+return OpenFnCom
