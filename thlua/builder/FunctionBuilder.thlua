@@ -19,15 +19,13 @@ function FunctionBuilder.new(vContext:class.Context,
 	vNode:class.AstNode, vAutoArgs:class.AutoArguments, vRunFunc:class.GenFunc)::RetNew(class.FunctionBuilder)
 	local nManager = vContext._manager
 	local nLuaFunc = nManager:LuaFunction()
-	nLuaFunc:init(vContext, vNode, vRunFunc)
+	nLuaFunc:init(vContext, vNode, vAutoArgs, vRunFunc)
 	return setmetatable({::New()
 		_context=vContext,
 		_manager=nManager,
 		_retTuples=false,
 		_fnCom=false,
-		_runFunc=vRunFunc,
 		_luaFunc=nLuaFunc,
-		_autoArgs=vAutoArgs,
 		_tag=LuaFunction.DEFAULT,
 	}, FunctionBuilder)
 end
@@ -36,10 +34,10 @@ function FunctionBuilder.newLongHint(self)
 	return {
 		RetNew=function(vLongHint, vRefer, vStruct)
 			assert(not self._fnCom, "function builder case conflict")
-			local nInfo = NewFnCom.new(self._manager, self._luaFunc)
-			vRefer:setTypeCtor(nInfo)
-			self._fnCom = nInfo
-			nInfo:initByRetNew(vRefer, vStruct)
+			local nCom = NewFnCom.new(self._manager, self._luaFunc)
+			vRefer:setTypeCtor(nCom)
+			self._fnCom = nCom
+			nCom:initByRetNew(self._context, vRefer, vStruct)
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)
@@ -52,22 +50,22 @@ function FunctionBuilder.newLongHint(self)
 		end,
 		nocheck=function(vLongHint)
 			assert(not self._fnCom, "function builder case conflict")
-			local nInfo = NocheckFnCom.new(self._manager, self._luaFunc)
-			self._fnCom = nInfo
+			local nCom = NocheckFnCom.new(self._manager, self._luaFunc)
+			self._fnCom = nCom
 			return vLongHint
 		end,
 		open=function(vLongHint)
 			assert(not self._fnCom, "function builder case conflict")
-			local nOpenInfo = OpenFnCom.new(self._manager, self._luaFunc)
-			nOpenInfo:initByOpen(self._runFunc)
-			self._fnCom = nOpenInfo
+			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
+			nOpenCom:initByOpen(self._context)
+			self._fnCom = nOpenCom
 			return vLongHint
 		end,
 		isguard=function(vLongHint, vType)
 			assert(not self._fnCom, "function builder case conflict")
-			local nOpenInfo = OpenFnCom.new(self._manager, self._luaFunc)
-			nOpenInfo:initByGuard(vType)
-			self._fnCom = nOpenInfo
+			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
+			nOpenCom:initByGuard(self._context, vType)
+			self._fnCom = nOpenCom
 			return vLongHint
 		end,
 	}
@@ -75,26 +73,20 @@ end
 
 function FunctionBuilder:build()
 	local nFnCom = self._fnCom
-	if nFnCom then
-		local nTag = nFnCom.tag
-		if nTag == LuaFunction.NOCHECK then
-			if not self._retTuples then
-				error("nocheck-fn must set ret")
-			end
-			local nTypeFn = self._manager:Function(self._autoArgs:checkWhenNocheck(self._context), self._retTuples)
-			self._fnCom:setTypeFn(nTypeFn)
-		elseif nTag == LuaFunction.NEW then
-			local nTypeTuple = self._autoArgs:checkWhenLate(self._context)
-			self._fnCom:setArgTuple(nTypeTuple)
-			self._context:getRuntime():recordDefineLuaFunction(self._fnCom)
-		elseif nTag == LuaFunction.OPEN then
-		else
-			error("invalid tag:"..tostring(nTag))
-		end
-	else
-		local nFnCom = DefaultFnCom.new(self._manager, self._luaFunc)
-		nFnCom:setArgRet(self._autoArgs, self._retTuples)
+	if not nFnCom then
+		nFnCom = DefaultFnCom.new(self._manager, self._luaFunc)
+	end
+	local nTag = nFnCom.tag
+	if nTag == LuaFunction.NOCHECK then
+		self._fnCom:initByRet(self._context, self._retTuples)
+	elseif nTag == LuaFunction.NEW then
+		self._context:getRuntime():recordDefineLuaFunction(self._fnCom)
+	elseif nTag == LuaFunction.DEFAULT then
+		nFnCom:initByRet(self._context, self._retTuples)
 		self._context:getRuntime():recordLateLuaFunction(nFnCom)
+	elseif nTag == LuaFunction.OPEN then
+	else
+		error("invalid tag:"..tostring(nTag))
 	end
 	return self._luaFunc
 end
