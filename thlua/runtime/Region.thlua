@@ -13,13 +13,14 @@ end
 
 function Region.new(vContext:class.Context, vFnCom:class.IFnCom)::RetNew(class.Region)
 	local nRootBranch = Branch.new(vContext, nil, TermCase.new())
-	return setmetatable({::New()
+	local self = setmetatable({::New()
 		_context=vContext,
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch},
 		_fnCom=vFnCom,
-		_retTermTuple=false,
+		_retList={} @ List(class.TermTuple),
 	}, Region)
+	return self
 end
 
 function Region:getFnCom()
@@ -148,23 +149,15 @@ function Region:LOGIC_NOT(vNode, vData)
 end
 
 function Region:RETURN(vNode, vTermTuple)
-	if not self._retTermTuple then
-		self._retTermTuple = vTermTuple
-	else
-		self._retTermTuple = self._retTermTuple | vTermTuple
-	end
+	table.insert(self._retList, vTermTuple)
+	self._fnCom:regionReturn(self._context, vNode, vTermTuple:getTypeTuple())
 	self:top_branch():setStop()
 end
 
 function Region:END(vNode)
 	self._context:getNamespace():close()
-	local re = self._retTermTuple
-	if not re then
-		re = self._context:TermTuple({})
-		self._retTermTuple = re
-	end
-	re:setContext(self._context)
-	return re
+	local re = self._fnCom:regionEnd(self._context, vNode, self._retList)
+	return re or self._context:TermTuple({})
 end
 
 return Region

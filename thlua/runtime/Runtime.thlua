@@ -65,7 +65,7 @@ function Runtime:import(vPath)
 	-- TODO better style
 	self:require(vPath)
 	local nContext = self._requireDict[vPath].context
-	local nSpace = nContext._namespace
+	local nSpace = nContext:getNamespace()
 	return nSpace.localExport
 end
 
@@ -109,9 +109,10 @@ function Runtime:require(vPath)
 		}
 		self._requireDict[vPath] = nRequireEnv
 		local nTermTuple = self.typeManager:TermTuple({})
-		local ret = nLuaFunc:meta_native_call(self:newContext(nEnv:getAstTree()), nTermTuple)
+		local nContext = self:newContext(nEnv:getAstTree())
+		local ret = nLuaFunc:meta_native_call(nContext, nTermTuple)
 		nRequireEnv.term = ret:get(1)
-		nRequireEnv.context = ret:getContext()
+		nRequireEnv.context = nContext
 	end
 	local nTerm = nRequireEnv.term
 	if not nTerm then

@@ -31,14 +31,6 @@ function NewFnCom:initByRetNew(vContext, vRefer, vStruct)
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 end
 
-function NewFnCom:regionTableNew(vApplyContext)
-	assert(not self._onceHintNew, "New() can only be called once")
-	self._onceHintNew = true
-	local nRefer = self._newTypeRefer
-	local nTableType = nRefer:checkType()
-	return nTableType
-end
-
 function NewFnCom:checkDefine()
 	if self._once then
 		return
@@ -57,6 +49,20 @@ end
 function NewFnCom:meta_call(vContext, vTermTuple)
 	self:checkDefine()
 	return self._typeFunction:meta_call(vContext, vTermTuple)
+end
+
+function NewFnCom:regionTableNew(vContext, vNode)
+	assert(not self._onceHintNew, "New() can only be called once")
+	self._onceHintNew = true
+	local nRefer = self._newTypeRefer
+	local nTableType = nRefer:checkType()
+	return nTableType
+end
+
+function NewFnCom:regionReturn(vContext, vNode, vTypeTuple)
+	if vTypeTuple:getRepeatType() or #vTypeTuple~=1 then
+		vContext:nodeError("return not match")
+	end
 end
 
 return NewFnCom

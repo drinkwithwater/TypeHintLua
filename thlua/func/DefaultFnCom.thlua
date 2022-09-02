@@ -67,16 +67,48 @@ function DefaultFnCom:meta_call(vContext, vTypeTuple)
 		if nRetTuples then
 			self._typeFunction = self._manager:Function(nTypeTuple, nRetTuples)
 		else
-			self._once = true
+			if self._once then
+				vContext:error("recursive function must set Ret")
+				self._retTuples = self._manager:EmptyRetTuples()
+			else
+				self._once = true
+				local nContext = self._luaFunction:newInplaceContext()
+				self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
+			end
+			if not self._retTuples then
+				vContext:error("set rettuples empty for unexpected error")
+				self._retTuples = self._manager:EmptyRetTuples()
+			end
 			-- not late function
-			local nContext = self._luaFunction:newInplaceContext()
-			local nRetTermTuple = self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
-			local nRightTypeTuple = nRetTermTuple:getTypeTuple()
-			nRetTuples = self._manager:EmptyRetTuples():Add(nRightTypeTuple)
-			self._typeFunction = self._manager:Function(nTypeTuple, nRetTuples)
+			self._typeFunction = self._manager:Function(nTypeTuple, self._retTuples)
 		end
 	end
 	return self._typeFunction:meta_call(vContext, vTypeTuple)
+end
+
+function DefaultFnCom:regionReturn(vContext, vNode, vTypeTuple)
+	local nRetTuples = self._retTuples
+	if nRetTuples then
+		if not nRetTuples:containTuple(vTypeTuple) then
+			vContext:nodeError(vNode, "return check failed")
+		end
+	end
+end
+
+function DefaultFnCom:regionEnd(vContext, vNode, vTermTupleList)
+	local nRetTuples = self._retTuples
+	if not nRetTuples then
+		nRetTuples = self._manager:EmptyRetTuples()
+		for i, nTermTuple in ipairs(vTermTupleList) do
+			local nTypeTuple = nTermTuple:getTypeTuple()
+			if nTypeTuple:getRepeatType() then
+				vContext:nodeError(vNode, "default-fn can't return dots type")
+			else
+				nRetTuples:Add(nTypeTuple)
+			end
+		end
+		self._retTuples = nRetTuples
+	end
 end
 
 return DefaultFnCom

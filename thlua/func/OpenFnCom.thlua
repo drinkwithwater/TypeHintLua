@@ -42,4 +42,23 @@ function OpenFnCom:meta_native_call(vContext, vTermTuple)
 	return self._nativeFunction:meta_native_call(vContext, vTermTuple)
 end
 
+function OpenFnCom:regionReturn(vContext, vNode, vTypeTuple)
+	-- do nothing
+end
+
+function OpenFnCom:regionEnd(vContext, vNode, vTermTupleList)
+	local nLen = #vTermTupleList
+	if nLen == 0 then
+		return vContext:TermTuple({})
+	elseif nLen == 1 then
+		return vTermTupleList[1]
+	else
+		local retTermTuple = vTermTupleList[1]
+		for i=2,nLen do
+			retTermTuple = retTermTuple | vTermTupleList[i]
+		end
+		return retTermTuple
+	end
+end
+
 return OpenFnCom
