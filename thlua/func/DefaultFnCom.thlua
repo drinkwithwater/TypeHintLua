@@ -15,6 +15,7 @@ function DefaultFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunc
 		_typeFunction=false,
 		_once=false,
 		_autoArgs=false,
+		_argTuple=false,
 		_retTuples=false,
 	}, DefaultFnCom)
 	vLuaFunction:setFnCom(self)
@@ -23,6 +24,9 @@ end
 
 function DefaultFnCom:initByRet(vContext, vRetTuples)
 	self._autoArgs = self._luaFunction._autoArgs
+	if not self._autoArgs:hasVariable() then
+		self._argTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
+	end
 	self._retTuples = vRetTuples
 end
 
@@ -30,61 +34,48 @@ function DefaultFnCom:checkLateRun()
 	if self._once then
 		return
 	end
-	local nTypeFn = self._typeFunction
-	if nTypeFn then
-		local nTermTuple = nTypeFn:getArgTuple():makeTermTuple()
+	local nArgTuple = self._argTuple
+	if nArgTuple then
+		local nTermTuple = nArgTuple:makeTermTuple()
 		self._once = true
-		local nRetTermTuple = self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nTermTuple)
-		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
+		self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nTermTuple)
 		local nRetTuples = self._retTuples
-		if not nRetTuples:containTuple(nRetTypeTuple) then
-			self._luaFunction._context:error("return not match", nRetTuples, nRetTypeTuple)
+		if not self._typeFunction then
+			self._typeFunction=self._manager:Function(nArgTuple, nRetTuples)
 		end
-	else
-		if self._autoArgs:hasVariable() then
-			return
-		end
-		local nArgsTypeTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
-		local nTermTuple = nArgsTypeTuple:makeTermTuple()
-		self._once = true
-		local nRetTermTuple = self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nTermTuple)
-		local nRetTypeTuple = nRetTermTuple:getTypeTuple()
-		local nRetTuples = self._retTuples
-		if nRetTuples then
-			if not nRetTuples:containTuple(nRetTypeTuple) then
-				self._luaFunction._context:error("return not match", nRetTuples, nRetTypeTuple)
-			end
-		else
-			nRetTuples = self._manager:SingleRetTuples(nRetTypeTuple)
-		end
-		self._typeFunction=self._manager:Function(nArgsTypeTuple, nRetTuples)
 	end
 end
 
 function DefaultFnCom:meta_call(vContext, vTypeTuple)
-	if not self._typeFunction then
-		local nTypeTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
+	local nTypeFn = self._typeFunction
+	if not nTypeFn then
+		local nArgTuple = self._argTuple
+		if not nArgTuple then
+			nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
+			self._argTuple = nArgTuple
+		end
 		local nRetTuples = self._retTuples
-		if nRetTuples then
-			self._typeFunction = self._manager:Function(nTypeTuple, nRetTuples)
-		else
+		if not nRetTuples then
 			if self._once then
 				vContext:error("recursive function must set Ret")
-				self._retTuples = self._manager:VoidRetTuples()
+				nRetTuples = self._manager:VoidRetTuples()
 			else
-				self._once = true
 				local nContext = self._luaFunction:newInplaceContext()
-				self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
+				self._once = true
+				self._luaFunction._runFunc(nContext, nArgTuple:makeTermTuple())
+				nRetTuples = self._retTuples
+				if not nRetTuples then
+					vContext:error("set rettuples void for unexpected error")
+					nRetTuples = self._manager:VoidRetTuples()
+				end
 			end
-			if not self._retTuples then
-				vContext:error("set rettuples empty for unexpected error")
-				self._retTuples = self._manager:VoidRetTuples()
-			end
-			-- not late function
-			self._typeFunction = self._manager:Function(nTypeTuple, self._retTuples)
+			self._retTuples = nRetTuples
 		end
+		nTypeFn = self._manager:Function(nArgTuple, nRetTuples)
+		self._typeFunction = nTypeFn
+		self:checkLateRun()
 	end
-	return self._typeFunction:meta_call(vContext, vTypeTuple)
+	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
 function DefaultFnCom:regionReturn(vContext, vNode, vTypeTuple)
