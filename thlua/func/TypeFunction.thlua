@@ -57,8 +57,10 @@ function TypeFunction:detailString(v)
 end
 
 function TypeFunction:meta_call(vContext, vTypeTuple)
-	if not self._argTuple:cast(vContext, vTypeTuple) then
-		vContext:error("args error when call", self._argTuple, vTypeTuple)
+	if not vTypeTuple:cast(vContext, self._argTuple) then
+		if not self._argTuple:containTuple(vTypeTuple) then
+			vContext:error("args error when call", self._argTuple, vTypeTuple)
+		end
 	end
 	return self._retTuples
 end

@@ -39,11 +39,27 @@ function TypeTupleDots:select(i)
 	return TypeTupleDots.new(self._manager, nList, self._repeatType)
 end
 
-function TypeTupleDots:cast(vContext, vRightTypeTuple)
-	for i, nRightType in ipairs(vRightTypeTuple._list) do
-		self._manager:cast(vContext, nRightType, self._list[i])
+function TypeTupleDots:cast(vContext, vDstTypeTuple)
+	local nRepeatDstType = vDstTypeTuple:getRepeatType()
+	if not nRepeatDstType then
+		return false
+	else
+		local nRepeatSrcType = self._repeatType
+		if not vContext:cast(nRepeatSrcType, nRepeatDstType) then
+			if not nRepeatDstType:contain(nRepeatSrcType) then
+				return false
+			end
+		end
 	end
-	return self:containTuple(vRightTypeTuple)
+	for i, nDstType in ipairs(vDstTypeTuple._list) do
+		local nSrcType = self:get(i)
+		if not vContext:cast(nSrcType, nDstType) then
+			if not nDstType:contain(nSrcType) then
+				return false
+			end
+		end
+	end
+	return true
 end
 
 function TypeTupleDots.is(t)

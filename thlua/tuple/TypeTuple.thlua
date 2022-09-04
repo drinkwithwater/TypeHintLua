@@ -33,11 +33,16 @@ function TypeTuple:get(i:Number)::Ret(class.IValueType)
 	return self._list[i] or self._manager.type.Nil
 end
 
-function TypeTuple:cast(vContext, vRightTypeTuple)
-	for i, nRightType in ipairs(vRightTypeTuple._list) do
-		self._manager:cast(vContext, nRightType, self:get(i))
+function TypeTuple:cast(vContext, vDstTypeTuple)
+	for i, nDstType in ipairs(vDstTypeTuple._list) do
+		local nSrcType = self:get(i)
+		if not vContext:cast(nSrcType, nDstType) then
+			if not nDstType:contain(nSrcType) then
+				return false
+			end
+		end
 	end
-	return self:containTuple(vRightTypeTuple)
+	return true
 end
 
 function TypeTuple:select(i)::Ret(class.TypeTuple)
