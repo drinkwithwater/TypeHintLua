@@ -56,6 +56,12 @@ function Region:SYMBOL(vNode, vTerm, vHintType)
 		self:top_branch():symbol_init(nSymbol, vTerm)
 		return nSymbol
 	else
+		local nSrcType = vTerm:getType()
+		if not self._context:cast(nSrcType, vHintType) then
+			if not vHintType:contain(nSrcType) then
+				self._context:nodeError(vNode, "symbol init but type not match")
+			end
+		end
 		local nTerm = self._context:UnionTerm(vHintType)
 		local nSymbol = Symbol.new(self._context, self, vNode, vHintType)
 		self:top_branch():symbol_init(nSymbol, nTerm)

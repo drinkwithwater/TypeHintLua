@@ -2,6 +2,9 @@
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local UnionClass = require "thlua.union.UnionClass"
 local Truth = require "thlua.type.Truth"
+local NativeFunction = require "thlua.func.NativeFunction"
+local LuaFunction = require "thlua.func.LuaFunction"
+local TypeFunction = require "thlua.func.TypeFunction"
 
 local FuncUnion = UnionClass()
 
@@ -10,7 +13,9 @@ local FuncUnion = UnionClass()
 function FuncUnion.new(vManager:class.TypeManager)::RetNew(class.FuncUnion, class.IUnionType)
 	local self = setmetatable({::New()
 		_manager=vManager,
-		_funcTypeDict={} @Dict(Truth, True),
+		_nativeFnDict={} @Dict(class.NativeFunction, True),
+		_typeFnDict={} @Dict(class.TypeFunction, True),
+		_luaFnDict={} @Dict(class.LuaFunction, True),
 		bits=TYPE_BITS.FUNCTION,
 		id=0,
 	}, FuncUnion)
@@ -18,7 +23,17 @@ function FuncUnion.new(vManager:class.TypeManager)::RetNew(class.FuncUnion, clas
 end
 
 function FuncUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
-	for nType, _ in pairs(self._funcTypeDict) do
+	for nType, _ in pairs(self._nativeFnDict) do
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
+	end
+	for nType, _ in pairs(self._typeFnDict) do
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
+	end
+	for nType, _ in pairs(self._luaFnDict) do
 		if not (vFunc(nType) or vContinue) then
 			return false
 		end
@@ -27,25 +42,63 @@ function FuncUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 end
 
 function FuncUnion:_put(vType)
-	assert(vType.bits == TYPE_BITS.FUNCTION, "FuncUnion must _put function")
-	assert(not FuncUnion.is(vType), "FuncUnion can't _put FuncUnion")
-	self._funcTypeDict[vType] = true
+	if self:_containOneNotRefer(vType) then
+		return
+	end
+	if NativeFunction.is(vType) then
+		self._nativeFnDict[vType] = true
+	elseif LuaFunction.is(vType) then
+		for nTypeFn, _ in pairs(self._typeFnDict) do
+			if nTypeFn:contain(vType) then
+				return
+			end
+		end
+		self._luaFnDict[vType] = true
+	elseif TypeFunction.is(vType) then
+		-- delete small struct
+		local nDeleteList:List(class.TypeFunction) = {}
+		for nTypeFn, _ in pairs(self._typeFnDict) do
+			if vType:contain(nTypeFn) then
+				nDeleteList[#nDeleteList + 1] = nTypeFn
+			end
+		end
+		for _, nTypeFn in pairs(nDeleteList) do
+			self._typeFnDict[nTypeFn] = nil
+		end
+		self._typeFnDict[vType] = true
+	else
+		error("fn-type unexpected")
+	end
 end
 
 function FuncUnion:_intersectOneNotRefer(vType)
-    if Truth.is(vType) then
-        return self
-    else
-        return self:_containOneNotRefer(vType)
-    end
+	if Truth.is(vType) then
+		return self
+	else
+		return self:_containOneNotRefer(vType)
+	end
 end
 
 function FuncUnion:_containOneNotRefer(vType)
-	if self._funcTypeDict[vType] then
-		return vType
-	else
-		return vType
+	if NativeFunction.is(vType) then
+		if self._nativeFnDict[vType] then
+			return vType
+		else
+			return false
+		end
+	elseif LuaFunction.is(vType) then
+		if self._luaFnDict[vType] then
+			return vType
+		else
+			return false
+		end
 	end
+	for nTypeFn, _ in pairs(self._typeFnDict) do
+		if nTypeFn:contain(vType) then
+			return nTypeFn
+		end
+	end
+	return false
 end
 
 return FuncUnion

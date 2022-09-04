@@ -25,7 +25,7 @@ function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.
 		_unionSign=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		implType=false @Union(class.Struct, False),
+		_implType=false @Union(class.Struct, False),
 	}, LuaTable)
 	return self
 end
@@ -44,7 +44,7 @@ function LuaTable:setName(name)
 end
 
 function LuaTable:meta_pairs(vContext)
-	local nStruct = self.implType
+	local nStruct = self._implType
 	if nStruct then
 		return nStruct:meta_pairs(vContext)
 	end
@@ -52,7 +52,7 @@ function LuaTable:meta_pairs(vContext)
 end
 
 function LuaTable:meta_ipairs(vContext)
-	local nStruct = self.implType
+	local nStruct = self._implType
 	if nStruct then
 		return nStruct:meta_ipairs(vContext)
 	end
@@ -60,7 +60,7 @@ function LuaTable:meta_ipairs(vContext)
 end
 
 function LuaTable:native_next(vContext, vInitType)
-	local nStruct = self.implType
+	local nStruct = self._implType
 	if nStruct then
 		return nStruct:native_next(vContext, vInitType)
 	end
@@ -154,7 +154,7 @@ function LuaTable:_meta_get(vContext, vKeyType)::Ret(class.IKeyType)
 end
 
 function LuaTable:meta_get(vContext, vKeyType:class.IAtomType)
-	local nImplType = self.implType
+	local nImplType = self._implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
 		if nContain then
@@ -207,7 +207,7 @@ function LuaTable:_meta_set(vContext, vKeyType:class.IAtomType, vValueType:class
 end
 
 function LuaTable:meta_set(vContext, vKeyType, vValueType)
-	local nImplType = self.implType
+	local nImplType = self._implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
 		if nContain then
@@ -219,11 +219,11 @@ function LuaTable:meta_set(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
-	local nImplType = self.implType
+	local nImplType = self._implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():contain(vKeyType)
 		if nContain then
-			vContext:error("override field can't be in implType")
+			vContext:error("override field can't be in _implType")
 			return
 		end
 	end
@@ -281,7 +281,7 @@ function LuaTable:_intersectOneNotRefer(vType)
 end
 
 function LuaTable:seal(vContext)
-	local nImplType = self.implType
+	local nImplType = self._implType
 	if nImplType then
 		self:implement(vContext)
 	end
@@ -292,10 +292,10 @@ function LuaTable:implement(vContext, vStruct)
 		if vStruct:isReference() then
 			vStruct = vStruct:checkType()
 		end
-		assert(not self.implType, "implementing has been setted")
-		self.implType = vStruct
+		assert(not self._implType, "implementing has been setted")
+		self._implType = vStruct
 	else
-		vStruct = self.implType
+		vStruct = self._implType
 	end
 	local nFuncPairList = {}
 	vStruct:foreachPair(function(vKeyType, vValueType)
@@ -321,6 +321,42 @@ function LuaTable:implement(vContext, vStruct)
 		nPair[1]:implement(vContext, nPair[2])
 	end
 	return self
+end
+
+function LuaTable:cast(vContext, vStruct)::Ret(Boolean)
+	if self._implType then
+		return false
+	end
+	self._implType = vStruct
+	local nCastFail = false
+	local nFuncPairList = {}
+	vStruct:foreachPair(function(vKeyType, vValueType)
+		local nSrcType = self:_meta_get(vContext, vKeyType)
+		local nDstType = vValueType:checkType()
+		if LuaFunction.is(nSrcType) then
+			if not TypeFunction.is(nDstType) then
+				nCastFail = true
+				return
+			end
+			if nDstType:isMember() then
+				local nArgTuple = nDstType:getArgTuple()
+				nDstType = self._manager:Function(nArgTuple:replaceFirst(self), nDstType:getRetTuples())
+			end
+			nFuncPairList[#nFuncPairList + 1] = {nSrcType, nDstType}
+			if not vContext:cast(nSrcType, nDstType) then
+				nCastFail = true
+				return
+			end
+		elseif not nDstType:contain(nSrcType) then
+			nCastFail = true
+			return
+		end
+	end)
+	if nCastFail then
+		self._implType = false
+		return false
+	end
+	return true
 end
 
 function LuaTable.is(v)::isguard(class.LuaTable)

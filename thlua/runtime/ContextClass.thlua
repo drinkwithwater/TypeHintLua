@@ -5,6 +5,11 @@ local UnionTerm = require "thlua.term.UnionTerm"
 local Variable = require "thlua.func.Variable"
 local AutoArguments = require "thlua.func.AutoArguments"
 
+local LuaFunction = require "thlua.func.LuaFunction"
+local TypeFunction = require "thlua.func.TypeFunction"
+local LuaTable = require "thlua.object.LuaTable"
+local Struct = require "thlua.object.Struct"
+
 local function ContextClass()::open()
 	local Context = {}
 	Context.__index=Context
@@ -101,6 +106,17 @@ local function ContextClass()::open()
 
 	function Context:getTypeManager()
 		return self._manager
+	end
+
+	function Context:cast(vSrcType, vDstType)::Ret(Boolean)
+		vSrcType = vSrcType:checkType()
+		vDstType = vDstType:checkType()
+		if LuaFunction.is(vSrcType) and TypeFunction.is(vDstType) then
+			return vSrcType:cast(self, vDstType)
+		elseif LuaTable.is(vSrcType) and Struct.is(vDstType) then
+			return vSrcType:cast(self, vDstType)
+		end
+		return false
 	end
 
 	return Context
