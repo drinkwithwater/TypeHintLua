@@ -3,13 +3,13 @@ local TermCase = require "thlua.term.TermCase"
 local LuaFunction = require "thlua.func.LuaFunction"
 local FnComClass = require "thlua.func.FnComClass"
 
-local DefaultFnCom = FnComClass()
+local AutoRetFnCom = FnComClass()
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function DefaultFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.DefaultFnCom)
+function AutoRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.AutoRetFnCom)
 	local self = setmetatable({::New()
-		tag=LuaFunction.DEFAULT,
+		tag=LuaFunction.AUTO_RET,
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
@@ -17,7 +17,7 @@ function DefaultFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunc
 		_autoArgs=false,
 		_argTuple=false,
 		_retTuples=false,
-	}, DefaultFnCom)
+	}, AutoRetFnCom)
 	vLuaFunction:setFnCom(self)
 	self._autoArgs = self._luaFunction._autoArgs
 	if not self._autoArgs:hasVariable() then
@@ -26,7 +26,7 @@ function DefaultFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunc
 	return self
 end
 
-function DefaultFnCom:checkLateRun()
+function AutoRetFnCom:checkLateRun()
 	if self._once then
 		return
 	end
@@ -42,7 +42,7 @@ function DefaultFnCom:checkLateRun()
 	end
 end
 
-function DefaultFnCom:meta_call(vContext, vTypeTuple)
+function AutoRetFnCom:meta_call(vContext, vTypeTuple)
 	local nTypeFn = self._typeFunction
 	if not nTypeFn then
 		local nArgTuple = self._argTuple
@@ -67,7 +67,7 @@ function DefaultFnCom:meta_call(vContext, vTypeTuple)
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
-function DefaultFnCom:regionReturn(vContext, vNode, vTypeTuple)
+function AutoRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	if vTypeTuple:getRepeatType() then
 		vContext:nodeError(vNode, "return dots type is invalid")
 	end
@@ -85,7 +85,7 @@ function DefaultFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	end
 end
 
-function DefaultFnCom:regionEnd(vContext, vNode, vTermTupleList)
+function AutoRetFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- assert(not self._retTuples, "region end but _retTuples has been setted")
 	local nRetTuples = self._retTuples
 	if nRetTuples then
@@ -103,7 +103,7 @@ function DefaultFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	self._retTuples = nRetTuples
 end
 
-function DefaultFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
+function AutoRetFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 	if not self._typeFunction then
 		assert(not self._retTuples, "TODO,cast function after called once")
 		self._retTuples = vDstTypeFn:getRetTuples()
@@ -112,4 +112,4 @@ function DefaultFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 	return vDstTypeFn:contain(self._typeFunction) and true
 end
 
-return DefaultFnCom
+return AutoRetFnCom

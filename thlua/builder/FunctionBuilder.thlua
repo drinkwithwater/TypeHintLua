@@ -5,9 +5,9 @@ local Variable = require "thlua.func.Variable"
 local TermCase = require "thlua.term.TermCase"
 
 local OpenFnCom = require "thlua.func.OpenFnCom"
-local NocheckFnCom = require "thlua.func.NocheckFnCom"
-local NewFnCom = require "thlua.func.NewFnCom"
-local DefaultFnCom = require "thlua.func.DefaultFnCom"
+local FixedRetFnCom = require "thlua.func.FixedRetFnCom"
+local NewRetFnCom = require "thlua.func.NewRetFnCom"
+local AutoRetFnCom = require "thlua.func.AutoRetFnCom"
 
 local FunctionBuilder = {}
 
@@ -27,7 +27,6 @@ function FunctionBuilder.new(vContext:class.Context,
 		_nocheck=false,
 		_fnCom=false,
 		_luaFunc=nLuaFunc,
-		_tag=LuaFunction.DEFAULT,
 	}, FunctionBuilder)
 end
 
@@ -35,13 +34,15 @@ function FunctionBuilder.newLongHint(self)
 	return {
 		RetNew=function(vLongHint, vRefer, vStruct)
 			assert(not self._fnCom, "function builder case conflict")
-			local nCom = NewFnCom.new(self._manager, self._luaFunc)
+			assert(not self._retTuples, "function builder case conflict")
+			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
 			vRefer:setTypeCtor(nCom)
 			self._fnCom = nCom
 			nCom:initByRetNew(self._context, vRefer, vStruct)
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)
+			assert(not self._fnCom, "function builder case conflict")
 			local nRetTuples = self._retTuples
 			if not nRetTuples then
 				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
@@ -58,6 +59,7 @@ function FunctionBuilder.newLongHint(self)
 		end,
 		open=function(vLongHint)
 			assert(not self._fnCom, "function builder case conflict")
+			assert(not self._retTuples, "function builder case conflict")
 			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 			nOpenCom:initByOpen(self._context)
 			self._fnCom = nOpenCom
@@ -78,15 +80,15 @@ function FunctionBuilder:build()
 	if not nFnCom then
 		local nRetTuples = self._retTuples
 		if nRetTuples then
-			nFnCom = NocheckFnCom.new(self._manager, self._luaFunc)
-			nFnCom:initByRet(self._context, nRetTuples)
+			nFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
+			nFnCom:init(self._context, nRetTuples, self._nocheck)
 		else
-			nFnCom = DefaultFnCom.new(self._manager, self._luaFunc)
+			nFnCom = AutoRetFnCom.new(self._manager, self._luaFunc)
 		end
 		self._context:getRuntime():recordLateLuaFunction(nFnCom)
 	else
 		local nTag = nFnCom.tag
-		if nTag == LuaFunction.NEW then
+		if nTag == LuaFunction.NEW_RET then
 			self._context:getRuntime():recordDefineLuaFunction(nFnCom)
 		elseif nTag == LuaFunction.OPEN then
 			-- pass

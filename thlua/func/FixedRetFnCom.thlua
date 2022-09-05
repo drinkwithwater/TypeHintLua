@@ -3,34 +3,39 @@ local TermCase = require "thlua.term.TermCase"
 local LuaFunction = require "thlua.func.LuaFunction"
 local FnComClass = require "thlua.func.FnComClass"
 
-local NocheckFnCom = FnComClass()
+local FixedRetFnCom = FnComClass()
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function NocheckFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.NocheckFnCom)
+function FixedRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.FixedRetFnCom)
 	local self = setmetatable({::New()
-		tag=LuaFunction.NOCHECK,
+		tag=LuaFunction.FIXED_RET,
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
 		_once=false,
 		_autoArgs=false,
 		_retTuples=false,
-	}, NocheckFnCom)
+		_nocheck=false,
+	}, FixedRetFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function NocheckFnCom:initByRet(vContext, vRetTuples)
+function FixedRetFnCom:init(vContext, vRetTuples, vNocheck)
 	self._autoArgs = self._luaFunction._autoArgs
 	self._retTuples = vRetTuples
+	self._nocheck = vNocheck
 	if not self._autoArgs:hasVariable() then
 		local nArgTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
 		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
 	end
 end
 
-function NocheckFnCom:checkLateRun()
+function FixedRetFnCom:checkLateRun()
+	if self._nocheck then
+		return
+	end
 	if self._once then
 		return
 	end
@@ -45,7 +50,7 @@ function NocheckFnCom:checkLateRun()
 	end
 end
 
-function NocheckFnCom:meta_call(vContext, vTypeTuple)
+function FixedRetFnCom:meta_call(vContext, vTypeTuple)
 	local nTypeFn = self._typeFunction
 	if not nTypeFn then
 		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
@@ -57,7 +62,7 @@ function NocheckFnCom:meta_call(vContext, vTypeTuple)
 	return ret
 end
 
-function NocheckFnCom:regionReturn(vContext, vNode, vTypeTuple)
+function FixedRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	if vTypeTuple:getRepeatType() then
 		vContext:nodeError(vNode, "return dots type is invalid")
 	end
@@ -72,15 +77,15 @@ function NocheckFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	end
 end
 
-function NocheckFnCom:regionEnd(vContext, vNode, vTermTupleList)
+function FixedRetFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function NocheckFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
+function FixedRetFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 	if not self._typeFunction then
 		self:meta_call(vContext, vDstTypeFn:getArgTuple())
 	end
 	return vDstTypeFn:contain(self._typeFunction) and true
 end
 
-return NocheckFnCom
+return FixedRetFnCom
