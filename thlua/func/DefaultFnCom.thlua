@@ -19,15 +19,11 @@ function DefaultFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunc
 		_retTuples=false,
 	}, DefaultFnCom)
 	vLuaFunction:setFnCom(self)
-	return self
-end
-
-function DefaultFnCom:initByRet(vContext, vRetTuples)
 	self._autoArgs = self._luaFunction._autoArgs
 	if not self._autoArgs:hasVariable() then
 		self._argTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
 	end
-	self._retTuples = vRetTuples
+	return self
 end
 
 function DefaultFnCom:checkLateRun()
@@ -54,60 +50,63 @@ function DefaultFnCom:meta_call(vContext, vTypeTuple)
 			nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
 			self._argTuple = nArgTuple
 		end
-		local nRetTuples = self._retTuples
-		if not nRetTuples then
-			if self._once then
-				vContext:error("recursive function must set Ret")
-				nRetTuples = self._manager:VoidRetTuples()
-			else
-				local nContext = self._luaFunction:newInplaceContext()
-				self._once = true
-				self._luaFunction._runFunc(nContext, nArgTuple:makeTermTuple())
-				nRetTuples = self._retTuples
-				if not nRetTuples then
-					vContext:error("set rettuples void for unexpected error")
-					nRetTuples = self._manager:VoidRetTuples()
-				end
+		if self._once then
+			vContext:error("recursive function must set Ret")
+			self._retTuples = self._manager:VoidRetTuples()
+		else
+			self._once = true
+			self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nArgTuple:makeTermTuple())
+			if not self._retTuples then
+				vContext:error("set rettuples void for unexpected error")
+				self._retTuples = self._manager:VoidRetTuples()
 			end
-			self._retTuples = nRetTuples
 		end
-		nTypeFn = self._manager:Function(nArgTuple, nRetTuples)
+		nTypeFn = self._manager:Function(nArgTuple, self._retTuples)
 		self._typeFunction = nTypeFn
-		self:checkLateRun()
 	end
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
 function DefaultFnCom:regionReturn(vContext, vNode, vTypeTuple)
+	if vTypeTuple:getRepeatType() then
+		vContext:nodeError(vNode, "return dots type is invalid")
+	end
 	local nRetTuples = self._retTuples
 	if nRetTuples then
-		if not nRetTuples:containTuple(vTypeTuple) then
+		local nOneOkay = false
+		nRetTuples:foreach(function(vDstTuple)
+			if vTypeTuple:castOrIn(vContext, vDstTuple) then
+				nOneOkay = true
+			end
+		end)
+		if not nOneOkay then
 			vContext:nodeError(vNode, "return check failed")
 		end
-	end
-	if vTypeTuple:getRepeatType() then
-		vContext:nodeError(vNode, "return dots type")
 	end
 end
 
 function DefaultFnCom:regionEnd(vContext, vNode, vTermTupleList)
+	-- assert(not self._retTuples, "region end but _retTuples has been setted")
 	local nRetTuples = self._retTuples
-	if not nRetTuples then
-		if #vTermTupleList == 0 then
-			nRetTuples = self._manager:VoidRetTuples()
-		else
-			nRetTuples = self._manager:SingleRetTuples(vTermTupleList[1]:getTypeTuple())
-			for i=2, #vTermTupleList do
-				local nTypeTuple = vTermTupleList[i]:getTypeTuple()
-				nRetTuples = nRetTuples:Add(nTypeTuple)
-			end
-		end
-		self._retTuples = nRetTuples
+	if nRetTuples then
+		return
 	end
+	if #vTermTupleList == 0 then
+		nRetTuples = self._manager:VoidRetTuples()
+	else
+		nRetTuples = self._manager:SingleRetTuples(vTermTupleList[1]:getTypeTuple())
+		for i=2, #vTermTupleList do
+			local nTypeTuple = vTermTupleList[i]:getTypeTuple()
+			nRetTuples = nRetTuples:Add(nTypeTuple)
+		end
+	end
+	self._retTuples = nRetTuples
 end
 
 function DefaultFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 	if not self._typeFunction then
+		assert(not self._retTuples, "TODO,cast function after called once")
+		self._retTuples = vDstTypeFn:getRetTuples()
 		self:meta_call(vContext, vDstTypeFn:getArgTuple())
 	end
 	return vDstTypeFn:contain(self._typeFunction) and true

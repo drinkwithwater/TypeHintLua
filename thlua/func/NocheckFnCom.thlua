@@ -13,19 +13,74 @@ function NocheckFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunc
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
+		_once=false,
+		_autoArgs=false,
+		_retTuples=false,
 	}, NocheckFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
 function NocheckFnCom:initByRet(vContext, vRetTuples)
-	local nAutoArgs = self._luaFunction._autoArgs
-	local nTypeFn = self._manager:Function(nAutoArgs:checkWhenNocheck(vContext), vRetTuples)
-	self._typeFunction = nTypeFn
+	self._autoArgs = self._luaFunction._autoArgs
+	self._retTuples = vRetTuples
+	if not self._autoArgs:hasVariable() then
+		local nArgTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
+		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
+	end
 end
 
-function NocheckFnCom:meta_call(vContext, vTermTuple)
-	return self._typeFunction:meta_call(vContext, vTermTuple)
+function NocheckFnCom:checkLateRun()
+	if self._once then
+		return
+	end
+	local nTypeFn = self._typeFunction
+	if not nTypeFn then
+		return
+	end
+	local nArgTuple = nTypeFn:getArgTuple()
+	if nArgTuple then
+		self._once = true
+		self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nArgTuple:makeTermTuple())
+	end
+end
+
+function NocheckFnCom:meta_call(vContext, vTypeTuple)
+	local nTypeFn = self._typeFunction
+	if not nTypeFn then
+		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
+		nTypeFn = self._manager:Function(nArgTuple, self._retTuples)
+		self._typeFunction = nTypeFn
+	end
+	local ret = nTypeFn:meta_call(vContext, vTypeTuple)
+	self:checkLateRun()
+	return ret
+end
+
+function NocheckFnCom:regionReturn(vContext, vNode, vTypeTuple)
+	if vTypeTuple:getRepeatType() then
+		vContext:nodeError(vNode, "return dots type is invalid")
+	end
+	local nOneOkay = false
+	self._retTuples:foreach(function(vDstTuple)
+		if vTypeTuple:castOrIn(vContext, vDstTuple) then
+			nOneOkay = true
+		end
+	end)
+	if not nOneOkay then
+		vContext:nodeError(vNode, "return check failed")
+	end
+end
+
+function NocheckFnCom:regionEnd(vContext, vNode, vTermTupleList)
+	-- do nothing
+end
+
+function NocheckFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
+	if not self._typeFunction then
+		self:meta_call(vContext, vDstTypeFn:getArgTuple())
+	end
+	return vDstTypeFn:contain(self._typeFunction) and true
 end
 
 return NocheckFnCom
