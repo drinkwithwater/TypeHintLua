@@ -2,59 +2,20 @@
 (@var.lsp=import("thlua.server.protocol").lsp)
 
 local methodHandler = {
-	initialize=function(vClient, vParams)
-		if vClient.initialize then
-			error("already initialized!")
-		else
-			vClient.initialize = true
-		end
-		local root  = vParams.rootPath or vParams.rootUri
-		vClient:info("Config.root = ", root)
-		return {
-			capabilities = {
-				completionProvider = {
-					triggerCharacters = {".",":"},
-					resolveProvider = false
-				},
-				definitionProvider = true,
-				textDocumentSync = {
-					openClose = true,
-					change = 1, -- 1 is non-incremental, 2 is incremental
-					save = { includeText = true },
-				},
-				hoverProvider = true,
-				documentSymbolProvider = true,
-				--referencesProvider = false,
-				--documentHighlightProvider = false,
-				--workspaceSymbolProvider = false,
-				--codeActionProvider = false,
-				--documentFormattingProvider = false,
-				--documentRangeFormattingProvider = false,
-				--renameProvider = false,
-			}
-		}
-	end,
-	shutdown=function(vClient, _)
-		vClient.shutdown = true
-	end,
-	exit=function(vClient, _)
-		if vClient.shutdown then
-			os.exit(0)
-		else
-			os.exit(1)
-		end
-	end,
-	["textDocument/didOpen"]=function(vClient, vParams)
-	end,
-	["textDocument/didChange"]=function(vClient, vParams)
-	end,
-	["textDocument/didSave"]=function(vClient, vParams)
-	end,
-	["textDocument/didClose"]=function(vClient, vParams)
-	end,
+	initialize=require "thlua.server.method.initialize",
+	shutdown=require "thlua.server.method.shutdown",
+	exit=require "thlua.server.method.exit",
+	["textDocument/didOpen"]=require "thlua.server.method.textDocument.didOpen",
+	["textDocument/didChange"]=require "thlua.server.method.textDocument.didChange",
+	["textDocument/didSave"]=require "thlua.server.method.textDocument.didSave",
+	["textDocument/didClose"]=require "thlua.server.method.textDocument.didClose",
 	["textDocument/completion"]=function(vClient, vParams)
 	end,
 	["textDocument/definition"]=function(vClient, vParams)
+	end,
+	["textDocument/typeDefinition"]=function(vClient, vParams)
+	end,
+	["textDocument/references"]=function(vClient, vParams)
 	end,
 	["textDocument/hover"]=function(vClient, vParams)
 	end,

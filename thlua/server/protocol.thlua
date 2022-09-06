@@ -88,6 +88,50 @@ lsp.ResponseError = Struct {
 	data = Truth|Nil,
 }
 
+lsp.InitializeParams = Struct {
+	processId=Number|Nil,
+	clientInfo=Struct({
+		name=String|Nil,
+		version=String,
+	}) | Nil,
+	locale=String|Nil,
+	rootPath=String|Nil,
+	rootUri=String|Nil,
+	capabilities=Struct{
+		workspace=Struct{} | Nil,
+		textDocument=Struct{} | Nil,
+		notebookDocument=Struct{} | Nil,
+		window=Struct{} | Nil,
+		general=Struct{} | Nil,
+		experimental=Struct{} | Nil,
+	},
+	initializationOptions=Truth,
+	trace=Union("off", "messages", "compact", "verbose")
+}
+
+lsp.InitializeResult = Struct {
+	capabilities=Struct{
+		completionProvider=Struct{
+			triggerCharacters=List(String),
+			resolveProvider=Boolean,
+		},
+		definitionProvider=Boolean,
+		textDocumentSync=Struct{
+			openClose=Boolean,
+			change=Union(1,2), -- 1 is non-incremental, 2 is incremental
+			save=Struct{
+				includeText=Boolean,
+			},
+		},
+		hoverProvider = Boolean,
+		documentSymbolProvider = Boolean,
+	},
+	serverInfo=Struct {
+		name=String,
+		version=String|Nil,
+	} | Nil,
+}
+
 end)
 
 return {
