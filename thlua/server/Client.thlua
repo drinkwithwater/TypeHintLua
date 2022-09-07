@@ -2,6 +2,7 @@
 local json = require "thlua.server.json"
 local methodHandler = require "thlua.server.methodHandler"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
+local Runtime = require "thlua.runtime.Runtime"
 
 (@var.lsp=import("thlua.server.protocol").lsp)
 
@@ -14,6 +15,7 @@ function Client.new()::RetNew(lsp.Client)
 		initialize=false@Boolean,
 		shutdown=false,
 		root=false,
+		runtime=Runtime.new(),
 	}, Client)
 end
 
@@ -96,7 +98,7 @@ function Client:readRequest()::Ret(lsp.RequestMessage)
 	if obj.jsonrpc ~= "2.0" then
 		error("json-rpc is not 2.0, "..tostring(obj.jsonrpc))
 	end
-	self:info("recv data:", data)
+	self:info("recv:["..tostring(obj.method).."]", json.encode(obj.params))
 	return obj
 end
 
@@ -149,30 +151,35 @@ local function packToString(...:Truth)::Ret(String)
 	return table.concat(l, " ")
 end
 
+local function getCodeLine()
+	local nInfo = debug.getinfo(2)
+	return nInfo.source..":"..nInfo.currentline
+end
+
 function Client:error(...:Truth)::Ret()
 	self:notify("window/logMessage", {
-		message = packToString(...),
+		message = packToString(getCodeLine(2), ...),
 		type = MessageType.ERROR,
 	})
 end
 
 function Client:warn(...:Truth)::Ret()
 	self:notify("window/logMessage", {
-		message = packToString(...),
+		message = packToString(getCodeLine(2), ...),
 		type = MessageType.WARNING,
 	})
 end
 
 function Client:info(...:Truth)::Ret()
 	self:notify("window/logMessage", {
-		message = packToString(...),
+		message = packToString(getCodeLine(2), ...),
 		type = MessageType.INFO,
 	})
 end
 
 function Client:debug(...)
 	self:notify("window/logMessage", {
-		message = packToString(...),
+		message = packToString(getCodeLine(2), ...),
 		type = MessageType.DEBUG,
 	})
 end

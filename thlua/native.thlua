@@ -27,7 +27,7 @@ function native._toTable(vManager, vTable:Dict(String, class.IKeyType))::Ret(cla
 end
 
 function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
-	local nManager = vRuntime.typeManager
+	local nManager = vRuntime:getTypeManager()
 	local global = {
 		--- meta_native
 		setmetatable=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -148,10 +148,10 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 	global.io=native.make_io(nManager)
 
 	-- global.next = vRuntime.func.next
-	local nGlobalTable = native._toTable(vRuntime.typeManager, global)
+	local nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
     nGlobalTable:setName("_G")
 
-	return vRuntime.typeManager:UnionTerm(nGlobalTable)
+	return vRuntime:getTypeManager():UnionTerm(nGlobalTable)
 end
 
 function native.make_math(vManager)

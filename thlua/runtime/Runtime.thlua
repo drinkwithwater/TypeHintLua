@@ -11,34 +11,47 @@ local CodeEnv = require "thlua.code.CodeEnv"
 local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
 
-(@var.class = import("thlua.type.TypeClass").class)
+(@do
+	var.class = import("thlua.type.TypeClass").class
 
-(@var.RequireEnv = Struct {
-	fn=class.LuaFunction,
-	term=Union(False, class.UnionTerm),
-	context=class.Context,
-})
+	var.RequireState = Struct {
+		fn=class.LuaFunction,
+		term=Union(False, class.UnionTerm),
+		context=class.Context,
+	}
+
+	var.LoadFn = Fn(class.Runtime, class.AstNode):Ret(class.GenFunc)
+
+	var.FileState = Struct {
+		env=class.CodeEnv,
+		func=LoadFn,
+	}
+end)
+
 
 local Runtime = ContextClass()
 
 
 function Runtime.new()::RetNew(class.Runtime)
 	local self = setmetatable({::New()
-		func={},
-		typeManager=nil,
 	}, {
 		__index=Runtime,
 	})
-	self._requireDict = {}
 	self._runtime = self
-	self.typeManager = TypeManager.new(self)
-	self._manager = self.typeManager
 	self._node = Node.newRootNode()
+	self._fileStateDict = {}
+	self:clear()
+	return self
+end
+
+function Runtime:clear()
+	self._manager = TypeManager.new(self)
 	self._namespace = self:RootNamespace()
+	self._namespace:close()
+	self._global_term = native.make(self)
+	self._requireDict = {}
 	self._lateFnDict = {}
 	self._defineFnDict = {}
-	self.global_term = native.make(self)
-	return self
 end
 
 function Runtime:recordLateLuaFunction(vFunc)
@@ -70,51 +83,56 @@ function Runtime:import(vPath)
 end
 
 function Runtime:main(vFileName, vContent)
-	local nLuaFunc, nEnv = self:load(vContent, vFileName)
-	local nTermTuple = self.typeManager:TermTuple({})
-	nLuaFunc:meta_native_call(self:newContext(nEnv:getAstTree()), nTermTuple)
+	self:clear()
+	local nLuaFunc = self:load(vContent, vFileName)
+	local nTermTuple = self._manager:TermTuple({})
+	nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 end
 
 function Runtime:newContext(vApplyNode)
 	return Context.new(self, vApplyNode)
 end
 
-function Runtime:load(vCode, vPath)::Ret(class.LuaFunction, class.CodeEnv)
-	local nEnv = CodeEnv.new(vCode, vPath, vPath, self._node)
+function Runtime:load(vCode, vPath)::Ret(class.LuaFunction)
+	local nLoadFn, nEnv = self:_parse(vCode, "hint:"..vPath)
+	return nLoadFn(self, nEnv:getNodeList())
+end
+
+function Runtime:_parse(vCode, vChunkName)::Ret(LoadFn, class.CodeEnv)
+	local nEnv = CodeEnv.new(vCode, vChunkName, vChunkName, self._node)
 	local nAfterContent = nEnv:genTypingCode()
-	local nFunc, nInfo = load(nAfterContent, "hint:"..vPath, "t", setmetatable({}, {
+	local nFunc, nInfo = load(nAfterContent, vChunkName, "t", setmetatable({}, {
 		__index=function(t,k)
-			error("indexing global is logic error")
+			error("indexing global is fatal error")
 		end
 	}))
 	if not nFunc then
 		error(nInfo)
 	end
-	local nLuaFunc = nFunc(self, nEnv:getNodeList())
-	return nLuaFunc, nEnv
+	return nFunc, nEnv
 end
 
 function Runtime:require(vPath)
-	local nRequireEnv = self._requireDict[vPath]
-	if not nRequireEnv then
+	local nRequireState = self._requireDict[vPath]
+	if not nRequireState then
 		local nOkay, nContent, nFileName = CodeEnv.thluaSearchContent(vPath, true)
 		if not nOkay then
 				error(nContent)
 		end
-		local nLuaFunc, nEnv = self:load(nContent, vPath)
-		nRequireEnv = {
+		local nLuaFunc = self:load(nContent, vPath)
+		nRequireState = {
 			term=false,
 			fn=nLuaFunc,
 			context=false,
 		}
-		self._requireDict[vPath] = nRequireEnv
-		local nTermTuple = self.typeManager:TermTuple({})
-		local nContext = self:newContext(nEnv:getAstTree())
+		self._requireDict[vPath] = nRequireState
+		local nTermTuple = self._manager:TermTuple({})
+		local nContext = nLuaFunc:newInplaceContext()
 		local ret = nLuaFunc:meta_native_call(nContext, nTermTuple)
-		nRequireEnv.term = ret:get(1)
-		nRequireEnv.context = nContext
+		nRequireState.term = ret:get(1)
+		nRequireState.context = nContext
 	end
-	local nTerm = nRequireEnv.term
+	local nTerm = nRequireState.term
 	if not nTerm then
 			error("recursive require:"..vPath)
 	end
@@ -140,6 +158,10 @@ end
 
 function Runtime:makeDebugNode(vDepth)
 	return Node.getDebugNode(vDepth)
+end
+
+function Runtime:getGlobalTerm()
+	return self._global_term
 end
 
 return Runtime
