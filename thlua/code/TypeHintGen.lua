@@ -175,7 +175,7 @@ local visitor_stm = {
 	},
 	Repeat={
 		override=function(visitor, node)
-			error("repeat not implement")
+			print("TODO repeat not implement")
 			--[[visitor:indent()
 			visitor:print("repeat")
 			visitor:print(node[1])

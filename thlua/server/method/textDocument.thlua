@@ -1,0 +1,58 @@
+
+
+(@do
+    var.lsp=import("thlua.server.protocol").lsp
+
+    var.Position = Struct {
+        line=Number,
+        charactor=Number,
+    }
+
+    var.TextDocumentIdentifier = Struct {
+        uri=String,
+    }
+
+    var.DidChangeTextDocumentParams = Struct {
+        textDocument=Struct {
+            uri=String,
+            version=Number,
+        },
+        contentChanges=List(Struct {
+            range=Struct {
+                start=Position,
+                ["end"]=Position,
+            },
+            rangeLength=Number | Nil,
+            text=String,
+        }),
+    } 
+
+    var.DidOpenTextDocumentParams = Struct {
+        textDocument = Struct {
+            uri=String,
+            version=Number,
+            text=String,
+        }
+    }
+
+    var.DefinitionParams = Struct {
+        textDocument = TextDocumentIdentifier,
+        position=Position,
+    }
+end)
+
+
+return {
+    didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)::Ret()
+        vClient.runtime:main(vParams.textDocument.uri, vParams.contentChanges[1].text)
+    end,
+    didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)::Ret()
+        vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
+    end,
+    didSave=function(vClient:lsp.Client, vParams)::Ret()
+    end,
+    didClose=function(vClient:lsp.Client, vParams)::Ret()
+    end,
+    definition=function(vClient:lsp.Client, vParam:DefinitionParams)::Ret()
+    end,
+}

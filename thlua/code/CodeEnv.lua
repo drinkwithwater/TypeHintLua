@@ -27,7 +27,7 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		scope_list = {},
 		region_list = nil, -- region_list = scope_list
 		ident_list = {},
-		errline_list = {},
+		_lineErrList = {},
 	}, CodeEnv)
 
 	nGlobalEnv.region_list = nGlobalEnv.scope_list
@@ -46,7 +46,7 @@ end
 
 function CodeEnv:recordError(vPos, vName)
 	local l, c = self:fixupPos(vPos)
-	table.insert(self.errline_list, l)
+	table.insert(self._lineErrList, {l, vName})
 end
 
 function CodeEnv:_parse()
@@ -68,9 +68,9 @@ function CodeEnv:_parse()
 		local nErrorMsg = table.concat(l)
 		error(Exception.new(nErrorMsg))
 	end
-	if #self.errline_list > 0 then
-		for k,v in pairs(self.errline_list) do
-			print("error line="..v)
+	if #self._lineErrList > 0 then
+		for k,v in pairs(self._lineErrList) do
+			print("error line="..v[1]..":"..tostring(v[2]))
 		end
 		error("parsing stop:"..self.filename)
 	end

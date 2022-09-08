@@ -37,7 +37,7 @@ node.Stat = Union (
 
 node.Do = NodeStruct {
 	tag = "Do",
-	[Number] = node.Stat,
+	[1] = node.Block,
 }
 
 node.Set = NodeStruct {

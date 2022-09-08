@@ -25,6 +25,10 @@ function Client:mainLoop()
 	end
 end
 
+local function reqToStr(vRequest)::Ret(String)
+	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
+end
+
 function Client:rpc()::Ret()
 	local request = self:readRequest()
 	local methodName = request.method
@@ -33,7 +37,7 @@ function Client:rpc()::Ret()
 		if nId then
 			self:writeError(nId, ErrorCodes.ParseError, "method name not set", "")
 		else
-			self:warn("method name not set", "method="..tostring(methodName))
+			self:warn(reqToStr(request), "method name not set")
 		end
 		return
 	end
@@ -42,7 +46,7 @@ function Client:rpc()::Ret()
 		if nId then
 			self:writeError(nId, ErrorCodes.MethodNotFound, "method not found", "method="..tostring(methodName))
 		else
-			self:warn("method not found", "method="..tostring(methodName))
+			self:warn(reqToStr(request), "method not found")
 		end
 		return
 	end
@@ -51,9 +55,13 @@ function Client:rpc()::Ret()
 		if nId then
 			self:writeResult(nId, result)
 		else
-			self:warn("request without id ")
+			self:warn(reqToStr(request), "request without id ")
 		end
 		return
+	else
+		if nId then
+			self:warn(reqToStr(request), "request with id but no resposne")
+		end
 	end
 end
 
@@ -98,7 +106,7 @@ function Client:readRequest()::Ret(lsp.RequestMessage)
 	if obj.jsonrpc ~= "2.0" then
 		error("json-rpc is not 2.0, "..tostring(obj.jsonrpc))
 	end
-	self:info("recv:["..tostring(obj.method).."]", json.encode(obj.params))
+	self:info("recv:"..reqToStr(obj), json.encode(obj.params))
 	return obj
 end
 
