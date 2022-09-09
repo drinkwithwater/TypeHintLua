@@ -14,7 +14,7 @@ function NewRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunct
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
 		_newTypeRefer=false,
-		_newTypeImpl=false,
+		_newTypeImpl=vManager:Struct {},
 		_once=false,
 		_onceHintNew=false,
 	}, NewRetFnCom)
@@ -24,7 +24,9 @@ end
 
 function NewRetFnCom:initByRetNew(vContext, vRefer, vStruct)
 	self._newTypeRefer = vRefer
-	self._newTypeImpl = vStruct
+	if vStruct then
+		self._newTypeImpl = vStruct 
+	end
 	local nAutoArgs = self._luaFunction._autoArgs
 	local nArgTuple = nAutoArgs:checkWhenLate(vContext)
 	local nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(vRefer))
@@ -37,13 +39,15 @@ function NewRetFnCom:checkDefine()
 	end
 	self._once = true
 	local nRefer = self._newTypeRefer
+	local nImplType = self._newTypeImpl
 	local nContext = self._luaFunction:newInplaceContext()
 	nRefer:setTypeAsync(function()
-		return nContext._manager:LuaTable()
+		--return nContext._manager:LuaTable(self._manager:Struct {})
+		return nContext._manager:LuaTable(nImplType)
 	end)
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
-	nRefer:getType():seal(nContext)
+	nRefer:getType():sealNew(nContext)
 end
 
 function NewRetFnCom:meta_call(vContext, vTermTuple)

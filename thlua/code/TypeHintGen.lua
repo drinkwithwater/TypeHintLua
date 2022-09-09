@@ -19,6 +19,13 @@ function TypeHintGen:autoUnpack(node)
 	end
 end
 
+function TypeHintGen:fixLine(vNode)
+	while self.line < vNode.l do
+		self:print("\n")
+		self.line = self.line + 1
+	end
+end
+
 function TypeHintGen:print(...)
 	for i=1, select("#", ...) do
 		local obj = select(i, ...)
@@ -54,50 +61,54 @@ end
 local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
+			visitor:fixLine(node)
+			visitor:print('local ____ctx, ____nodes=... ')
+			visitor:print("local s"..CodeEnv.G_SCOPE_REFER.."=".."____ctx:getGlobalTerm() ")
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
-			visitor:print("local ____fn\n____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
-			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn)\n")
+			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) ")
+			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
 		end,
 		after=function(visitor, node)
-			visitor:print("end)\nreturn ____fn")
+			visitor:print("end) return ____fn")
 		end
 	},
 	Block={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			visitor.indent_count = visitor.indent_count + 1
 		end,
 		override=function(visitor, node)
 			visitor:indent()
-			visitor:print("local ____s"..node.self_scope_refer.."={}\n")
+			visitor:print("local ____s"..node.self_scope_refer.."={} ")
 			local parent = node.parent
 			if node.is_fornum_block then
 				visitor:indent()
 				visitor:print(parent[1], "=")
-				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", fornum_i)\n")
+				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", fornum_i) ")
 			elseif node.is_forin_block then
 				for i=1, #parent[1] do
 					visitor:indent()
 					visitor:print(parent[1][i], "=")
-					visitor:print(visitor:codeRgn(node, "SYMBOL"), ", forin_gen", i, ")\n")
+					visitor:print(visitor:codeRgn(node, "SYMBOL"), ", forin_gen", i, ") ")
 				end
 			elseif node.is_function_block then
 				for i=1, #parent[1] do
 					local par = parent[1][i]
 					if par.tag ~= "Dots" then
 						visitor:indent()
-						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1], ")\n")
+						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1], ") ")
 					end
 				end
 			end
 			for i=1, #node do
 				visitor:indent()
 				visitor:print(node[i])
-				visitor:print("\n")
+				visitor:print(" ")
 			end
 			if parent.tag == "Function" or parent.tag == "Chunk" then
 				visitor:indent()
-				visitor:print("return ", visitor:codeRgn(node, "END"), ")\n")
+				visitor:print("return ", visitor:codeRgn(node, "END"), ") ")
 			end
 		end,
 		after=function(visitor, node)
@@ -109,7 +120,8 @@ local visitor_block = {
 local visitor_stm = {
 	Do={
 		before=function(visitor, node)
-			visitor:print("do\n")
+			visitor:fixLine(node)
+			visitor:print("do ")
 		end,
 		after=function(visitor, node)
 			visitor:indent()
@@ -118,11 +130,12 @@ local visitor_stm = {
 	},
 	Set={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("local ")
 			visitor:printn("set_a", #node[1])
 			visitor:print("=", visitor:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",")
 			visitor:print(node[2])
-			visitor:print(")\n")
+			visitor:print(") ")
 			for i=1, #node[1] do
 				visitor:indent()
 				local var = node[1][i]
@@ -145,22 +158,23 @@ local visitor_stm = {
 				if i == #node[1] then
 					visitor:print("set_a", i, ",", tostring(node.override or false), ")")
 				else
-					visitor:print("set_a", i, ",", tostring(node.override or false), ")\n")
+					visitor:print("set_a", i, ",", tostring(node.override or false), ") ")
 				end
 			end
 		end
 	},
 	While={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:indent()
 			visitor:print("local while_a=")
 			visitor:print(node[1])
-			visitor:print("\n")
+			visitor:print(" ")
 			visitor:indent()
-			visitor:print(visitor:codeRgn(node, "WHILE"), ",while_a, function()\n")
+			visitor:print(visitor:codeRgn(node, "WHILE"), ",while_a, function() ")
 			visitor:print(node[2])
 			visitor:indent()
-			visitor:print("end)\n")
+			visitor:print("end) ")
 		end,
 	},
 	Repeat={
@@ -177,18 +191,19 @@ local visitor_stm = {
 	},
 	If={
 		override=function(visitor, node)
-			visitor:print("---------------- if begin\n")
+			visitor:fixLine(node)
+			visitor:print("--[[ if begin ]]")
 			local function put(exprNode, blockNode, nextIndex, level)
 				visitor:indent()
 				visitor:print("local if_a"..level.."=")
 				visitor:print(exprNode)
-				visitor:print("\n")
+				visitor:print(" ")
 				visitor:indent()
-				visitor:print(visitor:codeRgn(node, "IF"), ",if_a"..level..", function()\n")
+				visitor:print(visitor:codeRgn(node, "IF"), ",if_a"..level..", function() ")
 				visitor:print(blockNode)
 				if node[nextIndex] then
 					visitor:indent()
-					visitor:print("end,function()\n")
+					visitor:print("end,function() ")
 					if node[nextIndex + 1] then
 						visitor.indent_count = visitor.indent_count + 1
 						put(node[nextIndex], node[nextIndex + 1], nextIndex + 2, level + 1)
@@ -197,15 +212,15 @@ local visitor_stm = {
 						visitor:print(node[nextIndex])
 					end
 					visitor:indent()
-					visitor:print("end)\n")
+					visitor:print("end) ")
 				else
 					visitor:indent()
-					visitor:print("end)\n")
+					visitor:print("end) ")
 				end
 			end
 			put(node[1], node[2], 3, 1)
 			visitor:indent()
-			visitor:print("---------------- if end\n")
+			visitor:print("--[[ if end ]]")
 			--[[visitor:print("local if_a=")
 			visitor:print(node[1])
 			visitor:print("\n")
@@ -231,45 +246,48 @@ local visitor_stm = {
 	},
 	Fornum={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			local blockNode
 			visitor:print("local fornum_r1, fornum_r2, fornum_r3 = ")
 			if #node == 4 then
-				visitor:print(node[2], ", ", node[3], "\n")
+				visitor:print(node[2], ", ", node[3], " ")
 				blockNode = node[4]
 			elseif #node == 5 then
-				visitor:print(node[2], ", ", node[3], ", ", node[4], "\n")
+				visitor:print(node[2], ", ", node[3], ", ", node[4], " ")
 				blockNode = node[5]
 			end
-			visitor:print(visitor:codeRgn(node, "FOR_NUM"), ",function(fornum_i)\n")
+			visitor:print(visitor:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ")
 			blockNode.is_fornum_block = true
 			visitor:print(blockNode)
 			visitor:indent()
-			visitor:print("end, fornum_r1, fornum_r2, fornum_r3)\n")
+			visitor:print("end, fornum_r1, fornum_r2, fornum_r3) ")
 		end
 	},
 	Forin={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			--visitor:print("for ")
 			--visitor:print(node[1])
 			--visitor:print(" in ")
 			visitor:indent()
-			visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ")\n")
-			visitor:print(visitor:codeRgn(node, "FOR_IN"), ",function(vIterTuple)\n")
+			visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ") ")
+			visitor:print(visitor:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ")
 			visitor:indent()
 			visitor:print("\tlocal ")
 			visitor:printn("forin_gen", #node[1])
-			visitor:print("=", visitor:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false)\n")
+			visitor:print("=", visitor:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ")
 			--visitor:print("for ")
 			--visitor:print(" in forin_gen do\n")
 			visitor:indent()
 			node[3].is_forin_block = true
 			visitor:print(node[3])
 			visitor:indent()
-			visitor:print("end, forin_next, forin_self, forin_init)\n")
+			visitor:print("end, forin_next, forin_self, forin_init) ")
 		end
 	},
 	Local={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("local ")
 			visitor:printn("local_a", #node[1])
 			if #node[2]>0 then
@@ -277,7 +295,7 @@ local visitor_stm = {
 				visitor:print(node[2])
 				visitor:print(")")
 			end
-			visitor:print("\n")
+			visitor:print(" ")
 			for i=1, #node[1] do
 				visitor:indent()
 				local idNode = node[1][i]
@@ -286,12 +304,13 @@ local visitor_stm = {
 				if idNode.hintShort then
 					visitor:print(",", idNode.hintShort)
 				end
-				visitor:print(")\n")
+				visitor:print(") ")
 			end
 		end
 	},
 	Localrec={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print(node[1], "=", visitor:codeRgn(node, "SYMBOL"), ", ", node[2], ")")
 		end,
 	},
@@ -307,6 +326,7 @@ local visitor_stm = {
 	},
 	Return={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print(visitor:codeRgn(node, "RETURN"), ",", visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {")
 			visitor:print(node[1])
 			visitor:print("}))")
@@ -319,6 +339,7 @@ local visitor_stm = {
 	},
 	Call={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			if visitor:autoUnpack(node) then
 				visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
 			end
@@ -337,6 +358,7 @@ local visitor_stm = {
 	},
 	Invoke={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			if visitor:autoUnpack(node) then
 				visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
 			end
@@ -362,7 +384,8 @@ local visitor_stm = {
 	},
 	HintStat={
 		override=function(visitor, node)
-					visitor:indent()
+			visitor:fixLine(node)
+			visitor:indent()
 			-- visitor:print("local block = function(self) ", node[1], " end block(self)\n")
 			visitor:print(" ",node[1], " ")
 		end
@@ -372,11 +395,13 @@ local visitor_stm = {
 local visitor_exp = {
 	Nil={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("____ctx:NilTerm()")
 		end
 	},
 	Dots={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			if not visitor:autoUnpack(node) then
 				visitor:print("vDOTS")
 			else
@@ -386,22 +411,26 @@ local visitor_exp = {
 	},
 	True={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("____ctx:LiteralTerm(true)")
 		end
 	},
 	False={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("____ctx:LiteralTerm(false)")
 		end
 	},
 	Number={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("____ctx:LiteralTerm")
 			visitor:print("("..tostring(node[1])..")")
 		end
 	},
 	String={
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print("____ctx:LiteralTerm")
 			local s = node[1]
 			if node.isLong then
@@ -413,6 +442,7 @@ local visitor_exp = {
 	},
 	Function={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			local nParList = node[1]
 			local nParHintList = {}
 			local nDotsHintScript = false
@@ -441,19 +471,19 @@ local visitor_exp = {
 				nParPrint = nParPrint .. "},"..nDotsHintScript..") "
 			end
 			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
+			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) ")
 			visitor:indent()
 			visitor:indent()
 			if #nParList > 0 then
 				visitor:print("\tlocal ", node[1], "=", visitor:codeCtx(node, "TUPLE_UNPACK"))
 				if nParList[#nParList].tag == "Dots" then
-					visitor:print(",vArgTuple,",tostring(#nParList-1),",true)\n")
+					visitor:print(",vArgTuple,",tostring(#nParList-1),",true) ")
 				else
-					visitor:print(",vArgTuple,",tostring(#nParList),",false)\n")
+					visitor:print(",vArgTuple,",tostring(#nParList),",false) ")
 				end
 			end
 			visitor:indent()
-			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn)\n")
+			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn) ")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()
@@ -462,6 +492,7 @@ local visitor_exp = {
 	},
 	Table={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
 			visitor:print("____ctx:UnionTerm(____ctx:TABLE_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ", function() return {")
 			local count = 0
@@ -492,6 +523,7 @@ local visitor_exp = {
 	},
 	Op = {
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			local t = {["or"]=1,["not"]=1,["and"]=1}
 			if t[node[1]] then
 				if node[1] == "not" then
@@ -515,6 +547,7 @@ local visitor_exp = {
 	},
 	Paren = {
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			local nHint = node.hintShort
 			if nHint then
 				visitor:print("____ctx:HINT(", visitor:codeNode(node), ",")
@@ -533,6 +566,7 @@ local visitor_exp = {
 	--Invoke = {},
 	Id = {
 		before=function(visitor, node)
+			visitor:fixLine(node)
 			if node.ident_refer == CodeEnv.G_IDENT_REFER then
 				local symbol = "\""..node[1].."\""
 				if node.is_define or node.is_set then
@@ -562,6 +596,7 @@ local visitor_exp = {
 	},
 	Index = {
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			visitor:print(visitor:codeCtx(node, "META_GET"), ",")
 			visitor:print(node[1])
 			visitor:print(",")
@@ -574,6 +609,7 @@ local visitor_exp = {
 local visitor_list = {
 	ExpList={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			for i=1,#node do
 				visitor:print(node[i])
 				visitor:print(i < #node and "," or "")
@@ -582,6 +618,7 @@ local visitor_list = {
 	},
 	ParList={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			local l = {}
 			for i=1, #node do
 				local curPar = node[i]
@@ -598,6 +635,7 @@ local visitor_list = {
 	},
 	VarList={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			for i=1, #node do
 				visitor:print(node[i])
 				visitor:print(i < #node and "," or "")
@@ -606,6 +644,7 @@ local visitor_list = {
 	},
 	NameList={
 		override=function(visitor, node)
+			visitor:fixLine(node)
 			for i=1,#node do
 				visitor:print(node[i])
 				visitor:print(i < #node and "," or "")
@@ -617,17 +656,13 @@ local visitor_list = {
 local visitor_object_dict = oldvisitor.concat(visitor_block, visitor_stm, visitor_exp, visitor_list)
 
 function TypeHintGen.visit(vFileEnv, vPath)
-	local pre_codes = {
-		'local ____ctx, ____nodes=... ',
-		"local s"..CodeEnv.G_SCOPE_REFER.."=".."____ctx:getGlobalTerm()\n",
-		"\n----------------------------\n",
-	}
 	local visitor = setmetatable({
 		object_dict = visitor_object_dict,
-		buffer_list = pre_codes,
+		buffer_list = {},
 		env = vFileEnv,
 		indent_count = 0,
 		path = vPath,
+		line = 1,
 	}, {
 		__index=TypeHintGen
 	})

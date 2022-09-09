@@ -7,7 +7,7 @@ end
 
 function Exception.new(vMsg)
 	return setmetatable({
-		msg=vMsg
+		msg=tostring(vMsg) -- ..debug.traceback()
 	}, Exception)
 end
 

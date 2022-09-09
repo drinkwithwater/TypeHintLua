@@ -12,7 +12,7 @@ local LuaTable = AtomTypeClass()
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.IAtomType)
+function LuaTable.new(vManager:class.TypeManager, vImplType:Union(class.LuaTable, class.Struct, Nil))::RetNew(class.LuaTable, class.IAtomType)
 	local self = setmetatable({::New()
 		_manager=vManager,
 		_valueDict={} @Dict(class.IAtomType, class.IKeyType),
@@ -20,12 +20,11 @@ function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.
 		_overrideLiteralSet={} @Dict(class.IAtomType, True),
 		_name="Table",
 		_meta=nil @Union(Nil, class.LuaTable),
-		name=nil,
 		singleton=false,
 		_unionSign=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		_implType=false @Union(class.Struct, False),
+		_implType=vImplType or false,
 	}, LuaTable)
 	return self
 end
@@ -39,8 +38,8 @@ function LuaTable:detailString(v)
 	return "LuaTable-"..self._name
 end
 
-function LuaTable:setName(name)
-	self.name = name
+function LuaTable:setName(vName)
+	self._name = vName
 end
 
 function LuaTable:meta_pairs(vContext)
@@ -280,10 +279,12 @@ function LuaTable:_intersectOneNotRefer(vType)
 	end
 end
 
-function LuaTable:seal(vContext)
+-- called when New function checkDefine
+function LuaTable:sealNew(vContext)
 	local nImplType = self._implType
 	if nImplType then
 		self:implement(vContext)
+	else
 	end
 end
 
@@ -363,6 +364,7 @@ function LuaTable.is(v)::isguard(class.LuaTable)
 	return getmetatable(v) == LuaTable
 end
 
+-- called when struct contain
 function LuaTable:sealImplType()
 	local nImplType = self._implType
 	if not nImplType then

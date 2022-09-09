@@ -122,6 +122,18 @@ function Namespace:close()
 	self._closed=true
 end
 
+function Namespace:check()
+	for k,v in pairs(self._key2type) do
+		if Reference.is(v) then
+			if not v:getType() then
+				print(self, v)
+			else
+				-- print(self, v)
+			end
+		end
+	end
+end
+
 function Namespace:getKeyToType()
 	return self._key2type
 end
