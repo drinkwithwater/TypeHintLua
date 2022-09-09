@@ -7,9 +7,8 @@ function TypeHintGen:indent()
 	table.insert(self.buffer_list, string.rep("\t", self.indent_count - 1))
 end
 
-function TypeHintGen:autoUnpack()
-	local parent = self.stack[#self.stack - 1]
-	local node = self.stack[#self.stack]
+function TypeHintGen:autoUnpack(node)
+	local parent = node.parent
 	if parent.tag == "ExpList" or parent.tag == "ParList" or parent.tag == "Block" then
 		-- block is for function-Call-statement
 		return false
@@ -31,20 +30,16 @@ function TypeHintGen:print(...)
 	end
 end
 
-function TypeHintGen:codeTopNode()
-	local nTopNode = self.stack[#self.stack]
-	-- return "\'"..nTopNode.l..","..nTopNode.c.."\'"
-	return "____nodes["..nTopNode.index.."]"
+function TypeHintGen:codeNode(vNode)
+	return "____nodes["..vNode.index.."]"
 end
 
-function TypeHintGen:codeRgn(vName)
-	local nTopNode = self.stack[#self.stack]
-	return "____rgn:"..vName.."("..self:codeTopNode()
+function TypeHintGen:codeRgn(vNode, vName)
+	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
-function TypeHintGen:codeCtx(vName)
-	local nTopNode = self.stack[#self.stack]
-	return "____ctx:"..vName.."("..self:codeTopNode()
+function TypeHintGen:codeCtx(vNode, vName)
+	return "____ctx:"..vName.."("..self:codeNode(vNode)
 end
 
 function TypeHintGen:printn(c, n)
@@ -56,17 +51,13 @@ function TypeHintGen:printn(c, n)
 	end
 end
 
-function TypeHintGen:get_ident_scope_refer(vIdentNode)
-	return self.env.ident_list[vIdentNode.ident_refer].scope_refer
-end
-
 local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
-			visitor:print("local ____fn\n____fn=____ctx:FUNC_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
-			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ", ____fn)\n")
+			visitor:print("local ____fn\n____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
+			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn)\n")
 		end,
 		after=function(visitor, node)
 			visitor:print("end)\nreturn ____fn")
@@ -79,23 +70,23 @@ local visitor_block = {
 		override=function(visitor, node)
 			visitor:indent()
 			visitor:print("local ____s"..node.self_scope_refer.."={}\n")
-			local parent = visitor.stack[#visitor.stack - 1]
+			local parent = node.parent
 			if node.is_fornum_block then
 				visitor:indent()
 				visitor:print(parent[1], "=")
-				visitor:print(visitor:codeRgn("SYMBOL"), ", fornum_i)\n")
+				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", fornum_i)\n")
 			elseif node.is_forin_block then
 				for i=1, #parent[1] do
 					visitor:indent()
 					visitor:print(parent[1][i], "=")
-					visitor:print(visitor:codeRgn("SYMBOL"), ", forin_gen", i, ")\n")
+					visitor:print(visitor:codeRgn(node, "SYMBOL"), ", forin_gen", i, ")\n")
 				end
 			elseif node.is_function_block then
 				for i=1, #parent[1] do
 					local par = parent[1][i]
 					if par.tag ~= "Dots" then
 						visitor:indent()
-						visitor:print(par, "=", visitor:codeRgn("SYMBOL"), ", ", "v_"..par[1], ")\n")
+						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1], ")\n")
 					end
 				end
 			end
@@ -104,10 +95,9 @@ local visitor_block = {
 				visitor:print(node[i])
 				visitor:print("\n")
 			end
-			local parent = visitor.stack[#visitor.stack-1]
 			if parent.tag == "Function" or parent.tag == "Chunk" then
 				visitor:indent()
-				visitor:print("return ", visitor:codeRgn("END"), ")\n")
+				visitor:print("return ", visitor:codeRgn(node, "END"), ")\n")
 			end
 		end,
 		after=function(visitor, node)
@@ -130,7 +120,7 @@ local visitor_stm = {
 		override=function(visitor, node)
 			visitor:print("local ")
 			visitor:printn("set_a", #node[1])
-			visitor:print("=", visitor:codeCtx("EXPLIST_UNPACK"), ","..#node[1]..",")
+			visitor:print("=", visitor:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",")
 			visitor:print(node[2])
 			visitor:print(")\n")
 			for i=1, #node[1] do
@@ -141,12 +131,12 @@ local visitor_stm = {
 					if var.ident_refer ~= CodeEnv.G_IDENT_REFER then
 						visitor:print(var, ":SET(")
 					else
-						visitor:print(visitor:codeCtx("META_SET"), ",")
+						visitor:print(visitor:codeCtx(node, "META_SET"), ",")
 						visitor:print(var)
 						visitor:print(",")
 					end
 				elseif var.tag == "Index" then
-					visitor:print(visitor:codeCtx("META_SET"), ",")
+					visitor:print(visitor:codeCtx(node, "META_SET"), ",")
 					visitor:print(var[1])
 					visitor:print(", ")
 					visitor:print(var[2])
@@ -167,7 +157,7 @@ local visitor_stm = {
 			visitor:print(node[1])
 			visitor:print("\n")
 			visitor:indent()
-			visitor:print(visitor:codeRgn("WHILE"), ",while_a, function()\n")
+			visitor:print(visitor:codeRgn(node, "WHILE"), ",while_a, function()\n")
 			visitor:print(node[2])
 			visitor:indent()
 			visitor:print("end)\n")
@@ -194,7 +184,7 @@ local visitor_stm = {
 				visitor:print(exprNode)
 				visitor:print("\n")
 				visitor:indent()
-				visitor:print(visitor:codeRgn("IF"), ",if_a"..level..", function()\n")
+				visitor:print(visitor:codeRgn(node, "IF"), ",if_a"..level..", function()\n")
 				visitor:print(blockNode)
 				if node[nextIndex] then
 					visitor:indent()
@@ -250,7 +240,7 @@ local visitor_stm = {
 				visitor:print(node[2], ", ", node[3], ", ", node[4], "\n")
 				blockNode = node[5]
 			end
-			visitor:print(visitor:codeRgn("FOR_NUM"), ",function(fornum_i)\n")
+			visitor:print(visitor:codeRgn(node, "FOR_NUM"), ",function(fornum_i)\n")
 			blockNode.is_fornum_block = true
 			visitor:print(blockNode)
 			visitor:indent()
@@ -263,12 +253,12 @@ local visitor_stm = {
 			--visitor:print(node[1])
 			--visitor:print(" in ")
 			visitor:indent()
-			visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeCtx("EXPLIST_UNPACK"), ",3,", node[2], ")\n")
-			visitor:print(visitor:codeRgn("FOR_IN"), ",function(vIterTuple)\n")
+			visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ")\n")
+			visitor:print(visitor:codeRgn(node, "FOR_IN"), ",function(vIterTuple)\n")
 			visitor:indent()
 			visitor:print("\tlocal ")
 			visitor:printn("forin_gen", #node[1])
-			visitor:print("=", visitor:codeCtx("TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false)\n")
+			visitor:print("=", visitor:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false)\n")
 			--visitor:print("for ")
 			--visitor:print(" in forin_gen do\n")
 			visitor:indent()
@@ -283,7 +273,7 @@ local visitor_stm = {
 			visitor:print("local ")
 			visitor:printn("local_a", #node[1])
 			if #node[2]>0 then
-				visitor:print("=", visitor:codeCtx("EXPLIST_UNPACK"), ","..#node[1]..",")
+				visitor:print("=", visitor:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",")
 				visitor:print(node[2])
 				visitor:print(")")
 			end
@@ -292,7 +282,7 @@ local visitor_stm = {
 				visitor:indent()
 				local idNode = node[1][i]
 				visitor:print(idNode, "=")
-				visitor:print(visitor:codeRgn("SYMBOL"), ", local_a"..i)
+				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", local_a"..i)
 				if idNode.hintShort then
 					visitor:print(",", idNode.hintShort)
 				end
@@ -302,7 +292,7 @@ local visitor_stm = {
 	},
 	Localrec={
 		override=function(visitor, node)
-			visitor:print(node[1], "=", visitor:codeRgn("SYMBOL"), ", ", node[2], ")")
+			visitor:print(node[1], "=", visitor:codeRgn(node, "SYMBOL"), ", ", node[2], ")")
 		end,
 	},
 	Goto={
@@ -317,7 +307,7 @@ local visitor_stm = {
 	},
 	Return={
 		override=function(visitor, node)
-			visitor:print(visitor:codeRgn("RETURN"), ",", visitor:codeCtx("EXPLIST_PACK"), ",false, {")
+			visitor:print(visitor:codeRgn(node, "RETURN"), ",", visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {")
 			visitor:print(node[1])
 			visitor:print("}))")
 		end,
@@ -329,43 +319,43 @@ local visitor_stm = {
 	},
 	Call={
 		override=function(visitor, node)
-			if visitor:autoUnpack() then
-				visitor:print(visitor:codeCtx("EXPLIST_UNPACK"), ",1,")
+			if visitor:autoUnpack(node) then
+				visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
 			end
-			visitor:print(visitor:codeCtx("META_CALL"), ",")
+			visitor:print(visitor:codeCtx(node, "META_CALL"), ",")
 			visitor:print(node[1], ",")
-			visitor:print(visitor:codeCtx("EXPLIST_PACK"), ",true, {")
+			visitor:print(visitor:codeCtx(node, "EXPLIST_PACK"), ",true, {")
 			if #node[2] > 0 then
 				node[2].is_args = true
 				visitor:print(node[2])
 			end
 			visitor:print("}))")
-			if visitor:autoUnpack() then
+			if visitor:autoUnpack(node) then
 				visitor:print(")")
 			end
 		end
 	},
 	Invoke={
 		override=function(visitor, node)
-			if visitor:autoUnpack() then
-				visitor:print(visitor:codeCtx("EXPLIST_UNPACK"), ",1,")
+			if visitor:autoUnpack(node) then
+				visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
 			end
-			visitor:print(visitor:codeCtx("META_INVOKE"), ",")
+			visitor:print(visitor:codeCtx(node, "META_INVOKE"), ",")
 			visitor:print(node[1])
 			visitor:print(",\"")
 			visitor:print(node[2][1])
 			visitor:print("\"")
 			if #node[3] > 0 then
 				visitor:print(",")
-				visitor:print(visitor:codeCtx("EXPLIST_PACK"), ",false, {")
+				visitor:print(visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {")
 				node[3].is_args = true
 				visitor:print(node[3])
 				visitor:print("})")
 			else
-				visitor:print(",", visitor:codeCtx("EXPLIST_PACK"), ",false, {})")
+				visitor:print(",", visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {})")
 			end
 			visitor:print(")")
-			if visitor:autoUnpack() then
+			if visitor:autoUnpack(node) then
 				visitor:print(")")
 			end
 		end
@@ -387,10 +377,10 @@ local visitor_exp = {
 	},
 	Dots={
 		before=function(visitor, node)
-			if not visitor:autoUnpack() then
+			if not visitor:autoUnpack(node) then
 				visitor:print("vDOTS")
 			else
-				visitor:print(visitor:codeCtx("EXPLIST_UNPACK"), ",1, vDOTS)")
+				visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1, vDOTS)")
 			end
 		end
 	},
@@ -451,11 +441,11 @@ local visitor_exp = {
 				nParPrint = nParPrint .. "},"..nDotsHintScript..") "
 			end
 			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
+			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ", function(____newCtx, vArgTuple) \n")
 			visitor:indent()
 			visitor:indent()
 			if #nParList > 0 then
-				visitor:print("\tlocal ", node[1], "=", visitor:codeCtx("TUPLE_UNPACK"))
+				visitor:print("\tlocal ", node[1], "=", visitor:codeCtx(node, "TUPLE_UNPACK"))
 				if nParList[#nParList].tag == "Dots" then
 					visitor:print(",vArgTuple,",tostring(#nParList-1),",true)\n")
 				else
@@ -463,7 +453,7 @@ local visitor_exp = {
 				end
 			end
 			visitor:indent()
-			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeTopNode(), ",____fn)\n")
+			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn)\n")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()
@@ -473,7 +463,7 @@ local visitor_exp = {
 	Table={
 		override=function(visitor, node)
 			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-			visitor:print("____ctx:UnionTerm(____ctx:TABLE_NEW(", visitor:codeTopNode(), ",", nLongHintPrint, ", function() return {")
+			visitor:print("____ctx:UnionTerm(____ctx:TABLE_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ", function() return {")
 			local count = 0
 			local tailDots = nil
 			for i=1, #node do
@@ -505,20 +495,20 @@ local visitor_exp = {
 			local t = {["or"]=1,["not"]=1,["and"]=1}
 			if t[node[1]] then
 				if node[1] == "not" then
-					visitor:print(visitor:codeRgn("LOGIC_NOT"), ",", node[2], ")")
+					visitor:print(visitor:codeRgn(node, "LOGIC_NOT"), ",", node[2], ")")
 				else
-					visitor:print(visitor:codeRgn("LOGIC_"..node[1]:upper()),
+					visitor:print(visitor:codeRgn(node, "LOGIC_"..node[1]:upper()),
 					",", node[2], ", function() return ", node[3], " end)")
 				end
 			else
 				if #node == 2 then
-					visitor:print(visitor:codeCtx("META_UOP"), ",\"", node[1], "\",", node[2], ")")
+					visitor:print(visitor:codeCtx(node, "META_UOP"), ",\"", node[1], "\",", node[2], ")")
 				elseif node[1] == "==" then
-					visitor:print(visitor:codeCtx("META_EQ_NE"), ",true,", node[2], ",", node[3], ")")
+					visitor:print(visitor:codeCtx(node, "META_EQ_NE"), ",true,", node[2], ",", node[3], ")")
 				elseif node[1] == "~=" then
-					visitor:print(visitor:codeCtx("META_EQ_NE"), ",false,", node[2], ",", node[3], ")")
+					visitor:print(visitor:codeCtx(node, "META_EQ_NE"), ",false,", node[2], ",", node[3], ")")
 				else
-					visitor:print(visitor:codeCtx("META_BOP_SOME"), ",\"", node[1], "\",", node[2], ",", node[3], ")")
+					visitor:print(visitor:codeCtx(node, "META_BOP_SOME"), ",\"", node[1], "\",", node[2], ",", node[3], ")")
 				end
 			end
 		end
@@ -527,7 +517,7 @@ local visitor_exp = {
 		before=function(visitor, node)
 			local nHint = node.hintShort
 			if nHint then
-				visitor:print("____ctx:HINT(", visitor:codeTopNode(), ",")
+				visitor:print("____ctx:HINT(", visitor:codeNode(node), ",")
 			end
 			visitor:print("(")
 		end,
@@ -552,7 +542,7 @@ local visitor_exp = {
 					if node.is_define or node.is_set then
 						visitor:print(symbol)
 					else
-						visitor:print(visitor:codeCtx("META_GET"), ",s1, ____ctx:LiteralTerm(", symbol, "))")
+						visitor:print(visitor:codeCtx(node, "META_GET"), ",s1, ____ctx:LiteralTerm(", symbol, "))")
 					end
 				else
 					local ident_refer = node.ident_refer
@@ -576,7 +566,7 @@ local visitor_exp = {
 	},
 	Index = {
 		override=function(visitor, node)
-			visitor:print(visitor:codeCtx("META_GET"), ",")
+			visitor:print(visitor:codeCtx(node, "META_GET"), ",")
 			visitor:print(node[1])
 			visitor:print(",")
 			visitor:print(node[2])

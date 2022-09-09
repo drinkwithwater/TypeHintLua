@@ -205,8 +205,9 @@ local TagToTraverse = {
 	end,
 }
 
-local function VisitorExtend(vTable, vDictOrFunc) --[[::open()]]
-	local t = vTable
+local function VisitorExtend(vDictOrFunc) --[[::open()]]
+	local t = {}
+	t.__index = t
 	local nType = type(vDictOrFunc)
 	if nType == "table" then
 		function t:realVisit(node) --[[::nocheck():Ret()]]

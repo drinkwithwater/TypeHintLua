@@ -261,6 +261,7 @@ visit_list = setmetatable({
 }, {
 	__call=visit_tag,
 	__index=function(t, tag)
+		error("expecting a list, but got a " .. tag)
 	end
 })
 

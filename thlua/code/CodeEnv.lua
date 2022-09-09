@@ -20,14 +20,11 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		filename = vFileName,
 		hinting = false,
 		posToChange = {}, -- if value is string then insert else remove
-		expectSet = {},
-		unexpect = "",
-		ast = nil,
+		ast = false,
 		nodeList = {},
 		scope_list = {},
 		region_list = nil, -- region_list = scope_list
 		ident_list = {},
-		_lineErrList = {},
 	}, CodeEnv)
 
 	nGlobalEnv.region_list = nGlobalEnv.scope_list
@@ -53,6 +50,24 @@ function CodeEnv:makeErrNode(vPos, vErr)
 		c=nColumn,
 		vErr
 	}, Node)
+end
+
+function CodeEnv:dumpAst()
+	local l = {}
+	local function recur(t, depth)
+		local indent = string.rep(" ", depth)
+		l[#l + 1] = indent .. tostring(t.tag) .. "{\n"
+		for k,v in ipairs(t) do
+			if type(v) == "table" then
+				recur(v, depth + 1)
+			else
+				l[#l+1] = indent .." ".. tostring(v).."\n"
+			end
+		end
+		l[#l + 1] = indent .. "}\n"
+	end
+	recur(self.ast, 0)
+	print(table.concat(l))
 end
 
 function CodeEnv:_parse()
@@ -81,7 +96,7 @@ function CodeEnv:_parse()
 end
 
 function CodeEnv:visit(vDictOrFunc)
-	local visitor = VisitorExtend({}, vDictOrFunc)
+	local visitor = VisitorExtend(vDictOrFunc)
 	visitor:realVisit(self.ast)
 end
 
