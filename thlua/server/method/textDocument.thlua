@@ -5,24 +5,28 @@
 
     var.Position = Struct {
         line=Number,
-        charactor=Number,
+        character=Number,
+    }
+
+    var.Range=Struct {
+        start=Position,
+        ["end"]=Position,
     }
 
     var.TextDocumentIdentifier = Struct {
         uri=String,
     }
 
+    lsp.VersionedTextDocumentIdentifier = Struct {
+        version=Number,
+        uri=String,
+    }
+
     var.DidChangeTextDocumentParams = Struct {
-        textDocument=Struct {
-            uri=String,
-            version=Number,
-        },
+        textDocument=lsp.VersionedTextDocumentIdentifier,
         contentChanges=List(Struct {
-            range=Struct {
-                start=Position,
-                ["end"]=Position,
-            },
-            rangeLength=Number | Nil,
+            range=Range,
+            rangeLength=Option(Number),
             text=String,
         }),
     } 
@@ -30,6 +34,7 @@
     var.DidOpenTextDocumentParams = Struct {
         textDocument = Struct {
             uri=String,
+            languageId=String,
             version=Number,
             text=String,
         }
@@ -39,20 +44,51 @@
         textDocument = TextDocumentIdentifier,
         position=Position,
     }
+
+    var.PublishDiagnosticsParams = Struct {
+        uri=String,
+        version=Option(Number),
+        diagnostics=List(Struct {
+            range=Range,
+            severity=Option(Struct {
+            }),
+            code=Option(Union(Number, String)),
+            codeDescription=Option(Struct {
+                href=String,
+            }),
+            source=Option(String),
+            message=String,
+            tags=Option(List(Union(1,2))),
+            -- relatedInformation
+            -- data
+        }),
+    }
+
 end)
 
 
 return {
     didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)::Ret()
-        vClient.runtime:main(vParams.textDocument.uri, vParams.contentChanges[1].text)
+        local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.contentChanges[1].text)
+        if not ok then
+            vClient:publishError(vParams.textDocument, errNode)
+        else
+            vClient:publishError(vParams.textDocument, nil)
+        end
     end,
     didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)::Ret()
-        vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
+        -- vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
+        local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.textDocument.text)
+        if not ok then
+            vClient:publishError(vParams.textDocument, errNode)
+        else
+            vClient:publishError(vParams.textDocument, nil)
+        end
     end,
     didSave=function(vClient:lsp.Client, vParams)::Ret()
     end,
     didClose=function(vClient:lsp.Client, vParams)::Ret()
     end,
-    definition=function(vClient:lsp.Client, vParam:DefinitionParams)::Ret()
+    definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret()
     end,
 }

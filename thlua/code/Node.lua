@@ -229,7 +229,12 @@ end)]]
 local Node = {}
 
 function Node.__tostring(self)
-	return self.path..":".. self.l ..(self.c and ("," .. self.c) or "")
+	local before = self.path..":".. self.l ..(self.c and ("," .. self.c) or "")
+	if self.tag ~= "Error" then
+		return before
+	else
+		return before .. (self[1] or "")
+	end
 end
 
 function Node.newRootNode()

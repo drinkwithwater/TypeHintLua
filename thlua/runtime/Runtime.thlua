@@ -89,6 +89,15 @@ function Runtime:main(vFileName, vContent)
 	nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 end
 
+function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
+	local ok, err = pcall(self._parse, self, vContent, vFileName)
+	if not ok then
+		return ok, err
+	else
+		return ok
+	end
+end
+
 function Runtime:newContext(vApplyNode)
 	return Context.new(self, vApplyNode)
 end

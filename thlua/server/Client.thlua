@@ -138,6 +138,30 @@ function Client:notify(vMethod:String, vParams:Truth)::Ret()
 	})
 end
 
+function Client:publishError(vDocIdent:lsp.VersionedTextDocumentIdentifier, vErrNode:Union(class.AstNode, Nil))
+	self:_write({
+		jsonrpc = "2.0",
+		method = "textDocument/publishDiagnostics",
+		params = {
+			uri=vDocIdent.uri,
+			version=vDocIdent.version,
+			diagnostics={ vErrNode and {
+				range={
+					start={
+						line=vErrNode.l-1,
+						character=vErrNode.c-1,
+					},
+					["end"]={
+						line=vErrNode.l-1,
+						character=vErrNode.c,
+					}
+				},
+				message=vErrNode[1] or "unknown"
+			} }
+		},
+	})
+end
+
 function Client:_write(vPacket:Truth)
 	local data = json.encode(vPacket)
 	io.write("Content-Length: "..#data.."\r\n\r\n"..data)

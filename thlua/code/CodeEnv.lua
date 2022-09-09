@@ -44,33 +44,23 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 	return nGlobalEnv
 end
 
-function CodeEnv:makeException(vPos, vErr)
+function CodeEnv:makeErrNode(vPos, vErr)
 	local nLine, nColumn = self:fixupPos(vPos)
-	local l = {
-		self.filename, ":", nLine, ":", nColumn, ":", vErr or "unknown"
-	}
-	local nErrorMsg = table.concat(l)
-	return Exception.new(nErrorMsg)
+	return setmetatable({
+		path=self.path,
+		pos=vPos,
+		l=nLine,
+		c=nColumn,
+		vErr
+	}, Node)
 end
 
 function CodeEnv:_parse()
 	-- 1. gen ast
-	local ast = parser.parse(self, self.subject)
-	if not ast then
-		local nLine, nColumn = self:fixupPos(0)
-		local l = {
-			self.filename, ":", nLine, ":", nColumn, ":",
-			" syntax error, unexpected '",
-			self.unexpect,
-			"', expecting '",
-		}
-		for k, v in pairs(self.expectSet) do
-			l[#l + 1] = k
-			l[#l + 1] = "', '"
-		end
-		l[#l] = "'"
-		local nErrorMsg = table.concat(l)
-		error(Exception.new(nErrorMsg))
+	local ok, ast = pcall(parser.parse,self, self.subject)
+	if not ok then
+		error(ast)
+		return
 	end
 	self.ast = ast
 	-- 2. set line & column, parent

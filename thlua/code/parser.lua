@@ -19,7 +19,7 @@ local cc = lpeg.Cc
 
 local function throw(vErr)
 	return lpeg.Cmt(Cenv, function(_, i, env)
-		error(env:makeException(i, vErr))
+		error(env:makeErrNode(i, vErr))
 		return true
 	end)
 end
@@ -75,7 +75,7 @@ end
 
 local function expect(vPatt, vName)
 	return vPatt + lpeg.Cmt(Cenv, function(_, i, env)
-		error(env:makeException(i, "expect:"..tostring(vName)))
+		error(env:makeErrNode(i, "expect:"..tostring(vName)))
 		return true
 	end)
 end
