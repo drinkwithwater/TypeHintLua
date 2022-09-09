@@ -533,31 +533,27 @@ local visitor_exp = {
 	--Invoke = {},
 	Id = {
 		before=function(visitor, node)
-			local preNode = visitor.stack[#visitor.stack-1]
-			if preNode.tag == "ParList" then
-				visitor:print("v_"..node[1])
-			else
-				if node.ident_refer == CodeEnv.G_IDENT_REFER then
-					local symbol = "\""..node[1].."\""
-					if node.is_define or node.is_set then
-						visitor:print(symbol)
-					else
-						visitor:print(visitor:codeCtx(node, "META_GET"), ",s1, ____ctx:LiteralTerm(", symbol, "))")
-					end
+			if node.ident_refer == CodeEnv.G_IDENT_REFER then
+				local symbol = "\""..node[1].."\""
+				if node.is_define or node.is_set then
+					visitor:print(symbol)
 				else
-					local ident_refer = node.ident_refer
-					local scope_refer = visitor.env.ident_list[ident_refer].scope_refer
-					local symbol = "____s"..scope_refer.."."..node[1]..ident_refer
-					if node.is_define or node.is_set then
-						visitor:print(symbol)
-					else
-						if preNode.tag == "ExpList" and preNode.is_args then
-							visitor:print(" function() return ")
-						end
-						visitor:print(symbol, ":GET()")
-						if preNode.tag == "ExpList" and preNode.is_args then
-							visitor:print(" end ")
-						end
+					visitor:print(visitor:codeCtx(node, "META_GET"), ",s1, ____ctx:LiteralTerm(", symbol, "))")
+				end
+			else
+				local ident_refer = node.ident_refer
+				local scope_refer = visitor.env.ident_list[ident_refer].scope_refer
+				local symbol = "____s"..scope_refer.."."..node[1]..ident_refer
+				if node.is_define or node.is_set then
+					visitor:print(symbol)
+				else
+					local preNode = node.parent
+					if preNode.tag == "ExpList" and preNode.is_args then
+						visitor:print(" function() return ")
+					end
+					visitor:print(symbol, ":GET()")
+					if preNode.tag == "ExpList" and preNode.is_args then
+						visitor:print(" end ")
 					end
 				end
 			end
@@ -586,10 +582,18 @@ local visitor_list = {
 	},
 	ParList={
 		override=function(visitor, node)
+			local l = {}
 			for i=1, #node do
-				visitor:print(node[i])
-				visitor:print(i < #node and "," or "")
+				local curPar = node[i]
+				if curPar.tag == "Id" then
+					l[#l+1] = "v_"..curPar[1]
+				elseif curPar.tag == "Dots" then
+					l[#l+1] = "vDOTS"
+				end
+				-- visitor:print(node[i])
+				-- visitor:print(i < #node and "," or "")
 			end
+			visitor:print(table.concat(l, ","))
 		end
 	},
 	VarList={
