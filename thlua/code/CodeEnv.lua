@@ -44,9 +44,13 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 	return nGlobalEnv
 end
 
-function CodeEnv:recordError(vPos, vName)
-	local l, c = self:fixupPos(vPos)
-	table.insert(self._lineErrList, {l, vName})
+function CodeEnv:makeException(vPos, vErr)
+	local nLine, nColumn = self:fixupPos(vPos)
+	local l = {
+		self.filename, ":", nLine, ":", nColumn, ":", vErr or "unknown"
+	}
+	local nErrorMsg = table.concat(l)
+	return Exception.new(nErrorMsg)
 end
 
 function CodeEnv:_parse()
@@ -67,12 +71,6 @@ function CodeEnv:_parse()
 		l[#l] = "'"
 		local nErrorMsg = table.concat(l)
 		error(Exception.new(nErrorMsg))
-	end
-	if #self._lineErrList > 0 then
-		for k,v in pairs(self._lineErrList) do
-			print("error line="..v[1]..":"..tostring(v[2]))
-		end
-		error("parsing stop:"..self.filename)
 	end
 	self.ast = ast
 	-- 2. set line & column, parent
