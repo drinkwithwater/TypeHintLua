@@ -7,19 +7,18 @@ local AutoRetFnCom = FnComClass()
 
 (@var.class = import("thlua.type.TypeClass").class)
 
-function AutoRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.AutoRetFnCom)
+function AutoRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetNew(class.AutoRetFnCom, class.IFnCom)
 	local self = setmetatable({::New()
 		tag=LuaFunction.AUTO_RET,
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
 		_once=false,
-		_autoArgs=false,
+		_autoArgs=vLuaFunction._autoArgs,
 		_argTuple=false,
 		_retTuples=false,
 	}, AutoRetFnCom)
 	vLuaFunction:setFnCom(self)
-	self._autoArgs = self._luaFunction._autoArgs
 	if not self._autoArgs:hasVariable() then
 		self._argTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
 	end
@@ -106,8 +105,17 @@ end
 function AutoRetFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 	if not self._typeFunction then
 		assert(not self._retTuples, "TODO,cast function after called once")
+		local nArgTuple = self._argTuple
+		if not nArgTuple then
+			nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
+			self._argTuple = nArgTuple
+		end
+		if not vDstTypeFn:getArgTuple():castOrIn(vContext, nArgTuple) then
+			vContext:error("auto function's args not match when casting")
+		end
 		self._retTuples = vDstTypeFn:getRetTuples()
-		self:meta_call(vContext, vDstTypeFn:getArgTuple())
+		-- self:meta_call(vContext, vDstTypeFn:getArgTuple())
+		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
 	end
 	return vDstTypeFn:contain(self._typeFunction) and true
 end

@@ -171,7 +171,7 @@ function Struct:_containOneNotRefer(vRightType)
 			return self
 		end
 	elseif LuaTable.is(vRightType) then
-		local nImplType = vRightType:sealImplType()
+		local nImplType = vRightType:checkImplType()
 		if self:contain(nImplType) then
 			nContainCache[vRightType] = true
 			return self
@@ -284,9 +284,15 @@ function Struct:meta_set(vContext, vKeyType, vValueType)
 	vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct")
 end
 
-function Struct:foreachPair(vFunc)
+function Struct:foreachGetPair(vFunc)
 	self._getKey:foreach(function(vKeyType)
 		vFunc(vKeyType, self._getDict[vKeyType])
+	end)
+end
+
+function Struct:foreachSetPair(vFunc)
+	self._setKey:foreach(function(vKeyType)
+		vFunc(vKeyType, self._setDict[vKeyType])
 	end)
 end
 

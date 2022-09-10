@@ -11,7 +11,15 @@ Branch.__tostring = function(self)
 	return "Branch"
 end
 
-function Branch.new(vContext:class.Context, vPreBranch:class.Branch, vTermCase:class.TermCase)::RetNew(class.Branch)
+function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTermCase:class.TermCase)::RetNew(class.Branch)
+	local self = setmetatable({::New()
+		_context=vContext,
+		_stop=false,
+		case=nil@class.TermCase,
+		headCase=vTermCase,
+		symbolToTerm=nil@Dict(class.Symbol,class.UnionTerm),
+	}, Branch)
+	self.symbolToTerm = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm}) 
 	local nTermCase
 	if vPreBranch then
 		if vTermCase then
@@ -22,13 +30,8 @@ function Branch.new(vContext:class.Context, vPreBranch:class.Branch, vTermCase:c
 	else
 		nTermCase = TermCase.new()
 	end
-	return setmetatable({::New()
-		_context=vContext,
-		_stop=false,
-		case=nTermCase,
-		headCase=vTermCase,
-		symbolToTerm=setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm}),
-	}, Branch)
+	self.case=nTermCase
+	return self
 end
 
 function Branch:symbol_get(vSymbol)

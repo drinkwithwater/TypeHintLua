@@ -1,4 +1,5 @@
 
+local LuaFunction = require "thlua.func.LuaFunction"
 local TypeFunction = require "thlua.func.TypeFunction"
 local LuaTable = require "thlua.object.LuaTable"
 local Struct = require "thlua.object.Struct"
@@ -35,13 +36,15 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 			local nType1 = nTerm1:getType()
 			local nType2 = vTermTuple:get(2):getType()
 			if nType1:isUnion() or nType2:isUnion() then
-				error("can't set union type's metatable:")
+				vContext:error("set metatable can't take union")
 			else
-				nType1:foreach(function(vType1)
-					nType2:foreach(function(vType2)
-						vType1:native_setmetatable(vType2)
-					end)
-				end)
+				nType1 = nType1:checkType()
+				nType2 = nType2:checkType() 
+				if LuaTable.is(nType2) then
+					nType1:native_setmetatable(vContext, nType2)
+				else
+					vContext:error("metatable must be table")
+				end
 				return nTerm1
 			end
 		end),
@@ -73,9 +76,9 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 			error("raw equal TODO")
 		end),
 		rawget=nManager:NativeFunction(function(vContext, vTermTuple)
-			--self:argnum_warn(2, vTermTuple)
-			--return self:check_call(vTermTuple)
-			error("raw get TODO")
+			local nType1 = vTermTuple:get(1):getType()
+			local nType2 = vTermTuple:get(2):getType()
+			return nManager:UnionTerm(nType1:native_rawget(nType2))
 		end),
 		rawset=nManager:NativeFunction(function(vContext, vTermTuple)
 			--self:argnum_warn(3, vTermTuple)

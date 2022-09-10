@@ -44,8 +44,8 @@ function Runtime.new()::RetNew(class.Runtime)
 	return self
 end
 
-function Runtime:clear()
-	self._spaceList = {}
+function Runtime:clear()::open()
+	self._spaceList = {} @ List(class.Namespace)
 	self._manager = TypeManager.new(self)
 	self._namespace = self:RootNamespace()
 	self._namespace:close()
@@ -157,13 +157,13 @@ end
 
 function Runtime:TreeNamespace()
 	local nSpace = Namespace.new(self._manager, Node.getDebugNode(4))
-	table.insert(self._spaceList, nSpace)
+	self._spaceList[#self._spaceList + 1] = nSpace
 	return nSpace
 end
 
 function Runtime:RootNamespace()
 	local nSpace = Namespace.new(self._manager, self._node, self._manager:buildSimpleGlobal())
-	table.insert(self._spaceList, nSpace)
+	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	nSpace:close()
 	return nSpace
@@ -171,7 +171,7 @@ end
 
 function Runtime:VarNamespace(vParentVar, vBlockNode)
 	local nSpace = Namespace.new(self._manager, vBlockNode, vParentVar:getKeyToType())
-	table.insert(self._spaceList, nSpace)
+	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
 end
