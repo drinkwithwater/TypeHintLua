@@ -2,6 +2,7 @@
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
 local StringLiteral = require "thlua.type.StringLiteral"
 local Exception = require "thlua.Exception"
+local LuaTable = require "thlua.object.LuaTable"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
 local Struct = AtomTypeClass()
@@ -46,7 +47,7 @@ function Struct:_intersectOneNotRefer(vRightType)
 end
 
 function Struct:_containOneNotRefer(vRightType)
-	if not (Struct.is(vRightType) or self._manager:isLuaTable(vRightType)) then
+	if not (Struct.is(vRightType) or LuaTable.is(vRightType)) then
 		return false
 	end
 	local nContainCache = self._containCache
@@ -169,7 +170,7 @@ function Struct:_containOneNotRefer(vRightType)
 			nContainCache[vRightType] = true
 			return self
 		end
-	elseif self._manager:isLuaTable(vRightType) then
+	elseif LuaTable.is(vRightType) then
 		local nImplType = vRightType:sealImplType()
 		if self:contain(nImplType) then
 			nContainCache[vRightType] = true

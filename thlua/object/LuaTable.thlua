@@ -283,45 +283,35 @@ end
 function LuaTable:sealNew(vContext)
 	local nImplType = self._implType
 	if nImplType then
-		self:implement(vContext)
+		self:_tryImpl(vContext, nImplType)
 	else
 	end
 end
 
-function LuaTable:implement(vContext, vStruct)
-	--[[if vStruct then
-		if vStruct:isReference() then
-			vStruct = vStruct:checkType()
-		end
-		assert(not self._implType, "implementing has been setted")
-		self._implType = vStruct
-	else
-		vStruct = self._implType
-	end
+function LuaTable:_tryImpl(vContext, vStruct)::Ret(Boolean)
+	local nCastSuccess = true
 	local nFuncPairList = {}
 	vStruct:foreachPair(function(vKeyType, vValueType)
-		local nTableValue = self:_meta_get(vContext, vKeyType)
-		if LuaFunction.is(nTableValue) then
-			local nFuncType = vValueType
-			if nFuncType:isReference() then
-				nFuncType = nFuncType:checkType()
+		local nSrcType = self:_meta_get(vContext, vKeyType)
+		local nDstType = vValueType:checkType()
+		if LuaFunction.is(nSrcType) then
+			if not TypeFunction.is(nDstType) then
+				nCastSuccess = false
+			else
+				if nDstType:isMember() then
+					local nArgTuple = nDstType:getArgTuple()
+					nDstType = self._manager:Function(nArgTuple:replaceFirst(self), nDstType:getRetTuples())
+				end
+				nFuncPairList[#nFuncPairList + 1] = {nSrcType, nDstType}
+				if not vContext:cast(nSrcType, nDstType) then
+					nCastSuccess = false
+				end
 			end
-			if not TypeFunction.is(vValueType) then
-				error(Exception.new("implement must be field"))
-			end
-			if nFuncType:isMember() then
-				local nArgTuple = nFuncType:getArgTuple()
-				nFuncType = self._manager:Function(nArgTuple:replaceFirst(self), nFuncType:getRetTuples())
-			end
-			nFuncPairList[#nFuncPairList + 1] = {nTableValue, nFuncType}
-		elseif not vValueType:contain(nTableValue) then
-			vContext:error(Exception.new(tostring(self).." impl "..tostring(vStruct).." failed, field="..tostring(vKeyType)))
+		elseif not nDstType:contain(nSrcType) then
+			nCastSuccess = false
 		end
 	end)
-	for _,nPair in pairs(nFuncPairList) do
-		nPair[1]:implement(vContext, nPair[2])
-	end
-	return self]]
+	return nCastSuccess
 end
 
 function LuaTable:cast(vContext, vStruct)::Ret(Boolean)
@@ -329,31 +319,8 @@ function LuaTable:cast(vContext, vStruct)::Ret(Boolean)
 		return false
 	end
 	self._implType = vStruct
-	local nCastFail = false
-	local nFuncPairList = {}
-	vStruct:foreachPair(function(vKeyType, vValueType)
-		local nSrcType = self:_meta_get(vContext, vKeyType)
-		local nDstType = vValueType:checkType()
-		if LuaFunction.is(nSrcType) then
-			if not TypeFunction.is(nDstType) then
-				nCastFail = true
-				return
-			end
-			if nDstType:isMember() then
-				local nArgTuple = nDstType:getArgTuple()
-				nDstType = self._manager:Function(nArgTuple:replaceFirst(self), nDstType:getRetTuples())
-			end
-			nFuncPairList[#nFuncPairList + 1] = {nSrcType, nDstType}
-			if not vContext:cast(nSrcType, nDstType) then
-				nCastFail = true
-				return
-			end
-		elseif not nDstType:contain(nSrcType) then
-			nCastFail = true
-			return
-		end
-	end)
-	if nCastFail then
+	local nCastSuccess = self:_tryImpl(vContext, vStruct)
+	if not nCastSucess then
 		self._implType = false
 		return false
 	end
