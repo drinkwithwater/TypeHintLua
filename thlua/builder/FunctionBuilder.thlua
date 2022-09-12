@@ -38,7 +38,16 @@ function FunctionBuilder.newLongHint(self)
 			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
 			vRefer:setTypeCtor(nCom)
 			self._fnCom = nCom
-			nCom:initByRetNew(self._context, vRefer, vStruct)
+			nCom:initByRetNew(self._context, false, vRefer, vStruct)
+			return vLongHint
+		end,
+		NewClass=function(vLongHint, vRefer, vStruct)
+			assert(not self._fnCom, "function builder case conflict")
+			assert(not self._retTuples, "function builder case conflict")
+			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
+			vRefer:setTypeCtor(nCom)
+			self._fnCom = nCom
+			nCom:initByRetNew(self._context, true, vRefer, vStruct)
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)

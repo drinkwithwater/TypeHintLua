@@ -7,12 +7,14 @@ local LuaFunction = require "thlua.func.LuaFunction"
 local Nil = require "thlua.type.Nil"
 local TypeFunction = require "thlua.func.TypeFunction"
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local ClassCom = require "thlua.object.ClassCom"
 
 local LuaTable = AtomTypeClass()
 
+
 (@var.class = import("thlua.type.TypeClass").class)
 
-function LuaTable.new(vManager:class.TypeManager, vImplType:Union(class.LuaTable, class.Struct, Nil))::RetNew(class.LuaTable, class.IAtomType)
+function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.IAtomType)
 	local self = setmetatable({::New()
 		_manager=vManager,
 		_valueDict={} @Dict(class.IAtomType, class.IKeyType),
@@ -25,9 +27,17 @@ function LuaTable.new(vManager:class.TypeManager, vImplType:Union(class.LuaTable
 		_unionSign=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		_implType=vImplType or false,
+		_implType=false,
+		_tableCom=false,
 	}, LuaTable)
 	return self
+end
+
+function LuaTable:initByNewHint(vIsClass, vImplType)::Ret()
+	self._implType = vImplType
+	if vIsClass then
+		self._tableCom = ClassCom.new(self._manager, self)
+	end
 end
 
 function LuaTable:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict(class.IAtomType, class.IValueType))::Ret()
@@ -279,9 +289,14 @@ end
 
 -- called when New function checkDefine
 function LuaTable:sealNew(vContext)
-	local nImplType = self._implType
-	if nImplType then
-		self:_tryImpl(vContext, nImplType) 
+	local nCom = self._tableCom
+	if nCom then
+		nCom:implement(vContext, nImplType)
+	else
+		local nImplType = self._implType
+		if nImplType then
+			self:_tryImpl(vContext, nImplType) 
+		end
 	end
 	self._sealed = true
 end

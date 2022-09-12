@@ -16,6 +16,7 @@ function NewRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunct
 		_typeFunction=false,
 		_newTypeRefer=false,
 		_newTypeImpl=vManager:Struct {},
+		_isClass=false,
 		_once=false,
 		_onceHintNew=false,
 	}, NewRetFnCom)
@@ -23,8 +24,9 @@ function NewRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunct
 	return self
 end
 
-function NewRetFnCom:initByRetNew(vContext, vRefer, vStruct)
+function NewRetFnCom:initByRetNew(vContext, vIsClass, vRefer, vStruct)
 	self._newTypeRefer = vRefer
+	self._isClass = vIsClass
 	if vStruct then
 		self._newTypeImpl = vStruct 
 	end
@@ -44,7 +46,9 @@ function NewRetFnCom:checkDefine()
 	local nContext = self._luaFunction:newInplaceContext()
 	nRefer:setTypeAsync(function()
 		--return nContext._manager:LuaTable(self._manager:Struct {})
-		return nContext._manager:LuaTable(nImplType)
+		local nTable = nContext._manager:LuaTable()
+		nTable:initByNewHint(self._isClass, nImplType)
+		return nTable
 	end)
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
