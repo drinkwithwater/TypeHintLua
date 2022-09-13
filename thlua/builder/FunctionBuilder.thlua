@@ -7,7 +7,6 @@ local TermCase = require "thlua.term.TermCase"
 local OpenFnCom = require "thlua.func.OpenFnCom"
 local FixedRetFnCom = require "thlua.func.FixedRetFnCom"
 local NewRetFnCom = require "thlua.func.NewRetFnCom"
-local AutoRetFnCom = require "thlua.func.AutoRetFnCom"
 
 local FunctionBuilder = {}
 
@@ -16,7 +15,7 @@ local FunctionBuilder = {}
 FunctionBuilder.__index=FunctionBuilder
 
 function FunctionBuilder.new(vContext:class.Context,
-	vNode:class.AstNode, vAutoArgs:class.AutoArguments, vRunFunc:class.GenFunc)::RetNew(class.FunctionBuilder)
+	vNode:class.AstNode, vAutoArgs:class.AutoArguments, vHasRet:Boolean, vRunFunc:class.GenFunc)::RetNew(class.FunctionBuilder)
 	local nManager = vContext._manager
 	local nLuaFunc = nManager:LuaFunction()
 	nLuaFunc:init(vContext, vNode, vAutoArgs, vRunFunc)
@@ -26,6 +25,7 @@ function FunctionBuilder.new(vContext:class.Context,
 		_retTuples=false,
 		_nocheck=false,
 		_fnCom=false,
+		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
 		_autoArgs=vAutoArgs,
 	}, FunctionBuilder)
@@ -56,6 +56,9 @@ function FunctionBuilder.newLongHint(self)
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)
+			if not self._hasRet and select("#", ...) > 0 then
+				self._context:error("hint return something but block has no RetStat")
+			end
 			assert(not self._fnCom, "function builder case conflict")
 			local nRetTuples = self._retTuples
 			if not nRetTuples then
@@ -93,13 +96,19 @@ function FunctionBuilder:build()
 	local nFnCom = self._fnCom
 	if not nFnCom then
 		local nRetTuples = self._retTuples
-		if nRetTuples then
-			nFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
-			nFnCom:init(self._context, nRetTuples, self._nocheck)
-		else
-			nFnCom = AutoRetFnCom.new(self._manager, self._luaFunc)
+		local nError = false
+		if not nRetTuples then
+			if self._hasRet then
+				self._context:error("Ret hint must be explicit if return something")
+				nError =true
+			end
+			nRetTuples = self._manager:VoidRetTuples()
 		end
-		self._context:getRuntime():recordLateLuaFunction(nFnCom)
+		nFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
+		nFnCom:init(self._context, nRetTuples, self._nocheck)
+		if not nError then
+			self._context:getRuntime():recordLateLuaFunction(nFnCom)
+		end
 	else
 		local nTag = nFnCom.tag
 		if nTag == LuaFunction.NEW_RET then
