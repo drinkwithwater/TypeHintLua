@@ -39,15 +39,20 @@ function FixedRetFnCom:checkLateRun()
 	if self._nocheck then
 		return
 	end
-	if not next(self._selfOnceDict) then
-		self._selfOnceDict[self._manager.type.Truth] = false
-	end
-	for nType, nOnce in pairs(self._selfOnceDict) do
-		if not nOnce then
-			self._selfOnceDict[nType] = nOnce
+	if self._luaFunction:isMember() then
+		for nType, nOnce in pairs(self._selfOnceDict) do
+			if not nOnce then
+				self._selfOnceDict[nType] = nOnce
+				local nArgTuple = self._typeFunction:getArgTuple()
+				nArgTuple = nArgTuple:replaceFirst(nType)
+				self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nArgTuple:makeTermTuple())
+			end
+		end
+	else
+		if not self._once then
 			local nArgTuple = self._typeFunction:getArgTuple()
-			nArgTuple = nArgTuple:replaceFirst(nType)
 			self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nArgTuple:makeTermTuple())
+			self._once = true
 		end
 	end
 end
