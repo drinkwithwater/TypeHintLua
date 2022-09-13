@@ -53,6 +53,12 @@ function LuaTable:setName(vName)
 	self._name = vName
 end
 
+function LuaTable:foreachGetPair(vFunc)
+	self._keyType:foreach(function(vType)
+		vFunc(vType, self._valueDict[vType])
+	end)
+end
+
 function LuaTable:meta_pairs(vContext)
 	local nStruct = self._implType
 	if nStruct then
@@ -157,6 +163,12 @@ function LuaTable:_meta_get(vContext, vKeyType)::Ret(Boolean, class.IKeyType)
 end
 
 function LuaTable:meta_get(vContext, vKeyType:class.IAtomType)
+	if self._sealed then
+		local nTableCom = self._tableCom 
+		if nTableCom then
+			return nTableCom:meta_get(vContext, vKeyType)
+		end
+	end
 	local nImplType = self._implType
 	if nImplType then
 		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
@@ -291,7 +303,7 @@ end
 function LuaTable:sealNew(vContext)
 	local nCom = self._tableCom
 	if nCom then
-		nCom:implement(vContext, nImplType)
+		nCom:implement(vContext, self._implType)
 	else
 		local nImplType = self._implType
 		if nImplType then

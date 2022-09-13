@@ -13,6 +13,7 @@ function FixedRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFun
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
+		_selfOnceDict={},
 		_once=false,
 		_autoArgs=false,
 		_retTuples=false,
@@ -26,9 +27,11 @@ function FixedRetFnCom:init(vContext, vRetTuples, vNocheck)
 	self._autoArgs = self._luaFunction._autoArgs
 	self._retTuples = vRetTuples
 	self._nocheck = vNocheck
-	if not self._autoArgs:hasVariable() then
-		local nArgTuple = self._autoArgs:checkWhenLate(self._luaFunction._context)
+	local nArgTuple = self._autoArgs:checkByDefault(self._luaFunction._context)
+	if self._autoArgs:hasSelf() then
 		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
+	else
+		self._typeFunction = self._manager:MemberFunction(nArgTuple, self._retTuples)
 	end
 end
 
@@ -36,30 +39,22 @@ function FixedRetFnCom:checkLateRun()
 	if self._nocheck then
 		return
 	end
-	if self._once then
-		return
+	if not next(self._selfOnceDict) then
+		self._selfOnceDict[self._manager.type.Truth] = false
 	end
-	local nTypeFn = self._typeFunction
-	if not nTypeFn then
-		return
-	end
-	local nArgTuple = nTypeFn:getArgTuple()
-	if nArgTuple then
-		self._once = true
-		self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nArgTuple:makeTermTuple())
+	for nType, nOnce in pairs(self._selfOnceDict) do
+		if not nOnce then
+			self._selfOnceDict[nType] = nOnce
+			local nArgTuple = self._typeFunction:getArgTuple()
+			nArgTuple = nArgTuple:replaceFirst(nType)
+			self._luaFunction._runFunc(self._luaFunction:newInplaceContext(), nArgTuple:makeTermTuple())
+		end
 	end
 end
 
 function FixedRetFnCom:meta_call(vContext, vTypeTuple)
 	local nTypeFn = self._typeFunction
-	if not nTypeFn then
-		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeTuple)
-		nTypeFn = self._manager:Function(nArgTuple, self._retTuples)
-		self._typeFunction = nTypeFn
-	end
-	local ret = nTypeFn:meta_call(vContext, vTypeTuple)
-	self:checkLateRun()
-	return ret
+	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
 function FixedRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
@@ -86,6 +81,13 @@ function FixedRetFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 		self:meta_call(vContext, vDstTypeFn:getArgTuple())
 	end
 	return vDstTypeFn:contain(self._typeFunction) and true
+end
+
+function FixedRetFnCom:asMemberFunction(vContext, vSelfType)
+	self._selfOnceDict[vSelfType] = false
+	local nArgTuple = self._typeFunction:getArgTuple()
+	nArgTuple = nArgTuple:replaceFirst(vSelfType)
+	return self._manager:MemberFunction(nArgTuple, self._retTuples)
 end
 
 return FixedRetFnCom

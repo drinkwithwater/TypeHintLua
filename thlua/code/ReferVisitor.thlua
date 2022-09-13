@@ -47,6 +47,7 @@ local TagToVisiting = {
 		self:scopeEnd()
 	end,
 	Function=function(self, func)
+		func.ret = false
 		self:scopeBegin(func)
 		self.define_pos = true
 		self:realVisit(func[1])
@@ -95,9 +96,20 @@ local TagToVisiting = {
 		end
 	end,
 	Chunk=function(self, chunk)
+		chunk.ret = false
 		self:scopeBegin(chunk)
 		self:rawVisit(chunk)
 		self:scopeEnd()
+	end,
+	Return=function(self, retStat)
+		local nFuncOrChunk = retStat.parent
+		while not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
+			nFuncOrChunk = nFuncOrChunk.parent
+		end
+		if #retStat[1] > 0 then
+			nFuncOrChunk.ret = true
+		end
+		self:rawVisit(retStat)
 	end
 }
 
