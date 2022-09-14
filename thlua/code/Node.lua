@@ -1,6 +1,6 @@
 --[[(@do
 
-var.node = namespace()
+let.node = namespace()
 
 local function NodeStruct(t)
 	t.pos = Number

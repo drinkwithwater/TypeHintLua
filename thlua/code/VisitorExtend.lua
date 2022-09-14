@@ -3,7 +3,7 @@ require "thlua.code.Node"
 
 --[[(@do
 
-var.node = import("thlua.code.Node").node
+let.node = import("thlua.code.Node").node
 
 local TNodeVisitor = function(IVisitor)
 	return Struct {

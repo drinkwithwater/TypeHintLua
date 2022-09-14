@@ -67,7 +67,7 @@ local visitor_block = {
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
 			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.ret), ", function(____newCtx, vArgTuple) ")
-			visitor:print("local ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
+			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
 		end,
 		after=function(visitor, node)
 			visitor:print("end) return ____fn")
@@ -483,7 +483,7 @@ local visitor_exp = {
 				end
 			end
 			visitor:indent()
-			visitor:print("\tlocal ____ctx,____rgn,var,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn) ")
+			visitor:print("\tlocal ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn) ")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()

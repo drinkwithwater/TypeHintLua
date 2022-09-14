@@ -12,17 +12,17 @@ local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
 
 (@do
-	var.class = import("thlua.type.TypeClass").class
+	let.class = import("thlua.type.TypeClass").class
 
-	var.RequireState = Struct {
+	let.RequireState = Struct {
 		fn=class.LuaFunction,
 		term=Union(False, class.UnionTerm),
 		context=class.Context,
 	}
 
-	var.LoadFn = Fn(class.Runtime, class.AstNode):Ret(class.GenFunc)
+	let.LoadFn = Fn(class.Runtime, class.AstNode):Ret(class.GenFunc)
 
-	var.FileState = Struct {
+	let.FileState = Struct {
 		env=class.CodeEnv,
 		func=LoadFn,
 	}
@@ -50,7 +50,7 @@ function Runtime:clear()::open()
 	self._namespace = self:RootNamespace()
 	self._namespace:close()
 	self._global_term = native.make(self)
-	self._requireDict = {} 
+	self._requireDict = {}
 	self._lateFnDict = {} @ Dict(class.LuaFunction, True)
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
 end
@@ -169,8 +169,8 @@ function Runtime:RootNamespace()
 	return nSpace
 end
 
-function Runtime:VarNamespace(vParentVar, vBlockNode)
-	local nSpace = Namespace.new(self._manager, vBlockNode, vParentVar:getKeyToType())
+function Runtime:LetNamespace(vParentLet, vBlockNode)
+	local nSpace = Namespace.new(self._manager, vBlockNode, vParentLet:getKeyToType())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
