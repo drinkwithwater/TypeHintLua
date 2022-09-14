@@ -17,6 +17,7 @@ class.IFnCom = Struct {
 
 class.TypeManager = Struct {
 	buildSimpleGlobal=Mfn():Ret(class.SpaceDict),
+	coToRefer=Dict(Truth,class.Reference),
 	type=Struct {
 		Nil=class.IAtomType,
 		False=class.IAtomType,
@@ -70,9 +71,10 @@ class.IAtomType = Struct ({
 	isSingleton=Mfn():Ret(Boolean),
 	isNilable=Mfn():Ret(Boolean),
 
-
+	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	contain=Mfn(class.IValueType):Ret(Union(class.IKeyType, False)),
 
+	_mapContinue=Mfn(Boolean, Fn(class.IAtomType):Ret():Ret(Boolean)):Ret(Boolean),
 	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IKeyType, False)),
 	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 
@@ -101,12 +103,14 @@ class.IUnionType = Struct ({
 	_manager=class.TypeManager,
 	bits=Number,
 }, {get={
+	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	isReference=Mfn():Ret(False),
 	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
 	every=Mfn(Fn(class.IAtomType):Ret(Boolean)):Ret(Boolean),
 	checkType=Mfn():Ret(class.IUnionType),
 	getType=Mfn():Ret(class.IUnionType),
 
+	_mapContinue=Mfn(Boolean, Fn(class.IAtomType):Ret():Ret(Boolean)):Ret(Boolean),
 	isUnion=Mfn():Ret(True),
 	isNilable=Mfn():Ret(Boolean),
 	contain=Mfn(class.IValueType):Ret(Union(class.IKeyType, False)),

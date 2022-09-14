@@ -149,6 +149,7 @@ function native.make(vRuntime)::Ret(class.UnionTerm):nocheck()
 	global.math=native.make_math(nManager)
 	global.table=native.make_table(nManager)
 	global.io=native.make_io(nManager)
+	global.coroutine=native.make_coroutine(nManager)
 
 	-- global.next = vRuntime.func.next
 	local nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
@@ -177,6 +178,19 @@ function native.make_io(vManager)
 	}
 	local nTable = native._toTable(vManager, io)
 	nTable:setName("io")
+	return nTable
+end
+
+function native.make_coroutine(vManager)
+	local type = vManager.type
+	local co = {
+		create=vManager:Fn(vManager:Fn():Ret()):Ret(type.Truth),
+		running=vManager:Fn():Ret(type.Truth, type.Boolean),
+		resume=vManager:Fn(type.Truth):Dots(type.Truth):Ret(type.True):Ret(type.False,type.String),
+		yield=vManager:Fn():Ret(type.Truth),
+	}
+	local nTable = native._toTable(vManager, co)
+	nTable:setName("coroutine")
 	return nTable
 end
 
