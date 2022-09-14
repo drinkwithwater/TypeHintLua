@@ -25,20 +25,15 @@ end
 
 function FixedRetFnCom:init(vContext, vRetTuples, vNocheck)
 	self._autoArgs = self._luaFunction._autoArgs
-	self._retTuples = vRetTuples
+	self._retTuples = vRetTuples or false
 	self._nocheck = vNocheck
-	local nArgTuple = self._autoArgs:checkByDefault(self._luaFunction._context)
-	if self._autoArgs:hasSelf() then
-		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
-	else
-		self._typeFunction = self._manager:MemberFunction(nArgTuple, self._retTuples)
-	end
 end
 
 function FixedRetFnCom:checkLateRun()
 	if self._nocheck then
 		return
 	end
+	self:_typeDefault()
 	if self._luaFunction:isMember() then
 		for nType, nOnce in pairs(self._selfOnceDict) do
 			if not nOnce then
@@ -58,6 +53,9 @@ function FixedRetFnCom:checkLateRun()
 end
 
 function FixedRetFnCom:meta_call(vContext, vTypeTuple)
+	if not self._typeFunction then
+		self:_typeDefault()
+	end
 	local nTypeFn = self._typeFunction
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
@@ -83,15 +81,31 @@ end
 
 function FixedRetFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
 	if not self._typeFunction then
-		self:meta_call(vContext, vDstTypeFn:getArgTuple())
+		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
+		self._retTuples = self._retTuples or vDstTypeFn:getRetTuples()
+		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples or vDstTypeFn:getRetTuples())
 	end
 	return vDstTypeFn:contain(self._typeFunction) and true
 end
 
-function FixedRetFnCom:asMemberFunction(vContext, vSelfType)
+function FixedRetFnCom:_typeDefault()
+	if not self._typeFunction then
+		local nArgTuple = self._autoArgs:checkByDefault(vContext)
+		self._retTuples = self._retTuples or self._manager:VoidRetTuples()
+		self._typeFunction = self._manager:MemberFunction(nArgTuple, self._retTuples)
+	end
+end
+
+function FixedRetFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
 	self._selfOnceDict[vSelfType] = false
+	if vIntfFnOrNil then
+		self._autoArgs:checkWhenApply(vContext, vIntfFnOrNil:getArgTuple())
+		self._typeFunction = vIntfFnOrNil
+		self._retTuples = self._retTuples or vIntfFnOrNil:getRetTuples()
+	else
+		self:_typeDefault()
+	end
 	local nArgTuple = self._typeFunction:getArgTuple()
-	nArgTuple = nArgTuple:replaceFirst(vSelfType)
 	return self._manager:MemberFunction(nArgTuple, self._retTuples)
 end
 

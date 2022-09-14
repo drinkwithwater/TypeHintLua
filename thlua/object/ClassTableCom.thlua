@@ -11,7 +11,7 @@ ClassTableCom.__index=ClassTableCom
 
 -- TODO vImplType can be struct, class
 function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable, 
-    vBaseClass:Union(class.LuaTable, False), vStruct:Union(class.Struct, False))::NewClass(class.ClassTableCom)
+    vBaseClass:Union(class.LuaTable, False), vInterface:Union(class.Struct, False))::NewClass(class.ClassTableCom)
     local self = setmetatable({::New()
         _manager=vManager,
         _luaTable=vLuaTable,
@@ -19,7 +19,7 @@ function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable,
         _valueDict={},
         _keyType=false,
         _baseClass=vBaseClass,
-        _struct=vStruct,
+        _interface=vInterface or vManager:Struct {},
     }, ClassTableCom)
     return self
 end
@@ -43,7 +43,7 @@ function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.IKeyType)
 end
 
 function ClassTableCom:checkStruct()
-    return self._struct:checkStruct()
+    return self._interface
 end
 
 function ClassTableCom:implement(vContext)
@@ -59,7 +59,14 @@ function ClassTableCom:implement(vContext)
         nIndexTable:foreachGetPair(function(vKey, vValue)
             if LuaFunction.is(vValue) and vValue:isMember() then
                 nCollection:put(vKey)
-                self._valueDict[vKey] = vValue:asMemberFunction(vContext, self._luaTable)
+                if self._interface:getKeyType():contain(vKey) then
+                    local nIntfValue = self._interface:meta_get(vContext, vKey)
+                    if TypeFunction.is(nIntfValue) then
+                        self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nIntfValue)
+                        return
+                    end
+                end
+                self._valueDict[vKey] = vValue:implement(vContext, self._luaTable)
             elseif TypeFunction.is(vValue) then
                 print("TypeFunction as indexing member TODO")
             end

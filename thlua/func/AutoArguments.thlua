@@ -88,16 +88,20 @@ function AutoArguments:checkWhenLate(vContext)
 end
 
 function AutoArguments:checkWhenApply(vContext, vTypeTuple)
-	local nConvertList = {}
+	local l = {}
 	for i, nArg in ipairs(self._argList) do
 		local nInputType = vTypeTuple:get(i)
 		if Variable.is(nArg) then
-			-- generic TODO
-			self._argList[i] = nInputType
+			l[i] = nInputType
+		else
+			l[i] = nArg
+			if not nArg:contain(nInputType) then
+				vContext:error("arguments not match when checkout")
+			end
 		end
 	end
 	local nDotsType = self._argDots
-	local nArgTuple = self._manager:Tuple(table.unpack(self._argList))
+	local nArgTuple = self._manager:Tuple(table.unpack(l))
 	if nDotsType then
 		return nArgTuple:Dots(nDotsType)
 	else
