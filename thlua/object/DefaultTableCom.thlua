@@ -18,6 +18,7 @@ function DefaultTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTabl
         _luaTable=vLuaTable,
         __indexType=false,
         __newindexType=false,
+		_operEventDict={},
         _nothingStruct=vManager:Struct{},
     }, DefaultTableCom)
     return self
@@ -28,9 +29,10 @@ function DefaultTableCom:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict
 	self._valueDict = vValueDict
 end
 
-function DefaultTableCom:setMetaEvent(vEventToType)
+function DefaultTableCom:setMetaEvent(vEventToType, vOperEventToType)
     self.__indexType = vEventToType.__index or false
     self.__newindexType = vEventToType.__newindex or false
+	self._operEventDict = vOperEventToType
 end
 
 function DefaultTableCom:foreachGetPair(vFunc)
@@ -95,21 +97,11 @@ function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
 end
 
 function DefaultTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(True, Union(class.TypeFunction, class.LuaFunction))
-    error("bop TODO")
-	local nMetaTable = self._meta
-	if not nMetaTable then
+	local nMethodType = self._operEventDict[vOper]
+	if not nMethodType then
 		return false, nil
 	else
-		local nMethodName = OPER_ENUM.all[vOper]!
-		local nMetaMethod = nMetaTable:native_rawget(vContext, self._manager:Literal(nMethodName))
-		if Nil.is(nMetaMethod) then
-			return false, nil
-		end
-		if not (LuaFunction.is(nMetaMethod) or TypeFunction.is(nMetaMethod)) then
-			vContext:error("meta method :"..nMethodName.." must be callable")
-			return false, nil
-		end
-		return true, nMetaMethod
+		return true, nMethodType
 	end
 end
 
@@ -148,14 +140,6 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.IKeyType)
 	else
 		return self._manager.type.Nil
 	end
-end
-
-function DefaultTableCom:meta_ipairs(vContext)
-	error("default table ipairs TODO")
-end
-
-function DefaultTableCom:meta_pairs(vContext)
-	error("default table pairs TODO")
 end
 
 function DefaultTableCom:native_next(vContext)

@@ -60,15 +60,33 @@ function LuaTable:setName(vName)
 end
 
 function LuaTable:meta_pairs(vContext)
-	return self:getCurrentCom():meta_pairs(vContext)
+	local nSealCom = self._sealCom
+	if StructTableCom.is(nSealCom) then
+		return nSealCom:meta_pairs(vContext)
+	else
+		local nManager = self._manager
+		return nManager.builtin.next, self, nManager.type.Nil
+	end
 end
 
 function LuaTable:meta_ipairs(vContext)
-	return self:getCurrentCom():meta_ipairs(vContext)
+	local nSealCom = self._sealCom
+	if StructTableCom.is(nSealCom) then
+		return nSealCom:meta_ipairs(vContext)
+	else
+		local nManager = self._manager
+		return nManager.builtin.inext, self, nManager.type.Nil
+	end
 end
 
 function LuaTable:native_next(vContext, vInitType)
-	return self:getCurrentCom():native_next(vContext, vInitType)
+	local nSealCom = self._sealCom
+	if StructTableCom.is(nSealCom) then
+		return nSealCom:native_next(vContext, vInitType)
+	else
+		print("lua table pairs, ipairs, next TODO")
+		return self._manager.type.Never, {}
+	end
 end
 
 function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::Ret(class.LuaTable)
@@ -88,7 +106,14 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::
 	if isValidIndexType(nNewIndexType) then
 		nEventToType.__newindex=nNewIndexType
 	end
-	self._defaultCom:setMetaEvent(nEventToType)
+	local nOperEventToType = {}
+	for nOper, nEvent in pairs(OPER_ENUM.all) do
+		local nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
+		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
+			nOperEventToType[nEvent] = nMethod
+		end
+	end
+	self._defaultCom:setMetaEvent(nEventToType, nOperEventToType)
 	return self
 end
 

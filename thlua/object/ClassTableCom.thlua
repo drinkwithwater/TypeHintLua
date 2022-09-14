@@ -25,21 +25,29 @@ function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable,
 end
 
 function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
-    if self._keyType:contain(vKeyType) then
-        return self._valueDict[vKeyType]
+    local nContainKey = self._keyType:contain(vKeyType)
+    if not nContainKey then
+        vContext:error("key not found", tostring(vKeyType))
+    else
+        local nValue = self._valueDict[nContainKey]
+        if not nValue:contain(vValueType) then
+            vContext:error("field not match", tostring(vKeyType))
+        end
+    end
+end
+
+function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.IKeyType)
+    local nContainKey = self._keyType:contain(vKeyType)
+    if nContainKey then
+        return self._valueDict[nContainKey]
     else
         vContext:error("key not found", tostring(vKeyType))
         return self._manager.type.Nil
     end
 end
 
-function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.IKeyType)
-    if self._keyType:contain(vKeyType) then
-        return self._valueDict[vKeyType]
-    else
-        vContext:error("key not found", tostring(vKeyType))
-        return self._manager.type.Nil
-    end
+function ClassTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(True, Union(class.TypeFunction, class.LuaFunction))
+    return self._luaTable:getDefaultCom():meta_bop_func(vContext, vOper)
 end
 
 function ClassTableCom:checkStruct()
@@ -57,16 +65,20 @@ function ClassTableCom:implement(vContext)
         vContext:warn("class table need __index")
     else
         nIndexTable:foreachGetPair(function(vKey, vValue)
-            if LuaFunction.is(vValue) and vValue:isMember() then
-                nCollection:put(vKey)
-                if self._interface:getKeyType():contain(vKey) then
-                    local nIntfValue = self._interface:meta_get(vContext, vKey)
-                    if TypeFunction.is(nIntfValue) then
-                        self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nIntfValue)
-                        return
+            if LuaFunction.is(vValue) then
+                if vValue:isMember() then
+                    nCollection:put(vKey)
+                    if self._interface:getKeyType():contain(vKey) then
+                        local nIntfValue = self._interface:meta_get(vContext, vKey)
+                        if TypeFunction.is(nIntfValue) then
+                            self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nIntfValue)
+                            return
+                        end
                     end
+                    self._valueDict[vKey] = vValue:implement(vContext, self._luaTable)
+                elseif vValue:isNative() then
+                    self._valueDict[vKey] = vValue
                 end
-                self._valueDict[vKey] = vValue:implement(vContext, self._luaTable)
             elseif TypeFunction.is(vValue) then
                 print("TypeFunction as indexing member TODO")
             end
