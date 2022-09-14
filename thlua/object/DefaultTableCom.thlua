@@ -1,0 +1,169 @@
+
+local TypeFunction = require "thlua.func.TypeFunction"
+local LuaFunction = require "thlua.func.LuaFunction"
+local OPER_ENUM = require "thlua.type.OPER_ENUM"
+local Nil = require "thlua.type.Nil"
+
+(@var.class = import("thlua.type.TypeClass").class)
+
+local DefaultTableCom = {}
+DefaultTableCom.__index=DefaultTableCom
+
+function DefaultTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable)::NewClass(class.DefaultTableCom)
+    local self = setmetatable({::New()
+        _manager=vManager,
+		_keyType=vManager.type.Never @class.IKeyType,
+		_valueDict={} @Dict(class.IAtomType, class.IKeyType),
+		_overrideLiteralSet={} @Dict(class.IAtomType, True),
+        _luaTable=vLuaTable,
+        __indexType=false,
+        __newindexType=false,
+        _nothingStruct=vManager:Struct{},
+    }, DefaultTableCom)
+    return self
+end
+
+function DefaultTableCom:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict(class.IAtomType, class.IValueType))::Ret()
+	self._keyType = vKeyType
+	self._valueDict = vValueDict
+end
+
+function DefaultTableCom:setMetaEvent(vEventToType)
+    self.__indexType = vEventToType.__index or false
+    self.__newindexType = vEventToType.__newindex or false
+end
+
+function DefaultTableCom:foreachGetPair(vFunc)
+	self._keyType:foreach(function(vType)
+		vFunc(vType, self._valueDict[vType])
+	end)
+end
+
+function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil,Boolean))
+	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
+	if nKeyContainType then
+		local nCurValueType = self._valueDict[nKeyContainType]!
+		if not nCurValueType:contain(vValueType) then
+			if vKeyType:isSingleton() and not vKeyType:isNilable() and self._overrideLiteralSet[vKeyType] then
+				self._valueDict[vKeyType] = vValueType
+				if vOverride then
+					self._overrideLiteralSet[vKeyType] = true
+				end
+			else
+				vContext:error("wrong value type when set, value:"..tostring(vValueType).." !<= "..tostring(nCurValueType)..", key:"..tostring(nKeyContainType))
+			end
+		end
+		return
+	end
+	local nNewIndexType = self.__newindexType
+	if not nNewIndexType then
+		self:native_rawset(vContext, vKeyType, vValueType, vOverride)
+		return
+	else
+        if vOverride then
+            vContext:error("can't set override when trigger meta __newindex")
+        end
+        nNewIndexType:meta_set(vContext, vKeyType, vValueType)
+        return
+	end
+end
+
+function DefaultTableCom:_meta_get(vContext, vKeyType)::Ret(Boolean, class.IKeyType)
+	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
+	if nKeyContainType then
+		return true, self._valueDict[nKeyContainType]!
+	end
+	local nIndexType = self.__indexType
+    if not nIndexType then
+        return false, self._manager.type.Nil
+    else
+		if LuaFunction.is(nIndexType) or TypeFunction:is(nIndexType) then
+			return false, self._manager.type.Nil
+		else
+			-- TODO if nIndexType is Function, call it...
+			return nIndexType:getDefaultCom():_meta_get(vContext, vKeyType)
+		end
+    end
+end
+
+function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
+	local nOkay, nReType = self:_meta_get(vContext, vKeyType)
+	if not nOkay then
+		vContext:error("index error, key=", tostring(vKeyType))
+	end
+	return nReType
+end
+
+function DefaultTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(True, Union(class.TypeFunction, class.LuaFunction))
+    error("bop TODO")
+	local nMetaTable = self._meta
+	if not nMetaTable then
+		return false, nil
+	else
+		local nMethodName = OPER_ENUM.all[vOper]!
+		local nMetaMethod = nMetaTable:native_rawget(vContext, self._manager:Literal(nMethodName))
+		if Nil.is(nMetaMethod) then
+			return false, nil
+		end
+		if not (LuaFunction.is(nMetaMethod) or TypeFunction.is(nMetaMethod)) then
+			vContext:error("meta method :"..nMethodName.." must be callable")
+			return false, nil
+		end
+		return true, nMetaMethod
+	end
+end
+
+function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil, Boolean))
+	local nContainType = self._keyType:_containOneNotRefer(vKeyType)
+	if not nContainType then
+		if vKeyType:isSingleton() and not vKeyType:isNilable() then
+			-- TODO thinking when to lock this
+			self._keyType = self._manager:Union(self._keyType, vKeyType):checkType()
+			self._valueDict[vKeyType] = vValueType
+			if vOverride then
+				self._overrideLiteralSet[vKeyType] = true
+			end
+		else
+			vContext:error("rawset("..tostring(vKeyType)..","..tostring(vValueType)..") error")
+		end
+	else
+		local nCurValueType = self._valueDict[nContainType]!
+		if not nCurValueType:contain(vValueType) then
+			if vKeyType:isSingleton() and not vKeyType:isNilable() and self._overrideLiteralSet[vKeyType] then
+				self._valueDict[vKeyType] = vValueType
+				if vOverride then
+					self._overrideLiteralSet[vKeyType] = true
+				end
+			else
+				vContext:error("wrong value type when set, value:"..tostring(vValueType).." !<= "..tostring(nCurValueType)..", key:"..tostring(nContainType))
+			end
+		end
+	end
+end
+
+function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.IKeyType)
+	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
+	if nKeyContainType then
+		return self._valueDict[nKeyContainType]!
+	else
+		return self._manager.type.Nil
+	end
+end
+
+function DefaultTableCom:meta_ipairs(vContext)
+	error("default table ipairs TODO")
+end
+
+function DefaultTableCom:meta_pairs(vContext)
+	error("default table pairs TODO")
+end
+
+function DefaultTableCom:native_next(vContext)
+	error("default table next TODO")
+end
+
+function DefaultTableCom:checkStruct()
+    return self._nothingStruct
+end
+
+return DefaultTableCom

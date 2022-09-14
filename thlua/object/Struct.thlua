@@ -2,7 +2,6 @@
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
 local StringLiteral = require "thlua.type.StringLiteral"
 local Exception = require "thlua.Exception"
-local LuaTable = require "thlua.object.LuaTable"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
 local Struct = AtomTypeClass()
@@ -47,50 +46,51 @@ function Struct:_intersectOneNotRefer(vRightType)
 end
 
 function Struct:_containOneNotRefer(vRightType)
-	if not (Struct.is(vRightType) or LuaTable.is(vRightType)) then
+	local nRightStruct = vRightType:checkStruct()
+	if not nRightStruct then
 		return false
 	end
 	local nContainCache = self._containCache
-	local nCacheResult = nContainCache[vRightType]
+	local nCacheResult = nContainCache[nRightStruct]
 	if nCacheResult == true then
 		return self
 	elseif nCacheResult == false then
 		return false
 	end
-	nContainCache[vRightType] = true
-	if Struct.is(vRightType) then
+	nContainCache[nRightStruct] = true
+	if Struct.is(nRightStruct) then
 		-- struct contain TODO
 		--[[
 		-- 1. check all left strict keys contain by right keys
 		if not self:checkMustKeyType():every(function(vLeftKey)
 			local nLeftValue = self._valueDict[vLeftKey]
-			local nRightKey = vRightType:checkMustKeyType():contain(vLeftKey)
+			local nRightKey = nRightStruct:checkMustKeyType():contain(vLeftKey)
 			if not nRightKey then
 				return false
 			end
-			local nRightValue = vRightType._valueDict[nRightKey]
+			local nRightValue = nRightStruct._valueDict[nRightKey]
 			if not nLeftValue:contain(nRightValue) then
 				return false
 			end
 			return true
 		end) then
-			nContainCache[vRightType] = false
+			nContainCache[nRightStruct] = false
 			return false
 		end
 		-- 2. check all right key-value contain by right key-value
-		if not vRightType._keyType:every(function(vRightKey)
+		if not nRightStruct._keyType:every(function(vRightKey)
 			local nLeftKey = self._keyType:contain(vRightKey)
 			if not nLeftKey then
 				return false
 			end
 			local nLeftValue = self._valueDict[nLeftKey]
-			local nRightValue = vRightType._valueDict[vRightKey]
+			local nRightValue = nRightStruct._valueDict[vRightKey]
 			if not nLeftValue:contain(nRightValue) then
 				return false
 			end
 			return true
 		end) then
-			nContainCache[vRightType] = false
+			nContainCache[nRightStruct] = false
 			return false
 		end
 		]]
@@ -98,7 +98,7 @@ function Struct:_containOneNotRefer(vRightType)
 		-- check as interface
 		local nResult = self._keyType:every(function(vLeftKey)
 			local nLeftValue = self._valueDict[vLeftKey]
-			local nRightValue = vRightType._valueDict[vLeftKey]
+			local nRightValue = nRightStruct._valueDict[vLeftKey]
 			if not nRightValue then
 				return false
 			end
@@ -108,34 +108,34 @@ function Struct:_containOneNotRefer(vRightType)
 			return true
 		end)
 		if nResult then
-			nContainCache[vRightType] = true
+			nContainCache[nRightStruct] = true
 			return self
 		else
-			nContainCache[vRightType] = false
+			nContainCache[nRightStruct] = false
 			return false
 		end]]
-		if self == vRightType then
-			nContainCache[vRightType] = true
+		if self == nRightStruct then
+			nContainCache[nRightStruct] = true
 			return self
 		else
-			nContainCache[vRightType] = true
-			if self._getKey ~= vRightType._getKey then
-				nContainCache[vRightType] = false
+			nContainCache[nRightStruct] = true
+			if self._getKey ~= nRightStruct._getKey then
+				nContainCache[nRightStruct] = false
 				return false
 			end
-			if self._setKey ~= vRightType._setKey then
-				nContainCache[vRightType] = false
+			if self._setKey ~= nRightStruct._setKey then
+				nContainCache[nRightStruct] = false
 				return false
 			end
 			-- check for not late type
 			local nLatePairList:List(Struct {class.IValueType, class.IValueType}) = {}
 			for nKey, nValue in pairs(self._getDict) do
 				local nValueType = nValue:getType()
-				local nRightValue = vRightType._getDict[nKey]!
+				local nRightValue = nRightStruct._getDict[nKey]!
 				local nRightValueType = nRightValue:getType()
 				if nValueType and nRightValueType then
 					if not nValueType:contain(nRightValueType) then
-						nContainCache[vRightType] = false
+						nContainCache[nRightStruct] = false
 						return false
 					end
 				else
@@ -146,11 +146,11 @@ function Struct:_containOneNotRefer(vRightType)
 			end
 			for nKey, nValue in pairs(self._setDict) do
 				local nValueType = nValue:getType()
-				local nRightValue = vRightType._setDict[nKey]!
+				local nRightValue = nRightStruct._setDict[nKey]!
 				local nRightValueType = nRightValue:getType()
 				if nValueType and nRightValueType then
 					if not nRightValueType:contain(nValueType) then
-						nContainCache[vRightType] = false
+						nContainCache[nRightStruct] = false
 						return false
 					end
 				else
@@ -163,25 +163,15 @@ function Struct:_containOneNotRefer(vRightType)
 				local nBig, nSmall = nPair[1], nPair[2]
 				-- TODO raise error if checkType failed
 				if not nBig:contain(nSmall) then
-					nContainCache[vRightType] = false
+					nContainCache[nRightStruct] = false
 					return false
 				end
 			end
-			nContainCache[vRightType] = true
+			nContainCache[nRightStruct] = true
 			return self
-		end
-	elseif LuaTable.is(vRightType) then
-		local nImplType = vRightType:checkImplType()
-		if self:contain(nImplType) then
-			nContainCache[vRightType] = true
-			return self
-		else
-			-- TODO
-			nContainCache[vRightType] = false
-			return false
 		end
 	else
-		nContainCache[vRightType] = false
+		nContainCache[nRightStruct] = false
 		return false
 	end
 end
@@ -277,11 +267,16 @@ function Struct:meta_set(vContext, vKeyType, vValueType)
 	local nKey = self._setKey:_containOneNotRefer(vKeyType)
 	if nKey then
 		local nValue = self._getDict[nKey]!:checkType()
-		if nValue:contain(vValueType) then
+		if vContext:cast(vValueType, nValue) then
 			return
+		elseif nValue:contain(vValueType) then
+			return
+		else
+			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
 		end
+	else
+		vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 	end
-	vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct")
 end
 
 function Struct:foreachGetPair(vFunc)
@@ -350,6 +345,10 @@ end
 
 function Struct:getKeyType()
 	return self._keyType
+end
+
+function Struct:checkStruct()
+	return self
 end
 
 function Struct.is(v)::isguard(class.Struct)

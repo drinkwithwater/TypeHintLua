@@ -7,7 +7,10 @@ local LuaFunction = require "thlua.func.LuaFunction"
 local Nil = require "thlua.type.Nil"
 local TypeFunction = require "thlua.func.TypeFunction"
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
-local ClassCom = require "thlua.object.ClassCom"
+local ClassTableCom = require "thlua.object.ClassTableCom"
+local StructTableCom = require "thlua.object.StructTableCom"
+local DefaultTableCom = require "thlua.object.DefaultTableCom"
+local Struct = require "thlua.object.Struct"
 
 local LuaTable = AtomTypeClass()
 
@@ -17,32 +20,35 @@ local LuaTable = AtomTypeClass()
 function LuaTable.new(vManager:class.TypeManager)::RetNew(class.LuaTable, class.IAtomType)
 	local self = setmetatable({::New()
 		_manager=vManager,
-		_valueDict={} @Dict(class.IAtomType, class.IKeyType),
-		_keyType=vManager.type.Never @class.IKeyType,
-		_overrideLiteralSet={} @Dict(class.IAtomType, True),
 		_name="Table",
-		_meta=nil @Union(Nil, class.LuaTable),
-		_sealed=false @Boolean,
-		singleton=false,
 		_unionSign=false,
+		singleton=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		_implType=false,
-		_tableCom=false,
+		_sealed=false@Boolean,
+		_metaTable=false,
+		_defaultCom=false,
+		_sealCom=false,
 	}, LuaTable)
+	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
 end
 
-function LuaTable:initByNewHint(vIsClass, vImplType)::Ret()
-	self._implType = vImplType
-	if vIsClass then
-		self._tableCom = ClassCom.new(self._manager, self)
-	end
+function LuaTable:initByClass(vBaseClass, vStruct)
+	self._sealCom = ClassTableCom.new(self._manager, self, vBaseClass, vStruct)
 end
 
-function LuaTable:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict(class.IAtomType, class.IValueType))::Ret()
-	self._keyType = vKeyType
-	self._valueDict = vValueDict
+function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
+	return self._defaultCom
+end
+
+function LuaTable:getCurrentCom()
+	if not self._sealed then
+		return self._defaultCom
+	else
+		return self._sealCom or self._defaultCom
+	end
+	return self._sealCom or self._defaultCom
 end
 
 function LuaTable:detailString(v)
@@ -53,45 +59,46 @@ function LuaTable:setName(vName)
 	self._name = vName
 end
 
-function LuaTable:foreachGetPair(vFunc)
-	self._keyType:foreach(function(vType)
-		vFunc(vType, self._valueDict[vType])
-	end)
-end
-
 function LuaTable:meta_pairs(vContext)
-	local nStruct = self._implType
-	if nStruct then
-		return nStruct:meta_pairs(vContext)
-	end
-	error(tostring(self).." other case TODO")
+	return self:getCurrentCom():meta_pairs(vContext)
 end
 
 function LuaTable:meta_ipairs(vContext)
-	local nStruct = self._implType
-	if nStruct then
-		return nStruct:meta_ipairs(vContext)
-	end
-	error("other case TODO")
+	return self:getCurrentCom():meta_ipairs(vContext)
 end
 
 function LuaTable:native_next(vContext, vInitType)
-	local nStruct = self._implType
-	if nStruct then
-		return nStruct:native_next(vContext, vInitType)
-	end
-	error("other case TODO")
+	return self:getCurrentCom():native_next(vContext, vInitType)
 end
 
-function LuaTable:native_setmetatable(vContext, vMetaTableType)
-	-- TODO thinking when to lock this ???
-	self._meta = vMetaTableType
+function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::Ret(class.LuaTable)
+	-- TODO thinking when to lock this ?
+	assert(not self._metaTable, "meta table can be only set once")
+	self._metaTable = vMetaTableType
+	local nManager = self._manager
+	local nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
+	local nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	local nEventToType = {}
+	local function isValidIndexType(vType)
+		return LuaTable.is(vType) or TypeFunction.is(vType) or LuaFunction.is(vType) 
+	end
+	if isValidIndexType(nIndexType) then
+		nEventToType.__index=nIndexType
+	end
+	if isValidIndexType(nNewIndexType) then
+		nEventToType.__newindex=nNewIndexType
+	end
+	self._defaultCom:setMetaEvent(nEventToType)
 	return self
 end
 
-function LuaTable:native_getmetatable()
-	if self._meta then
-		return self._meta
+function LuaTable:foreachGetPair(vFunc)
+	self._defaultCom:foreachGetPair(vFunc)
+end
+
+function LuaTable:native_getmetatable()::Ret(Union(class.LuaTable, class.Nil))
+	if self._metaTable then
+		return self._metaTable
 	else
 		return self._manager.type.Nil
 	end
@@ -102,154 +109,31 @@ function LuaTable:native_type()
 end
 
 function LuaTable:native_rawget(vContext, vKeyType)::Ret(class.IKeyType)
-	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
-	if nKeyContainType then
-		return self._valueDict[nKeyContainType]!
-	else
-		return self._manager.type.Nil
-	end
+	return self._defaultCom:native_rawget(vContext, vKeyType)
 end
 
 function LuaTable:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil, Boolean))
-	local nContainType = self._keyType:_containOneNotRefer(vKeyType)
-	if not nContainType then
-		if vKeyType:isSingleton() and not vKeyType:isNilable() then
-			-- TODO thinking when to lock this
-			self._keyType = self._manager:Union(self._keyType, vKeyType):checkType()
-			self._valueDict[vKeyType] = vValueType
-			if vOverride then
-				self._overrideLiteralSet[vKeyType] = true
-			end
-		else
-			vContext:error("rawset("..tostring(vKeyType)..","..tostring(vValueType)..") error")
-		end
+	if not self._sealed then
+		self._defaultCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
 	else
-		local nCurValueType = self._valueDict[nContainType]!
-		if not nCurValueType:contain(vValueType) then
-			if vKeyType:isSingleton() and not vKeyType:isNilable() and self._overrideLiteralSet[vKeyType] then
-				self._valueDict[vKeyType] = vValueType
-				if vOverride then
-					self._overrideLiteralSet[vKeyType] = true
-				end
-			else
-				vContext:error("wrong value type when set, value:"..tostring(vValueType).." !<= "..tostring(nCurValueType)..", key:"..tostring(nContainType))
-			end
-		end
-	end
-end
-
--- get without implement type
-function LuaTable:_meta_get(vContext, vKeyType)::Ret(Boolean, class.IKeyType)
-	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
-	if nKeyContainType then
-		return true, self._valueDict[nKeyContainType]!
-	end
-	local nMetaTable = self._meta
-	local nNil = self._manager.type.Nil
-	if not nMetaTable then
-		return false, nNil
-	else
-		local nIndexType = nMetaTable:native_rawget(vContext, self._manager:Literal("__index"))
-		if Nil.is(nIndexType) then
-			return false, nNil
-		end
-		if LuaTable.is(nIndexType) then
-			return nIndexType:_meta_get(vContext, vKeyType)
-		else
-			-- TODO if nIndexType is Function, call it...
-			return false, nNil
-		end
+		vContext:error("can rawset for a sealed table")
 	end
 end
 
 function LuaTable:meta_get(vContext, vKeyType:class.IAtomType)
-	if self._sealed then
-		local nTableCom = self._tableCom 
-		if nTableCom then
-			return nTableCom:meta_get(vContext, vKeyType)
-		end
-	end
-	local nImplType = self._implType
-	if nImplType then
-		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
-		if nContain then
-			return nImplType:meta_get(vContext, nContain)
-		end
-	end
-	local nOkay, nReType = self:_meta_get(vContext, vKeyType)
-	if not nOkay then
-		vContext:error("index error, key=", tostring(vKeyType))
-	end
-	return nReType
+	return self:getCurrentCom():meta_get(vContext, vKeyType)
 end
 
--- set without implement type
-function LuaTable:_meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil,Boolean))::Ret()
-	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
-	if nKeyContainType then
-		local nCurValueType = self._valueDict[nKeyContainType]!
-		if not nCurValueType:contain(vValueType) then
-			if vKeyType:isSingleton() and not vKeyType:isNilable() and self._overrideLiteralSet[vKeyType] then
-				self._valueDict[vKeyType] = vValueType
-				if vOverride then
-					self._overrideLiteralSet[vKeyType] = true
-				end
-			else
-				vContext:error("wrong value type when set, value:"..tostring(vValueType).." !<= "..tostring(nCurValueType)..", key:"..tostring(nKeyContainType))
-			end
-		end
-		return
-	end
-	local nMetaTable = self._meta
-	if not nMetaTable then
-		self:native_rawset(vContext, vKeyType, vValueType, vOverride)
-		return
-	else
-		local nNewIndexType = nMetaTable:native_rawget(vContext, self._manager:Literal("__newindex"))
-		local nNil = self._manager.type.Nil
-		if nNewIndexType == nNil then
-			self:native_rawset(vContext, vKeyType, vValueType, vOverride)
-			return
-		end
-		if nNewIndexType:isUnion() then
-			vContext:error("__newindex can't be union type")
-			return
-		else
-			-- TODO if nNewIndexType is Function, call it...
-			if vOverride then
-				vContext:error("can't set override when trigger meta __newindex")
-			end
-			nNewIndexType:meta_set(vContext, vKeyType, vValueType)
-			return
-		end
-	end
-end
-
-function LuaTable:meta_set(vContext, vKeyType, vValueType)
-	local nImplType = self._implType
-	if nImplType then
-		local nContain = nImplType:getKeyType():_containOneNotRefer(vKeyType)
-		if nContain then
-			nImplType:meta_set(vContext, nContain, vValueType)
-			return
-		end
-	end
-	self:_meta_set(vContext, vKeyType, vValueType, false)
+function LuaTable:meta_set(vContext, vKeyType, vValueType, vOverride)
+	self:getCurrentCom():meta_set(vContext, vKeyType, vValueType, false)
 end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
-	local nImplType = self._implType
-	if nImplType then
-		local nContain = nImplType:getKeyType():contain(vKeyType)
-		if nContain then
-			vContext:error("override field can't be in _implType")
-			return
-		end
-	end
-	self:_meta_set(vContext, vKeyType, vValueType, true)
+	self:getCurrentCom():meta_set(vContext, vKeyType, vValueType, true)
 end
 
 function LuaTable:meta_len(vContext)
+	-- TODO
 	return self._manager.type.Number
 end
 
@@ -259,21 +143,7 @@ function LuaTable:meta_uop_some(vContext, vOper)
 end
 
 function LuaTable:meta_bop_func(vContext, vOper)
-	local nMetaTable = self._meta
-	if not nMetaTable then
-		return false, nil
-	else
-		local nMethodName = OPER_ENUM.all[vOper]!
-		local nMetaMethod = nMetaTable:native_rawget(vContext, self._manager:Literal(nMethodName))
-		if Nil.is(nMetaMethod) then
-			return false, nil
-		end
-		if not (LuaFunction.is(nMetaMethod) or TypeFunction.is(nMetaMethod)) then
-			vContext:error("meta method :"..nMethodName.." must be callable")
-			return false, nil
-		end
-		return true, nMetaMethod
-	end
+	return self:getCurrentCom():meta_bop_func(vContext, vOper)
 end
 
 function LuaTable:isSingleton()
@@ -301,81 +171,20 @@ end
 
 -- called when New function checkDefine
 function LuaTable:sealNew(vContext)
-	local nCom = self._tableCom
-	if nCom then
-		nCom:implement(vContext, self._implType)
-	else
-		local nImplType = self._implType
-		if nImplType then
-			self:_tryImpl(vContext, nImplType) 
-		end
-	end
+	assert(not self._sealed, "is sealed")
 	self._sealed = true
-end
-
-function LuaTable:_tryImpl(vContext, vStruct)::Ret(Boolean)
-	local nCastSuccess = true
-	local nFuncPairList = {}
-	vStruct:foreachGetPair(function(vKeyType, vValueType)
-		local nDstType = vValueType:checkType()
-		local nSrcType 
-		local nRawValue = self:native_rawget(vContext, vKeyType)
-		if not nRawValue:isNilable() then
-			nSrcType = nRawValue
-			self._valueDict[vKeyType] = nDstType
-		else
-			local _, nMetaGetValue = self:_meta_get(vContext, vKeyType)
-			nSrcType = nMetaGetValue
-		end
-		if LuaFunction.is(nSrcType) then
-			if not TypeFunction.is(nDstType) then
-				nCastSuccess = false
-			else
-				if nDstType:isMember() then
-					local nArgTuple = nDstType:getArgTuple()
-					nDstType = self._manager:Function(nArgTuple:replaceFirst(self), nDstType:getRetTuples())
-				end
-				nFuncPairList[#nFuncPairList + 1] = {nSrcType, nDstType}
-				if not vContext:cast(nSrcType, nDstType) then
-					nCastSuccess = false
-					vContext:error("field cast function failed, field="..tostring(vKeyType))
-				end
-			end
-		elseif not nDstType:contain(nSrcType) then
-			vContext:error("field cast fail, field="..tostring(vKeyType))
-			nCastSuccess = false
-		end
-	end)
-	vStruct:foreachSetPair(function(vKeyType, vValueType)
-		if vKeyType:isSingleton() then
-			local nRawValue = self:native_rawget(vContext, vKeyType)
-			if not nRawValue:isNilable() then
-				if not nRawValue:contain(vValueType) then
-					vContext:error(" setter field error, field=", vKeyType)
-				end
-			else
-				print("TODO check __newindex")
-				-- self:_meta_set(vContext, vKeyType, vValueType, false)
-			end
-		else
-			print("TODO check __newindex")
-			-- self:_meta_set(vContext, vKeyType, vValueType, false)
-		end
-	end)
-	return nCastSuccess
+	self._sealCom:implement(vContext)
 end
 
 function LuaTable:cast(vContext, vStruct)::Ret(Boolean)
-	if self._implType then
+	if self._sealCom then
 		return false
 	end
-	self._implType = vStruct
-	local nCastSuccess = self:_tryImpl(vContext, vStruct)
-	if not nCastSucess then
-		self._implType = false
-		self._sealed = true
-		return false
-	end
+	self._sealed = true
+	local nStructCom = StructTableCom.new(self._manager, self, vStruct)
+	-- TODO cast maybe fail, fail may be because union
+	self._sealCom = nStructCom
+	nStructCom:tryCast(vContext) 
 	return true
 end
 
@@ -384,13 +193,13 @@ function LuaTable.is(v)::isguard(class.LuaTable)
 end
 
 -- called when struct contain
-function LuaTable:checkImplType()
-	local nImplType = self._implType
-	if not nImplType then
-		nImplType = self._manager:Struct({})
-		self._implType = nImplType
+function LuaTable:checkStruct()
+	local nStructOrCom = self._sealCom
+	if not nStructOrCom then
+		nStructOrCom = self._manager:Struct({})
+		self._sealCom = nStructOrCom
 	end
-	return nImplType
+	return nStructOrCom:checkStruct()
 end
 
 return LuaTable
