@@ -12,22 +12,21 @@ CodeEnv.G_SCOPE_REFER = 1
 CodeEnv.G_REGION_REFER = 1
 
 function CodeEnv.new(vSubject, vFileName, vPath, vNode)
-
 	local nGlobalEnv = setmetatable({
-		_linePosList = {},
-		subject = vSubject,
-		path = vPath or vFileName,
 		filename = vFileName,
 		hinting = false,
-		posToChange = {}, -- if value is string then insert else remove
-		ast = false,
-		nodeList = {},
-		scope_list = {},
-		region_list = nil, -- region_list = scope_list
-		ident_list = {},
+		_linePosList = {},
+		_subject = vSubject,
+		_path = vPath or vFileName,
+		_posToChange = {}, -- if value is string then insert else remove
+		_ast = false,
+		_nodeList = {},
+		_scopeList = {},
+		_regionList = nil, -- _regionList = _scopeList
+		_identList = {},
 	}, CodeEnv)
 
-	nGlobalEnv.region_list = nGlobalEnv.scope_list
+	nGlobalEnv._regionList = nGlobalEnv._scopeList
 
 	-- create and set root scope
 	local nRootScope = CodeEnv.create_region(nGlobalEnv, nil, nil, vNode or Node.newRootNode())
@@ -45,7 +44,7 @@ function CodeEnv:makeErrNode(vPos, vErr)
 	local nLine, nColumn = self:fixupPos(vPos)
 	return setmetatable({
 		tag="Error",
-		path=self.path,
+		path=self._path,
 		pos=vPos,
 		l=nLine,
 		c=nColumn,
@@ -67,27 +66,30 @@ function CodeEnv:dumpAst()
 		end
 		l[#l + 1] = indent .. "}\n"
 	end
-	recur(self.ast, 0)
+	recur(self._ast, 0)
 	print(table.concat(l))
 end
 
 function CodeEnv:_parse()
 	-- 1. gen ast
-	local ok, ast = pcall(parser.parse,self, self.subject)
+	local ok, ast = pcall(parser.parse,self, self._subject)
 	if not ok then
 		error(ast)
 		return
 	end
-	self.ast = ast
+	self._ast = ast
 	-- 2. set line & column, parent
 	local nStack = {}
-	local nNodeList = self.nodeList
+	local nNodeList = self._nodeList
 	self:visit(function(visitor, vNode)
+		-- 1. put into nodelist
 		local nIndex = #nNodeList + 1
 		nNodeList[nIndex] = vNode
 		vNode.index = nIndex
+		-- 2. put into namelist
+		-- 3. get path, parent, l, c
 		vNode.parent = nStack[#nStack] or false
-		vNode.path = self.path
+		vNode.path = self._path
 		vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
@@ -98,7 +100,7 @@ end
 
 function CodeEnv:visit(vDictOrFunc)
 	local visitor = VisitorExtend(vDictOrFunc)
-	visitor:realVisit(self.ast)
+	visitor:realVisit(self._ast)
 end
 
 -- pos to line & column
@@ -133,7 +135,7 @@ function CodeEnv:fixupPos(vPos, vNode)
 end
 
 function CodeEnv:_initLinePosList()
-	local nSubject = self.subject
+	local nSubject = self._subject
 	local nStartPos = 1
 	local nFinishPos = 0
 	local nList = {}
@@ -161,20 +163,20 @@ function CodeEnv:_initLinePosList()
 end
 
 function CodeEnv:subScript(vStartPos, vFinishPos)
-	return self.subject:sub(vStartPos, vFinishPos)
+	return self._subject:sub(vStartPos, vFinishPos)
 end
 
 function CodeEnv:markDel(vStartPos, vFinishPos)
-	self.posToChange[vStartPos] = vFinishPos
+	self._posToChange[vStartPos] = vFinishPos
 end
 
 function CodeEnv:markAdd(vStartPos, vContent)
-	self.posToChange[vStartPos] = vContent
+	self._posToChange[vStartPos] = vContent
 end
 
 function CodeEnv:genLuaCode()
-	local nSubject = self.subject
-	local nPosToChange = self.posToChange
+	local nSubject = self._subject
+	local nPosToChange = self._posToChange
 	local nStartPosList = {}
 	for nStartPos, _ in pairs(nPosToChange) do
 		nStartPosList[#nStartPosList + 1] = nStartPos
@@ -214,13 +216,13 @@ end
 
 function CodeEnv:genTypingCode()
 	local ReferVisitor = require "thlua.code.ReferVisitor"
-	ReferVisitor.new(self):realVisit(self.ast)
+	ReferVisitor.new(self):realVisit(self._ast)
 	local TypeHintGen = require "thlua.code/TypeHintGen"
-	return TypeHintGen.visit(self, self.path or self.filename)
+	return TypeHintGen.visit(self, self._path or self.filename)
 end
 
 function CodeEnv:create_scope(vCurScope, vNode)
-	local nNewIndex = #self.scope_list + 1
+	local nNewIndex = #self._scopeList + 1
 	local nNextScope = {
 		tag = "Scope",
 		node = vNode,
@@ -230,7 +232,7 @@ function CodeEnv:create_scope(vCurScope, vNode)
 		scope_refer = nNewIndex,
 		parent_scope_refer = vCurScope and vCurScope.scope_refer,
 	}
-	self.scope_list[nNewIndex] = nNextScope
+	self._scopeList[nNewIndex] = nNextScope
 	-- if vCurScope then
 		-- vCurScope[#vCurScope + 1] = nNextScope
 	-- end
@@ -251,11 +253,11 @@ function CodeEnv:create_region(vParentRegion, vCurScope, vNode)
 end
 
 function CodeEnv:getNodeList()
-	return self.nodeList
+	return self._nodeList
 end
 
-function CodeEnv:create_ident(vCurScope, vIdentNode)
-	local nNewIndex = #self.ident_list + 1
+function CodeEnv:newIdent(vCurScope, vIdentNode)
+	local nNewIndex = #self._identList + 1
 	local nName
 	if vIdentNode.tag == "Id" then
 		nName = vIdentNode[1]
@@ -272,7 +274,7 @@ function CodeEnv:create_ident(vCurScope, vIdentNode)
 		nName,
 		nNewIndex,
 	}
-	self.ident_list[nNewIndex] = nIdent
+	self._identList[nNewIndex] = nIdent
 	vCurScope.record_dict[nIdent[1]] = nNewIndex
 	vCurScope[#vCurScope + 1] = nIdent
 	return nIdent
@@ -299,8 +301,12 @@ function CodeEnv.thluaSearchContent(name, searchLua)
 	return true, thluaCode, fileName
 end
 
+function CodeEnv:getIdent(vIdentRefer)
+	return self._identList[vIdentRefer]
+end
+
 function CodeEnv:getAstTree()
-	return self.ast
+	return self._ast
 end
 
 return CodeEnv

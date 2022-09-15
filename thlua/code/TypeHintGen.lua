@@ -588,7 +588,7 @@ local visitor_exp = {
 				end
 			else
 				local ident_refer = node.ident_refer
-				local scope_refer = visitor.env.ident_list[ident_refer].scope_refer
+				local scope_refer = visitor.env:getIdent(ident_refer).scope_refer
 				local symbol = "____s"..scope_refer.."."..node[1]..ident_refer
 				if node.is_define or node.is_set then
 					visitor:print(symbol)
@@ -679,7 +679,7 @@ function TypeHintGen.visit(vFileEnv, vPath)
 		__index=TypeHintGen
 	})
 
-	oldvisitor.visit_obj(vFileEnv.ast, visitor)
+	oldvisitor.visit_obj(vFileEnv:getAstTree(), visitor)
 	return table.concat(visitor.buffer_list)
 end
 

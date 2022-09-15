@@ -1,139 +1,143 @@
 
 
 (@do
-    let.lsp=import("thlua.server.protocol").lsp
+	let.lsp=import("thlua.server.protocol").lsp
 
-    let.Position = Struct {
-        line=Number,
-        character=Number,
-    }
+	let.Position = Struct {
+		line=Number,
+		character=Number,
+	}
 
-    let.Range=Struct {
-        start=Position,
-        ["end"]=Position,
-    }
+	let.Range=Struct {
+		start=Position,
+		["end"]=Position,
+	}
 
-    let.TextDocumentIdentifier = Struct {
-        uri=String,
-    }
+	let.TextDocumentIdentifier = Struct {
+		uri=String,
+	}
 
-    lsp.VersionedTextDocumentIdentifier = Struct {
-        version=Number,
-        uri=String,
-    }
+	lsp.VersionedTextDocumentIdentifier = Struct {
+		version=Number,
+		uri=String,
+	}
 
-    let.DidChangeTextDocumentParams = Struct {
-        textDocument=lsp.VersionedTextDocumentIdentifier,
-        contentChanges=List(Struct {
-            range=Range,
-            rangeLength=Option(Number),
-            text=String,
-        }),
-    } 
+	let.DidChangeTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+		contentChanges=List(Struct {
+			range=Range,
+			rangeLength=Option(Number),
+			text=String,
+		}),
+	} 
 
-    let.DidOpenTextDocumentParams = Struct {
-        textDocument = Struct {
-            uri=String,
-            languageId=String,
-            version=Number,
-            text=String,
-        }
-    }
+	let.DidOpenTextDocumentParams = Struct {
+		textDocument = Struct {
+			uri=String,
+			languageId=String,
+			version=Number,
+			text=String,
+		}
+	}
 
-    let.DefinitionParams = Struct {
-        textDocument = TextDocumentIdentifier,
-        position=Position,
-    }
+	let.DefinitionParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=Position,
+	}
 
-    let.CompletionParams = Struct {
-        textDocument = TextDocumentIdentifier,
-        position=Position,
-        context=Option(Struct {
-            triggerKind=Union(1,2,3),
-            triggerCharacter=Option(String),
-        }),
-    }
+	let.CompletionParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=Position,
+		context=Option(Struct {
+			triggerKind=Union(1,2,3),
+			triggerCharacter=Option(String),
+		}),
+	}
 
-    let.PublishDiagnosticsParams = Struct {
-        uri=String,
-        version=Option(Number),
-        diagnostics=List(Struct {
-            range=Range,
-            severity=Option(Struct {
-            }),
-            code=Option(Union(Number, String)),
-            codeDescription=Option(Struct {
-                href=String,
-            }),
-            source=Option(String),
-            message=String,
-            tags=Option(List(Union(1,2))),
-            -- relatedInformation
-            -- data
-        }),
-    }
+	let.PublishDiagnosticsParams = Struct {
+		uri=String,
+		version=Option(Number),
+		diagnostics=List(Struct {
+			range=Range,
+			severity=Option(Struct {
+			}),
+			code=Option(Union(Number, String)),
+			codeDescription=Option(Struct {
+				href=String,
+			}),
+			source=Option(String),
+			message=String,
+			tags=Option(List(Union(1,2))),
+			-- relatedInformation
+			-- data
+		}),
+	}
 
-    let.Location = Struct {
-        uri=String,
-        range=Range,
-    }
+	let.Location = Struct {
+		uri=String,
+		range=Range,
+	}
 
-    let.CompletionItem = Struct {
-        label=String,
-        labelDetails=Option(Struct{}),
-        kind=Union(Nil,1,2,3,4,5,6,7,8),
-        --tags=CompletionItemTag,
-        detail=Option(String),
-        documentation=Option(String),
-        deprecated=Option(Boolean),
-        preselect=Option(Boolean),
-        sortText=Option(String),
-        filterText=Option(String),
-        insertText=Option(String),
-        --....
-    }
+	let.CompletionItem = Struct {
+		label=String,
+		labelDetails=Option(Struct{}),
+		kind=Union(Nil,1,2,3,4,5,6,7,8),
+		--tags=CompletionItemTag,
+		detail=Option(String),
+		documentation=Option(String),
+		deprecated=Option(Boolean),
+		preselect=Option(Boolean),
+		sortText=Option(String),
+		filterText=Option(String),
+		insertText=Option(String),
+		--....
+	}
 
 end)
 
 
 return {
-    didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
-        local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.contentChanges[1].text)
-        if not ok then
-            vClient:publishError(vParams.textDocument, errNode)
-        else
-            vClient:publishError(vParams.textDocument, nil)
-        end
-    end,
-    didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
-        -- vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
-        local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.textDocument.text)
-        if not ok then
-            vClient:publishError(vParams.textDocument, errNode)
-        else
-            vClient:publishError(vParams.textDocument, nil)
-        end
-    end,
-    didSave=function(vClient:lsp.Client, vParams)
-    end,
-    didClose=function(vClient:lsp.Client, vParams)
-    end,
-    definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret(Location)
-        return {
-            uri=vParams.textDocument.uri,
-            range={
-                start={ line=0, character=0, },
-                ["end"]={ line=0, character=0 },
-            }
-        }
-    end,
-    completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
-        return {{
-            label="TODO1",
-        }, {
-            label="TODO2",
-        }}
-    end,
-    hover=function(vClient:lsp.Client, vParams)
-    end,
+	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
+		local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.contentChanges[1].text)
+		if not ok then
+			vClient:publishError(vParams.textDocument, errNode)
+		else
+			vClient:publishError(vParams.textDocument, nil)
+		end
+	end,
+	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
+		-- vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
+		local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.textDocument.text)
+		if not ok then
+			vClient:publishError(vParams.textDocument, errNode)
+		else
+			vClient:publishError(vParams.textDocument, nil)
+		end
+	end,
+	didSave=function(vClient:lsp.Client, vParams)
+	end,
+	didClose=function(vClient:lsp.Client, vParams)
+	end,
+	definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret(Location)
+		return {
+			uri=vParams.textDocument.uri,
+			range={
+				start={ line=0, character=0, },
+				["end"]={ line=0, character=0 },
+			}
+		}
+	end,
+	completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
+		return {{
+			label="TODO1",
+		}, {
+			label="TODO2",
+		} }
+	end,
+	hover=function(vClient:lsp.Client, vParams)
+	end,
+	references=function(vClient, vParams)
+	end,
+	typeDefinition=function(vClient, vParams)
+	end,
 }

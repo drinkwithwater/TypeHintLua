@@ -24,6 +24,13 @@ local function throw(vErr)
 	end)
 end
 
+local function throwCompletion()
+	return lpeg.Cmt(Cenv, function(_, i, env)
+		error(env:makeErrNode(i, vErr))
+		return true
+	end)
+end
+
 local vv=setmetatable({}, {
 	__index=function(t,tag)
 		local patt = lpeg.V(tag)
@@ -85,7 +92,7 @@ local expF={
 		if not op then
 			return e1
 		else
-			return {tag = "Op", pos = e1.pos, op, e1, e2}
+			return {tag = "Op", pos=e1.pos, posEnd=e2.posEnd, op, e1, e2 }
 		end
 	end,
 	suffixed=function(e1, e2)
@@ -95,18 +102,22 @@ local expF={
 		e2[1] = e1
 		return e2
 	end,
-	paren=function(pos, e, hintShort)
-		return { tag = "Paren", pos = pos, [1] = e, hintShort = hintShort}
+	paren=function(pos, e, posEnd)
+		return { tag = "Paren", pos = pos, [1] = e, posEnd=posEnd}
 	end,
+	hintExpr=function(pos, e, hintShort, posEnd)
+		-- TODO, use other tag
+		return { tag = "Paren", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
+	end
 }
 
 local tagC=setmetatable({}, {
 	__index=function(t,tag)
 		local f = function(patt)
 			if patt then
-				return lpeg.Ct(lpeg.Cg(Cpos, "pos") * lpeg.Cg(lpeg.Cc(tag), "tag") * patt)
+				return lpeg.Ct(lpeg.Cg(Cpos, "pos") * lpeg.Cg(lpeg.Cc(tag), "tag") * patt * lpeg.Cg(Cpos, "posEnd"))
 			else
-				return lpeg.Ct(lpeg.Cg(Cpos, "pos") * lpeg.Cg(lpeg.Cc(tag), "tag"))
+				return lpeg.Ct(lpeg.Cg(Cpos, "pos") * lpeg.Cg(Cpos, "posEnd") * lpeg.Cg(lpeg.Cc(tag), "tag"))
 			end
 		end
 		t[tag] = f
@@ -247,7 +258,7 @@ local G = lpeg.P { "TypeHintLua";
               vv.FuncDef +
               vv.Constructor +
               vv.SuffixedExp +
-              tagC.Dots(symb"...")) * vv.AtHint ^ -1, function(s,i, pos, expr, hint)
+              tagC.Dots(symb"...")) * (vv.AtHint + cc(nil)) * Cpos, function(s,i, pos, expr, hint, posEnd)
                   if not hint then
                       return true, expr
                   else
@@ -255,7 +266,7 @@ local G = lpeg.P { "TypeHintLua";
                       if tag == "Call" or tag == "Invoke" or tag == "Dots" then
                           return false
                       else
-                          return true, expF.paren(pos, expr, hint)
+                          return true, expF.hintExpr(pos, expr, hint, posEnd)
                       end
                   end
               end);
@@ -276,7 +287,7 @@ local G = lpeg.P { "TypeHintLua";
 	ApplyExp = lpeg.Cmt(vv.SuffixedExp, function(_,_,exp) return exp.tag == "Call" or exp.tag == "Invoke", exp end);
 	VarExp = lpeg.Cmt(vv.SuffixedExp, function(_,_,exp) return exp.tag == "Id" or exp.tag == "Index", exp end);
 
-	PrimaryExp = vv.Id + Cpos * symb("(") * vv.Expr * symbA(")") / expF.paren;
+	PrimaryExp = vv.Id + Cpos * symb("(") * vv.Expr * symbA(")") * Cpos / expF.paren;
 
 	Block = tagC.Block(vv.Stat^0 * vv.RetStat^-1);
 	DoStat = tagC.Do(kw"do" * vv.Block * kwA"end");
@@ -303,20 +314,19 @@ local G = lpeg.P { "TypeHintLua";
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("LocalStat syntax error"))
 		local FuncStat = (function()
 			local function makeNameIndex(ident1, ident2)
-				return { tag = "Index", pos = ident1.pos, ident1, ident2}
+				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
 			end
 			local FuncName = lpeg.Cf(vv.Id * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
-			return Cpos * kw("function") * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * vv.FuncBody / function (pos, prefix, methodName, override, funcExpr)
+			return Cpos * kw("function") * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, prefix, methodName, override, posMid, funcExpr, posEnd)
 				if methodName then
-					table.insert(funcExpr[1], 1, { tag = "Id", pos=pos, self=true, [1] = "self"})
-
+					table.insert(funcExpr[1], 1, { tag = "Id", pos=pos, self=true, [1] = "self", posEnd=pos})
 					prefix = makeNameIndex(prefix, methodName)
 				end
 				return {
-					tag = "Set", pos = pos, override=override,
-					{ tag="VarList", pos=pos, prefix },
-					{ tag="ExpList", pos=funcExpr.pos, funcExpr },
+					tag = "Set", pos=pos, override=override, posEnd=posEnd,
+					{ tag="VarList", pos=pos, posEnd=posMid, prefix},
+					{ tag="ExpList", pos=posMid, posEnd=posEnd, funcExpr },
 				}
 			end
 		end)()
