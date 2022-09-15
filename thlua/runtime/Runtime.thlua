@@ -97,11 +97,11 @@ function Runtime:main(vFileName, vContent)
 end
 
 function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local ok, err = pcall(self._parse, self, vContent, vFileName)
+	local ok, fnOrErr, codeEnv = pcall(self._parse, self, vContent, vFileName)
 	if not ok then
-		return ok, err
+		return ok, fnOrErr
 	else
-		return ok
+		return true
 	end
 end
 
@@ -119,10 +119,12 @@ function Runtime:_parse(vCode, vChunkName)::Ret(LoadFn, class.CodeEnv)
 	local nAfterContent = nEnv:genTypingCode()
 	local nFunc, nInfo = load(nAfterContent, vChunkName, "t", setmetatable({}, {
 		__index=function(t,k)
+			-- TODO, give node pos
 			error("indexing global is fatal error")
 		end
 	}))
 	if not nFunc then
+		-- TODO, give node pos
 		error(nInfo)
 	end
 	return nFunc, nEnv

@@ -45,6 +45,15 @@
         position=Position,
     }
 
+    let.CompletionParams = Struct {
+        textDocument = TextDocumentIdentifier,
+        position=Position,
+        context=Option(Struct {
+            triggerKind=Union(1,2,3),
+            triggerCharacter=Option(String),
+        }),
+    }
+
     let.PublishDiagnosticsParams = Struct {
         uri=String,
         version=Option(Number),
@@ -64,11 +73,31 @@
         }),
     }
 
+    let.Location = Struct {
+        uri=String,
+        range=Range,
+    }
+
+    let.CompletionItem = Struct {
+        label=String,
+        labelDetails=Option(Struct{}),
+        kind=Union(Nil,1,2,3,4,5,6,7,8),
+        --tags=CompletionItemTag,
+        detail=Option(String),
+        documentation=Option(String),
+        deprecated=Option(Boolean),
+        preselect=Option(Boolean),
+        sortText=Option(String),
+        filterText=Option(String),
+        insertText=Option(String),
+        --....
+    }
+
 end)
 
 
 return {
-    didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)::Ret()
+    didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
         local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.contentChanges[1].text)
         if not ok then
             vClient:publishError(vParams.textDocument, errNode)
@@ -76,7 +105,7 @@ return {
             vClient:publishError(vParams.textDocument, nil)
         end
     end,
-    didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)::Ret()
+    didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
         -- vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
         local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.textDocument.text)
         if not ok then
@@ -85,10 +114,26 @@ return {
             vClient:publishError(vParams.textDocument, nil)
         end
     end,
-    didSave=function(vClient:lsp.Client, vParams)::Ret()
+    didSave=function(vClient:lsp.Client, vParams)
     end,
-    didClose=function(vClient:lsp.Client, vParams)::Ret()
+    didClose=function(vClient:lsp.Client, vParams)
     end,
-    definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret()
+    definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret(Location)
+        return {
+            uri=vParams.textDocument.uri,
+            range={
+                start={ line=0, character=0, },
+                ["end"]={ line=0, character=0 },
+            }
+        }
+    end,
+    completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
+        return {{
+            label="TODO1",
+        }, {
+            label="TODO2",
+        }}
+    end,
+    hover=function(vClient:lsp.Client, vParams)
     end,
 }
