@@ -1,5 +1,6 @@
 
 local Reference = require "thlua.type.Reference"
+local Node = require "thlua.code.Node"
 local Namespace = {}
 Namespace.__tostring=function(self)
 	return (self:isLetSpace() and "letspace-" or "namespace-") .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
@@ -12,6 +13,11 @@ Namespace.__index=Namespace
 		[String]=class.IValueType,
 	}
 end)
+
+local function throw(vMsg)
+	local nNode = Node.getDebugNode(4)
+	error(Node.toErrNode(nNode, vMsg))
+end
 
 function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTable:Option(class.SpaceDict))::RetNew(class.Namespace)
 	local self = setmetatable({::New()
@@ -28,11 +34,11 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 				return rawgetV
 			end
 			if self._closed then
-				error("namespace closed, can't create key="..tostring(k))
+				throw("namespace closed, can't create key="..tostring(k))
 			end
 			local getV = self._key2type[k]
 			if getV ~= nil then
-				error("var shadow get : key="..tostring(k))
+				throw("let shadow get : key="..tostring(k))
 			end
 			local refer = self._manager:Reference(k)
 			self._key2type[k] = refer
@@ -40,12 +46,12 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 		end,
 		__newindex=function(_,k,newV)
 			if self._closed then
-				error("namespace closed, can't create key="..tostring(k))
+				throw("namespace closed, can't create key="..tostring(k))
 			end
 			local getV = self._key2type[k]
 			local rawgetV = rawget(self._key2type, k)
 			if getV ~= nil and rawgetV == nil then
-				error("var shadow set : key="..tostring(k))
+				throw("let shadow set : key="..tostring(k))
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
@@ -59,7 +65,7 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 						end
 					end)
 				else
-					error("conflict assign : key="..tostring(k))
+					throw("conflict assign : key="..tostring(k))
 				end
 			else
 				local namespace = Namespace.fromLocalExport(newV)
@@ -92,10 +98,10 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 			if v ~= nil then
 				return v
 			end
-			error("key with empty value, key="..tostring(k))
+			throw("key with empty value, key="..tostring(k))
 		end,
 		__newindex=function(t,k,v)
-			error("global can't assign")
+			throw("global can't assign")
 		end,
 		__tostring=function(t)
 			return tostring(self).."->globalExport"

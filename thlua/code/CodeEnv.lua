@@ -44,6 +44,7 @@ end
 function CodeEnv:makeErrNode(vPos, vErr)
 	local nLine, nColumn = self:fixupPos(vPos)
 	return setmetatable({
+		tag="Error",
 		path=self.path,
 		pos=vPos,
 		l=nLine,
