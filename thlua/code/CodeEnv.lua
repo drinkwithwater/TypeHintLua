@@ -20,6 +20,7 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_path = vPath or vFileName,
 		_posToChange = {}, -- if value is string then insert else remove
 		_ast = false,
+		_nameList = {},
 		_nodeList = {},
 		_scopeList = {},
 		_regionList = nil, -- _regionList = _scopeList
@@ -87,6 +88,9 @@ function CodeEnv:_parse()
 		nNodeList[nIndex] = vNode
 		vNode.index = nIndex
 		-- 2. put into namelist
+		if vNode.tag == "Id" or vNode.tag == "String" then
+			table.insert(self._nameList, vNode)
+		end
 		-- 3. get path, parent, l, c
 		vNode.parent = nStack[#nStack] or false
 		vNode.path = self._path
@@ -96,6 +100,9 @@ function CodeEnv:_parse()
 		nStack[#nStack] = nil
 		setmetatable(vNode, Node)
 	end)
+	table.sort(self._nameList, function(a,b)
+		return a.pos < b.pos
+	end)
 end
 
 function CodeEnv:visit(vDictOrFunc)
@@ -103,34 +110,40 @@ function CodeEnv:visit(vDictOrFunc)
 	visitor:realVisit(self._ast)
 end
 
+function CodeEnv:binSearch(vList, vPos)
+	if #vList <= 0 then
+		return false
+	end
+	if vPos < vList[1].pos then
+		return false
+	end
+	local nLeft = 1
+	local nRight = #vList
+	local count = 0
+	while nRight > nLeft do
+		count = count + 1
+		local nMiddle = (nLeft + nRight) // 2
+		local nMiddle1 = nMiddle + 1
+		if vPos < vList[nMiddle].pos then
+			nRight = nMiddle - 1
+		elseif vPos >= vList[nMiddle1].pos then
+			nLeft = nMiddle1
+		else
+			nLeft = nMiddle
+			nRight = nMiddle
+		end
+	end
+	return nLeft, vList[nLeft]
+end
+
 -- pos to line & column
 function CodeEnv:fixupPos(vPos, vNode)
-	if vPos == 0 then
-		return 0, 1
-	end
-	local nList = self._linePosList
-	local nLeft = 1
-	local nRight = #nList
-	assert(nRight>=nLeft)
-	if vPos > nList[nRight].finishPos then
-		print("warning pos out of range1, "..vPos, vNode and vNode.tag)
-		return nRight, nList[nRight].finishPos - nList[nRight].startPos + 1
-	elseif vPos < nList[nLeft].startPos then
-		print("warning pos out of range2, "..vPos, vNode and vNode.tag)
+	local line, lineInfo = self:binSearch(self._linePosList, vPos)
+	if not line then
+		print("warning pos out of range, pos="..vPos, vNode and vNode.tag)
 		return 1, 1
-	end
-	local nMiddle = (nLeft + nRight)// 2
-	while true do
-		local nMiddleInfo = nList[nMiddle]
-		if vPos < nMiddleInfo.startPos then
-			nRight = nMiddle - 1
-			nMiddle = (nLeft + nRight)// 2
-		elseif nMiddleInfo.finishPos < vPos then
-			nLeft = nMiddle + 1
-			nMiddle = (nLeft + nRight)// 2
-		else
-			return nMiddle, vPos - nMiddleInfo.startPos + 1
-		end
+	else
+		return line, vPos - lineInfo.pos + 1
 	end
 end
 
@@ -145,15 +158,15 @@ function CodeEnv:_initLinePosList()
 		nFinishPos = nSubject:find("\n", nStartPos)
 		if nFinishPos then
 			nList[#nList + 1] = {
-				startPos=nStartPos,
-				finishPos=nFinishPos
+				pos=nStartPos,
+				posEnd=nFinishPos
 			}
 			nStartPos = nFinishPos + 1
 		else
 			if nStartPos <= #nSubject then
 				nList[#nList + 1] = {
-					startPos=nStartPos,
-					finishPos=#nSubject
+					pos=nStartPos,
+					posEnd=#nSubject
 				}
 			end
 			break
@@ -258,6 +271,8 @@ end
 
 function CodeEnv:newIdent(vCurScope, vIdentNode)
 	local nNewIndex = #self._identList + 1
+	--vIdentNode.ident_refer = nNewIndex
+	--vIdentNode.scope_refer = vCurScope.scope_refer
 	local nName
 	if vIdentNode.tag == "Id" then
 		nName = vIdentNode[1]
@@ -307,6 +322,20 @@ end
 
 function CodeEnv:getAstTree()
 	return self._ast
+end
+
+function CodeEnv:lcToPos(l, c)
+	local nLineInfo = self._linePosList[l]
+	if nLineInfo then
+		return 0
+	else
+		return nLineInfo.startPos + c - 1
+	end
+end
+
+function CodeEnv:searchName(vPos)
+	local nIndex, nNode = self:binSearch(self._nameList, vPos)
+	return nNode
 end
 
 return CodeEnv
