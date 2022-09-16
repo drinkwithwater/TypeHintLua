@@ -107,7 +107,7 @@ function Client:readRequest()::Ret(lsp.RequestMessage)
 	if obj.jsonrpc ~= "2.0" then
 		error("json-rpc is not 2.0, "..tostring(obj.jsonrpc))
 	end
-	self:info("recv:"..reqToStr(obj), json.encode(obj.params))
+	self:info("recv:"..reqToStr(obj) ) -- , json.encode(obj.params))
 	return obj
 end
 
@@ -176,45 +176,50 @@ MessageType.WARNING = 2
 MessageType.INFO = 3
 MessageType.DEBUG = 4
 
-local function packToString(...:Truth)::Ret(String)
-	local l = {} @ List(String)
+function Client:packToString(vDepth, ...:Truth)::Ret(String)
+	local nInfo = debug.getinfo(vDepth)
+	local nPrefix = nInfo.source..":"..nInfo.currentline
+	local l = {nPrefix} @ List(String)
 	for i=1,select("#", ...) do
 		l[#l + 1] = tostring(select(i, ...))
 	end
 	return table.concat(l, " ")
 end
 
-local function getCodeLine(vDepth)
-	local nInfo = debug.getinfo(vDepth)
-	return nInfo.source..":"..nInfo.currentline
-end
-
 function Client:error(...:Truth)::Ret()
 	self:notify("window/logMessage", {
-		message = packToString(getCodeLine(3), ...),
+		message = self:packToString(3, ...),
 		type = MessageType.ERROR,
 	})
 end
 
 function Client:warn(...:Truth)::Ret()
 	self:notify("window/logMessage", {
-		message = packToString(getCodeLine(3), ...),
+		message = self:packToString(3, ...),
 		type = MessageType.WARNING,
 	})
 end
 
 function Client:info(...:Truth)::Ret()
 	self:notify("window/logMessage", {
-		message = packToString(getCodeLine(3), ...),
+		message = self:packToString(3, ...),
 		type = MessageType.INFO,
 	})
 end
 
 function Client:debug(...)
 	self:notify("window/logMessage", {
-		message = packToString(getCodeLine(3), ...),
+		message = self:packToString(3, ...),
 		type = MessageType.DEBUG,
 	})
+end
+
+function Client:insertPath(vRoot)
+	if type(vRoot) == "string" then
+		vRoot = vRoot:gsub("/*$", "")
+		package.path = vRoot.."/?.lua;"..package.path
+		package.cpath = vRoot.."/?.so;"..package.cpath
+	end
 end
 
 return Client

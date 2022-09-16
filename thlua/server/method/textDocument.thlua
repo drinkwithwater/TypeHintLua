@@ -95,23 +95,33 @@
 
 end)
 
+local function uriToFileName(vUri)
+	return "/"..vUri:gsub("file:/*", "")
+end
+
 
 return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
-		local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.contentChanges[1].text)
+		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nContent = vParams.contentChanges[1].text
+		local ok, errNode = vClient.runtime:trySyncFile(nFileName, nContent)
 		if not ok then
 			vClient:publishError(vParams.textDocument, errNode)
 		else
 			vClient:publishError(vParams.textDocument, nil)
+			vClient.runtime:main(nFileName, nContent)
 		end
 	end,
 	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
 		-- vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
-		local ok, errNode = vClient.runtime:trySyncFile(vParams.textDocument.uri, vParams.textDocument.text)
+		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nContent = vParams.textDocument.text
+		local ok, errNode = vClient.runtime:trySyncFile(nFileName, nContent)
 		if not ok then
 			vClient:publishError(vParams.textDocument, errNode)
 		else
 			vClient:publishError(vParams.textDocument, nil)
+			vClient.runtime:main(nFileName, nContent)
 		end
 	end,
 	didSave=function(vClient:lsp.Client, vParams)

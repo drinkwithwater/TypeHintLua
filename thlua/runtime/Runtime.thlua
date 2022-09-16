@@ -15,7 +15,7 @@ local Symbol = require "thlua.runtime.Symbol"
 (@do
 	let.class = import("thlua.type.TypeClass").class
 
-	let.RequireState = Struct {
+	let.LoadedState = Struct {
 		fn=class.LuaFunction,
 		term=Union(False, class.UnionTerm),
 		context=class.Context,
@@ -24,8 +24,8 @@ local Symbol = require "thlua.runtime.Symbol"
 	let.LoadFn = Fn(class.Runtime, class.AstNode):Ret(class.GenFunc)
 
 	let.FileState = Struct {
-		env=class.CodeEnv,
-		func=LoadFn,
+		codeEnv=class.CodeEnv,
+		loadFn=LoadFn,
 	}
 end)
 
@@ -51,7 +51,7 @@ function Runtime:clear()::open()
 	self._namespace = self:RootNamespace()
 	self._namespace:close()
 	self._globalTable = native.make(self)
-	self._requireDict = {}
+	self._loadedDict = {}
 	self._lateFnDict = {} @ Dict(class.LuaFunction, True)
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
 end
@@ -85,24 +85,29 @@ end
 function Runtime:import(vPath)
 	-- TODO better style
 	self:require(vPath)
-	local nContext = self._requireDict[vPath].context
+	local nContext = self._loadedDict[vPath].context
 	local nSpace = nContext:getNamespace()
 	return nSpace.localExport
 end
 
 function Runtime:main(vFileName, vContent)
 	self:clear()
-	local nLuaFunc = self:load(vContent, vFileName)
+	local nLuaFunc = self:cacheLoadFile(vFileName, "$main", vContent)
 	local nTermTuple = self._manager:TermTuple({})
 	nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 end
 
 function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local ok, fnOrErr, codeEnv = pcall(self._parse, self, vContent, vFileName)
+	local ok, loadFn, codeEnv = pcall(self._parse, self, vContent, vFileName)
 	if not ok then
-		return ok, fnOrErr
+		return false, loadFn
 	else
-		return true
+		local nFileState = {
+			codeEnv=codeEnv,
+			loadFn=loadFn,
+		}
+		self._fileStateDict[vFileName] = nFileState
+		return true, nFileState
 	end
 end
 
@@ -110,9 +115,16 @@ function Runtime:newContext(vApplyNode)
 	return Context.new(self, vApplyNode)
 end
 
-function Runtime:load(vCode, vPath)::Ret(class.LuaFunction)
-	local nLoadFn, nEnv = self:_parse(vCode, "hint:"..vPath)
-	return nLoadFn(self, nEnv:getNodeList())
+function Runtime:cacheLoadFile(vFileName, vPath, vContent)
+	local nFileState = self._fileStateDict[vFileName]
+	if not nFileState then
+		local ok, nStateOrErr = self:trySyncFile(vFileName, vContent)
+		if not ok then
+			error(nStateOrErr)
+		end
+		nFileState = nStateOrErr
+	end
+	return nFileState.loadFn(self, nFileState.codeEnv:getNodeList())
 end
 
 function Runtime:_parse(vCode, vChunkName)::Ret(LoadFn, class.CodeEnv)
@@ -132,26 +144,26 @@ function Runtime:_parse(vCode, vChunkName)::Ret(LoadFn, class.CodeEnv)
 end
 
 function Runtime:require(vPath)
-	local nRequireState = self._requireDict[vPath]
-	if not nRequireState then
+	local nLoadedState = self._loadedDict[vPath]
+	if not nLoadedState then
 		local nOkay, nContent, nFileName = CodeEnv.thluaSearchContent(vPath, true)
 		if not nOkay then
-				error(nContent)
+			error(nContent)
 		end
-		local nLuaFunc = self:load(nContent, vPath)
-		nRequireState = {
+		local nLuaFunc = self:cacheLoadFile(nFileName, vPath, nContent)
+		nLoadedState = {
 			term=false,
 			fn=nLuaFunc,
 			context=false,
 		}
-		self._requireDict[vPath] = nRequireState
+		self._loadedDict[vPath] = nLoadedState
 		local nTermTuple = self._manager:TermTuple({})
 		local nContext = nLuaFunc:newInplaceContext()
 		local ret = nLuaFunc:meta_native_call(nContext, nTermTuple)
-		nRequireState.term = ret:get(1)
-		nRequireState.context = nContext
+		nLoadedState.term = ret:get(1)
+		nLoadedState.context = nContext
 	end
-	local nTerm = nRequireState.term
+	local nTerm = nLoadedState.term
 	if not nTerm then
 			error("recursive require:"..vPath)
 	end
