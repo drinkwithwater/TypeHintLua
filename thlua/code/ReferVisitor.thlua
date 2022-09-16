@@ -97,7 +97,13 @@ local TagToVisiting = {
 	end,
 	Chunk=function(self, chunk)
 		chunk.ret = false
+		self.define_pos = true
+		self:realVisit(chunk[1])
+		self.define_pos = false
 		self:scopeBegin(chunk)
+		self.define_pos = true
+		self:realVisit(chunk[2])
+		self.define_pos = false
 		self:rawVisit(chunk)
 		self:scopeEnd()
 	end,
@@ -172,7 +178,6 @@ function ReferVisitor:beforeTraverse(vNode)
 	vNode.parent_scope_refer = assert(nCurScope.scope_refer)
 end
 
-
 function ReferVisitor:identUse(vIdentNode)
 	local nCurScope = self.scope_stack[#self.scope_stack]
 	if vIdentNode.tag == "Id" then
@@ -181,22 +186,7 @@ function ReferVisitor:identUse(vIdentNode)
 		if nIdentRefer then
 			vIdentNode.ident_refer = nIdentRefer
 		else
-			vIdentNode.ident_refer = CodeEnv.G_IDENT_REFER
-			-- unrefered ident converse to global
-			--vIdentNode.tag = "Index"
-
-			-- ident
-			--local e1 = tlast.ident(vIdentNode.pos, "_ENV")
-			--e1.l, e1.c = vIdentNode.l, vIdentNode.c
-			--e1.ident_refer = CodeEnv.G_IDENT_REFER
-			--e1.self_scope_refer = CodeEnv.G_SCOPE_REFER
-
-			-- key
-			--local e2 = tlast.exprString(vIdentNode.pos, vIdentNode[1])
-			--e2.l, e2.c = vIdentNode.l, vIdentNode.c
-
-			--vIdentNode[1] = e1
-			--vIdentNode[2] = e2
+			vIdentNode.ident_refer = 1
 		end
 	elseif vIdentNode.tag == "Dots" then
 		local nName = "..."

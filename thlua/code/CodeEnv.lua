@@ -7,7 +7,6 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-CodeEnv.G_IDENT_REFER = 0
 CodeEnv.G_SCOPE_REFER = 1
 CodeEnv.G_REGION_REFER = 1
 
@@ -33,7 +32,6 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 	local nRootScope = CodeEnv.create_region(nGlobalEnv, nil, nil, vNode or Node.newRootNode())
 
 	-- create and bind ident
-	nRootScope.record_dict["_ENV"] = CodeEnv.G_IDENT_REFER
 	nGlobalEnv.root_scope = nRootScope
 
 	nGlobalEnv:_init()

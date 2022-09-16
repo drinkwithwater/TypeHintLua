@@ -3,6 +3,8 @@ local oldvisitor = require "thlua.code/oldvisitor"
 local CodeEnv = require "thlua.code/CodeEnv"
 local TypeHintGen = {}
 
+local _ENV_REFER = 1
+
 function TypeHintGen:indent()
 	table.insert(self.buffer_list, string.rep("\t", self.indent_count - 1))
 end
@@ -70,13 +72,17 @@ end
 local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
-			visitor:fixLinePrint(node)
 			visitor:print('local ____ctx, ____nodes=... ')
-			visitor:print("local s"..CodeEnv.G_SCOPE_REFER.."=".."____ctx:getGlobalTerm() ")
+			visitor:print("local ____s1={_ENV1=____ctx:makeSymbol_ENV(", visitor:codeNode(node[1]),")} ")
+			-- function begin
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
 			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.ret), ", function(____newCtx, vArgTuple) ")
+			-- region begin
 			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
+			-- vDots
+			visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(node),",vArgTuple,0,true)")
+			visitor:fixLinePrint(node)
 		end,
 		after=function(visitor, node)
 			visitor:print("end) return ____fn")
@@ -150,12 +156,12 @@ local visitor_stm = {
 				local var = node[1][i]
 				if var.tag == "Id" then
 					var.is_set = true
-					if var.ident_refer ~= CodeEnv.G_IDENT_REFER then
-						visitor:print(var, ":SET(")
-					else
+					if var.ident_refer == _ENV_REFER and var[1] ~= "_ENV" then
 						visitor:print(visitor:codeCtx(node, "META_SET"), ",")
 						visitor:print(var)
 						visitor:print(",")
+					else
+						visitor:print(var, ":SET(")
 					end
 				elseif var.tag == "Index" then
 					visitor:print(visitor:codeCtx(node, "META_SET"), ",")
@@ -579,12 +585,12 @@ local visitor_exp = {
 	Id = {
 		before=function(visitor, node)
 			visitor:fixLinePrint(node)
-			if node.ident_refer == CodeEnv.G_IDENT_REFER then
+			if node.ident_refer == _ENV_REFER and node[1] ~= "_ENV" then
 				local symbol = "\""..node[1].."\""
 				if node.is_define or node.is_set then
-					visitor:print(symbol)
+					visitor:print("____s1._ENV1:GET(), ____ctx:LiteralTerm(", symbol, ")")
 				else
-					visitor:print(visitor:codeCtx(node, "META_GET"), ",s1, ____ctx:LiteralTerm(", symbol, "))")
+					visitor:print(visitor:codeCtx(node, "META_GET"), ",____s1._ENV1:GET(), ____ctx:LiteralTerm(", symbol, "))")
 				end
 			else
 				local ident_refer = node.ident_refer

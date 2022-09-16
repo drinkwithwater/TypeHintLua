@@ -63,6 +63,8 @@ end)]]
 local TagToTraverse = {
 	Chunk=function(self, node)
 		self:realVisit(node[1])
+		self:realVisit(node[2])
+		self:realVisit(node[3])
 	end,
 	Block=function(self, node)
 		for i=1,#node do

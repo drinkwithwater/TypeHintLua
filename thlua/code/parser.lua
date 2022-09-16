@@ -203,7 +203,7 @@ local G = lpeg.P { "TypeHintLua";
 
 
 	-- parser
-	Chunk = tagC.Chunk(vv.Block);
+	Chunk = tagC.Chunk(tagC.Id(cc("_ENV")) * tagC.ParList(tagC.Dots()) * vv.Block);
 
 	FuncDef = kw("function") * vv.FuncBody;
 

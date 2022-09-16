@@ -231,7 +231,9 @@ visit_stm = setmetatable({
 
 visit_block = setmetatable({
 	Chunk=function(visitor, chunk)
-		visit_block(visitor, chunk[1])
+		--visit_par(visitor, chunk[1])
+		--visit_parlist(visitor, chunk[2])
+		visit_block(visitor, chunk[3])
 	end,
 	Block=function(visitor, block)
 	  for k, v in ipairs(block) do

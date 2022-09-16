@@ -10,6 +10,7 @@ local native = require "thlua.native"
 local CodeEnv = require "thlua.code.CodeEnv"
 local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
+local Symbol = require "thlua.runtime.Symbol"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
@@ -49,7 +50,7 @@ function Runtime:clear()::open()
 	self._manager = TypeManager.new(self)
 	self._namespace = self:RootNamespace()
 	self._namespace:close()
-	self._global_term = native.make(self)
+	self._globalTable = native.make(self)
 	self._requireDict = {}
 	self._lateFnDict = {} @ Dict(class.LuaFunction, True)
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
@@ -182,8 +183,9 @@ function Runtime:makeDebugNode(vDepth)
 	return Node.getDebugNode(vDepth)
 end
 
-function Runtime:getGlobalTerm()
-	return self._global_term
+function Runtime:makeSymbol_ENV(vNode)
+	local nTerm = self:UnionTerm(self._globalTable)
+	return Symbol.new(self, false, vNode, self._globalTable, nTerm)
 end
 
 return Runtime
