@@ -20,8 +20,8 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_path = vPath or vFileName,
 		_posToChange = {}, -- if value is string then insert else remove
 		_ast = false,
+		_nodeList = false, -- as init flag
 		_nameList = {},
-		_nodeList = {},
 		_scopeList = {},
 		_regionList = nil, -- _regionList = _scopeList
 		_identList = {},
@@ -36,8 +36,7 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 	nRootScope.record_dict["_ENV"] = CodeEnv.G_IDENT_REFER
 	nGlobalEnv.root_scope = nRootScope
 
-	nGlobalEnv:_initLinePosList()
-	nGlobalEnv:_parse()
+	nGlobalEnv:_init()
 	return nGlobalEnv
 end
 
@@ -71,17 +70,15 @@ function CodeEnv:dumpAst()
 	print(table.concat(l))
 end
 
-function CodeEnv:_parse()
-	-- 1. gen ast
-	local ok, ast = pcall(parser.parse,self, self._subject)
-	if not ok then
-		error(ast)
+function CodeEnv:prepare()
+	if self._nodeList then
 		return
 	end
-	self._ast = ast
-	-- 2. set line & column, parent
+	local nNodeList = {} 
+	self._nodeList = nNodeList
+
+	-- 1. set line & column, parent
 	local nStack = {}
-	local nNodeList = self._nodeList
 	self:visit(function(visitor, vNode)
 		-- 1. put into nodelist
 		local nIndex = #nNodeList + 1
@@ -147,7 +144,8 @@ function CodeEnv:fixupPos(vPos, vNode)
 	end
 end
 
-function CodeEnv:_initLinePosList()
+function CodeEnv:_init()
+	-- 1. calc line pos 
 	local nSubject = self._subject
 	local nStartPos = 1
 	local nFinishPos = 0
@@ -173,6 +171,12 @@ function CodeEnv:_initLinePosList()
 		end
 	end
 	self._linePosList = nList
+	-- 2. gen ast
+	local ok, ast = pcall(parser.parse,self, self._subject)
+	if not ok then
+		error(ast)
+	end
+	self._ast = ast
 end
 
 function CodeEnv:subScript(vStartPos, vFinishPos)
@@ -228,6 +232,7 @@ function CodeEnv:genLuaCode()
 end
 
 function CodeEnv:genTypingCode()
+	self:prepare()
 	local ReferVisitor = require "thlua.code.ReferVisitor"
 	ReferVisitor.new(self):realVisit(self._ast)
 	local TypeHintGen = require "thlua.code/TypeHintGen"
@@ -271,8 +276,9 @@ end
 
 function CodeEnv:newIdent(vCurScope, vIdentNode)
 	local nNewIndex = #self._identList + 1
-	--vIdentNode.ident_refer = nNewIndex
-	--vIdentNode.scope_refer = vCurScope.scope_refer
+	vIdentNode.ident_refer = nNewIndex
+	vIdentNode.scope_refer = vCurScope.scope_refer
+	vIdentNode.is_define = true
 	local nName
 	if vIdentNode.tag == "Id" then
 		nName = vIdentNode[1]
@@ -281,18 +287,8 @@ function CodeEnv:newIdent(vCurScope, vIdentNode)
 	else
 		error("ident type error:"..tostring(vIdentNode.tag))
 	end
-	local nIdent = {
-		tag = "IdentDefine",
-		node=vIdentNode,
-		ident_refer=nNewIndex,
-		scope_refer=vCurScope.scope_refer,
-		nName,
-		nNewIndex,
-	}
-	self._identList[nNewIndex] = nIdent
-	vCurScope.record_dict[nIdent[1]] = nNewIndex
-	vCurScope[#vCurScope + 1] = nIdent
-	return nIdent
+	self._identList[nNewIndex] = vIdentNode
+	vCurScope.record_dict[nName] = nNewIndex
 end
 
 function CodeEnv.thluaSearchContent(name, searchLua)

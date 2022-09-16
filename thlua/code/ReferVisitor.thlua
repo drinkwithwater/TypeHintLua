@@ -162,9 +162,7 @@ end
 function ReferVisitor:identDefine(vIdentNode)
 	-- create and set ident_refer
 	local nCurScope = self.scope_stack[#self.scope_stack]
-	local nNewIdent = self._env:newIdent(nCurScope, vIdentNode)
-	vIdentNode.ident_refer = nNewIdent.ident_refer
-	vIdentNode.is_define = true
+	self._env:newIdent(nCurScope, vIdentNode)
 end
 
 function ReferVisitor:beforeTraverse(vNode)
@@ -182,10 +180,8 @@ function ReferVisitor:identUse(vIdentNode)
 		local nIdentRefer = nCurScope.record_dict[nName]
 		if nIdentRefer then
 			vIdentNode.ident_refer = nIdentRefer
-			vIdentNode.is_define = false
 		else
 			vIdentNode.ident_refer = CodeEnv.G_IDENT_REFER
-			vIdentNode.is_define = false
 			-- unrefered ident converse to global
 			--vIdentNode.tag = "Index"
 
@@ -204,7 +200,11 @@ function ReferVisitor:identUse(vIdentNode)
 		end
 	elseif vIdentNode.tag == "Dots" then
 		local nName = "..."
-		vIdentNode.ident_refer = assert(nCurScope.record_dict[nName], "dot no refer")
+		local nRefer = nCurScope.record_dict[nName]
+		if not nRefer then
+			error(self._env:makeErrNode(vIdentNode.pos, "cannot use '...' outside a vararg function"))
+		end
+		vIdentNode.ident_refer = nRefer
 	else
 		error("ident refer error tag"..tostring(vIdentNode.tag))
 	end
