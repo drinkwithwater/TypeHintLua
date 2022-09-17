@@ -94,6 +94,16 @@ function CodeEnv:prepare()
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
 		setmetatable(vNode, Node)
+		-- 4. mark return statement for chunk or function
+		if vNode.tag == "Return" then
+			local nFuncOrChunk = vNode.parent
+			while not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
+				nFuncOrChunk = nFuncOrChunk.parent
+			end
+			if #vNode[1] > 0 then
+				nFuncOrChunk.retFlag = true
+			end
+		end
 	end)
 	table.sort(self._nameList, function(a,b)
 		return a.pos < b.pos
@@ -230,9 +240,9 @@ function CodeEnv:genLuaCode()
 end
 
 function CodeEnv:genTypingCode()
-	self:prepare()
 	local ReferVisitor = require "thlua.code.ReferVisitor"
 	ReferVisitor.new(self):realVisit(self._ast)
+	self:prepare()
 	local TypeHintGen = require "thlua.code/TypeHintGen"
 	return TypeHintGen.visit(self, self._path or self.filename)
 end
@@ -321,15 +331,19 @@ end
 function CodeEnv:lcToPos(l, c)
 	local nLineInfo = self._linePosList[l]
 	if nLineInfo then
-		return 0
+		return nLineInfo.pos + c - 1
 	else
-		return nLineInfo.startPos + c - 1
+		return 0
 	end
 end
 
 function CodeEnv:searchName(vPos)
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
-	return nNode
+	if vPos - nNode.pos < #nNode[1] and vPos <= nNode.posEnd then
+		return nNode
+	else
+		return nil
+	end
 end
 
 return CodeEnv

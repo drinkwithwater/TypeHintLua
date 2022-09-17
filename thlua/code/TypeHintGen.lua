@@ -77,7 +77,7 @@ local visitor_block = {
 			-- function begin
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
-			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.ret), ", function(____newCtx, vArgTuple) ")
+			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 			-- region begin
 			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
 			-- vDots
@@ -488,7 +488,7 @@ local visitor_exp = {
 			end
 			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
 			visitor:fixLong(node.hintLong or "")
-			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.ret), ", function(____newCtx, vArgTuple) ")
+			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 			visitor:indent()
 			visitor:indent()
 			if #nParList > 0 then

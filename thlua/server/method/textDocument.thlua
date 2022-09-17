@@ -129,13 +129,23 @@ return {
 	didClose=function(vClient:lsp.Client, vParams)
 	end,
 	definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret(Location)
-		return {
-			uri=vParams.textDocument.uri,
-			range={
-				start={ line=0, character=0, },
-				["end"]={ line=0, character=0 },
-			}
-		}
+		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nCodeEnv = vClient.runtime:getCodeEnv(nFileName)
+		local nPos = nCodeEnv:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
+		local nNode = nCodeEnv:searchName(nPos)
+		if nNode then
+			print("query=", nNode.tag, nNode, nNode[1])
+			if nNode.tag == "Id" then
+				nNode = nCodeEnv:getIdent(nNode.ident_refer)
+				return {
+					uri=vParams.textDocument.uri,
+					range={
+						start={ line=nNode.l - 1, character=nNode.c-1, },
+						["end"]={ line=nNode.l - 1, character=nNode.c - 1 },
+					}
+				}
+			end
+		end
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
 		return {{

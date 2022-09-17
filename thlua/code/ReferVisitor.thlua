@@ -47,7 +47,6 @@ local TagToVisiting = {
 		self:scopeEnd()
 	end,
 	Function=function(self, func)
-		func.ret = false
 		self:scopeBegin(func)
 		self.define_pos = true
 		self:realVisit(func[1])
@@ -55,19 +54,21 @@ local TagToVisiting = {
 		self:realVisit(func[2])
 		self:scopeEnd()
 	end,
-	Block=function(self, stm)
-		local if_stm = stm.parent
-		if if_stm and if_stm.tag == "If" then
-			self:scopeBegin(stm)
-			local nCurScope = self.scope_stack[#self.scope_stack]
-			stm.self_scope_refer = nCurScope.scope_refer
-			self:rawVisit(stm)
-			self:scopeEnd()
-		else
-			local nCurScope = self.scope_stack[#self.scope_stack]
-			stm.self_scope_refer = nCurScope.scope_refer
-			self:rawVisit(stm)
+	If=function(self, node)
+		for i, subNode in ipairs(node) do
+			if subNode.tag == "Block" then
+				self:scopeBegin(subNode)
+				self:realVisit(subNode)
+				self:scopeEnd()
+			else
+				self:realVisit(subNode)
+			end
 		end
+	end,
+	Block=function(self, stm)
+		local nCurScope = self.scope_stack[#self.scope_stack]
+		stm.self_scope_refer = nCurScope.scope_refer
+		self:rawVisit(stm)
 	end,
 	Local=function(self, stm)
 		self:realVisit(stm[2])
@@ -96,7 +97,6 @@ local TagToVisiting = {
 		end
 	end,
 	Chunk=function(self, chunk)
-		chunk.ret = false
 		self.define_pos = true
 		self:realVisit(chunk[1])
 		self.define_pos = false
@@ -107,16 +107,6 @@ local TagToVisiting = {
 		self:rawVisit(chunk)
 		self:scopeEnd()
 	end,
-	Return=function(self, retStat)
-		local nFuncOrChunk = retStat.parent
-		while not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
-			nFuncOrChunk = nFuncOrChunk.parent
-		end
-		if #retStat[1] > 0 then
-			nFuncOrChunk.ret = true
-		end
-		self:rawVisit(retStat)
-	end
 }
 
 local ReferVisitor = VisitorExtend(setmetatable({}, {
