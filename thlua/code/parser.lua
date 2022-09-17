@@ -19,14 +19,7 @@ local cc = lpeg.Cc
 
 local function throw(vErr)
 	return lpeg.Cmt(Cenv, function(_, i, env)
-		error(env:makeErrNode(i, vErr))
-		return true
-	end)
-end
-
-local function throwCompletion()
-	return lpeg.Cmt(Cenv, function(_, i, env)
-		error(env:makeErrNode(i, vErr))
+		error(env:makeErrNode(i, "syntax error : "..vErr))
 		return true
 	end)
 end
@@ -41,14 +34,14 @@ local vv=setmetatable({}, {
 
 local vvA=setmetatable({}, {
 	__index=function(t,tag)
-		local patt = lpeg.V(tag) + throw("expect a "..tag.."")
+		local patt = lpeg.V(tag) + throw("expect a '"..tag.."'")
 		t[tag] = patt
 		return patt
 	end
 })
 
 local function token (patt)
-  return patt * vv.Skip -- + updateffp(name) * lpeg.P(false)
+  return patt * vv.Skip
 end
 
 local function symb(str)
@@ -68,7 +61,7 @@ local function symb(str)
 end
 
 local function symbA(str)
-  return symb(str) + throw("expect symbol:"..str)
+  return symb(str) + throw("expect symbol '"..str.."'")
 end
 
 local function kw (str)
@@ -76,15 +69,7 @@ local function kw (str)
 end
 
 local function kwA(str)
-  return kw(str) + throw("expect keyword:"..str)
-end
-
-
-local function expect(vPatt, vName)
-	return vPatt + lpeg.Cmt(Cenv, function(_, i, env)
-		error(env:makeErrNode(i, "expect:"..tostring(vName)))
-		return true
-	end)
+  return kw(str) + throw("expect keyword '"..str.."'")
 end
 
 local expF={
@@ -114,6 +99,7 @@ local expF={
 local tagC=setmetatable({}, {
 	__index=function(t,tag)
 		local f = function(patt)
+			-- TODO , make this faster : 1. rm posEnd, 2. use table not lpeg.Ct
 			if patt then
 				return lpeg.Ct(lpeg.Cg(Cpos, "pos") * lpeg.Cg(lpeg.Cc(tag), "tag") * patt * lpeg.Cg(Cpos, "posEnd"))
 			else
@@ -133,6 +119,7 @@ local hintC={
 			env:markDel(p1, p4-1)
 			return env:subScript(p2, p3-1)
 		end
+		-- TODO, refactor this capture to be faster
 		local thluaPatt = vv.HintBegin * (patt * vv.HintSuccessEnd + vv.HintFailEnd)
 		local commentPatt = lpeg.P"--[["*Cenv*pattBegin*
 		Cpos*pattScript*Cpos*pattEndPos*lpeg.P"]]"*vv.Skip/function(env,p1,p2,p3)
@@ -163,7 +150,7 @@ end
 
 local G = lpeg.P { "TypeHintLua";
 	Shebang = lpeg.P("#") * (lpeg.P(1) - lpeg.P("\n"))^0 * lpeg.P("\n");
-	TypeHintLua = vv.Shebang^-1 * vv.Skip * vv.Chunk * (lpeg.P(-1) + throw("syntax error"));
+	TypeHintLua = vv.Shebang^-1 * vv.Skip * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
   -- hint begin {{{
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
@@ -197,7 +184,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	LongHint = hintC.string(lpeg.P(":"), (symb":" * vv.Name * vv.FuncArgs)^1, symb(";")^-1);
 
-	HintStat = tagC.HintStat(hintC.string(symb("(")*symb("@"), vv.AssignStat + vv.ApplyExp + vv.DoStat + throw("HintStat need DoStat or ApplyStat or AssignStat inside"), symbA(")")));
+	HintStat = tagC.HintStat(hintC.string(symb("(")*symb("@"), vv.AssignStat + vv.ApplyExp + vv.DoStat + throw("hint-statement need do-statment or apply-statement or assign-statement inside"), symbA(")")));
 
   -- hint end }}}
 
@@ -274,14 +261,25 @@ local G = lpeg.P { "TypeHintLua";
 	SuffixedExp = (function()
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
 		-- . index
-		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vvA.Name) * notnil)
+		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		-- [] index
 		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
 		-- invoke
-		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vvA.Name) * vvA.FuncArgs)
+		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * vvA.FuncArgs)
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
-		return lpeg.Cf(vv.PrimaryExp * (index1 + index2 + invoke + call)^0, expF.suffixed);
+		-- add completion case
+		local succPatt = lpeg.Cf(vv.PrimaryExp * (index1 + index2 + invoke + call)^0, expF.suffixed);
+		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
+			if not predictPos then
+				return true, exp
+			else
+				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
+				nNode[2] = exp
+				error(nNode)
+				return false
+			end
+		end)
 	end)();
 
 	ApplyExp = lpeg.Cmt(vv.SuffixedExp, function(_,_,exp) return exp.tag == "Call" or exp.tag == "Invoke", exp end);
@@ -311,7 +309,7 @@ local G = lpeg.P { "TypeHintLua";
 	Stat = (function()
 		local LocalFunc = tagC.Localrec(kw"function" * vvA.Id * vv.FuncBody)
 		local LocalAssign = tagC.Local(vv.NameList * (symb"=" * vvA.ExpList + tagC.ExpList()))
-		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("LocalStat syntax error"))
+		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement"))
 		local FuncStat = (function()
 			local function makeNameIndex(ident1, ident2)
 				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
@@ -343,13 +341,13 @@ local G = lpeg.P { "TypeHintLua";
 			local ForBody = kwA("do") * vv.Block
 			local ForNum = tagC.Fornum(vv.Id * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.NameList * kwA("in") * vvA.ExpList * ForBody)
-			return kw("for") * (ForNum + ForIn + throw("ForStat syntax error")) * kwA("end")
+			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA("end")
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
 		return vv.HintStat +
          LocalStat + FuncStat + LabelStat + BreakStat + GoToStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
-				 vv.DoStat + vv.AssignStat + vv.ApplyExp + symb(";") + (lpeg.P(1)-BlockEnd)*throw("statement syntax error")
+				 vv.DoStat + vv.AssignStat + vv.ApplyExp + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
 
 	-- lexer
@@ -372,7 +370,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Open = "[" * lpeg.Cg(Equals, "openEq") * "[" * lpeg.P"\n"^-1
 		local Close = "]" * lpeg.C(Equals) * "]"
 		local CloseEq = lpeg.Cmt(Close * lpeg.Cb("openEq"), function (s, i, closeEq, openEq) return #openEq == #closeEq end)
-		return Open * lpeg.C((lpeg.P(1) - CloseEq)^0) * (Close+throw("[..[ not close")) / function (s, eqs) return s end
+		return Open * lpeg.C((lpeg.P(1) - CloseEq)^0) * (Close+throw("--[...[comment  not close")) / function (s, eqs) return s end
 	end)();
 
 	ShortString = lpeg.P('"') * lpeg.C(((lpeg.P('\\') * lpeg.P(1)) + (lpeg.P(1) - lpeg.P('"')))^0) * (lpeg.P'"' + throw('" not close'))
