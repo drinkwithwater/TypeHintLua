@@ -168,6 +168,15 @@ function ReferVisitor:beforeTraverse(vNode)
 	vNode.parent_scope_refer = assert(nCurScope.scope_refer)
 end
 
+function ReferVisitor:idToIndex(vIdentNode)
+	local e1 = {tag="Id", pos=vIdentNode.pos, posEnd=vIdentNode.pos, "_ENV"}
+	e1.ident_refer = 1
+	local e2 = {tag="String", pos=vIdentNode.pos, posEnd=vIdentNode.posEnd, vIdentNode[1]}
+	vIdentNode.tag = "Index"
+	vIdentNode[1] = e1
+	vIdentNode[2] = e2
+end
+
 function ReferVisitor:identUse(vIdentNode)
 	local nCurScope = self.scope_stack[#self.scope_stack]
 	if vIdentNode.tag == "Id" then
@@ -176,7 +185,7 @@ function ReferVisitor:identUse(vIdentNode)
 		if nIdentRefer then
 			vIdentNode.ident_refer = nIdentRefer
 		else
-			vIdentNode.ident_refer = 1
+			self:idToIndex(vIdentNode)
 		end
 	elseif vIdentNode.tag == "Dots" then
 		local nName = "..."

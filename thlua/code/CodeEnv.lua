@@ -83,7 +83,7 @@ function CodeEnv:prepare()
 		nNodeList[nIndex] = vNode
 		vNode.index = nIndex
 		-- 2. put into namelist
-		if vNode.tag == "Id" or vNode.tag == "String" then
+		if (vNode.tag == "Id" or vNode.tag == "String") and vNode.posEnd > vNode.pos then
 			table.insert(self._nameList, vNode)
 		end
 		-- 3. get path, parent, l, c

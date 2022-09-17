@@ -3,8 +3,6 @@ local oldvisitor = require "thlua.code/oldvisitor"
 local CodeEnv = require "thlua.code/CodeEnv"
 local TypeHintGen = {}
 
-local _ENV_REFER = 1
-
 function TypeHintGen:indent()
 	table.insert(self.buffer_list, string.rep("\t", self.indent_count - 1))
 end
@@ -156,13 +154,7 @@ local visitor_stm = {
 				local var = node[1][i]
 				if var.tag == "Id" then
 					var.is_set = true
-					if var.ident_refer == _ENV_REFER and var[1] ~= "_ENV" then
-						visitor:print(visitor:codeCtx(node, "META_SET"), ",")
-						visitor:print(var)
-						visitor:print(",")
-					else
-						visitor:print(var, ":SET(")
-					end
+					visitor:print(var, ":SET(")
 				elseif var.tag == "Index" then
 					visitor:print(visitor:codeCtx(node, "META_SET"), ",")
 					visitor:print(var[1])
@@ -585,28 +577,19 @@ local visitor_exp = {
 	Id = {
 		before=function(visitor, node)
 			visitor:fixLinePrint(node)
-			if node.ident_refer == _ENV_REFER and node[1] ~= "_ENV" then
-				local symbol = "\""..node[1].."\""
-				if node.is_define or node.is_set then
-					visitor:print("____s1._ENV1:GET(), ____ctx:LiteralTerm(", symbol, ")")
-				else
-					visitor:print(visitor:codeCtx(node, "META_GET"), ",____s1._ENV1:GET(), ____ctx:LiteralTerm(", symbol, "))")
-				end
+			local ident_refer = node.ident_refer
+			local scope_refer = visitor.env:getIdent(ident_refer).scope_refer
+			local symbol = "____s"..scope_refer.."."..node[1]..ident_refer
+			if node.is_define or node.is_set then
+				visitor:print(symbol)
 			else
-				local ident_refer = node.ident_refer
-				local scope_refer = visitor.env:getIdent(ident_refer).scope_refer
-				local symbol = "____s"..scope_refer.."."..node[1]..ident_refer
-				if node.is_define or node.is_set then
-					visitor:print(symbol)
-				else
-					local preNode = node.parent
-					if preNode.tag == "ExpList" and preNode.is_args then
-						visitor:print(" function() return ")
-					end
-					visitor:print(symbol, ":GET()")
-					if preNode.tag == "ExpList" and preNode.is_args then
-						visitor:print(" end ")
-					end
+				local preNode = node.parent
+				if preNode.tag == "ExpList" and preNode.is_args then
+					visitor:print(" function() return ")
+				end
+				visitor:print(symbol, ":GET()")
+				if preNode.tag == "ExpList" and preNode.is_args then
+					visitor:print(" end ")
 				end
 			end
 			--visitor:print(node[1])
