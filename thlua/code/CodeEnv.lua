@@ -7,9 +7,6 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-CodeEnv.G_SCOPE_REFER = 1
-CodeEnv.G_REGION_REFER = 1
-
 function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 	local nGlobalEnv = setmetatable({
 		filename = vFileName,
@@ -22,12 +19,9 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_nodeList = false, -- as init flag
 		_nameList = {},
 		_scopeList = {},
-		_regionList = nil, -- _regionList = _scopeList
 		_identList = {},
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
-
-	nGlobalEnv._regionList = nGlobalEnv._scopeList
 
 	-- create and set root scope
 	local nRootScope = CodeEnv.create_region(nGlobalEnv, nil, nil, vNode or Node.newRootNode())
@@ -295,25 +289,15 @@ function CodeEnv:create_scope(vCurScope, vNode)
 			__index=vCurScope.record_dict
 		}) or {},
 		scope_refer = nNewIndex,
-		parent_scope_refer = vCurScope and vCurScope.scope_refer,
 	}
 	self._scopeList[nNewIndex] = nNextScope
-	-- if vCurScope then
-		-- vCurScope[#vCurScope + 1] = nNextScope
-	-- end
 	return nNextScope
 end
 
-function CodeEnv:create_region(vParentRegion, vCurScope, vNode)
+function CodeEnv:create_region(vCurScope, vNode)
 	local nRegion = self:create_scope(vCurScope, vNode)
 	nRegion.node = vNode
 	nRegion.sub_tag = "Region"
-	nRegion.region_refer = nRegion.scope_refer
-	if nRegion.region_refer ~= CodeEnv.G_REGION_REFER then
-		nRegion.parent_region_refer = vParentRegion.region_refer
-	else
-		nRegion.parent_region_refer = false
-	end
 	return nRegion
 end
 
@@ -321,7 +305,7 @@ function CodeEnv:getNodeList()
 	return self._nodeList
 end
 
-function CodeEnv:newIdent(vCurScope, vIdentNode)
+function CodeEnv:recordIdent(vCurScope, vIdentNode)
 	local nNewIndex = #self._identList + 1
 	vIdentNode.ident_refer = nNewIndex
 	vIdentNode.scope_refer = vCurScope.scope_refer

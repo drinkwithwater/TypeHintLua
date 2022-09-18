@@ -1,6 +1,5 @@
 
 local oldvisitor = require "thlua.code/oldvisitor"
-local CodeEnv = require "thlua.code/CodeEnv"
 local TypeHintGen = {}
 
 function TypeHintGen:indent()
@@ -93,7 +92,7 @@ local visitor_block = {
 		end,
 		override=function(visitor, node)
 			visitor:indent()
-			visitor:print("local ____s"..node.self_scope_refer.."={} ")
+			visitor:print("local ____s"..node.scope_refer.."={} ")
 			local parent = node.parent
 			if node.is_fornum_block then
 				visitor:indent()
