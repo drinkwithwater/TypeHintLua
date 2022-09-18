@@ -49,7 +49,7 @@ local TagToVisiting = {
 	end,
 	Function=function(self, func)
 		local block_node = func[2]
-		self:scopeBegin(block_node)
+		self:scopeBegin(block_node, true)
 		self.define_pos = true
 		self:realVisit(func[1])
 		self.define_pos = false
@@ -86,22 +86,22 @@ local TagToVisiting = {
 	end,
 	Dots=function(self, node)
 		if self.define_pos then
-			self:identDefine(node)
+			self:symbolDefine(node)
 		else
-			self:identUse(node)
+			self:symbolUse(node)
 		end
 	end,
 	Id=function(self, node)
 		if self.define_pos then
-			self:identDefine(node)
+			self:symbolDefine(node)
 		else
-			self:identUse(node)
+			self:symbolUse(node)
 		end
 	end,
 	Chunk=function(self, chunk)
-		self._env:recordIdent_ENV(chunk[1])
+		self._env:record_ENV(chunk[1])
 		local block_node = chunk[3]
-		self:scopeBegin(block_node)
+		self:scopeBegin(block_node, true)
 		self.define_pos = true
 		self:realVisit(chunk[2])
 		self.define_pos = false
@@ -130,22 +130,30 @@ local ReferVisitor = VisitorExtend(setmetatable({}, {
 
 ReferVisitor.__index=ReferVisitor
 
-function ReferVisitor:scopeBegin(vNode)
+function ReferVisitor:scopeBegin(vBlockNode, vIsRegion)
 	local nCurScope = self.scope_stack[#self.scope_stack]
-	assert(vNode.tag == "Block", "node tag must be Block but get "..tostring(vNode.tag))
-	self._env:recordScope(nCurScope, vNode)
-	table.insert(self.scope_stack, vNode)
+	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
+	self._env:recordScope(nCurScope, vBlockNode)
+	table.insert(self.scope_stack, vBlockNode)
+	if vIsRegion then
+		vBlockNode.is_region = true
+		table.insert(self.region_stack, vBlockNode)
+	end
+	vBlockNode.region_refer = self.region_stack[#self.region_stack].scope_refer
 	return nNextScope
 end
 
 function ReferVisitor:scopeEnd()
 	local nScope = table.remove(self.scope_stack)
+	if nScope.is_region then
+		table.remove(self.region_stack)
+	end
 end
 
-function ReferVisitor:identDefine(vIdentNode)
+function ReferVisitor:symbolDefine(vIdentNode)
 	-- create and set ident_refer
 	local nCurScopeOrNil = self.scope_stack[#self.scope_stack]
-	self._env:recordIdent(nCurScopeOrNil, vIdentNode)
+	self._env:recordSymbol(nCurScopeOrNil, vIdentNode)
 end
 
 function ReferVisitor:idToIndex(vIdentNode)
@@ -157,24 +165,23 @@ function ReferVisitor:idToIndex(vIdentNode)
 	vIdentNode[2] = e2
 end
 
-function ReferVisitor:identUse(vIdentNode)
+function ReferVisitor:symbolUse(vIdentNode)
 	assert(not vIdentNode.ident_refer, "ident_refer has been setted")
 	local nCurScope = self.scope_stack[#self.scope_stack]
 	if vIdentNode.tag == "Id" then
 		local nName = vIdentNode[1]
-		local nIdentRefer = nCurScope.record_dict[nName]
-		if nIdentRefer then
-			vIdentNode.ident_refer = nIdentRefer
+		local nDefineNode = nCurScope.symbol_ident_dict[nName]
+		if nDefineNode then
+			vIdentNode.ident_refer = nDefineNode.ident_refer
 		else
 			self:idToIndex(vIdentNode)
 		end
 	elseif vIdentNode.tag == "Dots" then
-		local nName = "..."
-		local nRefer = nCurScope.record_dict[nName]
-		if not nRefer then
+		local nDotsDefine = self._env:getScope(nCurScope.region_refer).symbol_dots
+		if not nDotsDefine then
 			error(self._env:makeErrNode(vIdentNode.pos, "cannot use '...' outside a vararg function"))
 		end
-		vIdentNode.ident_refer = nRefer
+		vIdentNode.ident_refer = nDotsDefine.ident_refer
 	else
 		error("ident refer error tag"..tostring(vIdentNode.tag))
 	end
@@ -184,6 +191,7 @@ function ReferVisitor.new(vFileEnv)
 	local self = setmetatable({
 		_env = vFileEnv,
 		scope_stack = {},
+		region_stack = {},
 		define_pos=false,
 	}, ReferVisitor)
 	return self

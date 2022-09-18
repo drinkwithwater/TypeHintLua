@@ -277,17 +277,15 @@ end
 function CodeEnv:recordScope(vCurScopeOrNil, vNode)
 	local nNewIndex = #self._scopeList + 1
 	vNode.scope_refer = nNewIndex
-	vNode.record_dict = setmetatable({}, {
-		__index=vCurScopeOrNil and vCurScopeOrNil.record_dict or {_ENV=1}
+	vNode.symbol_ident_dict = setmetatable({}, {
+		__index=vCurScopeOrNil and vCurScopeOrNil.symbol_ident_dict or {_ENV=self._identList[1]}
 	})
+	vNode.symbol_dots = false
+	vNode.is_region = false
 	self._scopeList[nNewIndex] = vNode
 end
 
-function CodeEnv:getNodeList()
-	return self._nodeList
-end
-
-function CodeEnv:recordIdent_ENV(vIdentNode)
+function CodeEnv:record_ENV(vIdentNode)
 	assert(#self._identList == 0, "_ENV must be first identity")
 	assert(vIdentNode[1] == "_ENV", "only _ENV can be used in this function")
 	self._identList[1] = vIdentNode
@@ -296,21 +294,22 @@ function CodeEnv:recordIdent_ENV(vIdentNode)
 	vIdentNode.is_define = true
 end
 
-function CodeEnv:recordIdent(vCurScope, vIdentNode)
+function CodeEnv:recordSymbol(vCurScope, vIdentNode)
 	local nNewIndex = #self._identList + 1
 	vIdentNode.ident_refer = nNewIndex
-	vIdentNode.scope_refer = vCurScope.scope_refer or 0
+	vIdentNode.scope_refer = vCurScope.scope_refer
 	vIdentNode.is_define = true
-	local nName
+	self._identList[nNewIndex] = vIdentNode
 	if vIdentNode.tag == "Id" then
-		nName = vIdentNode[1]
+		local nName = vIdentNode[1]
+		local nShadowNode = vCurScope.symbol_ident_dict[nName]
+		vCurScope.symbol_ident_dict[nName] = vIdentNode
+		vIdentNode.shadow_ident = nShadowNode
 	elseif vIdentNode.tag == "Dots" then
-		nName = "..."
+		vCurScope.symbol_dots = vIdentNode
 	else
 		error("ident type error:"..tostring(vIdentNode.tag))
 	end
-	self._identList[nNewIndex] = vIdentNode
-	vCurScope.record_dict[nName] = nNewIndex
 end
 
 function CodeEnv.thluaSearchContent(name, searchLua)
@@ -334,8 +333,16 @@ function CodeEnv.thluaSearchContent(name, searchLua)
 	return true, thluaCode, fileName
 end
 
+function CodeEnv:getNodeList()
+	return self._nodeList
+end
+
 function CodeEnv:getIdent(vIdentRefer)
 	return self._identList[vIdentRefer]
+end
+
+function CodeEnv:getScope(vScopeRefer)
+	return self._scopeList[vScopeRefer]
 end
 
 function CodeEnv:getAstTree()
