@@ -23,12 +23,6 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
 
-	-- create and set root scope
-	local nRootScope = CodeEnv.create_region(nGlobalEnv, nil, nil, vNode or Node.newRootNode())
-
-	-- create and bind ident
-	nGlobalEnv.root_scope = nRootScope
-
 	nGlobalEnv:_init()
 	return nGlobalEnv
 end
@@ -292,13 +286,6 @@ function CodeEnv:create_scope(vCurScope, vNode)
 	}
 	self._scopeList[nNewIndex] = nNextScope
 	return nNextScope
-end
-
-function CodeEnv:create_region(vCurScope, vNode)
-	local nRegion = self:create_scope(vCurScope, vNode)
-	nRegion.node = vNode
-	nRegion.sub_tag = "Region"
-	return nRegion
 end
 
 function CodeEnv:getNodeList()

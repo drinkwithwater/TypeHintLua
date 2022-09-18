@@ -8,7 +8,7 @@ Symbol.__tostring=function(self)
 	return "Symbol-"..tostring(self._node).."-"..tostring(self._type)
 end
 
-function Symbol.new(vContext:class.Context, vRegion:Union(class.Region, False),
+function Symbol.new(vContext:class.Context, vRegion:class.Region,
 		vNode:class.AstNode, vType:class.IKeyType, vRawTerm:class.UnionTerm)::RetNew(class.Symbol)
 	return setmetatable({::New()
 		_region=vRegion,
@@ -27,21 +27,11 @@ function Symbol:getName()
 end
 
 function Symbol:GET()
-	local nRegion = self._region
-	if nRegion then
-		return nRegion:top_branch():symbol_get(self)
-	else
-		return self._rawTerm
-	end
+	return self._region:top_branch():symbol_get(self)
 end
 
 function Symbol:SET(vTerm)
-	local nRegion = self._region
-	if nRegion then
-		return nRegion:top_branch():symbol_set(self, vTerm)
-	else
-		return self._rawTerm
-	end
+	return self._region:top_branch():symbol_set(self, vTerm)
 end
 
 return Symbol

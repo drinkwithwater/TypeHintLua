@@ -70,16 +70,16 @@ local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
 			visitor:print('local ____ctx, ____nodes=... ')
-			visitor:print("local ____s1={_ENV1=____ctx:makeSymbol_ENV(", visitor:codeNode(node[1]),")} ")
 			-- function begin
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
 			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
+			-- make env term
+			visitor:print("local ____ENV = ____ctx:makeTerm_ENV() ")
 			-- region begin
 			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
-			-- vDots
-			visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(node),",vArgTuple,0,true)")
 			visitor:fixLinePrint(node)
+			node[3].is_chunk_block = true
 		end,
 		after=function(visitor, node)
 			visitor:print("end) return ____fn")
@@ -91,16 +91,13 @@ local visitor_block = {
 			visitor.indent_count = visitor.indent_count + 1
 		end,
 		override=function(visitor, node)
-			visitor:indent()
 			visitor:print("local ____s"..node.scope_refer.."={} ")
 			local parent = node.parent
 			if node.is_fornum_block then
-				visitor:indent()
 				visitor:print(parent[1], "=")
 				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", fornum_i) ")
 			elseif node.is_forin_block then
 				for i=1, #parent[1] do
-					visitor:indent()
 					visitor:print(parent[1][i], "=")
 					visitor:print(visitor:codeRgn(node, "SYMBOL"), ", forin_gen", i, ") ")
 				end
@@ -108,10 +105,15 @@ local visitor_block = {
 				for i=1, #parent[1] do
 					local par = parent[1][i]
 					if par.tag ~= "Dots" then
-						visitor:indent()
 						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1], ") ")
 					end
 				end
+			elseif node.is_chunk_block then
+				-- chunk _ENV
+				visitor:print(parent[1], "=")
+				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", ____ENV) ")
+				-- chunk vDots
+				visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(parent),",vArgTuple,0,true)")
 			end
 			for i=1, #node do
 				visitor:indent()
@@ -480,18 +482,15 @@ local visitor_exp = {
 			local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
 			visitor:fixLong(node.hintLong or "")
 			visitor:print(" ____ctx:UnionTerm((function() local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
-			visitor:indent()
-			visitor:indent()
+			visitor:print(" local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn) ")
 			if #nParList > 0 then
-				visitor:print("\tlocal ", node[1], "=", visitor:codeCtx(node, "TUPLE_UNPACK"))
+				visitor:print(" local ", node[1], "=", visitor:codeCtx(node, "TUPLE_UNPACK"))
 				if nParList[#nParList].tag == "Dots" then
-					visitor:print(",vArgTuple,",tostring(#nParList-1),",true) ")
+					visitor:print(", vArgTuple, ",tostring(#nParList-1),", true) ")
 				else
-					visitor:print(",vArgTuple,",tostring(#nParList),",false) ")
+					visitor:print(", vArgTuple, ",tostring(#nParList),", false) ")
 				end
 			end
-			visitor:indent()
-			visitor:print("\tlocal ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn) ")
 			node[2].is_function_block = true
 			visitor:print(node[2])
 			visitor:indent()
