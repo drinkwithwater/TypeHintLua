@@ -150,7 +150,7 @@ end
 
 local G = lpeg.P { "TypeHintLua";
 	Shebang = lpeg.P("#") * (lpeg.P(1) - lpeg.P("\n"))^0 * lpeg.P("\n");
-	TypeHintLua = vv.Shebang^-1 * vv.Skip * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
+	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
   -- hint begin {{{
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
@@ -190,7 +190,7 @@ local G = lpeg.P { "TypeHintLua";
 
 
 	-- parser
-	Chunk = tagC.Chunk(tagC.Id(cc("_ENV")) * tagC.ParList(tagC.Dots()) * vv.Block);
+	Chunk = tagC.Chunk(tagC.Id(cc("_ENV")) * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
 
 	FuncDef = kw("function") * vv.FuncBody;
 

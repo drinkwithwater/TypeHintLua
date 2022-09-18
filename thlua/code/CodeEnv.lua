@@ -8,7 +8,7 @@ local CodeEnv = {}
 CodeEnv.__index=CodeEnv
 
 function CodeEnv.new(vSubject, vFileName, vPath, vNode)
-	local nGlobalEnv = setmetatable({
+	local self = setmetatable({
 		filename = vFileName,
 		hinting = false,
 		_linePosList = {},
@@ -23,8 +23,8 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
 
-	nGlobalEnv:_init()
-	return nGlobalEnv
+	self:_init()
+	return self
 end
 
 function CodeEnv:makeErrNode(vPos, vErr)
@@ -274,28 +274,32 @@ function CodeEnv:checkOkay()
 	end
 end
 
-function CodeEnv:create_scope(vCurScope, vNode)
+function CodeEnv:recordScope(vCurScopeOrNil, vNode)
 	local nNewIndex = #self._scopeList + 1
-	local nNextScope = {
-		tag = "Scope",
-		node = vNode,
-		record_dict = vCurScope and setmetatable({}, {
-			__index=vCurScope.record_dict
-		}) or {},
-		scope_refer = nNewIndex,
-	}
-	self._scopeList[nNewIndex] = nNextScope
-	return nNextScope
+	vNode.scope_refer = nNewIndex
+	vNode.record_dict = setmetatable({}, {
+		__index=vCurScopeOrNil and vCurScopeOrNil.record_dict or {_ENV=1}
+	})
+	self._scopeList[nNewIndex] = vNode
 end
 
 function CodeEnv:getNodeList()
 	return self._nodeList
 end
 
+function CodeEnv:recordIdent_ENV(vIdentNode)
+	assert(#self._identList == 0, "_ENV must be first identity")
+	assert(vIdentNode[1] == "_ENV", "only _ENV can be used in this function")
+	self._identList[1] = vIdentNode
+	vIdentNode.ident_refer = 1
+	vIdentNode.scope_refer = 0
+	vIdentNode.is_define = true
+end
+
 function CodeEnv:recordIdent(vCurScope, vIdentNode)
 	local nNewIndex = #self._identList + 1
 	vIdentNode.ident_refer = nNewIndex
-	vIdentNode.scope_refer = vCurScope.scope_refer
+	vIdentNode.scope_refer = vCurScope.scope_refer or 0
 	vIdentNode.is_define = true
 	local nName
 	if vIdentNode.tag == "Id" then

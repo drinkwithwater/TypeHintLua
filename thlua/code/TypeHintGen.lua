@@ -70,15 +70,14 @@ local visitor_block = {
 	Chunk={
 		before=function(visitor, node)
 			visitor:print('local ____ctx, ____nodes=... ')
+			-- chunk _ENV
+			visitor:print("local ____s0={_ENV1=____ctx:makeSymbol_ENV(",visitor:codeNode(node[1]),")} ")
 			-- function begin
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
 			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
-			-- make env term
-			visitor:print("local ____ENV = ____ctx:makeTerm_ENV() ")
 			-- region begin
 			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
-			visitor:fixLinePrint(node)
 			node[3].is_chunk_block = true
 		end,
 		after=function(visitor, node)
@@ -87,7 +86,6 @@ local visitor_block = {
 	},
 	Block={
 		before=function(visitor, node)
-			visitor:fixLinePrint(node)
 			visitor.indent_count = visitor.indent_count + 1
 		end,
 		override=function(visitor, node)
@@ -105,16 +103,14 @@ local visitor_block = {
 				for i=1, #parent[1] do
 					local par = parent[1][i]
 					if par.tag ~= "Dots" then
-						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1], ") ")
+						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1]..par.ident_refer, ") ")
 					end
 				end
 			elseif node.is_chunk_block then
-				-- chunk _ENV
-				visitor:print(parent[1], "=")
-				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", ____ENV) ")
 				-- chunk vDots
 				visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(parent),",vArgTuple,0,true)")
 			end
+			visitor:fixLinePrint(node)
 			for i=1, #node do
 				visitor:indent()
 				visitor:print(node[i])
@@ -622,7 +618,7 @@ local visitor_list = {
 			for i=1, #node do
 				local curPar = node[i]
 				if curPar.tag == "Id" then
-					l[#l+1] = "v_"..curPar[1]
+					l[#l+1] = "v_"..curPar[1]..curPar.ident_refer
 				elseif curPar.tag == "Dots" then
 					l[#l+1] = "vDOTS"
 				end

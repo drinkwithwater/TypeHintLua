@@ -99,11 +99,9 @@ local TagToVisiting = {
 		end
 	end,
 	Chunk=function(self, chunk)
+		self._env:recordIdent_ENV(chunk[1])
 		local block_node = chunk[3]
 		self:scopeBegin(block_node)
-		self.define_pos = true
-		self:realVisit(chunk[1])
-		self.define_pos = false
 		self.define_pos = true
 		self:realVisit(chunk[2])
 		self.define_pos = false
@@ -132,12 +130,11 @@ local ReferVisitor = VisitorExtend(setmetatable({}, {
 
 ReferVisitor.__index=ReferVisitor
 
-function ReferVisitor:scopeBegin(vNode, vIsRegion)
+function ReferVisitor:scopeBegin(vNode)
 	local nCurScope = self.scope_stack[#self.scope_stack]
 	assert(vNode.tag == "Block", "node tag must be Block but get "..tostring(vNode.tag))
-	local nNextScope = self._env:create_scope(nCurScope, vNode)
-	vNode.scope_refer = nNextScope.scope_refer
-	table.insert(self.scope_stack, nNextScope)
+	self._env:recordScope(nCurScope, vNode)
+	table.insert(self.scope_stack, vNode)
 	return nNextScope
 end
 
@@ -147,8 +144,8 @@ end
 
 function ReferVisitor:identDefine(vIdentNode)
 	-- create and set ident_refer
-	local nCurScope = self.scope_stack[#self.scope_stack]
-	self._env:recordIdent(nCurScope, vIdentNode)
+	local nCurScopeOrNil = self.scope_stack[#self.scope_stack]
+	self._env:recordIdent(nCurScopeOrNil, vIdentNode)
 end
 
 function ReferVisitor:idToIndex(vIdentNode)
