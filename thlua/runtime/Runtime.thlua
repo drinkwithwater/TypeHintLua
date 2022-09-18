@@ -24,8 +24,8 @@ local Symbol = require "thlua.runtime.Symbol"
 	let.LoadFn = Fn(class.Runtime, class.AstNode):Ret(class.GenFunc)
 
 	let.FileState = Struct {
-		codeEnv=class.CodeEnv,
-		loadFn=LoadFn,
+		succCodeEnv=Option(class.CodeEnv),
+		dirtyCodeEnv=class.CodeEnv,
 	}
 end)
 
@@ -98,16 +98,23 @@ function Runtime:main(vFileName, vContent)
 end
 
 function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local ok, loadFn, codeEnv = pcall(self._parse, self, vContent, vFileName)
-	if not ok then
-		return false, loadFn
-	else
-		local nFileState = {
-			codeEnv=codeEnv,
-			loadFn=loadFn,
+	local nCodeEnv = CodeEnv.new(vContent, vFileName, vFileName, self._node)
+	nCodeEnv:loadTyping()
+	local nFileState = self._fileStateDict[vFileName]
+	if not nFileState then
+		nFileState = {
+			dirtyCodeEnv = nCodeEnv
 		}
 		self._fileStateDict[vFileName] = nFileState
-		return true, nFileState
+	else
+		nFileState.dirtyCodeEnv = nCodeEnv
+	end
+	local ok, err = nCodeEnv:checkOkay() 
+	if ok then
+		nFileState.succCodeEnv = nCodeEnv
+		return ok
+	else
+		return ok, err
 	end
 end
 
@@ -116,15 +123,18 @@ function Runtime:newContext(vApplyNode)
 end
 
 function Runtime:cacheLoadFile(vFileName, vPath, vContent)
-	local nFileState = self._fileStateDict[vFileName]
-	if not nFileState then
-		local ok, nStateOrErr = self:trySyncFile(vFileName, vContent)
+	if not self._fileStateDict[vFileName] then
+		local ok, err = self:trySyncFile(vFileName, vContent)
 		if not ok then
-			error(nStateOrErr)
+			error(err)
 		end
-		nFileState = nStateOrErr
 	end
-	return nFileState.loadFn(self, nFileState.codeEnv:getNodeList())
+	local nCodeEnv = self._fileStateDict[vFileName].dirtyCodeEnv
+	local ok, err = nCodeEnv:checkOkay()
+	if not ok then
+		error(err)
+	end
+	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
 end
 
 function Runtime:_parse(vCode, vChunkName)::Ret(LoadFn, class.CodeEnv)
@@ -200,10 +210,12 @@ function Runtime:makeSymbol_ENV(vNode)
 	return Symbol.new(self, false, vNode, self._globalTable, nTerm)
 end
 
-function Runtime:getCodeEnv(vFileName)::Ret():Ret(class.CodeEnv)
+function Runtime:getSuccCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
 	local nState = self._fileStateDict[vFileName]
 	if nState then
-		return nState.codeEnv
+		return nState.succCodeEnv
+	else
+		return nil
 	end
 end
 

@@ -18,12 +18,13 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_subject = vSubject,
 		_path = vPath or vFileName,
 		_posToChange = {}, -- if value is string then insert else remove
-		_ast = false,
+		_astOrErr = nil,
 		_nodeList = false, -- as init flag
 		_nameList = {},
 		_scopeList = {},
 		_regionList = nil, -- _regionList = _scopeList
 		_identList = {},
+		_typingFn = "typing code not execute",
 	}, CodeEnv)
 
 	nGlobalEnv._regionList = nGlobalEnv._scopeList
@@ -64,7 +65,7 @@ function CodeEnv:dumpAst()
 		end
 		l[#l + 1] = indent .. "}\n"
 	end
-	recur(self._ast, 0)
+	recur(self._astOrErr, 0)
 	print(table.concat(l))
 end
 
@@ -112,7 +113,7 @@ end
 
 function CodeEnv:visit(vDictOrFunc)
 	local visitor = VisitorExtend(vDictOrFunc)
-	visitor:realVisit(self._ast)
+	visitor:realVisit(self._astOrErr)
 end
 
 function CodeEnv:binSearch(vList, vPos)
@@ -180,11 +181,16 @@ function CodeEnv:_init()
 	end
 	self._linePosList = nList
 	-- 2. gen ast
-	local ok, ast = pcall(parser.parse,self, self._subject)
+	local ok, astOrErr = pcall(parser.parse,self, self._subject)
 	if not ok then
-		error(ast)
+		if type(astOrErr) == "table" and astOrErr.tag == "Error" then
+			self._astOrErr = astOrErr
+		else
+			self._astOrErr = self:makeErrNode(1, "parse error: "..tostring(astOrErr))
+		end
+	else
+		self._astOrErr = astOrErr
 	end
-	self._ast = ast
 end
 
 function CodeEnv:subScript(vStartPos, vFinishPos)
@@ -241,10 +247,43 @@ end
 
 function CodeEnv:genTypingCode()
 	local ReferVisitor = require "thlua.code.ReferVisitor"
-	ReferVisitor.new(self):realVisit(self._ast)
+	ReferVisitor.new(self):realVisit(self._astOrErr)
 	self:prepare()
 	local TypeHintGen = require "thlua.code/TypeHintGen"
 	return TypeHintGen.visit(self, self._path or self.filename)
+end
+
+function CodeEnv:loadTyping()
+	local ok, fnOrErr = pcall(function () 
+		local nTypingCode = self:genTypingCode()
+		local nFunc, nInfo = load(nTypingCode, self._path, "t", setmetatable({}, {
+			__index=function(t,k)
+				-- TODO, give node pos
+				error("indexing global is fatal error")
+			end
+		}))
+		assert(type(nFunc) == "function", "typing code must return function")
+		if not nFunc then
+			-- TODO, give node pos
+			error(nInfo)
+		end
+		return nFunc
+	end)
+	if ok then
+		self._typingFn = fnOrErr
+	else
+		self._typingFn = tostring(fnOrErr)
+	end
+end
+
+function CodeEnv:checkOkay()
+	if self._astOrErr.tag == "Error" then
+		return false, self._astOrErr
+	elseif type(self._typingFn) == "string" then
+		return false, self._typingFn
+	else
+		return true
+	end
 end
 
 function CodeEnv:create_scope(vCurScope, vNode)
@@ -325,7 +364,11 @@ function CodeEnv:getIdent(vIdentRefer)
 end
 
 function CodeEnv:getAstTree()
-	return self._ast
+	return self._astOrErr
+end
+
+function CodeEnv:getTypingFn()
+	return self._typingFn
 end
 
 function CodeEnv:lcToPos(l, c)

@@ -61,6 +61,9 @@ node.IVisitor = Struct {
 end)]]
 
 local TagToTraverse = {
+	Error=function(self, node)
+		error(node)
+	end,
 	Chunk=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])

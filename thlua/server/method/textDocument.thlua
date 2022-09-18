@@ -130,20 +130,22 @@ return {
 	end,
 	definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret(Location)
 		local nFileName = uriToFileName(vParams.textDocument.uri)
-		local nCodeEnv = vClient.runtime:getCodeEnv(nFileName)
-		local nPos = nCodeEnv:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
-		local nNode = nCodeEnv:searchName(nPos)
-		if nNode then
-			print("query=", nNode.tag, nNode, nNode[1])
-			if nNode.tag == "Id" then
-				nNode = nCodeEnv:getIdent(nNode.ident_refer)
-				return {
-					uri=vParams.textDocument.uri,
-					range={
-						start={ line=nNode.l - 1, character=nNode.c-1, },
-						["end"]={ line=nNode.l - 1, character=nNode.c - 1 },
+		local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
+		if nSuccEnv then
+			local nPos = nSuccEnv:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
+			local nNode = nSuccEnv:searchName(nPos)
+			if nNode then
+				print("query=", nNode.tag, nNode, nNode[1])
+				if nNode.tag == "Id" then
+					nNode = nSuccEnv:getIdent(nNode.ident_refer)
+					return {
+						uri=vParams.textDocument.uri,
+						range={
+							start={ line=nNode.l - 1, character=nNode.c-1, },
+							["end"]={ line=nNode.l - 1, character=nNode.c - 1 },
+						}
 					}
-				}
+				end
 			end
 		end
 	end,
