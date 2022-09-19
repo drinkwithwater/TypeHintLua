@@ -364,11 +364,13 @@ end
 
 function CodeEnv:searchName(vPos)
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
-	if vPos - nNode.pos < #nNode[1] and vPos <= nNode.posEnd then
-		return nNode
-	else
+	if not nIndex then
 		return nil
 	end
+	if vPos - nNode.pos >= #nNode[1] or vPos > nNode.posEnd then
+		return nil
+	end
+	return nNode
 end
 
 return CodeEnv

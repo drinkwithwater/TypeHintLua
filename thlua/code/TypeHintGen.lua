@@ -92,18 +92,22 @@ local visitor_block = {
 			visitor:print("local ____s"..node.scope_refer.."={} ")
 			local parent = node.parent
 			if node.is_fornum_block then
-				visitor:print(parent[1], "=")
-				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", fornum_i) ")
+				local idNode = parent[1]
+				visitor:print(idNode, "=")
+				visitor:print(visitor:codeRgn(idNode, "SYMBOL"), ", fornum_i) ")
 			elseif node.is_forin_block then
-				for i=1, #parent[1] do
-					visitor:print(parent[1][i], "=")
-					visitor:print(visitor:codeRgn(node, "SYMBOL"), ", forin_gen", i, ") ")
+				local nNameList = parent[1]
+				for i=1, #nNameList do
+					local idNode = nNameList[i]
+					visitor:print(idNode, "=")
+					visitor:print(visitor:codeRgn(idNode, "SYMBOL"), ", forin_gen", i, ") ")
 				end
 			elseif node.is_function_block then
-				for i=1, #parent[1] do
-					local par = parent[1][i]
+				local nParList = parent[1]
+				for i=1, #nParList do
+					local par = nParList[i]
 					if par.tag ~= "Dots" then
-						visitor:print(par, "=", visitor:codeRgn(node, "SYMBOL"), ", ", "v_"..par[1]..par.ident_refer, ") ")
+						visitor:print(par, "=", visitor:codeRgn(par, "SYMBOL"), ", ", "v_"..par[1]..par.ident_refer, ") ")
 					end
 				end
 			elseif node.is_chunk_block then
@@ -300,11 +304,11 @@ local visitor_stm = {
 				visitor:print(")")
 			end
 			visitor:print(" ")
-			for i=1, #node[1] do
-				visitor:indent()
-				local idNode = node[1][i]
+			local nNameList = node[1]
+			for i=1, #nNameList do
+				local idNode = nNameList[i]
 				visitor:print(idNode, "=")
-				visitor:print(visitor:codeRgn(node, "SYMBOL"), ", local_a"..i)
+				visitor:print(visitor:codeRgn(idNode, "SYMBOL"), ", local_a"..i)
 				if idNode.hintShort then
 					visitor:print(",", visitor:fixShort(idNode.hintShort))
 				end
@@ -315,7 +319,8 @@ local visitor_stm = {
 	Localrec={
 		override=function(visitor, node)
 			visitor:fixLinePrint(node)
-			visitor:print(node[1], "=", visitor:codeRgn(node, "SYMBOL"), ", ", node[2], ")")
+			local idNode = node[1]
+			visitor:print(idNode, "=", visitor:codeRgn(idNode, "SYMBOL"), ", ", node[2], ")")
 		end,
 	},
 	Goto={

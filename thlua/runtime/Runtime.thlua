@@ -54,6 +54,26 @@ function Runtime:clear()::open()
 	self._loadedDict = {}
 	self._lateFnDict = {} @ Dict(class.LuaFunction, True)
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
+	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.AstNode, True))
+end
+
+function Runtime:recordSymbol(vSymbol)
+	local nNode = vSymbol:getNode()
+	local nSymbolSet = self._nodeToSymbolSet[nNode]
+	if not nSymbolSet then
+		nSymbolSet = {}
+		self._nodeToSymbolSet[nNode] = nSymbolSet
+	end
+	nSymbolSet[vSymbol] = true
+end
+
+function Runtime:getNodeSymbolSet(vNode)
+	local nSymbolSet = self._nodeToSymbolSet[vNode]
+	if not nSymbolSet then
+		nSymbolSet = {}
+		self._nodeToSymbolList = nSymbolSet
+	end
+	return nSymbolSet
 end
 
 function Runtime:recordLateLuaFunction(vFunc)

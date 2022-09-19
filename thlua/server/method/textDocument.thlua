@@ -45,6 +45,11 @@
 		position=Position,
 	}
 
+	let.HoverParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=Position,
+	}
+
 	let.CompletionParams = Struct {
 		textDocument = TextDocumentIdentifier,
 		position=Position,
@@ -93,12 +98,32 @@
 		--....
 	}
 
+	let.MarkupContent = Struct {
+		kind=Union("markdown", "plaintext"),
+		value=String,
+	}
+
 end)
 
 local function uriToFileName(vUri)
 	return "/"..vUri:gsub("file:/*", "")
 end
 
+local function searchIdDefine(vClient, vUri, vPosition)
+	local nFileName = uriToFileName(vUri)
+	local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
+	if nSuccEnv then
+		local nPos = nSuccEnv:lcToPos(vPosition.line + 1, vPosition.character + 1)
+		local nNode = nSuccEnv:searchName(nPos)
+		if nNode then
+			if nNode.tag == "Id" then
+				nNode = nSuccEnv:getIdent(nNode.ident_refer)
+				return nNode
+			end
+		end
+	end
+	return nil
+end
 
 return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
@@ -129,37 +154,56 @@ return {
 	didClose=function(vClient:lsp.Client, vParams)
 	end,
 	definition=function(vClient:lsp.Client, vParams:DefinitionParams)::Ret(Location)
-		local nFileName = uriToFileName(vParams.textDocument.uri)
-		local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
-		if nSuccEnv then
-			local nPos = nSuccEnv:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
-			local nNode = nSuccEnv:searchName(nPos)
-			if nNode then
-				print("query=", nNode.tag, nNode, nNode[1])
-				if nNode.tag == "Id" then
-					nNode = nSuccEnv:getIdent(nNode.ident_refer)
-					return {
-						uri=vParams.textDocument.uri,
-						range={
-							start={ line=nNode.l - 1, character=nNode.c-1, },
-							["end"]={ line=nNode.l - 1, character=nNode.c - 1 },
-						}
-					}
-				end
-			end
+		local nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, vParams.position)
+		if nDefineNode then
+			return {
+				uri=vParams.textDocument.uri,
+				range={
+					start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
+					["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
+				}
+			}
 		end
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
-		local nFileName = uriToFileName(vParams.textDocument.uri)
-		local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
-		local nDirtyEnv = vClient.runtime:getDirtyCodeEnv(nFileName)
-		return {{
-			label="TODO1",
-		}, {
-			label="TODO2",
-		} }
+		local nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
+			line=vParams.position.line,
+			character=vParams.position.character - 2,
+		})
+		if nDefineNode then
+			local nSymbolSet = vClient.runtime:getNodeSymbolSet(nDefineNode)
+			local nNameToType = {}
+			for nSymbol, _ in pairs(nSymbolSet) do
+				local nType = nSymbol:getType()
+				for k, v in pairs(nType:getCompletion()) do
+					nNameToType[k] = v
+				end
+			end
+			local l = {}
+			for k,v in pairs(nNameToType) do
+				l[#l + 1] = {
+					label=k
+				}
+			end
+			return l
+		end
 	end,
-	hover=function(vClient:lsp.Client, vParams)
+	hover=function(vClient:lsp.Client, vParams:HoverParams)
+		local nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, vParams.position)
+		if nDefineNode then
+			local nSymbolSet = vClient.runtime:getNodeSymbolSet(nDefineNode)
+			local l = {}
+			for nSymbol, _ in pairs(nSymbolSet) do
+				l[#l + 1] = tostring(nSymbol:getType())
+			end
+			local value = table.concat(l, ",")
+			return {
+				contents = {
+					kind="markdown",
+					value=value
+				} @ MarkupContent
+			}
+		end
 	end,
 	references=function(vClient, vParams)
 	end,
