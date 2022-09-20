@@ -127,29 +127,29 @@ local function searchIdDefine(vClient, vUri, vPosition)
 	return nil
 end
 
+local function syncFile(vClient, vTextDocument, vContent)
+	local nFileName = uriToFileName(vTextDocument.uri)
+	local ok, errNode = vClient.runtime:trySyncFile(nFileName, vContent)
+	if not ok then
+		vClient:publishError(vTextDocument, errNode)
+		return
+	end
+	local ok, errNode = vClient.runtime:runOpen(nFileName, vContent)
+	if not ok then
+		vClient:publishError(vTextDocument, errNode)
+		return
+	end
+	vClient:publishError(vTextDocument, nil)
+end
+
 return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
-		local nFileName = uriToFileName(vParams.textDocument.uri)
 		local nContent = vParams.contentChanges[1].text
-		local ok, errNode = vClient.runtime:trySyncFile(nFileName, nContent)
-		if not ok then
-			vClient:publishError(vParams.textDocument, errNode)
-		else
-			vClient:publishError(vParams.textDocument, nil)
-			vClient.runtime:main(nFileName, nContent)
-		end
+		syncFile(vClient, vParams.textDocument, nContent)
 	end,
 	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
-		-- vClient.runtime:main(vParams.textDocument.uri, vParams.textDocument.text)
-		local nFileName = uriToFileName(vParams.textDocument.uri)
 		local nContent = vParams.textDocument.text
-		local ok, errNode = vClient.runtime:trySyncFile(nFileName, nContent)
-		if not ok then
-			vClient:publishError(vParams.textDocument, errNode)
-		else
-			vClient:publishError(vParams.textDocument, nil)
-			vClient.runtime:main(nFileName, nContent)
-		end
+		syncFile(vClient, vParams.textDocument, nContent)
 	end,
 	didSave=function(vClient:lsp.Client, vParams)
 	end,

@@ -374,17 +374,6 @@ function CodeEnv:lcToPos(l, c)
 	end
 end
 
-function CodeEnv:searchScope(vPos)
-	local nIndex, nScope = self:binSearch(self._scopeList, vPos)
-	if nIndex then
-		while nScope and vPos > nScope.posEnd do
-			nScope = nScope.lookup_block
-		end
-		return nScope
-	end
-	return nil
-end
-
 function CodeEnv:searchScopeByTrace(vList)
 	local nScope = self._rootScope
 	for i=1,#vList-1 do

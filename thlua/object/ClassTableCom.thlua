@@ -1,4 +1,5 @@
 
+local StringLiteral = require "thlua.type.StringLiteral"
 local TypeFunction = require "thlua.func.TypeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local Nil = require "thlua.type.Nil"
@@ -88,9 +89,13 @@ function ClassTableCom:implement(vContext)
 end
 
 function ClassTableCom:getCompletion()
-	return {
-		TODO = 1
-	}
+	local nDict = {}
+	self._keyType:foreach(function(vType)
+		if StringLiteral.is(vType) then
+			nDict[vType:getLiteral()] = true
+		end
+	end)
+	return nDict
 end
 
 return ClassTableCom

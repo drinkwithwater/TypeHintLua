@@ -110,11 +110,18 @@ function Runtime:import(vPath)
 	return nSpace.localExport
 end
 
-function Runtime:main(vFileName, vContent)
+function Runtime:runOpen(vFileName, vContent)
 	self:clear()
-	local nLuaFunc = self:cacheLoadFile(vFileName, "$main", vContent)
-	local nTermTuple = self._manager:TermTuple({})
-	nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
+	return pcall(function()
+		local nLuaFunc = self:cacheLoadFile(vFileName, "$main", vContent)
+		local nTermTuple = self._manager:TermTuple({})
+		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
+	end)
+end
+
+function Runtime:runCheck()
+	self:checkDefineLuaFunction()
+	self:checkLateLuaFunction()
 end
 
 function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
@@ -155,22 +162,6 @@ function Runtime:cacheLoadFile(vFileName, vPath, vContent)
 		error(err)
 	end
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
-end
-
-function Runtime:_parse(vCode, vChunkName)::Ret(LoadFn, class.CodeEnv)
-	local nEnv = CodeEnv.new(vCode, vChunkName, vChunkName, self._node)
-	local nAfterContent = nEnv:genTypingCode()
-	local nFunc, nInfo = load(nAfterContent, vChunkName, "t", setmetatable({}, {
-		__index=function(t,k)
-			-- TODO, give node pos
-			error("indexing global is fatal error")
-		end
-	}))
-	if not nFunc then
-		-- TODO, give node pos
-		error(nInfo)
-	end
-	return nFunc, nEnv
 end
 
 function Runtime:require(vPath)
