@@ -91,8 +91,12 @@ local expF={
 		return { tag = "Paren", pos = pos, [1] = e, posEnd=posEnd}
 	end,
 	hintExpr=function(pos, e, hintShort, posEnd)
-		-- TODO, use other tag
-		return { tag = "Paren", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
+		if not hintShort then
+			return e
+		else
+			-- TODO, use other tag
+			return { tag = "Paren", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
+		end
 	end
 }
 
@@ -237,15 +241,14 @@ local G = lpeg.P { "TypeHintLua";
 		return OrExpr
 	end)();
 
-	SimpleExpr = lpeg.Cmt(Cpos * (vv.String +
+	SimpleExpr = Cpos * (vv.String +
               tagC.Number(token(vv.Number)) +
               tagC.Nil(kw"nil") +
               tagC.False(kw"false") +
               tagC.True(kw"true") +
               vv.FuncDef +
-              vv.Constructor +
-              vv.SuffixedExp +
-              tagC.Dots(symb"...")) * (vv.AtHint + cc(nil)) * Cpos, function(s,i, pos, expr, hint, posEnd)
+              vv.Constructor) * (vv.AtHint + cc(nil)) * Cpos /expF.hintExpr +
+              lpeg.Cmt(Cpos * vv.SuffixedExp * (vv.AtHint + cc(nil)) * Cpos, function(s,i, pos, expr, hint, posEnd)
                   if not hint then
                       return true, expr
                   else
@@ -256,7 +259,7 @@ local G = lpeg.P { "TypeHintLua";
                           return true, expF.hintExpr(pos, expr, hint, posEnd)
                       end
                   end
-              end);
+              end) + tagC.Dots(symb"...");
 
 	SuffixedExp = (function()
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
@@ -276,6 +279,12 @@ local G = lpeg.P { "TypeHintLua";
 			else
 				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
 				nNode[2] = exp
+				nNode[3] = env.scopeTraceList
+				local l = {}
+				for k,v in pairs(env.scopeTraceList) do
+					l[#l + 1] = v
+				end
+				print("scope trace:", table.concat(l, ","))
 				error(nNode)
 				return false
 			end
@@ -287,7 +296,21 @@ local G = lpeg.P { "TypeHintLua";
 
 	PrimaryExp = vv.Id + Cpos * symb("(") * vv.Expr * symbA(")") * Cpos / expF.paren;
 
-	Block = tagC.Block(vv.Stat^0 * vv.RetStat^-1);
+	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,_,env)
+		if not env.hinting then
+			local len = #env.scopeTraceList
+			env.scopeTraceList[len + 1] = 0
+			if len > 0 then
+				env.scopeTraceList[len] = env.scopeTraceList[len] + 1
+			end
+		end
+		return true
+	end) * vv.Stat^0 * vv.RetStat^-1 * lpeg.Cmt(Cenv, function(_,_,env)
+		if not env.hinting then
+			env.scopeTraceList[#env.scopeTraceList] = nil
+		end
+		return true
+	end));
 	DoStat = tagC.Do(kw"do" * vv.Block * kwA"end");
 	FuncBody = (function()
 		local IdHintableList = vv.IdHintable * (symb(",") * vv.IdHintable)^0;

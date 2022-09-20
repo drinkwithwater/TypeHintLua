@@ -11,6 +11,7 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 	local self = setmetatable({
 		filename = vFileName,
 		hinting = false,
+		scopeTraceList = {},
 		_linePosList = {},
 		_subject = vSubject,
 		_path = vPath or vFileName,
@@ -19,6 +20,7 @@ function CodeEnv.new(vSubject, vFileName, vPath, vNode)
 		_nodeList = false, -- as init flag
 		_nameList = {},
 		_scopeList = {},
+		_rootScope = false,
 		_identList = {},
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
@@ -277,9 +279,18 @@ end
 function CodeEnv:recordScope(vCurScopeOrNil, vNode)
 	local nNewIndex = #self._scopeList + 1
 	vNode.scope_refer = nNewIndex
-	vNode.symbol_ident_dict = setmetatable({}, {
-		__index=vCurScopeOrNil and vCurScopeOrNil.symbol_ident_dict or {_ENV=self._identList[1]}
-	})
+	if vCurScopeOrNil then
+		vNode.symbol_ident_dict = setmetatable({}, {
+			__index=vCurScopeOrNil.symbol_ident_dict,
+		})
+		table.insert(vCurScopeOrNil.scope_children, vNode)
+	else
+		vNode.symbol_ident_dict = setmetatable({}, {
+			__index={_ENV=self._identList[1]}
+		})
+		self._rootScope = vNode
+	end
+	vNode.scope_children = {}
 	vNode.symbol_dots = false
 	vNode.is_region = false
 	vNode.lookup_block = vCurScopeOrNil or false
@@ -374,13 +385,26 @@ function CodeEnv:searchScope(vPos)
 	return nil
 end
 
-function CodeEnv:searchNameBySymbol(vPos, vName)
-	local nScope = self:searchScope(vPos)
-	if not nScope then
-		return nil
+function CodeEnv:searchScopeByTrace(vList)
+	local nScope = self._rootScope
+	for i=1,#vList-1 do
+		local nTrace = vList[i]
+		nScope = nScope.scope_children[nTrace]
 	end
-	local nIdent = nScope.symbol_ident_dict[vName]
-	while nIdent and nIdent.pos > vPos do
+	return nScope
+end
+
+function CodeEnv:searchNameByError(vErrorNode)
+	local nErrExpr = vErrorNode[2]
+	if not nErrExpr or nErrExpr.tag ~= "Id" then
+		return
+	end
+	local nTraceList = vErrorNode[3]
+	local nPos = nErrExpr.pos
+	local nScope = self:searchScopeByTrace(nTraceList)
+	local nName = nErrExpr[1]
+	local nIdent = nScope.symbol_ident_dict[nName]
+	while nIdent and nIdent.pos > nPos do
 		nIdent = nIdent.lookup_ident
 	end
 	return nIdent
