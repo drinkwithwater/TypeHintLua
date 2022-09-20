@@ -351,6 +351,16 @@ function Struct:checkStruct()
 	return self
 end
 
+function Struct:getCompletion()
+	local nDict = {}
+	self._keyType:foreach(function(vType)
+		if StringLiteral.is(vType) then
+			nDict[vType:getLiteral()] = true
+		end
+	end)
+	return nDict
+end
+
 function Struct.is(v)::isguard(class.Struct)
 	return getmetatable(v) == Struct
 end

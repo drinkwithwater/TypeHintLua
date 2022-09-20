@@ -282,6 +282,7 @@ function CodeEnv:recordScope(vCurScopeOrNil, vNode)
 	})
 	vNode.symbol_dots = false
 	vNode.is_region = false
+	vNode.lookup_block = vCurScopeOrNil or false
 	self._scopeList[nNewIndex] = vNode
 end
 
@@ -302,9 +303,9 @@ function CodeEnv:recordSymbol(vCurScope, vIdentNode)
 	self._identList[nNewIndex] = vIdentNode
 	if vIdentNode.tag == "Id" then
 		local nName = vIdentNode[1]
-		local nShadowNode = vCurScope.symbol_ident_dict[nName]
+		local nLookupNode = vCurScope.symbol_ident_dict[nName]
 		vCurScope.symbol_ident_dict[nName] = vIdentNode
-		vIdentNode.shadow_ident = nShadowNode
+		vIdentNode.lookup_ident = nLookupNode
 	elseif vIdentNode.tag == "Dots" then
 		vCurScope.symbol_dots = vIdentNode
 	else
@@ -362,15 +363,42 @@ function CodeEnv:lcToPos(l, c)
 	end
 end
 
+function CodeEnv:searchScope(vPos)
+	local nIndex, nScope = self:binSearch(self._scopeList, vPos)
+	if nIndex then
+		while nScope and vPos > nScope.posEnd do
+			nScope = nScope.lookup_block
+		end
+		return nScope
+	end
+	return nil
+end
+
+function CodeEnv:searchNameBySymbol(vPos, vName)
+	local nScope = self:searchScope(vPos)
+	if not nScope then
+		return nil
+	end
+	local nIdent = nScope.symbol_ident_dict[vName]
+	while nIdent and nIdent.pos > vPos do
+		nIdent = nIdent.lookup_ident
+	end
+	return nIdent
+end
+
 function CodeEnv:searchName(vPos)
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
 	if not nIndex then
 		return nil
 	end
-	if vPos - nNode.pos >= #nNode[1] or vPos > nNode.posEnd then
+	if vPos >= nNode.pos + #nNode[1] or vPos > nNode.posEnd then
 		return nil
 	end
 	return nNode
+end
+
+function CodeEnv:getContent()
+	return self._subject
 end
 
 return CodeEnv

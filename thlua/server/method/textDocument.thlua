@@ -1,4 +1,6 @@
 
+local json = require "thlua.server.json"
+local CodeEnv = require "thlua.code.CodeEnv"
 
 (@do
 	let.lsp=import("thlua.server.protocol").lsp
@@ -166,10 +168,29 @@ return {
 		end
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
-		local nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
-			line=vParams.position.line,
-			character=vParams.position.character - 2,
-		})
+		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
+		if not nSuccEnv then
+			return
+		end
+		local nDirtyEnv = vClient.runtime:getDirtyCodeEnv(nFileName)
+		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
+		local nContent = nDirtyEnv:getContent():sub(1, nPos)
+		local nCodeEnv = CodeEnv.new(nContent, nFileName, nFileName, nil)
+		local ok, nErrNode = nCodeEnv:checkOkay()
+		local nDefineNode
+		if not ok then
+			local nErrExpr = nErrNode[2]
+			if not nErrExpr or nErrExpr.tag ~= "Id" then
+				return
+			end
+			nDefineNode = nSuccEnv:searchNameBySymbol(nErrExpr.pos, nErrExpr[1])
+		else
+			nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
+				vParams.position.line,
+				vParams.position.character,
+			})
+		end
 		if nDefineNode then
 			local nSymbolSet = vClient.runtime:getNodeSymbolSet(nDefineNode)
 			local nNameToType = {}
