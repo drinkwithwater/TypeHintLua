@@ -324,27 +324,6 @@ function CodeEnv:recordSymbol(vCurScope, vIdentNode)
 	end
 end
 
-function CodeEnv.thluaSearchContent(name, searchLua)
-	local thluaPath = package.path:gsub("[.]lua", ".thlua")
-	local fileName, err1 = package.searchpath(name, thluaPath)
-	if not fileName then
-		if not searchLua then
-			return false, err1
-		end
-		fileName, err1 = package.searchpath(name, package.path)
-		if not fileName then
-			return false, err1
-		end
-	end
-	local file, err2 = io.open(fileName, "r")
-	if not file then
-		return false, err2
-	end
-	local thluaCode = file:read("*a")
-	file:close()
-	return true, thluaCode, fileName
-end
-
 function CodeEnv:getNodeList()
 	return self._nodeList
 end

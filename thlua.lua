@@ -5,23 +5,42 @@ end
 
 local CodeEnv = require "thlua.code.CodeEnv"
 
-local function thluaSearcher(name)
-	local ok, content, fileName = CodeEnv.thluaSearchContent(name, false)
-	if not ok then
-		return content
+local thlua = {}
+
+thlua.path = package.path:gsub("[.]lua", ".thlua")
+
+function thlua.load(chunk, chunkName, ...)
+	local codeEnv = CodeEnv.new(chunk, chunkName, chunkName)
+	local luaCode = codeEnv:genLuaCode()
+	local f, err3 = load(luaCode, chunkName, ...)
+	if not f then
+		error(err3)
 	end
-	local env = CodeEnv.new(content, fileName, name)
-	local luaCode = env:genLuaCode()
-	local f, err3 = load(luaCode, name)
-	return f or err3
+	return f
 end
 
-local searchers = package.searchers
-table.insert(searchers, thluaSearcher)
+function thlua.searcher(name)
+	local fileName, err1 = package.searchpath(name, thlua.path)
+	if not fileName then
+		fileName, err1 = package.searchpath(name, package.path)
+		if not fileName then
+			return err1
+		end
+	end
+	local file, err2 = io.open(fileName, "r")
+	if not file then
+		return err2
+	end
+	local thluaCode = file:read("*a")
+	file:close()
+	return thlua.load(thluaCode, name)
+end
 
-local Runtime = require "thlua.runtime.Runtime"
+table.insert(package.searchers, thlua.searcher)
 
-
-local thlua = Runtime.new()
+function thlua.newRuntime()
+	local Runtime = require "thlua.runtime.Runtime"
+	return Runtime.new()
+end
 
 return thlua

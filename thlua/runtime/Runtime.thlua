@@ -41,8 +41,17 @@ function Runtime.new()::RetClass(class.Runtime)
 	self._runtime = self
 	self._node = Node.newRootNode()
 	self._fileStateDict = {}
+	self._thPath = ""
 	self:clear()
 	return self
+end
+
+function Runtime:setPath(vPath)
+	self._thPath = vPath
+end
+
+function Runtime:getPath()::Ret(String)
+	return self._thPath
 end
 
 function Runtime:clear()::open()
@@ -164,10 +173,24 @@ function Runtime:cacheLoadFile(vFileName, vPath, vContent)
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
 end
 
+function Runtime:thluaSearch(vName)::Ret(True, String, String):Ret(False, String)
+	local fileName, err1 = package.searchpath(vName, self._thPath)
+	if not fileName then
+		return false, err1
+	end
+	local file, err2 = io.open(fileName, "r")
+	if not file then
+		return false, err2
+	end
+	local thluaCode = file:read("*a")
+	file:close()
+	return true, thluaCode, fileName
+end
+
 function Runtime:require(vPath)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
-		local nOkay, nContent, nFileName = CodeEnv.thluaSearchContent(vPath, true)
+		local nOkay, nContent, nFileName = self:thluaSearch(vPath)
 		if not nOkay then
 			error(nContent)
 		end
