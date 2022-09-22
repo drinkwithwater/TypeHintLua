@@ -4,6 +4,7 @@ local LuaFunction = require "thlua.func.LuaFunction"
 local Variable = require "thlua.func.Variable"
 local TermCase = require "thlua.term.TermCase"
 
+local Exception = require "thlua.Exception"
 local OpenFnCom = require "thlua.func.OpenFnCom"
 local FixedRetFnCom = require "thlua.func.FixedRetFnCom"
 local NewRetFnCom = require "thlua.func.NewRetFnCom"
@@ -41,20 +42,9 @@ function FunctionBuilder.newLongHint(self)
 			if not self._hasRet then
 				self._context:error("hint return something but block has no RetStat")
 			end
-			assert(not self._fnCom, "function builder case conflict")
-			assert(not self._retTuples, "function builder case conflict")
-			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
-			vRefer:setTypeCtor(nCom)
-			self._fnCom = nCom
-			nCom:initByRetClass(self._context, true, vRefer, vStruct)
-			return vLongHint
-		end,
-		RetClass=function(vLongHint, vRefer, vStruct)
-			if not self._hasRet then
-				self._context:error("hint return something but block has no RetStat")
-			end
-			assert(not self._fnCom, "function builder case conflict")
-			assert(not self._retTuples, "function builder case conflict")
+			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
+			assert(not self._fnCom, Exception.new("function builder case conflict"))
+			assert(not self._retTuples, Exception.new("function builder case conflict"))
 			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
 			vRefer:setTypeCtor(nCom)
 			self._fnCom = nCom
@@ -65,7 +55,7 @@ function FunctionBuilder.newLongHint(self)
 			if not self._hasRet and select("#", ...) > 0 then
 				self._context:error("hint return something but block has no RetStat")
 			end
-			assert(not self._fnCom, "function builder case conflict")
+			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			local nRetTuples = self._retTuples
 			if not nRetTuples then
 				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
@@ -76,20 +66,20 @@ function FunctionBuilder.newLongHint(self)
 			return vLongHint
 		end,
 		nocheck=function(vLongHint)
-			assert(not self._fnCom, "function builder case conflict")
+			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			self._nocheck=true
 			return vLongHint
 		end,
 		open=function(vLongHint)
-			assert(not self._fnCom, "function builder case conflict")
-			assert(not self._retTuples, "function builder case conflict")
+			assert(not self._fnCom, Exception.new("function builder case conflict"))
+			assert(not self._retTuples, Exception.new("function builder case conflict"))
 			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 			nOpenCom:initByOpen(self._context)
 			self._fnCom = nOpenCom
 			return vLongHint
 		end,
 		isguard=function(vLongHint, vType)
-			assert(not self._fnCom, "function builder case conflict")
+			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 			nOpenCom:initByGuard(self._context, vType)
 			self._fnCom = nOpenCom

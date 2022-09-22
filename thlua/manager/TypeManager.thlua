@@ -128,13 +128,21 @@ local tableToTypeFuncDict = {
 	[NativeFunction]=true,
 }
 
-function TypeManager:assertValueType(vData)
+function TypeManager:isValueType(vData)
     local meta = getmetatable(vData)
     if meta and (tableToTypeFuncDict[meta] or meta == Reference) then
-        return vData
+        return true
     else
-        error("assertValueType failed, type="..type(vData))
+		return false
     end
+end
+
+function TypeManager:assertValueType(vData)
+	if self:isValueType(vData) then
+		return vData
+	else
+        error("assertValueType failed, type="..type(vData))
+	end
 end
 
 function TypeManager:_toType(vData)

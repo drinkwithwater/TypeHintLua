@@ -16,7 +16,7 @@ end)
 
 local function throw(vMsg)
 	local nNode = Node.getDebugNode(4)
-	error(Node.toErrNode(nNode, vMsg))
+	nNode:throw(vMsg)
 end
 
 function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTable:Option(class.SpaceDict))::RetClass(class.Namespace)
@@ -55,7 +55,9 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
-				self._manager:assertValueType(newV)
+				if not self._manager:isValueType(newV) then
+					throw("namespace assign a non-type value, key="..tostring(k))
+				end
 				if Reference.is(rawgetV) then
 					rawgetV:setTypeAsync(function()
 						if Reference.is(newV) then
@@ -77,7 +79,9 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 						newV:trySetKey(k)
 						self._key2type[k] = newV
 					else
-						self._manager:assertValueType(newV)
+						if not self._manager:isValueType(newV) then
+							throw("namespace assign a non-type value, key="..tostring(k))
+						end
 						local refer = self._manager:Reference(k)
 						refer:setTypeAsync(function()
 							return newV

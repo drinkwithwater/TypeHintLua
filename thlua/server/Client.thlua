@@ -3,6 +3,7 @@ local json = require "thlua.server.json"
 local methodHandler = require "thlua.server.methodHandler"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
 local Runtime = require "thlua.runtime.Runtime"
+local Node = require "thlua.code.Node"
 
 (@let.class=import("thlua.type.TypeClass").class)
 (@let.lsp=import("thlua.server.protocol").lsp)
@@ -140,6 +141,15 @@ function Client:notify(vMethod:String, vParams:Truth)::Ret()
 end
 
 function Client:publishError(vDocIdent:lsp.VersionedTextDocumentIdentifier, vErrNode:Union(class.AstNode, Nil))
+	if vErrNode then
+		if not Node.isErrNode(vErrNode) then
+			vErrNode = {
+				l=1,
+				c=1,
+				[1] = tostring(vErrNode)
+			}
+		end
+	end
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",

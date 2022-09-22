@@ -228,6 +228,13 @@ end)]]
 
 local Node = {}
 
+Node.__index=Node
+
+function Node:throw(vMsg)
+	local nErrNode = setmetatable({tag = "Error", pos=self.pos, l=self.l, c=self.c, path=self.path, tostring(vMsg)}, Node)
+	error(nErrNode)
+end
+
 function Node.__tostring(self)
 	local before = self.path..":".. self.l ..(self.c > 0 and ("," .. self.c) or "")
 	if self.tag ~= "Error" then
@@ -246,8 +253,12 @@ function Node.getDebugNode(vDepth)
 	return setmetatable({tag = "Root", pos=0, l=nInfo.currentline, c=0, path=nInfo.source}, Node)
 end
 
-function Node.toErrNode(self, vMsg)
-	return setmetatable({tag = "Error", pos=self.pos, l=self.l, c=self.c, path=self.path, vMsg}, Node)
+function Node.isErrNode(vNode)
+	return getmetatable(vNode) == Node and vNode.tag == "Error"
+end
+
+function Node.is(vNode)
+	return getmetatable(vNode) == Node
 end
 
 return Node
