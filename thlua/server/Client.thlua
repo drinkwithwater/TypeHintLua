@@ -3,7 +3,6 @@ local json = require "thlua.server.json"
 local methodHandler = require "thlua.server.methodHandler"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
 local Runtime = require "thlua.runtime.Runtime"
-local Node = require "thlua.code.Node"
 
 (@let.class=import("thlua.type.TypeClass").class)
 (@let.lsp=import("thlua.server.protocol").lsp)
@@ -140,34 +139,39 @@ function Client:notify(vMethod:String, vParams:Truth)::Ret()
 	})
 end
 
-function Client:publishError(vDocIdent:lsp.VersionedTextDocumentIdentifier, vErrNode:Union(class.AstNode, Nil))
-	if vErrNode then
-		if not Node.isErrNode(vErrNode) then
-			vErrNode = {
-				l=1,
-				c=1,
-				[1] = tostring(vErrNode)
-			}
-		end
-	end
+function Client:publishNoException(vDocIdent:lsp.VersionedTextDocumentIdentifier)
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
 		params = {
 			uri=vDocIdent.uri,
 			version=vDocIdent.version,
-			diagnostics={ vErrNode and {
+			diagnostics={},
+		},
+	})
+end
+
+function Client:publishException(vDocIdent:lsp.VersionedTextDocumentIdentifier, vException:class.Exception)
+	local nNode = vException.node or {l=1,c=1}
+	local nMsg = vException.msg or "unknown"
+	self:_write({
+		jsonrpc = "2.0",
+		method = "textDocument/publishDiagnostics",
+		params = {
+			uri=vDocIdent.uri,
+			version=vDocIdent.version,
+			diagnostics={ {
 				range={
 					start={
-						line=vErrNode.l-1,
-						character=vErrNode.c-1,
+						line=nNode.l-1,
+						character=nNode.c-1,
 					},
 					["end"]={
-						line=vErrNode.l-1,
-						character=vErrNode.c,
+						line=nNode.l-1,
+						character=nNode.c,
 					}
 				},
-				message=vErrNode[1] or "unknown"
+				message=nMsg,
 			} }
 		},
 	})

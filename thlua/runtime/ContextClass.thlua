@@ -4,6 +4,7 @@ local TableBuilder = require "thlua.builder.TableBuilder"
 local UnionTerm = require "thlua.term.UnionTerm"
 local Variable = require "thlua.func.Variable"
 local AutoArguments = require "thlua.func.AutoArguments"
+local Exception = require "thlua.Exception"
 
 local LuaFunction = require "thlua.func.LuaFunction"
 local TypeFunction = require "thlua.func.TypeFunction"
@@ -28,7 +29,7 @@ local function ContextClass()::open()
 		local nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
 		local ok, err = pcall(vHintCallback, nBuilder:newLongHint())
 		if not ok then
-			vNode:throw(err)
+			error(Exception.new(err, vNode))
 		end
 		local nLuaFunc = nBuilder:build()
 		return nLuaFunc

@@ -1,6 +1,7 @@
 
 local json = require "thlua.server.json"
 local CodeEnv = require "thlua.code.CodeEnv"
+local Exception = require "thlua.Exception"
 
 (@do
 	let.lsp=import("thlua.server.protocol").lsp
@@ -131,20 +132,20 @@ local function syncFile(vClient, vTextDocument, vContent)
 	local nFileName = uriToFileName(vTextDocument.uri)
 	local ok, errNode = vClient.runtime:trySyncFile(nFileName, vContent)
 	if not ok then
-		vClient:publishError(vTextDocument, errNode)
+		vClient:publishException(vTextDocument, Exception.new(errNode[1], errNode))
 		return
 	end
-	local ok, errNode = vClient.runtime:runOpen(nFileName, vContent)
+	local ok, exc = vClient.runtime:runOpen(nFileName, vContent)
 	if not ok then
-		vClient:publishError(vTextDocument, errNode)
+		vClient:publishException(vTextDocument, exc)
 		return
 	end
-	local ok, errNode = vClient.runtime:runCheck()
+	local ok, exc = vClient.runtime:runCheck()
 	if not ok then
-		vClient:publishError(vTextDocument, errNode)
+		vClient:publishException(vTextDocument, exc)
 		return
 	end
-	vClient:publishError(vTextDocument, nil)
+	vClient:publishNoException(vTextDocument)
 end
 
 return {
