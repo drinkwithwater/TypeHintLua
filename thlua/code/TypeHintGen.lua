@@ -655,13 +655,12 @@ local visitor_list = {
 
 local visitor_object_dict = oldvisitor.concat(visitor_block, visitor_stm, visitor_exp, visitor_list)
 
-function TypeHintGen.visit(vFileEnv, vPath)
+function TypeHintGen.visit(vFileEnv)
 	local visitor = setmetatable({
 		object_dict = visitor_object_dict,
 		buffer_list = {},
 		env = vFileEnv,
 		indent_count = 0,
-		path = vPath,
 		line = 1,
 	}, {
 		__index=TypeHintGen

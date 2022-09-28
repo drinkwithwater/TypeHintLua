@@ -32,7 +32,7 @@ local Exception = require "thlua.Exception"
 			rangeLength=Option(Number),
 			text=String,
 		}),
-	} 
+	}
 
 	let.DidOpenTextDocumentParams = Struct {
 		textDocument = Struct {
@@ -135,7 +135,7 @@ local function syncFile(vClient, vTextDocument, vContent)
 		vClient:publishException(vTextDocument, Exception.new(errNode[1], errNode))
 		return
 	end
-	local ok, exc = vClient.runtime:runOpen(nFileName, vContent)
+	local ok, exc = vClient.runtime:runOpen(nFileName)
 	if not ok then
 		vClient:publishException(vTextDocument, exc)
 		return
@@ -182,7 +182,7 @@ return {
 		local nDirtyEnv = vClient.runtime:getDirtyCodeEnv(nFileName)
 		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
 		local nContent = nDirtyEnv:getContent():sub(1, nPos)
-		local nCodeEnv = CodeEnv.new(nContent, nFileName, nFileName, nil)
+		local nCodeEnv = CodeEnv.new(nContent, nFileName)
 		local ok, nErrNode = nCodeEnv:checkOkay()
 		local nDefineNode
 		if not ok then

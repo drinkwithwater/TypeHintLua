@@ -7,14 +7,14 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-function CodeEnv.new(vSubject, vFileName, vPath, vNode)
+function CodeEnv.new(vSubject, vChunkName)
 	local self = setmetatable({
 		filename = vFileName,
 		hinting = false,
 		scopeTraceList = {},
 		_linePosList = {},
 		_subject = vSubject,
-		_path = vPath or vFileName,
+		_chunkName = vChunkName,
 		_posToChange = {}, -- if value is string then insert else remove
 		_astOrErr = nil,
 		_nodeList = false, -- as init flag
@@ -33,7 +33,7 @@ function CodeEnv:makeErrNode(vPos, vErr)
 	local nLine, nColumn = self:fixupPos(vPos)
 	return setmetatable({
 		tag="Error",
-		path=self._path,
+		path=self._chunkName,
 		pos=vPos,
 		l=nLine,
 		c=nColumn,
@@ -63,7 +63,7 @@ function CodeEnv:prepare()
 	if self._nodeList then
 		return
 	end
-	local nNodeList = {} 
+	local nNodeList = {}
 	self._nodeList = nNodeList
 
 	-- 1. set line & column, parent
@@ -79,7 +79,7 @@ function CodeEnv:prepare()
 		end
 		-- 3. get path, parent, l, c
 		vNode.parent = nStack[#nStack] or false
-		vNode.path = self._path
+		vNode.path = self._chunkName
 		vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
@@ -144,7 +144,7 @@ function CodeEnv:fixupPos(vPos, vNode)
 end
 
 function CodeEnv:_init()
-	-- 1. calc line pos 
+	-- 1. calc line pos
 	local nSubject = self._subject
 	local nStartPos = 1
 	local nFinishPos = 0
@@ -240,13 +240,13 @@ function CodeEnv:genTypingCode()
 	ReferVisitor.new(self):realVisit(self._astOrErr)
 	self:prepare()
 	local TypeHintGen = require "thlua.code/TypeHintGen"
-	return TypeHintGen.visit(self, self._path or self.filename)
+	return TypeHintGen.visit(self)
 end
 
 function CodeEnv:loadTyping()
-	local ok, fnOrErr = pcall(function () 
+	local ok, fnOrErr = pcall(function ()
 		local nTypingCode = self:genTypingCode()
-		local nFunc, nInfo = load(nTypingCode, self._path, "t", setmetatable({}, {
+		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
 			__index=function(t,k)
 				-- TODO, give node pos
 				error("indexing global is fatal error")

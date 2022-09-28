@@ -10,7 +10,7 @@ local thlua = {}
 thlua.path = package.path:gsub("[.]lua", ".thlua")
 
 function thlua.load(chunk, chunkName, ...)
-	local codeEnv = CodeEnv.new(chunk, chunkName, chunkName)
+	local codeEnv = CodeEnv.new(chunk, chunkName)
 	local luaCode = codeEnv:genLuaCode()
 	local f, err3 = load(luaCode, chunkName, ...)
 	if not f then

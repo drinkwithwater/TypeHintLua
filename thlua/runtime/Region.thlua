@@ -8,7 +8,7 @@ local Symbol = require "thlua.runtime.Symbol"
 
 Region.__index = Region
 Region.__tostring = function(self)
-	return "Region-"..self:getPath()..":"..tostring(self._context._node)
+	return "Region-"..tostring(self._context:getNode())
 end
 
 function Region.new(vContext:class.Context, vFnCom:class.IFnCom)::RetClass(class.Region)
@@ -59,7 +59,7 @@ function Region:SYMBOL(vNode, vTerm, vHintType)
 		local nSrcType = vTerm:getType()
 		if not self._context:cast(nSrcType, vHintType) then
 			if not vHintType:contain(nSrcType) then
-				self._context:nodeError(vNode, "symbol init but type not match")
+				self._context:getRuntime():nodeError(vNode, "symbol init but type not match")
 			end
 		end
 		local nTerm = self._context:UnionTerm(vHintType)
@@ -99,18 +99,18 @@ end
 function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
 	local nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
-		self._context:nodeError(vNode, "FOR_IN must receive at least 1 value")
+		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value")
 		return
 	end
 	local nFirstTerm = nTuple:get(1)
 	if not nFirstTerm:getType():isNilable() then
-		self._context:nodeError(vNode, "FOR_IN must receive nilable type, TODO : run logic when error")
+		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : run logic when error")
 		return
 	end
 	local nNewTuple = self._context:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
 	local nCase = nFirstTerm:caseNotnil()
 	if not nCase then
-		self._context:nodeError(vNode, "FOR_IN into a empty loop")
+		self._context:getRuntime():nodeError(vNode, "FOR_IN into a empty loop")
 		return
 	end
 	self:push_branch(nCase)

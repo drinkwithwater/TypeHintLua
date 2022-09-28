@@ -45,7 +45,7 @@ function Context:EXPLIST_PACK(vNode, vLazy:Boolean,
 		local cur = l[i]
 		if TermTuple.is(cur) then
 			if #cur ~= 1 then
-				self:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
+				self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
 			end
 			nTermList[i] = cur:get(1) or self:UnionTerm(self._manager.type.Nil)
 		elseif UnionTerm.is(cur) then
@@ -107,20 +107,20 @@ function Context:EXPLIST_UNPACK(vNode, vNum, ...:Truth)
 			if TermTuple.is(last) then
 				local value = last:get(i - #l + 1)
 				if not value then
-					self:nodeError(vNode, "tuple_unpack but right tuple value not enough")
+					self._runtime:nodeError(vNode, "tuple_unpack but right tuple value not enough")
 					re[i] = self:UnionTerm(self._manager.type.Nil)
 				else
 					re[i] = value
 				end
 			else
-				self:nodeError(vNode, "tuple_unpack but right value not enough")
+				self._runtime:nodeError(vNode, "tuple_unpack but right value not enough")
 				re[i] = self:UnionTerm(self._manager.type.Nil)
 			end
 		else
 			local cur = l[i]
 			if TermTuple.is(cur) then
 				if (i < #l and #cur ~= 1) then
-					self:nodeWarn(vNode, "tuple_unpack except 1 value but has "..#cur)
+					self._runtime:nodeWarn(vNode, "tuple_unpack except 1 value but has "..#cur)
 				end
 				re[i] = cur:get(1) or self:UnionTerm(self._manager.type.Nil)
 			else
@@ -251,7 +251,7 @@ function Context:META_CALL(vNode, vFuncTerm, vLazyFunc)
 		self._region:push_branch(vTermCase)
 		local nArgTermTuple = vLazyFunc()
 		if vFuncType == nNil then
-			self:nodeWarn(vNode, "nil as call func")
+			self._runtime:nodeWarn(vNode, "nil as call func")
 		elseif vFuncType:isNative() then
 			if not nNativePair then
 				nNativePair = {vFuncType, nArgTermTuple}
@@ -275,13 +275,13 @@ function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)
 	local nNil = self._manager.type.Nil
 	vTerm:foreach(function(vType, vTermCase)
 		if vType == nNil then
-			self:nodeWarn(vNode, "nil as invoke self")
+			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
 			local nNewArgTuple = self:TermTuple({self:UnionTerm(vType)}, vArgTuple)
 			local nFuncType = vType:meta_get(nGetContext, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
-					self:nodeWarn(vNode, "nil as invoke func")
+					self._runtime:nodeWarn(vNode, "nil as invoke func")
 				elseif vSingleFuncType:isNative() then
 					if not nNativePair then
 						nNativePair = {vSingleFuncType, nNewArgTuple}
@@ -349,7 +349,7 @@ function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
 						local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
 						nCollection:put(nRetTuples:makeFirstType())
 					else
-						self:nodeError(vNode, "invalid bop:"..vOper)
+						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
 					end
 				end
 			end)
@@ -397,18 +397,6 @@ end
 
 function Context:getRegion()
 	return self._region
-end
-
-function Context:nodeError(vNode, ...:Truth)
-  print("[ERROR] "..tostring(vNode), ...)
-end
-
-function Context:nodeWarn(vNode, ...:Truth)
-  print("[WARN] "..tostring(vNode), ...)
-end
-
-function Context:nodeInfo(vNode, ...:Truth)
-  print("[INFO] "..tostring(vNode), ...)
 end
 
 return Context

@@ -15,7 +15,7 @@ local function ContextClass()::open()
 	local Context = {}
 	Context.__index=Context
 	function Context:__tostring()
-		return "context:"..self:getPath()
+		return "context:"..self:getNode()
 	end
 
 	function Context:TABLE_NEW(vNode, vHinterHandler, vPairMaker)
@@ -77,19 +77,19 @@ local function ContextClass()::open()
 	end
 
 	function Context:error(...:Truth)
-		print("[ERROR] "..self:getPath(), ...)
+		self._runtime:nodeError(self._node, ...)
 	end
 
 	function Context:warn(...:Truth)
-		print("[WARN] "..self:getPath(), ...)
+		self._runtime:nodeWarn(self._node, ...)
 	end
 
 	function Context:info(...:Truth)
-		print("[INFO] "..self:getPath(), ...)
+		self._runtime:nodeInfo(self._node, ...)
 	end
 
-	function Context:getPath()
-		return tostring(self._node)
+	function Context:getNode()
+		return self._node
 	end
 
 	function Context:getNamespace()

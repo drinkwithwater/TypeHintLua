@@ -46,11 +46,11 @@ function Runtime.new()::RetClass(class.Runtime)
 	return self
 end
 
-function Runtime:setPath(vPath)
+function Runtime:setRootPath(vPath)
 	self._thPath = vPath
 end
 
-function Runtime:getPath()::Ret(String)
+function Runtime:getRootPath()::Ret(String)
 	return self._thPath
 end
 
@@ -119,10 +119,10 @@ function Runtime:import(vPath)
 	return nSpace.localExport
 end
 
-function Runtime:runOpen(vFileName, vContent)
+function Runtime:runOpen(vFileName)
 	self:clear()
 	return pcall(function()
-		local nLuaFunc = self:cacheLoadFile(vFileName, "$main", vContent)
+		local nLuaFunc = self:cacheLoadFile(vFileName)
 		local nTermTuple = self._manager:TermTuple({})
 		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 	end)
@@ -136,7 +136,7 @@ function Runtime:runCheck()
 end
 
 function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local nCodeEnv = CodeEnv.new(vContent, vFileName, vFileName, self._node)
+	local nCodeEnv = CodeEnv.new(vContent, vFileName)
 	nCodeEnv:loadTyping()
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
@@ -160,9 +160,15 @@ function Runtime:newContext(vApplyNode)
 	return Context.new(self, vApplyNode)
 end
 
-function Runtime:cacheLoadFile(vFileName, vPath, vContent)
+function Runtime:cacheLoadFile(vFileName)
 	if not self._fileStateDict[vFileName] then
-		local ok, err = self:trySyncFile(vFileName, vContent)
+		local file, err = io.open(vFileName, "r")
+		if not file then
+			error(err)
+		end
+		local nContent = file:read("*a")
+		file:close()
+		local ok, err = self:trySyncFile(vFileName, nContent)
 		if not ok then
 			error(err)
 		end
@@ -175,28 +181,22 @@ function Runtime:cacheLoadFile(vFileName, vPath, vContent)
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
 end
 
-function Runtime:thluaSearch(vName)::Ret(True, String, String):Ret(False, String)
-	local fileName, err1 = package.searchpath(vName, self._thPath)
+function Runtime:thluaSearch(vPath)::Ret(True, String, String):Ret(False, String)
+	local fileName, err1 = package.searchpath(vPath, self._thPath)
 	if not fileName then
 		return false, err1
 	end
-	local file, err2 = io.open(fileName, "r")
-	if not file then
-		return false, err2
-	end
-	local thluaCode = file:read("*a")
-	file:close()
-	return true, thluaCode, fileName
+	return true, fileName
 end
 
 function Runtime:require(vPath)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
-		local nOkay, nContent, nFileName = self:thluaSearch(vPath)
+		local nOkay, nFileName = self:thluaSearch(vPath)
 		if not nOkay then
-			error(nContent)
+			error(nFileName)
 		end
-		local nLuaFunc = self:cacheLoadFile(nFileName, vPath, nContent)
+		local nLuaFunc = self:cacheLoadFile(nFileName)
 		nLoadedState = {
 			term=false,
 			fn=nLuaFunc,
@@ -257,6 +257,18 @@ end
 
 function Runtime:getDirtyCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
 	return self._fileStateDict[vFileName].dirtyCodeEnv
+end
+
+function Runtime:nodeError(vNode, ...:Truth)
+  print("[ERROR] "..tostring(vNode), ...)
+end
+
+function Runtime:nodeWarn(vNode, ...:Truth)
+  print("[WARN] "..tostring(vNode), ...)
+end
+
+function Runtime:nodeInfo(vNode, ...:Truth)
+  print("[INFO] "..tostring(vNode), ...)
 end
 
 return Runtime
