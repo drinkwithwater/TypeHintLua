@@ -33,39 +33,33 @@ function Reference:detailString(v)
 		return "`"..self._referType:detailString(v)
 	else
 		return "Reference("..(self._key or "!nameless")..")"
+
 	end
 end
 
 function Reference:setTypeCtor(vLuaFunc)
-	assert(not self._newFunc, tostring(self._key).."NewFunc conflict")
+	assert(not self._thread, Exception.new("refer has been setted"))
+	assert(not self._newFunc, Exception.new("refer has been setted"))
 	self._newFunc = vLuaFunc
 end
 
-function Reference:setTypeAsync(vFunc)::Ret():nocheck()
+function Reference:setTypeAsync(vFunc)::Ret(True):Ret(False, String):nocheck()
 	assert(not self._thread, "refer has been setted")
 	assert(not self._referType, "refer has type")
 	local co = coroutine.create(function()
-		local nOkay, nErrMsg = xpcall(function()
-			local nType = vFunc()
-			self._referType = nType
-			if nType.setReferName and self._key then
-				nType:setReferName(self._key)
-			end
-		end, function(exc)
-			print("error in setTypeAsync:", self._key, tostring(exc), debug.traceback())
-			return exc
-		end)
-		if not nOkay then
-			return
+		local nType = vFunc()
+		self._referType = nType
+		if nType.setReferName and self._key then
+			nType:setReferName(self._key)
 		end
 		local l = self._waitThreads
 		for i=#l,1,-1 do
-			coroutine.resume(l[i])
+			assert(coroutine.resume(l[i]))
 		end
 	end)
 	self._manager.coToRefer[co] = self
 	self._thread = co
-	coroutine.resume(co)
+	assert(coroutine.resume(co))
 end
 
 function Reference:getTypeAwait()
