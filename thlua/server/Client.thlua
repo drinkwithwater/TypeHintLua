@@ -139,16 +139,39 @@ function Client:notify(vMethod:String, vParams:Truth)::Ret()
 	})
 end
 
-function Client:publishNoException(vDocIdent:lsp.VersionedTextDocumentIdentifier)
-	self:_write({
-		jsonrpc = "2.0",
-		method = "textDocument/publishDiagnostics",
-		params = {
-			uri=vDocIdent.uri,
-			version=vDocIdent.version,
-			diagnostics={},
-		},
-	})
+function Client:publishNormal(vDocIdent)
+	local nFileToList = self.runtime:getNormalException()
+	for nFileName, nExcList in pairs(nFileToList) do
+		local nCodeEnv = self.runtime:getSuccCodeEnv(nFileName)
+		local nVersion = nCodeEnv:getVersion()
+		local nDiaList = {}
+		for _, exc in ipairs(nExcList) do
+			local nNode = exc.node
+			local nMsg = exc.msg
+			nDiaList[#nDiaList + 1] = {
+				range={
+					start={
+						line=nNode.l-1,
+						character=nNode.c-1,
+					},
+					["end"]={
+						line=nNode.l-1,
+						character=nNode.c,
+					}
+				},
+				message=nMsg,
+			}
+		end
+		self:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri="file://"..nFileName,
+				version=nVersion,
+				diagnostics=nDiaList,
+			},
+		})
+	end
 end
 
 function Client:publishException(vDocIdent:lsp.VersionedTextDocumentIdentifier, vException:Union(class.Exception, String))

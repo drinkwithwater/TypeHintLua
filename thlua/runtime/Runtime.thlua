@@ -11,6 +11,7 @@ local CodeEnv = require "thlua.code.CodeEnv"
 local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
 local Symbol = require "thlua.runtime.Symbol"
+local Exception = require "thlua.Exception"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
@@ -26,6 +27,7 @@ local Symbol = require "thlua.runtime.Symbol"
 	let.FileState = Struct {
 		succCodeEnv=Option(class.CodeEnv),
 		dirtyCodeEnv=class.CodeEnv,
+		version=Number,
 	}
 end)
 
@@ -64,6 +66,7 @@ function Runtime:clear()::open()
 	self._lateFnDict = {} @ Dict(class.LuaFunction, True)
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
 	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.AstNode, True))
+	self._fileNameToExcList= {}
 end
 
 function Runtime:recordSymbol(vSymbol)
@@ -135,13 +138,13 @@ function Runtime:runCheck()
 	end)
 end
 
-function Runtime:trySyncFile(vFileName, vContent)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local nCodeEnv = CodeEnv.new(vContent, vFileName)
+function Runtime:trySyncFile(vFileName, vContent, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
+	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	nCodeEnv:loadTyping()
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
 		nFileState = {
-			dirtyCodeEnv = nCodeEnv
+			dirtyCodeEnv = nCodeEnv,
 		}
 		self._fileStateDict[vFileName] = nFileState
 	else
@@ -161,6 +164,9 @@ function Runtime:newContext(vApplyNode)
 end
 
 function Runtime:cacheLoadFile(vFileName)
+	if not self._fileNameToExcList[vFileName] then
+		self._fileNameToExcList[vFileName] = {}
+	end
 	if not self._fileStateDict[vFileName] then
 		local file, err = io.open(vFileName, "r")
 		if not file then
@@ -168,7 +174,7 @@ function Runtime:cacheLoadFile(vFileName)
 		end
 		local nContent = file:read("*a")
 		file:close()
-		local ok, err = self:trySyncFile(vFileName, nContent)
+		local ok, err = self:trySyncFile(vFileName, nContent, 0)
 		if not ok then
 			error(err)
 		end
@@ -260,15 +266,31 @@ function Runtime:getDirtyCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
 end
 
 function Runtime:nodeError(vNode, ...:Truth)
-  print("[ERROR] "..tostring(vNode), ...)
+	print("[ERROR] "..tostring(vNode), ...)
+	local l = {}
+	for i=1, select("#", ...) do
+		l[i] = tostring(select(i, ...))
+	end
+	local nMsg = table.concat(l, " ")
+	local nException = Exception.new(nMsg, vNode)
+	local nExcList = self._fileNameToExcList[vNode.path]
+	if not nExcList then
+		nExcList = {}
+		self._fileNameToExcList[vNode.path] = nExcList
+	end
+	nExcList[#nExcList + 1] = Exception.new(nMsg, vNode)
 end
 
 function Runtime:nodeWarn(vNode, ...:Truth)
-  print("[WARN] "..tostring(vNode), ...)
+	print("[WARN] "..tostring(vNode), ...)
 end
 
 function Runtime:nodeInfo(vNode, ...:Truth)
-  print("[INFO] "..tostring(vNode), ...)
+	print("[INFO] "..tostring(vNode), ...)
+end
+
+function Runtime:getNormalException()
+	return self._fileNameToExcList
 end
 
 return Runtime

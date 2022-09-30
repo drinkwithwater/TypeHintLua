@@ -7,7 +7,7 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-function CodeEnv.new(vSubject, vChunkName)
+function CodeEnv.new(vSubject, vChunkName, vVersion)
 	local self = setmetatable({
 		filename = vFileName,
 		hinting = false,
@@ -22,6 +22,7 @@ function CodeEnv.new(vSubject, vChunkName)
 		_scopeList = {},
 		_rootScope = false,
 		_identList = {},
+		_version = vVersion or 0,
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
 
@@ -196,6 +197,7 @@ function CodeEnv:markAdd(vStartPos, vContent)
 end
 
 function CodeEnv:genLuaCode()
+	assert(self._astOrErr.tag ~= "Error", tostring(self._astOrErr))
 	local nSubject = self._subject
 	local nPosToChange = self._posToChange
 	local nStartPosList = {}
@@ -391,6 +393,10 @@ end
 
 function CodeEnv:getContent()
 	return self._subject
+end
+
+function CodeEnv:getVersion()
+	return self._version
 end
 
 return CodeEnv
