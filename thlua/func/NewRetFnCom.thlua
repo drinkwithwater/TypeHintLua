@@ -15,8 +15,6 @@ function NewRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunct
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
 		_newTypeRefer=false,
-		_newTypeImpl=vManager:Struct {},
-		_isClass=false,
 		_once=false,
 		_onceHintNew=false,
 	}, NewRetFnCom)
@@ -24,12 +22,8 @@ function NewRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunct
 	return self
 end
 
-function NewRetFnCom:initByRetClass(vContext, vIsClass, vRefer, vStruct)
+function NewRetFnCom:initByRetClass(vContext, vRefer)
 	self._newTypeRefer = vRefer
-	self._isClass = vIsClass
-	if vStruct then
-		self._newTypeImpl = vStruct
-	end
 	local nAutoArgs = self._luaFunction._autoArgs
 	local nArgTuple = nAutoArgs:checkWhenLate(vContext)
 	local nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(vRefer))
@@ -41,20 +35,11 @@ function NewRetFnCom:checkDefine()
 		return
 	end
 	self._once = true
-	local nRefer = self._newTypeRefer
-	local nImplType = self._newTypeImpl:checkType()
+	local nLuaTable = self._newTypeRefer:checkType()
 	local nContext = self._luaFunction:newInplaceContext()
-	nRefer:setTypeAsync(function()
-		--return nContext._manager:LuaTable(self._manager:Struct {})
-		local nTable = nContext._manager:LuaTable()
-		if self._isClass then
-			nTable:initByClass(false, nImplType)
-		end
-		return nTable
-	end)
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
-	nRefer:getType():sealNew(nContext)
+	nLuaTable:sealNew(nContext)
 end
 
 function NewRetFnCom:meta_call(vContext, vTermTuple)
@@ -65,9 +50,7 @@ end
 function NewRetFnCom:regionTableNew(vContext, vNode)
 	assert(not self._onceHintNew, "New() can only be called once")
 	self._onceHintNew = true
-	local nRefer = self._newTypeRefer
-	local nTableType = nRefer:checkType()
-	return nTableType
+	return self._newTypeRefer:checkType()
 end
 
 function NewRetFnCom:regionReturn(vContext, vNode, vTypeTuple)

@@ -47,9 +47,17 @@ function FunctionBuilder.newLongHint(self)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			assert(not self._retTuples, Exception.new("function builder case conflict"))
 			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
-			vRefer:setTypeCtor(nCom)
+			vRefer:setTypeAsync(function()
+				local nImplType = vStruct
+				if Reference.is(vStruct) then
+					nImplType = vStruct:getTypeAwait()
+				end
+				local nTable = self._manager:LuaTable()
+				nTable:initByClass(nCom, false, nImplType)
+				return nTable
+			end)
 			self._fnCom = nCom
-			nCom:initByRetClass(self._context, true, vRefer, vStruct)
+			nCom:initByRetClass(self._context, vRefer)
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)

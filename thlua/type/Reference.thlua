@@ -17,7 +17,6 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		_referType=(false @ Union(class.IKeyType, False)),
 		_thread=false,
 		_waitThreads={},
-		_newFunc=false,
 	}, Reference)
 	return self
 end
@@ -35,12 +34,6 @@ function Reference:detailString(v)::Ret(String)
 		return "Reference("..(self._key or "!nameless")..")"
 
 	end
-end
-
-function Reference:setTypeCtor(vLuaFunc)
-	assert(not self._thread, Exception.new("refer has been setted"))
-	assert(not self._newFunc, Exception.new("refer has been setted"))
-	self._newFunc = vLuaFunc
 end
 
 function Reference:setTypeAsync(vFunc)::nocheck()
@@ -90,17 +83,12 @@ end
 
 function Reference:checkType()::Ret(class.IKeyType)
 	if not self._referType then
-		local nCtorFunc = self._newFunc
-		if nCtorFunc then
-			nCtorFunc:checkDefine()
-		else
-			while true do
-				local nWaitRefer = self._waitRefer
-				if not nWaitRefer then
-					break
-				else
-					nWaitRefer:checkType()
-				end
+		while true do
+			local nWaitRefer = self._waitRefer
+			if not nWaitRefer then
+				break
+			else
+				nWaitRefer:checkType()
 			end
 		end
 	end

@@ -33,8 +33,8 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 	return self
 end
 
-function LuaTable:initByClass(vBaseClass, vStruct)
-	self._sealCom = ClassTableCom.new(self._manager, self, vBaseClass, vStruct)
+function LuaTable:initByClass(vFnCom, vBaseClass, vStruct)
+	self._sealCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vStruct)
 end
 
 function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
@@ -97,7 +97,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::
 	local nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
 	local nEventToType = {}
 	local function isValidIndexType(vType)
-		return LuaTable.is(vType) or TypeFunction.is(vType) or LuaFunction.is(vType) 
+		return LuaTable.is(vType) or TypeFunction.is(vType) or LuaFunction.is(vType)
 	end
 	if isValidIndexType(nIndexType) then
 		nEventToType.__index=nIndexType
@@ -208,7 +208,7 @@ function LuaTable:cast(vContext, vStruct)::Ret(Boolean)
 	local nStructCom = StructTableCom.new(self._manager, self, vStruct)
 	-- TODO cast maybe fail, fail may be because union
 	self._sealCom = nStructCom
-	nStructCom:tryCast(vContext) 
+	nStructCom:tryCast(vContext)
 	return true
 end
 
@@ -228,6 +228,12 @@ end
 
 function LuaTable:getCompletion()
 	return self:getCurrentCom():getCompletion()
+end
+
+function LuaTable:checkDefine()
+	if ClassTableCom.is(self._sealCom) then
+		self._sealCom:checkDefine()
+	end
 end
 
 return LuaTable
