@@ -9,7 +9,6 @@ CodeEnv.__index=CodeEnv
 
 function CodeEnv.new(vSubject, vChunkName, vVersion)
 	local self = setmetatable({
-		filename = vFileName,
 		hinting = false,
 		scopeTraceList = {},
 		_linePosList = {},
@@ -22,7 +21,7 @@ function CodeEnv.new(vSubject, vChunkName, vVersion)
 		_scopeList = {},
 		_rootScope = false,
 		_identList = {},
-		_version = vVersion or 0,
+		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
 
@@ -270,9 +269,9 @@ end
 
 function CodeEnv:checkOkay()
 	if self._astOrErr.tag == "Error" then
-		return false, self._astOrErr
+		return false, Exception.new(self._astOrErr[1], self._astOrErr)
 	elseif type(self._typingFn) == "string" then
-		return false, self._typingFn
+		return false, Exception.new(self._typingFn, self._astOrErr)
 	else
 		return true
 	end
@@ -397,6 +396,10 @@ end
 
 function CodeEnv:getVersion()
 	return self._version
+end
+
+function CodeEnv:getChunkName()
+	return self._chunkName
 end
 
 return CodeEnv

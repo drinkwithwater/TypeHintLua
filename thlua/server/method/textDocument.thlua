@@ -130,9 +130,9 @@ end
 
 local function syncFile(vClient, vTextDocument, vContent)
 	local nFileName = uriToFileName(vTextDocument.uri)
-	local ok, errNode = vClient.runtime:trySyncFile(nFileName, vContent)
+	local ok, exc = vClient.runtime:trySyncFile(nFileName, vContent, vTextDocument.version)
 	if not ok then
-		vClient:publishException(vTextDocument, Exception.new(errNode[1], errNode))
+		vClient:publishException(exc)
 		return
 	end
 	local ok, mainFileName = vClient.runtime:thluaSearch("main")
@@ -141,7 +141,7 @@ local function syncFile(vClient, vTextDocument, vContent)
 	end
 	local ok, exc = vClient.runtime:main(mainFileName)
 	if not ok then
-		vClient:publishException(vTextDocument, exc)
+		vClient:publishException(exc)
 		return
 	end
 	vClient:publishNormal()
@@ -181,16 +181,18 @@ return {
 		local nDirtyEnv = vClient.runtime:getDirtyCodeEnv(nFileName)
 		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
 		local nContent = nDirtyEnv:getContent():sub(1, nPos)
-		local nCodeEnv = CodeEnv.new(nContent, nFileName)
-		local ok, nErrNode = nCodeEnv:checkOkay()
+		local nCompletionEnv = CodeEnv.new(nContent, nFileName)
+		local nErrNode = nCompletionEnv:getAstTree()
 		local nDefineNode
-		if not ok then
+		if nErrNode.tag == "Error" then
 			nDefineNode = nSuccEnv:searchNameByError(nErrNode)
 		else
-			nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
+			print("TODO... completionEnv has no syntax error")
+			--[[nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
 				vParams.position.line,
 				vParams.position.character,
-			})
+			})]]
+			return
 		end
 		if nDefineNode then
 			local nSymbolSet = vClient.runtime:getNodeSymbolSet(nDefineNode)

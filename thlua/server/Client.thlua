@@ -174,22 +174,23 @@ function Client:publishNormal()
 	end
 end
 
-function Client:publishException(vDocIdent:lsp.VersionedTextDocumentIdentifier, vException:Union(class.Exception, String))
+function Client:publishException(vException:Union(class.Exception, String))
 	local nNode
 	local nMsg
 	if type(vException) == "string" then
-		nNode = {l=1,c=1}
-		nMsg = vException
+		nNode = self.runtime:getNode()
+		nMsg = "root error:"..tostring(vException)
 	else
-		nNode = vException.node or {l=1,c=1}
-		nMsg = vException.msg or "unknown"
+		nNode = vException.node or self.runtime:getNode()
+		nMsg = vException.msg or "exception's msg field is missing"
 	end
+	local nCodeEnv = self.runtime:getDirtyCodeEnv(nNode.path)
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
 		params = {
-			uri=vDocIdent.uri,
-			version=vDocIdent.version,
+			uri="file://"..nCodeEnv:getChunkName(),
+			version=nCodeEnv:getVersion(),
 			diagnostics={ {
 				range={
 					start={

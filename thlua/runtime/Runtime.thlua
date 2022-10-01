@@ -41,10 +41,8 @@ function Runtime.new()::RetClass(class.Runtime)
 		__index=Runtime,
 	})
 	self._runtime = self
-	self._node = Node.newRootNode()
 	self._fileStateDict = {}
 	self._thPath = ""
-	self:clear()
 	return self
 end
 
@@ -56,7 +54,8 @@ function Runtime:getRootPath()::Ret(String)
 	return self._thPath
 end
 
-function Runtime:clear()::open()
+function Runtime:clear(vFileName)::open()
+	self._node = Node.newRootNode(vFileName)
 	self._spaceList = {} @ List(class.Namespace)
 	self._manager = TypeManager.new(self)
 	self._namespace = self:RootNamespace()
@@ -123,7 +122,7 @@ function Runtime:import(vPath)
 end
 
 function Runtime:main(vFileName)
-	self:clear()
+	self:clear(vFileName)
 	return pcall(function()
 		local nLuaFunc = self:cacheLoadFile(vFileName)
 		local nTermTuple = self._manager:TermTuple({})
@@ -212,7 +211,7 @@ function Runtime:require(vPath)
 	end
 	local nTerm = nLoadedState.term
 	if not nTerm then
-			error("recursive require:"..vPath)
+		error("recursive require:"..vPath)
 	end
 	return nTerm
 end

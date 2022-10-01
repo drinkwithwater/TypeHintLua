@@ -239,13 +239,13 @@ function Node.__tostring(self)
 	end
 end
 
-function Node.newRootNode()
-	return setmetatable({tag = "Root", pos = 0, l=0, c=0, path="root"}, Node)
+function Node.newRootNode(vFileName)
+	return setmetatable({tag = "Root", pos=1, l=1, c=1, path=vFileName}, Node)
 end
 
 function Node.getDebugNode(vDepth)
 	local nInfo = debug.getinfo(vDepth)
-	return setmetatable({tag = "Root", pos=0, l=nInfo.currentline, c=0, path=nInfo.source}, Node)
+	return setmetatable({tag = "Root", pos=1, l=nInfo.currentline, c=0, path=nInfo.source}, Node)
 end
 
 function Node.is(vNode)
