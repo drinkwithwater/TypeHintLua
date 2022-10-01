@@ -186,7 +186,8 @@ function Context:_apply(vNode, vNativePair, vFuncArgCaseList)
 		local nListLen = #vFuncArgCaseList
 		if vNativePair then
 			if nListLen ~= 0 then
-				error(Exception.new("can't mix call native function & not-native function"))
+				self._runtime:nodeError(vNode, "can't mix call native function & not-native function")
+				return self:TermTuple({})
 			end
 			return vNativePair[1]:meta_native_call(self:newContext(vNode), vNativePair[2])
 		elseif nListLen >= 1 then
@@ -233,7 +234,8 @@ function Context:_apply(vNode, vNativePair, vFuncArgCaseList)
 			nTermList[1] = self._manager:mergeToUnionTerm(nTypeCaseList)
 			return self:TermTuple(nTermList)
 		else
-			error(Exception.new("meta_call function can't be Never"))
+			self._runtime:nodeError(vNode, "meta_call function can't be Never")
+			return self:TermTuple({})
 		end
 	end)
 	if ok then

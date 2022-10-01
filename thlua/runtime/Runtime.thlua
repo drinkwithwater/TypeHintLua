@@ -12,6 +12,7 @@ local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
 local Symbol = require "thlua.runtime.Symbol"
 local Exception = require "thlua.Exception"
+local TermCase = require "thlua.term.TermCase"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
@@ -128,7 +129,7 @@ function Runtime:main(vFileName)
 		local nTermTuple = self._manager:TermTuple({})
 		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 		self:checkDefineLuaFunction()
-		self:checkLateLuaFunction()
+		--self:checkLateLuaFunction()
 	end)
 end
 
@@ -144,12 +145,8 @@ function Runtime:trySyncFile(vFileName, vContent, vVersion)::Ret(True):Ret(False
 	else
 		nFileState.dirtyCodeEnv = nCodeEnv
 	end
-	local ok, err = nCodeEnv:checkOkay()
-	if ok then
+	if nCodeEnv:checkOkay() then
 		nFileState.succCodeEnv = nCodeEnv
-		return ok
-	else
-		return ok, err
 	end
 end
 
@@ -168,10 +165,7 @@ function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
 		end
 		local nContent = file:read("*a")
 		file:close()
-		local ok, err = self:trySyncFile(vFileName, nContent, -1)
-		if not ok then
-			error(err)
-		end
+		self:trySyncFile(vFileName, nContent, -1)
 	end
 	local nCodeEnv = self._fileStateDict[vFileName].dirtyCodeEnv
 	local ok, err = nCodeEnv:checkOkay()
