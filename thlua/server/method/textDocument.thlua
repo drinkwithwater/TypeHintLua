@@ -135,17 +135,16 @@ local function syncFile(vClient, vTextDocument, vContent)
 		vClient:publishException(vTextDocument, Exception.new(errNode[1], errNode))
 		return
 	end
-	local ok, exc = vClient.runtime:runOpen(nFileName)
+	local ok, mainFileName = vClient.runtime:thluaSearch("main")
+	if not ok then
+		mainFileName = nFileName
+	end
+	local ok, exc = vClient.runtime:main(mainFileName)
 	if not ok then
 		vClient:publishException(vTextDocument, exc)
 		return
 	end
-	local ok, exc = vClient.runtime:runCheck()
-	if not ok then
-		vClient:publishException(vTextDocument, exc)
-		return
-	end
-	vClient:publishNormal(vTextDocument)
+	vClient:publishNormal()
 end
 
 return {

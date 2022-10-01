@@ -122,17 +122,12 @@ function Runtime:import(vPath)
 	return nSpace.localExport
 end
 
-function Runtime:runOpen(vFileName)
+function Runtime:main(vFileName)
 	self:clear()
 	return pcall(function()
 		local nLuaFunc = self:cacheLoadFile(vFileName)
 		local nTermTuple = self._manager:TermTuple({})
 		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
-	end)
-end
-
-function Runtime:runCheck()
-	return pcall(function()
 		self:checkDefineLuaFunction()
 		self:checkLateLuaFunction()
 	end)
@@ -163,7 +158,7 @@ function Runtime:newContext(vApplyNode)
 	return Context.new(self, vApplyNode)
 end
 
-function Runtime:cacheLoadFile(vFileName)
+function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
 	if not self._fileNameToExcList[vFileName] then
 		self._fileNameToExcList[vFileName] = {}
 	end
@@ -174,7 +169,7 @@ function Runtime:cacheLoadFile(vFileName)
 		end
 		local nContent = file:read("*a")
 		file:close()
-		local ok, err = self:trySyncFile(vFileName, nContent, 0)
+		local ok, err = self:trySyncFile(vFileName, nContent, -1)
 		if not ok then
 			error(err)
 		end

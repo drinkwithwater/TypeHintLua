@@ -2,6 +2,7 @@
 local Reference = require "thlua.type.Reference"
 local TupleClass = require "thlua.tuple/TupleClass"
 local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
+local Nil = require "thlua.type.Nil"
 local TypeTuple = TupleClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
@@ -34,6 +35,19 @@ function TypeTuple:get(i:Number)::Ret(class.IValueType)
 end
 
 function TypeTuple:castOrIn(vContext, vDstTypeTuple)
+	if #self < #vDstTypeTuple then
+		for i=#self + 1, #vDstTypeTuple do
+			if not vDstTypeTuple:get(i):isNilable() then
+				return false
+			end
+		end
+	elseif #vDstTypeTuple < #self then
+		for i=#vDstTypeTuple + 1, #self do
+			if not Nil.is(self:get(i):checkType()) then
+				return false
+			end
+		end
+	end
 	for i, nDstType in ipairs(vDstTypeTuple._list) do
 		local nSrcType = self:get(i)
 		if not vContext:cast(nSrcType, nDstType) then
