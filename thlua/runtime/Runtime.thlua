@@ -7,7 +7,6 @@ local TermTuple = require "thlua.tuple.TermTuple"
 local Context = require "thlua.runtime.Context"
 local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
-local CodeEnv = require "thlua.code.CodeEnv"
 local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
 local Symbol = require "thlua.runtime.Symbol"
@@ -17,18 +16,15 @@ local TermCase = require "thlua.term.TermCase"
 (@do
 	let.class = import("thlua.type.TypeClass").class
 
+	let.ILoader = Struct {
+		thluaSearch=Mfn(vString):Ret(Boolean, String),
+		thluaParseFile=Mfn(vString):Ret(class.LuaFunction),
+	}
+
 	let.LoadedState = Struct {
 		fn=class.LuaFunction,
 		term=Union(False, class.UnionTerm),
 		context=class.Context,
-	}
-
-	let.LoadFn = Fn(class.Runtime, class.AstNode):Ret(class.GenFunc)
-
-	let.FileState = Struct {
-		succCodeEnv=Option(class.CodeEnv),
-		dirtyCodeEnv=class.CodeEnv,
-		version=Number,
 	}
 end)
 
@@ -36,23 +32,14 @@ end)
 local Runtime = ContextClass()
 
 
-function Runtime.new()::RetClass(class.Runtime)
+function Runtime.new(vLoader:ILoader)::RetClass(class.Runtime)
 	local self = setmetatable({::Self()
 	}, {
 		__index=Runtime,
 	})
+	self._loader = vLoader
 	self._runtime = self
-	self._fileStateDict = {}
-	self._thPath = ""
 	return self
-end
-
-function Runtime:setRootPath(vPath)
-	self._thPath = vPath
-end
-
-function Runtime:getRootPath()::Ret(String)
-	return self._thPath
 end
 
 function Runtime:clear(vFileName)::open()
@@ -129,25 +116,8 @@ function Runtime:main(vFileName)
 		local nTermTuple = self._manager:TermTuple({})
 		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 		self:checkDefineLuaFunction()
-		--self:checkLateLuaFunction()
+		self:checkLateLuaFunction()
 	end)
-end
-
-function Runtime:trySyncFile(vFileName, vContent, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
-	nCodeEnv:loadTyping()
-	local nFileState = self._fileStateDict[vFileName]
-	if not nFileState then
-		nFileState = {
-			dirtyCodeEnv = nCodeEnv,
-		}
-		self._fileStateDict[vFileName] = nFileState
-	else
-		nFileState.dirtyCodeEnv = nCodeEnv
-	end
-	if nCodeEnv:checkOkay() then
-		nFileState.succCodeEnv = nCodeEnv
-	end
 end
 
 function Runtime:newContext(vApplyNode)
@@ -158,35 +128,14 @@ function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
 	if not self._fileNameToExcList[vFileName] then
 		self._fileNameToExcList[vFileName] = {}
 	end
-	if not self._fileStateDict[vFileName] then
-		local file, err = io.open(vFileName, "r")
-		if not file then
-			error(err)
-		end
-		local nContent = file:read("*a")
-		file:close()
-		self:trySyncFile(vFileName, nContent, -1)
-	end
-	local nCodeEnv = self._fileStateDict[vFileName].dirtyCodeEnv
-	local ok, err = nCodeEnv:checkOkay()
-	if not ok then
-		error(err)
-	end
+	local nCodeEnv = self._loader:thluaParseFile(vFileName)
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
-end
-
-function Runtime:thluaSearch(vPath)::Ret(True, String, String):Ret(False, String)
-	local fileName, err1 = package.searchpath(vPath, self._thPath)
-	if not fileName then
-		return false, err1
-	end
-	return true, fileName
 end
 
 function Runtime:require(vPath)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
-		local nOkay, nFileName = self:thluaSearch(vPath)
+		local nOkay, nFileName = self._loader:thluaSearch(vPath)
 		if not nOkay then
 			error(nFileName)
 		end
@@ -238,19 +187,6 @@ end
 function Runtime:makeSymbol_ENV(vNode)
 	local nTerm = self:UnionTerm(self._globalTable)
 	return Symbol.new(self, false, vNode, self._globalTable, nTerm)
-end
-
-function Runtime:getSuccCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
-	local nState = self._fileStateDict[vFileName]
-	if nState then
-		return nState.succCodeEnv
-	else
-		return nil
-	end
-end
-
-function Runtime:getDirtyCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
-	return self._fileStateDict[vFileName].dirtyCodeEnv
 end
 
 function Runtime:nodeError(vNode, ...:Truth)

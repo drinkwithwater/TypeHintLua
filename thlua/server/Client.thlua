@@ -3,21 +3,89 @@ local json = require "thlua.server.json"
 local methodHandler = require "thlua.server.methodHandler"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
 local Runtime = require "thlua.runtime.Runtime"
+local CodeEnv = require "thlua.code.CodeEnv"
 
-(@let.class=import("thlua.type.TypeClass").class)
-(@let.lsp=import("thlua.server.protocol").lsp)
+
+(@do
+	let.class=import("thlua.type.TypeClass").class
+	let.lsp=import("thlua.server.protocol").lsp
+	let.FileState = Struct {
+		succCodeEnv=Option(class.CodeEnv),
+		dirtyCodeEnv=class.CodeEnv,
+		version=Number,
+	}
+end)
 
 local Client = {}
 
 Client.__index = Client
 
 function Client.new()::RetClass(lsp.Client)
-	return setmetatable({::Self()
+	local self = setmetatable({::Self()
 		initialize=false@Boolean,
 		shutdown=false,
 		root=false,
-		runtime=Runtime.new(),
+		fileStateDict = {},
 	}, Client)
+	self.runtime = Runtime.new(self)
+	return self
+end
+
+function Client:trySyncFile(vFileName, vContent, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
+	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
+	nCodeEnv:loadTyping()
+	local nFileState = self.fileStateDict[vFileName]
+	if not nFileState then
+		nFileState = {
+			dirtyCodeEnv = nCodeEnv,
+		}
+		self.fileStateDict[vFileName] = nFileState
+	else
+		nFileState.dirtyCodeEnv = nCodeEnv
+	end
+	if nCodeEnv:checkOkay() then
+		nFileState.succCodeEnv = nCodeEnv
+	end
+end
+
+function Client:thluaSearch(vPath)
+	local thluaPath = self.root.."/?.thlua"
+	local fileName, err1 = package.searchpath(vPath, thluaPath)
+	if not fileName then
+		return false, err1
+	end
+	return true, fileName
+end
+
+function Client:thluaParseFile(vFileName)
+	if not self.fileStateDict[vFileName] then
+		local file, err = io.open(vFileName, "r")
+		if not file then
+			error(err)
+		end
+		local nContent = file:read("*a")
+		file:close()
+		self:trySyncFile(vFileName, nContent, -1)
+	end
+	local nCodeEnv = self.fileStateDict[vFileName].dirtyCodeEnv
+	local ok, err = nCodeEnv:checkOkay()
+	if not ok then
+		error(err)
+	end
+	return nCodeEnv
+end
+
+function Client:getSuccCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
+	local nState = self.fileStateDict[vFileName]
+	if nState then
+		return nState.succCodeEnv
+	else
+		return nil
+	end
+end
+
+function Client:getDirtyCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
+	return self.fileStateDict[vFileName].dirtyCodeEnv
 end
 
 function Client:mainLoop()
@@ -142,7 +210,7 @@ end
 function Client:publishNormal()
 	local nFileToList = self.runtime:getNormalException()
 	for nFileName, nExcList in pairs(nFileToList) do
-		local nCodeEnv = self.runtime:getSuccCodeEnv(nFileName)
+		local nCodeEnv = self:getSuccCodeEnv(nFileName)
 		local nVersion = nCodeEnv:getVersion()
 		local nDiaList = {}
 		for _, exc in ipairs(nExcList) do
@@ -184,7 +252,7 @@ function Client:publishException(vException:Union(class.Exception, String))
 		nNode = vException.node or self.runtime:getNode()
 		nMsg = vException.msg or "exception's msg field is missing"
 	end
-	local nCodeEnv = self.runtime:getDirtyCodeEnv(nNode.path)
+	local nCodeEnv = self:getDirtyCodeEnv(nNode.path)
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
@@ -260,17 +328,7 @@ function Client:debug(...)
 end
 
 function Client:setRoot(vRoot:String)
-	vRoot = vRoot:gsub("/*$", "")
-	--package.path = vRoot.."/?.lua;"..package.path
-	--package.cpath = vRoot.."/?.so;"..package.cpath
-	self.runtime:setRootPath(vRoot.."/?.thlua")
-	--[[local nMainFileName = vRoot .. "thMain.thlua"
-	local f, err2 = io.open(nMainFileName, "r")
-	if not f then
-		return
-	end]]
-	-- local content = f:read("*a")
-	-- self.runtime:trySyncFile(nMainFileName, content)
+	self.root = vRoot:gsub("/*$", "")
 end
 
 return Client

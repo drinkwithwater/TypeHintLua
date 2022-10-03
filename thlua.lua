@@ -38,9 +38,38 @@ end
 
 table.insert(package.searchers, thlua.searcher)
 
-function thlua.newRuntime()
+function thlua.newDefaultRuntime()
+	local envDict = {}
+	local thloader = {}
+	function thloader:thluaSearch(vPath)
+		local thluaPath = package.path:gsub("[.]lua", ".thlua")
+		local fileName, err1 = package.searchpath(vPath, thluaPath)
+		if not fileName then
+			return false, err1
+		end
+		return true, fileName
+	end
+	function thloader:thluaParseFile(vFileName)
+		local nCodeEnv = envDict[vFileName]
+		if not nCodeEnv then
+			local file, err = io.open(vFileName, "r")
+			if not file then
+				error(err)
+			end
+			local nContent = file:read("*a")
+			file:close()
+			nCodeEnv = CodeEnv.new(nContent, vFileName, -1)
+			nCodeEnv:loadTyping()
+			envDict[vFileName] = nCodeEnv
+		end
+		local ok, err = nCodeEnv:checkOkay()
+		if not ok then
+			error(err)
+		end
+		return nCodeEnv
+	end
 	local Runtime = require "thlua.runtime.Runtime"
-	return Runtime.new()
+	return Runtime.new(thloader)
 end
 
 return thlua

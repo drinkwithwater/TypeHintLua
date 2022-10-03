@@ -114,7 +114,7 @@ end
 
 local function searchIdDefine(vClient, vUri, vPosition)
 	local nFileName = uriToFileName(vUri)
-	local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
+	local nSuccEnv = vClient:getSuccCodeEnv(nFileName)
 	if nSuccEnv then
 		local nPos = nSuccEnv:lcToPos(vPosition.line + 1, vPosition.character + 1)
 		local nNode = nSuccEnv:searchName(nPos)
@@ -130,8 +130,8 @@ end
 
 local function syncFile(vClient, vTextDocument, vContent)
 	local nFileName = uriToFileName(vTextDocument.uri)
-	vClient.runtime:trySyncFile(nFileName, vContent, vTextDocument.version)
-	local ok, mainFileName = vClient.runtime:thluaSearch("main")
+	vClient:trySyncFile(nFileName, vContent, vTextDocument.version)
+	local ok, mainFileName = vClient:thluaSearch("main")
 	if not ok then
 		mainFileName = nFileName
 	end
@@ -170,11 +170,11 @@ return {
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams)::Ret(List(CompletionItem))
 		local nFileName = uriToFileName(vParams.textDocument.uri)
-		local nSuccEnv = vClient.runtime:getSuccCodeEnv(nFileName)
+		local nSuccEnv = vClient:getSuccCodeEnv(nFileName)
 		if not nSuccEnv then
 			return
 		end
-		local nDirtyEnv = vClient.runtime:getDirtyCodeEnv(nFileName)
+		local nDirtyEnv = vClient:getDirtyCodeEnv(nFileName)
 		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
 		local nContent = nDirtyEnv:getContent():sub(1, nPos)
 		local nCompletionEnv = CodeEnv.new(nContent, nFileName)
