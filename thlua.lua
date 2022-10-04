@@ -38,7 +38,7 @@ end
 
 table.insert(package.searchers, thlua.searcher)
 
-function thlua.newDefaultRuntime()
+function thlua.createRuntimeByFile(vMainFileName)
 	local envDict = {}
 	local thloader = {}
 	function thloader:thluaSearch(vPath)
@@ -69,7 +69,7 @@ function thlua.newDefaultRuntime()
 		return nCodeEnv
 	end
 	local Runtime = require "thlua.runtime.Runtime"
-	return Runtime.new(thloader)
+	return Runtime.new(thloader, vMainFileName)
 end
 
 return thlua

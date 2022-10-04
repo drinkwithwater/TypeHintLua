@@ -32,17 +32,14 @@ end)
 local Runtime = ContextClass()
 
 
-function Runtime.new(vLoader:ILoader)::RetClass(class.Runtime)
+function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runtime)
 	local self = setmetatable({::Self()
 	}, {
 		__index=Runtime,
 	})
 	self._loader = vLoader
 	self._runtime = self
-	return self
-end
-
-function Runtime:clear(vFileName)::open()
+	self._mainFileName = vMainFileName
 	self._node = Node.newRootNode(vFileName)
 	self._spaceList = {} @ List(class.Namespace)
 	self._manager = TypeManager.new(self)
@@ -54,6 +51,7 @@ function Runtime:clear(vFileName)::open()
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
 	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.AstNode, True))
 	self._fileNameToExcList= {}
+	return self
 end
 
 function Runtime:recordSymbol(vSymbol)
@@ -109,10 +107,9 @@ function Runtime:import(vPath)
 	return nSpace.localExport
 end
 
-function Runtime:main(vFileName)
-	self:clear(vFileName)
+function Runtime:main()
 	return pcall(function()
-		local nLuaFunc = self:cacheLoadFile(vFileName)
+		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._manager:TermTuple({})
 		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 		self:checkDefineLuaFunction()

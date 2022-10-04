@@ -128,29 +128,16 @@ local function searchIdDefine(vClient, vUri, vPosition)
 	return nil
 end
 
-local function syncFile(vClient, vTextDocument, vContent)
-	local nFileName = uriToFileName(vTextDocument.uri)
-	vClient:trySyncFile(nFileName, vContent, vTextDocument.version)
-	local ok, mainFileName = vClient:thluaSearch("main")
-	if not ok then
-		mainFileName = nFileName
-	end
-	local ok, exc = vClient.runtime:main(mainFileName)
-	if not ok then
-		vClient:publishException(exc)
-		return
-	end
-	vClient:publishNormal()
-end
-
 return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
 		local nContent = vParams.contentChanges[1].text
-		syncFile(vClient, vParams.textDocument, nContent)
+		local nFileName = uriToFileName(vParams.textDocument.uri)
+		vClient:trySyncFile(nContent, nFileName, vParams.textDocument.version)
 	end,
 	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
 		local nContent = vParams.textDocument.text
-		syncFile(vClient, vParams.textDocument, nContent)
+		local nFileName = uriToFileName(vParams.textDocument.uri)
+		vClient:trySyncFile(nContent, nFileName, vParams.textDocument.version)
 	end,
 	didSave=function(vClient:lsp.Client, vParams)
 	end,

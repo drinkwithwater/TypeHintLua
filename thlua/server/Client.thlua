@@ -24,14 +24,14 @@ function Client.new()::RetClass(lsp.Client)
 	local self = setmetatable({::Self()
 		initialize=false@Boolean,
 		shutdown=false,
-		root=false,
-		fileStateDict = {},
+		root="",
+		runtime=false,
+		fileStateDict={},
 	}, Client)
-	self.runtime = Runtime.new(self)
 	return self
 end
 
-function Client:trySyncFile(vFileName, vContent, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
+function Client:trySyncFile(vContent, vFileName, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	nCodeEnv:loadTyping()
 	local nFileState = self.fileStateDict[vFileName]
@@ -46,6 +46,17 @@ function Client:trySyncFile(vFileName, vContent, vVersion)::Ret(True):Ret(False,
 	if nCodeEnv:checkOkay() then
 		nFileState.succCodeEnv = nCodeEnv
 	end
+	local ok, mainFileName = self:thluaSearch("main")
+	if not ok then
+		mainFileName = vFileName
+	end
+	self.runtime=Runtime.new(self, mainFileName)
+	local ok, exc = self.runtime:main()
+	if not ok then
+		self:publishException(exc)
+		return
+	end
+	self:publishNormal()
 end
 
 function Client:thluaSearch(vPath)
@@ -65,7 +76,7 @@ function Client:thluaParseFile(vFileName)
 		end
 		local nContent = file:read("*a")
 		file:close()
-		self:trySyncFile(vFileName, nContent, -1)
+		self:trySyncFile(nContent, vFileName, -1)
 	end
 	local nCodeEnv = self.fileStateDict[vFileName].dirtyCodeEnv
 	local ok, err = nCodeEnv:checkOkay()
