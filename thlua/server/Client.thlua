@@ -31,7 +31,22 @@ function Client.new()::RetClass(lsp.Client)
 	return self
 end
 
-function Client:trySyncFile(vContent, vFileName, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
+function Client:searchDefine(vFileName, vLine, vColumn)
+	local nSuccEnv = self:getSuccCodeEnv(vFileName)
+	if nSuccEnv then
+		local nPos = nSuccEnv:lcToPos(vLine, vColumn)
+		local nNode = nSuccEnv:searchName(nPos)
+		if nNode then
+			if nNode.tag == "Id" then
+				nNode = nSuccEnv:getIdent(nNode.ident_refer)
+				return nNode
+			end
+		end
+	end
+	return nil
+end
+
+function Client:syncFile(vContent, vFileName, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	nCodeEnv:loadTyping()
 	local nFileState = self.fileStateDict[vFileName]
@@ -46,17 +61,26 @@ function Client:trySyncFile(vContent, vFileName, vVersion)::Ret(True):Ret(False,
 	if nCodeEnv:checkOkay() then
 		nFileState.succCodeEnv = nCodeEnv
 	end
+end
+
+function Client:rerun()
 	local ok, mainFileName = self:thluaSearch("main")
 	if not ok then
 		mainFileName = vFileName
 	end
-	self.runtime=Runtime.new(self, mainFileName)
-	local ok, exc = self.runtime:main()
+	local nRuntime=Runtime.new(self, mainFileName)
+	local ok, exc = nRuntime:main()
 	if not ok then
+		if not self.runtime then
+			self.runtime = nRuntime
+		end
 		self:publishException(exc)
+		print("publish exception ==========================", vVersion, exc)
 		return
 	end
+	self.runtime = nRuntime
 	self:publishNormal()
+	print("publish normal ==========================", vVersion)
 end
 
 function Client:thluaSearch(vPath)
@@ -76,7 +100,7 @@ function Client:thluaParseFile(vFileName)
 		end
 		local nContent = file:read("*a")
 		file:close()
-		self:trySyncFile(nContent, vFileName, -1)
+		self:syncFile(nContent, vFileName, -1)
 	end
 	local nCodeEnv = self.fileStateDict[vFileName].dirtyCodeEnv
 	local ok, err = nCodeEnv:checkOkay()

@@ -125,11 +125,12 @@ local hintC={
 		end
 		-- TODO, refactor this capture to be faster
 		local thluaPatt = vv.HintBegin * (patt * vv.HintSuccessEnd + vv.HintFailEnd)
-		local commentPatt = lpeg.P"--[["*Cenv*pattBegin*
-		Cpos*pattScript*Cpos*pattEndPos*lpeg.P"]]"*vv.Skip/function(env,p1,p2,p3)
-			return env:subScript(p1, p2-1)
-		end
-		return thluaPatt + commentPatt
+		return thluaPatt
+		--local commentPatt = lpeg.P"--[["*Cenv*pattBegin*
+		--Cpos*pattScript*Cpos*pattEndPos*lpeg.P"]]"*vv.Skip/function(env,p1,p2,p3)
+			--return env:subScript(p1, p2-1)
+		--end
+		--return thluaPatt + commentPatt
 	end,
 	char=function(char)
 		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
@@ -375,8 +376,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	-- lexer
 	Skip     = (lpeg.space^1 + vv.Comment)^0;
-	Comment  = lpeg.P"--" * -(lpeg.P("[[")*lpeg.S("(@:")) * (
-									vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0);
+	Comment  = lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0);
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1
