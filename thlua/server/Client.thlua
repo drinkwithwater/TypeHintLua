@@ -4,7 +4,7 @@ local methodHandler = require "thlua.server.methodHandler"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
 local Runtime = require "thlua.runtime.Runtime"
 local CodeEnv = require "thlua.code.CodeEnv"
-
+local thloader = require "thlua.code.thloader"
 
 (@do
 	let.class=import("thlua.type.TypeClass").class
@@ -47,8 +47,7 @@ function Client:searchDefine(vFileName, vLine, vColumn)
 end
 
 function Client:syncFile(vContent, vFileName, vVersion)::Ret(True):Ret(False, class.AstNode):Ret(True)
-	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
-	nCodeEnv:loadTyping()
+	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion, thloader.genTypingCode)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
 		nFileState = {

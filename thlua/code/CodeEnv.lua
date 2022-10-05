@@ -7,7 +7,7 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-function CodeEnv.new(vSubject, vChunkName, vVersion)
+function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTypingCode)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
@@ -26,6 +26,9 @@ function CodeEnv.new(vSubject, vChunkName, vVersion)
 	}, CodeEnv)
 
 	self:_init()
+	if vGenTypingCode then
+		self:_buildTypingFn(vGenTypingCode)
+	end
 	return self
 end
 
@@ -236,17 +239,9 @@ function CodeEnv:genLuaCode()
 	return table.concat(nContents)
 end
 
-function CodeEnv:genTypingCode()
-	local ReferVisitor = require "thlua.code.ReferVisitor"
-	ReferVisitor.new(self):realVisit(self._astOrErr)
-	self:prepare()
-	local TypeHintGen = require "thlua.code/TypeHintGen"
-	return TypeHintGen.visit(self)
-end
-
-function CodeEnv:loadTyping()
+function CodeEnv:_buildTypingFn(vGenTypingCode)
 	local ok, fnOrErr = pcall(function ()
-		local nTypingCode = self:genTypingCode()
+		local nTypingCode = vGenTypingCode(self)
 		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
 			__index=function(t,k)
 				-- TODO, give node pos

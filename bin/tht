@@ -13,11 +13,15 @@ if not filename then
 end
 
 local subject = getcontents(filename)
-local thboot = require "thlua.boot"
-local thloader = require "thlua.code.thloader"
 
 local CodeEnv = require "thlua.code.CodeEnv"
 local env = CodeEnv.new(subject, filename)
-print(thloader.genTypingCode(env))
+local parser = require "thlua.code.parser"
 
--- env:dumpAst()
+local t1 = os.clock()
+for i=1,40 do
+	parser.parse(env, subject)
+end
+local t2 = os.clock()
+
+print(t2-t1)
