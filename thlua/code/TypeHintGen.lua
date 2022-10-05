@@ -74,7 +74,7 @@ local visitor_block = {
 			visitor:print("local ____s0={_ENV1=____ctx:makeSymbol_ENV(",visitor:codeNode(node[1]),")} ")
 			-- function begin
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
-			local nParPrint = "____ctx:AutoArguments({}, ____ctx:Variable(false))"
+			local nParPrint = "____ctx:AutoArguments("..visitor:codeNode(node[1])..",{}, ____ctx:Variable(false))"
 			visitor:print("local ____fn ____fn=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 			-- region begin
 			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn) ")
@@ -474,7 +474,7 @@ local visitor_exp = {
 					end
 				end
 			end
-			local nParPrint = "____ctx:AutoArguments({" .. table.concat(nParHintList, ",")
+			local nParPrint = "____ctx:AutoArguments("..visitor:codeNode(nParList)..",{" .. table.concat(nParHintList, ",")
 			if not nDotsHintScript then
 				nParPrint = nParPrint .. "})"
 			else
