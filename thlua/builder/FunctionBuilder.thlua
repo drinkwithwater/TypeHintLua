@@ -41,7 +41,7 @@ function FunctionBuilder.newLongHint(self)
 		end,
 		RetClass=function(vLongHint, vRefer, vStruct)
 			if not self._hasRet then
-				self._context:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
+				self._context:getRuntime():nodeError(self._node, "hint return class but block has no RetStat")
 			end
 			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
@@ -61,9 +61,6 @@ function FunctionBuilder.newLongHint(self)
 			return vLongHint
 		end,
 		Ret=function(vLongHint, ...)
-			if not self._hasRet and select("#", ...) > 0 then
-				self._context:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
-			end
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			local nRetTuples = self._retTuples
 			if not nRetTuples then
@@ -102,7 +99,22 @@ function FunctionBuilder:build()
 	if not nFnCom then
 		local nRetTuples = self._retTuples
 		if not self._hasRet then
-			nRetTuples = self._manager:VoidRetTuples()
+			if not nRetTuples then
+				nRetTuples = self._manager:VoidRetTuples()
+			elseif not self._nocheck then
+				local hasVoid = false
+				local hasSome = false
+				nRetTuples:foreach(function(vTypeTuple)
+					if #vTypeTuple > 0 then
+						hasSome = true
+					else
+						hasVoid = true
+					end
+				end)
+				if hasSome and not hasVoid then
+					self._context:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
+				end
+			end
 		end
 		nFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
 		nFnCom:init(self._context, nRetTuples, self._nocheck)
@@ -119,6 +131,5 @@ function FunctionBuilder:build()
 	end
 	return self._luaFunc
 end
-
 
 return FunctionBuilder
