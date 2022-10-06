@@ -38,11 +38,25 @@ end
 
 table.insert(package.searchers, boot.searcher)
 
-local Runtime = require "thlua.runtime.Runtime"
-local thloader = require "thlua.code.thloader"
+function boot.runCheck(vMainFileName)
+	local Runtime = require "thlua.runtime.Runtime"
+	local thloader = require "thlua.code.thloader"
+	local nRuntime = Runtime.new(thloader, vMainFileName)
+	assert(nRuntime:main())
+end
 
-function boot.createRuntimeByFile(vMainFileName)
-	return Runtime.new(thloader, vMainFileName)
+function boot.runServer()
+	local Client = require "thlua.server.Client"
+	local client = Client.new()
+
+	print=function(...)
+		client:notify("window/logMessage", {
+			message = client:packToString(3, ...),
+			type = 3,
+		})
+	end
+
+	client:mainLoop()
 end
 
 return boot
