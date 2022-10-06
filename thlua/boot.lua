@@ -50,10 +50,10 @@ function boot.runServer()
 	local client = Client.new()
 
 	print=function(...)
-		client:notify("window/logMessage", {
+		--[[client:notify("window/logMessage", {
 			message = client:packToString(3, ...),
 			type = 3,
-		})
+		})]]
 	end
 
 	client:mainLoop()

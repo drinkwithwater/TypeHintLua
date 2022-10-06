@@ -158,7 +158,7 @@ function native.make(vRuntime)::Ret(class.LuaTable):nocheck()
 	return nGlobalTable
 end
 
-function native.make_math(vManager)
+function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local math = {
 		random=vManager:Fn():Dots(type.Number):Ret(type.Number),
@@ -169,7 +169,7 @@ function native.make_math(vManager)
 	return nTable
 end
 
-function native.make_io(vManager)
+function native.make_io(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local io = {
 		read=vManager:Fn(vManager:Union(type.String, type.Number)):Ret(vManager:Union(type.String, type.Nil)),
@@ -181,7 +181,7 @@ function native.make_io(vManager)
 	return nTable
 end
 
-function native.make_coroutine(vManager)
+function native.make_coroutine(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local co = {
 		create=vManager:Fn(vManager:Fn():Ret()):Ret(type.Truth),
@@ -194,7 +194,7 @@ function native.make_coroutine(vManager)
 	return nTable
 end
 
-function native.make_string(vManager)
+function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local string = {
 		format=vManager:Fn(type.String):Dots(type.Truth):Ret(type.String),
@@ -206,7 +206,7 @@ function native.make_string(vManager)
 	return nTable
 end
 
-function native.make_table(vManager)
+function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local function checkList(vContext, vType, vKey)
 		local nNumber = vManager.type.Number
 		vType:foreach(function(vSubType)
@@ -250,8 +250,8 @@ function native.make_table(vManager)
 		end),
 	}
 	local nTable = native._toTable(vManager, table)
-    nTable:setName("table")
-    return nTable
+	nTable:setName("table")
+	return nTable
 end
 
 function native.make_inext(vManager)
@@ -306,22 +306,22 @@ function native.make_next(vManager)
 	end)
 end
 
-function native.make_mathematic(vManager)
+function native.make_mathematic(vManager:class.TypeManager)
 	local nNumber = vManager.type.Number
 	return vManager:Fn(nNumber, nNumber):Ret(nNumber)
 end
 
-function native.make_comparison(vManager)
+function native.make_comparison(vManager:class.TypeManager)
 	local nNumber = vManager.type.Number
 	return vManager:Fn(nNumber, nNumber):Ret(vManager.type.Boolean)
 end
 
-function native.make_bitwise(vManager)
+function native.make_bitwise(vManager:class.TypeManager)
 	local nNumber = vManager.type.Number
 	return vManager:Fn(nNumber, nNumber):Ret(nNumber)
 end
 
-function native.make_concat(vManager)
+function native.make_concat(vManager:class.TypeManager)
 	local nType = vManager:Union(vManager.type.String, vManager.type.Number)
 	return vManager:Fn(nType, nType):Ret(vManager.type.String)
 end

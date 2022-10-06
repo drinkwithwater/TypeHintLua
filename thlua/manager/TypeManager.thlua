@@ -74,38 +74,6 @@ function TypeManager.new(vRuntime:class.Runtime)::Ret(class.TypeManager):nocheck
 	return self
 end
 
-function TypeManager:buildSimpleGlobal()
-	local nGlobal = {}
-	for k,v in pairs(self.type) do
-		nGlobal[k] = v
-	end
-	local l = {
-		Literal=1,
-		Union=1,
-		Struct=1,
-		Dict=1,
-		List=1,
-		Option=1,
-		Fn=1,
-		Mfn=1,
-	}
-	for k,v in pairs(l) do
-		nGlobal[k]=function(...)
-			return self[k](self, ...)
-		end
-	end
-	nGlobal.namespace=function()
-		return self._runtime:TreeNamespace().localExport
-	end
-	nGlobal.import=function(vPath)
-		return self._runtime:import(vPath)
-	end
-	for k,v in pairs(_G) do
-		nGlobal[k]=v
-	end
-	return nGlobal
-end
-
 local tableToTypeFuncDict = {
 	[Nil]=true,
 	[Never]=true,
