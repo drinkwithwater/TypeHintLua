@@ -26,6 +26,11 @@ local TermCase = require "thlua.term.TermCase"
 		term=Union(False, class.UnionTerm),
 		context=class.Context,
 	}
+
+	let.FileState = Struct {
+		codeEnv=class.CodeEnv,
+		excList=List(class.Exception),
+	}
 end)
 
 
@@ -50,7 +55,7 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	self._lateFnDict = {} @ Dict(class.LuaFunction, True)
 	self._defineFnDict = {} @ Dict(class.LuaFunction, True)
 	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.AstNode, True))
-	self._fileNameToExcList= {}
+	self._fileStateDict = {} @Dict(String, FileState)
 	return self
 end
 
@@ -122,10 +127,18 @@ function Runtime:newContext(vApplyNode)
 end
 
 function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
-	if not self._fileNameToExcList[vFileName] then
-		self._fileNameToExcList[vFileName] = {}
+	local nFileState = self._fileStateDict[vFileName]
+	local nCodeEnv
+	if not nFileState then
+		nCodeEnv = self._loader:thluaParseFile(vFileName)
+		nFileState = {
+			codeEnv = nCodeEnv,
+			excList = {},
+		}
+		self._fileStateDict[vFileName] = nFileState
+	else
+		nCodeEnv = nFileState.env
 	end
-	local nCodeEnv = self._loader:thluaParseFile(vFileName)
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
 end
 
@@ -193,12 +206,7 @@ function Runtime:nodeError(vNode, ...:Truth)
 		l[i] = tostring(select(i, ...))
 	end
 	local nMsg = table.concat(l, " ")
-	local nException = Exception.new(nMsg, vNode)
-	local nExcList = self._fileNameToExcList[vNode.path]
-	if not nExcList then
-		nExcList = {}
-		self._fileNameToExcList[vNode.path] = nExcList
-	end
+	local nExcList = self._fileStateDict[vNode.path].excList
 	nExcList[#nExcList + 1] = Exception.new(nMsg, vNode)
 end
 
@@ -211,7 +219,11 @@ function Runtime:nodeInfo(vNode, ...:Truth)
 end
 
 function Runtime:getNormalException()
-	return self._fileNameToExcList
+	local nFileToExcList = {}
+	for nFileName, nState in pairs(self._fileStateDict) do
+		nFileToExcList[nFileName] = nState.excList
+	end
+	return nFileToExcList
 end
 
 return Runtime

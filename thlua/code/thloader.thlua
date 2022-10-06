@@ -1,7 +1,5 @@
 
 local CodeEnv = require "thlua.code.CodeEnv"
-local ReferVisitor = require "thlua.code.ReferVisitor"
-local TypeHintGen = require "thlua.code.TypeHintGen"
 
 local thloader = {}
 
@@ -14,35 +12,6 @@ function thloader:thluaSearch(vPath)
     return true, fileName
 end
 
-function thloader.genTypingCode(vCodeEnv)
-    ReferVisitor.new(vCodeEnv):realVisit(vCodeEnv:getAstTree())
-    vCodeEnv:prepare()
-    return TypeHintGen.visit(vCodeEnv)
-end
-
-function thloader:thluaTyping(vCodeEnv)
-	local ok, fnOrErr = pcall(function ()
-        local nTypingCode = vCodeEnv:buildTypingFn()
-		local nFunc, nInfo = load(nTypingCode, vCodeEnv:getChunkName(), "t", setmetatable({}, {
-			__index=function(t,k)
-				-- TODO, give node pos
-				error("indexing global is fatal error")
-			end
-		}))
-		assert(type(nFunc) == "function", "typing code must return function")
-		if not nFunc then
-			-- TODO, give node pos
-			error(nInfo)
-		end
-		return nFunc
-	end)
-	if ok then
-		vCodeEnv._typingFn = fnOrErr
-	else
-		vCodeEnv._typingFn = tostring(fnOrErr)
-	end
-end
-
 function thloader:thluaParseFile(vFileName)
     local file, err = io.open(vFileName, "r")
     if not file then
@@ -50,7 +19,7 @@ function thloader:thluaParseFile(vFileName)
     end
     local nContent = file:read("*a")
     file:close()
-    local nCodeEnv = CodeEnv.new(nContent, vFileName, -1, thloader.genTypingCode)
+    local nCodeEnv = CodeEnv.new(nContent, vFileName, -1, true)
     local ok, err = nCodeEnv:checkOkay()
     if not ok then
         error(err)

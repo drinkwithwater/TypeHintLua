@@ -1,13 +1,12 @@
 
 local parser = require "thlua.code.parser"
 local Node = require "thlua.code.Node"
-local VisitorExtend = require "thlua.code.VisitorExtend"
 local Exception = require "thlua.Exception"
 local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTypingCode)
+function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTyping)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
@@ -26,8 +25,8 @@ function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTypingCode)
 	}, CodeEnv)
 
 	self:_init()
-	if vGenTypingCode then
-		self:_buildTypingFn(vGenTypingCode)
+	if vGenTyping then
+		self:_buildTypingFn()
 	end
 	return self
 end
@@ -63,9 +62,7 @@ function CodeEnv:dumpAst()
 end
 
 function CodeEnv:prepare()
-	if self._nodeList then
-		return
-	end
+	assert(not self._nodeList, "node list has been setted")
 	local nNodeList = {}
 	self._nodeList = nNodeList
 
@@ -105,6 +102,7 @@ function CodeEnv:prepare()
 end
 
 function CodeEnv:visit(vDictOrFunc)
+	local VisitorExtend = require "thlua.code.VisitorExtend"
 	local visitor = VisitorExtend(vDictOrFunc)
 	visitor:realVisit(self._astOrErr)
 end
@@ -239,9 +237,17 @@ function CodeEnv:genLuaCode()
 	return table.concat(nContents)
 end
 
-function CodeEnv:_buildTypingFn(vGenTypingCode)
+function CodeEnv:genTypingCode()
+	local ReferVisitor = require "thlua.code.ReferVisitor"
+	local TypeHintGen = require "thlua.code.TypeHintGen"
+    ReferVisitor.new(self):realVisit(self:getAstTree())
+    self:prepare()
+    return TypeHintGen.visit(self)
+end
+
+function CodeEnv:_buildTypingFn()
 	local ok, fnOrErr = pcall(function ()
-		local nTypingCode = vGenTypingCode(self)
+		local nTypingCode = self:genTypingCode()
 		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
 			__index=function(t,k)
 				-- TODO, give node pos
