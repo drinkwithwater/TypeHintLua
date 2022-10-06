@@ -33,12 +33,12 @@ end
 """
 
 TEMPLATE = """
---=============================================================================
+--{path} begin ==========(
 do local _ENV = _ENV
 packages['{path}'] = function (...)
 {content}
-end
-end
+end end
+--{path} end ==========)
 """
 
 TAIL = """

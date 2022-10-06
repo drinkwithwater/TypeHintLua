@@ -241,14 +241,14 @@ function Client:notify(vMethod:String, vParams:Truth)::Ret()
 end
 
 function Client:publishNormal()
-	local nFileToList = self.runtime:getNormalException()
-	for nFileName, nExcList in pairs(nFileToList) do
+	local nFileToList = self.runtime:getAllDiagnostic()
+	for nFileName, nRawDiaList in pairs(nFileToList) do
 		local nCodeEnv = self:getSuccCodeEnv(nFileName)
 		local nVersion = nCodeEnv:getVersion()
 		local nDiaList = {}
-		for _, exc in ipairs(nExcList) do
-			local nNode = exc.node
-			local nMsg = exc.msg
+		for _, dia in ipairs(nRawDiaList) do
+			local nNode = dia.node
+			local nMsg = dia.msg
 			nDiaList[#nDiaList + 1] = {
 				range={
 					start={
@@ -261,6 +261,7 @@ function Client:publishNormal()
 					}
 				},
 				message=nMsg,
+				severity=dia.severity,
 			}
 		end
 		self:_write({

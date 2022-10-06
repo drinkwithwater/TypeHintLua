@@ -14,14 +14,14 @@ local native = {}
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function native._toTable(vManager, vTable:Dict(String, class.IKeyType))::Ret(class.LuaTable)
+function native._toTable(vManager:class.TypeManager, vTable:Dict(String, class.IKeyType))::Ret(class.LuaTable)
 	local nPairList = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
 			vManager:Literal(k), v
 		}
 	end
-    local nKeyUnion, nTypeDict = vManager:mergePairList(nPairList)
+  local nKeyUnion, nTypeDict = vManager:mergePairList(nPairList)
 	local nTable = vManager:LuaTable()
 	nTable:getDefaultCom():initByKeyValue(nKeyUnion, nTypeDict)
 	return nTable
@@ -39,7 +39,7 @@ function native.make(vRuntime)::Ret(class.LuaTable):nocheck()
 				vContext:error("set metatable can't take union")
 			else
 				nType1 = nType1:checkType()
-				nType2 = nType2:checkType() 
+				nType2 = nType2:checkType()
 				if LuaTable.is(nType2) then
 					nType1:native_setmetatable(vContext, nType2)
 				else
@@ -109,11 +109,11 @@ function native.make(vRuntime)::Ret(class.LuaTable):nocheck()
 			return nManager:TermTuple({})
 		end),
 		tprint=nManager:NativeFunction(function(vContext, vTermTuple)
-			print("[INFO]:", vTermTuple)
+			vContext:info(vTermTuple)
 			return nManager:TermTuple({})
 		end),
 		ttprint=nManager:NativeFunction(function(vContext, vTermTuple)
-			print("[INFO]:", vTermTuple:getTypeTuple())
+			vContext:info(vTermTuple:getTypeTuple())
 			return nManager:TermTuple({})
 		end),
 		tonumber=nManager:NativeFunction(function(vContext, vTermTuple)

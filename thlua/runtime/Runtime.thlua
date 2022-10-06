@@ -27,9 +27,15 @@ local TermCase = require "thlua.term.TermCase"
 		context=class.Context,
 	}
 
+	let.Diagnostic = Struct {
+		node=class.AstNode,
+		msg=String,
+		severity=Union(1,2,3,4),
+	}
+
 	let.FileState = Struct {
 		codeEnv=class.CodeEnv,
-		excList=List(class.Exception),
+		diaList=List(Diagnostic),
 	}
 end)
 
@@ -118,7 +124,7 @@ function Runtime:main()
 		local nTermTuple = self._manager:TermTuple({})
 		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
 		self:checkDefineLuaFunction()
-		--self:checkLateLuaFunction()
+		self:checkLateLuaFunction()
 	end)
 end
 
@@ -133,7 +139,7 @@ function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
 		nCodeEnv = self._loader:thluaParseFile(vFileName)
 		nFileState = {
 			codeEnv = nCodeEnv,
-			excList = {},
+			diaList = {},
 		}
 		self._fileStateDict[vFileName] = nFileState
 	else
@@ -199,31 +205,41 @@ function Runtime:makeSymbol_ENV(vNode)
 	return Symbol.new(self, false, vNode, self._globalTable, nTerm)
 end
 
-function Runtime:nodeError(vNode, ...:Truth)
-	print("[ERROR] "..tostring(vNode), ...)
+function Runtime:_save(vSeverity, vNode, ...)
 	local l = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
 	end
 	local nMsg = table.concat(l, " ")
-	local nExcList = self._fileStateDict[vNode.path].excList
-	nExcList[#nExcList + 1] = Exception.new(nMsg, vNode)
+	local nDiaList = self._fileStateDict[vNode.path].diaList
+	nDiaList[#nDiaList + 1] = {
+		msg=nMsg,
+		node=vNode,
+		severity=vSeverity,
+	}
+end
+
+function Runtime:nodeError(vNode, ...:Truth)
+	print("[ERROR] "..tostring(vNode), ...)
+	self:_save(1, vNode, ...)
 end
 
 function Runtime:nodeWarn(vNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
+	self:_save(2, vNode, ...)
 end
 
 function Runtime:nodeInfo(vNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
+	self:_save(3, vNode, ...)
 end
 
-function Runtime:getNormalException()
-	local nFileToExcList = {}
+function Runtime:getAllDiagnostic()
+	local nFileToDiaList = {}
 	for nFileName, nState in pairs(self._fileStateDict) do
-		nFileToExcList[nFileName] = nState.excList
+		nFileToDiaList[nFileName] = nState.diaList
 	end
-	return nFileToExcList
+	return nFileToDiaList
 end
 
 return Runtime
