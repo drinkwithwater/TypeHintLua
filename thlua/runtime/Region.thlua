@@ -11,19 +11,19 @@ Region.__tostring = function(self)
 	return "Region-"..tostring(self._context:getNode())
 end
 
-function Region.new(vContext:class.UContext, vFnCom:class.UFnCom)::RetClass(class.Region)
+function Region.new(vContext:class.Context, vFnCom:class.UFnCom)::RetClass(class.Region)
 	local nRootBranch = Branch.new(vContext, nil, TermCase.new())
 	local self = setmetatable({::Self()
 		_context=vContext,
 		_curBranch=nRootBranch,
-		_branchStack={nRootBranch},
+		_branchStack={nRootBranch}@List(class.Branch),
 		_fnCom=vFnCom,
 		_retList={} @ List(class.TermTuple),
 	}, Region)
 	return self
 end
 
-function Region:getFnCom()
+function Region:getFnCom()::Ret(class.UFnCom)
 	return self._fnCom
 end
 
@@ -33,19 +33,19 @@ function Region:push_branch(vTermCase)
 	self._curBranch = nNewBranch
 end
 
-function Region:pop_branch()
+function Region:pop_branch()::Ret(class.Branch)
 	local len = #self._branchStack
 	self._branchStack[len] = nil
 	local old_branch = self._curBranch
-	self._curBranch = self._branchStack[len - 1]
+	self._curBranch = self._branchStack[len - 1]!
 	return old_branch
 end
 
-function Region:top_branch()
+function Region:top_branch()::Ret(class.Branch)
 	return self._curBranch
 end
 
-function Region:SYMBOL(vNode, vTerm, vHintType)
+function Region:SYMBOL(vNode, vTerm, vHintType)::Ret(class.Symbol)
 	if not vTerm then
 		print("TODO local symbol without assign")
 		vTerm = self._context:NilTerm()
@@ -150,11 +150,11 @@ function Region:LOGIC_AND(vNode, vLeftTerm, vRightFunction)
 	end
 end
 
-function Region:LOGIC_NOT(vNode, vData)
+function Region:LOGIC_NOT(vNode:class.AstNode, vData:class.UnionTerm)::Ret(class.UnionTerm)
 	return vData:notTerm()
 end
 
-function Region:RETURN(vNode, vTermTuple)
+function Region:RETURN(vNode:class.AstNode, vTermTuple:class.TermTuple)
 	table.insert(self._retList, vTermTuple)
 	self._fnCom:regionReturn(self._context, vNode, vTermTuple:getTypeTuple())
 	self:top_branch():setStop()

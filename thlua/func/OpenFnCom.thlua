@@ -10,13 +10,13 @@ function OpenFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_nativeFunction=false,
+		_nativeFunction=false@class.NativeFunction,
 	}, OpenFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function OpenFnCom:initByOpen(vContext)
+function OpenFnCom:initByOpen()
 	self._nativeFunction = self._manager:NativeFunction(self._luaFunction._runFunc)
 end
 
@@ -32,7 +32,7 @@ function OpenFnCom:initByGuard(vContext, vType)
 			{nTrue, caseTrue},
 			{nFalse, TermCase.new()},
 		}
-		return self._manager:mergeToUnionTerm(nTypeCaseList)
+		return self._manager:TermTuple({self._manager:mergeToUnionTerm(nTypeCaseList)})
 	end)
 end
 
