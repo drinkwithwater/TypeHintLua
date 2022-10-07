@@ -1,15 +1,13 @@
 
 local TermCase = require "thlua.term.TermCase"
-local LuaFunction = require "thlua.func.LuaFunction"
 local FnComClass = require "thlua.func.FnComClass"
 
-local FixedRetFnCom = FnComClass()
+local LateFnCom = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function FixedRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetClass(class.FixedRetFnCom, class.IFnCom)
+function LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetClass(class.LateFnCom)
 	local self = setmetatable({::Self()
-		tag=LuaFunction.FIXED_RET,
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
@@ -18,18 +16,18 @@ function FixedRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFun
 		_autoArgs=nil@class.AutoArguments,
 		_retTuples=false@Union(False, class.RetTuples),
 		_nocheck=false@Boolean,
-	}, FixedRetFnCom)
+	}, LateFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function FixedRetFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
+function LateFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
 	self._autoArgs = self._luaFunction._autoArgs
 	self._retTuples = vRetTuples or false
 	self._nocheck = vNocheck
 end
 
-function FixedRetFnCom:checkLateRun()
+function LateFnCom:checkLateRun()
 	if self._nocheck then
 		return
 	end
@@ -64,7 +62,7 @@ function FixedRetFnCom:checkLateRun()
 	end
 end
 
-function FixedRetFnCom:meta_call(vContext, vTypeTuple)
+function LateFnCom:meta_call(vContext, vTypeTuple)
 	if not self._typeFunction then
 		self:_typeDefault()
 	end
@@ -72,7 +70,7 @@ function FixedRetFnCom:meta_call(vContext, vTypeTuple)
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
-function FixedRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
+function LateFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	if vTypeTuple:getRepeatType() then
 		vContext:getRuntime():nodeError(vNode, "return dots type is invalid")
 	end
@@ -87,11 +85,11 @@ function FixedRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	end
 end
 
-function FixedRetFnCom:regionEnd(vContext, vNode, vTermTupleList)
+function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function FixedRetFnCom:cast(vContext, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
+function LateFnCom:cast(vContext, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
 	if not self._typeFunction then
 		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
 		self._retTuples = self._retTuples or vDstTypeFn:getRetTuples()
@@ -100,7 +98,7 @@ function FixedRetFnCom:cast(vContext, vDstTypeFn:class.TypeFunction)::Ret(Boolea
 	return vDstTypeFn:contain(self._typeFunction) and true
 end
 
-function FixedRetFnCom:_typeDefault()
+function LateFnCom:_typeDefault()
 	if not self._typeFunction then
 		local nArgTuple = self._autoArgs:checkByDefault(vContext)
 		self._retTuples = self._retTuples or self._manager:VoidRetTuples()
@@ -108,7 +106,7 @@ function FixedRetFnCom:_typeDefault()
 	end
 end
 
-function FixedRetFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
+function LateFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
 	self._selfOnceDict[vSelfType] = false
 	if vIntfFnOrNil then
 		self._autoArgs:checkWhenApply(vContext, vIntfFnOrNil:getArgTuple())
@@ -121,4 +119,8 @@ function FixedRetFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
 	return self._manager:MemberFunction(nArgTuple, self._retTuples)
 end
 
-return FixedRetFnCom
+function LateFnCom.is(v)::isguard(class.LateFnCom)
+	return getmetatable(v) == LateFnCom
+end
+
+return LateFnCom

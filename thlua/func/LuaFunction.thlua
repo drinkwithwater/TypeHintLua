@@ -3,25 +3,20 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
 local Exception = require "thlua.Exception"
 
+local OpenFnCom = require "thlua.func.OpenFnCom"
+local LateFnCom = require "thlua.func.LateFnCom"
+local ClassFnCom = require "thlua.func.ClassFnCom"
+
 local LuaFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
-
-LuaFunction.OPEN="open"
-
-LuaFunction.AUTO_RET="auto"
-
-LuaFunction.NEW_RET="new"
-
-LuaFunction.FIXED_RET="fixed"
-
 
 function LuaFunction.new(vManager:class.TypeManager)::RetClass(class.LuaFunction, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_context=false@class.Context,
 		_node=false@class.AstNode,
-		_unionFnCom=false@class.IFnCom,
+		_unionFnCom=false@class.UFnCom,
 		_runFunc=false@class.GenFunc,
 		_autoArgs=false@class.AutoArguments,
 		bits=TYPE_BITS.FUNCTION,
@@ -31,7 +26,7 @@ function LuaFunction.new(vManager:class.TypeManager)::RetClass(class.LuaFunction
 	return self
 end
 
-function LuaFunction:setFnCom(vUnionTagFn:class.IFnCom)
+function LuaFunction:setFnCom(vUnionTagFn:class.UFnCom)
 	self._unionFnCom = vUnionTagFn
 end
 
@@ -43,17 +38,16 @@ function LuaFunction:init(vContext:class.Context, vNode:class.AstNode, vAutoArgs
 	self.name = tostring(vNode)
 end
 
-function LuaFunction:newInplaceContext()
+function LuaFunction:newInplaceContext()::Ret(class.Context)
 	return self._context:newSealContext(self._node)
 end
 
-function LuaFunction:isNative()
-	local nTag = self._unionFnCom.tag
-	return nTag == LuaFunction.OPEN
+function LuaFunction:isNative()::Ret(Boolean)
+	return OpenFnCom.is(self._unionFnCom)
 end
 
 function LuaFunction:detailString(v)
-	return "LuaFunction-"..self._unionFnCom.tag.."-"..self.name
+	return "LuaFunction-"..self.name
 end
 
 function LuaFunction:getFnCom()
@@ -61,15 +55,12 @@ function LuaFunction:getFnCom()
 end
 
 function LuaFunction:meta_native_call(vContext, vTermTuple)
-	local nTagFn = self._unionFnCom
-	if nTagFn.tag == LuaFunction.OPEN then
-		return nTagFn:meta_native_call(vContext, vTermTuple)
-	else
-		error("only native fn can call meta_native_call")
-	end
+	assert(self:isNative(), "only native fn can call meta_native_call")
+	return self._unionFnCom:meta_native_call(vContext, vTermTuple)
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
+	assert(not self:isNative(), "native fn can't call meta_call")
 	return self._unionFnCom:meta_call(vContext, vTypeTuple)
 end
 
@@ -105,7 +96,7 @@ end
 
 function LuaFunction:implement(vContext, vSelfType, vIntfFnOrNil)
 	local nUnionCom = self._unionFnCom
-	if nUnionCom.tag == LuaFunction.FIXED_RET then
+	if LateFnCom.is(nUnionCom) then
 		return self._unionFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
 	else
 		vContext:error("invalid as member")
@@ -114,7 +105,7 @@ function LuaFunction:implement(vContext, vSelfType, vIntfFnOrNil)
 end
 
 function LuaFunction:isMember()
-	return self._autoArgs:hasSelf() and self._unionFnCom.tag == LuaFunction.FIXED_RET
+	return self._autoArgs:hasSelf() and LateFnCom.is(self._unionFnCom)
 end
 
 function LuaFunction:getNode()::Ret(class.AstNode)

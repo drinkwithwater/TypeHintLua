@@ -1,28 +1,26 @@
 
 local Reference = require "thlua.type.Reference"
 local TermCase = require "thlua.term.TermCase"
-local LuaFunction = require "thlua.func.LuaFunction"
 local FnComClass = require "thlua.func.FnComClass"
 
-local NewRetFnCom = FnComClass()
+local ClassFnCom = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function NewRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetClass(class.NewRetFnCom, class.IFnCom)
+function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction)::RetClass(class.ClassFnCom)
 	local self = setmetatable({::Self()
-		tag=LuaFunction.NEW_RET,
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false,
 		_newTypeRefer=false,
 		_once=false,
 		_onceHintNew=false,
-	}, NewRetFnCom)
+	}, ClassFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function NewRetFnCom:initByRetClass(vContext, vRefer)
+function ClassFnCom:initByRetClass(vContext, vRefer)
 	self._newTypeRefer = vRefer
 	local nAutoArgs = self._luaFunction._autoArgs
 	local nArgTuple = nAutoArgs:checkWhenLate(vContext)
@@ -30,7 +28,7 @@ function NewRetFnCom:initByRetClass(vContext, vRefer)
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 end
 
-function NewRetFnCom:checkDefine()
+function ClassFnCom:checkDefine()
 	if self._once then
 		return
 	end
@@ -42,18 +40,18 @@ function NewRetFnCom:checkDefine()
 	nLuaTable:sealNew(nContext)
 end
 
-function NewRetFnCom:meta_call(vContext, vTermTuple)
+function ClassFnCom:meta_call(vContext, vTermTuple)
 	self:checkDefine()
 	return self._typeFunction:meta_call(vContext, vTermTuple)
 end
 
-function NewRetFnCom:regionTableNew(vContext, vNode)
+function ClassFnCom:regionTableNew(vContext, vNode)
 	assert(not self._onceHintNew, "New() can only be called once")
 	self._onceHintNew = true
 	return self._newTypeRefer:checkType()
 end
 
-function NewRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
+function ClassFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	if vTypeTuple:getRepeatType() or #vTypeTuple~=1 then
 		vContext:getRuntime():nodeError(vNode, "return tuple not match")
 	else
@@ -65,10 +63,14 @@ function NewRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	end
 end
 
-function NewRetFnCom:regionEnd(vContext, vNode, vTermTupleList)
+function ClassFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	if #vTermTupleList <= 0 then
 		vContext:getRuntime():nodeError(vNode, "return statement not found")
 	end
 end
 
-return NewRetFnCom
+function ClassFnCom.is(v)::isguard(class.ClassFnCom)
+	return getmetatable(v) == ClassFnCom
+end
+
+return ClassFnCom

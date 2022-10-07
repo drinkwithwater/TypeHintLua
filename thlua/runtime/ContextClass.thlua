@@ -124,7 +124,7 @@ local function ContextClass()::open()
 
 	function Context:recordLateLuaFunction(vFunc)
 		if self._sealContext == self then
-			self._lateFnDict[vFunc] = true
+			self._lateFnSet[vFunc] = true
 		else
 			self._sealContext:recordLateLuaFunction(vFunc)
 		end
@@ -132,20 +132,20 @@ local function ContextClass()::open()
 
 	function Context:recordDefineLuaFunction(vFunc)
 		if self._sealContext == self then
-			self._defineFnDict[vFunc] = true
+			self._classFnSet[vFunc] = true
 		else
 			self._sealContext:recordDefineLuaFunction(vFunc)
 		end
 	end
 
 	function Context:checkDefineLuaFunction()
-		for fn, v in pairs(self._defineFnDict) do
+		for fn, v in pairs(self._classFnSet) do
 			fn:checkDefine()
 		end
 	end
 
 	function Context:checkLateLuaFunction()
-		for fn, v in pairs(self._lateFnDict) do
+		for fn, v in pairs(self._lateFnSet) do
 			fn:checkLateRun()
 		end
 	end

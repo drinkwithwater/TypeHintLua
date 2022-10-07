@@ -6,8 +6,8 @@ local TermCase = require "thlua.term.TermCase"
 
 local Exception = require "thlua.Exception"
 local OpenFnCom = require "thlua.func.OpenFnCom"
-local FixedRetFnCom = require "thlua.func.FixedRetFnCom"
-local NewRetFnCom = require "thlua.func.NewRetFnCom"
+local LateFnCom = require "thlua.func.LateFnCom"
+local ClassFnCom = require "thlua.func.ClassFnCom"
 
 local FunctionBuilder = {}
 
@@ -46,7 +46,7 @@ function FunctionBuilder.newLongHint(self:class.FunctionBuilder)::RetClass(class
 			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			assert(not self._retTuples, Exception.new("function builder case conflict"))
-			local nCom = NewRetFnCom.new(self._manager, self._luaFunc)
+			local nCom = ClassFnCom.new(self._manager, self._luaFunc)
 			vRefer:setTypeAsync(function()
 				local nImplType = vStruct
 				if Reference.is(vStruct) then
@@ -116,17 +116,12 @@ function FunctionBuilder:build()::Ret(class.LuaFunction)
 				end
 			end
 		end
-		local nLateFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
+		local nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
 		nLateFnCom:init(nRetTuples, self._nocheck)
 		self._context:recordLateLuaFunction(nLateFnCom)
 	else
-		local nTag = nFnCom.tag
-		if nTag == LuaFunction.NEW_RET then
+		if ClassFnCom.is(nFnCom) then
 			self._context:recordDefineLuaFunction(nFnCom)
-		elseif nTag == LuaFunction.OPEN then
-			-- pass
-		else
-			error("invalid tag:"..tostring(nTag))
 		end
 	end
 	return self._luaFunc
