@@ -225,7 +225,7 @@ function Runtime:RootNamespace()::Ret(class.Namespace)
 	return nSpace
 end
 
-function Runtime:LetNamespace(vParentLet, vBlockNode)
+function Runtime:LetNamespace(vParentLet:class.Namespace, vBlockNode:class.AstNode)::Ret(class.Namespace)
 	local nSpace = Namespace.new(self._manager, vBlockNode, vParentLet:getKeyToType())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
@@ -237,13 +237,13 @@ function Runtime:makeSymbol_ENV(vNode)
 	return Symbol.new(self, false, vNode, self._globalTable, nTerm)
 end
 
-function Runtime:_save(vSeverity, vNode, ...)
-	local l = {}
+function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.AstNode, ...:Truth)
+	local l:List(String) = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
 	end
 	local nMsg = table.concat(l, " ")
-	local nDiaList = self._fileStateDict[vNode.path].diaList
+	local nDiaList = self._fileStateDict[vNode.path]!.diaList
 	nDiaList[#nDiaList + 1] = {
 		msg=nMsg,
 		node=vNode,
@@ -251,23 +251,23 @@ function Runtime:_save(vSeverity, vNode, ...)
 	}
 end
 
-function Runtime:nodeError(vNode, ...:Truth)
+function Runtime:nodeError(vNode:class.AstNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
-function Runtime:nodeWarn(vNode, ...:Truth)
+function Runtime:nodeWarn(vNode:class.AstNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
-function Runtime:nodeInfo(vNode, ...:Truth)
+function Runtime:nodeInfo(vNode:class.AstNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end
 
-function Runtime:getAllDiagnostic()
-	local nFileToDiaList = {}
+function Runtime:getAllDiagnostic()::Ret(Dict(String, List(Diagnostic)))
+	local nFileToDiaList:Dict(String, List(Diagnostic)) = {}
 	for nFileName, nState in pairs(self._fileStateDict) do
 		nFileToDiaList[nFileName] = nState.diaList
 	end

@@ -41,7 +41,9 @@ function FixedRetFnCom:checkLateRun()
 				local nArgTuple = self._typeFunction:getArgTuple()
 				nArgTuple = nArgTuple:replaceFirst(nType)
 				local nInplaceContext = self._luaFunction:newInplaceContext()
-				local ok, err = pcall(self._luaFunction._runFunc, nInplaceContext, nArgTuple:makeTermTuple())
+				local ok, err = pcall(function()
+					self._luaFunction._runFunc(nInplaceContext, nArgTuple:makeTermTuple())
+				end)
 				if not ok then
 					nInplaceContext:error(tostring(err))
 				end
@@ -52,7 +54,9 @@ function FixedRetFnCom:checkLateRun()
 			self._once = true
 			local nArgTuple = self._typeFunction:getArgTuple()
 			local nInplaceContext = self._luaFunction:newInplaceContext()
-			local ok, err = pcall(self._luaFunction._runFunc, nInplaceContext, nArgTuple:makeTermTuple())
+			local ok, err = pcall(function()
+				self._luaFunction._runFunc(nInplaceContext, nArgTuple:makeTermTuple())
+			end)
 			if not ok then
 				nInplaceContext:error(tostring(err))
 			end

@@ -33,13 +33,13 @@ function FunctionBuilder.new(vContext:class.Context,
 	}, FunctionBuilder)
 end
 
-function FunctionBuilder.newLongHint(self)
-	return {
-		member=function(vLongHint)
+function FunctionBuilder.newLongHint(self:class.FunctionBuilder)::RetClass(class.FnLongHint)
+	return {::Self()
+		member=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
 			self._autoArgs:setSelf(self._context)
 			return vLongHint
 		end,
-		RetClass=function(vLongHint, vRefer, vStruct)
+		RetClass=function(vLongHint:class.FnLongHint, vRefer, vStruct)::Ret(class.FnLongHint)
 			if not self._hasRet then
 				self._context:getRuntime():nodeError(self._node, "hint return class but block has no RetStat")
 			end
@@ -60,7 +60,7 @@ function FunctionBuilder.newLongHint(self)
 			nCom:initByRetClass(self._context, vRefer)
 			return vLongHint
 		end,
-		Ret=function(vLongHint, ...)
+		Ret=function(vLongHint:class.FnLongHint, ...)::Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			local nRetTuples = self._retTuples
 			if not nRetTuples then
@@ -71,12 +71,12 @@ function FunctionBuilder.newLongHint(self)
 			self._retTuples = nRetTuples
 			return vLongHint
 		end,
-		nocheck=function(vLongHint)
+		nocheck=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			self._nocheck=true
 			return vLongHint
 		end,
-		open=function(vLongHint)
+		open=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			assert(not self._retTuples, Exception.new("function builder case conflict"))
 			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
@@ -84,7 +84,7 @@ function FunctionBuilder.newLongHint(self)
 			self._fnCom = nOpenCom
 			return vLongHint
 		end,
-		isguard=function(vLongHint, vType)
+		isguard=function(vLongHint:class.FnLongHint, vType)::Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			local nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 			nOpenCom:initByGuard(self._context, vType)
