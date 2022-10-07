@@ -1,23 +1,26 @@
 
 local TypeClass = require "thlua.type.TypeClass"
 
+(@let.class = import("thlua.type.TypeClass").class)
+
 local function UnionClass()::open()
 	local t = TypeClass()
     function t:__len()
         error("union class len TODO")
     end
-	function t:detailString?(v)
-		local l = {}
+	function t:detailString?(v)::Ret(String)
+		local l:List(class.IAtomType) = {}
 		self:foreach(function(vType)
 			l[#l+1] = vType
 		end)
 		table.sort(l, function(vLeft, vRight)
 			return vLeft.id < vRight.id
 		end)
+		local sl:List(String) = {}
 		for i=1, #l do
-			l[i] = l[i]:detailString(v)
+			sl[i] = l[i]:detailString(v)
 		end
-		return "Union("..table.concat(l,",")..")"
+		return "Union("..table.concat(sl,",")..")"
 	end
 	function t:isUnion()
 		return true
