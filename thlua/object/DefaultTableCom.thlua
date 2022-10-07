@@ -13,8 +13,8 @@ DefaultTableCom.__index=DefaultTableCom
 function DefaultTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable)::RetClass(class.DefaultTableCom)
     local self = setmetatable({::Self()
         _manager=vManager,
-		_keyType=vManager.type.Never @class.IKeyType,
-		_valueDict={} @Dict(class.IAtomType, class.IKeyType),
+		_keyType=vManager.type.Never @class.UKeyType,
+		_valueDict={} @Dict(class.IAtomType, class.UKeyType),
 		_overrideLiteralSet={} @Dict(class.IAtomType, True),
         _luaTable=vLuaTable,
         __indexType=false,
@@ -25,7 +25,7 @@ function DefaultTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTabl
     return self
 end
 
-function DefaultTableCom:initByKeyValue(vKeyType:class.IKeyType, vValueDict:Dict(class.IAtomType, class.IValueType))::Ret()
+function DefaultTableCom:initByKeyValue(vKeyType:class.UKeyType, vValueDict:Dict(class.IAtomType, class.UValueType))::Ret()
 	self._keyType = vKeyType
 	self._valueDict = vValueDict
 end
@@ -42,7 +42,7 @@ function DefaultTableCom:foreachGetPair(vFunc)
 	end)
 end
 
-function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil,Boolean))
+function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.UKeyType, vOverride:Union(Nil,Boolean))
 	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
 	if nKeyContainType then
 		local nCurValueType = self._valueDict[nKeyContainType]!
@@ -71,7 +71,7 @@ function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType
 	end
 end
 
-function DefaultTableCom:_meta_get(vContext, vKeyType)::Ret(Boolean, class.IKeyType)
+function DefaultTableCom:_meta_get(vContext, vKeyType)::Ret(Boolean, class.UKeyType)
 	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
 	if nKeyContainType then
 		return true, self._valueDict[nKeyContainType]!
@@ -106,7 +106,7 @@ function DefaultTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(Tru
 	end
 end
 
-function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.IKeyType, vOverride:Union(Nil, Boolean))
+function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.UKeyType, vOverride:Union(Nil, Boolean))
 	local nContainType = self._keyType:_containOneNotRefer(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
@@ -134,7 +134,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValu
 	end
 end
 
-function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.IKeyType)
+function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UKeyType)
 	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
 	if nKeyContainType then
 		return self._valueDict[nKeyContainType]!

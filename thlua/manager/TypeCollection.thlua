@@ -56,14 +56,14 @@ function TypeCollection:_putOne(vType)
 	end
 end
 
-function TypeCollection:put(vType:class.IKeyType)
+function TypeCollection:put(vType:class.UKeyType)
 	vType:foreach(function(vSubType)
 		self.bits = self.bits | vSubType.bits
 		self:_putOne(vSubType)
 	end)
 end
 
-function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.IKeyType)
+function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UKeyType)
 	local nUnionType:class.IUnionType = nil
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
@@ -92,7 +92,7 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.IKeyType)
 	return self._manager:_unifyUnion(nUnionType)
 end
 
-function TypeCollection:mergeToType()::Ret(class.IKeyType)
+function TypeCollection:mergeToType()::Ret(class.UKeyType)
 	local nBits = self.bits
 	-- 0. only one type
 	if self.count == 1 then
@@ -109,13 +109,13 @@ function TypeCollection:mergeToType()::Ret(class.IKeyType)
 	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
 	-- 2. make true part
-	local nTrueBitToType:Dict(Number, class.IKeyType) = {}
+	local nTrueBitToType:Dict(Number, class.UKeyType) = {}
 	for nBit, nSet in pairs(self.bitsToSet) do
 		if TrueBitToTrue[nBit] then
 			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
 		end
 	end
-	local nTrueType:class.IKeyType = self._type.Never
+	local nTrueType:class.UKeyType = self._type.Never
 	if TrueBitToTrue[nTruableBits] then
 		-- if truablebits is bit, then just one case
 		nTrueType = nTrueBitToType[nTruableBits]

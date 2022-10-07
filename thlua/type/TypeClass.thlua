@@ -10,14 +10,14 @@ class.AstNode = Struct {
 class.GenFunc = Fn(class.Context, class.TermTuple):Ret(class.TermTuple)
 
 class.TypeCollection = Struct {
-	put=Mfn(class.IKeyType):Ret(),
-	mergeToType=Mfn():Ret(class.IKeyType)
+	put=Mfn(class.UKeyType):Ret(),
+	mergeToType=Mfn():Ret(class.UKeyType)
 }
 
 class.IFnCom = Struct {
 }
 
-class.IContext = Union(class.Runtime, class.Context)
+class.UContext = Union(class.Runtime, class.Context)
 
 class.TypeManager = Struct {
 	buildSimpleGlobal=Mfn():Ret(class.SpaceDict),
@@ -43,24 +43,24 @@ class.TypeManager = Struct {
 			concat=class.IAtomType,
 		},
 	},
-	mergePairList=Fn(class.TypeManager, Truth):Ret(class.IKeyType, Dict(class.IAtomType, class.IValueType)),
-	_toType=Fn(class.TypeManager, Truth):Ret(class.IKeyType),
+	mergePairList=Fn(class.TypeManager, Truth):Ret(class.UKeyType, Dict(class.IAtomType, class.UValueType)),
+	_toType=Fn(class.TypeManager, Truth):Ret(class.UKeyType),
 	genTypeId=Fn(class.TypeManager):Ret(Number),
 	Literal=Fn(class.TypeManager, Union(String, Number, Boolean)):Ret(class.IAtomType),
-	Union=Fn(class.TypeManager):Dots(Truth):Ret(class.IValueType),
+	Union=Fn(class.TypeManager):Dots(Truth):Ret(class.UValueType),
 	Tuple=Fn(class.TypeManager):Dots(Truth):Ret(class.TypeTuple),
-	_unifyUnion=Fn(class.TypeManager):Ret(class.IKeyType),
+	_unifyUnion=Fn(class.TypeManager):Ret(class.UKeyType),
 	TypeCollection=Mfn():Ret(class.TypeCollection),
 	mergeToUnionTerm=Mfn(Truth):Ret(class.UnionTerm),
 	VoidRetTuples=Mfn():Ret(class.RetTuples),
-	UnionTerm=Mfn(class.IValueType):Ret(class.UnionTerm),
+	UnionTerm=Mfn(class.UValueType):Ret(class.UnionTerm),
 	Struct=Mfn(Truth, Option(Truth)):Ret(class.Struct),
 	LuaFunction=Mfn():Ret(class.LuaFunction),
 	LuaTable=Mfn():Ret(class.LuaTable),
 }
 
-class.IKeyType = Union(class.IAtomType, class.IUnionType)
-class.IValueType = Union(class.IAtomType, class.IUnionType, class.Reference)
+class.UKeyType = Union(class.IAtomType, class.IUnionType)
+class.UValueType = Union(class.IAtomType, class.IUnionType, class.Reference)
 
 class.IAtomType = Struct ({
 	id=Number,
@@ -78,35 +78,35 @@ class.IAtomType = Struct ({
 	isNilable=Mfn():Ret(Boolean),
 
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
-	contain=Mfn(class.IValueType):Ret(Union(class.IKeyType, False)),
+	contain=Mfn(class.UValueType):Ret(Union(class.UKeyType, False)),
 
 	_mapContinue=Mfn(Boolean, Fn(class.IAtomType):Ret():Ret(Boolean)):Ret(Boolean),
-	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IKeyType, False)),
+	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UKeyType, False)),
 	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 
-	native_type=Mfn():Ret(class.IKeyType),
-	native_tostring=Mfn():Ret(class.IKeyType),
-	native_getmetatable=Mfn():Ret(class.IKeyType),
-	native_setmetatable=Mfn(class.Context, class.IKeyType):Ret(class.IKeyType),
+	native_type=Mfn():Ret(class.UKeyType),
+	native_tostring=Mfn():Ret(class.UKeyType),
+	native_getmetatable=Mfn():Ret(class.UKeyType),
+	native_setmetatable=Mfn(class.Context, class.UKeyType):Ret(class.UKeyType),
 
-	native_rawget=Mfn(class.Context, class.IAtomType):Ret(class.IKeyType),
-	native_rawset=Mfn(class.Context, class.IAtomType, class.IKeyType, Union(Nil, Boolean)):Ret(),
+	native_rawget=Mfn(class.Context, class.IAtomType):Ret(class.UKeyType),
+	native_rawset=Mfn(class.Context, class.IAtomType, class.UKeyType, Union(Nil, Boolean)):Ret(),
 
-	meta_get=Mfn(class.Context, class.IAtomType):Ret(class.IKeyType),
-	meta_set=Mfn(class.Context, class.IAtomType, class.IKeyType):Ret(),
-	meta_set_override=Mfn(class.Context, class.IAtomType, class.IKeyType):Ret(),
+	meta_get=Mfn(class.Context, class.IAtomType):Ret(class.UKeyType),
+	meta_set=Mfn(class.Context, class.IAtomType, class.UKeyType):Ret(),
+	meta_set_override=Mfn(class.Context, class.IAtomType, class.UKeyType):Ret(),
 
 	meta_len=Mfn(class.Context):Ret(class.IAtomType),
-	meta_uop_some=Mfn(class.Context, String):Ret(class.IKeyType),
+	meta_uop_some=Mfn(class.Context, String):Ret(class.UKeyType),
 	meta_bop_func=Mfn(class.Context, String):Ret(Boolean, Union(class.IAtomType, Nil)),
 
 	meta_call=Mfn(class.Context, class.TypeTuple):Ret(class.RetTuples),
 
-	notnilType=Mfn():Ret(class.IKeyType),
-	trueType=Mfn():Ret(class.IKeyType),
-	falseType=Mfn():Ret(class.IKeyType),
+	notnilType=Mfn():Ret(class.UKeyType),
+	trueType=Mfn():Ret(class.UKeyType),
+	falseType=Mfn():Ret(class.UKeyType),
 
-	same=Mfn(class.IValueType):Ret(Boolean),
+	same=Mfn(class.UValueType):Ret(Boolean),
 }})
 
 class.IUnionType = Struct ({
@@ -124,16 +124,16 @@ class.IUnionType = Struct ({
 	_mapContinue=Mfn(Boolean, Fn(class.IAtomType):Ret():Ret(Boolean)):Ret(Boolean),
 	isUnion=Mfn():Ret(True),
 	isNilable=Mfn():Ret(Boolean),
-	contain=Mfn(class.IValueType):Ret(Union(class.IKeyType, False)),
+	contain=Mfn(class.UValueType):Ret(Union(class.UKeyType, False)),
 
-	notnilType=Mfn():Ret(class.IKeyType),
-	trueType=Mfn():Ret(class.IKeyType),
-	falseType=Mfn():Ret(class.IKeyType),
+	notnilType=Mfn():Ret(class.UKeyType),
+	trueType=Mfn():Ret(class.UKeyType),
+	falseType=Mfn():Ret(class.UKeyType),
 
-	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IKeyType, False)),
+	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UKeyType, False)),
 	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 
-	same=Mfn(class.IValueType):Ret(Boolean),
+	same=Mfn(class.UValueType):Ret(Boolean),
 	_put=Mfn(class.IAtomType):Ret()
 }})
 
@@ -173,7 +173,7 @@ local function TypeClass()::open()
 		error(tostring(self).."_containOneNotRefer TODO")
 	end
 	function t:contain(vRight)
-		local nLeft:class.IKeyType = self
+		local nLeft:class.UKeyType = self
 		if nLeft:isReference() then
 			nLeft = nLeft:checkType()
 		end
