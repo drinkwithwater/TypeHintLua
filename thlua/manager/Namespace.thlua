@@ -3,7 +3,7 @@ local Exception = require "thlua.Exception"
 local Reference = require "thlua.type.Reference"
 local Node = require "thlua.code.Node"
 local Namespace = {}
-Namespace.__tostring=function(self)
+Namespace.__tostring=function(self)::Ret(String)
 	return (self:isLetSpace() and "letspace-" or "namespace-") .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 Namespace.__index=Namespace
@@ -15,7 +15,7 @@ Namespace.__index=Namespace
 	}
 end)
 
-local function throw(vMsg)
+local function throw(vMsg:String)
 	local nNode = Node.getDebugNode(4)
 	error(Exception.new(vMsg, nNode))
 end
@@ -24,12 +24,12 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_key2type=(vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@class.SpaceDict,
-		_closed=false,
+		_closed=false@Boolean,
 		_node=vNode,
-		_key=false,
+		_key=false@Union(False, String),
 	}, Namespace)
 	self.localExport=setmetatable({}, {
-		__index=function(_,k)
+		__index=function(_,k:String)
 			local rawgetV = rawget(self._key2type, k)
 			if rawgetV ~= nil then
 				return rawgetV
@@ -45,7 +45,7 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 			self._key2type[k] = refer
 			return refer
 		end,
-		__newindex=function(_,k,newV)
+		__newindex=function(_,k:String,newV)
 			if self._closed then
 				throw("namespace closed, can't create key="..tostring(k))
 			end
@@ -92,13 +92,13 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 				end
 			end
 		end,
-		__tostring=function(t)
+		__tostring=function(t)::Ret(String)
 			return tostring(self).."->localExport"
 		end,
 		__self=self,
 	})
 	self.globalExport=setmetatable({}, {
-		__index=function(_,k)
+		__index=function(_,k:String)
 			local v = self._key2type[k]
 			if v ~= nil then
 				return v
@@ -108,20 +108,20 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 		__newindex=function(t,k,v)
 			throw("global can't assign")
 		end,
-		__tostring=function(t)
+		__tostring=function(t)::Ret(String)
 			return tostring(self).."->globalExport"
 		end,
 	})
 	return self
 end
 
-function Namespace:trySetKey(vKey)
+function Namespace:trySetKey(vKey:String)
 	if not self._key then
 		self._key = vKey
 	end
 end
 
-function Namespace:isLetSpace()
+function Namespace:isLetSpace()::Ret(Boolean)
 	return getmetatable(self._key2type) and true or false
 end
 

@@ -39,16 +39,16 @@ local native = require "thlua.native"
 local TypeManager = {}
 TypeManager.__index=TypeManager
 
-function TypeManager.new(vRuntime:class.Runtime)::Ret(class.TypeManager):nocheck()
-	local self = setmetatable({
+function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
+	local self = setmetatable({::Self()
 		_runtime=vRuntime,
 		type={},
 		builtin={},
 		coToRefer={},
-		_literalDict={},
+		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
 		_unionSignToType={},
 		_structSignToType={},
-		_typeIdCounter=0,
+		_typeIdCounter=0@Number,
 	}, TypeManager)
 	self.type.Never = Never.new(self)
 	self.type.Nil = Nil.new(self)
@@ -96,24 +96,24 @@ local tableToTypeFuncDict = {
 	[NativeFunction]=true,
 }
 
-function TypeManager:isValueType(vData)
+function TypeManager:isValueType(vData)::Ret(Boolean)
     local meta = getmetatable(vData)
     if meta and (tableToTypeFuncDict[meta] or meta == Reference) then
         return true
     else
-		return false
+			return false
     end
 end
 
-function TypeManager:assertValueType(vData)
+function TypeManager:assertValueType(vData)::Ret(class.UValueType)
 	if self:isValueType(vData) then
 		return vData
 	else
-        error("assertValueType failed, type="..type(vData))
+		error("assertValueType failed, type="..type(vData))
 	end
 end
 
-function TypeManager:_toType(vData)
+function TypeManager:_toType(vData)::Ret(class.UKeyType)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
@@ -122,8 +122,10 @@ function TypeManager:_toType(vData)
 		else
 			error("to type failed")
 		end
-	elseif t == "number" or t == "string" or t == "boolean" then
+	elseif t == "number" or t == "string" then
 		return self:Literal(vData)
+	elseif t == "boolean" then
+		return self:Boolean(vData)
 	elseif t == "nil" then
 		return self.type.Nil
 	elseif t == "userdata" then
@@ -135,11 +137,11 @@ function TypeManager:_toType(vData)
 	end
 end
 
-function TypeManager:TypeCollection()
+function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:Union(...:Truth)
+function TypeManager:Union(...:Truth)::Ret(class.UValueType)
 	local n = select("#", ...)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
@@ -213,8 +215,7 @@ class.StructMetaTable = Struct {
 
 
 
-
-function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(class.StructMetaTable, Nil))
+function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(class.StructMetaTable, Nil))::Ret(class.Struct)
 	vMetaTable = vMetaTable or {}@class.StructMetaTable
 	local nNewRefer = self:Reference(false)
 	-- TODO error when type intersect
@@ -331,45 +332,45 @@ function TypeManager:_recordTypeUnionSign(vType)
 	return vType
 end
 
-function TypeManager:NativeFunction(vFunc)
+function TypeManager:NativeFunction(vFunc)::Ret(class.NativeFunction)
 	return self:_recordTypeUnionSign(NativeFunction.new(self, vFunc))
 end
 
-function TypeManager:LuaFunction()
+function TypeManager:LuaFunction()::Ret(class.LuaFunction)
 	return self:_recordTypeUnionSign(LuaFunction.new(self))
 end
 
-function TypeManager:LuaTable()
+function TypeManager:LuaTable()::Ret(class.LuaTable)
 	return self:_recordTypeUnionSign(LuaTable.new(self))
 end
 
-function TypeManager:Literal(vValue)
-	local t = type(vValue)
-	if t == "boolean" then
-		if vValue then
-			return self.type.True
-		else
-			return self.type.False
-		end
+function TypeManager:Boolean(vValue)::Ret(class.BooleanLiteral)
+	if vValue then
+		return self.type.True
 	else
-		local nLiteralDict = self._literalDict
-		local nLiteralType = nLiteralDict[vValue]
-		if not nLiteralType then
-			if t == "number" then
-				nLiteralType = NumberLiteral.new(self, vValue)
-			elseif t == "string" then
-				nLiteralType = StringLiteral.new(self, vValue)
-			else
-				error("literal must take number or boolean or string value")
-			end
-			self:_recordTypeUnionSign(nLiteralType)
-			nLiteralDict[vValue] = nLiteralType
-		end
-		return nLiteralType
+		return self.type.False
 	end
 end
 
-function TypeManager:Tuple(...:Truth)
+function TypeManager:Literal(vValue:Union(String, Number))::Ret(class.IAtomType)
+	local t = type(vValue)
+	local nLiteralDict = self._literalDict
+	local nLiteralType = nLiteralDict[vValue]
+	if not nLiteralType then
+		if t == "number" then
+			nLiteralType = NumberLiteral.new(self, vValue)
+		elseif t == "string" then
+			nLiteralType = StringLiteral.new(self, vValue)
+		else
+			error("literal must take number or string value"..t)
+		end
+		self:_recordTypeUnionSign(nLiteralType)
+		nLiteralDict[vValue] = nLiteralType
+	end
+	return nLiteralType
+end
+
+function TypeManager:Tuple(...:Truth)::Ret(class.TypeTuple)
 	local nTypeList = {...}
 	for i=1, select("#", ...) do
 		local nType = nTypeList[i]
@@ -382,25 +383,25 @@ function TypeManager:Tuple(...:Truth)
 	return TypeTuple.new(self, nTypeList)
 end
 
-function TypeManager:Variable(vIsGeneric)
+function TypeManager:Variable(vIsGeneric:Boolean)::Ret(class.Variable)
 	return Variable.new(self, vIsGeneric)
 end
 
-function TypeManager:VoidRetTuples()
+function TypeManager:VoidRetTuples()::Ret(class.RetTuples)
 	return self:SingleRetTuples(self:Tuple())
 end
 
-function TypeManager:SingleRetTuples(vTypeTuple)
+function TypeManager:SingleRetTuples(vTypeTuple:class.TypeTuple)::Ret(class.RetTuples)
 	local nRetTuples = RetTuples.new(self)
 	return nRetTuples:Add(vTypeTuple)
 end
 
-function TypeManager:Mfn(...:Truth)
+function TypeManager:Mfn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
 	return self:MemberFunction(nArgTuple, RetTuples.new(self))
 end
 
-function TypeManager:Fn(...:Truth)
+function TypeManager:Fn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
 	return self:Function(nArgTuple, RetTuples.new(self))
 end
@@ -419,15 +420,15 @@ function TypeManager:MemberFunction(vArgTuple, vRetTuples)
 	return self:_unifyStruct(nFunc)
 end
 
-function TypeManager:UnionTerm(vType)
+function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)
 	local nType = vType:checkType()
 	if LuaTable.is(nType) then
 		nType:checkDefine()
 	end
-    return UnionTerm.new(self, nType)
+	return UnionTerm.new(self, nType)
 end
 
-function TypeManager:TermTuple(vTermList, vTermTupleOrNil)
+function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:Option(class.TermTuple))::Ret(class.TermTuple)
 	local nTermList = {}
 	local nTypeList = {}
 	for _, nTerm in ipairs(vTermList) do
@@ -452,16 +453,16 @@ function TypeManager:TermTuple(vTermList, vTermTupleOrNil)
     return TermTuple.new(self, nTermList, nTypeTuple)
 end
 
-function TypeManager:Reference(vName)
+function TypeManager:Reference(vName:String)::Ret(class.Reference)
 	return Reference.new(self, vName)
 end
 
-function TypeManager:mergeToUnionTerm(vTypeCasePairList)
+function TypeManager:mergeToUnionTerm(vTypeCasePairList)::Ret(class.UnionTerm)
     local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
     return UnionTerm.new(self, nType, nTypeToCase)
 end
 
-function TypeManager:genTypeId()
+function TypeManager:genTypeId()::Ret(Number)
 	local nNewId = self._typeIdCounter + 1
 	self._typeIdCounter = nNewId
 	return nNewId
@@ -471,14 +472,6 @@ function TypeManager:dump()
 	for k,v in pairs(self._unionSignToType) do
 		print(k, tostring(v))
 	end
-end
-
-function TypeManager:isLuaTable(v)
-	return getmetatable(v) == LuaTable
-end
-
-function TypeManager:isLuaFunction(v)
-	return getmetatable(v) == LuaFunction
 end
 
 return TypeManager
