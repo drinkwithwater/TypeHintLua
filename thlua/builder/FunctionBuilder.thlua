@@ -24,7 +24,7 @@ function FunctionBuilder.new(vContext:class.Context,
 		_node=vNode,
 		_context=vContext,
 		_manager=nManager,
-		_retTuples=false,
+		_retTuples=false@Union(False, class.RetTuples),
 		_nocheck=false,
 		_fnCom=false,
 		_hasRet=vHasRet,
@@ -116,9 +116,9 @@ function FunctionBuilder:build()::Ret(class.LuaFunction)
 				end
 			end
 		end
-		nFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
-		nFnCom:init(self._context, nRetTuples, self._nocheck)
-		self._context:recordLateLuaFunction(nFnCom)
+		local nLateFnCom = FixedRetFnCom.new(self._manager, self._luaFunc)
+		nLateFnCom:init(nRetTuples, self._nocheck)
+		self._context:recordLateLuaFunction(nLateFnCom)
 	else
 		local nTag = nFnCom.tag
 		if nTag == LuaFunction.NEW_RET then

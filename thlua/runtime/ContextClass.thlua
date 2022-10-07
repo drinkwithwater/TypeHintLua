@@ -16,18 +16,18 @@ local Struct = require "thlua.object.Struct"
 local function ContextClass()::open()
 	local Context = {}
 	Context.__index=Context
-	function Context:__tostring()
+	function Context:__tostring()::Ret(String)
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TABLE_NEW(vNode, vHinterHandler, vPairMaker)
+	function Context:TABLE_NEW(vNode, vHinterHandler, vPairMaker)::Ret(class.LuaTable)
 		local nData, nHintMethod = TableBuilder.Begin(self, vNode, vPairMaker)
 		vHinterHandler(nHintMethod)
 		local nTableType = TableBuilder.End(nData)
 		return nTableType
 	end
 
-	function Context:FUNC_NEW(vNode, vHintCallback, vAutoArgs, vHasRet, vFunc)
+	function Context:FUNC_NEW(vNode, vHintCallback, vAutoArgs, vHasRet, vFunc)::Ret(class.LuaFunction)
 		local nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
 		local ok, err = pcall(vHintCallback, nBuilder:newLongHint())
 		if not ok then
@@ -37,36 +37,36 @@ local function ContextClass()::open()
 		return nLuaFunc
 	end
 
-	function Context:AutoArguments(vNode, vArgList, vArgDots)
+	function Context:AutoArguments(vNode, vArgList, vArgDots)::Ret(class.AutoArguments)
 		return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
 	end
 
-	function Context:HINT(vNode, vTerm, vType)
+	function Context:HINT(vNode, vTerm, vType)::Ret(class.UnionTerm)
 		-- TODO check cast valid
 		return self._manager:UnionTerm(vType)
 	end
 
-	function Context:TermTuple(a,b)
+	function Context:TermTuple(a,b)::Ret(class.TermTuple)
 		return self._manager:TermTuple(a,b)
 	end
 
-	function Context:UnionTerm(vType)
+	function Context:UnionTerm(vType)::Ret(class.UnionTerm)
 		return self._manager:UnionTerm(vType)
 	end
 
-	function Context:NumberTerm()
+	function Context:NumberTerm()::Ret(class.UnionTerm)
 		return UnionTerm.new(self._manager, self._manager.type.Number)
 	end
 
-	function Context:NeverTerm()
+	function Context:NeverTerm()::Ret(class.UnionTerm)
 		return UnionTerm.new(self._manager, self._manager.type.Never)
 	end
 
-	function Context:TruthTerm()
+	function Context:TruthTerm()::Ret(class.UnionTerm)
 		return UnionTerm.new(self._manager, self._manager.type.Truth)
 	end
 
-	function Context:NilTerm()
+	function Context:NilTerm()::Ret(class.UnionTerm)
 		return UnionTerm.new(self._manager, self._manager.type.Nil)
 	end
 
@@ -74,7 +74,7 @@ local function ContextClass()::open()
 		return UnionTerm.new(self._manager, self:Literal(v))
 	end
 
-	function Context:Literal(vValue)
+	function Context:Literal(vValue)::Ret(Union(class.StringLiteral, class.NumberLiteral))
 		return self._manager:Literal(vValue)
 	end
 
@@ -90,23 +90,23 @@ local function ContextClass()::open()
 		self._runtime:nodeInfo(self._node, ...)
 	end
 
-	function Context:newSealContext(vNode)
+	function Context:newSealContext(vNode:class.AstNode)::Ret(class.Context)
 		return self._runtime:newContext(vNode, false)
 	end
 
-	function Context:newOpenContext(vNode)
+	function Context:newOpenContext(vNode:class.AstNode)::Ret(class.Context)
 		return self._runtime:newContext(vNode, self._sealContext)
 	end
 
-	function Context:getNode()
+	function Context:getNode()::Ret(class.AstNode)
 		return self._node
 	end
 
-	function Context:getNamespace()
+	function Context:getNamespace()::Ret(class.Namespace)
 		return self._namespace
 	end
 
-	function Context:getRuntime()
+	function Context:getRuntime()::Ret(class.Runtime)
 		return self._runtime
 	end
 

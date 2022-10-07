@@ -15,15 +15,15 @@ function FixedRetFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFun
 		_typeFunction=false,
 		_selfOnceDict={},
 		_once=false,
-		_autoArgs=false,
-		_retTuples=false,
-		_nocheck=false,
+		_autoArgs=nil@class.AutoArguments,
+		_retTuples=false@Union(False, class.RetTuples),
+		_nocheck=false@Boolean,
 	}, FixedRetFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function FixedRetFnCom:init(vContext, vRetTuples, vNocheck)
+function FixedRetFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
 	self._autoArgs = self._luaFunction._autoArgs
 	self._retTuples = vRetTuples or false
 	self._nocheck = vNocheck
@@ -91,7 +91,7 @@ function FixedRetFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function FixedRetFnCom:cast(vContext, vDstTypeFn)::Ret(Boolean)
+function FixedRetFnCom:cast(vContext, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
 	if not self._typeFunction then
 		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
 		self._retTuples = self._retTuples or vDstTypeFn:getRetTuples()
