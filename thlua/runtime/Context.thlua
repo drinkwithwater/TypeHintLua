@@ -13,19 +13,18 @@ local Context = ContextClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function Context.new(vRuntime:class.Runtime, vApplyNode:class.AstNode)::RetClass(class.Context)
+function Context.new(vRuntime:class.Runtime, vApplyNode:class.AstNode, vSealContext:Union(False, class.Context, class.Runtime))::RetClass(class.Context)
 	local self = setmetatable({::Self()
 		_runtime=vRuntime,
 		_manager=vRuntime:getTypeManager(),
 		_node=vApplyNode,
 		_namespace=false,
 		_region=false,
+		_defineFnDict={} @ Dict(class.LuaFunction, True),
+		_lateFnDict={} @ Dict(class.LuaFunction, True),
 	}, Context)
+	self._sealContext = vSealContext or self
 	return self
-end
-
-function Context:newContext(vApplyNode:class.AstNode)
-	return self._runtime:newContext(vApplyNode)
 end
 
 function Context:BEGIN(vLexContext:Union(class.Context, class.Runtime), vBlockNode, vLuaFunc)
@@ -146,7 +145,7 @@ end
 
 -- meta items
 function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
-	local nGetContext = self:newContext(vNode)
+	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList = {}
 	local nOkay = self:nodePcall(vNode, function()
 		vTerm:foreach(function(vType, vTermCase)
@@ -167,7 +166,7 @@ function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
 end
 
 function Context:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
-	local nSetContext = self:newContext(vNode)
+	local nSetContext = self:newSealContext(vNode)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
 		vTerm:foreach(function(vType, _)
@@ -190,14 +189,14 @@ function Context:_apply(vNode, vNativePair, vFuncArgCaseList)
 				self._runtime:nodeError(vNode, "can't mix call native function & not-native function")
 				return self:TermTuple({})
 			end
-			return vNativePair[1]:meta_native_call(self:newContext(vNode), vNativePair[2])
+			return vNativePair[1]:meta_native_call(self:newOpenContext(vNode), vNativePair[2])
 		elseif nListLen >= 1 then
 			local nType1TupleCaseList = {}
 			local nMaxLength = 0
 			local nNil = self._manager.type.Nil
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
-				local nRetTuples = f:meta_call(self:newContext(vNode), a)
+				local nRetTuples = f:meta_call(self:newSealContext(vNode), a)
 				nRetTuples:foreach(function(vTypeTuple)
 					local nLength = #vTypeTuple
 					if nLength > nMaxLength then
@@ -272,7 +271,7 @@ function Context:META_CALL(vNode, vFuncTerm, vLazyFunc)
 end
 
 function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)
-	local nGetContext = self:newContext(vNode)
+	local nGetContext = self:newSealContext(vNode)
 	local nNativePair = nil
 	local nFuncArgCaseList = {}
 	local nNil = self._manager.type.Nil
@@ -331,25 +330,25 @@ function Context:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)
 end
 
 function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
-	local nBopContext = self:newContext(vNode)
+	local nBopContext = self:newSealContext(vNode)
 	local nCollection = self._manager:TypeCollection()
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		local nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			local nTypeTuple = self._manager:Tuple(vLeftType, vRightTerm:getType())
-			local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
+			local nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 			nCollection:put(nRetTuples:makeFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightTermCase)
 				local nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					local nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-					local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
+					local nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 					nCollection:put(nRetTuples:makeFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						local nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-						local nRetTuples = nLeftFunc:meta_call(self:newContext(vNode), nTypeTuple)
+						local nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 						nCollection:put(nRetTuples:makeFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
@@ -362,7 +361,7 @@ function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)
 end
 
 function Context:META_UOP(vNode, vOper, vData)
-	local nUopContext = self:newContext(vNode)
+	local nUopContext = self:newSealContext(vNode)
 	local nTypeCaseList = {}
 	if vOper == "#" then
 		vData:foreach(function(vType, vTermCase)

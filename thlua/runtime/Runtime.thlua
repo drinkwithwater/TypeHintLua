@@ -50,6 +50,7 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	})
 	self._loader = vLoader
 	self._runtime = self
+	self._sealContext = self
 	self._mainFileName = vMainFileName
 	self._node = Node.newRootNode(vMainFileName)
 	self._spaceList = {} @ List(class.Namespace)
@@ -84,29 +85,9 @@ function Runtime:getNodeSymbolSet(vNode)
 	return nSymbolSet
 end
 
-function Runtime:recordLateLuaFunction(vFunc)
-	self._lateFnDict[vFunc] = true
-end
-
-function Runtime:recordDefineLuaFunction(vFunc)
-	self._defineFnDict[vFunc] = true
-end
-
-function Runtime:checkDefineLuaFunction()
-	for fn, v in pairs(self._defineFnDict) do
-		fn:checkDefine()
-	end
-end
-
 function Runtime:checkTypeFinish()
 	for _, space in pairs(self._spaceList) do
 		space:check()
-	end
-end
-
-function Runtime:checkLateLuaFunction()
-	for fn, v in pairs(self._lateFnDict) do
-		fn:checkLateRun()
 	end
 end
 
@@ -122,14 +103,14 @@ function Runtime:main()
 	return pcall(function()
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._manager:TermTuple({})
-		nLuaFunc:meta_native_call(nLuaFunc:newInplaceContext(), nTermTuple)
+		nLuaFunc:meta_native_call(self:newOpenContext(nLuaFunc:getNode()), nTermTuple)
 		self:checkDefineLuaFunction()
 		self:checkLateLuaFunction()
 	end)
 end
 
-function Runtime:newContext(vApplyNode)
-	return Context.new(self, vApplyNode)
+function Runtime:newContext(vApplyNode, vSealContext)
+	return Context.new(self, vApplyNode, vSealContext)
 end
 
 function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
@@ -163,7 +144,7 @@ function Runtime:require(vPath)
 		}
 		self._loadedDict[vPath] = nLoadedState
 		local nTermTuple = self._manager:TermTuple({})
-		local nContext = nLuaFunc:newInplaceContext()
+		local nContext = self:newOpenContext(nLuaFunc:getNode())
 		local ret = nLuaFunc:meta_native_call(nContext, nTermTuple)
 		nLoadedState.term = ret:get(1)
 		nLoadedState.context = nContext

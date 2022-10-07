@@ -90,6 +90,14 @@ local function ContextClass()::open()
 		self._runtime:nodeInfo(self._node, ...)
 	end
 
+	function Context:newSealContext(vNode)
+		return self._runtime:newContext(vNode, false)
+	end
+
+	function Context:newOpenContext(vNode)
+		return self._runtime:newContext(vNode, self._sealContext)
+	end
+
 	function Context:getNode()
 		return self._node
 	end
@@ -108,6 +116,41 @@ local function ContextClass()::open()
 
 	function Context:getTypeManager()::Ret(class.TypeManager)
 		return self._manager
+	end
+
+	function Context:recordLateLuaFunction(vFunc)
+		if self._sealContext == self then
+			self._lateFnDict[vFunc] = true
+		else
+			self._sealContext:recordLateLuaFunction(vFunc)
+		end
+	end
+
+	function Context:recordDefineLuaFunction(vFunc)
+		if self._sealContext == self then
+			self._defineFnDict[vFunc] = true
+		else
+			self._sealContext:recordDefineLuaFunction(vFunc)
+		end
+	end
+
+	function Context:checkDefineLuaFunction()
+		for fn, v in pairs(self._defineFnDict) do
+			fn:checkDefine()
+		end
+	end
+
+	function Context:checkLateLuaFunction()
+		for fn, v in pairs(self._lateFnDict) do
+			fn:checkLateRun()
+		end
+	end
+
+	function Context:seal()
+		if self._sealContext == self then
+			self:checkDefineLuaFunction()
+			self:checkLateLuaFunction()
+		end
 	end
 
 	function Context:cast(vSrcType, vDstType)::Ret(Boolean)
