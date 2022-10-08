@@ -2,30 +2,43 @@
 local UnionTerm = require "thlua.term.UnionTerm"
 local TableBuilder = {}
 
-function TableBuilder.Begin(vContext, vNode, vPairMaker)
-	local nData = {
-		context=vContext,
-		node=vNode,
-		pairMaker=vPairMaker,
-		selfTable=false,
+(@let.class = import("thlua.type.TypeClass").class)
+
+(@do
+	let.Pair = Struct {
+		[1]=class.UValueType,
+		[2]=class.UValueType,
 	}
-	-- 1. create table
-	local nHintMethod = {
-		Self=function(self)
-			local nFnCom = vContext:getRegion():getFnCom()
-			nData.selfTable = nFnCom:regionTableNew(vContext)
-			return self
-		end,
-	}
-	return nData, nHintMethod
+	let.PairMaker = Fn():Ret(List(Pair), Number, class.UTypeTuple)
+end)
+
+TableBuilder.__index=TableBuilder
+
+function TableBuilder.new(vContext:class.UContext, vNode:class.AstNode, vPairMaker:PairMaker)::RetClass(class.TableBuilder)
+	return setmetatable({::Self()
+		_context=vContext,
+		_node=vNode,
+		_pairMaker=vPairMaker,
+		_selfTable=false@Union(False, class.LuaTable),
+	}, TableBuilder)
 end
 
-function TableBuilder.End(vData)
-	local nContext = vData.context
+function TableBuilder.makeLongHint(self:class.TableBuilder)::RetClass(class.TableLongHint)
+	return {::Self()
+		Self=function(vLongHint:class.TableLongHint)::Ret(class.TableLongHint)
+			local nFnCom = self._context:getRegion():getFnCom()
+			self._selfTable = nFnCom:regionTableSelf(self._context, self._node)
+			return vLongHint
+		end,
+	}
+end
+
+function TableBuilder:build()::Ret(class.LuaTable)
+	local nContext = self._context
 	local nManager = nContext._manager
-	local nTableType = vData.selfTable or nManager:LuaTable()
-	nTableType:setName("("..tostring(vData.node)..")")
-	local vList, vDotsStart, vDotsTuple = vData.pairMaker()
+	local nTableType = self._selfTable or nManager:LuaTable()
+	nTableType:setName("("..tostring(self._node)..")")
+	local vList, vDotsStart, vDotsTuple = self._pairMaker()
 	local nTypePairList = {}
 	for i, nPair in ipairs(vList) do
 		local nKey = nPair[1]:getType()

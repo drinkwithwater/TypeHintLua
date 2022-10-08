@@ -20,16 +20,21 @@ local function ContextClass()::open()
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TABLE_NEW(vNode, vHinterHandler, vPairMaker)::Ret(class.LuaTable)
-		local nData, nHintMethod = TableBuilder.Begin(self, vNode, vPairMaker)
-		vHinterHandler(nHintMethod)
-		local nTableType = TableBuilder.End(nData)
+	function Context:TABLE_NEW(vNode:class.AstNode, vHinterHandler, vPairMaker)::Ret(class.LuaTable)
+		local nBuilder = TableBuilder.new(self, vNode, vPairMaker)
+		local nLongHint = nBuilder:makeLongHint()
+		local ok, err = pcall(vHinterHandler, nLongHint)
+		if not ok then
+			error(Exception.new(err, vNode))
+		end
+		local nTableType = nBuilder:build()
 		return nTableType
 	end
 
-	function Context:FUNC_NEW(vNode, vHintCallback, vAutoArgs, vHasRet, vFunc)::Ret(class.LuaFunction)
+	function Context:FUNC_NEW(vNode:class.AstNode, vHintCallback, vAutoArgs, vHasRet, vFunc)::Ret(class.LuaFunction)
 		local nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
-		local ok, err = pcall(vHintCallback, nBuilder:newLongHint())
+		local nLongHint = nBuilder:makeLongHint()
+		local ok, err = pcall(vHintCallback, nLongHint)
 		if not ok then
 			error(Exception.new(err, vNode))
 		end
