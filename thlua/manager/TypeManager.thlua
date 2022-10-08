@@ -11,7 +11,7 @@ local Number = require "thlua.type.Number"
 local BooleanLiteral= require "thlua.type.BooleanLiteral"
 local Nil = require "thlua.type.Nil"
 local Truth = require "thlua.type.Truth"
-local Struct = require "thlua.object.Struct"
+local MetaObject = require "thlua.object.MetaObject"
 local LuaTable = require "thlua.object.LuaTable"
 local LuaFunction = require "thlua.func.LuaFunction"
 local NativeFunction = require "thlua.func.NativeFunction"
@@ -82,7 +82,7 @@ local tableToTypeFuncDict = {
 	[Number]=true,
 	[NumberLiteral]=true,
 	[BooleanLiteral]=true,
-	[Struct]=true,
+	[MetaObject]=true,
 	[Truth]=true,
 	[LuaTable]=true,
 	[NumberLiteralUnion]=true,
@@ -215,7 +215,7 @@ class.StructMetaTable = Struct {
 
 
 
-function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(class.StructMetaTable, Nil))::Ret(class.Struct)
+function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(class.StructMetaTable, Nil))::Ret(class.MetaObject)
 	vMetaTable = vMetaTable or {}@class.StructMetaTable
 	local nNewRefer = self:Reference(false)
 	-- TODO error when type intersect
@@ -249,7 +249,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(class.Str
 		else
 			nNextKey, nNextDict = false, false
 		end
-		local nNewStruct = Struct.new(self, self:Union(nGetKey, nSetKey),
+		local nNewStruct = MetaObject.new(self, self:Union(nGetKey, nSetKey),
 							nGetKey, nGetDict, nSetKey, nSetDict, nNextDict)
 		return self:_recordTypeUnionSign(self:_unifyStruct(nNewStruct))
 	end)

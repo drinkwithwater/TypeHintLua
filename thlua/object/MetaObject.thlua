@@ -4,11 +4,11 @@ local StringLiteral = require "thlua.type.StringLiteral"
 local Exception = require "thlua.Exception"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
-local Struct = AtomTypeClass()
+local MetaObject = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function Struct.new(
+function MetaObject.new(
 		vManager:class.TypeManager,
 		vKeyType:class.UKeyType,
 		vGetKey:class.UKeyType,
@@ -16,7 +16,7 @@ function Struct.new(
 		vSetKey:class.UKeyType,
 		vSetDict:Dict(class.IAtomType, class.UValueType),
 		vNextDict:Dict(class.IAtomType, class.UValueType)
-	)::RetClass(class.Struct, class.IAtomType)
+	)::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_keyType=vKeyType,
@@ -31,11 +31,11 @@ function Struct.new(
 		_unionSign=false,
 		_structSign=false,
 		_containCache={} @Dict(Truth, Boolean),
-	}, Struct)
+	}, MetaObject)
 	return self
 end
 
-function Struct:_intersectOneNotRefer(vRightType)
+function MetaObject:_intersectOneNotRefer(vRightType)
 	if self == vRightType then
 		return self
 	elseif self:_containOneNotRefer(vRightType) then
@@ -45,7 +45,7 @@ function Struct:_intersectOneNotRefer(vRightType)
 	end
 end
 
-function Struct:_containOneNotRefer(vRightType)
+function MetaObject:_containOneNotRefer(vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
 		return false
@@ -58,7 +58,7 @@ function Struct:_containOneNotRefer(vRightType)
 		return false
 	end
 	nContainCache[nRightStruct] = true
-	if Struct.is(nRightStruct) then
+	if MetaObject.is(nRightStruct) then
 		-- struct contain TODO
 		--[[
 		-- 1. check all left strict keys contain by right keys
@@ -176,26 +176,26 @@ function Struct:_containOneNotRefer(vRightType)
 	end
 end
 
-function Struct:meta_len(vContext)
+function MetaObject:meta_len(vContext)
 	return self._manager.type.Number
 end
 
-function Struct:meta_uop_some(vContext, vOper)
+function MetaObject:meta_uop_some(vContext, vOper)
 	vContext:error("other oper invalid:"..tostring(vOper))
 	return self._manager.type.Never
 end
 
-function Struct:meta_pairs(vContext)
+function MetaObject:meta_pairs(vContext)
 	local nManager = self._manager
 	return nManager.builtin.next, self, nManager.type.Nil
 end
 
-function Struct:meta_ipairs(vContext)
+function MetaObject:meta_ipairs(vContext)
 	local nManager = self._manager
 	return nManager.builtin.inext, self, nManager:Literal(0)
 end
 
-function Struct:native_next(vContext, vInitType)
+function MetaObject:native_next(vContext, vInitType)
 	local nValueDict = self._nextDict
 	if not nValueDict then
 		vContext:error("struct can't put by next")
@@ -218,11 +218,11 @@ function Struct:native_next(vContext, vInitType)
 	return nValueType, nValueDict
 end
 
-function Struct:isSingleton(v)
+function MetaObject:isSingleton(v)
 	return false
 end
 
-function Struct:structSign()
+function MetaObject:structSign()
 	local nSign = self._structSign
 	if not nSign then
 		local nKeyList = {}
@@ -253,7 +253,7 @@ function Struct:structSign()
 	return nSign
 end
 
-function Struct:meta_get(vContext, vType)
+function MetaObject:meta_get(vContext, vType)
 	local nKey = self._getKey:_containOneNotRefer(vType)
 	if nKey then
 		return self._getDict[nKey]!:checkType()
@@ -263,7 +263,7 @@ function Struct:meta_get(vContext, vType)
 	end
 end
 
-function Struct:meta_set(vContext, vKeyType, vValueType)
+function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	local nKey = self._setKey:_containOneNotRefer(vKeyType)
 	if nKey then
 		local nValue = self._getDict[nKey]!:checkType()
@@ -279,19 +279,19 @@ function Struct:meta_set(vContext, vKeyType, vValueType)
 	end
 end
 
-function Struct:foreachGetPair(vFunc)
+function MetaObject:foreachGetPair(vFunc)
 	self._getKey:foreach(function(vKeyType)
 		vFunc(vKeyType, self._getDict[vKeyType])
 	end)
 end
 
-function Struct:foreachSetPair(vFunc)
+function MetaObject:foreachSetPair(vFunc)
 	self._setKey:foreach(function(vKeyType)
 		vFunc(vKeyType, self._setDict[vKeyType])
 	end)
 end
 
---[[function Struct:checkMustKeyType()
+--[[function MetaObject:checkMustKeyType()
 	local nMustKeyType = self._mustKeyType
 	if not nMustKeyType then
 		local nMustCollection = self._manager:TypeCollection()
@@ -307,7 +307,7 @@ end
 	return nMustKeyType
 end]]
 
-function Struct:detailString(vToStringCache, vVerbose)
+function MetaObject:detailString(vToStringCache, vVerbose)
 	if self._referName then
 		return self._referName
 	end
@@ -343,15 +343,15 @@ function Struct:detailString(vToStringCache, vVerbose)
 	return nResult
 end
 
-function Struct:getKeyType()
+function MetaObject:getKeyType()
 	return self._keyType
 end
 
-function Struct:checkStruct()
+function MetaObject:checkStruct()
 	return self
 end
 
-function Struct:getCompletion()
+function MetaObject:getCompletion()
 	local nDict = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then
@@ -361,8 +361,8 @@ function Struct:getCompletion()
 	return nDict
 end
 
-function Struct.is(v)::isguard(class.Struct)
-	return getmetatable(v) == Struct
+function MetaObject.is(v)::isguard(class.MetaObject)
+	return getmetatable(v) == MetaObject
 end
 
-return Struct
+return MetaObject
