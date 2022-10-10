@@ -14,7 +14,8 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
-		_referType=(false @ Union(class.UKeyType, False)),
+		_maker=false,
+		_referType=false @ Union(class.UKeyType, False),
 		_thread=false,
 		_waitThreads={},
 	}, Reference)
@@ -36,15 +37,13 @@ function Reference:detailString(v)::Ret(String)
 	end
 end
 
-function Reference:setTypeAsync(vFunc:Fn():Ret(class.UKeyType))::nocheck()
+
+function Reference:setTypeAsync(vFunc)
 	assert(not self._thread, "refer has been setted:"..tostring(self))
 	assert(not self._referType, "refer has type"..tostring(self))
 	local co = coroutine.create(function()
 		local nType = vFunc()
 		self._referType = nType
-		if nType.setReferName and self._key then
-			nType:setReferName(self._key)
-		end
 		local l = self._waitThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
