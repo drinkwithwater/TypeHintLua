@@ -26,6 +26,9 @@ local FuncUnion = require "thlua.union.FuncUnion"
 local FalsableUnion = require "thlua.union.FalsableUnion"
 local ComplexUnion = require "thlua.union.ComplexUnion"
 
+local UnionMaker = require "thlua.builder.UnionMaker"
+local TrivialMaker = require "thlua.builder.TrivialMaker"
+
 local RetTuples = require "thlua.tuple.RetTuples"
 local TypeTuple = require "thlua.tuple.TypeTuple"
 local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
@@ -49,6 +52,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		_unionSignToType={},
 		_structSignToType={},
 		_typeIdCounter=0@Number,
+		_referenceSet={},
 	}, TypeManager)
 	self.type.Never = Never.new(self)
 	self.type.Nil = Nil.new(self)
@@ -73,6 +77,14 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		concat=native.make_concat(self),
 	}]]
 	return self
+end
+
+local makerSet = {
+	[UnionMaker]=true,
+}
+
+function TypeManager:isTypeMaker(vMaker)::Ret(Boolean):nocheck()
+	return makerSet[getmetatable(vMaker)] or false
 end
 
 local tableToTypeFuncDict = {
@@ -142,24 +154,24 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
+function TypeManager:TrivialMaker(vSomething)::Ret(class.TrivialMaker)
+	return TrivialMaker.new(self, vSomething)
+end
+
 function TypeManager:Union(...:Truth)::Ret(class.UValueType)
-	local n = select("#", ...)
 	local l = {...}
-	local nNewRefer = self:Reference(false)
-	nNewRefer:setTypeAsync(function()
-		local nCollection = self:TypeCollection()
-		for i=1, n do
-			local nItem = l[i]
-			if Reference.is(nItem) then
-				local nReferType = nItem:getTypeAwait()
-				nCollection:put(nReferType)
-			else
-				nCollection:put(self:_toType(nItem))
-			end
+	for k,v in pairs(l) do
+		if self:isTypeMaker(v) then
+			local nRefer = self:Reference(false)
+			nRefer:setMakerAsync(v)
+			l[k] = nRefer
+		elseif Reference.is(v) then
+			l[k] = v
+		else
+			l[k] = self:_toType(v)
 		end
-		return nCollection:mergeToType()
-	end)
-	return nNewRefer
+	end
+	return UnionMaker.new(self, l)
 end
 
 function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
@@ -443,7 +455,7 @@ function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:
 	local nRepeatType = false
 	if vTermTupleOrNil then
 		for i1=1, #vTermTupleOrNil do
-            local nTerm = vTermTupleOrNil:get(i1)
+			local nTerm = vTermTupleOrNil:get(i1)
 			local i2 = #nTermList + 1
 			nTermList[i2] = nTerm
 			nTypeList[i2] = nTerm:getType()
@@ -458,7 +470,9 @@ function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:
 end
 
 function TypeManager:Reference(vName:String)::Ret(class.Reference)
-	return Reference.new(self, vName)
+	local nRefer = Reference.new(self, vName)
+	self._referenceSet[nRefer] = true
+	return nRefer
 end
 
 function TypeManager:mergeToUnionTerm(vTypeCasePairList)::Ret(class.UnionTerm)

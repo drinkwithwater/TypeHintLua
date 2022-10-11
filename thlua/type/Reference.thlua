@@ -37,13 +37,20 @@ function Reference:detailString(v)::Ret(String)
 	end
 end
 
-
-function Reference:setTypeAsync(vFunc)
+function Reference:setMakerAsync(vAssignValue)
 	assert(not self._thread, "refer has been setted:"..tostring(self))
 	assert(not self._referType, "refer has type"..tostring(self))
 	local co = coroutine.create(function()
-		local nType = vFunc()
-		self._referType = nType
+		if self._manager:isTypeMaker(vAssignValue) then
+			vAssignValue:init()
+			self._maker = vAssignValue
+		elseif Reference.is(vAssignValue) then
+			self._maker = vAssignValue:getMakerAwait()
+		else
+			local nMaker = self._manager:TrivialMaker(vAssignValue)
+			nMaker:init()
+			self._maker = nMaker
+		end
 		local l = self._waitThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
@@ -54,11 +61,11 @@ function Reference:setTypeAsync(vFunc)
 	assert(coroutine.resume(co))
 end
 
-function Reference:getTypeAwait()
-	if not self._referType then
+function Reference:getMakerAwait()
+	if not self._maker then
 		local co, _ = coroutine.running()
 		local nWaitingRefer = self._manager.coToRefer[co]!
-		assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
+		assert(nWaitingRefer, "can only call getMakerAwait in Reference's coroutine")
 		nWaitingRefer._waitRefer = self
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
@@ -73,7 +80,7 @@ function Reference:getTypeAwait()
 		coroutine.yield()
 		nWaitingRefer._waitRefer = false
 	end
-	return self._referType
+	return self._maker
 end
 
 function Reference:getType()

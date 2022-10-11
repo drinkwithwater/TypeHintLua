@@ -56,17 +56,8 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
-				if not self._manager:isValueType(newV) then
-					throw("namespace assign a non-type value, key="..tostring(k))
-				end
 				if Reference.is(rawgetV) then
-					rawgetV:setTypeAsync(function()
-						if Reference.is(newV) then
-							return newV:getTypeAwait()
-						else
-							return newV
-						end
-					end)
+					rawgetV:setMakerAsync(newV)
 				else
 					throw("conflict assign : key="..tostring(k))
 				end
@@ -76,19 +67,9 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 					namespace:trySetKey(k)
 					self._key2type[k] = newV
 				else
-					if Reference.is(newV) then
-						newV:trySetKey(k)
-						self._key2type[k] = newV
-					else
-						if not self._manager:isValueType(newV) then
-							throw("namespace assign a non-type value, key="..tostring(k))
-						end
-						local refer = self._manager:Reference(k)
-						refer:setTypeAsync(function()
-							return newV
-						end)
-						self._key2type[k] = refer
-					end
+					local refer = self._manager:Reference(k)
+					self._key2type[k] = refer
+					refer:setMakerAsync(newV)
 				end
 			end
 		end,
