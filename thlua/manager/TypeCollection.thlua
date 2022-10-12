@@ -63,7 +63,7 @@ function TypeCollection:put(vType:class.UKeyType)
 	end)
 end
 
-function TypeCollection:_makeSimpleTruePart(vBit, vSet)::Ret(class.UKeyType)
+function TypeCollection:_makeSimpleTruePart(vBit, vSet)::Ret(Union(class.IAtomType, classISetCom))
 	local nSetCom
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
@@ -89,10 +89,36 @@ function TypeCollection:_makeSimpleTruePart(vBit, vSet)::Ret(class.UKeyType)
 	for nType, _ in pairs(vSet) do
 		nSetCom:_put(nType)
 	end
-	return self._manager:_unifyUnion(nSetCom)
+	return nSetCom
 end
 
-function TypeCollection:mergeToDict()::Ret(Dict(Number, Union(class.IAtomType, class.ISetCom)))
+function TypeCollection:makeBitToCom()::Ret(Dict(Number, Union(class.IAtomType, classISetCom)))
+	local nBits = self.bits
+	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
+	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
+	-- 2. make true part
+	local nBitToCom = {}
+	for nBit, nSet in pairs(self.bitsToSet) do
+		if TrueBitToTrue[nBit] then
+			nBitToCom[nBit] = self:_makeSimpleTruePart(nBit, nSet)
+		end
+	end
+	if nTruableBits == TYPE_BITS.TRUTH then
+		error("Truth TODO")
+	end
+	-- 3. check false part
+	if nFalsableBits ~= 0 then
+		if TYPE_BITS.NIL & nBits then
+			nBitToCom[TYPE_BITS.NIL] = self._type.Nil
+		end
+		if TYPE_BITS.FALSE & nBits then
+			nBitToCom[TYPE_BITS.FALSE] = self._type.False
+		end
+	end
+	return nBitToCom
+end
+
+function TypeCollection:mergeToType()::Ret(Dict(Number, Union(class.IAtomType, class.ISetCom)))
 	-- TODO merge contained type
 	local nBits = self.bits
 	-- 0. only one type
@@ -107,34 +133,7 @@ function TypeCollection:mergeToDict()::Ret(Dict(Number, Union(class.IAtomType, c
 		-- 2) some bit for only one type
 		return (next(self.bitsToSet[nBits]))
 	end
-	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
-	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
-	-- 2. make true part
-	local nTrueBitToType = {}
-	for nBit, nSet in pairs(self.bitsToSet) do
-		if TrueBitToTrue[nBit] then
-			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
-		end
-	end
-	local nTrueType:class.UKeyType = self._type.Never
-	if TrueBitToTrue[nTruableBits] then
-		-- if truablebits is bit, then just one case
-		nTrueType = nTrueBitToType[nTruableBits]
-	elseif nTruableBits == TYPE_BITS.TRUTH then
-		-- truetype is truth
-		nTrueType = self._type.Truth
-	elseif next(nTrueBitToType) then
-		-- if truablebits is not bit and has true part, then true part must has more than one case
-		local nComplexUnion = ComplexUnion.new(self._manager, nTruableBits, nTrueBitToType)
-		nTrueType = self._manager:_unifyUnion(nComplexUnion)
-	end
-	-- 3. check false part
-	if nFalsableBits == 0 then
-		return nTrueType
-	else
-		local nUnionType = FalsableUnion.new(self._manager, nTrueType, nFalsableBits)
-		return self._manager:_unifyUnion(nUnionType)
-	end
+	return self._manager:FullUnionByComDict(self:makeBitToCom())
 end
 
 return TypeCollection

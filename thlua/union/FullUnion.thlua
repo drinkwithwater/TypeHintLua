@@ -6,14 +6,14 @@ local FullUnion = UnionClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function FullUnion.new(vManager:class.TypeManager, vReferList:List(class.Reference), vUnionCom:class.IUnionType)::RetClass(class.FullUnion)
+function FullUnion.new(vManager:class.TypeManager, vReferList:List(class.Reference), vBitToCom:Dict(Number, Union(class.ISetCom, class.IAtomType)))::RetClass(class.FullUnion)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_referList=vReferList,
 		_typeList={},
-		_unionCom=vUnionCom,
+		_bitToCom=vBitToCom,
 		bits=0,
-		id=0,
+		id=vManager:genTypeId(),
 	}, FullUnion)
 	return self
 end
@@ -43,20 +43,32 @@ function FullUnion:preBuild()
 end
 
 function FullUnion:postBuild()
-	local nCollection = self:TypeCollection()
-	for k,v in pairs(self._typeList) do
-		nCollection:put(v)
+	if not self._bitToCom then
+		local nCollection = self._manager:TypeCollection()
+		for k,v in pairs(self._typeList) do
+			nCollection:put(v)
+		end
+		self._bitToCom = nCollection:makeBitToCom()
 	end
-	nCollection:mergeToType()
 end
 
 function FullUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
-	for _, nType in pairs(self._typeList) do
-		if not (vFunc(nType) or vContinue) then
-			return false
+	local nBitToCom = self._bitToCom
+	if nBitToCom then
+		for _, nCom in pairs(self._bitToCom) do
+			if not (nCom:_mapContinue(vContinue, vFunc) or vContinue) then
+				return false
+			end
 		end
+		return true
+	else
+		for _, nType in pairs(self._typeList) do
+			if not (vFunc(nType) or vContinue) then
+				return false
+			end
+		end
+		return true
 	end
-	return true
 end
 
 function FullUnion.is(vType)::isguard(class.FullUnion)
