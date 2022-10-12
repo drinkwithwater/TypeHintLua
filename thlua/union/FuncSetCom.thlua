@@ -1,28 +1,26 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local UnionClass = require "thlua.union.UnionClass"
+local SetComClass = require "thlua.union.SetComClass"
 local Truth = require "thlua.type.Truth"
 local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local TypeFunction = require "thlua.func.TypeFunction"
 
-local FuncUnion = UnionClass()
+local FuncSetCom = SetComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function FuncUnion.new(vManager:class.TypeManager)::RetClass(class.FuncUnion, class.IUnionType)
+function FuncSetCom.new(vManager:class.TypeManager)::RetClass(class.FuncSetCom, class.ISetCom)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_nativeFnDict={} @Dict(class.NativeFunction, True),
 		_typeFnDict={} @Dict(class.TypeFunction, True),
 		_luaFnDict={} @Dict(class.LuaFunction, True),
-		bits=TYPE_BITS.FUNCTION,
-		id=0,
-	}, FuncUnion)
+	}, FuncSetCom)
 	return self
 end
 
-function FuncUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+function FuncSetCom:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 	for nType, _ in pairs(self._nativeFnDict) do
 		if not (vFunc(nType) or vContinue) then
 			return false
@@ -41,7 +39,7 @@ function FuncUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 	return true
 end
 
-function FuncUnion:_put(vType)
+function FuncSetCom:_put(vType)
 	if self:_containOneNotRefer(vType) then
 		return
 	end
@@ -71,7 +69,7 @@ function FuncUnion:_put(vType)
 	end
 end
 
-function FuncUnion:_intersectOneNotRefer(vType)
+function FuncSetCom:_intersectOneNotRefer(vType)
 	if Truth.is(vType) then
 		return self
 	else
@@ -79,7 +77,7 @@ function FuncUnion:_intersectOneNotRefer(vType)
 	end
 end
 
-function FuncUnion:_containOneNotRefer(vType)
+function FuncSetCom:_containOneNotRefer(vType)
 	if NativeFunction.is(vType) then
 		if self._nativeFnDict[vType] then
 			return vType
@@ -101,4 +99,4 @@ function FuncUnion:_containOneNotRefer(vType)
 	return false
 end
 
-return FuncUnion
+return FuncSetCom

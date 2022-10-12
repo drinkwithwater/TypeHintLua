@@ -19,15 +19,14 @@ local TypeFunction = require "thlua.func.TypeFunction"
 local Reference = require "thlua.type.Reference"
 local Variable = require "thlua.func.Variable"
 
-local StringLiteralUnion = require "thlua.union.StringLiteralUnion"
-local NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
-local ObjectUnion = require "thlua.union.ObjectUnion"
-local FuncUnion = require "thlua.union.FuncUnion"
+local StringLiteralSetCom = require "thlua.union.StringLiteralSetCom"
+local NumberLiteralSetCom = require "thlua.union.NumberLiteralSetCom"
+local ObjectSetCom = require "thlua.union.ObjectSetCom"
+local FuncSetCom = require "thlua.union.FuncSetCom"
 local FalsableUnion = require "thlua.union.FalsableUnion"
 local ComplexUnion = require "thlua.union.ComplexUnion"
 
-local UnionMaker = require "thlua.builder.UnionMaker"
-local TrivialMaker = require "thlua.builder.TrivialMaker"
+local FullUnion = require "thlua.union.FullUnion"
 
 local RetTuples = require "thlua.tuple.RetTuples"
 local TypeTuple = require "thlua.tuple.TypeTuple"
@@ -79,14 +78,6 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	return self
 end
 
-local makerSet = {
-	[UnionMaker]=true,
-}
-
-function TypeManager:isTypeMaker(vMaker)::Ret(Boolean):nocheck()
-	return makerSet[getmetatable(vMaker)] or false
-end
-
 local tableToTypeFuncDict = {
 	[Nil]=true,
 	[Never]=true,
@@ -98,16 +89,26 @@ local tableToTypeFuncDict = {
 	[MetaObject]=true,
 	[Truth]=true,
 	[LuaTable]=true,
-	[NumberLiteralUnion]=true,
-	[StringLiteralUnion]=true,
+	[NumberLiteralSetCom]=true,
+	[StringLiteralSetCom]=true,
 	[FalsableUnion]=true,
-	[ObjectUnion]=true,
-	[FuncUnion]=true,
+	[ObjectSetCom]=true,
+	[FuncSetCom]=true,
 	[ComplexUnion]=true,
 	[LuaFunction]=true,
 	[TypeFunction]=true,
 	[NativeFunction]=true,
+	[FullUnion]=true,
 }
+
+function TypeManager:isType(vData)::Ret(Boolean)
+	local meta = getmetatable(vData)
+	if meta and tableToTypeFuncDict[meta] then
+		return true
+	else
+		return false
+	end
+end
 
 function TypeManager:isValueType(vData)::Ret(Boolean)
     local meta = getmetatable(vData)
@@ -154,24 +155,22 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:TrivialMaker(vSomething)::Ret(class.TrivialMaker)
-	return TrivialMaker.new(self, vSomething)
+function TypeManager:FullUnionWrapCom(vUnionCom)
+	return FullUnion.new(self, false, vUnionCom)
 end
 
-function TypeManager:Union(...:Truth)::Ret(class.UValueType)
+function TypeManager:Union(...:Truth)::Ret(class.FullUnion)
 	local l = {...}
 	for k,v in pairs(l) do
-		if self:isTypeMaker(v) then
-			local nRefer = self:Reference(false)
-			nRefer:setMakerAsync(v)
-			l[k] = nRefer
-		elseif Reference.is(v) then
+		if Reference.is(v) then
 			l[k] = v
 		else
-			l[k] = self:_toType(v)
+			local nRefer = self:Reference(false)
+			nRefer:setTypeAsync(v)
+			l[k] = nRefer
 		end
 	end
-	return UnionMaker.new(self, l)
+	return FullUnion.new(self, l, false)
 end
 
 function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
@@ -216,16 +215,13 @@ function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vO
 end
 
 (@
-
 let.ObjectMetaTable = Struct {
 	get=Union(Dict(Truth, Truth), Nil),
 	set=Union(Dict(Truth, Truth), Nil),
 	next=Struct {Truth, Truth},
 	len=Union(Truth, Nil),
 }
-
 )
-
 
 function TypeManager:Interface(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject, class.Reference))
 	return self:Struct(vTable, vMetaTable)
@@ -301,7 +297,9 @@ function TypeManager:_unifyStruct(vNewType)
 end
 
 function TypeManager:_unifyUnion(vNewType)
-	local nSign = vNewType:unionSign()
+	-- unify type TODO
+	return vNewType
+	--[[local nSign = vNewType:unionSign()
 	local nSignToType = self._unionSignToType
 	local nOldType = nSignToType[nSign]
 	if not nOldType then
@@ -311,7 +309,7 @@ function TypeManager:_unifyUnion(vNewType)
 		return vNewType
 	else
 		return nOldType
-	end
+	end]]
 end
 
 function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UKeyType, Dict(class.IAtomType, class.UValueType))

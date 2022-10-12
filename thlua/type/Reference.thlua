@@ -14,7 +14,6 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
-		_maker=false,
 		_referType=false @ Union(class.UKeyType, False),
 		_thread=false,
 		_waitThreads={},
@@ -37,19 +36,17 @@ function Reference:detailString(v)::Ret(String)
 	end
 end
 
-function Reference:setMakerAsync(vAssignValue)
+function Reference:setTypeAsync(vAssignValue)
 	assert(not self._thread, "refer has been setted:"..tostring(self))
 	assert(not self._referType, "refer has type"..tostring(self))
 	local co = coroutine.create(function()
-		if self._manager:isTypeMaker(vAssignValue) then
-			vAssignValue:init()
-			self._maker = vAssignValue
+		if self._manager:isType(vAssignValue) then
+			vAssignValue:preBuild()
+			self._referType = vAssignValue
 		elseif Reference.is(vAssignValue) then
-			self._maker = vAssignValue:getMakerAwait()
+			self._referType = vAssignValue:getTypeAwait()
 		else
-			local nMaker = self._manager:TrivialMaker(vAssignValue)
-			nMaker:init()
-			self._maker = nMaker
+			self._referType = self._manager:_toType(vAssignValue)
 		end
 		local l = self._waitThreads
 		for i=#l,1,-1 do
@@ -61,11 +58,11 @@ function Reference:setMakerAsync(vAssignValue)
 	assert(coroutine.resume(co))
 end
 
-function Reference:getMakerAwait()
-	if not self._maker then
+function Reference:getTypeAwait()
+	if not self._referType then
 		local co, _ = coroutine.running()
 		local nWaitingRefer = self._manager.coToRefer[co]!
-		assert(nWaitingRefer, "can only call getMakerAwait in Reference's coroutine")
+		assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
 		nWaitingRefer._waitRefer = self
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
@@ -80,7 +77,7 @@ function Reference:getMakerAwait()
 		coroutine.yield()
 		nWaitingRefer._waitRefer = false
 	end
-	return self._maker
+	return self._referType
 end
 
 function Reference:getType()
@@ -88,22 +85,10 @@ function Reference:getType()
 end
 
 function Reference:checkType()::Ret(class.UKeyType)
-	if not self._referType then
-		while true do
-			local nWaitRefer = self._waitRefer
-			if not nWaitRefer then
-				break
-			else
-				nWaitRefer:checkType()
-			end
-		end
-	end
 	local nReferType = self._referType
-	if not nReferType then
-		error(Exception.new("reference "..tostring(self).." has not been setted"))
-	else
-		return nReferType
-	end
+	assert(nReferType, "reference not set :"..tostring(self))
+	nReferType:postBuild()
+	return nReferType
 end
 
 function Reference:isNilable()

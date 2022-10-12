@@ -5,22 +5,22 @@ local LuaTable = require "thlua.object.LuaTable"
 local MetaObject = require "thlua.object.MetaObject"
 local Truth = require "thlua.type.Truth"
 
-local ObjectUnion = UnionClass()
+local ObjectSetCom = UnionClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function ObjectUnion.new(vManager:class.TypeManager)::RetClass(class.ObjectUnion, class.IUnionType)
+function ObjectSetCom.new(vManager:class.TypeManager)::RetClass(class.ObjectSetCom, class.IUnionType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_structDict={} @Dict(class.MetaObject, True),
 		_luaTableDict={} @Dict(class.LuaTable, True),
 		bits=TYPE_BITS.OBJECT,
 		id=0,
-	}, ObjectUnion)
+	}, ObjectSetCom)
 	return self
 end
 
-function ObjectUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+function ObjectSetCom:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 	for nType, _ in pairs(self._structDict) do
 		if not (vFunc(nType) or vContinue) then
 			return false
@@ -34,7 +34,7 @@ function ObjectUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 	return true
 end
 
-function ObjectUnion:_put(vType)
+function ObjectSetCom:_put(vType)
 	if self:_containOneNotRefer(vType) then
 		return
 	end
@@ -72,7 +72,7 @@ function ObjectUnion:_put(vType)
 	end
 end
 
-function ObjectUnion:_intersectOneNotRefer(vType)
+function ObjectSetCom:_intersectOneNotRefer(vType)
     if Truth.is(vType) then
         return self
     else
@@ -80,7 +80,7 @@ function ObjectUnion:_intersectOneNotRefer(vType)
     end
 end
 
-function ObjectUnion:_containOneNotRefer(vType)
+function ObjectSetCom:_containOneNotRefer(vType)
 	if LuaTable.is(vType) then
 		if self._luaTableDict[vType] then
 			return vType
@@ -94,4 +94,4 @@ function ObjectUnion:_containOneNotRefer(vType)
 	return false
 end
 
-return ObjectUnion
+return ObjectSetCom

@@ -1,10 +1,10 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
-local StringLiteralUnion = require "thlua.union.StringLiteralUnion"
-local NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
-local ObjectUnion = require "thlua.union.ObjectUnion"
-local FuncUnion = require "thlua.union.FuncUnion"
+local StringLiteralSetCom = require "thlua.union.StringLiteralSetCom"
+local NumberLiteralSetCom = require "thlua.union.NumberLiteralSetCom"
+local ObjectSetCom = require "thlua.union.ObjectSetCom"
+local FuncSetCom = require "thlua.union.FuncSetCom"
 local ComplexUnion = require "thlua.union.ComplexUnion"
 local FalsableUnion = require "thlua.union.FalsableUnion"
 
@@ -63,8 +63,8 @@ function TypeCollection:put(vType:class.UKeyType)
 	end)
 end
 
-function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UKeyType)
-	local nUnionType:class.IUnionType = nil
+function TypeCollection:_makeSimpleTruePart(vBit, vSet)::Ret(class.UKeyType)
+	local nSetCom
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
 	elseif vBit == TYPE_BITS.NUMBER then
@@ -72,27 +72,28 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UKeyType)
 		if vSet[nNumberType] then
 			return nNumberType
 		end
-		nUnionType = NumberLiteralUnion.new(self._manager)
+		nSetCom = NumberLiteralSetCom.new(self._manager)
 	elseif vBit == TYPE_BITS.STRING then
 		local nStringType = self._type.String
 		if vSet[nStringType] then
 			return nStringType
 		end
-		nUnionType = StringLiteralUnion.new(self._manager)
+		nSetCom = StringLiteralSetCom.new(self._manager)
 	elseif vBit == TYPE_BITS.OBJECT then
-		nUnionType = ObjectUnion.new(self._manager)
+		nSetCom = ObjectSetCom.new(self._manager)
 	elseif vBit == TYPE_BITS.FUNCTION then
-		nUnionType = FuncUnion.new(self._manager)
+		nSetCom = FuncSetCom.new(self._manager)
 	else
 		error("bit can't be="..tostring(vBit))
 	end
 	for nType, _ in pairs(vSet) do
-		nUnionType:_put(nType)
+		nSetCom:_put(nType)
 	end
-	return self._manager:_unifyUnion(nUnionType)
+	return self._manager:_unifyUnion(nSetCom)
 end
 
-function TypeCollection:mergeToType()::Ret(class.UKeyType)
+function TypeCollection:mergeToDict()::Ret(Dict(Number, Union(class.IAtomType, class.ISetCom)))
+	-- TODO merge contained type
 	local nBits = self.bits
 	-- 0. only one type
 	if self.count == 1 then
@@ -109,7 +110,7 @@ function TypeCollection:mergeToType()::Ret(class.UKeyType)
 	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
 	-- 2. make true part
-	local nTrueBitToType:Dict(Number, class.UKeyType) = {}
+	local nTrueBitToType = {}
 	for nBit, nSet in pairs(self.bitsToSet) do
 		if TrueBitToTrue[nBit] then
 			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)

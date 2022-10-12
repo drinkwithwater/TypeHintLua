@@ -1,0 +1,66 @@
+
+local Reference = require "thlua.type.Reference"
+local UnionClass = require "thlua.union.UnionClass"
+
+local FullUnion = UnionClass()
+
+(@let.class = import("thlua.type.TypeClass").class)
+
+function FullUnion.new(vManager:class.TypeManager, vReferList:List(class.Reference), vUnionCom:class.IUnionType)::RetClass(class.FullUnion)
+	local self = setmetatable({::Self()
+		_manager=vManager,
+		_referList=vReferList,
+		_typeList={},
+		_unionCom=vUnionCom,
+		bits=0,
+		id=0,
+	}, FullUnion)
+	return self
+end
+
+function FullUnion:preBuild()
+	local nReferList = self._referList
+	if not nReferList then
+		return
+	else
+		self._referList = false
+	end
+	local nTypeList = self._typeList
+	local nBit = 0
+	for i,v in ipairs(nReferList) do
+		local nType = v:getTypeAwait()
+		if FullUnion.is(nType) then
+			nType:foreach(function(vType)
+				nTypeList[#nTypeList + 1] = vType
+				nBit = nBit | vType.bits
+			end)
+		else
+			nTypeList[#nTypeList + 1] = nType
+			nBit = nBit | nType.bits
+		end
+	end
+	self.bits = nBit
+end
+
+function FullUnion:postBuild()
+	local nCollection = self:TypeCollection()
+	for k,v in pairs(self._typeList) do
+		nCollection:put(v)
+	end
+	nCollection:mergeToType()
+end
+
+function FullUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+	for _, nType in pairs(self._typeList) do
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
+	end
+	return true
+end
+
+function FullUnion.is(vType)::isguard(class.FullUnion)
+	return getmetatable(vType) == FullUnion
+end
+
+return FullUnion
