@@ -52,22 +52,16 @@ function FullUnion:postBuild()
 	end
 end
 
-function FullUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
+function FullUnion:foreach(vFunc)::Ret(Boolean):nocheck()
 	local nBitToCom = self._bitToCom
 	if nBitToCom then
 		for _, nCom in pairs(self._bitToCom) do
-			if not (nCom:_mapContinue(vContinue, vFunc) or vContinue) then
-				return false
-			end
+			nCom:foreach(vFunc)
 		end
-		return true
 	else
 		for _, nType in pairs(self._typeList) do
-			if not (vFunc(nType) or vContinue) then
-				return false
-			end
+			vFunc(nType)
 		end
-		return true
 	end
 end
 
