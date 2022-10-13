@@ -87,18 +87,12 @@ local tableToTypeFuncDict = {
 	[NumberLiteral]=true,
 	[BooleanLiteral]=true,
 	[MetaObject]=true,
-	[Truth]=true,
 	[LuaTable]=true,
-	[NumberLiteralSetCom]=true,
-	[StringLiteralSetCom]=true,
-	[FalsableUnion]=true,
-	[ObjectSetCom]=true,
-	[FuncSetCom]=true,
-	[ComplexUnion]=true,
 	[LuaFunction]=true,
 	[TypeFunction]=true,
 	[NativeFunction]=true,
 	[FullUnion]=true,
+	[Truth]=true,
 }
 
 function TypeManager:isType(vData)::Ret(Boolean)
@@ -313,19 +307,19 @@ function TypeManager:_unifyUnion(vNewType)
 end
 
 function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UKeyType, Dict(class.IAtomType, class.UValueType))
-    local nTypeToBorable = {}
+	local nTypeToBorable = {}
 	local nCollection = self:TypeCollection()
-    for _, nPair in ipairs(vTypeBorablePairList) do
+	for _, nPair in ipairs(vTypeBorablePairList) do
 		local nFieldType = nPair[1]
 		if nFieldType:isReference() then
 			nFieldType = nFieldType:checkType()
 			nPair[1] = nFieldType
 		end
 		nCollection:put(nFieldType)
-    end
+	end
 	local nKeyUnion = nCollection:mergeToType()
 	local nTypeDict = {}
-    for _, nPair in ipairs(vTypeBorablePairList) do
+	for _, nPair in ipairs(vTypeBorablePairList) do
 		local nKey = nPair[1]
 		local nBorableValue = nPair[2]
 		nKey:foreach(function(vSubType)
@@ -337,8 +331,8 @@ function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UKeyType, Di
 				nTypeDict[nContainType] = nBorableValue
 			end
 		end)
-    end
-    return nKeyUnion, nTypeDict
+	end
+	return nKeyUnion, nTypeDict
 end
 
 function TypeManager:_recordTypeUnionSign(vType)
@@ -460,11 +454,11 @@ function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:
 		end
 		nRepeatType = vTermTupleOrNil:getRepeatType()
 	end
-    local nTypeTuple = self:Tuple(table.unpack(nTypeList))
+	local nTypeTuple = self:Tuple(table.unpack(nTypeList))
 	if nRepeatType then
-        nTypeTuple = nTypeTuple:Dots(nRepeatType)
-    end
-    return TermTuple.new(self, nTermList, nTypeTuple)
+			nTypeTuple = nTypeTuple:Dots(nRepeatType)
+	end
+	return TermTuple.new(self, nTermList, nTypeTuple)
 end
 
 function TypeManager:Reference(vName:String)::Ret(class.Reference)

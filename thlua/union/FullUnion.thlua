@@ -71,6 +71,34 @@ function FullUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 	end
 end
 
+function FullUnion:_containOneNotRefer(vType)
+	local nSimpleType = self._bitToCom[vType.bits]
+	if nSimpleType then
+		return nSimpleType:_containOneNotRefer(vType)
+	else
+		return false
+	end
+end
+
+function FullUnion:_intersectOneNotRefer(vType)
+	local nSimpleType = self._bitToCom[vType.bits]
+	if nSimpleType then
+		return nSimpleType:_intersectOneNotRefer(vType)
+	elseif Truth.is(vType) then
+		return self
+	else
+		return false
+	end
+end
+
+function FullUnion:isNilable()
+	if self._bitToCom[TYPE_BITS.NIL] then
+		return true
+	else
+		return false
+	end
+end
+
 function FullUnion.is(vType)::isguard(class.FullUnion)
 	return getmetatable(vType) == FullUnion
 end
