@@ -6,40 +6,52 @@ local FullUnion = UnionClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function FullUnion.new(vManager:class.TypeManager, vReferList:List(class.Reference), vBitToCom:Dict(Number, Union(class.ISetCom, class.IAtomType)))::RetClass(class.FullUnion)
+(@let.ComDict = Dict(Number, Union(class.ISetCom, class.IAtomType)))
+
+function FullUnion.new(vManager:class.TypeManager)::RetClass(class.FullUnion)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_referList=vReferList,
 		_typeList={},
-		_bitToCom=vBitToCom,
+		_bitToCom=false,
+		_preFunc=false,
 		bits=0,
 		id=vManager:genTypeId(),
 	}, FullUnion)
 	return self
 end
 
+function FullUnion:initFromReferList(vReferList:List(class.Reference))
+	self._preFunc=function()
+		local nTypeList = self._typeList
+		local nBit = 0
+		for i,v in ipairs(vReferList) do
+			local nType = v:getTypeAwait()
+			if FullUnion.is(nType) then
+				nType:foreach(function(vType)
+					nTypeList[#nTypeList + 1] = vType
+					nBit = nBit | vType.bits
+				end)
+			else
+				nTypeList[#nTypeList + 1] = nType
+				nBit = nBit | nType.bits
+			end
+		end
+		self.bits = nBit
+	end
+end
+
+function FullUnion:initFromComDict(vComDict:ComDict)
+	self._bitToCom = vComDict
+end
+
 function FullUnion:preBuild()
-	local nReferList = self._referList
-	if not nReferList then
+	local nPreFunc = self._preFunc
+	if not nPreFunc then
 		return
 	else
-		self._referList = false
+		self._preFunc = false
 	end
-	local nTypeList = self._typeList
-	local nBit = 0
-	for i,v in ipairs(nReferList) do
-		local nType = v:getTypeAwait()
-		if FullUnion.is(nType) then
-			nType:foreach(function(vType)
-				nTypeList[#nTypeList + 1] = vType
-				nBit = nBit | vType.bits
-			end)
-		else
-			nTypeList[#nTypeList + 1] = nType
-			nBit = nBit | nType.bits
-		end
-	end
-	self.bits = nBit
+	nPreFunc()
 end
 
 function FullUnion:postBuild()

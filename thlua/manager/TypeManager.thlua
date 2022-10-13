@@ -148,7 +148,9 @@ function TypeManager:FullUnionByComDict(vBitToCom:Dict(Number, Union(class.IAtom
 		end)
 	end
 	assert(nCount >= 2, "TypeCollection merge must has at least 2 value when return union")
-	return FullUnion.new(self, false, vBitToCom)
+	local nUnion = FullUnion.new(self, false, vBitToCom)
+	nUnion:initFromComDict(vBitToCom)
+	return nUnion
 end
 
 function TypeManager:checkUnion(...)
@@ -162,16 +164,12 @@ end
 
 function TypeManager:Union(...:Truth)::Ret(class.FullUnion)
 	local l = {...}
-	for k,v in pairs(l) do
-		if Reference.is(v) then
-			l[k] = v
-		else
-			local nRefer = self:Reference(false)
-			nRefer:setTypeAsync(v)
-			l[k] = nRefer
-		end
+	for i=1,#l do
+		l[i] = self:toReference(l[i])
 	end
-	return FullUnion.new(self, l, false)
+	local nUnion = FullUnion.new(self)
+	nUnion:initFromReferList(l)
+	return nUnion
 end
 
 function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
@@ -215,24 +213,34 @@ function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vO
 	return nCollection:mergeToType(), nTypeDict
 end
 
-(@
-let.ObjectMetaTable = Struct {
-	get=Union(Dict(Truth, Truth), Nil),
-	set=Union(Dict(Truth, Truth), Nil),
-	next=Struct {Truth, Truth},
-	len=Union(Truth, Nil),
-}
-)
-
-function TypeManager:Interface(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject, class.Reference))
-	return self:Struct(vTable, vMetaTable)
+function TypeManager:toReference(vTruth:Truth)
+	if Reference.is(vTruth) then
+		return vTruth
+	else
+		local nRefer = self:Reference(false)
+		nRefer:setTypeAsync(vTruth)
+		return nRefer
+	end
 end
 
-function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject,class.Reference))
-	vMetaTable = vMetaTable or {}@ObjectMetaTable
-	local nNewRefer = self:Reference(false)
+function TypeManager:Interface(vTable:Dict(Truth,Truth))::Ret(Union(class.MetaObject, class.Reference))
+	return self:Struct(vTable)
+end
+
+function TypeManager:Struct(vTable:Dict(Truth,Truth))::Ret(Union(class.MetaObject,class.Reference))
+	local nKeyList = {}
+	local nKeyToValue = {}
+	for k, v in pairs(vTable) do
+		local nKey = self:toReference(k)
+		local nValue = self:toReference(v)
+		nKeyList[#nKeyList + 1] = nKey
+		nKeyToValue[nKey] = nValue
+	end
+	local nObject = MetaObject.new(self)
+	nObject:initFromListTable(nKeyList, nKeyToValue)
+	return nObject
 	-- TODO error when type intersect
-	nNewRefer:setTypeAsync(function()
+	--[[nNewRefer:setTypeAsync(function()
 		local nBothTable:Dict(class.IAtomType, Truth) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nKeyType
@@ -267,7 +275,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 		return self:_recordTypeUnionSign(self:_unifyStruct(nNewStruct))
 	end)
 	--return nNewRefer:getType() or nNewRefer
-	return nNewRefer
+	return nNewRefer]]
 end
 
 function TypeManager:Dict(vKey:class.UKeyType, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))

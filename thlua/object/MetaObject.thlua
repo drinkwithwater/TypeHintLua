@@ -1,6 +1,7 @@
 
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
 local StringLiteral = require "thlua.type.StringLiteral"
+local FullUnion = require "thlua.union.FullUnion"
 local Exception = require "thlua.Exception"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
@@ -8,31 +9,53 @@ local MetaObject = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function MetaObject.new(
-		vManager:class.TypeManager,
-		vKeyType:class.UKeyType,
-		vGetKey:class.UKeyType,
-		vGetDict:Dict(class.IAtomType, class.UValueType),
-		vSetKey:class.UKeyType,
-		vSetDict:Dict(class.IAtomType, class.UValueType),
-		vNextDict:Dict(class.IAtomType, class.UValueType)
-	)::RetClass(class.MetaObject, class.IAtomType)
+function MetaObject.new(vManager:class.TypeManager)::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_keyType=vKeyType,
-		_getKey=vGetKey,
-		_getDict=vGetDict,
-		_setKey=vSetKey,
-		_setDict=vSetDict,
+		_keyType=false,
+		_getDict={},
+		_setDict={},
 		_nextValue=false,
-		_nextDict=vNextDict,
+		_nextDict={},
 		bits=TYPE_BITS.OBJECT,
 		id=0,
-		_unionSign=false,
-		_structSign=false,
-		_containCache={} @Dict(Truth, Boolean),
 	}, MetaObject)
 	return self
+end
+
+function MetaObject:initFromListTable(vKeyReferList, vTable)
+	self._preFunc=function()
+		local nKeyTypeNum = #vKeyReferList
+		if nKeyTypeNum == 0 then
+			self._keyType = self._manager.type.Never
+		elseif nKeyTypeNum == 1 then
+			local nRefer = vKeyReferList[1]
+			local nKeyType = nRefer:getTypeAwait()
+			local nValue = vTable[nRefer]
+			self._keyType = nKeyType
+			self._getDict[nKeyType] = nValue
+			self._setDict[nKeyType] = nValue
+		else
+			local nKeyUnion = FullUnion.new(self._manager)
+			nKeyUnion:initFromReferList(vKeyReferList)
+			nKeyUnion:preBuild()
+			self._keyType = nKeyUnion
+			-- TODO , make setDict, getDict, nextDict
+		end
+	end
+end
+
+function MetaObject:preBuild()
+	local nPreFunc = self._preFunc
+	if not nPreFunc then
+		return
+	else
+		self._preFunc = false
+	end
+	nPreFunc()
+end
+
+function MetaObject:postBuild()
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -308,6 +331,8 @@ end
 end]]
 
 function MetaObject:detailString(vToStringCache, vVerbose)
+	return "MetaObject-"..tostring(self._keyType)
+	--[[
 	if self._referName then
 		return self._referName
 	end
@@ -340,7 +365,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	end
 	local nResult = "Struct({},{get={"..table.concat(lsetter, ",").."},{set={"..table.concat(lgetter,",").."}}"
 	vToStringCache[self] = nResult
-	return nResult
+	return nResult]]
 end
 
 function MetaObject:getKeyType()
