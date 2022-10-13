@@ -5,8 +5,6 @@ local StringLiteralSetCom = require "thlua.union.StringLiteralSetCom"
 local NumberLiteralSetCom = require "thlua.union.NumberLiteralSetCom"
 local ObjectSetCom = require "thlua.union.ObjectSetCom"
 local FuncSetCom = require "thlua.union.FuncSetCom"
-local ComplexUnion = require "thlua.union.ComplexUnion"
-local FalsableUnion = require "thlua.union.FalsableUnion"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -98,13 +96,14 @@ function TypeCollection:makeBitToCom()::Ret(Dict(Number, Union(class.IAtomType, 
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
 	-- 2. make true part
 	local nBitToCom = {}
-	for nBit, nSet in pairs(self.bitsToSet) do
-		if TrueBitToTrue[nBit] then
-			nBitToCom[nBit] = self:_makeSimpleTruePart(nBit, nSet)
-		end
-	end
 	if nTruableBits == TYPE_BITS.TRUTH then
-		error("Truth TODO")
+		nBitToCom[TYPE_BITS.TRUTH] = self._type.Truth
+	else
+		for nBit, nSet in pairs(self.bitsToSet) do
+			if TrueBitToTrue[nBit] then
+				nBitToCom[nBit] = self:_makeSimpleTruePart(nBit, nSet)
+			end
+		end
 	end
 	-- 3. check false part
 	if nFalsableBits ~= 0 then

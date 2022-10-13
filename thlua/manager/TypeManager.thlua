@@ -3,7 +3,6 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local TypeCollection = require "thlua.manager.TypeCollection"
 local Exception = require "thlua.Exception"
 
-local Never = require "thlua.union.Never"
 local StringLiteral = require "thlua.type.StringLiteral"
 local String = require "thlua.type.String"
 local NumberLiteral = require "thlua.type.NumberLiteral"
@@ -18,14 +17,7 @@ local NativeFunction = require "thlua.func.NativeFunction"
 local TypeFunction = require "thlua.func.TypeFunction"
 local Reference = require "thlua.type.Reference"
 local Variable = require "thlua.func.Variable"
-
-local StringLiteralSetCom = require "thlua.union.StringLiteralSetCom"
-local NumberLiteralSetCom = require "thlua.union.NumberLiteralSetCom"
-local ObjectSetCom = require "thlua.union.ObjectSetCom"
-local FuncSetCom = require "thlua.union.FuncSetCom"
-local FalsableUnion = require "thlua.union.FalsableUnion"
-local ComplexUnion = require "thlua.union.ComplexUnion"
-
+local Never = require "thlua.union.Never"
 local FullUnion = require "thlua.union.FullUnion"
 
 local RetTuples = require "thlua.tuple.RetTuples"
@@ -63,10 +55,9 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	--[[for k, nType in pairs(self.type) do
 		self:_recordTypeUnionSign(nType)
 	end]]
-	--[[self.type.Boolean = self:Union(self.type.False, self.type.True)
-	self.type.Any = self:Union(self.type.False, self.type.Nil, self.type.Truth)
+	self.type.Boolean = self:checkUnion(self.type.False, self.type.True)
 	--self.type.Object = self:Interface({}):checkType()
-	self.builtin.string=native.make_string(self)
+	--[[self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
 	self.builtin.bop={
@@ -160,10 +151,12 @@ function TypeManager:FullUnionByComDict(vBitToCom:Dict(Number, Union(class.IAtom
 	return FullUnion.new(self, false, vBitToCom)
 end
 
-function TypeManager:checkUnion(vLeft, vRight)
+function TypeManager:checkUnion(...)
 	local nCollection = self:TypeCollection()
-	nCollection:put(vLeft)
-	nCollection:put(vRight)
+	local l = {...}
+	for i=1,#l do
+		nCollection:put(l[i])
+	end
 	return nCollection:mergeToType()
 end
 
