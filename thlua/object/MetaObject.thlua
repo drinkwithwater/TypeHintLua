@@ -60,9 +60,7 @@ function MetaObject:preBuild()
 end
 
 function MetaObject:postBuild()
-	for k,v in pairs(self._getDict) do
-		v:checkType()
-	end
+	self._keyType:postBuild()
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -257,32 +255,22 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 end
 
 function MetaObject:foreachGetPair(vFunc)
-	self._getKey:foreach(function(vKeyType)
-		vFunc(vKeyType, self._getDict[vKeyType])
+	self._keyType:foreach(function(vKeyType)
+		local nGetValue = self._getDict[vKeyType]
+		if nGetValue then
+			vFunc(vKeyType, nGetValue)
+		end
 	end)
 end
 
 function MetaObject:foreachSetPair(vFunc)
-	self._setKey:foreach(function(vKeyType)
-		vFunc(vKeyType, self._setDict[vKeyType])
+	self._keyType:foreach(function(vKeyType)
+		local nSetValue = self._setDict[vKeyType]
+		if nSetValue then
+			vFunc(vKeyType, nSetValue)
+		end
 	end)
 end
-
---[[function MetaObject:checkMustKeyType()
-	local nMustKeyType = self._mustKeyType
-	if not nMustKeyType then
-		local nMustCollection = self._manager:TypeCollection()
-		local nTypeDict = self._valueDict
-		self._keyType:foreach(function(vSubType)
-			if not nTypeDict[vSubType]:isNilable() then
-				nMustCollection:put(vSubType)
-			end
-		end)
-		nMustKeyType = nMustCollection:mergeToType()
-		self._mustKeyType = nMustKeyType
-	end
-	return nMustKeyType
-end]]
 
 function MetaObject:detailString(vToStringCache, vVerbose)
 	return "MetaObject-"..tostring(self._keyType)
