@@ -146,18 +146,18 @@ function TypeManager:Union(...:Truth)::Ret(class.UValueType)
 	local n = select("#", ...)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
-	nNewRefer:setTypeAsync(function()
+	nNewRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
 		for i=1, n do
 			local nItem = l[i]
 			if Reference.is(nItem) then
-				local nReferType = nItem:getTypeAwait()
+				local nReferType = nItem:getRawAwait()
 				nCollection:put(nReferType)
 			else
 				nCollection:put(self:_toType(nItem))
 			end
 		end
-		return nCollection:mergeToType()
+		return nCollection
 	end)
 	return nNewRefer:getType() or nNewRefer
 end
@@ -186,7 +186,7 @@ function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vO
 	for nKey, nValue in pairs(vOneTable) do
 		local nKeyType
 		if Reference.is(nKey) then
-			nKeyType = nKey:getTypeAwait()
+			nKeyType = nKey:getRawAwait()
 			if nKeyType:isUnion() then
 				error("key can't be union")
 			end
@@ -223,12 +223,12 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 	vMetaTable = vMetaTable or {}@ObjectMetaTable
 	local nNewRefer = self:Reference(false)
 	-- TODO error when type intersect
-	nNewRefer:setTypeAsync(function()
+	nNewRefer:setRawAsync(function()
 		local nBothTable:Dict(class.IAtomType, Truth) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nKeyType
 			if Reference.is(nKey) then
-				nKeyType = nKey:getTypeAwait()
+				nKeyType = nKey:getRawAwait()
 				if nKeyType:isUnion() then
 					error("key can't be union")
 				end

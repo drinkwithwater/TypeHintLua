@@ -42,6 +42,14 @@ function TypeCollection.new(vManager:class.TypeManager)::Ret(class.TypeCollectio
 	return (setmetatable(self, TypeCollection)) @ class.TypeCollection
 end
 
+function TypeCollection:foreach(vFunc)
+	for bits, nSet in pairs(self.bitsToSet) do
+		for nType, _ in pairs(nSet) do
+			vFunc(nType)
+		end
+	end
+end
+
 function TypeCollection:_putOne(vType)
 	local nBitsToSet = self.bitsToSet
 	local nBits = vType.bits
@@ -134,6 +142,10 @@ function TypeCollection:mergeToType()::Ret(class.UKeyType)
 		local nUnionType = FalsableUnion.new(self._manager, nTrueType, nFalsableBits)
 		return self._manager:_unifyUnion(nUnionType)
 	end
+end
+
+function TypeCollection.is(vData)::isguard(class.TypeCollection)
+	return getmetatable(vData) == TypeCollection
 end
 
 return TypeCollection

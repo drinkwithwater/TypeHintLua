@@ -1,5 +1,6 @@
 
 local TypeClass = require "thlua.type.TypeClass"
+local TypeCollection = require "thlua.manager.TypeCollection"
 local Exception = require "thlua.Exception"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
@@ -14,6 +15,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
+		_collection=false@Union(False, class.TypeCollection),
 		_referType=(false @ Union(class.UKeyType, False)),
 		_thread=false,
 		_waitThreads={},
@@ -36,14 +38,20 @@ function Reference:detailString(v)::Ret(String)
 	end
 end
 
-function Reference:setTypeAsync(vFunc:Fn():Ret(class.UKeyType))::nocheck()
+(@let.RawItem = Union(class.IAtomType, class.TypeCollection))
+
+function Reference:setRawAsync(vFunc:Fn():Ret(let.RawItem))::nocheck()
 	assert(not self._thread, "refer has been setted:"..tostring(self))
 	assert(not self._referType, "refer has type"..tostring(self))
 	local co = coroutine.create(function()
-		local nType = vFunc()
-		self._referType = nType
-		if nType.setReferName and self._key then
-			nType:setReferName(self._key)
+		local nTypeOrCollection = vFunc()
+		if TypeCollection.is(nTypeOrCollection) then
+			self._referType = nTypeOrCollection:mergeToType()
+		else
+			self._referType = nTypeOrCollection
+		end
+		if self._referType.setReferName and self._key then
+			self._referType:setReferName(self._key)
 		end
 		local l = self._waitThreads
 		for i=#l,1,-1 do
@@ -55,11 +63,12 @@ function Reference:setTypeAsync(vFunc:Fn():Ret(class.UKeyType))::nocheck()
 	assert(coroutine.resume(co))
 end
 
-function Reference:getTypeAwait()
-	if not self._referType then
+function Reference:getRawAwait()::Ret(let.RawItem)
+	local nReturn = self._referType or self._collection
+	if not nReturn then
 		local co, _ = coroutine.running()
 		local nWaitingRefer = self._manager.coToRefer[co]!
-		assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
+		assert(nWaitingRefer, "can only call getRawAwait in Reference's coroutine")
 		nWaitingRefer._waitRefer = self
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
@@ -74,7 +83,7 @@ function Reference:getTypeAwait()
 		coroutine.yield()
 		nWaitingRefer._waitRefer = false
 	end
-	return self._referType
+	return self._referType or self._collection
 end
 
 function Reference:getType()
@@ -82,16 +91,6 @@ function Reference:getType()
 end
 
 function Reference:checkType()::Ret(class.UKeyType)
-	if not self._referType then
-		while true do
-			local nWaitRefer = self._waitRefer
-			if not nWaitRefer then
-				break
-			else
-				nWaitRefer:checkType()
-			end
-		end
-	end
 	local nReferType = self._referType
 	if not nReferType then
 		error(Exception.new("reference "..tostring(self).." has not been setted"))
