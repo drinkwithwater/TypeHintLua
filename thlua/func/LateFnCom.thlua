@@ -93,7 +93,7 @@ function LateFnCom:cast(vContext, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
 	if not self._typeFunction then
 		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
 		self._retTuples = self._retTuples or vDstTypeFn:getRetTuples()
-		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples or vDstTypeFn:getRetTuples())
+		self._typeFunction = self._manager:checkedFunction(nArgTuple, self._retTuples or vDstTypeFn:getRetTuples())
 	end
 	return vDstTypeFn:contain(self._typeFunction) and true
 end
@@ -102,7 +102,7 @@ function LateFnCom:_typeDefault()
 	if not self._typeFunction then
 		local nArgTuple = self._autoArgs:checkByDefault(vContext)
 		self._retTuples = self._retTuples or self._manager:VoidRetTuples()
-		self._typeFunction = self._manager:MemberFunction(nArgTuple, self._retTuples)
+		self._typeFunction = self._manager:checkedMemberFunction(nArgTuple, self._retTuples)
 	end
 end
 
@@ -116,7 +116,7 @@ function LateFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
 		self:_typeDefault()
 	end
 	local nArgTuple = self._typeFunction:getArgTuple()
-	return self._manager:MemberFunction(nArgTuple, self._retTuples)
+	return self._manager:checkedMemberFunction(nArgTuple, self._retTuples)
 end
 
 function LateFnCom.is(v)::isguard(class.LateFnCom)

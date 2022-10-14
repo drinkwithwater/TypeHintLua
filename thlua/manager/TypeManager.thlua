@@ -56,8 +56,8 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		self:_recordTypeUnionSign(nType)
 	end]]
 	self.type.Boolean = self:checkUnion(self.type.False, self.type.True)
-	--self.type.Object = self:Interface({}):checkType()
-	--[[self.builtin.string=native.make_string(self)
+	self.type.Object = self:Interface({}):checkType()
+	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
 	self.builtin.bop={
@@ -153,7 +153,7 @@ function TypeManager:FullUnionByComDict(vBitToCom:Dict(Number, Union(class.IAtom
 	return nUnion
 end
 
-function TypeManager:checkUnion(...)
+function TypeManager:checkUnion(...:Truth)
 	local nCollection = self:TypeCollection()
 	local l = {...}
 	for i=1,#l do
@@ -400,7 +400,7 @@ function TypeManager:Tuple(...:Truth)::Ret(class.TypeTuple)
 		if Reference.is(nType) then
 			nTypeList[i] = nType
 		else
-			nTypeList[i] = self:assertValueType(nType)
+			nTypeList[i] = self:toReference(nType)
 		end
 	end
 	return TypeTuple.new(self, nTypeList)
@@ -421,26 +421,28 @@ end
 
 function TypeManager:Mfn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
-	return self:MemberFunction(nArgTuple, RetTuples.new(self))
+	return TypeFunction.new(self, nArgTuple, true)
 end
 
 function TypeManager:Fn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return self:Function(nArgTuple, RetTuples.new(self))
+	return TypeFunction.new(self, nArgTuple, false)
 end
 
-function TypeManager:Function(vArgTuple, vRetTuples)
+function TypeManager:checkedFunction(vArgTuple, vRetTuples)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
-	return self:_unifyStruct(nFunc)
+	local nFunc = TypeFunction.new(self, nArgTuple, false)
+	nFunc:initByRetTuples(vRetTuples)
+	return nFunc
 end
 
-function TypeManager:MemberFunction(vArgTuple, vRetTuples)
+function TypeManager:checkedMemberFunction(vArgTuple, vRetTuples)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
-	return self:_unifyStruct(nFunc)
+	local nFunc = TypeFunction.new(self, vArgTuple, true)
+	nFunc:initByRetTuples(vRetTuples)
+	return nFunc
 end
 
 function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)

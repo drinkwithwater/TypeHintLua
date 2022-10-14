@@ -36,11 +36,15 @@ function MetaObject:initFromListTable(vKeyReferList, vTable)
 			self._getDict[nKeyType] = nValue
 			self._setDict[nKeyType] = nValue
 		else
-			local nKeyUnion = FullUnion.new(self._manager)
-			nKeyUnion:initFromReferList(vKeyReferList)
-			nKeyUnion:preBuild()
-			self._keyType = nKeyUnion
-			-- TODO , make setDict, getDict, nextDict
+			local nCollection = self._manager:TypeCollection()
+			for _, nKeyRefer in pairs(vKeyReferList) do
+				local nKeyType = nKeyRefer:getTypeAwait()
+				nCollection:put(nKeyType)
+				self._getDict[nKeyType] = vTable[nKeyRefer]
+				self._setDict[nKeyType] = vTable[nKeyRefer]
+				self._nextDict[nKeyType] = vTable[nKeyRefer]
+			end
+			self._keyType = nCollection:mergeToType()
 		end
 	end
 end
@@ -56,6 +60,9 @@ function MetaObject:preBuild()
 end
 
 function MetaObject:postBuild()
+	for k,v in pairs(self._getDict) do
+		v:checkType()
+	end
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -82,61 +89,6 @@ function MetaObject:_containOneNotRefer(vRightType)
 	end
 	nContainCache[nRightStruct] = true
 	if MetaObject.is(nRightStruct) then
-		-- struct contain TODO
-		--[[
-		-- 1. check all left strict keys contain by right keys
-		if not self:checkMustKeyType():every(function(vLeftKey)
-			local nLeftValue = self._valueDict[vLeftKey]
-			local nRightKey = nRightStruct:checkMustKeyType():contain(vLeftKey)
-			if not nRightKey then
-				return false
-			end
-			local nRightValue = nRightStruct._valueDict[nRightKey]
-			if not nLeftValue:contain(nRightValue) then
-				return false
-			end
-			return true
-		end) then
-			nContainCache[nRightStruct] = false
-			return false
-		end
-		-- 2. check all right key-value contain by right key-value
-		if not nRightStruct._keyType:every(function(vRightKey)
-			local nLeftKey = self._keyType:contain(vRightKey)
-			if not nLeftKey then
-				return false
-			end
-			local nLeftValue = self._valueDict[nLeftKey]
-			local nRightValue = nRightStruct._valueDict[vRightKey]
-			if not nLeftValue:contain(nRightValue) then
-				return false
-			end
-			return true
-		end) then
-			nContainCache[nRightStruct] = false
-			return false
-		end
-		]]
-		--[[
-		-- check as interface
-		local nResult = self._keyType:every(function(vLeftKey)
-			local nLeftValue = self._valueDict[vLeftKey]
-			local nRightValue = nRightStruct._valueDict[vLeftKey]
-			if not nRightValue then
-				return false
-			end
-			if not nLeftValue:contain(nRightValue) then
-				return false
-			end
-			return true
-		end)
-		if nResult then
-			nContainCache[nRightStruct] = true
-			return self
-		else
-			nContainCache[nRightStruct] = false
-			return false
-		end]]
 		if self == nRightStruct then
 			nContainCache[nRightStruct] = true
 			return self
@@ -277,13 +229,15 @@ function MetaObject:structSign()
 end
 
 function MetaObject:meta_get(vContext, vType)
-	local nKey = self._getKey:_containOneNotRefer(vType)
+	local nKey = self._keyType:_containOneNotRefer(vType)
 	if nKey then
-		return self._getDict[nKey]!:checkType()
-	else
-		vContext:error("error get("..tostring(vType)..") in struct")
-		return self._manager.type.Nil
+		local nValue = self._getDict[nKey]
+		if nValue then
+			return nValue:checkType()
+		end
 	end
+	vContext:error("error get("..tostring(vType)..") in struct")
+	return self._manager.type.Nil
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)

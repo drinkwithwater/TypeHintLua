@@ -7,29 +7,47 @@ local TypeFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function TypeFunction.new(vManager:class.TypeManager,
-	vArgTuple:class.UTypeTuple,
-	vRetTuples:class.RetTuples,
-	vMember:Boolean)::RetClass(class.TypeFunction, class.IAtomType)
+function TypeFunction.new(vManager:class.TypeManager, vArgTuple:class.TypeTuple, vMember:Boolean)::RetClass(class.TypeFunction, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
+		_preRetTuples=false,
 		_argTuple=vArgTuple,
-		_retTuples=vRetTuples,
+		_retTuples=false,
 		_member=vMember,
-		_structSign=false,
-		pos="??",
 		id=0,
 		bits=TYPE_BITS.FUNCTION,
 	}, TypeFunction)
 	return self
 end
 
+function TypeFunction:initByRetTuples(vRetTuples)
+	assert(not self._retTuples, "type-function has been locked when init")
+	self._retTuples = vRetTuples
+end
+
 function TypeFunction:Dots(vType)
-	if self._member then
-		return self._manager:MemberFunction(self._argTuple:Dots(vType), self._retTuples)
+	assert(not self._retTuples, "type-function has been locked when call Dots")
+	self._argTuple = self._argTuple:Dots(vType)
+end
+
+function TypeFunction:Ret(...:Truth)
+	assert(not self._retTuples, "type-function has been locked when call Ret")
+	local nTypeTuple = self._manager:Tuple(...)
+	local nRetTuples = self._preRetTuples
+	if not nRetTuples then
+		nRetTuples = self._manager:SingleRetTuples(nTypeTuple)
 	else
-		return self._manager:Function(self._argTuple:Dots(vType), self._retTuples)
+		nRetTuples = nRetTuples:Add(nTypeTuple)
 	end
+	self._preRetTuples = nRetTuples
+end
+
+function TypeFunction:preBuild()
+	assert(not self._retTuples, "type-function has been locked when preBuild")
+	self._retTuples = self._preRetTuples
+end
+
+function TypeFunction:postBuild()
 end
 
 function TypeFunction:isMember()::Ret(Boolean)
@@ -38,16 +56,6 @@ end
 
 function TypeFunction:isNative()::Ret(Boolean)
 	return false
-end
-
-function TypeFunction:Ret(...:Truth)
-	local nTypeTuple = self._manager:Tuple(...)
-	local nRetTuples = self._retTuples:Add(nTypeTuple)
-	if self._member then
-		return self._manager:MemberFunction(self._argTuple, nRetTuples)
-	else
-		return self._manager:Function(self._argTuple, nRetTuples)
-	end
 end
 
 function TypeFunction:detailString(v)
