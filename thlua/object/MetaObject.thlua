@@ -1,7 +1,6 @@
 
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
 local StringLiteral = require "thlua.type.StringLiteral"
-local FullUnion = require "thlua.union.FullUnion"
 local Exception = require "thlua.Exception"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
@@ -9,58 +8,31 @@ local MetaObject = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function MetaObject.new(vManager:class.TypeManager)::RetClass(class.MetaObject, class.IAtomType)
+function MetaObject.new(
+		vManager:class.TypeManager,
+		vKeyType:class.UKeyType,
+		vGetKey:class.UKeyType,
+		vGetDict:Dict(class.IAtomType, class.UValueType),
+		vSetKey:class.UKeyType,
+		vSetDict:Dict(class.IAtomType, class.UValueType),
+		vNextDict:Dict(class.IAtomType, class.UValueType)
+	)::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_keyType=false,
-		_getDict={},
-		_setDict={},
+		_keyType=vKeyType,
+		_getKey=vGetKey,
+		_getDict=vGetDict,
+		_setKey=vSetKey,
+		_setDict=vSetDict,
 		_nextValue=false,
-		_nextDict={},
+		_nextDict=vNextDict,
 		bits=TYPE_BITS.OBJECT,
 		id=0,
+		_unionSign=false,
+		_structSign=false,
+		_containCache={} @Dict(Truth, Boolean),
 	}, MetaObject)
 	return self
-end
-
-function MetaObject:initFromListTable(vKeyReferList, vTable)
-	self._preFunc=function()
-		local nKeyTypeNum = #vKeyReferList
-		if nKeyTypeNum == 0 then
-			self._keyType = self._manager.type.Never
-		elseif nKeyTypeNum == 1 then
-			local nRefer = vKeyReferList[1]
-			local nKeyType = nRefer:getTypeAwait()
-			local nValue = vTable[nRefer]
-			self._keyType = nKeyType
-			self._getDict[nKeyType] = nValue
-			self._setDict[nKeyType] = nValue
-		else
-			local nCollection = self._manager:TypeCollection()
-			for _, nKeyRefer in pairs(vKeyReferList) do
-				local nKeyType = nKeyRefer:getTypeAwait()
-				nCollection:put(nKeyType)
-				self._getDict[nKeyType] = vTable[nKeyRefer]
-				self._setDict[nKeyType] = vTable[nKeyRefer]
-				self._nextDict[nKeyType] = vTable[nKeyRefer]
-			end
-			self._keyType = nCollection:mergeToType()
-		end
-	end
-end
-
-function MetaObject:preBuild()
-	local nPreFunc = self._preFunc
-	if not nPreFunc then
-		return
-	else
-		self._preFunc = false
-	end
-	nPreFunc()
-end
-
-function MetaObject:postBuild()
-	self._keyType:postBuild()
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -87,6 +59,61 @@ function MetaObject:_containOneNotRefer(vRightType)
 	end
 	nContainCache[nRightStruct] = true
 	if MetaObject.is(nRightStruct) then
+		-- struct contain TODO
+		--[[
+		-- 1. check all left strict keys contain by right keys
+		if not self:checkMustKeyType():every(function(vLeftKey)
+			local nLeftValue = self._valueDict[vLeftKey]
+			local nRightKey = nRightStruct:checkMustKeyType():contain(vLeftKey)
+			if not nRightKey then
+				return false
+			end
+			local nRightValue = nRightStruct._valueDict[nRightKey]
+			if not nLeftValue:contain(nRightValue) then
+				return false
+			end
+			return true
+		end) then
+			nContainCache[nRightStruct] = false
+			return false
+		end
+		-- 2. check all right key-value contain by right key-value
+		if not nRightStruct._keyType:every(function(vRightKey)
+			local nLeftKey = self._keyType:contain(vRightKey)
+			if not nLeftKey then
+				return false
+			end
+			local nLeftValue = self._valueDict[nLeftKey]
+			local nRightValue = nRightStruct._valueDict[vRightKey]
+			if not nLeftValue:contain(nRightValue) then
+				return false
+			end
+			return true
+		end) then
+			nContainCache[nRightStruct] = false
+			return false
+		end
+		]]
+		--[[
+		-- check as interface
+		local nResult = self._keyType:every(function(vLeftKey)
+			local nLeftValue = self._valueDict[vLeftKey]
+			local nRightValue = nRightStruct._valueDict[vLeftKey]
+			if not nRightValue then
+				return false
+			end
+			if not nLeftValue:contain(nRightValue) then
+				return false
+			end
+			return true
+		end)
+		if nResult then
+			nContainCache[nRightStruct] = true
+			return self
+		else
+			nContainCache[nRightStruct] = false
+			return false
+		end]]
 		if self == nRightStruct then
 			nContainCache[nRightStruct] = true
 			return self
@@ -227,15 +254,13 @@ function MetaObject:structSign()
 end
 
 function MetaObject:meta_get(vContext, vType)
-	local nKey = self._keyType:_containOneNotRefer(vType)
+	local nKey = self._getKey:_containOneNotRefer(vType)
 	if nKey then
-		local nValue = self._getDict[nKey]
-		if nValue then
-			return nValue:checkType()
-		end
+		return self._getDict[nKey]!:checkType()
+	else
+		vContext:error("error get("..tostring(vType)..") in struct")
+		return self._manager.type.Nil
 	end
-	vContext:error("error get("..tostring(vType)..") in struct")
-	return self._manager.type.Nil
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
@@ -255,26 +280,34 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 end
 
 function MetaObject:foreachGetPair(vFunc)
-	self._keyType:foreach(function(vKeyType)
-		local nGetValue = self._getDict[vKeyType]
-		if nGetValue then
-			vFunc(vKeyType, nGetValue)
-		end
+	self._getKey:foreach(function(vKeyType)
+		vFunc(vKeyType, self._getDict[vKeyType])
 	end)
 end
 
 function MetaObject:foreachSetPair(vFunc)
-	self._keyType:foreach(function(vKeyType)
-		local nSetValue = self._setDict[vKeyType]
-		if nSetValue then
-			vFunc(vKeyType, nSetValue)
-		end
+	self._setKey:foreach(function(vKeyType)
+		vFunc(vKeyType, self._setDict[vKeyType])
 	end)
 end
 
+--[[function MetaObject:checkMustKeyType()
+	local nMustKeyType = self._mustKeyType
+	if not nMustKeyType then
+		local nMustCollection = self._manager:TypeCollection()
+		local nTypeDict = self._valueDict
+		self._keyType:foreach(function(vSubType)
+			if not nTypeDict[vSubType]:isNilable() then
+				nMustCollection:put(vSubType)
+			end
+		end)
+		nMustKeyType = nMustCollection:mergeToType()
+		self._mustKeyType = nMustKeyType
+	end
+	return nMustKeyType
+end]]
+
 function MetaObject:detailString(vToStringCache, vVerbose)
-	return "MetaObject-"..tostring(self._keyType)
-	--[[
 	if self._referName then
 		return self._referName
 	end
@@ -307,7 +340,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	end
 	local nResult = "Struct({},{get={"..table.concat(lsetter, ",").."},{set={"..table.concat(lgetter,",").."}}"
 	vToStringCache[self] = nResult
-	return nResult]]
+	return nResult
 end
 
 function MetaObject:getKeyType()

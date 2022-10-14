@@ -14,7 +14,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
-		_referType=false @ Union(class.UKeyType, False),
+		_referType=(false @ Union(class.UKeyType, False)),
 		_thread=false,
 		_waitThreads={},
 	}, Reference)
@@ -36,17 +36,14 @@ function Reference:detailString(v)::Ret(String)
 	end
 end
 
-function Reference:setTypeAsync(vAssignValue)
+function Reference:setTypeAsync(vFunc:Fn():Ret(class.UKeyType))::nocheck()
 	assert(not self._thread, "refer has been setted:"..tostring(self))
 	assert(not self._referType, "refer has type"..tostring(self))
 	local co = coroutine.create(function()
-		if self._manager:isType(vAssignValue) then
-			vAssignValue:preBuild()
-			self._referType = vAssignValue
-		elseif Reference.is(vAssignValue) then
-			self._referType = vAssignValue:getTypeAwait()
-		else
-			self._referType = self._manager:_toType(vAssignValue)
+		local nType = vFunc()
+		self._referType = nType
+		if nType.setReferName and self._key then
+			nType:setReferName(self._key)
 		end
 		local l = self._waitThreads
 		for i=#l,1,-1 do
@@ -85,10 +82,22 @@ function Reference:getType()
 end
 
 function Reference:checkType()::Ret(class.UKeyType)
+	if not self._referType then
+		while true do
+			local nWaitRefer = self._waitRefer
+			if not nWaitRefer then
+				break
+			else
+				nWaitRefer:checkType()
+			end
+		end
+	end
 	local nReferType = self._referType
-	assert(nReferType, "reference not set :"..tostring(self))
-	nReferType:postBuild()
-	return nReferType
+	if not nReferType then
+		error(Exception.new("reference "..tostring(self).." has not been setted"))
+	else
+		return nReferType
+	end
 end
 
 function Reference:isNilable()
@@ -103,8 +112,8 @@ function Reference:isReference()
 	return true
 end
 
-function Reference:foreach(vFunc:Fn(class.IAtomType):Ret())
-	self._referType:foreach(vFunc)
+function Reference:_mapContinue(vContinue:Boolean, vFunc:Fn(class.IAtomType):Ret())
+	return self:checkType():_mapContinue(vContinue, vFunc)
 end
 
 function Reference:_intersectOneNotRefer(vType:class.IAtomType)::Ret(Union(class.UKeyType, False))

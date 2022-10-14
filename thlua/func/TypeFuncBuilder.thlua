@@ -1,0 +1,40 @@
+
+local TypeFuncBuilder = {}
+
+TypeFuncBuilder.__index=TypeFuncBuilder
+
+(@let.class = import("thlua.type.TypeClass").class)
+
+function TypeFuncBuilder.new(vManager:class.TypeManager, vMember:Boolean, vArgTuple:class.TypeTuple)::RetClass(class.TypeFuncBuilder)
+	local self = setmetatable({::Self()
+		_manager=vManager,
+		_member=vMember,
+		_argTuple=vArgTuple,
+		_retTuples=false,
+	}, TypeFuncBuilder)
+	return self
+end
+
+function TypeFuncBuilder:Dots(vType)
+	self._argTuple = self._argTuple:Dots(vType)
+	return self
+end
+
+function TypeFuncBuilder:Ret(...:Truth)
+	local nTypeTuple = self._manager:Tuple(...)
+	local nRetTuples = self._retTuples:Add(nTypeTuple)
+	return self
+end
+
+function TypeFuncBuilder:build()
+	if not self._retTuples then
+		self._retTuples = self._manager:VoidRetTuples()
+	end
+	if self._member then
+		return self._manager:MemberFunction(self._argTuple, self._retTuples)
+	else
+		return self._manager:Function(self._argTuple, self._retTuples)
+	end
+end
+
+return TypeFuncBuilder

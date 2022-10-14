@@ -3,6 +3,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local TypeCollection = require "thlua.manager.TypeCollection"
 local Exception = require "thlua.Exception"
 
+local Never = require "thlua.union.Never"
 local StringLiteral = require "thlua.type.StringLiteral"
 local String = require "thlua.type.String"
 local NumberLiteral = require "thlua.type.NumberLiteral"
@@ -17,8 +18,13 @@ local NativeFunction = require "thlua.func.NativeFunction"
 local TypeFunction = require "thlua.func.TypeFunction"
 local Reference = require "thlua.type.Reference"
 local Variable = require "thlua.func.Variable"
-local Never = require "thlua.union.Never"
-local FullUnion = require "thlua.union.FullUnion"
+
+local StringLiteralUnion = require "thlua.union.StringLiteralUnion"
+local NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
+local ObjectUnion = require "thlua.union.ObjectUnion"
+local FuncUnion = require "thlua.union.FuncUnion"
+local FalsableUnion = require "thlua.union.FalsableUnion"
+local ComplexUnion = require "thlua.union.ComplexUnion"
 
 local RetTuples = require "thlua.tuple.RetTuples"
 local TypeTuple = require "thlua.tuple.TypeTuple"
@@ -43,7 +49,6 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		_unionSignToType={},
 		_structSignToType={},
 		_typeIdCounter=0@Number,
-		_referenceSet={},
 	}, TypeManager)
 	self.type.Never = Never.new(self)
 	self.type.Nil = Nil.new(self)
@@ -52,10 +57,11 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	self.type.Number = Number.new(self)
 	self.type.String = String.new(self)
 	self.type.Truth = Truth.new(self)
-	--[[for k, nType in pairs(self.type) do
+	for k, nType in pairs(self.type) do
 		self:_recordTypeUnionSign(nType)
-	end]]
-	self.type.Boolean = self:checkedUnion(self.type.False, self.type.True)
+	end
+	self.type.Boolean = self:Union(self.type.False, self.type.True)
+	self.type.Any = self:Union(self.type.False, self.type.Nil, self.type.Truth)
 	self.type.Object = self:Interface({}):checkType()
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
@@ -78,22 +84,18 @@ local tableToTypeFuncDict = {
 	[NumberLiteral]=true,
 	[BooleanLiteral]=true,
 	[MetaObject]=true,
+	[Truth]=true,
 	[LuaTable]=true,
+	[NumberLiteralUnion]=true,
+	[StringLiteralUnion]=true,
+	[FalsableUnion]=true,
+	[ObjectUnion]=true,
+	[FuncUnion]=true,
+	[ComplexUnion]=true,
 	[LuaFunction]=true,
 	[TypeFunction]=true,
 	[NativeFunction]=true,
-	[FullUnion]=true,
-	[Truth]=true,
 }
-
-function TypeManager:isType(vData)::Ret(Boolean)
-	local meta = getmetatable(vData)
-	if meta and tableToTypeFuncDict[meta] then
-		return true
-	else
-		return false
-	end
-end
 
 function TypeManager:isValueType(vData)::Ret(Boolean)
     local meta = getmetatable(vData)
@@ -140,36 +142,24 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:FullUnionByComDict(vBitToCom:Dict(Number, Union(class.IAtomType, class.ISetCom)))
-	local nCount = 0
-	for k,v in pairs(vBitToCom) do
-		v:foreach(function()
-			nCount = nCount + 1
-		end)
-	end
-	assert(nCount >= 2, "TypeCollection merge must has at least 2 value when return union")
-	local nUnion = FullUnion.new(self, false, vBitToCom)
-	nUnion:initFromComDict(vBitToCom)
-	return nUnion
-end
-
-function TypeManager:checkedUnion(...:Truth)
-	local nCollection = self:TypeCollection()
+function TypeManager:Union(...:Truth)::Ret(class.UValueType)
+	local n = select("#", ...)
 	local l = {...}
-	for i=1,#l do
-		nCollection:put(l[i])
-	end
-	return nCollection:mergeToType()
-end
-
-function TypeManager:Union(...:Truth)::Ret(class.FullUnion)
-	local l = {...}
-	for i=1,#l do
-		l[i] = self:toReference(l[i])
-	end
-	local nUnion = FullUnion.new(self)
-	nUnion:initFromReferList(l)
-	return nUnion
+	local nNewRefer = self:Reference(false)
+	nNewRefer:setTypeAsync(function()
+		local nCollection = self:TypeCollection()
+		for i=1, n do
+			local nItem = l[i]
+			if Reference.is(nItem) then
+				local nReferType = nItem:getTypeAwait()
+				nCollection:put(nReferType)
+			else
+				nCollection:put(self:_toType(nItem))
+			end
+		end
+		return nCollection:mergeToType()
+	end)
+	return nNewRefer:getType() or nNewRefer
 end
 
 function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
@@ -213,34 +203,27 @@ function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vO
 	return nCollection:mergeToType(), nTypeDict
 end
 
-function TypeManager:toReference(vTruth:Truth)
-	if Reference.is(vTruth) then
-		return vTruth
-	else
-		local nRefer = self:Reference(false)
-		nRefer:setTypeAsync(vTruth)
-		return nRefer
-	end
+(@
+
+let.ObjectMetaTable = Struct {
+	get=Union(Dict(Truth, Truth), Nil),
+	set=Union(Dict(Truth, Truth), Nil),
+	next=Struct {Truth, Truth},
+	len=Union(Truth, Nil),
+}
+
+)
+
+
+function TypeManager:Interface(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject, class.Reference))
+	return self:Struct(vTable, vMetaTable)
 end
 
-function TypeManager:Interface(vTable:Dict(Truth,Truth))::Ret(Union(class.MetaObject, class.Reference))
-	return self:Struct(vTable)
-end
-
-function TypeManager:Struct(vTable:Dict(Truth,Truth))::Ret(Union(class.MetaObject,class.Reference))
-	local nKeyList = {}
-	local nKeyToValue = {}
-	for k, v in pairs(vTable) do
-		local nKey = self:toReference(k)
-		local nValue = self:toReference(v)
-		nKeyList[#nKeyList + 1] = nKey
-		nKeyToValue[nKey] = nValue
-	end
-	local nObject = MetaObject.new(self)
-	nObject:initFromListTable(nKeyList, nKeyToValue)
-	return nObject
+function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject,class.Reference))
+	vMetaTable = vMetaTable or {}@ObjectMetaTable
+	local nNewRefer = self:Reference(false)
 	-- TODO error when type intersect
-	--[[nNewRefer:setTypeAsync(function()
+	nNewRefer:setTypeAsync(function()
 		local nBothTable:Dict(class.IAtomType, Truth) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nKeyType
@@ -275,7 +258,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth))::Ret(Union(class.MetaObjec
 		return self:_recordTypeUnionSign(self:_unifyStruct(nNewStruct))
 	end)
 	--return nNewRefer:getType() or nNewRefer
-	return nNewRefer]]
+	return nNewRefer
 end
 
 function TypeManager:Dict(vKey:class.UKeyType, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))
@@ -306,9 +289,7 @@ function TypeManager:_unifyStruct(vNewType)
 end
 
 function TypeManager:_unifyUnion(vNewType)
-	-- unify type TODO
-	return vNewType
-	--[[local nSign = vNewType:unionSign()
+	local nSign = vNewType:unionSign()
 	local nSignToType = self._unionSignToType
 	local nOldType = nSignToType[nSign]
 	if not nOldType then
@@ -318,23 +299,23 @@ function TypeManager:_unifyUnion(vNewType)
 		return vNewType
 	else
 		return nOldType
-	end]]
+	end
 end
 
 function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UKeyType, Dict(class.IAtomType, class.UValueType))
-	local nTypeToBorable = {}
+    local nTypeToBorable = {}
 	local nCollection = self:TypeCollection()
-	for _, nPair in ipairs(vTypeBorablePairList) do
+    for _, nPair in ipairs(vTypeBorablePairList) do
 		local nFieldType = nPair[1]
 		if nFieldType:isReference() then
 			nFieldType = nFieldType:checkType()
 			nPair[1] = nFieldType
 		end
 		nCollection:put(nFieldType)
-	end
+    end
 	local nKeyUnion = nCollection:mergeToType()
 	local nTypeDict = {}
-	for _, nPair in ipairs(vTypeBorablePairList) do
+    for _, nPair in ipairs(vTypeBorablePairList) do
 		local nKey = nPair[1]
 		local nBorableValue = nPair[2]
 		nKey:foreach(function(vSubType)
@@ -346,8 +327,8 @@ function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UKeyType, Di
 				nTypeDict[nContainType] = nBorableValue
 			end
 		end)
-	end
-	return nKeyUnion, nTypeDict
+    end
+    return nKeyUnion, nTypeDict
 end
 
 function TypeManager:_recordTypeUnionSign(vType)
@@ -400,7 +381,7 @@ function TypeManager:Tuple(...:Truth)::Ret(class.TypeTuple)
 		if Reference.is(nType) then
 			nTypeList[i] = nType
 		else
-			nTypeList[i] = self:toReference(nType)
+			nTypeList[i] = self:assertValueType(nType)
 		end
 	end
 	return TypeTuple.new(self, nTypeList)
@@ -421,28 +402,26 @@ end
 
 function TypeManager:Mfn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
-	return TypeFunction.new(self, nArgTuple, true)
+	return self:MemberFunction(nArgTuple, RetTuples.new(self))
 end
 
 function TypeManager:Fn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return TypeFunction.new(self, nArgTuple, false)
+	return self:Function(nArgTuple, RetTuples.new(self))
 end
 
-function TypeManager:checkedFunction(vArgTuple, vRetTuples)
+function TypeManager:Function(vArgTuple, vRetTuples)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, nArgTuple, false)
-	nFunc:initByRetTuples(vRetTuples)
-	return nFunc
+	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
+	return self:_unifyStruct(nFunc)
 end
 
-function TypeManager:checkedMemberFunction(vArgTuple, vRetTuples)
+function TypeManager:MemberFunction(vArgTuple, vRetTuples)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, vArgTuple, true)
-	nFunc:initByRetTuples(vRetTuples)
-	return nFunc
+	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
+	return self:_unifyStruct(nFunc)
 end
 
 function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)
@@ -464,24 +443,22 @@ function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:
 	local nRepeatType = false
 	if vTermTupleOrNil then
 		for i1=1, #vTermTupleOrNil do
-			local nTerm = vTermTupleOrNil:get(i1)
+            local nTerm = vTermTupleOrNil:get(i1)
 			local i2 = #nTermList + 1
 			nTermList[i2] = nTerm
 			nTypeList[i2] = nTerm:getType()
 		end
 		nRepeatType = vTermTupleOrNil:getRepeatType()
 	end
-	local nTypeTuple = self:Tuple(table.unpack(nTypeList))
+    local nTypeTuple = self:Tuple(table.unpack(nTypeList))
 	if nRepeatType then
-			nTypeTuple = nTypeTuple:Dots(nRepeatType)
-	end
-	return TermTuple.new(self, nTermList, nTypeTuple)
+        nTypeTuple = nTypeTuple:Dots(nRepeatType)
+    end
+    return TermTuple.new(self, nTermList, nTypeTuple)
 end
 
 function TypeManager:Reference(vName:String)::Ret(class.Reference)
-	local nRefer = Reference.new(self, vName)
-	self._referenceSet[nRefer] = true
-	return nRefer
+	return Reference.new(self, vName)
 end
 
 function TypeManager:mergeToUnionTerm(vTypeCasePairList)::Ret(class.UnionTerm)

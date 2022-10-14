@@ -1,38 +1,47 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local UnionClass = require "thlua.union.UnionClass"
 local Truth = require "thlua.type.Truth"
 local NativeFunction = require "thlua.func.NativeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local TypeFunction = require "thlua.func.TypeFunction"
 
-local SetComClass = require "thlua.union.SetComClass"
-local FuncSetCom = SetComClass()
+local FuncUnion = UnionClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function FuncSetCom.new(vManager:class.TypeManager)::RetClass(class.FuncSetCom, class.ISetCom)
+function FuncUnion.new(vManager:class.TypeManager)::RetClass(class.FuncUnion, class.IUnionType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_nativeFnDict={} @Dict(class.NativeFunction, True),
 		_typeFnDict={} @Dict(class.TypeFunction, True),
 		_luaFnDict={} @Dict(class.LuaFunction, True),
-	}, FuncSetCom)
+		bits=TYPE_BITS.FUNCTION,
+		id=0,
+	}, FuncUnion)
 	return self
 end
 
-function FuncSetCom:foreach(vFunc)
+function FuncUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
 	for nType, _ in pairs(self._nativeFnDict) do
-		vFunc(nType)
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
 	end
 	for nType, _ in pairs(self._typeFnDict) do
-		vFunc(nType)
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
 	end
 	for nType, _ in pairs(self._luaFnDict) do
-		vFunc(nType)
+		if not (vFunc(nType) or vContinue) then
+			return false
+		end
 	end
+	return true
 end
 
-function FuncSetCom:_put(vType)
+function FuncUnion:_put(vType)
 	if self:_containOneNotRefer(vType) then
 		return
 	end
@@ -62,7 +71,7 @@ function FuncSetCom:_put(vType)
 	end
 end
 
-function FuncSetCom:_intersectOneNotRefer(vType)
+function FuncUnion:_intersectOneNotRefer(vType)
 	if Truth.is(vType) then
 		return self
 	else
@@ -70,7 +79,7 @@ function FuncSetCom:_intersectOneNotRefer(vType)
 	end
 end
 
-function FuncSetCom:_containOneNotRefer(vType)
+function FuncUnion:_containOneNotRefer(vType)
 	if NativeFunction.is(vType) then
 		if self._nativeFnDict[vType] then
 			return vType
@@ -92,4 +101,4 @@ function FuncSetCom:_containOneNotRefer(vType)
 	return false
 end
 
-return FuncSetCom
+return FuncUnion
