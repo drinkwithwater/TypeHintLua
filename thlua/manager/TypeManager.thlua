@@ -47,7 +47,6 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		coToRefer={},
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
 		_unionSignToType={},
-		_structSignToType={},
 		_typeIdCounter=0@Number,
 	}, TypeManager)
 	self.type.Never = Never.new(self)
@@ -187,8 +186,11 @@ function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vO
 		local nKeyType
 		if Reference.is(nKey) then
 			nKeyType = nKey:getRawAwait()
+			if TypeCollection.is(nKeyType) then
+				error("key can't be union 1")
+			end
 			if nKeyType:isUnion() then
-				error("key can't be union")
+				error("key can't be union 2")
 			end
 		else
 			nKeyType = self:_toType(nKey)
@@ -229,8 +231,11 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 			local nKeyType
 			if Reference.is(nKey) then
 				nKeyType = nKey:getRawAwait()
+				if TypeCollection.is(nKeyType) then
+					error("key can't be union 1")
+				end
 				if nKeyType:isUnion() then
-					error("key can't be union")
+					error("key can't be union 2")
 				end
 			else
 				nKeyType = self:_toType(nKey)
@@ -255,7 +260,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 		end
 		local nNewStruct = MetaObject.new(self, self:Union(nGetKey, nSetKey),
 							nGetKey, nGetDict, nSetKey, nSetDict, nNextDict)
-		return self:_recordTypeUnionSign(self:_unifyStruct(nNewStruct))
+		return self:_recordTypeUnionSign(nNewStruct)
 	end)
 	--return nNewRefer:getType() or nNewRefer
 	return nNewRefer
@@ -272,20 +277,6 @@ end
 
 function TypeManager:Option(vValue)
 	return self:Union(vValue, self.type.Nil)
-end
-
-function TypeManager:_unifyStruct(vNewType)
-	local nSign = vNewType:structSign()
-	local nSignToType = self._structSignToType
-	local nOldType = nSignToType[nSign]
-	if not nOldType then
-		assert(vNewType.id == 0, "newunion's id must be 0")
-		vNewType.id = self:genTypeId()
-		nSignToType[nSign] = vNewType
-		return vNewType
-	else
-		return nOldType
-	end
 end
 
 function TypeManager:_unifyUnion(vNewType)
@@ -414,14 +405,14 @@ function TypeManager:Function(vArgTuple, vRetTuples)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
-	return self:_unifyStruct(nFunc)
+	return nFunc
 end
 
 function TypeManager:MemberFunction(vArgTuple, vRetTuples)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
-	return self:_unifyStruct(nFunc)
+	return nFunc
 end
 
 function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)

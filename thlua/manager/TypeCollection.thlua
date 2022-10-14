@@ -8,7 +8,9 @@ local FuncUnion = require "thlua.union.FuncUnion"
 local ComplexUnion = require "thlua.union.ComplexUnion"
 local FalsableUnion = require "thlua.union.FalsableUnion"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+end)
 
 local FastTypeBitsToTrue = {
 	[TYPE_BITS.NIL]=true,
@@ -35,6 +37,7 @@ function TypeCollection.new(vManager:class.TypeManager)::Ret(class.TypeCollectio
 	local self = {
 		_manager=vManager,
 		_type=vManager.type,
+		_result=false,
 		bitsToSet={} @ Dict(Number,Dict(class.IAtomType,True)),
 		bits=0 @ Number,
  		count=0 @ Number,
@@ -100,7 +103,7 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UKeyType)
 	return self._manager:_unifyUnion(nUnionType)
 end
 
-function TypeCollection:mergeToType()::Ret(class.UKeyType)
+function TypeCollection:_mergeToType()::Ret(class.UKeyType)
 	local nBits = self.bits
 	-- 0. only one type
 	if self.count == 1 then
@@ -142,6 +145,15 @@ function TypeCollection:mergeToType()::Ret(class.UKeyType)
 		local nUnionType = FalsableUnion.new(self._manager, nTrueType, nFalsableBits)
 		return self._manager:_unifyUnion(nUnionType)
 	end
+end
+
+function TypeCollection:mergeToType()::Ret(class.UKeyType)
+	local nResult = self._result
+	if not nResult then
+		nResult = self:_mergeToType()
+		self._result = nResult
+	end
+	return nResult
 end
 
 function TypeCollection.is(vData)::isguard(class.TypeCollection)
