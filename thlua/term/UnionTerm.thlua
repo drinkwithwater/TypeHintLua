@@ -7,13 +7,13 @@ local Nil = require "thlua.type.Nil"
 local UnionTerm = {}
 UnionTerm.__index=UnionTerm
 UnionTerm.__bor=function(vLeft, vRight)
-    local nTypeCaseList = {}
-    vLeft:foreach(function(vType, vCase)
-        nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
-    end)
-    vRight:foreach(function(vType, vCase)
-        nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
-    end)
+	local nTypeCaseList = {}
+	vLeft:foreach(function(vType, vCase)
+			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
+	end)
+	vRight:foreach(function(vType, vCase)
+			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
+	end)
 	return vLeft._manager:mergeToUnionTerm(nTypeCaseList)
 end
 UnionTerm.__tostring=function(self)::Ret(String)
@@ -26,7 +26,7 @@ end
 
 function UnionTerm.new(
 	vManager:class.TypeManager,
-	vType:class.UKeyType,
+	vType:class.UAtomUnion,
 	vTypeToCase:Option(Dict(class.IAtomType, class.TermCase)))::RetClass(class.UnionTerm)
 	local self = setmetatable({::Self()
 		_manager=vManager,
@@ -36,9 +36,9 @@ function UnionTerm.new(
 		const=false,
 	}, UnionTerm)
 	vType:foreach(function(vType)
-		if not self._typeToCase[vType] then
-			self._typeToCase[vType] = TermCase.new()
-		end
+	if not self._typeToCase[vType] then
+		self._typeToCase[vType] = TermCase.new()
+	end
 	end)
 	return self
 end
@@ -56,7 +56,7 @@ end
 function UnionTerm:caseTrue()
 	local reCase = nil
 	self._type:trueType():foreach(function(vType)
-        local nCase = self._typeToCase[vType]
+		local nCase = self._typeToCase[vType]
 		if not reCase then
 			reCase = nCase
 		else
@@ -67,11 +67,11 @@ function UnionTerm:caseTrue()
 end
 
 function UnionTerm:notnilTerm()::Ret(class.UnionTerm)
-    local nNotnilType = self._type:notnilType()
+	local nNotnilType = self._type:notnilType()
 	local nTypeCaseList = {}
-    nNotnilType:foreach(function(vType)
+	nNotnilType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
-    end)
+	end)
 	return self._manager:mergeToUnionTerm(nTypeCaseList)
 end
 
@@ -105,41 +105,41 @@ function UnionTerm:caseFalse()
 end
 
 function UnionTerm:falseTerm()::Ret(class.UnionTerm)
-    local nFalseType = self._type:falseType()
+	local nFalseType = self._type:falseType()
 	local nTypeCaseList = {}
-    nFalseType:foreach(function(vType)
+	nFalseType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
-    end)
+	end)
 	return self._manager:mergeToUnionTerm(nTypeCaseList)
 end
 
 function UnionTerm:trueTerm()::Ret(class.UnionTerm)
-    local nTrueType = self._type:trueType()
+	local nTrueType = self._type:trueType()
 	local nTypeCaseList:List(Truth) = {}
-    nTrueType:foreach(function(vType)
+	nTrueType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
-    end)
+	end)
 	return self._manager:mergeToUnionTerm(nTypeCaseList)
 end
 
 function UnionTerm:notTerm()::Ret(class.UnionTerm)
 	local nTypeCaseList = {}
-    self._type:falseType():foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			self._manager.type.True,
-			self._typeToCase[vType]
-		}
-    end)
-    self._type:trueType():foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			self._manager.type.False,
-			self._typeToCase[vType]
-		}
-    end)
+	self._type:falseType():foreach(function(vType)
+	nTypeCaseList[#nTypeCaseList + 1] = {
+		self._manager.type.True,
+		self._typeToCase[vType]
+	}
+	end)
+	self._type:trueType():foreach(function(vType)
+	nTypeCaseList[#nTypeCaseList + 1] = {
+		self._manager.type.False,
+		self._typeToCase[vType]
+	}
+	end)
 	return self._manager:mergeToUnionTerm(nTypeCaseList)
 end
 
-function UnionTerm:getType()::Ret(class.UKeyType)
+function UnionTerm:getType()::Ret(class.UAtomUnion)
 	return self._type
 end
 
@@ -159,9 +159,9 @@ function UnionTerm:add_self(vUnionSymbol:class.Symbol)
 end
 
 function UnionTerm:filter(vType)::Ret(class.UnionTerm)
-    local nTypeCaseList = {}
+	local nTypeCaseList = {}
 	vType:foreach(function(vSubType)
-		local nContainType = self._type:contain(vSubType)
+	local nContainType = self._type:contain(vSubType)
 		if nContainType then
 			local nCase = self._typeToCase[nContainType]
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, nCase}

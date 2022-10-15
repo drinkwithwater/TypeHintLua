@@ -67,15 +67,15 @@ function TypeCollection:_putOne(vType)
 	end
 end
 
-function TypeCollection:put(vType:class.UKeyType)
+function TypeCollection:put(vType:class.UAtomUnion)
 	vType:foreach(function(vSubType)
 		self.bits = self.bits | vSubType.bits
 		self:_putOne(vSubType)
 	end)
 end
 
-function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UKeyType)
-	local nUnionType:class.IUnionType = nil
+function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UAtomUnion)
+	local nUnionType:class.IUnionSet = nil
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
 	elseif vBit == TYPE_BITS.NUMBER then
@@ -103,7 +103,7 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UKeyType)
 	return self._manager:_unifyUnion(nUnionType)
 end
 
-function TypeCollection:_mergeToType()::Ret(class.UKeyType)
+function TypeCollection:_mergeToType()::Ret(class.UAtomUnion)
 	local nBits = self.bits
 	-- 0. only one type
 	if self.count == 1 then
@@ -120,13 +120,13 @@ function TypeCollection:_mergeToType()::Ret(class.UKeyType)
 	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
 	-- 2. make true part
-	local nTrueBitToType:Dict(Number, class.UKeyType) = {}
+	local nTrueBitToType:Dict(Number, class.UAtomUnion) = {}
 	for nBit, nSet in pairs(self.bitsToSet) do
 		if TrueBitToTrue[nBit] then
 			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
 		end
 	end
-	local nTrueType:class.UKeyType = self._type.Never
+	local nTrueType:class.UAtomUnion = self._type.Never
 	if TrueBitToTrue[nTruableBits] then
 		-- if truablebits is bit, then just one case
 		nTrueType = nTrueBitToType[nTruableBits]
@@ -147,7 +147,7 @@ function TypeCollection:_mergeToType()::Ret(class.UKeyType)
 	end
 end
 
-function TypeCollection:mergeToType()::Ret(class.UKeyType)
+function TypeCollection:mergeToType()::Ret(class.UAtomUnion)
 	local nResult = self._result
 	if not nResult then
 		nResult = self:_mergeToType()

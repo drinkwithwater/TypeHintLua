@@ -115,7 +115,7 @@ function TypeManager:assertValueType(vData)::Ret(class.UValueType)
 	end
 end
 
-function TypeManager:_toType(vData)::Ret(class.UKeyType)
+function TypeManager:_toType(vData)::Ret(class.UAtomUnion)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
@@ -156,7 +156,7 @@ function TypeManager:Union(...:Truth)::Ret(class.Reference)
 end
 
 function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
-	::Ret(class.UKeyType, Dict(class.IAtomType, class.UValueType))
+	::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UValueType))
 	local nCount = 0
 	local nCollection = self:TypeCollection()
 	local nTypeDict = {}
@@ -267,7 +267,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 	return nNewRefer
 end
 
-function TypeManager:Dict(vKey:class.UKeyType, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))
+function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))
 	return self:Struct({[vKey]=vValue}, {next=true})
 end
 
@@ -294,7 +294,7 @@ function TypeManager:_unifyUnion(vNewType)
 	end
 end
 
-function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UKeyType, Dict(class.IAtomType, class.UValueType))
+function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UValueType))
     local nTypeToBorable = {}
 	local nCollection = self:TypeCollection()
     for _, nPair in ipairs(vTypeBorablePairList) do
