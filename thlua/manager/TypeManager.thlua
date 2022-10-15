@@ -124,14 +124,6 @@ function TypeManager:_toType(vData)::Ret(class.UKeyType)
 		end
 	elseif t == "number" or t == "string" then
 		return self:Literal(vData)
-	elseif t == "boolean" then
-		return self:Boolean(vData)
-	elseif t == "nil" then
-		return self.type.Nil
-	elseif t == "userdata" then
-		error("userdata todo")
-	elseif t == "thread" then
-		error("thread todo")
 	else
 		error("_toType("..t..") todo")
 	end
@@ -141,7 +133,7 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:Union(...:Truth)::Ret(class.UValueType)
+function TypeManager:Union(...:Truth)::Ret(class.Reference)
 	local n = select("#", ...)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
@@ -158,7 +150,7 @@ function TypeManager:Union(...:Truth)::Ret(class.UValueType)
 		end
 		return nCollection
 	end)
-	return nNewRefer:getType() or nNewRefer
+	return nNewRefer
 end
 
 function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))

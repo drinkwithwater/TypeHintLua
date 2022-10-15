@@ -44,23 +44,16 @@ function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UK
 	return self
 end
 
-function FalsableUnion:_mapContinue(vContinue, vFunc)::Ret(Boolean):nocheck()
-	if not self._trueType:_mapContinue(vContinue, vFunc) then
-		return false
-	end
+function FalsableUnion:foreach(vFunc)
+	self._trueType:foreach(vFunc)
 	local nNilType = self._nil
 	if nNilType then
-		if not (vFunc(nNilType) or vContinue) then
-			return false
-		end
+		vFunc(nNilType)
 	end
 	local nFalseType = self._false
 	if nFalseType then
-		if not (vFunc(nFalseType) or vContinue) then
-			return false
-		end
+		vFunc(nFalseType)
 	end
-	return true
 end
 
 function FalsableUnion:_intersectOneNotRefer(vType)

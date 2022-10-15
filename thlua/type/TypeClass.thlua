@@ -37,7 +37,6 @@ class.IAtomType = Interface ({
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	contain=Mfn(class.UValueType):Ret(Union(class.UKeyType, False)),
 
-	_mapContinue=Mfn(Boolean, Fn(class.IAtomType):Ret():Ret(Boolean)):Ret(Boolean),
 	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UKeyType, False)),
 	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 
@@ -78,7 +77,6 @@ class.IUnionType = Interface ({
 	checkType=Mfn():Ret(class.IUnionType),
 	getType=Mfn():Ret(class.IUnionType),
 
-	_mapContinue=Mfn(Boolean, Fn(class.IAtomType):Ret():Ret(Boolean)):Ret(Boolean),
 	isUnion=Mfn():Ret(True),
 	isNilable=Mfn():Ret(Boolean),
 	contain=Mfn(class.UValueType):Ret(Union(class.UKeyType, False)),
@@ -141,13 +139,13 @@ local function TypeClass()::open()
 			return nLeft:_containOneNotRefer(vRight)
 		else
 			local nCollection = nLeft._manager:TypeCollection()
-			local nContain = vRight:every(function(vSubType)
+			local nContain = true
+			vRight:foreach(function(vSubType)
 				local nContainType = nLeft:_containOneNotRefer(vSubType)
 				if not nContainType then
-					return false
+					nContain = false
 				else
 					nCollection:put(nContainType)
-					return true
 				end
 			end)
 			if nContain then
@@ -186,14 +184,8 @@ local function TypeClass()::open()
 	function t:isUnion?()
 		return false
 	end
-	function t:_mapContinue?(vContinue, vFunc)::Ret(Boolean):nocheck()
-		return vFunc(self) or vContinue
-	end
-	function t:foreach(vFunc)
-		self:_mapContinue(true, vFunc)
-	end
-	function t:every(vFunc)
-		return self:_mapContinue(false, vFunc)
+	function t:foreach?(vFunc)
+		error("foreach TODO")
 	end
 	function t:unionSign?()
 		local nUnionSign = self._unionSign
