@@ -32,7 +32,7 @@ function ClassFnCom:checkDefine()
 		return
 	end
 	self._once = true
-	local nLuaTable = self._newTypeRefer:checkType()
+	local nLuaTable = self._newTypeRefer:checkAtomUnion()
 	local nContext = self._luaFunction:newInplaceContext()
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
@@ -47,15 +47,15 @@ end
 function ClassFnCom:regionTableSelf(vContext, vNode)
 	assert(not self._onceHintNew, "New() can only be called once")
 	self._onceHintNew = true
-	return self._newTypeRefer:checkType()
+	return self._newTypeRefer:checkAtomUnion()
 end
 
 function ClassFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	if vTypeTuple:getRepeatType() or #vTypeTuple~=1 then
 		vContext:getRuntime():nodeError(vNode, "return tuple not match")
 	else
-		local aType = vTypeTuple:get(1):checkType()
-		local bType = self._newTypeRefer:checkType()
+		local aType = vTypeTuple:get(1):checkAtomUnion()
+		local bType = self._newTypeRefer:checkAtomUnion()
 		if aType ~= bType then
 			vContext:getRuntime():nodeError(vNode, "return type not match")
 		end

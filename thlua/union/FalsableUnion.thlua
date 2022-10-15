@@ -7,7 +7,7 @@ local FalsableUnion = UnionClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UAtomUnion, vFalsableBits:Number)::RetClass(class.FalsableUnion, class.IUnionSet)
+function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UAtomUnion, vFalsableBits:Number)::RetClass(class.FalsableUnion, class.IUnionType)
 	local nNil = vTypeManager.type.Nil
 	local nFalse = vTypeManager.type.False
 	local self = setmetatable({::Self()
@@ -23,7 +23,7 @@ function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UA
     if self._trueType == vTypeManager.type.Never then
         self._falseType = self
     elseif self._nil and self._false then
-        self._falseType = vTypeManager:Union(nNil, nFalse):checkType()
+        self._falseType = vTypeManager:Union(nNil, nFalse):checkAtomUnion()
     else
         self._falseType = self._nil or self._false
     end
@@ -33,7 +33,7 @@ function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UA
 		else
 			local nFalse = self._false
 			if nFalse then
-				self._notnilType = vTypeManager:Union(self._trueType, nFalse):checkType()
+				self._notnilType = vTypeManager:Union(self._trueType, nFalse):checkAtomUnion()
 			else
 				self._notnilType = self._trueType
 			end

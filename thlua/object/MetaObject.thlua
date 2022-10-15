@@ -161,7 +161,7 @@ function MetaObject:_containOneNotRefer(vRightType)
 			end
 			for _, nPair in pairs(nLatePairList) do
 				local nBig, nSmall = nPair[1], nPair[2]
-				-- TODO raise error if checkType failed
+				-- TODO raise error if checkAtomUnion failed
 				if not nBig:contain(nSmall) then
 					nContainCache[nRightStruct] = false
 					return false
@@ -206,7 +206,7 @@ function MetaObject:native_next(vContext, vInitType)
 	if not nValueType then
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneValue in pairs(nValueDict) do
-			nOneValue = nOneValue:checkType():notnilType()
+			nOneValue = nOneValue:checkAtomUnion():notnilType()
 			nValueDict[nOneKey] = nOneValue
 			nCollection:put(nOneValue)
 		end
@@ -256,7 +256,7 @@ end
 function MetaObject:meta_get(vContext, vType)
 	local nKey = self._getKey:_containOneNotRefer(vType)
 	if nKey then
-		return self._getDict[nKey]!:checkType()
+		return self._getDict[nKey]!:checkAtomUnion()
 	else
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
@@ -266,7 +266,7 @@ end
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	local nKey = self._setKey:_containOneNotRefer(vKeyType)
 	if nKey then
-		local nValue = self._getDict[nKey]!:checkType()
+		local nValue = self._getDict[nKey]!:checkAtomUnion()
 		if vContext:cast(vValueType, nValue) then
 			return
 		elseif nValue:contain(vValueType) then

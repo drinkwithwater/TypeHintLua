@@ -16,8 +16,8 @@ class.TypeCollection = Struct {
 
 class.UContext = Union(class.Runtime, class.Context)
 
-class.UAtomUnion = Union(class.IAtomType, class.IUnionSet)
-class.UValueType = Union(class.IAtomType, class.IUnionSet, class.Reference)
+class.UAtomUnion = Union(class.IAtomType, class.IUnionType)
+class.UValueType = Union(class.IAtomType, class.IUnionType, class.Reference)
 
 class.IAtomType = Interface ({
 	id=Number,
@@ -26,7 +26,7 @@ class.IAtomType = Interface ({
 }, {get={
 	isReference=Mfn():Ret(False),
 	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
-	checkType=Mfn():Ret(class.IAtomType),
+	checkAtomUnion=Mfn():Ret(class.IAtomType),
 	getType=Mfn():Ret(class.IAtomType),
 
 	isUnion=Mfn():Ret(False),
@@ -64,7 +64,7 @@ class.IAtomType = Interface ({
 	same=Mfn(class.UValueType):Ret(Boolean),
 }})
 
-class.IUnionSet = Interface ({
+class.IUnionType = Interface ({
 	id=Number,
 	_manager=class.TypeManager,
 	bits=Number,
@@ -72,8 +72,8 @@ class.IUnionSet = Interface ({
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	isReference=Mfn():Ret(False),
 	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
-	checkType=Mfn():Ret(class.IUnionSet),
-	getType=Mfn():Ret(class.IUnionSet),
+	checkAtomUnion=Mfn():Ret(class.IUnionType),
+	getType=Mfn():Ret(class.IUnionType),
 
 	isUnion=Mfn():Ret(True),
 	isNilable=Mfn():Ret(Boolean),
@@ -107,7 +107,7 @@ local function TypeClass()::open()
 	function t:isReference?()
 		return false
 	end
-	function t:checkType?()
+	function t:checkAtomUnion?()
 		return self
 	end
 	function t:getType?()
@@ -128,10 +128,10 @@ local function TypeClass()::open()
 	function t:contain(vRight)
 		local nLeft:class.UAtomUnion = self
 		if nLeft:isReference() then
-			nLeft = nLeft:checkType()
+			nLeft = nLeft:checkAtomUnion()
 		end
 		if vRight:isReference() then
-			vRight = vRight:checkType()
+			vRight = vRight:checkAtomUnion()
 		end
 		if not vRight:isUnion() then
 			return nLeft:_containOneNotRefer(vRight)
@@ -156,10 +156,10 @@ local function TypeClass()::open()
 	function t:intersect(vRight)
 		local vLeft = self
 		if vLeft:isReference() then
-			vLeft = vLeft:checkType()
+			vLeft = vLeft:checkAtomUnion()
 		end
 		if vRight:isReference() then
-			vRight = vRight:checkType()
+			vRight = vRight:checkAtomUnion()
 		end
 		if not vRight:isUnion() then
 			local sth = vLeft:_intersectOneNotRefer(vRight)
@@ -200,20 +200,20 @@ local function TypeClass()::open()
         return false
     end
 	function t:notnilType?()
-		return self:checkType()
+		return self:checkAtomUnion()
 	end
     function t:trueType?()
-        return self:checkType()
+        return self:checkAtomUnion()
     end
     function t:falseType?()
         return self._manager.type.Never
     end
 	function t:same(vType)::Ret(Boolean)
 		if vType:isReference() then
-			vType = vType:checkType()
+			vType = vType:checkAtomUnion()
 		end
 		if self:isReference() then
-			return self:checkType() == vType
+			return self:checkAtomUnion() == vType
 		else
 			return self == vType
 		end

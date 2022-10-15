@@ -61,7 +61,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	end
 	self.type.Boolean = self:Union(self.type.False, self.type.True)
 	self.type.Any = self:Union(self.type.False, self.type.Nil, self.type.Truth)
-	self.type.Object = self:Interface({}):checkType()
+	self.type.Object = self:Interface({}):checkAtomUnion()
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -300,7 +300,7 @@ function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, 
     for _, nPair in ipairs(vTypeBorablePairList) do
 		local nFieldType = nPair[1]
 		if nFieldType:isReference() then
-			nFieldType = nFieldType:checkType()
+			nFieldType = nFieldType:checkAtomUnion()
 			nPair[1] = nFieldType
 		end
 		nCollection:put(nFieldType)
@@ -417,7 +417,7 @@ function TypeManager:MemberFunction(vArgTuple, vRetTuples)
 end
 
 function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)
-	local nType = vType:checkType()
+	local nType = vType:checkAtomUnion()
 	if LuaTable.is(nType) then
 		nType:checkDefine()
 	end
