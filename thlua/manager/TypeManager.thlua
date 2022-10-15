@@ -85,12 +85,14 @@ local tableToTypeFuncDict = {
 	[MetaObject]=true,
 	[Truth]=true,
 	[LuaTable]=true,
+
 	[NumberLiteralUnion]=true,
 	[StringLiteralUnion]=true,
 	[FalsableUnion]=true,
 	[ObjectUnion]=true,
 	[FuncUnion]=true,
 	[ComplexUnion]=true,
+
 	[LuaFunction]=true,
 	[TypeFunction]=true,
 	[NativeFunction]=true,
@@ -109,7 +111,7 @@ function TypeManager:assertValueType(vData)::Ret(class.UValueType)
 	if self:isValueType(vData) then
 		return vData
 	else
-		error("assertValueType failed, type="..type(vData))
+		error("assertValueType failed, type="..type(vData)..tostring(debug.traceback()))
 	end
 end
 
@@ -120,7 +122,7 @@ function TypeManager:_toType(vData)::Ret(class.UKeyType)
 		if tableToTypeFuncDict[meta] then
 			return vData
 		else
-			error("to type failed")
+			error("to type failed"..tostring(debug.traceback()))
 		end
 	elseif t == "number" or t == "string" then
 		return self:Literal(vData)
@@ -250,7 +252,14 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 		else
 			nNextKey, nNextDict = false, false
 		end
-		local nNewStruct = MetaObject.new(self, self:Union(nGetKey, nSetKey),
+		local nSetGetCollection = self:TypeCollection()
+		nGetKey:foreach(function(v)
+			nSetGetCollection:put(v)
+		end)
+		nSetKey:foreach(function(v)
+			nSetGetCollection:put(v)
+		end)
+		local nNewStruct = MetaObject.new(self, nSetGetCollection:mergeToType(),
 							nGetKey, nGetDict, nSetKey, nSetDict, nNextDict)
 		return self:_recordTypeUnionSign(nNewStruct)
 	end)
