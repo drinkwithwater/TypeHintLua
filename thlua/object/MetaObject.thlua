@@ -11,18 +11,14 @@ local MetaObject = AtomTypeClass()
 function MetaObject.new(
 		vManager:class.TypeManager,
 		vKeyType:class.UAtomUnion,
-		vGetKey:class.UAtomUnion,
 		vGetDict:Dict(class.IAtomType, class.UValueType),
-		vSetKey:class.UAtomUnion,
 		vSetDict:Dict(class.IAtomType, class.UValueType),
 		vNextDict:Dict(class.IAtomType, class.UValueType)
 	)::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_keyType=vKeyType,
-		_getKey=vGetKey,
 		_getDict=vGetDict,
-		_setKey=vSetKey,
 		_setDict=vSetDict,
 		_nextValue=false,
 		_nextDict=vNextDict,
@@ -119,11 +115,7 @@ function MetaObject:_containOneNotRefer(vRightType)
 			return self
 		else
 			nContainCache[nRightStruct] = true
-			if self._getKey ~= nRightStruct._getKey then
-				nContainCache[nRightStruct] = false
-				return false
-			end
-			if self._setKey ~= nRightStruct._setKey then
+			if self._keyType ~= nRightStruct._keyType then
 				nContainCache[nRightStruct] = false
 				return false
 			end
@@ -254,9 +246,12 @@ function MetaObject:structSign()
 end
 
 function MetaObject:meta_get(vContext, vType)
-	local nKey = self._getKey:_containOneNotRefer(vType)
+	local nKey = self._keyType:_containOneNotRefer(vType)
 	if nKey then
-		return self._getDict[nKey]!:checkAtomUnion()
+		local nGetValue = self._getDict[nKey]
+		if nGetValue then
+			return nGetValue:checkAtomUnion()
+		end
 	else
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
@@ -264,48 +259,40 @@ function MetaObject:meta_get(vContext, vType)
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
-	local nKey = self._setKey:_containOneNotRefer(vKeyType)
+	local nKey = self._keyType:_containOneNotRefer(vKeyType)
 	if nKey then
-		local nValue = self._getDict[nKey]!:checkAtomUnion()
-		if vContext:cast(vValueType, nValue) then
-			return
-		elseif nValue:contain(vValueType) then
-			return
-		else
-			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+		local nSetValue = self._setDict[nKey]
+		if nSetValue then
+			local nSetType = nSetValue:checkAtomUnion()
+			if vContext:cast(vValueType, nSetType) then
+				return
+			elseif nSetType:contain(vValueType) then
+				return
+			else
+				vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+			end
 		end
-	else
-		vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 	end
+	vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
 function MetaObject:foreachGetPair(vFunc)
-	self._getKey:foreach(function(vKeyType)
-		vFunc(vKeyType, self._getDict[vKeyType])
+	self._keyType:foreach(function(vKeyType)
+		local nGetValue = self._getDict[vKeyType]
+		if nGetValue then
+			vFunc(vKeyType, nGetValue)
+		end
 	end)
 end
 
 function MetaObject:foreachSetPair(vFunc)
-	self._setKey:foreach(function(vKeyType)
-		vFunc(vKeyType, self._setDict[vKeyType])
+	self._keyType:foreach(function(vKeyType)
+		local nSetValue = self._setDict[vKeyType]
+		if nSetValue then
+			vFunc(vKeyType, nSetValue)
+		end
 	end)
 end
-
---[[function MetaObject:checkMustKeyType()
-	local nMustKeyType = self._mustKeyType
-	if not nMustKeyType then
-		local nMustCollection = self._manager:TypeCollection()
-		local nTypeDict = self._valueDict
-		self._keyType:foreach(function(vSubType)
-			if not nTypeDict[vSubType]:isNilable() then
-				nMustCollection:put(vSubType)
-			end
-		end)
-		nMustKeyType = nMustCollection:mergeToAtomUnion()
-		self._mustKeyType = nMustKeyType
-	end
-	return nMustKeyType
-end]]
 
 function MetaObject:detailString(vToStringCache, vVerbose)
 	if self._referName then
