@@ -12,20 +12,17 @@ function MetaObject.new(
 		vManager:class.TypeManager,
 		vKeyType:class.UAtomUnion,
 		vGetDict:Dict(class.IAtomType, class.UValueType),
-		vSetDict:Dict(class.IAtomType, class.UValueType),
 		vNextDict:Dict(class.IAtomType, class.UValueType)
 	)::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_keyType=vKeyType,
-		_getDict=vGetDict,
-		_setDict=vSetDict,
+		_valueDict=vGetDict,
 		_nextValue=false,
 		_nextDict=vNextDict,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_unionSign=false,
-		_structSign=false,
 		_containCache={} @Dict(Truth, Boolean),
 	}, MetaObject)
 	return self
@@ -121,9 +118,9 @@ function MetaObject:_containOneNotRefer(vRightType)
 			end
 			-- check for not late type
 			local nLatePairList:List(Struct {class.UValueType, class.UValueType}) = {}
-			for nKey, nValue in pairs(self._getDict) do
+			for nKey, nValue in pairs(self._valueDict) do
 				local nValueType = nValue:getType()
-				local nRightValue = nRightStruct._getDict[nKey]!
+				local nRightValue = nRightStruct._valueDict[nKey]!
 				local nRightValueType = nRightValue:getType()
 				if nValueType and nRightValueType then
 					if not nValueType:contain(nRightValueType) then
@@ -133,21 +130,6 @@ function MetaObject:_containOneNotRefer(vRightType)
 				else
 					nLatePairList[#nLatePairList + 1] = {
 						nValue, nRightValue
-					}
-				end
-			end
-			for nKey, nValue in pairs(self._setDict) do
-				local nValueType = nValue:getType()
-				local nRightValue = nRightStruct._setDict[nKey]!
-				local nRightValueType = nRightValue:getType()
-				if nValueType and nRightValueType then
-					if not nRightValueType:contain(nValueType) then
-						nContainCache[nRightStruct] = false
-						return false
-					end
-				else
-					nLatePairList[#nLatePairList + 1] = {
-						nRightValue, nValue
 					}
 				end
 			end
@@ -214,41 +196,10 @@ function MetaObject:isSingleton(v)
 	return false
 end
 
-function MetaObject:structSign()
-	local nSign = self._structSign
-	if not nSign then
-		local nKeyList = {}
-		self._keyType:foreach(function(vType)
-			nKeyList[#nKeyList + 1] = vType
-		end)
-		table.sort(nKeyList, function(vLeft, vRight)
-			return vLeft.id < vRight.id
-		end)
-		local nBuildList = {"S"}
-		for i=1, #nKeyList do
-			local nKeyType = nKeyList[i]
-			nBuildList[#nBuildList + 1] = tostring(nKeyType.id)
-			nBuildList[#nBuildList + 1] = ":"
-			local nGetValue = self._getDict[nKeyType]
-			if nGetValue then
-				nBuildList[#nBuildList + 1] = tostring(nGetValue.id)
-			end
-			nBuildList[#nBuildList + 1] = ","
-			local nSetValue = self._setDict[nKeyType]
-			if nSetValue then
-				nBuildList[#nBuildList + 1] = tostring(nSetValue.id)
-			end
-		end
-		nSign = table.concat(nBuildList, "|")
-		self._structSign = nSign
-	end
-	return nSign
-end
-
 function MetaObject:meta_get(vContext, vType)
 	local nKey = self._keyType:_containOneNotRefer(vType)
 	if nKey then
-		local nGetValue = self._getDict[nKey]
+		local nGetValue = self._valueDict[nKey]
 		if nGetValue then
 			return nGetValue:checkAtomUnion()
 		end
@@ -261,7 +212,7 @@ end
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	local nKey = self._keyType:_containOneNotRefer(vKeyType)
 	if nKey then
-		local nSetValue = self._setDict[nKey]
+		local nSetValue = self._valueDict[nKey]
 		if nSetValue then
 			local nSetType = nSetValue:checkAtomUnion()
 			if vContext:cast(vValueType, nSetType) then
@@ -278,7 +229,7 @@ end
 
 function MetaObject:foreachGetPair(vFunc)
 	self._keyType:foreach(function(vKeyType)
-		local nGetValue = self._getDict[vKeyType]
+		local nGetValue = self._valueDict[vKeyType]
 		if nGetValue then
 			vFunc(vKeyType, nGetValue)
 		end
@@ -287,7 +238,7 @@ end
 
 function MetaObject:foreachSetPair(vFunc)
 	self._keyType:foreach(function(vKeyType)
-		local nSetValue = self._setDict[vKeyType]
+		local nSetValue = self._valueDict[vKeyType]
 		if nSetValue then
 			vFunc(vKeyType, nSetValue)
 		end
@@ -306,7 +257,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	end
 	vToStringCache[self] = true
 	local lsetter = {}
-	for k,v in pairs(self._getDict) do
+	for k,v in pairs(self._valueDict) do
 		local nKeyString
 		if StringLiteral.is(k) and not vVerbose then
 			nKeyString = k:getLiteral()
@@ -316,7 +267,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 		lsetter[#lsetter+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
 	end
 	local lgetter = {}
-	for k,v in pairs(self._setDict) do
+	for k,v in pairs(self._valueDict) do
 		local nKeyString
 		if StringLiteral.is(k) and not vVerbose then
 			nKeyString = k:getLiteral()

@@ -155,7 +155,7 @@ function TypeManager:Union(...:Truth)::Ret(class.Reference)
 	return nNewRefer
 end
 
-function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vOneTable:Dict(Truth,Truth))
+function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth))
 	::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UValueType))
 	local nCount = 0
 	local nCollection = self:TypeCollection()
@@ -172,23 +172,6 @@ function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth), vO
 		end
 	end
 	for nKeyType, nValue in pairs(vBothTable) do
-		putToDict(nKeyType, nValue)
-		nCount = nCount + 1
-		nCollection:put(nKeyType)
-	end
-	for nKey, nValue in pairs(vOneTable) do
-		local nKeyType
-		if Reference.is(nKey) then
-			nKeyType = nKey:getRawAwait()
-			if TypeCollection.is(nKeyType) then
-				error("key can't be union 1")
-			end
-			if nKeyType:isUnion() then
-				error("key can't be union 2")
-			end
-		else
-			nKeyType = self:_toType(nKey)
-		end
 		putToDict(nKeyType, nValue)
 		nCount = nCount + 1
 		nCollection:put(nKeyType)
@@ -211,12 +194,11 @@ let.ObjectMetaTable = Struct {
 )
 
 
-function TypeManager:Interface(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject, class.Reference))
-	return self:Struct(vTable, vMetaTable)
+function TypeManager:Interface(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject, class.Reference))
+	return self:Struct(vTable, vNext)
 end
 
-function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMetaTable, Nil))::Ret(Union(class.MetaObject,class.Reference))
-	vMetaTable = vMetaTable or {}@ObjectMetaTable
+function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject,class.Reference))
 	local nNewRefer = self:Reference(false)
 	-- TODO error when type intersect
 	nNewRefer:setRawAsync(function()
@@ -232,7 +214,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 					error("key can't be union 2")
 				end
 			else
-				nKeyType = self:_toType(nKey)
+			nKeyType = self:_toType(nKey)
 			end
 			if nBothTable[nKeyType] then
 				error("key conflict when build struct:"..tostring(nKeyType))
@@ -241,26 +223,14 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 			end
 		end
 		local nEmptyTable = {}@Dict(Truth, Truth)
-		local nGetKey, nGetDict = self:_strictMergeWait(nBothTable, vMetaTable.get or nEmptyTable)
-		local nSetKey, nSetDict = self:_strictMergeWait(nBothTable, vMetaTable.set or nEmptyTable)
+		local nAllKey, nKeyToValue = self:_strictMergeWait(nBothTable)
 		local nNextKey, nNextDict
-		local nMetaNext = vMetaTable.next
-		if nMetaNext == true then
-			nNextKey, nNextDict = self:_strictMergeWait(nBothTable, nEmptyTable)
-		elseif type(nMetaNext) == "table" then
-			nNextKey, nNextDict = self:_strictMergeWait(nEmptyTable, nMetaNext)
+		if vNext then
+			nNextKey, nNextDict = nAllKey, nKeyToValue
 		else
 			nNextKey, nNextDict = false, false
 		end
-		local nSetGetCollection = self:TypeCollection()
-		nGetKey:foreach(function(v)
-			nSetGetCollection:put(v)
-		end)
-		nSetKey:foreach(function(v)
-			nSetGetCollection:put(v)
-		end)
-		local nNewStruct = MetaObject.new(self, nSetGetCollection:mergeToAtomUnion(),
-							nGetDict, nSetDict, nNextDict)
+		local nNewStruct = MetaObject.new(self, nAllKey, nKeyToValue, nNextDict)
 		return self:_recordTypeUnionSign(nNewStruct)
 	end)
 	--return nNewRefer:getType() or nNewRefer
@@ -268,12 +238,12 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vMetaTable:Union(ObjectMet
 end
 
 function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))
-	return self:Struct({[vKey]=vValue}, {next=true})
+	return self:Struct({[vKey]=vValue}, true)
 end
 
 function TypeManager:List(vValue)
 	-- TODO struct use meta
-	return self:Struct({[self.type.Number]=vValue}, {next=true})
+	return self:Struct({[self.type.Number]=vValue}, true)
 end
 
 function TypeManager:Option(vValue)
