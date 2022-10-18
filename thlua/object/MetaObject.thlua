@@ -16,8 +16,8 @@ function MetaObject.new(
 	)::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_keyType=vKeyType,
-		_valueDict=vGetDict,
+		_keyRefer=false,
+		_valueDict=false,
 		_nextValue=false,
 		_nextDict=vNextDict,
 		bits=TYPE_BITS.OBJECT,
@@ -26,6 +26,12 @@ function MetaObject.new(
 		_containCache={} @Dict(Truth, Boolean),
 	}, MetaObject)
 	return self
+end
+
+function MetaObject:init(vKeyRefer, vValueDict, vNextDict)
+	self._keyRefer = vKeyRefer
+	self._valueDict = vValueDict
+	self._nextDict = vNextDict
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -71,8 +77,8 @@ function MetaObject:_containOneNotRefer(vRightType)
 			return false
 		end
 		-- 2. check all right key-value contain by right key-value
-		if not nRightStruct._keyType:every(function(vRightKey)
-			local nLeftKey = self._keyType:contain(vRightKey)
+		if not nRightStruct._keyRefer:every(function(vRightKey)
+			local nLeftKey = self._keyRefer:contain(vRightKey)
 			if not nLeftKey then
 				return false
 			end
@@ -89,7 +95,7 @@ function MetaObject:_containOneNotRefer(vRightType)
 		]]
 		--[[
 		-- check as interface
-		local nResult = self._keyType:every(function(vLeftKey)
+		local nResult = self._keyRefer:every(function(vLeftKey)
 			local nLeftValue = self._valueDict[vLeftKey]
 			local nRightValue = nRightStruct._valueDict[vLeftKey]
 			if not nRightValue then
@@ -112,7 +118,11 @@ function MetaObject:_containOneNotRefer(vRightType)
 			return self
 		else
 			nContainCache[nRightStruct] = true
-			if self._keyType ~= nRightStruct._keyType then
+			if not nRightStruct:getKeyType():contain(self:getKeyType()) then
+				nContainCache[nRightStruct] = false
+				return false
+			end
+			if not self:getKeyType():contain(nRightStruct:getKeyType()) then
 				nContainCache[nRightStruct] = false
 				return false
 			end
@@ -197,7 +207,7 @@ function MetaObject:isSingleton(v)
 end
 
 function MetaObject:meta_get(vContext, vType)
-	local nKey = self._keyType:_containOneNotRefer(vType)
+	local nKey = self._keyRefer:_containOneNotRefer(vType)
 	if nKey then
 		local nGetValue = self._valueDict[nKey]
 		if nGetValue then
@@ -210,7 +220,7 @@ function MetaObject:meta_get(vContext, vType)
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
-	local nKey = self._keyType:_containOneNotRefer(vKeyType)
+	local nKey = self._keyRefer:_containOneNotRefer(vKeyType)
 	if nKey then
 		local nSetValue = self._valueDict[nKey]
 		if nSetValue then
@@ -228,7 +238,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 end
 
 function MetaObject:foreachGetPair(vFunc)
-	self._keyType:foreach(function(vKeyType)
+	self._keyRefer:foreach(function(vKeyType)
 		local nGetValue = self._valueDict[vKeyType]
 		if nGetValue then
 			vFunc(vKeyType, nGetValue)
@@ -237,7 +247,7 @@ function MetaObject:foreachGetPair(vFunc)
 end
 
 function MetaObject:foreachSetPair(vFunc)
-	self._keyType:foreach(function(vKeyType)
+	self._keyRefer:foreach(function(vKeyType)
 		local nSetValue = self._valueDict[vKeyType]
 		if nSetValue then
 			vFunc(vKeyType, nSetValue)
@@ -282,7 +292,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 end
 
 function MetaObject:getKeyType()
-	return self._keyType
+	return self._keyRefer:checkAtomUnion()
 end
 
 function MetaObject:checkStruct()
@@ -291,7 +301,7 @@ end
 
 function MetaObject:getCompletion()
 	local nDict = {}
-	self._keyType:foreach(function(vType)
+	self._keyRefer:foreach(function(vType)
 		if StringLiteral.is(vType) then
 			nDict[vType:getLiteral()] = true
 		end

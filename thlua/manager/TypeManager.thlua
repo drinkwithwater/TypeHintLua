@@ -199,42 +199,33 @@ function TypeManager:Interface(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Uni
 end
 
 function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject,class.Reference))
-	local nNewRefer = self:Reference(false)
-	-- TODO error when type intersect
-	nNewRefer:setRawAsync(function()
-		local nBothTable:Dict(class.IAtomType, Truth) = {}
+	local nNewStruct = MetaObject.new(self)
+	local nKeyRefer = self:Reference(false)
+	nKeyRefer:setRawAsync(function()
+		local nCollection = self:TypeCollection()
+		local nValueDict = {}
 		for nKey, nValue in pairs(vTable) do
-			local nKeyType
 			if Reference.is(nKey) then
-				nKeyType = nKey:getRawAwait()
+				local nKeyType = nKey:getRawAwait()
 				if TypeCollection.is(nKeyType) then
 					error("key can't be union 1")
-				end
-				if nKeyType:isUnion() then
+				elseif nKeyType:isUnion() then
 					error("key can't be union 2")
 				end
+				nKeyType:foreach(function(vSubKeyType)
+					nCollection:put(vSubKeyType)
+					nValueDict[vSubKeyType] = nValue
+				end)
 			else
-			nKeyType = self:_toType(nKey)
-			end
-			if nBothTable[nKeyType] then
-				error("key conflict when build struct:"..tostring(nKeyType))
-			else
-				nBothTable[nKeyType] = nValue
+				local nKeyType = self:_toType(nKey)
+				nCollection:put(nKeyType)
+				nValueDict[nKeyType] = nValue
 			end
 		end
-		local nEmptyTable = {}@Dict(Truth, Truth)
-		local nAllKey, nKeyToValue = self:_strictMergeWait(nBothTable)
-		local nNextKey, nNextDict
-		if vNext then
-			nNextKey, nNextDict = nAllKey, nKeyToValue
-		else
-			nNextKey, nNextDict = false, false
-		end
-		local nNewStruct = MetaObject.new(self, nAllKey, nKeyToValue, nNextDict)
-		return self:_recordTypeUnionSign(nNewStruct)
+		nNewStruct:init(nKeyRefer, nValueDict, vNext and nValueDict or false)
+		return nCollection
 	end)
-	--return nNewRefer:getType() or nNewRefer
-	return nNewRefer
+	return self:_recordTypeUnionSign(nNewStruct)
 end
 
 function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))
