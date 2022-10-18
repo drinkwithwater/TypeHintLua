@@ -8,18 +8,14 @@ local MetaObject = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function MetaObject.new(
-		vManager:class.TypeManager,
-		vKeyType:class.UAtomUnion,
-		vGetDict:Dict(class.IAtomType, class.UValueType),
-		vNextDict:Dict(class.IAtomType, class.UValueType)
-	)::RetClass(class.MetaObject, class.IAtomType)
+function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
+	::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_keyRefer=false,
+		_keyRefer=vKeyRefer,
 		_valueDict=false,
 		_nextValue=false,
-		_nextDict=vNextDict,
+		_nextDict=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_unionSign=false,
@@ -28,8 +24,7 @@ function MetaObject.new(
 	return self
 end
 
-function MetaObject:init(vKeyRefer, vValueDict, vNextDict)
-	self._keyRefer = vKeyRefer
+function MetaObject:init(vValueDict, vNextDict)
 	self._valueDict = vValueDict
 	self._nextDict = vNextDict
 end
@@ -58,61 +53,6 @@ function MetaObject:_containOneNotRefer(vRightType)
 	end
 	nContainCache[nRightStruct] = true
 	if MetaObject.is(nRightStruct) then
-		-- struct contain TODO
-		--[[
-		-- 1. check all left strict keys contain by right keys
-		if not self:checkMustKeyType():every(function(vLeftKey)
-			local nLeftValue = self._valueDict[vLeftKey]
-			local nRightKey = nRightStruct:checkMustKeyType():contain(vLeftKey)
-			if not nRightKey then
-				return false
-			end
-			local nRightValue = nRightStruct._valueDict[nRightKey]
-			if not nLeftValue:contain(nRightValue) then
-				return false
-			end
-			return true
-		end) then
-			nContainCache[nRightStruct] = false
-			return false
-		end
-		-- 2. check all right key-value contain by right key-value
-		if not nRightStruct._keyRefer:every(function(vRightKey)
-			local nLeftKey = self._keyRefer:contain(vRightKey)
-			if not nLeftKey then
-				return false
-			end
-			local nLeftValue = self._valueDict[nLeftKey]
-			local nRightValue = nRightStruct._valueDict[vRightKey]
-			if not nLeftValue:contain(nRightValue) then
-				return false
-			end
-			return true
-		end) then
-			nContainCache[nRightStruct] = false
-			return false
-		end
-		]]
-		--[[
-		-- check as interface
-		local nResult = self._keyRefer:every(function(vLeftKey)
-			local nLeftValue = self._valueDict[vLeftKey]
-			local nRightValue = nRightStruct._valueDict[vLeftKey]
-			if not nRightValue then
-				return false
-			end
-			if not nLeftValue:contain(nRightValue) then
-				return false
-			end
-			return true
-		end)
-		if nResult then
-			nContainCache[nRightStruct] = true
-			return self
-		else
-			nContainCache[nRightStruct] = false
-			return false
-		end]]
 		if self == nRightStruct then
 			nContainCache[nRightStruct] = true
 			return self
@@ -131,8 +71,8 @@ function MetaObject:_containOneNotRefer(vRightType)
 			for nKey, nValue in pairs(self._valueDict) do
 				local nValueType = nValue:getType()
 				local nRightValue = nRightStruct._valueDict[nKey]!
-				local nRightValueType = nRightValue:getType()
-				if nValueType and nRightValueType then
+				if nValueType and nRightValue and nRightValue:getType() then
+					local nRightValueType = nRightValue:getType()
 					if not nValueType:contain(nRightValueType) then
 						nContainCache[nRightStruct] = false
 						return false
@@ -259,6 +199,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	if self._referName then
 		return self._referName
 	end
+	self._keyRefer:checkAtomUnion()
 	local nCache = vToStringCache[self]
 	if nCache == true then
 		return "Struct {~}"
@@ -266,7 +207,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 		return nCache
 	end
 	vToStringCache[self] = true
-	local lsetter = {}
+	local l = {}
 	for k,v in pairs(self._valueDict) do
 		local nKeyString
 		if StringLiteral.is(k) and not vVerbose then
@@ -274,25 +215,23 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 		else
 			nKeyString = "["..k:detailString(vToStringCache, vVerbose).."]"
 		end
-		lsetter[#lsetter+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
+		l[#l+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
 	end
-	local lgetter = {}
-	for k,v in pairs(self._valueDict) do
-		local nKeyString
-		if StringLiteral.is(k) and not vVerbose then
-			nKeyString = k:getLiteral()
-		else
-			nKeyString = "["..k:detailString(vToStringCache, vVerbose).."]"
-		end
-		lgetter[#lgetter+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
-	end
-	local nResult = "Struct({},{get={"..table.concat(lsetter, ",").."},{set={"..table.concat(lgetter,",").."}}"
+	local nResult = "Interface {"..table.concat(l, ",").."}"
 	vToStringCache[self] = nResult
 	return nResult
 end
 
-function MetaObject:getKeyType()
+function MetaObject:getKeyType()::Ret(class.UAtomUnion)
 	return self._keyRefer:checkAtomUnion()
+end
+
+function MetaObject:getValueDict()
+	return self._valueDict
+end
+
+function MetaObject:getKeyRefer()::Ret(class.Reference)
+	return self._keyRefer
 end
 
 function MetaObject:checkStruct()

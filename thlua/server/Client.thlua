@@ -77,6 +77,7 @@ function Client:rerun(vFileName)
 		return
 	end
 	self.runtime = nRuntime
+	collectgarbage()
 	self:publishNormal()
 	print("publish normal ==========================", vVersion)
 end
@@ -118,7 +119,11 @@ function Client:getSuccCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
 end
 
 function Client:getDirtyCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
-	return self.fileStateDict[vFileName].dirtyCodeEnv
+	local nFileState = self.fileStateDict[vFileName]
+	if not nFileState then
+		self:error(vFileName, "has no file state")
+	end
+	return nFileState.dirtyCodeEnv
 end
 
 function Client:mainLoop()

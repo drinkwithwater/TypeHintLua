@@ -135,6 +135,33 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
+function TypeManager:Intersect(...:class.MetaObject)::Ret(class.MetaObject)
+	local n = select("#", ...)
+	local l = {...}
+	local nKeyRefer = self:Reference(false)
+	local nNewStruct = MetaObject.new(self, nKeyRefer)
+	nKeyRefer:setRawAsync(function()
+		local nCollection = self:TypeCollection()
+		local nAllValueDict = {}
+		for i=1,#l do
+			local nMetaObject = l[i]
+			if Reference.is(nMetaObject) then
+				nMetaObject = nMetaObject:getRawAwait()
+			end
+			assert(MetaObject.is(nMetaObject), "intersect can only take interface")
+			nMetaObject:getKeyRefer():getRawAwait()
+			local nValueDict = nMetaObject:getValueDict()
+			nMetaObject:getKeyType():foreach(function(vType)
+				nCollection:put(vType)
+				nAllValueDict[vType] = nValueDict[vType]
+			end)
+		end
+		nNewStruct:init(nAllValueDict, false)
+		return nCollection
+	end)
+	return nNewStruct
+end
+
 function TypeManager:Union(...:Truth)::Ret(class.Reference)
 	local n = select("#", ...)
 	local l = {...}
@@ -155,33 +182,6 @@ function TypeManager:Union(...:Truth)::Ret(class.Reference)
 	return nNewRefer
 end
 
-function TypeManager:_strictMergeWait(vBothTable:Dict(class.IAtomType,Truth))
-	::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UValueType))
-	local nCount = 0
-	local nCollection = self:TypeCollection()
-	local nTypeDict = {}
-	local function putToDict(vKeyType, vValue)::Ret(class.UValueType)
-		if vKeyType:isSingleton() then
-			if Reference.is(vValue) then
-				nTypeDict[vKeyType] = vValue
-			else
-				nTypeDict[vKeyType] = self:_toType(vValue)
-			end
-		else
-			nTypeDict[vKeyType] = self:Union(vValue, self.type.Nil)
-		end
-	end
-	for nKeyType, nValue in pairs(vBothTable) do
-		putToDict(nKeyType, nValue)
-		nCount = nCount + 1
-		nCollection:put(nKeyType)
-	end
-	if #nCollection ~= nCount then
-		error("struct's key illegal")
-	end
-	return nCollection:mergeToAtomUnion(), nTypeDict
-end
-
 (@
 
 let.ObjectMetaTable = Struct {
@@ -199,12 +199,18 @@ function TypeManager:Interface(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Uni
 end
 
 function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject,class.Reference))
-	local nNewStruct = MetaObject.new(self)
 	local nKeyRefer = self:Reference(false)
+	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
 		local nValueDict = {}
 		for nKey, nValue in pairs(vTable) do
+			local nValueType
+			if Reference.is(nValue) then
+				nValueType = nValue
+			else
+				nValueType = self:_toType(nValue)
+			end
 			if Reference.is(nKey) then
 				local nKeyType = nKey:getRawAwait()
 				if TypeCollection.is(nKeyType) then
@@ -214,15 +220,15 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(
 				end
 				nKeyType:foreach(function(vSubKeyType)
 					nCollection:put(vSubKeyType)
-					nValueDict[vSubKeyType] = nValue
+					nValueDict[vSubKeyType] = nValueType
 				end)
 			else
 				local nKeyType = self:_toType(nKey)
 				nCollection:put(nKeyType)
-				nValueDict[nKeyType] = nValue
+				nValueDict[nKeyType] = nValueType
 			end
 		end
-		nNewStruct:init(nKeyRefer, nValueDict, vNext and nValueDict or false)
+		nNewStruct:init(nValueDict, vNext and nValueDict or false)
 		return nCollection
 	end)
 	return self:_recordTypeUnionSign(nNewStruct)
