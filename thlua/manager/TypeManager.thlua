@@ -122,7 +122,7 @@ function TypeManager:_toType(vData)::Ret(class.UAtomUnion)
 		if tableToTypeFuncDict[meta] then
 			return vData
 		else
-			error("to type failed"..tostring(debug.traceback()))
+			error("to type failed")
 		end
 	elseif t == "number" or t == "string" then
 		return self:Literal(vData)
@@ -182,23 +182,11 @@ function TypeManager:Union(...:Truth)::Ret(class.Reference)
 	return nNewRefer
 end
 
-(@
-
-let.ObjectMetaTable = Struct {
-	get=Union(Dict(Truth, Truth), Nil),
-	set=Union(Dict(Truth, Truth), Nil),
-	next=Struct {Truth, Truth},
-	len=Union(Truth, Nil),
-}
-
-)
-
-
 function TypeManager:Interface(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject, class.Reference))
 	return self:Struct(vTable, vNext)
 end
 
-function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject,class.Reference))
+function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(function()
@@ -213,11 +201,6 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(
 			end
 			if Reference.is(nKey) then
 				local nKeyType = nKey:getRawAwait()
-				if TypeCollection.is(nKeyType) then
-					error("key can't be union 1")
-				elseif nKeyType:isUnion() then
-					error("key can't be union 2")
-				end
 				nKeyType:foreach(function(vSubKeyType)
 					nCollection:put(vSubKeyType)
 					if vSubKeyType:isSingleton() then
@@ -246,12 +229,12 @@ function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UValueType)::Ret(U
 	return self:Struct({[vKey]=vValue}, true)
 end
 
-function TypeManager:List(vValue)
+function TypeManager:List(vValue)::Ret(class.MetaObject)
 	-- TODO struct use meta
 	return self:Struct({[self.type.Number]=vValue}, true)
 end
 
-function TypeManager:Option(vValue)
+function TypeManager:Option(vValue)::Ret(class.Reference)
 	return self:Union(vValue, self.type.Nil)
 end
 
@@ -377,14 +360,14 @@ function TypeManager:Fn(...:Truth)::Ret(class.TypeFunction)
 	return self:Function(nArgTuple, RetTuples.new(self))
 end
 
-function TypeManager:Function(vArgTuple, vRetTuples)
+function TypeManager:Function(vArgTuple:class.UTypeTuple, vRetTuples:class.RetTuples)::Ret(class.TypeFunction)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
 	return nFunc
 end
 
-function TypeManager:MemberFunction(vArgTuple, vRetTuples)
+function TypeManager:MemberFunction(vArgTuple:class.UTypeTuple, vRetTuples:class.RetTuples)::Ret(class.TypeFunction)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
@@ -400,8 +383,8 @@ function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)
 end
 
 function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:Option(class.TermTuple))::Ret(class.TermTuple)
-	local nTermList = {}
-	local nTypeList = {}
+	local nTermList:List(class.UnionTerm) = {}
+	local nTypeList:List(class.UAtomUnion) = {}
 	for _, nTerm in ipairs(vTermList) do
 		local i = #nTermList + 1
 		nTermList[i] = nTerm

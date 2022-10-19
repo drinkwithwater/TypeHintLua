@@ -5,7 +5,7 @@ local TermCase = {}
 (@let.class = import("thlua.type.TypeClass").class)
 
 TermCase.__index = TermCase
-TermCase.__bor=function(vLeftTermCase, vRightTermCase)
+TermCase.__bor=function(vLeftTermCase, vRightTermCase)::Ret(class.TermCase)
 	local nNewTermCase = TermCase.new()
 	for nUnionTerm, nLeftType in pairs(vLeftTermCase) do
 		local nRightType = vRightTermCase[nUnionTerm]
@@ -32,8 +32,8 @@ TermCase.__band=function(vLeftTermCase:class.TermCase, vRightTermCase:class.Term
 	end
 	return nNewTermCase
 end
-TermCase.__tostring=function(self:class.TermCase)
-	local l={"TermCase("}
+TermCase.__tostring=function(self:class.TermCase)::Ret(String)
+	local l:List(String)={"TermCase("}
 	for nUnionTerm, vType in pairs(self) do
 		local nUnionSymbol = nUnionTerm:getUnionSymbol()
 		l[#l + 1] = (nUnionSymbol and nUnionSymbol:getName() or "?").."->"..tostring(vType)
@@ -47,7 +47,7 @@ function TermCase.new()::RetClass(class.TermCase, Dict(class.UnionTerm, class.UA
 	}, TermCase)
 end
 
-function TermCase:put_and(vUnionTerm, vType)
+function TermCase:put_and(vUnionTerm:class.UnionTerm, vType)
 	local nCurType = self[vUnionTerm]
 	if not nCurType then
 		self[vUnionTerm] = vType
@@ -56,14 +56,14 @@ function TermCase:put_and(vUnionTerm, vType)
 	end
 end
 
-function TermCase:put_or(vUnionTerm, vType)
+function TermCase:put_or(vUnionTerm:class.UnionTerm, vType)
 	local nCurType = self[vUnionTerm]
 	if nCurType then
 		self[vUnionTerm] = nCurType | vType
 	end
 end
 
-function TermCase:empty()
+function TermCase:empty()::Ret(Boolean)
 	if next(self) then
 		return true
 	else
@@ -71,7 +71,7 @@ function TermCase:empty()
 	end
 end
 
-function TermCase.is(t)
+function TermCase.is(t)::isguard(class.TermCase)
 	return getmetatable(t) == TermCase
 end
 

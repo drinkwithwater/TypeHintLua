@@ -10,16 +10,16 @@ function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFuncti
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_typeFunction=false,
-		_newTypeRefer=false,
-		_once=false,
-		_onceHintNew=false,
+		_typeFunction=false@class.TypeFunction,
+		_newTypeRefer=false@class.Reference,
+		_once=false@Boolean,
+		_onceHintNew=false@Boolean,
 	}, ClassFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function ClassFnCom:initByRetClass(vContext, vRefer)
+function ClassFnCom:initByRetClass(vContext:class.UContext, vRefer:class.Reference)
 	self._newTypeRefer = vRefer
 	local nAutoArgs = self._luaFunction._autoArgs
 	local nArgTuple = nAutoArgs:checkWhenLate(vContext)
@@ -62,7 +62,7 @@ function ClassFnCom:regionReturn(vContext, vNode, vTypeTuple)
 	end
 end
 
-function ClassFnCom:regionEnd(vContext, vNode, vTermTupleList)
+function ClassFnCom:regionEnd(vContext, vNode, vTermTupleList:List(class.TermTuple))
 	if #vTermTupleList <= 0 then
 		vContext:getRuntime():nodeError(vNode, "return statement not found")
 	end
