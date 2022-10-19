@@ -46,7 +46,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		builtin={},
 		coToRefer={},
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
-		_unionSignToType={},
+		_unionSignToType={}@Dict(String, class.UAtomUnion),
 		_typeIdCounter=0@Number,
 	}, TypeManager)
 	self.type.Never = Never.new(self)
@@ -203,7 +203,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
-		local nValueDict = {}
+		local nValueDict:Dict(class.UAtomUnion, class.UValueType) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType
 			if Reference.is(nValue) then
@@ -220,12 +220,20 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(
 				end
 				nKeyType:foreach(function(vSubKeyType)
 					nCollection:put(vSubKeyType)
-					nValueDict[vSubKeyType] = nValueType
+					if vSubKeyType:isSingleton() then
+						nValueDict[vSubKeyType] = nValueType
+					else
+						nValueDict[vSubKeyType] = self:Union(nValueType, self.type.Nil)
+					end
 				end)
 			else
 				local nKeyType = self:_toType(nKey)
 				nCollection:put(nKeyType)
-				nValueDict[nKeyType] = nValueType
+				if nKeyType:isSingleton() then
+					nValueDict[nKeyType] = nValueType
+				else
+					nValueDict[nKeyType] = self:Union(nValueType, self.type.Nil)
+				end
 			end
 		end
 		nNewStruct:init(nValueDict, vNext and nValueDict or false)
@@ -247,7 +255,7 @@ function TypeManager:Option(vValue)
 	return self:Union(vValue, self.type.Nil)
 end
 
-function TypeManager:_unifyUnion(vNewType)
+function TypeManager:_unifyUnion(vNewType:class.UAtomUnion)::Ret(class.UAtomUnion)
 	local nSign = vNewType:unionSign()
 	local nSignToType = self._unionSignToType
 	local nOldType = nSignToType[nSign]
@@ -290,7 +298,7 @@ function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, 
 	return nKeyUnion, nTypeDict
 end
 
-function TypeManager:_recordTypeUnionSign(vType)
+function TypeManager:_recordTypeUnionSign(vType:class.UAtomUnion)::Ret(class.UAtomUnion)
 	self._unionSignToType[vType:unionSign()] = vType
 	return vType
 end
