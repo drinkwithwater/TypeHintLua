@@ -14,24 +14,33 @@ class.UContext = Union(class.Runtime, class.Context)
 class.UAtomUnion = Union(class.IAtomType, class.IUnionType)
 class.UValueType = Union(class.IAtomType, class.IUnionType, class.Reference)
 
-class.IAtomType = Interface {
+class.IType = Interface {
 	id=Number,
-	_manager=class.TypeManager,
 	bits=Number,
-	isReference=Mfn():Ret(False),
 	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
-	checkAtomUnion=Mfn():Ret(class.IAtomType),
-	getType=Mfn():Ret(class.IAtomType),
 
-	isUnion=Mfn():Ret(False),
 	isSingleton=Mfn():Ret(Boolean),
 	isNilable=Mfn():Ret(Boolean),
 
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	contain=Mfn(class.UValueType):Ret(Union(class.UAtomUnion, False)),
-
 	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
 	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
+
+	notnilType=Mfn():Ret(class.UAtomUnion),
+	trueType=Mfn():Ret(class.UAtomUnion),
+	falseType=Mfn():Ret(class.UAtomUnion),
+
+	same=Mfn(class.UValueType):Ret(Boolean),
+}
+
+class.IAtomType = Intersect(class.IType, Interface {
+	_manager=class.TypeManager,
+	isReference=Mfn():Ret(False),
+	checkAtomUnion=Mfn():Ret(class.IAtomType),
+	getType=Mfn():Ret(class.IAtomType),
+
+	isUnion=Mfn():Ret(False),
 
 	native_type=Mfn():Ret(class.UAtomUnion),
 	native_tostring=Mfn():Ret(class.UAtomUnion),
@@ -50,38 +59,18 @@ class.IAtomType = Interface {
 	meta_bop_func=Mfn(class.Context, String):Ret(Boolean, Union(class.IAtomType, Nil)),
 
 	meta_call=Mfn(class.Context, class.TypeTuple):Ret(class.RetTuples),
+})
 
-	notnilType=Mfn():Ret(class.UAtomUnion),
-	trueType=Mfn():Ret(class.UAtomUnion),
-	falseType=Mfn():Ret(class.UAtomUnion),
-
-	same=Mfn(class.UValueType):Ret(Boolean),
-}
-
-class.IUnionType = Interface {
-	id=Number,
+class.IUnionType = Intersect(class.IType, Interface {
 	_manager=class.TypeManager,
-	bits=Number,
-	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	isReference=Mfn():Ret(False),
-	foreach=Mfn(Fn(class.IAtomType):Ret()):Ret(),
 	checkAtomUnion=Mfn():Ret(class.IUnionType),
 	getType=Mfn():Ret(class.IUnionType),
 
 	isUnion=Mfn():Ret(True),
-	isNilable=Mfn():Ret(Boolean),
-	contain=Mfn(class.UValueType):Ret(Union(class.UAtomUnion, False)),
 
-	notnilType=Mfn():Ret(class.UAtomUnion),
-	trueType=Mfn():Ret(class.UAtomUnion),
-	falseType=Mfn():Ret(class.UAtomUnion),
-
-	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
-	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
-
-	same=Mfn(class.UValueType):Ret(Boolean),
 	_put=Mfn(class.IAtomType):Ret()
-}
+})
 
 
 end)
@@ -189,18 +178,18 @@ local function TypeClass()::open()
 	function t.__bor(vLeft, vRight)
 		return vLeft._manager:Union(vLeft, vRight)
 	end
-    function t:isNever?()
-        return false
-    end
+	function t:isNever?()
+			return false
+	end
 	function t:notnilType?()
 		return self:checkAtomUnion()
 	end
-    function t:trueType?()
-        return self:checkAtomUnion()
-    end
-    function t:falseType?()
-        return self._manager.type.Never
-    end
+	function t:trueType?()
+			return self:checkAtomUnion()
+	end
+	function t:falseType?()
+			return self._manager.type.Never
+	end
 	function t:same(vType)::Ret(Boolean)
 		if vType:isReference() then
 			vType = vType:checkAtomUnion()
