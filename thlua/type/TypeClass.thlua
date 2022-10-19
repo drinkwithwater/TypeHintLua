@@ -7,6 +7,8 @@ class.AstNode = Interface {
 	path=String,
 }
 
+class.LspCompletion = Dict(String, True)
+
 class.GenFunc = Fn(class.Context, class.TermTuple):Ret(class.TermTuple)
 
 class.UContext = Union(class.Runtime, class.Context)
@@ -22,6 +24,8 @@ class.IType = Interface {
 	isSingleton=Mfn():Ret(Boolean),
 	isNilable=Mfn():Ret(Boolean),
 	isNever=Mfn():Ret(Boolean),
+
+	unionSign=Mfn():Ret(String),
 
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	contain=Mfn(class.UAllType):Ret(Union(class.UAtomUnion, False)),
@@ -111,7 +115,7 @@ local function TypeClass()::open()
 		error(tostring(self).."_containOneNotRefer TODO")
 	end
 	function t:contain(vRight)
-		local nLeft:class.UAtomUnion = self
+		local nLeft:class.UAllType = self
 		if nLeft:isReference() then
 			nLeft = nLeft:checkAtomUnion()
 		end
@@ -171,12 +175,7 @@ local function TypeClass()::open()
 		error("foreach TODO")
 	end
 	function t:unionSign?()
-		local nUnionSign = self._unionSign
-		if not nUnionSign then
-			nUnionSign = tostring(self.id)
-			self._unionSign = nUnionSign
-		end
-		return nUnionSign
+		return tostring(self.id)
 	end
 	function t.__bor(vLeft, vRight)
 		return vLeft._manager:Union(vLeft, vRight)
@@ -206,10 +205,7 @@ local function TypeClass()::open()
 	function t:setReferName(vReferName)
 		self._referName = vReferName
 	end
-	function t:isNative?()
-		return false
-	end
-	function t:getCompletion?()
+	function t:getCompletion?()::Ret(class.LspCompletion)
 		return {}
 	end
 	return t

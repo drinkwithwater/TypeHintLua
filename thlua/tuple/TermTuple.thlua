@@ -2,8 +2,8 @@
 local TermTuple = {}
 
 TermTuple.__index=TermTuple
-TermTuple.__tostring=function(self)
-	local re = {}
+TermTuple.__tostring=function(self)::Ret(String)
+	local re:List(String) = {}
 	for i=1, #self do
 		re[i] = tostring(self._list[i])
 	end
@@ -32,7 +32,7 @@ end
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.UnionTerm), vTypeTuple:class.TypeTuple)::RetClass(class.TermTuple)
+function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.UnionTerm), vTypeTuple:class.UTypeTuple)::RetClass(class.TermTuple)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_repeatTermList={}@List(class.UnionTerm),
@@ -42,8 +42,8 @@ function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.UnionTer
 	return self
 end
 
-function TermTuple:select(i)
-	local nList = {}
+function TermTuple:select(i)::Ret(class.TermTuple)
+	local nList:List(class.UnionTerm) = {}
 	for n=i,#self._list do
 		nList[#nList + 1] = self._list[n]
 	end
@@ -53,7 +53,7 @@ function TermTuple:select(i)
 	return self._manager:TermTuple(nList)
 end
 
-function TermTuple:get(i)::Ret(class.UnionTerm)
+function TermTuple:get(i:Number)::Ret(class.UnionTerm)
 	local more = i - #self
 	if more <= 0 then
 		return self._list[i]!
@@ -68,26 +68,26 @@ function TermTuple:get(i)::Ret(class.UnionTerm)
 				nTerm = self._manager:UnionTerm(nNil)
 			end
 			self._repeatTermList[more] = nTerm
-            return nTerm
-        else
-            return nTerm
+			return nTerm
+		else
+			return nTerm
 		end
 	end
 end
 
-function TermTuple:getDots(vStart)
+function TermTuple:getDots(vStart)::Ret(class.TermTuple)
 	return self._typeTuple:select(vStart):makeTermTuple()
 end
 
-function TermTuple:getTypeTuple()
+function TermTuple:getTypeTuple()::Ret(class.UTypeTuple)
     return self._typeTuple
 end
 
-function TermTuple:getRepeatType()
+function TermTuple:getRepeatType()::Ret(Union(class.UAllType, False))
 	return self._typeTuple:getRepeatType()
 end
 
-function TermTuple.is(t)
+function TermTuple.is(t)::isguard(class.TermTuple)
 	return getmetatable(t) == TermTuple
 end
 
