@@ -107,7 +107,7 @@ function TypeManager:isValueType(vData)::Ret(Boolean)
 	end
 end
 
-function TypeManager:assertValueType(vData)::Ret(class.UValueType)
+function TypeManager:assertValueType(vData)::Ret(class.UAllType)
 	if self:isValueType(vData) then
 		return vData
 	else
@@ -191,7 +191,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
-		local nValueDict:Dict(class.UAtomUnion, class.UValueType) = {}
+		local nValueDict:Dict(class.UAtomUnion, class.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType
 			if Reference.is(nValue) then
@@ -225,7 +225,7 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.
 	return self:_recordTypeUnionSign(nNewStruct)
 end
 
-function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UValueType)::Ret(Union(class.MetaObject, class.Reference))
+function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
 	return self:Struct({[vKey]=vValue}, true)
 end
 
@@ -252,7 +252,7 @@ function TypeManager:_unifyUnion(vNewType:class.UAtomUnion)::Ret(class.UAtomUnio
 	end
 end
 
-function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UValueType))
+function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAllType))
 	local nTypeToBorable = {}
 	local nCollection = self:TypeCollection()
 	for _, nPair in ipairs(vTypeBorablePairList) do
@@ -374,7 +374,7 @@ function TypeManager:MemberFunction(vArgTuple:class.UTypeTuple, vRetTuples:class
 	return nFunc
 end
 
-function TypeManager:UnionTerm(vType:class.UValueType)::Ret(class.UnionTerm)
+function TypeManager:UnionTerm(vType:class.UAllType)::Ret(class.UnionTerm)
 	local nType = vType:checkAtomUnion()
 	if LuaTable.is(nType) then
 		nType:checkDefine()
