@@ -136,19 +136,20 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 end
 
 function TypeManager:Intersect(...:class.MetaObject)::Ret(class.MetaObject)
-	local n = select("#", ...)
 	local l = {...}
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
 		local nAllValueDict = {}
+		local nIntersectSet = {}
 		for i=1,#l do
 			local nMetaObject = l[i]
 			if Reference.is(nMetaObject) then
 				nMetaObject = nMetaObject:getRawAwait()
 			end
 			assert(MetaObject.is(nMetaObject), "intersect can only take interface")
+			nIntersectSet[nMetaObject] = true
 			nMetaObject:getKeyRefer():getRawAwait()
 			local nValueDict = nMetaObject:getValueDict()
 			nMetaObject:getKeyType():foreach(function(vType)
@@ -156,19 +157,18 @@ function TypeManager:Intersect(...:class.MetaObject)::Ret(class.MetaObject)
 				nAllValueDict[vType] = nValueDict[vType]
 			end)
 		end
-		nNewStruct:init(nAllValueDict, false)
+		nNewStruct:init(nAllValueDict, false, nIntersectSet)
 		return nCollection
 	end)
 	return nNewStruct
 end
 
 function TypeManager:Union(...:Truth)::Ret(class.Reference)
-	local n = select("#", ...)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
 	nNewRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
-		for i=1, n do
+		for i=1, #l do
 			local nItem = l[i]
 			if Reference.is(nItem) then
 				local nReferType = nItem:getRawAwait()

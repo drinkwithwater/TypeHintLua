@@ -16,6 +16,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 		_valueDict=false,
 		_nextValue=false,
 		_nextDict=false,
+		_intersectSet=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_unionSign=false,
@@ -24,9 +25,10 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict, vNextDict)
+function MetaObject:init(vValueDict, vNextDict, vIntersectSet)
 	self._valueDict = vValueDict
 	self._nextDict = vNextDict
+	self._intersectSet = vIntersectSet or {}
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -43,6 +45,9 @@ function MetaObject:_containOneNotRefer(vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
 		return false
+	end
+	if nRightStruct._intersectSet[self] then
+		return self
 	end
 	local nContainCache = self._containCache
 	local nCacheResult = nContainCache[nRightStruct]
@@ -77,18 +82,6 @@ function MetaObject:_containOneNotRefer(vRightType)
 						nContainCache[nRightStruct] = false
 						return false
 					end
-				else
-					nLatePairList[#nLatePairList + 1] = {
-						nValue, nRightValue
-					}
-				end
-			end
-			for _, nPair in pairs(nLatePairList) do
-				local nBig, nSmall = nPair[1], nPair[2]
-				-- TODO raise error if checkAtomUnion failed
-				if not nBig:contain(nSmall) then
-					nContainCache[nRightStruct] = false
-					return false
 				end
 			end
 			nContainCache[nRightStruct] = true
