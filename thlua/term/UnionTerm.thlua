@@ -54,13 +54,19 @@ function UnionTerm.is(v)::isguard(class.UnionTerm)
 end
 
 function UnionTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
-	local reCase = nil
+	local nCase = nil
 	self._type:foreach(function(vType)
 		if vType:contain(vGuardType) then
-			reCase = self._typeToCase[vType]
+			nCase = self._typeToCase[vType]
 		end
 	end)
-	return reCase
+	if not nCase then
+		return nil
+	else
+		local nReCase = TermCase.new() & nCase
+		nReCase:put_and(self, vGuardType)
+		return nReCase
+	end
 end
 
 function UnionTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))

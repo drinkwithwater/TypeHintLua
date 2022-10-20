@@ -18,7 +18,7 @@ local TermCase = require "thlua.term.TermCase"
 
 	let.ILoader = Interface {
 		thluaSearch=Mfn(String):Ret(Boolean, String),
-		thluaParseFile=Mfn(String):Ret(class.LuaFunction),
+		thluaParseFile=Mfn(String):Ret(class.CodeEnv),
 	}
 
 	let.LoadedState = Struct {
@@ -45,9 +45,7 @@ local Runtime = ContextClass()
 
 function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runtime)
 	local self = setmetatable({::Self()
-	}, {
-		__index=Runtime,
-	})
+	}, Runtime)
 	self._loader = vLoader
 	self._runtime = self
 	self._sealContext = self
@@ -61,26 +59,26 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	self._loadedDict = {}
 	self._lateFnSet = {} @ Dict(class.LateFnCom, True)
 	self._classFnSet = {} @ Dict(class.ClassFnCom, True)
-	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.AstNode, True))
+	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.Symbol, True))
 	self._fileStateDict = {} @Dict(String, FileState)
 	return self
 end
 
-function Runtime:recordSymbol(vSymbol)
+function Runtime:recordSymbol(vSymbol:class.Symbol)
 	local nNode = vSymbol:getNode()
 	local nSymbolSet = self._nodeToSymbolSet[nNode]
 	if not nSymbolSet then
-		nSymbolSet = {}
+		nSymbolSet = {} @ Dict(class.Symbol, True)
 		self._nodeToSymbolSet[nNode] = nSymbolSet
 	end
 	nSymbolSet[vSymbol] = true
 end
 
-function Runtime:getNodeSymbolSet(vNode)
+function Runtime:getNodeSymbolSet(vNode:class.AstNode)::Ret(Dict(class.Symbol, True))
 	local nSymbolSet = self._nodeToSymbolSet[vNode]
 	if not nSymbolSet then
-		nSymbolSet = {}
-		self._nodeToSymbolList = nSymbolSet
+		nSymbolSet = {} @ Dict(class.Symbol, True)
+		self._nodeToSymbolSet[vNode] = nSymbolSet
 	end
 	return nSymbolSet
 end
@@ -113,7 +111,7 @@ function Runtime:newContext(vApplyNode:class.AstNode, vSealContext:Union(False, 
 	return Context.new(self, vApplyNode, vSealContext)
 end
 
-function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
+function Runtime:cacheLoadFile(vFileName:String)::Ret(class.LuaFunction)
 	local nFileState = self._fileStateDict[vFileName]
 	local nCodeEnv
 	if not nFileState then
@@ -124,7 +122,7 @@ function Runtime:cacheLoadFile(vFileName)::Ret(class.LuaFunction)
 		}
 		self._fileStateDict[vFileName] = nFileState
 	else
-		nCodeEnv = nFileState.env
+		nCodeEnv = nFileState.codeEnv
 	end
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
 end
