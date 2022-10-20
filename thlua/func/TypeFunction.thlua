@@ -1,6 +1,7 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 local Exception = require "thlua.Exception"
 
 local TypeFunction = AtomTypeClass()
@@ -17,18 +18,22 @@ function TypeFunction.new(vManager:class.TypeManager,
 		_retTuples=vRetTuples,
 		_member=vMember,
 		_structSign=false,
-		pos="??",
 		id=vManager:genTypeId(),
 		bits=TYPE_BITS.FUNCTION,
 	}, TypeFunction)
 	return self
 end
 
-function TypeFunction:Dots(vType)
+function TypeFunction:Dots(vType:class.UAllType)::Ret(class.TypeFunction)
+	local nArgTuple = self._argTuple
+	if TypeTupleDots.is(nArgTuple) then
+		error("use dots but tuple has dots")
+		return self
+	end
 	if self._member then
-		return self._manager:MemberFunction(self._argTuple:Dots(vType), self._retTuples)
+		return self._manager:MemberFunction(nArgTuple:Dots(vType), self._retTuples)
 	else
-		return self._manager:Function(self._argTuple:Dots(vType), self._retTuples)
+		return self._manager:Function(nArgTuple:Dots(vType), self._retTuples)
 	end
 end
 
@@ -99,7 +104,7 @@ end
 function TypeFunction:structSign()
 	local nSign = self._structSign
 	if not nSign then
-		local l = {
+		local l:List(String) = {
 			self._member and "mfn" or "fn",
 			self._argTuple:structSign(),
 			"->",

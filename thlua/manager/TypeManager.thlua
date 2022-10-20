@@ -61,7 +61,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	end
 	self.type.Boolean = self:Union(self.type.False, self.type.True)
 	self.type.Any = self:Union(self.type.False, self.type.Nil, self.type.Truth)
-	self.type.Object = self:Interface({}):checkAtomUnion()
+	self.type.Object = self:Interface({}, false)
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -142,13 +142,16 @@ function TypeManager:Intersect(...:class.MetaObject)::Ret(class.MetaObject)
 	nKeyRefer:setRawAsync(function()
 		local nCollection = self:TypeCollection()
 		local nAllValueDict = {}
-		local nIntersectSet = {}
+		local nIntersectSet:Dict(class.MetaObject, True) = {}
 		for i=1,#l do
 			local nMetaObject = l[i]
 			if Reference.is(nMetaObject) then
 				nMetaObject = nMetaObject:getRawAwait()
 			end
-			assert(MetaObject.is(nMetaObject), "intersect can only take interface")
+			if not MetaObject.is(nMetaObject) then
+				error("intersect can only take interface")
+				break
+			end
 			nIntersectSet[nMetaObject] = true
 			nMetaObject:getKeyRefer():getRawAwait()
 			local nValueDict = nMetaObject:getValueDict()
@@ -409,7 +412,7 @@ function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:
 	return TermTuple.new(self, nTermList, nTypeTuple)
 end
 
-function TypeManager:Reference(vName:String)::Ret(class.Reference)
+function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)
 	return Reference.new(self, vName)
 end
 
