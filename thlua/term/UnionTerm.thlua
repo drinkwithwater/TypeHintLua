@@ -30,7 +30,7 @@ function UnionTerm.new(
 	vTypeToCase:Option(Dict(class.IAtomType, class.TermCase)))::RetClass(class.UnionTerm)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_typeToCase=vTypeToCase or {},
+		_typeToCase=vTypeToCase or {}@Dict(class.IAtomType, class.TermCase),
 		_type=vType,
 		_unionSymbol=(false @ Union(False, class.Symbol)),
 		const=false,
@@ -51,6 +51,32 @@ end
 
 function UnionTerm.is(v)::isguard(class.UnionTerm)
 	return getmetatable(v) == UnionTerm
+end
+
+function UnionTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
+	local reCase = nil
+	self._type:foreach(function(vType)
+		local nCase = self._typeToCase[vType]
+		if vType:contain(vGuardType) then
+			reCase = nCase
+		end
+	end)
+	return reCase
+end
+
+function UnionTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
+	local reCase = nil
+	self._type:foreach(function(vType)
+		local nCase = self._typeToCase[vType]
+		if vGuardType ~= vType then
+			if not reCase then
+				reCase = nCase
+			else
+				reCase = reCase | nCase
+			end
+		end
+	end)
+	return reCase
 end
 
 function UnionTerm:caseTrue()

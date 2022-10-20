@@ -14,7 +14,7 @@ end
 function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTermCase:class.TermCase)::RetClass(class.Branch)
 	local self = setmetatable({::Self()
 		_context=vContext,
-		_stop=false,
+		_stop=false@Boolean,
 		case=nil@class.TermCase,
 		headCase=vTermCase,
 		symbolToTerm=nil@Dict(class.Symbol,class.UnionTerm),
@@ -57,13 +57,13 @@ function Branch:symbol_get(vSymbol:class.Symbol)::Ret(class.UnionTerm)
 	end
 end
 
-function Branch:symbol_init(vUnionSymbol, vTerm)
+function Branch:symbol_init(vUnionSymbol:class.Symbol, vTerm:class.UnionTerm)
 	self._context:getRuntime():recordSymbol(vUnionSymbol)
 	vTerm:add_self(vUnionSymbol)
 	self.symbolToTerm[vUnionSymbol] = vTerm
 end
 
-function Branch:symbol_set(vUnionSymbol, vValueTerm)
+function Branch:symbol_set(vUnionSymbol:class.Symbol, vValueTerm:class.UnionTerm)
 	local nValueType = vValueTerm:getType()
 	if vUnionSymbol:getType():contain(nValueType) then
 		local nUnionTerm = self._context:UnionTerm(nValueType)
@@ -74,8 +74,8 @@ function Branch:symbol_set(vUnionSymbol, vValueTerm)
 	end
 end
 
-function Branch:merge_from(vContext, vTrueBranch, vFalseBranch)
-	local nModSymbolDict = {}
+function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vFalseBranch:class.Branch)
+	local nModSymbolDict:Dict(class.Symbol, True) = {}
 	local nTrueStop = vTrueBranch:getStop()
 	for nSymbol, nUnion in pairs(vTrueBranch.symbolToTerm) do
 		nModSymbolDict[nSymbol] = true
@@ -93,7 +93,9 @@ function Branch:merge_from(vContext, vTrueBranch, vFalseBranch)
 				elseif nTrueStop then
 					nType = vFalseBranch:symbol_get(nSymbol):getType()
 				else
-					nType = vTrueBranch:symbol_get(nSymbol):getType() | vFalseBranch:symbol_get(nSymbol):getType()
+					local nTrueType = vTrueBranch:symbol_get(nSymbol):getType()
+					local nFalseType = vFalseBranch:symbol_get(nSymbol):getType()
+					nType = nTrueType | nFalseType
 				end
 				local nUnionTerm = self._context:UnionTerm(nType)
 				self.symbolToTerm[nSymbol] = nUnionTerm
@@ -122,7 +124,7 @@ function Branch:setStop()
 	self._stop = true
 end
 
-function Branch:getStop()
+function Branch:getStop()::Ret(Boolean)
 	return self._stop
 end
 

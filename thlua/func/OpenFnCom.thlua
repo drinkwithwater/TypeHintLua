@@ -24,14 +24,17 @@ function OpenFnCom:initByGuard(vContext, vType)
 	local nTrue = self._manager.type.True
 	local nFalse = self._manager.type.False
 	self._nativeFunction=self._manager:NativeFunction(function(vContext, vTermTuple)
-		-- TODO isguard add refinement
+		local nTableType:class.LuaTable = vType:checkAtomUnion()
 		local nTerm = vTermTuple:get(1)
-		local caseTrue = TermCase.new()
-		caseTrue:put_and(nTerm, vType)
-		local nTypeCaseList = {
-			{nTrue, caseTrue},
-			{nFalse, TermCase.new()},
-		}
+		local caseTrue = nTerm:caseIsType(nTableType)
+		local caseFalse = nTerm:caseIsNotType(nTableType)
+		local nTypeCaseList:List(Interface{[1]=class.Boolean,[2]=Option(class.TermCase)}) = {}
+		if caseTrue then
+			nTypeCaseList[#nTypeCaseList + 1] = {nTrue, caseTrue}
+		end
+		if caseFalse then
+			nTypeCaseList[#nTypeCaseList + 1] = {nFalse, caseFalse}
+		end
 		return self._manager:TermTuple({self._manager:mergeToUnionTerm(nTypeCaseList)})
 	end)
 end
