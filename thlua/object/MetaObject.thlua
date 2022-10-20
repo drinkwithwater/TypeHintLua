@@ -13,9 +13,9 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_keyRefer=vKeyRefer,
-		_valueDict=false,
+		_valueDict=false@class.ValueDict,
 		_nextValue=false,
-		_nextDict=false,
+		_nextDict=false@Union(False, class.ValueDict),
 		_intersectSet=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
@@ -25,7 +25,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict, vNextDict, vIntersectSet)
+function MetaObject:init(vValueDict:class.ValueDict, vNextDict:Union(False, class.ValueDict), vIntersectSet)
 	self._valueDict = vValueDict
 	self._nextDict = vNextDict
 	self._intersectSet = vIntersectSet or {}
@@ -163,11 +163,11 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 			elseif nSetType:contain(vValueType) then
 				return
 			else
-				vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+				vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
 			end
 		end
 	end
-	vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
+	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
 function MetaObject:foreachGetPair(vFunc)
