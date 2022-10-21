@@ -88,9 +88,9 @@ function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vF
 		for nSymbol, _ in pairs(nModSymbolDict) do
 			if self.symbolToTerm[nSymbol] then
 				local nType
-				if nFalseStop then
+				if nFalseStop or not vFalseBranch.headCase then
 					nType = vTrueBranch:symbol_get(nSymbol):getType()
-				elseif nTrueStop then
+				elseif nTrueStop or not vTrueBranch.headCase then
 					nType = vFalseBranch:symbol_get(nSymbol):getType()
 				else
 					local nTrueType = vTrueBranch:symbol_get(nSymbol):getType()
@@ -113,7 +113,7 @@ function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vF
 			self.headCase = self.headCase & nAndCase
 		end
 	else
-		nAndCase = vTrueBranch.headCase & vFalseBranch.headCase
+		local nAndCase = vTrueBranch.headCase & vFalseBranch.headCase
 		self.case = self.case & nAndCase
 		self.headCase = self.headCase & nAndCase
 		self._stop = true

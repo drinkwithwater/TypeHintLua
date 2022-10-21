@@ -328,13 +328,13 @@ function TypeManager:Literal(vValue:Union(String, Number))::Ret(class.IAtomType)
 end
 
 function TypeManager:Tuple(...:Truth)::Ret(class.TypeTuple)
-	local nTypeList = {...}
+	local nTypeList:List(class.UAllType) = {}
 	for i=1, select("#", ...) do
-		local nType = nTypeList[i]
-		if Reference.is(nType) then
-			nTypeList[i] = nType
+		local nArg = select(i, ...)
+		if Reference.is(nArg) then
+			nTypeList[i] = nArg
 		else
-			nTypeList[i] = self:assertValueType(nType)
+			nTypeList[i] = self:assertValueType(nArg)
 		end
 	end
 	return TypeTuple.new(self, nTypeList)
