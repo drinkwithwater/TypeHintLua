@@ -2,19 +2,27 @@
 (@do
 	let.class = import("thlua.type.TypeClass").class
 	class.UFnCom = Union(class.LateFnCom, class.OpenFnCom, class.ClassFnCom)
+	class.IFnCom = Intersect(class.IMetaCall, Interface {
+		regionTableSelf=Mfn(class.UContext, class.AstNode):Ret(class.LuaTable),
+		regionReturn=Mfn(class.UContext, class.AstNode, class.UTypeTuple):Ret(),
+		regionEnd=Mfn(class.UContext, class.AstNode, List(class.TermTuple)):Ret():Ret(class.TermTuple),
+	})
 end)
 
 
 local function FnComClass()::open()
 	local FnCom = {}
 	FnCom.__index = FnCom
-	function FnCom:regionTableSelf?(vContext, vNode)::Ret(class.LuaTable):nocheck()
+	function FnCom:regionTableSelf?(vContext, vNode)
 		error("only fn with RetClass can take New()")
 	end
-	function FnCom:regionReturn?(vContext, vNode, vTypeTuple)::Ret()
+	function FnCom:regionReturn?(vContext, vNode, vTypeTuple)
 		error("return not implement")
 	end
-	function FnCom:regionEnd?(vContext, vNode, vTermTupleList)::Ret():Ret(class.TermTuple)
+	function FnCom:meta_call?(vContext, vTypeTuple)
+		-- do nothing
+	end
+	function FnCom:regionEnd?(vContext, vNode, vTermTupleList)
 		-- do nothing
 	end
 	function FnCom:cast?(vContext, vTypeFn)::Ret(Boolean)
