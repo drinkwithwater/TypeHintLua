@@ -106,12 +106,21 @@ function LateFnCom:_typeDefault()
 	end
 end
 
-function LateFnCom:implement(vContext, vSelfType, vIntfFnOrNil)
+function LateFnCom:implement(vContext:class.UContext, vSelfType:class.LuaTable, vIntfFnOrNil:Option(class.TypeFunction))
 	self._selfOnceDict[vSelfType] = false
 	if vIntfFnOrNil then
 		self._autoArgs:checkWhenApply(vContext, vIntfFnOrNil:getArgTuple())
 		self._typeFunction = vIntfFnOrNil
-		self._retTuples = self._retTuples or vIntfFnOrNil:getRetTuples()
+		local nNewRetTuples = vIntfFnOrNil:getRetTuples()
+		local nOldRetTuples = self._retTuples
+		if nOldRetTuples then
+			if not nNewRetTuples:containTuples(nOldRetTuples) then
+				vContext:getRuntime():nodeError(self._luaFunction:getNode(), "interface-fn ret and hint ret notmatch")
+				self._retTuples = nNewRetTuples
+			end
+		else
+			self._retTuples = nNewRetTuples
+		end
 	else
 		self:_typeDefault()
 	end
