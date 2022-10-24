@@ -25,9 +25,9 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict:class.ValueDict, vNextDict:Union(False, class.ValueDict), vIntersectSet)
+function MetaObject:init(vValueDict:class.ValueDict, vNext:Boolean, vIntersectSet)
 	self._valueDict = vValueDict
-	self._nextDict = vNextDict
+	self._nextDict = {}
 	self._intersectSet = vIntersectSet or {}
 end
 
@@ -113,8 +113,8 @@ function MetaObject:meta_ipairs(vContext)
 end
 
 function MetaObject:native_next(vContext, vInitType)
-	local nValueDict = self._nextDict
-	if not nValueDict then
+	local nNextDict = self._nextDict
+	if not nNextDict then
 		vContext:error("struct can't put by next")
 		return self._manager.type.Never, {}
 	end
@@ -122,17 +122,17 @@ function MetaObject:native_next(vContext, vInitType)
 	local nNil = self._manager.type.Nil
 	if not nValueType then
 		local nCollection = self._manager:TypeCollection()
-		for nOneKey, nOneValue in pairs(nValueDict) do
+		for nOneKey, nOneValue in pairs(self._valueDict) do
 			nOneValue = nOneValue:checkAtomUnion():notnilType()
-			nValueDict[nOneKey] = nOneValue
+			nNextDict[nOneKey] = nOneValue
 			nCollection:put(nOneValue)
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
 		self._nextValue = nValueType
-		self._nextDict[nNil] = nNil
+		nNextDict[nNil] = nNil
 	end
-	return nValueType, nValueDict
+	return nValueType, nNextDict
 end
 
 function MetaObject:isSingleton(v)
