@@ -13,7 +13,8 @@ local Context = ContextClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function Context.new(vRuntime:class.Runtime, vApplyNode:class.AstNode, vSealContext:Union(False, class.UContext))::RetClass(class.Context)
+function Context.new(vRuntime:class.Runtime,
+	vApplyNode:class.AstNode, vSealContext:Union(False, class.UContext), vParentContext:class.UContext)::RetClass(class.Context)
 	local self = setmetatable({::Self()
 		_runtime=vRuntime,
 		_manager=vRuntime:getTypeManager(),
@@ -23,6 +24,7 @@ function Context.new(vRuntime:class.Runtime, vApplyNode:class.AstNode, vSealCont
 		_classFnSet={} @ Dict(class.ClassFnCom, True),
 		_lateFnSet={} @ Dict(class.LateFnCom, True),
 	}, Context)
+	self._parentContext = vParentContext
 	self._sealContext = vSealContext or self
 	return self
 end
@@ -400,6 +402,10 @@ end
 function Context:getRegion()::Ret(class.Region)
 	assert(self._region, "region not create when context getRegion")
 	return self._region
+end
+
+function Context:getParentContext()::Ret(class.UContext)
+	return self._parentContext
 end
 
 return Context

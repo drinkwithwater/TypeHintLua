@@ -99,6 +99,9 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 		end),
 		--- not meta_native
 		assert=nManager:NativeFunction(function(vContext, vTermTuple)
+			local nRegion = vContext:getParentContext():getRegion()
+			assert(nRegion, "error in a context without region")
+			nRegion:nativeAssert(vTermTuple:get(1))
 			return nManager:TermTuple({})
 		end),
 		select=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -136,6 +139,9 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 			print("TODO xpcall")
 		end),
 		error=nManager:NativeFunction(function(vContext, vTermTuple)
+			local nRegion = vContext:getParentContext():getRegion()
+			assert(nRegion, "error in a context without region")
+			nRegion:nativeError()
 			return vContext._manager:TermTuple({})
 		end),
 	}

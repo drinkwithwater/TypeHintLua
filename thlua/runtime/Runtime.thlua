@@ -61,6 +61,7 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	self._classFnSet = {} @ Dict(class.ClassFnCom, True)
 	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.Symbol, True))
 	self._fileStateDict = {} @Dict(String, FileState)
+	self._region = false
 	return self
 end
 
@@ -107,8 +108,8 @@ function Runtime:main()
 	end)
 end
 
-function Runtime:newContext(vApplyNode:class.AstNode, vSealContext:Union(False, class.UContext))::Ret(class.Context)
-	return Context.new(self, vApplyNode, vSealContext)
+function Runtime:newContext(vApplyNode:class.AstNode, vSealContext:Union(False, class.UContext), vParentContext:class.UContext)::Ret(class.Context)
+	return Context.new(self, vApplyNode, vSealContext, vParentContext)
 end
 
 function Runtime:cacheLoadFile(vFileName:String)::Ret(class.LuaFunction)
@@ -253,6 +254,14 @@ function Runtime:getAllDiagnostic()::Ret(Dict(String, List(Diagnostic)))
 		nFileToDiaList[nFileName] = nState.diaList
 	end
 	return nFileToDiaList
+end
+
+function Runtime:getParentContext()::Ret(False)
+	return false
+end
+
+function Runtime:getRegion()::Ret(False)
+	return false
 end
 
 return Runtime
