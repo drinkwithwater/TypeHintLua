@@ -20,7 +20,7 @@ local function ContextClass()::open()
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TABLE_NEW(vNode:class.AstNode, vHinterHandler, vPairMaker)::Ret(class.LuaTable)
+	function Context:TABLE_NEW(vNode:class.AstNode, vHinterHandler:Fn(class.TableLongHint):Ret(), vPairMaker)::Ret(class.LuaTable)
 		local nBuilder = TableBuilder.new(self, vNode, vPairMaker)
 		local nLongHint = nBuilder:makeLongHint()
 		local ok, err = pcall(vHinterHandler, nLongHint)
@@ -31,7 +31,8 @@ local function ContextClass()::open()
 		return nTableType
 	end
 
-	function Context:FUNC_NEW(vNode:class.AstNode, vHintCallback, vAutoArgs, vHasRet, vFunc)::Ret(class.LuaFunction)
+	function Context:FUNC_NEW(vNode:class.AstNode, vHintCallback:Fn(class.FnLongHint):Ret(),
+		vAutoArgs:class.AutoArguments, vHasRet:Boolean, vFunc:class.GenFunc)::Ret(class.LuaFunction)
 		local nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
 		local nLongHint = nBuilder:makeLongHint()
 		local ok, err = pcall(vHintCallback, nLongHint)
@@ -42,11 +43,13 @@ local function ContextClass()::open()
 		return nLuaFunc
 	end
 
-	function Context:AutoArguments(vNode, vArgList, vArgDots)::Ret(class.AutoArguments)
+	(@let.VariableOrType = import("thlua.func.AutoArguments").VariableOrType)
+	function Context:AutoArguments(vNode:class.AstNode, vArgList:List(VariableOrType), vArgDots:VariableOrType)
+		::Ret(class.AutoArguments)
 		return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
 	end
 
-	function Context:HINT(vNode, vTerm, vType)::Ret(class.UnionTerm)
+	function Context:HINT(vNode:class.AstNode, vTerm:class.UnionTerm, vType:class.UAllType)::Ret(class.UnionTerm)
 		-- TODO check cast valid
 		return self._manager:UnionTerm(vType)
 	end
@@ -55,7 +58,7 @@ local function ContextClass()::open()
 		return self._manager:TermTuple(a,b)
 	end
 
-	function Context:UnionTerm(vType)::Ret(class.UnionTerm)
+	function Context:UnionTerm(vType:class.UAllType)::Ret(class.UnionTerm)
 		return self._manager:UnionTerm(vType)
 	end
 
@@ -79,11 +82,11 @@ local function ContextClass()::open()
 		return UnionTerm.new(self._manager, self._manager:Boolean(vValue))
 	end
 
-	function Context:LiteralTerm(v)
+	function Context:LiteralTerm(v:Union(String, Number))
 		return UnionTerm.new(self._manager, self:Literal(v))
 	end
 
-	function Context:Literal(vValue)::Ret(Union(class.StringLiteral, class.NumberLiteral))
+	function Context:Literal(vValue:Union(String, Number))::Ret(Union(class.StringLiteral, class.NumberLiteral))
 		return self._manager:Literal(vValue)
 	end
 
@@ -120,7 +123,7 @@ local function ContextClass()::open()
 		return self._runtime
 	end
 
-	function Context:Variable(vIsGeneric)
+	function Context:Variable(vIsGeneric:Boolean)
 		return self._manager:Variable(vIsGeneric)
 	end
 
@@ -128,7 +131,7 @@ local function ContextClass()::open()
 		return self._manager
 	end
 
-	function Context:recordLateLuaFunction(vFunc)
+	function Context:recordLateLuaFunction(vFunc:class.LateFnCom)
 		if self._sealContext == self then
 			self._lateFnSet[vFunc] = true
 		else
@@ -136,7 +139,7 @@ local function ContextClass()::open()
 		end
 	end
 
-	function Context:recordDefineLuaFunction(vFunc)
+	function Context:recordDefineLuaFunction(vFunc:class.ClassFnCom)
 		if self._sealContext == self then
 			self._classFnSet[vFunc] = true
 		else
