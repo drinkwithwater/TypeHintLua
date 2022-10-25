@@ -17,7 +17,7 @@ function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTe
 		_stop=false@Boolean,
 		case=nil@class.TermCase,
 		headCase=vTermCase,
-		symbolToTerm=nil@Dict(class.Symbol,class.RefineTerm),
+		symbolToTerm=nil@Dict(class.LocalSymbol,class.RefineTerm),
 	}, Branch)
 	self.symbolToTerm = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm})
 	local nTermCase
@@ -34,14 +34,14 @@ function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTe
 	return self
 end
 
-function Branch:symbol_get(vSymbol:class.Symbol)::Ret(class.RefineTerm)
-	local nRefineTerm = self.symbolToTerm[vSymbol]
+function Branch:symbol_get(vLocalSymbol:class.LocalSymbol)::Ret(class.RefineTerm)
+	local nRefineTerm = self.symbolToTerm[vLocalSymbol]
 	if not nRefineTerm then
 		-- TODO, set upvalue symbol in prepre...prebranch
-		local nType = vSymbol:getType()
+		local nType = vLocalSymbol:getType()
 		nRefineTerm = self._context:RefineTerm(nType)
-		nRefineTerm:add_self(vSymbol)
-		self.symbolToTerm[vSymbol] = nRefineTerm
+		nRefineTerm:add_self(vLocalSymbol)
+		self.symbolToTerm[vLocalSymbol] = nRefineTerm
 		return nRefineTerm
 	end
 	local nType = self.case[nRefineTerm]
@@ -49,7 +49,7 @@ function Branch:symbol_get(vSymbol:class.Symbol)::Ret(class.RefineTerm)
 		if not nType:isNever() then
 			return nRefineTerm:filter(nType)
 		else
-			print("TODO type is never when get symbol"..tostring(vSymbol), nRefineTerm)
+			print("TODO type is never when get symbol"..tostring(vLocalSymbol), nRefineTerm)
 			return self._context:NeverTerm()
 		end
 	else
@@ -57,49 +57,49 @@ function Branch:symbol_get(vSymbol:class.Symbol)::Ret(class.RefineTerm)
 	end
 end
 
-function Branch:symbol_init(vUnionSymbol:class.Symbol, vTerm:class.RefineTerm)
-	self._context:getRuntime():recordSymbol(vUnionSymbol)
-	vTerm:add_self(vUnionSymbol)
-	self.symbolToTerm[vUnionSymbol] = vTerm
+function Branch:symbol_init(vSymbol:class.LocalSymbol, vTerm:class.RefineTerm)
+	self._context:getRuntime():recordSymbol(vSymbol)
+	vTerm:add_self(vSymbol)
+	self.symbolToTerm[vSymbol] = vTerm
 end
 
-function Branch:symbol_set(vUnionSymbol:class.Symbol, vValueTerm:class.RefineTerm)
+function Branch:symbol_set(vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	local nValueType = vValueTerm:getType()
-	if vUnionSymbol:getType():contain(nValueType) then
+	if vSymbol:getType():contain(nValueType) then
 		local nRefineTerm = self._context:RefineTerm(nValueType)
-		nRefineTerm:add_self(vUnionSymbol)
-		self.symbolToTerm[vUnionSymbol] = nRefineTerm
+		nRefineTerm:add_self(vSymbol)
+		self.symbolToTerm[vSymbol] = nRefineTerm
 	else
-		print(tostring(nValueType).." can't be assigned to "..tostring(vUnionSymbol:getType()))
+		print(tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
 	end
 end
 
 function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vFalseBranch:class.Branch)
-	local nModSymbolDict:Dict(class.Symbol, True) = {}
+	local nModLocalSymbolDict:Dict(class.LocalSymbol, True) = {}
 	local nTrueStop = vTrueBranch:getStop()
-	for nSymbol, nUnion in pairs(vTrueBranch.symbolToTerm) do
-		nModSymbolDict[nSymbol] = true
+	for nLocalSymbol, nUnion in pairs(vTrueBranch.symbolToTerm) do
+		nModLocalSymbolDict[nLocalSymbol] = true
 	end
 	local nFalseStop = vFalseBranch:getStop()
-	for nSymbol, nUnion in pairs(vFalseBranch.symbolToTerm) do
-		nModSymbolDict[nSymbol] = true
+	for nLocalSymbol, nUnion in pairs(vFalseBranch.symbolToTerm) do
+		nModLocalSymbolDict[nLocalSymbol] = true
 	end
 	if (not nTrueStop) or (not nFalseStop) then
-		for nSymbol, _ in pairs(nModSymbolDict) do
-			if self.symbolToTerm[nSymbol] then
+		for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
+			if self.symbolToTerm[nLocalSymbol] then
 				local nType
 				if nFalseStop or not vFalseBranch.headCase then
-					nType = vTrueBranch:symbol_get(nSymbol):getType()
+					nType = vTrueBranch:symbol_get(nLocalSymbol):getType()
 				elseif nTrueStop or not vTrueBranch.headCase then
-					nType = vFalseBranch:symbol_get(nSymbol):getType()
+					nType = vFalseBranch:symbol_get(nLocalSymbol):getType()
 				else
-					local nTrueType = vTrueBranch:symbol_get(nSymbol):getType()
-					local nFalseType = vFalseBranch:symbol_get(nSymbol):getType()
+					local nTrueType = vTrueBranch:symbol_get(nLocalSymbol):getType()
+					local nFalseType = vFalseBranch:symbol_get(nLocalSymbol):getType()
 					nType = nTrueType | nFalseType
 				end
 				local nRefineTerm = self._context:RefineTerm(nType)
-				self.symbolToTerm[nSymbol] = nRefineTerm
-				nRefineTerm:add_self(nSymbol)
+				self.symbolToTerm[nLocalSymbol] = nRefineTerm
+				nRefineTerm:add_self(nLocalSymbol)
 			end
 		end
 		local nAndCase

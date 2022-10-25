@@ -1,0 +1,49 @@
+
+local RefineTerm = require "thlua.term.RefineTerm"
+(@let.class = import("thlua.type.TypeClass").class)
+
+local LocalSymbol = {}
+LocalSymbol.__index=LocalSymbol
+LocalSymbol.__tostring=function(self)::Ret(String)
+	return "LocalSymbol-"..tostring(self._node).."-"..tostring(self._type)
+end
+
+function LocalSymbol.new(vContext:class.Context, vRegion:Union(class.Region, False),
+		vNode:class.AstNode, vType:class.UAtomUnion, vRawTerm:class.RefineTerm)::RetClass(class.LocalSymbol)
+	return setmetatable({::Self()
+		_region=vRegion,
+		_node=vNode,
+		_type=vType,
+		_rawTerm=vRawTerm,
+	}, LocalSymbol)
+end
+
+function LocalSymbol:getType()::Ret(class.UAtomUnion)
+	return self._type
+end
+
+function LocalSymbol:getNode()::Ret(class.AstNode)
+	return self._node
+end
+
+function LocalSymbol:getName()::Ret(String)
+	return tostring(self._node)
+end
+
+function LocalSymbol:GET()::Ret(class.RefineTerm)
+	local nRegion = self._region
+	if nRegion then
+		return nRegion:top_branch():symbol_get(self)
+	else
+		return self._rawTerm
+	end
+end
+
+function LocalSymbol:SET(vTerm:class.RefineTerm)
+	local nRegion = self._region
+	if nRegion then
+		nRegion:top_branch():symbol_set(self, vTerm)
+	end
+end
+
+return LocalSymbol

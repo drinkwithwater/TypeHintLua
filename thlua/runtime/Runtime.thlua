@@ -9,7 +9,7 @@ local ContextClass = require "thlua.runtime.ContextClass"
 local native = require "thlua.native"
 local Node = require "thlua.code.Node"
 local Namespace = require "thlua.manager.Namespace"
-local Symbol = require "thlua.runtime.Symbol"
+local LocalSymbol = require "thlua.runtime.LocalSymbol"
 local Exception = require "thlua.Exception"
 local TermCase = require "thlua.term.TermCase"
 
@@ -59,29 +59,29 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	self._loadedDict = {}
 	self._lateFnSet = {} @ Dict(class.LateFnCom, True)
 	self._classFnSet = {} @ Dict(class.ClassFnCom, True)
-	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.Symbol, True))
+	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.LocalSymbol, True))
 	self._fileStateDict = {} @Dict(String, FileState)
 	self._region = false
 	return self
 end
 
-function Runtime:recordSymbol(vSymbol:class.Symbol)
-	local nNode = vSymbol:getNode()
-	local nSymbolSet = self._nodeToSymbolSet[nNode]
-	if not nSymbolSet then
-		nSymbolSet = {} @ Dict(class.Symbol, True)
-		self._nodeToSymbolSet[nNode] = nSymbolSet
+function Runtime:recordSymbol(vLocalSymbol:class.LocalSymbol)
+	local nNode = vLocalSymbol:getNode()
+	local nLocalSymbolSet = self._nodeToSymbolSet[nNode]
+	if not nLocalSymbolSet then
+		nLocalSymbolSet = {} @ Dict(class.LocalSymbol, True)
+		self._nodeToSymbolSet[nNode] = nLocalSymbolSet
 	end
-	nSymbolSet[vSymbol] = true
+	nLocalSymbolSet[vLocalSymbol] = true
 end
 
-function Runtime:getNodeSymbolSet(vNode:class.AstNode)::Ret(Dict(class.Symbol, True))
-	local nSymbolSet = self._nodeToSymbolSet[vNode]
-	if not nSymbolSet then
-		nSymbolSet = {} @ Dict(class.Symbol, True)
-		self._nodeToSymbolSet[vNode] = nSymbolSet
+function Runtime:getNodeLocalSymbolSet(vNode:class.AstNode)::Ret(Dict(class.LocalSymbol, True))
+	local nLocalSymbolSet = self._nodeToSymbolSet[vNode]
+	if not nLocalSymbolSet then
+		nLocalSymbolSet = {} @ Dict(class.LocalSymbol, True)
+		self._nodeToSymbolSet[vNode] = nLocalSymbolSet
 	end
-	return nSymbolSet
+	return nLocalSymbolSet
 end
 
 function Runtime:checkAtomUnionFinish()
@@ -216,7 +216,7 @@ end
 
 function Runtime:makeSymbol_ENV(vNode)
 	local nTerm = self:RefineTerm(self._globalTable)
-	return Symbol.new(self, false, vNode, self._globalTable, nTerm)
+	return LocalSymbol.new(self, false, vNode, self._globalTable, nTerm)
 end
 
 function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.AstNode, ...:Truth)

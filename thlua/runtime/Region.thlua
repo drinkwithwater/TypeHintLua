@@ -2,7 +2,7 @@
 local Region = {}
 local TermCase = require "thlua.term.TermCase"
 local Branch = require "thlua.runtime.Branch"
-local Symbol = require "thlua.runtime.Symbol"
+local LocalSymbol = require "thlua.runtime.LocalSymbol"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -45,16 +45,16 @@ function Region:top_branch()::Ret(class.Branch)
 	return self._curBranch
 end
 
-function Region:SYMBOL(vNode:class.AstNode, vTerm:class.RefineTerm, vHintType:Option(class.UAllType))::Ret(class.Symbol)
+function Region:SYMBOL(vNode:class.AstNode, vTerm:class.RefineTerm, vHintType:Option(class.UAllType))::Ret(class.LocalSymbol)
 	if not vTerm then
 		print("TODO local symbol without assign")
 		vTerm = self._context:NilTerm()
 	end
 	if not vHintType then
 		local nType = vTerm:getType()
-		local nSymbol = Symbol.new(self._context, self, vNode, nType, vTerm)
-		self:top_branch():symbol_init(nSymbol, vTerm)
-		return nSymbol
+		local nLocalSymbol = LocalSymbol.new(self._context, self, vNode, nType, vTerm)
+		self:top_branch():symbol_init(nLocalSymbol, vTerm)
+		return nLocalSymbol
 	else
 		local nSrcType = vTerm:getType()
 		if not self._context:cast(nSrcType, vHintType) then
@@ -63,9 +63,9 @@ function Region:SYMBOL(vNode:class.AstNode, vTerm:class.RefineTerm, vHintType:Op
 			end
 		end
 		local nTerm = self._context:RefineTerm(vHintType)
-		local nSymbol = Symbol.new(self._context, self, vNode, vHintType:checkAtomUnion(), vTerm)
-		self:top_branch():symbol_init(nSymbol, nTerm)
-		return nSymbol
+		local nLocalSymbol = LocalSymbol.new(self._context, self, vNode, vHintType:checkAtomUnion(), vTerm)
+		self:top_branch():symbol_init(nLocalSymbol, nTerm)
+		return nLocalSymbol
 	end
 end
 
