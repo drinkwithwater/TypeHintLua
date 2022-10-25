@@ -10,9 +10,9 @@ function LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_typeFunction=false,
+		_typeFunction=false@Union(False, class.TypeFunction),
 		_selfOnceDict={},
-		_once=false,
+		_once=false@Boolean,
 		_autoArgs=nil@class.AutoArguments,
 		_retTuples=false@Union(False, class.RetTuples),
 		_nocheck=false@Boolean,
@@ -50,7 +50,9 @@ function LateFnCom:checkLateRun()
 	else
 		if not self._once then
 			self._once = true
-			local nArgTuple = self._typeFunction:getArgTuple()
+			local nTypeFunction = self._typeFunction
+			assert(nTypeFunction, "type-fn not setted in late-fn")
+			local nArgTuple = nTypeFunction:getArgTuple()
 			local nInplaceContext = self._luaFunction:newInplaceSealContext()
 			local ok, err = pcall(function()
 				self._luaFunction._runFunc(nInplaceContext, nArgTuple:makeTermTuple())
@@ -67,6 +69,7 @@ function LateFnCom:meta_call(vContext, vTypeTuple)
 		self:_typeDefault()
 	end
 	local nTypeFn = self._typeFunction
+	assert(nTypeFn, "type-fn not setted in late-fn when meta_call")
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -75,7 +78,9 @@ function LateFnCom:regionReturn(vContext, vNode, vTypeTuple)
 		vContext:getRuntime():nodeError(vNode, "return dots type is invalid")
 	end
 	local nOneOkay = false
-	self._retTuples:foreach(function(vDstTuple)
+	local nRetTuples = self._retTuples
+	assert(nRetTuples, "ret tuples not setted when return")
+	nRetTuples:foreach(function(vDstTuple)
 		if vTypeTuple:castOrIn(vContext, vDstTuple) then
 			nOneOkay = true
 		end
