@@ -56,7 +56,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 					vTermCase,
 				}
 			end)
-			return vContext._manager:mergeToUnionTerm(nTypeCaseList)
+			return vContext._manager:mergeToRefineTerm(nTypeCaseList)
 		end),
 		next=nManager.builtin.next,
 		ipairs=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -77,7 +77,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 		rawget=nManager:NativeFunction(function(vContext, vTermTuple)
 			local nType1 = vTermTuple:get(1):getType()
 			local nType2 = vTermTuple:get(2):getType()
-			return nManager:UnionTerm(nType1:native_rawget(vContext, nType2))
+			return nManager:RefineTerm(nType1:native_rawget(vContext, nType2))
 		end),
 		rawset=nManager:NativeFunction(function(vContext, vTermTuple)
 			--self:argnum_warn(3, vTermTuple)
@@ -95,7 +95,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 					vType:native_type(), vTermCase
 				}
 			end)
-			return vContext._manager:mergeToUnionTerm(nTypeCaseList)
+			return vContext._manager:mergeToRefineTerm(nTypeCaseList)
 		end),
 		--- not meta_native
 		assert=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -235,7 +235,7 @@ function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
 			local nFirstTerm = vTermTuple:get(1)
 			local nType = nFirstTerm:getType()
 			checkList(vContext, nType, "concat")
-			return vManager:TermTuple({vManager:UnionTerm(vManager.type.String)})
+			return vManager:TermTuple({vManager:RefineTerm(vManager.type.String)})
 		end),
 		insert=vManager:NativeFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(1)
@@ -276,7 +276,7 @@ function native.make_inext(vManager)::Ret(class.IAtomType)
 			error(Exception.new("TODO: next Union type"))
 		else
 			local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
-			local nValueTerm = vManager:UnionTerm(vManager:Union(nNotNilValue, nNil))
+			local nValueTerm = vManager:RefineTerm(vManager:Union(nNotNilValue, nNil))
 			local nKeyValue = {
 				[nNumber]=nNotNilValue,
 				[nNil]=nNil,
@@ -289,7 +289,7 @@ function native.make_inext(vManager)::Ret(class.IAtomType)
 					nOneKey, nCase
 				}
 			end
-			local nKeyTerm = vManager:mergeToUnionTerm(nTypeCaseList)
+			local nKeyTerm = vManager:mergeToRefineTerm(nTypeCaseList)
 			return vManager:TermTuple({nKeyTerm, nValueTerm})
 		end
 	end)
@@ -303,7 +303,7 @@ function native.make_next(vManager:class.TypeManager)::Ret(class.IAtomType)
 			error(Exception.new("TODO: next Union type"))
 		else
 			local nValueType, nKeyValue = nType1:native_next(vContext)
-			local nValueTerm = vManager:UnionTerm(nValueType)
+			local nValueTerm = vManager:RefineTerm(nValueType)
 			local nTypeCaseList = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
 				local nCase = TermCase.new()
@@ -312,7 +312,7 @@ function native.make_next(vManager:class.TypeManager)::Ret(class.IAtomType)
 					nOneKey, nCase
 				}
 			end
-			local nKeyTerm = vManager:mergeToUnionTerm(nTypeCaseList)
+			local nKeyTerm = vManager:mergeToRefineTerm(nTypeCaseList)
 			return vManager:TermTuple({nKeyTerm, nValueTerm})
 		end
 	end)

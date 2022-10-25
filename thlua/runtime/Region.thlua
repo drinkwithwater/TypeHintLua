@@ -45,7 +45,7 @@ function Region:top_branch()::Ret(class.Branch)
 	return self._curBranch
 end
 
-function Region:SYMBOL(vNode:class.AstNode, vTerm:class.UnionTerm, vHintType:Option(class.UAllType))::Ret(class.Symbol)
+function Region:SYMBOL(vNode:class.AstNode, vTerm:class.RefineTerm, vHintType:Option(class.UAllType))::Ret(class.Symbol)
 	if not vTerm then
 		print("TODO local symbol without assign")
 		vTerm = self._context:NilTerm()
@@ -62,7 +62,7 @@ function Region:SYMBOL(vNode:class.AstNode, vTerm:class.UnionTerm, vHintType:Opt
 				self._context:getRuntime():nodeError(vNode, "symbol init but type not match")
 			end
 		end
-		local nTerm = self._context:UnionTerm(vHintType)
+		local nTerm = self._context:RefineTerm(vHintType)
 		local nSymbol = Symbol.new(self._context, self, vNode, vHintType:checkAtomUnion(), vTerm)
 		self:top_branch():symbol_init(nSymbol, nTerm)
 		return nSymbol
@@ -150,7 +150,7 @@ function Region:LOGIC_AND(vNode, vLeftTerm, vRightFunction)
 	end
 end
 
-function Region:LOGIC_NOT(vNode:class.AstNode, vData:class.UnionTerm)::Ret(class.UnionTerm)
+function Region:LOGIC_NOT(vNode:class.AstNode, vData:class.RefineTerm)::Ret(class.RefineTerm)
 	return vData:notTerm()
 end
 
@@ -158,7 +158,7 @@ function Region:nativeError()
 	self:top_branch():setStop()
 end
 
-function Region:nativeAssert(vTerm:class.UnionTerm)
+function Region:nativeAssert(vTerm:class.RefineTerm)
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
 		self:top_branch():assertCase(nTrueCase)

@@ -30,7 +30,7 @@ local RetTuples = require "thlua.tuple.RetTuples"
 local TypeTuple = require "thlua.tuple.TypeTuple"
 local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 local TermTuple = require "thlua.tuple.TermTuple"
-local UnionTerm = require "thlua.term.UnionTerm"
+local RefineTerm = require "thlua.term.RefineTerm"
 
 local native = require "thlua.native"
 
@@ -377,18 +377,18 @@ function TypeManager:MemberFunction(vArgTuple:class.UTypeTuple, vRetTuples:class
 	return nFunc
 end
 
-function TypeManager:UnionTerm(vType:class.UAllType)::Ret(class.UnionTerm)
+function TypeManager:RefineTerm(vType:class.UAllType)::Ret(class.RefineTerm)
 	local nType = vType:checkAtomUnion()
 	nType:foreach(function(vSubType)
 		if LuaTable.is(vSubType) then
 			vSubType:checkDefine()
 		end
 	end)
-	return UnionTerm.new(self, nType)
+	return RefineTerm.new(self, nType)
 end
 
-function TypeManager:TermTuple(vTermList:List(class.UnionTerm), vTermTupleOrNil:Option(class.TermTuple))::Ret(class.TermTuple)
-	local nTermList:List(class.UnionTerm) = {}
+function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil:Option(class.TermTuple))::Ret(class.TermTuple)
+	local nTermList:List(class.RefineTerm) = {}
 	local nTypeList:List(class.UAtomUnion) = {}
 	for _, nTerm in ipairs(vTermList) do
 		local i = #nTermList + 1
@@ -416,9 +416,9 @@ function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)
 	return Reference.new(self, vName)
 end
 
-function TypeManager:mergeToUnionTerm(vTypeCasePairList)::Ret(class.UnionTerm)
+function TypeManager:mergeToRefineTerm(vTypeCasePairList)::Ret(class.RefineTerm)
     local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
-    return UnionTerm.new(self, nType, nTypeToCase)
+    return RefineTerm.new(self, nType, nTypeToCase)
 end
 
 function TypeManager:genTypeId()::Ret(Number)

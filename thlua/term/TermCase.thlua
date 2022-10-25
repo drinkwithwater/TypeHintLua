@@ -7,59 +7,59 @@ local TermCase = {}
 TermCase.__index = TermCase
 TermCase.__bor=function(vLeftTermCase, vRightTermCase)::Ret(class.TermCase)
 	local nNewTermCase = TermCase.new()
-	for nUnionTerm, nLeftType in pairs(vLeftTermCase) do
-		local nRightType = vRightTermCase[nUnionTerm]
+	for nRefineTerm, nLeftType in pairs(vLeftTermCase) do
+		local nRightType = vRightTermCase[nRefineTerm]
 		if nRightType then
-			nNewTermCase[nUnionTerm] = nLeftType | nRightType
+			nNewTermCase[nRefineTerm] = nLeftType | nRightType
 		end
 	end
 	return nNewTermCase
 end
 TermCase.__band=function(vLeftTermCase:class.TermCase, vRightTermCase:class.TermCase)::Ret(class.TermCase)
 	local nNewTermCase = TermCase.new()
-	for nUnionTerm, nLeftType in pairs(vLeftTermCase) do
-		local nRightType = vRightTermCase[nUnionTerm]
+	for nRefineTerm, nLeftType in pairs(vLeftTermCase) do
+		local nRightType = vRightTermCase[nRefineTerm]
 		if nRightType then
-			nNewTermCase[nUnionTerm] = nLeftType & nRightType
+			nNewTermCase[nRefineTerm] = nLeftType & nRightType
 		else
-			nNewTermCase[nUnionTerm] = nLeftType
+			nNewTermCase[nRefineTerm] = nLeftType
 		end
 	end
-	for nUnionTerm, nRightType in pairs(vRightTermCase) do
-		if not vLeftTermCase[nUnionTerm] then
-			nNewTermCase[nUnionTerm] = nRightType
+	for nRefineTerm, nRightType in pairs(vRightTermCase) do
+		if not vLeftTermCase[nRefineTerm] then
+			nNewTermCase[nRefineTerm] = nRightType
 		end
 	end
 	return nNewTermCase
 end
 TermCase.__tostring=function(self:class.TermCase)::Ret(String)
 	local l:List(String)={"TermCase("}
-	for nUnionTerm, vType in pairs(self) do
-		local nUnionSymbol = nUnionTerm:getUnionSymbol()
+	for nRefineTerm, vType in pairs(self) do
+		local nUnionSymbol = nRefineTerm:getUnionSymbol()
 		l[#l + 1] = (nUnionSymbol and nUnionSymbol:getName() or "?").."->"..tostring(vType)
 	end
 	l[#l + 1] = ")"
 	return table.concat(l)
 end
 
-function TermCase.new()::RetClass(class.TermCase, Dict(class.UnionTerm, class.UAtomUnion))
+function TermCase.new()::RetClass(class.TermCase, Dict(class.RefineTerm, class.UAtomUnion))
 	return setmetatable({::Self()
 	}, TermCase)
 end
 
-function TermCase:put_and(vUnionTerm:class.UnionTerm, vType)
-	local nCurType = self[vUnionTerm]
+function TermCase:put_and(vRefineTerm:class.RefineTerm, vType)
+	local nCurType = self[vRefineTerm]
 	if not nCurType then
-		self[vUnionTerm] = vType
+		self[vRefineTerm] = vType
 	else
-		self[vUnionTerm] = nCurType & vType
+		self[vRefineTerm] = nCurType & vType
 	end
 end
 
-function TermCase:put_or(vUnionTerm:class.UnionTerm, vType)
-	local nCurType = self[vUnionTerm]
+function TermCase:put_or(vRefineTerm:class.RefineTerm, vType)
+	local nCurType = self[vRefineTerm]
 	if nCurType then
-		self[vUnionTerm] = nCurType | vType
+		self[vRefineTerm] = nCurType | vType
 	end
 end
 

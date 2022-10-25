@@ -1,7 +1,7 @@
 
 local FunctionBuilder = require "thlua.builder.FunctionBuilder"
 local TableBuilder = require "thlua.builder.TableBuilder"
-local UnionTerm = require "thlua.term.UnionTerm"
+local RefineTerm = require "thlua.term.RefineTerm"
 local Variable = require "thlua.func.Variable"
 local AutoArguments = require "thlua.func.AutoArguments"
 local Exception = require "thlua.Exception"
@@ -50,41 +50,41 @@ local function ContextClass()::open()
 		return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
 	end
 
-	function Context:HINT(vNode:class.AstNode, vTerm:class.UnionTerm, vType:class.UAllType)::Ret(class.UnionTerm)
+	function Context:HINT(vNode:class.AstNode, vTerm:class.RefineTerm, vType:class.UAllType)::Ret(class.RefineTerm)
 		-- TODO check cast valid
-		return self._manager:UnionTerm(vType)
+		return self._manager:RefineTerm(vType)
 	end
 
-	function Context:TermTuple(a:List(class.UnionTerm),b:Option(class.TermTuple))::Ret(class.TermTuple)
+	function Context:TermTuple(a:List(class.RefineTerm),b:Option(class.TermTuple))::Ret(class.TermTuple)
 		return self._manager:TermTuple(a,b)
 	end
 
-	function Context:UnionTerm(vType:class.UAllType)::Ret(class.UnionTerm)
-		return self._manager:UnionTerm(vType)
+	function Context:RefineTerm(vType:class.UAllType)::Ret(class.RefineTerm)
+		return self._manager:RefineTerm(vType)
 	end
 
-	function Context:NumberTerm()::Ret(class.UnionTerm)
-		return UnionTerm.new(self._manager, self._manager.type.Number)
+	function Context:NumberTerm()::Ret(class.RefineTerm)
+		return RefineTerm.new(self._manager, self._manager.type.Number)
 	end
 
-	function Context:NeverTerm()::Ret(class.UnionTerm)
-		return UnionTerm.new(self._manager, self._manager.type.Never)
+	function Context:NeverTerm()::Ret(class.RefineTerm)
+		return RefineTerm.new(self._manager, self._manager.type.Never)
 	end
 
-	function Context:TruthTerm()::Ret(class.UnionTerm)
-		return UnionTerm.new(self._manager, self._manager.type.Truth)
+	function Context:TruthTerm()::Ret(class.RefineTerm)
+		return RefineTerm.new(self._manager, self._manager.type.Truth)
 	end
 
-	function Context:NilTerm()::Ret(class.UnionTerm)
-		return UnionTerm.new(self._manager, self._manager.type.Nil)
+	function Context:NilTerm()::Ret(class.RefineTerm)
+		return RefineTerm.new(self._manager, self._manager.type.Nil)
 	end
 
-	function Context:BooleanTerm(vValue)::Ret(class.UnionTerm)
-		return UnionTerm.new(self._manager, self._manager:Boolean(vValue))
+	function Context:BooleanTerm(vValue)::Ret(class.RefineTerm)
+		return RefineTerm.new(self._manager, self._manager:Boolean(vValue))
 	end
 
 	function Context:LiteralTerm(v:Union(String, Number))
-		return UnionTerm.new(self._manager, self:Literal(v))
+		return RefineTerm.new(self._manager, self:Literal(v))
 	end
 
 	function Context:Literal(vValue:Union(String, Number))::Ret(Union(class.StringLiteral, class.NumberLiteral))

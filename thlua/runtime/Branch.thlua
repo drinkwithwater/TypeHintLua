@@ -1,6 +1,6 @@
 
 local TermCase = require "thlua.term.TermCase"
-local UnionTerm = require "thlua.term.UnionTerm"
+local RefineTerm = require "thlua.term.RefineTerm"
 
 local Branch = {}
 
@@ -17,7 +17,7 @@ function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTe
 		_stop=false@Boolean,
 		case=nil@class.TermCase,
 		headCase=vTermCase,
-		symbolToTerm=nil@Dict(class.Symbol,class.UnionTerm),
+		symbolToTerm=nil@Dict(class.Symbol,class.RefineTerm),
 	}, Branch)
 	self.symbolToTerm = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm})
 	local nTermCase
@@ -34,41 +34,41 @@ function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTe
 	return self
 end
 
-function Branch:symbol_get(vSymbol:class.Symbol)::Ret(class.UnionTerm)
-	local nUnionTerm = self.symbolToTerm[vSymbol]
-	if not nUnionTerm then
+function Branch:symbol_get(vSymbol:class.Symbol)::Ret(class.RefineTerm)
+	local nRefineTerm = self.symbolToTerm[vSymbol]
+	if not nRefineTerm then
 		-- TODO, set upvalue symbol in prepre...prebranch
 		local nType = vSymbol:getType()
-		nUnionTerm = self._context:UnionTerm(nType)
-		nUnionTerm:add_self(vSymbol)
-		self.symbolToTerm[vSymbol] = nUnionTerm
-		return nUnionTerm
+		nRefineTerm = self._context:RefineTerm(nType)
+		nRefineTerm:add_self(vSymbol)
+		self.symbolToTerm[vSymbol] = nRefineTerm
+		return nRefineTerm
 	end
-	local nType = self.case[nUnionTerm]
+	local nType = self.case[nRefineTerm]
 	if nType then
 		if not nType:isNever() then
-			return nUnionTerm:filter(nType)
+			return nRefineTerm:filter(nType)
 		else
-			print("TODO type is never when get symbol"..tostring(vSymbol), nUnionTerm)
+			print("TODO type is never when get symbol"..tostring(vSymbol), nRefineTerm)
 			return self._context:NeverTerm()
 		end
 	else
-		return nUnionTerm
+		return nRefineTerm
 	end
 end
 
-function Branch:symbol_init(vUnionSymbol:class.Symbol, vTerm:class.UnionTerm)
+function Branch:symbol_init(vUnionSymbol:class.Symbol, vTerm:class.RefineTerm)
 	self._context:getRuntime():recordSymbol(vUnionSymbol)
 	vTerm:add_self(vUnionSymbol)
 	self.symbolToTerm[vUnionSymbol] = vTerm
 end
 
-function Branch:symbol_set(vUnionSymbol:class.Symbol, vValueTerm:class.UnionTerm)
+function Branch:symbol_set(vUnionSymbol:class.Symbol, vValueTerm:class.RefineTerm)
 	local nValueType = vValueTerm:getType()
 	if vUnionSymbol:getType():contain(nValueType) then
-		local nUnionTerm = self._context:UnionTerm(nValueType)
-		nUnionTerm:add_self(vUnionSymbol)
-		self.symbolToTerm[vUnionSymbol] = nUnionTerm
+		local nRefineTerm = self._context:RefineTerm(nValueType)
+		nRefineTerm:add_self(vUnionSymbol)
+		self.symbolToTerm[vUnionSymbol] = nRefineTerm
 	else
 		print(tostring(nValueType).." can't be assigned to "..tostring(vUnionSymbol:getType()))
 	end
@@ -97,9 +97,9 @@ function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vF
 					local nFalseType = vFalseBranch:symbol_get(nSymbol):getType()
 					nType = nTrueType | nFalseType
 				end
-				local nUnionTerm = self._context:UnionTerm(nType)
-				self.symbolToTerm[nSymbol] = nUnionTerm
-				nUnionTerm:add_self(nSymbol)
+				local nRefineTerm = self._context:RefineTerm(nType)
+				self.symbolToTerm[nSymbol] = nRefineTerm
+				nRefineTerm:add_self(nSymbol)
 			end
 		end
 		local nAndCase

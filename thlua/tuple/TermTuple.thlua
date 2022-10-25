@@ -32,10 +32,10 @@ end
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.UnionTerm), vTypeTuple:class.UTypeTuple)::RetClass(class.TermTuple)
+function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.RefineTerm), vTypeTuple:class.UTypeTuple)::RetClass(class.TermTuple)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_repeatTermList={}@List(class.UnionTerm),
+		_repeatTermList={}@List(class.RefineTerm),
 		_typeTuple=vTypeTuple,
 		_list=vTermList,
 	}, TermTuple)
@@ -43,7 +43,7 @@ function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.UnionTer
 end
 
 function TermTuple:select(i)::Ret(class.TermTuple)
-	local nList:List(class.UnionTerm) = {}
+	local nList:List(class.RefineTerm) = {}
 	for n=i,#self._list do
 		nList[#nList + 1] = self._list[n]
 	end
@@ -53,7 +53,7 @@ function TermTuple:select(i)::Ret(class.TermTuple)
 	return self._manager:TermTuple(nList)
 end
 
-function TermTuple:get(i:Number)::Ret(class.UnionTerm)
+function TermTuple:get(i:Number)::Ret(class.RefineTerm)
 	local more = i - #self
 	if more <= 0 then
 		return self._list[i]!
@@ -63,9 +63,9 @@ function TermTuple:get(i:Number)::Ret(class.UnionTerm)
 		if not nTerm then
 			local nNil = self._manager.type.Nil
 			if nRepeatType then
-				nTerm = self._manager:UnionTerm(self._manager:Union(nRepeatType, nNil))
+				nTerm = self._manager:RefineTerm(self._manager:Union(nRepeatType, nNil))
 			else
-				nTerm = self._manager:UnionTerm(nNil)
+				nTerm = self._manager:RefineTerm(nNil)
 			end
 			self._repeatTermList[more] = nTerm
 			return nTerm
