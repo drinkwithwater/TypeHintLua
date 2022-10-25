@@ -17,9 +17,9 @@ function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTe
 		_stop=false@Boolean,
 		case=nil@class.TermCase,
 		headCase=vTermCase,
-		symbolToTerm=nil@Dict(class.LocalSymbol,class.RefineTerm),
+		symbolToShot=nil@Dict(class.LocalSymbol, class.SymbolShot),
 	}, Branch)
-	self.symbolToTerm = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToTerm})
+	self.symbolToShot = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToShot})
 	local nTermCase
 	if vPreBranch then
 		if vTermCase then
@@ -35,40 +35,43 @@ function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTe
 end
 
 function Branch:symbol_get(vLocalSymbol:class.LocalSymbol)::Ret(class.RefineTerm)
-	local nRefineTerm = self.symbolToTerm[vLocalSymbol]
-	if not nRefineTerm then
-		-- TODO, set upvalue symbol in prepre...prebranch
-		local nType = vLocalSymbol:getType()
-		nRefineTerm = self._context:RefineTerm(nType)
-		nRefineTerm:add_self(vLocalSymbol)
-		self.symbolToTerm[vLocalSymbol] = nRefineTerm
-		return nRefineTerm
+	local nSymbolShot = self.symbolToShot[vLocalSymbol]
+	if not nSymbolShot then
+		-- TODO, consider upvalue symbol??
+		nSymbolShot = vLocalSymbol:makeShot()
+		self.symbolToShot[vLocalSymbol] = nSymbolShot
 	end
-	local nType = self.case[nRefineTerm]
+	local nType = self.case[nSymbolShot]
 	if nType then
 		if not nType:isNever() then
-			return nRefineTerm:filter(nType)
+			local nTerm = self._context:RefineTerm(nType)
+			nTerm:add_self(nSymbolShot)
+			return nTerm
 		else
 			print("TODO type is never when get symbol"..tostring(vLocalSymbol), nRefineTerm)
 			return self._context:NeverTerm()
 		end
 	else
+		local nRefineTerm = self._context:RefineTerm(nSymbolShot:getType())
+		nRefineTerm:add_self(nSymbolShot)
 		return nRefineTerm
 	end
 end
 
 function Branch:symbol_init(vSymbol:class.LocalSymbol, vTerm:class.RefineTerm)
 	self._context:getRuntime():recordSymbol(vSymbol)
-	vTerm:add_self(vSymbol)
-	self.symbolToTerm[vSymbol] = vTerm
+	local nSymbolShot = vSymbol:makeShot()
+	vTerm:add_self(nSymbolShot)
+	self.symbolToShot[vSymbol] = nSymbolShot
 end
 
 function Branch:symbol_set(vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	local nValueType = vValueTerm:getType()
 	if vSymbol:getType():contain(nValueType) then
-		local nRefineTerm = self._context:RefineTerm(nValueType)
-		nRefineTerm:add_self(vSymbol)
-		self.symbolToTerm[vSymbol] = nRefineTerm
+		local nSymbolShot = vSymbol:makeShot()
+		self.symbolToShot[vSymbol] = nSymbolShot
+		self.case:put_and(nSymbolShot, nValueType)
+		self.headCase:put_and(nSymbolShot, nValueType)
 	else
 		print(tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
 	end
@@ -77,16 +80,16 @@ end
 function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vFalseBranch:class.Branch)
 	local nModLocalSymbolDict:Dict(class.LocalSymbol, True) = {}
 	local nTrueStop = vTrueBranch:getStop()
-	for nLocalSymbol, nUnion in pairs(vTrueBranch.symbolToTerm) do
+	for nLocalSymbol, _ in pairs(vTrueBranch.symbolToShot) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
 	local nFalseStop = vFalseBranch:getStop()
-	for nLocalSymbol, nUnion in pairs(vFalseBranch.symbolToTerm) do
+	for nLocalSymbol, _ in pairs(vFalseBranch.symbolToShot) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
 	if (not nTrueStop) or (not nFalseStop) then
 		for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
-			if self.symbolToTerm[nLocalSymbol] then
+			if self.symbolToShot[nLocalSymbol] then
 				local nType
 				if nFalseStop or not vFalseBranch.headCase then
 					nType = vTrueBranch:symbol_get(nLocalSymbol):getType()
@@ -97,9 +100,10 @@ function Branch:merge_from(vContext:class.UContext, vTrueBranch:class.Branch, vF
 					local nFalseType = vFalseBranch:symbol_get(nLocalSymbol):getType()
 					nType = nTrueType | nFalseType
 				end
-				local nRefineTerm = self._context:RefineTerm(nType)
-				self.symbolToTerm[nLocalSymbol] = nRefineTerm
-				nRefineTerm:add_self(nLocalSymbol)
+				local nSymbolShot = nLocalSymbol:makeShot()
+				self.symbolToShot[nLocalSymbol] = nSymbolShot
+				self.case:put_and(nSymbolShot, nType)
+				self.headCase:put_and(nSymbolShot, nType)
 			end
 		end
 		local nAndCase

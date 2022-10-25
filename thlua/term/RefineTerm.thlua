@@ -32,7 +32,7 @@ function RefineTerm.new(
 		_manager=vManager,
 		_typeToCase=vTypeToCase or {}@Dict(class.IAtomType, class.TermCase),
 		_type=vType,
-		_unionLocalSymbol=(false @ Union(False, class.LocalSymbol)),
+		_symbolShot=false @ Union(False, class.SymbolShot),
 		const=false,
 	}, RefineTerm)
 	vType:foreach(function(vType)
@@ -64,7 +64,7 @@ function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.Term
 		return nil
 	else
 		local nReCase = TermCase.new() & nCase
-		nReCase:put_and(self, vGuardType)
+		nReCase:put_and(self:getSymbolShot(), vGuardType)
 		return nReCase
 	end
 end
@@ -180,11 +180,11 @@ function RefineTerm:and_case(vCase1)
 	end
 end
 
-function RefineTerm:add_self(vSymbol:class.LocalSymbol)
-	self._unionLocalSymbol = vSymbol
+function RefineTerm:add_self(vSymbolShot:class.SymbolShot)
+	self._symbolShot = vSymbolShot
 	for nType, nTermCase in pairs(self._typeToCase) do
 		local nNewTermCase = TermCase.new() & nTermCase
-		nNewTermCase:put_and(self, nType)
+		nNewTermCase:put_and(self:getSymbolShot(), nType)
 		self._typeToCase[nType] = nNewTermCase
 	end
 end
@@ -203,8 +203,8 @@ function RefineTerm:filter(vType)::Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:getSymbol()::Ret(Union(False, class.LocalSymbol))
-	return self._unionLocalSymbol
+function RefineTerm:getSymbolShot()::Ret(Union(False, class.SymbolShot))
+	return self._symbolShot
 end
 
 return RefineTerm

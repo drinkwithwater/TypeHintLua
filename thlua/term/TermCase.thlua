@@ -7,36 +7,35 @@ local TermCase = {}
 TermCase.__index = TermCase
 TermCase.__bor=function(vLeftTermCase, vRightTermCase)::Ret(class.TermCase)
 	local nNewTermCase = TermCase.new()
-	for nRefineTerm, nLeftType in pairs(vLeftTermCase) do
-		local nRightType = vRightTermCase[nRefineTerm]
+	for nSymbolShot, nLeftType in pairs(vLeftTermCase) do
+		local nRightType = vRightTermCase[nSymbolShot]
 		if nRightType then
-			nNewTermCase[nRefineTerm] = nLeftType | nRightType
+			nNewTermCase[nSymbolShot] = nLeftType | nRightType
 		end
 	end
 	return nNewTermCase
 end
 TermCase.__band=function(vLeftTermCase:class.TermCase, vRightTermCase:class.TermCase)::Ret(class.TermCase)
 	local nNewTermCase = TermCase.new()
-	for nRefineTerm, nLeftType in pairs(vLeftTermCase) do
-		local nRightType = vRightTermCase[nRefineTerm]
+	for nSymbolShot, nLeftType in pairs(vLeftTermCase) do
+		local nRightType = vRightTermCase[nSymbolShot]
 		if nRightType then
-			nNewTermCase[nRefineTerm] = nLeftType & nRightType
+			nNewTermCase[nSymbolShot] = nLeftType & nRightType
 		else
-			nNewTermCase[nRefineTerm] = nLeftType
+			nNewTermCase[nSymbolShot] = nLeftType
 		end
 	end
-	for nRefineTerm, nRightType in pairs(vRightTermCase) do
-		if not vLeftTermCase[nRefineTerm] then
-			nNewTermCase[nRefineTerm] = nRightType
+	for nSymbolShot, nRightType in pairs(vRightTermCase) do
+		if not vLeftTermCase[nSymbolShot] then
+			nNewTermCase[nSymbolShot] = nRightType
 		end
 	end
 	return nNewTermCase
 end
 TermCase.__tostring=function(self:class.TermCase)::Ret(String)
 	local l:List(String)={"TermCase("}
-	for nRefineTerm, vType in pairs(self) do
-		local nSymbol = nRefineTerm:getSymbol()
-		l[#l + 1] = (nSymbol and nSymbol:getName() or "?").."->"..tostring(vType)
+	for nSymbolShot, vType in pairs(self) do
+		l[#l + 1] = tostring(nSymbolShot).."->"..tostring(vType)
 	end
 	l[#l + 1] = ")"
 	return table.concat(l)
@@ -47,19 +46,12 @@ function TermCase.new()::RetClass(class.TermCase, Dict(class.RefineTerm, class.U
 	}, TermCase)
 end
 
-function TermCase:put_and(vRefineTerm:class.RefineTerm, vType)
-	local nCurType = self[vRefineTerm]
+function TermCase:put_and(vSymbolShot:class.SymbolShot, vType)
+	local nCurType = self[vSymbolShot]
 	if not nCurType then
-		self[vRefineTerm] = vType
+		self[vSymbolShot] = vType
 	else
-		self[vRefineTerm] = nCurType & vType
-	end
-end
-
-function TermCase:put_or(vRefineTerm:class.RefineTerm, vType)
-	local nCurType = self[vRefineTerm]
-	if nCurType then
-		self[vRefineTerm] = nCurType | vType
+		self[vSymbolShot] = nCurType & vType
 	end
 end
 
