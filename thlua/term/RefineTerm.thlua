@@ -1,4 +1,5 @@
 
+local SymbolShot = require "thlua.term.SymbolShot"
 local TermCase = require "thlua.term.TermCase"
 local Nil = require "thlua.type.Nil"
 
@@ -64,7 +65,10 @@ function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.Term
 		return nil
 	else
 		local nReCase = TermCase.new() & nCase
-		nReCase:put_and(self:getSymbolShot(), vGuardType)
+		local nSymbolShot = self._symbolShot
+		if nSymbolShot then
+			nReCase:put_and(nSymbolShot, vGuardType)
+		end
 		return nReCase
 	end
 end
@@ -184,7 +188,10 @@ function RefineTerm:add_self(vSymbolShot:class.SymbolShot)
 	self._symbolShot = vSymbolShot
 	for nType, nTermCase in pairs(self._typeToCase) do
 		local nNewTermCase = TermCase.new() & nTermCase
-		nNewTermCase:put_and(self:getSymbolShot(), nType)
+		local nSymbolShot = self._symbolShot
+		if nSymbolShot then
+			nNewTermCase:put_and(nSymbolShot, nType)
+		end
 		self._typeToCase[nType] = nNewTermCase
 	end
 end
@@ -203,8 +210,13 @@ function RefineTerm:filter(vType)::Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:getSymbolShot()::Ret(Union(False, class.SymbolShot))
-	return self._symbolShot
+function RefineTerm:attachSymbolShot()::Ret(class.SymbolShot)
+	local nSymbolShot = self._symbolShot
+	if not nSymbolShot then
+		nSymbolShot = SymbolShot.new(self._type)
+		self._symbolShot = nSymbolShot
+	end
+	return nSymbolShot
 end
 
 return RefineTerm

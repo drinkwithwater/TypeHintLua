@@ -60,16 +60,17 @@ end
 
 function Branch:symbol_init(vSymbol:class.LocalSymbol, vTerm:class.RefineTerm)
 	self._context:getRuntime():recordSymbol(vSymbol)
-	local nSymbolShot = vSymbol:makeShot()
-	vTerm:add_self(nSymbolShot)
+	local nSymbolShot = vTerm:attachSymbolShot()
+	nSymbolShot:addSymbol(vSymbol)
 	self.symbolToShot[vSymbol] = nSymbolShot
 end
 
 function Branch:symbol_set(vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	local nValueType = vValueTerm:getType()
 	if vSymbol:getType():contain(nValueType) then
-		local nSymbolShot = vSymbol:makeShot()
+		local nSymbolShot = vValueTerm:attachSymbolShot()
 		self.symbolToShot[vSymbol] = nSymbolShot
+		nSymbolShot:addSymbol(vSymbol)
 		self.case:put_and(nSymbolShot, nValueType)
 		self.headCase:put_and(nSymbolShot, nValueType)
 	else

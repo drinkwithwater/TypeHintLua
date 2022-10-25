@@ -2,19 +2,24 @@
 local SymbolShot = {}
 SymbolShot.__index=SymbolShot
 SymbolShot.__tostring=function(self)
-	return tostring(self._symbol)
+	return tostring(next(self._symbolSet))
 end
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function SymbolShot.new(vSymbol:class.LocalSymbol)::RetClass(class.SymbolShot)
+function SymbolShot.new(vType:class.UAtomUnion)::RetClass(class.SymbolShot)
 	return setmetatable({::Self()
-		_symbol=vSymbol,
+		_type=vType,
+		_symbolSet={},
 	}, SymbolShot)
 end
 
+function SymbolShot:addSymbol(vSymbol:class.LocalSymbol)
+	self._symbolSet[vSymbol] = true
+end
+
 function SymbolShot:getType()::Ret(class.UAtomUnion)
-	return self._symbol:getType()
+	return self._type
 end
 
 return SymbolShot
