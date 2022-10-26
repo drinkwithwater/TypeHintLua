@@ -56,7 +56,7 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	self._namespace = self:RootNamespace()
 	self._namespace:close()
 	self._globalTable = native.make(self)
-	self._loadedDict = {}
+	self._loadedDict = {} @ Dict(String, LoadedState)
 	self._lateFnSet = {} @ Dict(class.LateFnCom, True)
 	self._classFnSet = {} @ Dict(class.ClassFnCom, True)
 	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.LocalSymbol, True))
@@ -90,10 +90,10 @@ function Runtime:checkAtomUnionFinish()
 	end
 end
 
-function Runtime:import(vPath)
+function Runtime:import(vPath:String)
 	-- TODO better style
 	self:require(vPath)
-	local nContext = self._loadedDict[vPath].context
+	local nContext = self._loadedDict[vPath]!.context
 	local nSpace = nContext:getNamespace()
 	return nSpace.localExport
 end
@@ -128,7 +128,7 @@ function Runtime:cacheLoadFile(vFileName:String)::Ret(class.LuaFunction)
 	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
 end
 
-function Runtime:require(vPath)
+function Runtime:require(vPath:String)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
 		local nOkay, nFileName = self._loader:thluaSearch(vPath)

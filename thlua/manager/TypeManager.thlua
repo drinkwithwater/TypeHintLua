@@ -1,6 +1,7 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local TypeCollection = require "thlua.manager.TypeCollection"
+local Node = require "thlua.code.Node"
 local Exception = require "thlua.Exception"
 
 local Never = require "thlua.union.Never"
@@ -139,7 +140,7 @@ function TypeManager:Intersect(...:class.MetaObject)::Ret(class.MetaObject)
 	local l = {...}
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
-	nKeyRefer:setRawAsync(function()
+	nKeyRefer:setRawAsync(Node.getDebugNode(3), function()
 		local nCollection = self:TypeCollection()
 		local nAllValueDict = {}
 		local nIntersectSet:Dict(class.MetaObject, True) = {}
@@ -169,7 +170,7 @@ end
 function TypeManager:Union(...:Truth)::Ret(class.Reference)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
-	nNewRefer:setRawAsync(function()
+	nNewRefer:setRawAsync(Node.getDebugNode(3), function()
 		local nCollection = self:TypeCollection()
 		for i=1, #l do
 			local nItem = l[i]
@@ -192,7 +193,7 @@ end
 function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
-	nKeyRefer:setRawAsync(function()
+	nKeyRefer:setRawAsync(Node.getDebugNode(4), function()
 		local nCollection = self:TypeCollection()
 		local nValueDict:Dict(class.UAtomUnion, class.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
@@ -417,8 +418,8 @@ function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)
 end
 
 function TypeManager:mergeToRefineTerm(vTypeCasePairList)::Ret(class.RefineTerm)
-    local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
-    return RefineTerm.new(self, nType, nTypeToCase)
+	local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
+	return RefineTerm.new(self, nType, nTypeToCase)
 end
 
 function TypeManager:genTypeId()::Ret(Number)

@@ -12,6 +12,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_key=vKeyOrFalse,
+		_setNode=false@Union(False, class.AstNode),
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
@@ -23,26 +24,16 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 	return self
 end
 
-function Reference:trySetKey(vKey:String)
-	if not self._key then
-		self._key = vKey
-	end
-end
-
 function Reference:detailString(v)::Ret(String)
-	if self._referType and not self._key then
-		return "`"..self._referType:detailString(v)
-	else
-		return "Reference("..(self._key or "!nameless")..")"
-
-	end
+	return "Reference("..(self._key or tostring(self._setNode))..")"
 end
 
 (@let.RawItem = Union(class.UAtomUnion, class.TypeCollection))
 
-function Reference:setRawAsync(vFunc:Fn():Ret(let.RawItem))::nocheck()
+function Reference:setRawAsync(vNode:class.AstNode, vFunc:Fn():Ret(let.RawItem))::nocheck()
 	assert(not self._thread, "refer has been setted:"..tostring(self))
 	assert(not self._referType, "refer has type"..tostring(self))
+	self._setNode = vNode
 	local co = coroutine.create(function()
 		local nTypeOrCollection = vFunc()
 		if TypeCollection.is(nTypeOrCollection) then
@@ -84,6 +75,10 @@ function Reference:getRawAwait()::Ret(let.RawItem)
 		nWaitingRefer._waitRefer = false
 	end
 	return self._referType or self._collection
+end
+
+function Reference:getSetNode()::Ret(Union(False, class.AstNode))
+	return self._setNode
 end
 
 function Reference:getType()::Ret(Union(False, class.UAtomUnion))

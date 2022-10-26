@@ -60,7 +60,7 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 					throw("namespace assign a non-type value, key="..tostring(k))
 				end
 				if Reference.is(rawgetV) then
-					rawgetV:setRawAsync(function()
+					rawgetV:setRawAsync(Node.getDebugNode(4), function()
 						if Reference.is(newV) then
 							return newV:getRawAwait()
 						else
@@ -76,19 +76,18 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 					namespace:trySetKey(k)
 					self._key2type[k] = newV
 				else
-					if Reference.is(newV) then
-						newV:trySetKey(k)
-						self._key2type[k] = newV
-					else
-						if not self._manager:isValueType(newV) then
-							throw("namespace assign a non-type value, key="..tostring(k))
-						end
-						local refer = self._manager:Reference(k)
-						refer:setRawAsync(function()
-							return newV
-						end)
-						self._key2type[k] = refer
+					if not self._manager:isValueType(newV) then
+						throw("namespace assign a non-type value, key="..tostring(k))
 					end
+					local refer = self._manager:Reference(k)
+					refer:setRawAsync(Node.getDebugNode(4), function()
+						if Reference.is(newV) then
+							return newV:getRawAwait()
+						else
+							return newV
+						end
+					end)
+					self._key2type[k] = refer
 				end
 			end
 		end,
