@@ -355,26 +355,26 @@ end
 
 function TypeManager:Mfn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
-	return self:MemberFunction(nArgTuple, RetTuples.new(self))
+	return TypeFunction.new(self, nArgTuple, false, true)
 end
 
 function TypeManager:Fn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return self:Function(nArgTuple, RetTuples.new(self))
+	return TypeFunction.new(self, nArgTuple, false, false)
 end
 
 function TypeManager:Function(vArgTuple:class.UTypeTuple, vRetTuples:class.RetTuples)::Ret(class.TypeFunction)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
-	return nFunc
+	return nFunc:finish()
 end
 
 function TypeManager:MemberFunction(vArgTuple:class.UTypeTuple, vRetTuples:class.RetTuples)::Ret(class.TypeFunction)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, true)
-	return nFunc
+	return nFunc:finish()
 end
 
 function TypeManager:RefineTerm(vType:class.UAllType)::Ret(class.RefineTerm)

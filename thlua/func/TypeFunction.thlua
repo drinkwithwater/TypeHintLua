@@ -10,14 +10,14 @@ local TypeFunction = AtomTypeClass()
 
 function TypeFunction.new(vManager:class.TypeManager,
 	vArgTuple:class.UTypeTuple,
-	vRetTuples:class.RetTuples,
+	vBuildingRetTuples:Union(False, class.RetTuples),
 	vMember:Boolean)::RetClass(class.TypeFunction, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
+		_buildingRetTuples=vBuildingRetTuples,
+		_retTuples=false,
 		_argTuple=vArgTuple,
-		_retTuples=vRetTuples,
 		_member=vMember,
-		_structSign=false,
 		id=vManager:genTypeId(),
 		bits=TYPE_BITS.FUNCTION,
 	}, TypeFunction)
@@ -25,16 +25,40 @@ function TypeFunction.new(vManager:class.TypeManager,
 end
 
 function TypeFunction:Dots(vType:class.UAllType)::Ret(class.TypeFunction)
+	assert(not self._retTuples, "fn building is finish, can't call Dots")
 	local nArgTuple = self._argTuple
 	if TypeTupleDots.is(nArgTuple) then
-		error("use dots but tuple has dots")
-		return self
+		error("use Dots but tuple has dots")
 	end
-	if self._member then
-		return self._manager:MemberFunction(nArgTuple:Dots(vType), self._retTuples)
+	self._argTuple = nArgTuple:Dots(vType)
+	return self
+end
+
+function TypeFunction:Ret(...:Truth)::Ret(class.TypeFunction)
+	assert(not self._retTuples, "fn building is finish, can't call Ret")
+	local nTypeTuple = self._manager:Tuple(...)
+	local nPreRetTuples = self._buildingRetTuples
+	if not nPreRetTuples then
+		nPreRetTuples = self._manager:SingleRetTuples(nTypeTuple)
 	else
-		return self._manager:Function(nArgTuple:Dots(vType), self._retTuples)
+		nPreRetTuples = nPreRetTuples:Add(nTypeTuple)
 	end
+	self._buildingRetTuples = nPreRetTuples
+	return self
+end
+
+function TypeFunction:finish()::Ret(class.TypeFunction)
+	self:_buildRetTuples()
+	return self
+end
+
+function TypeFunction:_buildRetTuples()::Ret(class.RetTuples)
+	local nRetTuples = self._retTuples
+	if not nRetTuples then
+		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
+		self._retTuples = nRetTuples
+	end
+	return nRetTuples
 end
 
 function TypeFunction:isMember()::Ret(Boolean)
@@ -45,29 +69,21 @@ function TypeFunction:isNative()::Ret(Boolean)
 	return false
 end
 
-function TypeFunction:Ret(...:Truth)::Ret(class.TypeFunction)
-	local nTypeTuple = self._manager:Tuple(...)
-	local nRetTuples = self._retTuples:Add(nTypeTuple)
-	if self._member then
-		return self._manager:MemberFunction(self._argTuple, nRetTuples)
-	else
-		return self._manager:Function(self._argTuple, nRetTuples)
-	end
-end
-
 function TypeFunction:detailString(v)
 	return (self._member and "mfn-" or "fn-") ..
-		self._argTuple:detailString(v).."->"..self._retTuples:detailString(v)
+		self._argTuple:detailString(v).."->"..tostring(self._retTuples)
 end
 
 function TypeFunction:meta_call(vContext, vTypeTuple)
+	local nRetTuples = self:_buildRetTuples()
 	if not vTypeTuple:castOrIn(vContext, self._argTuple) then
 		vContext:error("args error when call", self._argTuple, vTypeTuple)
 	end
-	return self._retTuples
+	return nRetTuples
 end
 
 function TypeFunction:_intersectOneNotRefer(vType)
+	self:_buildRetTuples()
 	if vType == self then
 		return self
 	elseif vType:_containOneNotRefer(self) then
@@ -80,11 +96,13 @@ function TypeFunction:_intersectOneNotRefer(vType)
 end
 
 function TypeFunction:_containOneNotRefer(vRight)
+	local nLeftRetTuples = self:_buildRetTuples()
 	if TypeFunction.is(vRight) then
+		local nRightRetTuples = vRight:_buildRetTuples()
 		if not vRight._argTuple:containTuple(self._argTuple) then
 			return false
 		end
-		if not self._retTuples:containTuples(vRight._retTuples) then
+		if not nLeftRetTuples:containTuples(nRightRetTuples) then
 			return false
 		end
 		return self
@@ -94,26 +112,12 @@ function TypeFunction:_containOneNotRefer(vRight)
 end
 
 function TypeFunction:getArgTuple()::Ret(class.UTypeTuple)
+	self:_buildRetTuples()
 	return self._argTuple
 end
 
 function TypeFunction:getRetTuples()::Ret(class.RetTuples)
-	return self._retTuples
-end
-
-function TypeFunction:structSign()
-	local nSign = self._structSign
-	if not nSign then
-		local l:List(String) = {
-			self._member and "mfn" or "fn",
-			self._argTuple:structSign(),
-			"->",
-			self._retTuples:structSign(),
-		}
-		nSign = table.concat(l)
-		self._structSign = nSign
-	end
-	return nSign
+	return self:_buildRetTuples()
 end
 
 function TypeFunction:isSingleton()
