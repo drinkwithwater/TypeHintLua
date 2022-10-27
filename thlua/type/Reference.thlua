@@ -17,7 +17,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
 		_collection=false@Union(False, class.TypeCollection),
-		_referType=(false @ Union(class.UAtomUnion, False)),
+		_referType=false@Union(class.UAtomUnion, False),
 		_thread=false,
 		_waitThreads={},
 	}, Reference)
@@ -31,11 +31,13 @@ end
 (@let.RawItem = Union(class.UAtomUnion, class.TypeCollection))
 
 function Reference:setRawAsync(vNode:class.AstNode, vFunc:Fn():Ret(let.RawItem))::nocheck()
-	assert(not self._thread, "refer has been setted:"..tostring(self))
-	assert(not self._referType, "refer has type"..tostring(self))
+	assert(not self._setNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._setNode = vNode
 	local co = coroutine.create(function()
-		local nTypeOrCollection = vFunc()
+		local ok, nTypeOrCollection = pcall(vFunc)
+		if not ok then
+			error(Exception.new(tostring(nTypeOrCollection), vNode))
+		end
 		if TypeCollection.is(nTypeOrCollection) then
 			self._collection = nTypeOrCollection
 		else
@@ -64,7 +66,7 @@ function Reference:getRawAwait()::Ret(let.RawItem)
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
 			if nCurRefer == self then
-				error(Exception.new("recursive build type"))
+				error(Exception.new("recursive build type", self._setNode))
 			else
 				nCurRefer = nCurRefer._waitRefer
 			end
