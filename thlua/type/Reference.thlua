@@ -36,7 +36,12 @@ function Reference:setRawAsync(vNode:class.AstNode, vFunc:Fn():Ret(let.RawItem))
 	local co = coroutine.create(function()
 		local ok, nTypeOrCollection = pcall(vFunc)
 		if not ok then
-			error(Exception.new(tostring(nTypeOrCollection), vNode))
+			if Exception.is(nTypeOrCollection) then
+				nTypeOrCollection:fixNode(vNode)
+				error(nTypeOrCollection)
+			else
+				error(Exception.new(tostring(nTypeOrCollection), vNode))
+			end
 		end
 		if TypeCollection.is(nTypeOrCollection) then
 			self._collection = nTypeOrCollection
@@ -66,7 +71,7 @@ function Reference:getRawAwait()::Ret(let.RawItem)
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
 			if nCurRefer == self then
-				error(Exception.new("recursive build type", self._setNode))
+				error(Exception.new("recursive build type"))
 			else
 				nCurRefer = nCurRefer._waitRefer
 			end

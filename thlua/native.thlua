@@ -168,7 +168,7 @@ function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local math = {
 		random=vManager:Fn():Dots(type.Number):Ret(type.Number),
-		tointeger=vManager:Fn(type.Any):Ret(vManager:Union(type.Number, type.Nil)),
+		tointeger=vManager:Fn(type.Any):Ret(vManager:checkedUnion(type.Number, type.Nil)),
 	}
 	local nTable = native._toTable(vManager, math)
 	nTable:setName("math")
@@ -178,7 +178,7 @@ end
 function native.make_io(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local io = {
-		read=vManager:Fn(vManager:Union(type.String, type.Number)):Ret(vManager:Union(type.String, type.Nil)),
+		read=vManager:Fn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
 		write=vManager:Fn(type.String),
 		flush=vManager:Fn(),
 	}
@@ -276,7 +276,7 @@ function native.make_inext(vManager)::Ret(class.IAtomType)
 			error(Exception.new("TODO: next Union type"))
 		else
 			local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
-			local nValueTerm = vManager:RefineTerm(vManager:Union(nNotNilValue, nNil))
+			local nValueTerm = vManager:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
 			local nKeyValue = {
 				[nNumber]=nNotNilValue,
 				[nNil]=nNil,
@@ -334,7 +334,7 @@ function native.make_bitwise(vManager:class.TypeManager)
 end
 
 function native.make_concat(vManager:class.TypeManager)
-	local nType = vManager:Union(vManager.type.String, vManager.type.Number)
+	local nType = vManager:checkedUnion(vManager.type.String, vManager.type.Number)
 	return vManager:Fn(nType, nType):Ret(vManager.type.String)
 end
 

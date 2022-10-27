@@ -1,6 +1,7 @@
 
 local json = require "thlua.server.json"
 local methodHandler = require "thlua.server.methodHandler"
+local Exception = require "thlua.Exception"
 local ErrorCodes = require "thlua.server.protocol".ErrorCodes
 local Runtime = require "thlua.runtime.Runtime"
 local CodeEnv = require "thlua.code.CodeEnv"
@@ -284,12 +285,12 @@ end
 function Client:publishException(vException:Union(class.Exception, String))
 	local nNode
 	local nMsg
-	if type(vException) == "string" then
-		nNode = self.runtime:getNode()
-		nMsg = "root error:"..tostring(vException)
-	else
+	if Exception.is(vException) then
 		nNode = vException.node or self.runtime:getNode()
 		nMsg = vException.msg or "exception's msg field is missing"
+	else
+		nNode = self.runtime:getNode()
+		nMsg = "root error:"..tostring(vException)
 	end
 	local nCodeEnv = self:getDirtyCodeEnv(nNode.path)
 	self:_write({
