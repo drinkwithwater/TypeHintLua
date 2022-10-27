@@ -167,8 +167,8 @@ end
 function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local math = {
-		random=vManager:Fn():Dots(type.Number):Ret(type.Number),
-		tointeger=vManager:Fn(type.Any):Ret(vManager:checkedUnion(type.Number, type.Nil)),
+		random=vManager:checkedFn():Dots(type.Number):Ret(type.Number),
+		tointeger=vManager:checkedFn(type.Any):Ret(vManager:checkedUnion(type.Number, type.Nil)),
 	}
 	local nTable = native._toTable(vManager, math)
 	nTable:setName("math")
@@ -178,9 +178,9 @@ end
 function native.make_io(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local io = {
-		read=vManager:Fn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
-		write=vManager:Fn(type.String),
-		flush=vManager:Fn(),
+		read=vManager:checkedFn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
+		write=vManager:checkedFn(type.String),
+		flush=vManager:checkedFn(),
 	}
 	local nTable = native._toTable(vManager, io)
 	nTable:setName("io")
@@ -190,10 +190,10 @@ end
 function native.make_coroutine(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local co = {
-		create=vManager:Fn(vManager:Fn()):Ret(type.Truth),
-		running=vManager:Fn():Ret(type.Truth, type.Boolean),
-		resume=vManager:Fn(type.Truth):Dots(type.Truth):Ret(type.True):Ret(type.False,type.String),
-		yield=vManager:Fn():Ret(type.Truth),
+		create=vManager:checkedFn(vManager:checkedFn()):Ret(type.Truth),
+		running=vManager:checkedFn():Ret(type.Truth, type.Boolean),
+		resume=vManager:checkedFn(type.Truth):Dots(type.Truth):Ret(type.True):Ret(type.False,type.String),
+		yield=vManager:checkedFn():Ret(type.Truth),
 	}
 	local nTable = native._toTable(vManager, co)
 	nTable:setName("coroutine")
@@ -203,9 +203,9 @@ end
 function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
 	local type = vManager.type
 	local string = {
-		format=vManager:Fn(type.String):Dots(type.Truth):Ret(type.String),
-		gsub=vManager:Fn(type.String, type.String, type.String):Ret(type.String),
-		match=vManager:Fn(type.String, type.String):Ret():Ret(type.String),
+		format=vManager:checkedFn(type.String):Dots(type.Truth):Ret(type.String),
+		gsub=vManager:checkedFn(type.String, type.String, type.String):Ret(type.String),
+		match=vManager:checkedFn(type.String, type.String):Ret():Ret(type.String),
 	}
 	local nTable = native._toTable(vManager, string)
 	nTable:setName("string")
@@ -320,22 +320,22 @@ end
 
 function native.make_mathematic(vManager:class.TypeManager)::Ret(class.IAtomType)
 	local nNumber = vManager.type.Number
-	return vManager:Fn(nNumber, nNumber):Ret(nNumber)
+	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 end
 
 function native.make_comparison(vManager:class.TypeManager)::Ret(class.IAtomType)
 	local nNumber = vManager.type.Number
-	return vManager:Fn(nNumber, nNumber):Ret(vManager.type.Boolean)
+	return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
 end
 
 function native.make_bitwise(vManager:class.TypeManager)
 	local nNumber = vManager.type.Number
-	return vManager:Fn(nNumber, nNumber):Ret(nNumber)
+	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 end
 
 function native.make_concat(vManager:class.TypeManager)
 	local nType = vManager:checkedUnion(vManager.type.String, vManager.type.Number)
-	return vManager:Fn(nType, nType):Ret(vManager.type.String)
+	return vManager:checkedFn(nType, nType):Ret(vManager.type.String)
 end
 
 return native

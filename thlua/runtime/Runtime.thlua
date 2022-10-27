@@ -167,25 +167,24 @@ function Runtime:buildSimpleGlobal()::nocheck()
 		nGlobal[k] = v
 	end
 	local l = {
-		Literal=1,
-		Union=1,
-		Struct=1,
-		Intersect=1,
-		Interface=1,
-		Dict=1,
-		List=1,
-		Option=1,
-		Fn=1,
-		Mfn=1,
+		Struct="buildStruct",
+		Union="buildUnion",
+		Intersect="buildIntersect",
+		Interface="buildInterface",
+		Dict="buildDict",
+		List="buildList",
+		Option="buildOption",
+		Fn="buildFn",
+		Mfn="buildMfn",
 	}
 	local nManager = self._manager
 	for k,v in pairs(l) do
 		nGlobal[k]=function(...)
-			return nManager[k](nManager, ...)
+			return nManager[v](nManager, Node.getDebugNode(3), ...)
 		end
 	end
-	nGlobal.Union=function(...)
-		return nManager:Union(Node.getDebugNode(2), ...)
+	nGlobal.Literal=function(v)
+		return nManager:Literal(v)
 	end
 	nGlobal.namespace=function()
 		return self:TreeNamespace().localExport

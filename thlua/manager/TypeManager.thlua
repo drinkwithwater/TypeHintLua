@@ -62,7 +62,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	end
 	self.type.Boolean = self:checkedUnion(self.type.False, self.type.True)
 	self.type.Any = self:checkedUnion(self.type.False, self.type.Nil, self.type.Truth)
-	self.type.Object = self:Interface({}, false)
+	self.type.Object = self:buildInterface(self._runtime:getNode(), {}, false)
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -136,11 +136,11 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:Intersect(...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
+function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
 	local l = {...}
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
-	nKeyRefer:setRawAsync(Node.getDebugNode(3), function()
+	nKeyRefer:setRawAsync(vNode, function()
 		local nCollection = self:TypeCollection()
 		local nAllValueDict = {}
 		local nIntersectSet:Dict(class.MetaObject, True) = {}
@@ -168,10 +168,10 @@ function TypeManager:Intersect(...:Union(class.Reference, class.MetaObject))::Re
 end
 
 function TypeManager:checkedUnion(...:Truth)::Ret(class.Reference)
-	return self:Union(self._runtime:getNode(), ...)
+	return self:buildUnion(self._runtime:getNode(), ...)
 end
 
-function TypeManager:Union(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
+function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
 	local l = {...}
 	local nNewRefer = self:Reference(false)
 	nNewRefer:setRawAsync(vNode, function()
@@ -190,14 +190,14 @@ function TypeManager:Union(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
 	return nNewRefer
 end
 
-function TypeManager:Interface(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject, class.Reference))
-	return self:Struct(vTable, vNext)
+function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(Union(class.MetaObject, class.Reference))
+	return self:buildStruct(vNode, vTable, vNext)
 end
 
-function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.MetaObject)
+function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
-	nKeyRefer:setRawAsync(Node.getDebugNode(4), function()
+	nKeyRefer:setRawAsync(vNode, function()
 		local nCollection = self:TypeCollection()
 		local nValueDict:Dict(class.UAtomUnion, class.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
@@ -233,17 +233,17 @@ function TypeManager:Struct(vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.
 	return self:_recordTypeUnionSign(nNewStruct)
 end
 
-function TypeManager:Dict(vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
-	return self:Struct({[vKey]=vValue}, true)
+function TypeManager:buildDict(vNode:class.AstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
+	return self:buildStruct(vNode, {[vKey]=vValue}, true)
 end
 
-function TypeManager:List(vValue)::Ret(class.MetaObject)
+function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.MetaObject)
 	-- TODO struct use meta
-	return self:Struct({[self.type.Number]=vValue}, true)
+	return self:buildStruct(vNode, {[self.type.Number]=vValue}, true)
 end
 
-function TypeManager:Option(vValue)::Ret(class.Reference)
-	return self:checkedUnion(vValue, self.type.Nil)
+function TypeManager:buildOption(vNode:class.AstNode, vValue)::Ret(class.Reference)
+	return self:buildUnion(vNode, vValue, self.type.Nil)
 end
 
 function TypeManager:_unifyUnion(vNewType:class.UAtomUnion)::Ret(class.UAtomUnion)
@@ -358,12 +358,17 @@ function TypeManager:SingleRetTuples(vTypeTuple:class.TypeTuple)::Ret(class.RetT
 	return nRetTuples:Add(vTypeTuple)
 end
 
-function TypeManager:Mfn(...:Truth)::Ret(class.TypeFunction)
+function TypeManager:buildMfn(vNode:class.AstNode, ...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
 	return TypeFunction.new(self, nArgTuple, false, true)
 end
 
-function TypeManager:Fn(...:Truth)::Ret(class.TypeFunction)
+function TypeManager:buildFn(vNode:class.AstNode, ...:Truth)::Ret(class.TypeFunction)
+	local nArgTuple = self:Tuple(...)
+	return TypeFunction.new(self, nArgTuple, false, false)
+end
+
+function TypeManager:checkedFn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
 	return TypeFunction.new(self, nArgTuple, false, false)
 end
