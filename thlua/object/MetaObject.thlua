@@ -41,6 +41,53 @@ function MetaObject:_intersectOneNotRefer(vRightType)
 	end
 end
 
+-- experiment code
+function MetaObject:recurContainObject(vCache, vRightObject:class.MetaObject)
+	if self == vRightObject then
+		return true
+	else
+		local nNotContain = false
+		local nPair = (self.id << 32) + vRightObject.id
+		local nPairSet = vCache[nPair]
+		if nPairSet == nil then
+			nPairSet = {}
+			vCache[nPair] = nPairSet
+		else
+			return nPairSet
+		end
+		self:foreachGetPair(function(vLeftKey, vLeftValue)
+			if nNotContain then
+				return
+			end
+			local nRightKey = vRightObject:getKeyRefer():contain(vLeftKey)
+			if not nRightKey then
+				nNotContain = true
+				return
+			end
+			local nRightValue = vRightObject:getValueDict()[nRightKey]!
+			vLeftValue=vLeftValue:checkAtomUnion()
+			local re = vLeftValue:recurContainObject(vCache, nRightValue:checkAtomUnion())
+			if not re then
+				nNotContain = true
+			elseif re == true then
+			elseif type(re) == "table" then
+				for k,v in pairs(re) do
+					if k ~= nPair then
+						nPairSet[k] = true
+					end
+				end
+			end
+		end)
+		if nNotContain then
+			return false
+		end
+		if not next(nPairSet) then
+			return true
+		end
+		return nPairSet
+	end
+end
+
 function MetaObject:_containOneNotRefer(vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
@@ -170,7 +217,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
-function MetaObject:foreachGetPair(vFunc)
+function MetaObject:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAllType))
 	self._keyRefer:foreach(function(vKeyType)
 		local nGetValue = self._valueDict[vKeyType]
 		if nGetValue then
@@ -179,7 +226,7 @@ function MetaObject:foreachGetPair(vFunc)
 	end)
 end
 
-function MetaObject:foreachSetPair(vFunc)
+function MetaObject:foreachSetPair(vFunc:Fn(class.IAtomType, class.UAllType))
 	self._keyRefer:foreach(function(vKeyType)
 		local nSetValue = self._valueDict[vKeyType]
 		if nSetValue then
