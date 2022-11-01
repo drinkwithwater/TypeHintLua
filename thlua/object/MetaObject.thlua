@@ -48,12 +48,11 @@ function MetaObject:recurContainObject(vCache, vRightObject:class.MetaObject)
 	else
 		local nNotContain = false
 		local nPair = (self.id << 32) + vRightObject.id
-		local nPairSet = vCache[nPair]
-		if nPairSet == nil then
-			nPairSet = {}
-			vCache[nPair] = nPairSet
+		local nResult = vCache[nPair]
+		if nResult == nil then
+			vCache[nPair] = true
 		else
-			return nPairSet
+			return nResult
 		end
 		self:foreachGetPair(function(vLeftKey, vLeftValue)
 			if nNotContain then
@@ -69,22 +68,14 @@ function MetaObject:recurContainObject(vCache, vRightObject:class.MetaObject)
 			local re = vLeftValue:recurContainObject(vCache, nRightValue:checkAtomUnion())
 			if not re then
 				nNotContain = true
-			elseif re == true then
-			elseif type(re) == "table" then
-				for k,v in pairs(re) do
-					if k ~= nPair then
-						nPairSet[k] = true
-					end
-				end
 			end
 		end)
 		if nNotContain then
+			vCache[nPair] = false
 			return false
 		end
-		if not next(nPairSet) then
-			return true
-		end
-		return nPairSet
+		vCache[nPair] = true
+		return true
 	end
 end
 
