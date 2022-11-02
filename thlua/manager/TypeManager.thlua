@@ -143,28 +143,34 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(vNode, function()
-		local nCollection = self:TypeCollection()
+		local nTypeList:List(class.IAtomType) = {}
 		local nAllValueDict = {}
 		local nIntersectSet:Dict(class.MetaObject, True) = {}
 		for i=1,#l do
-			local nMetaObject = l[i]
+			local nMetaObject = l[i]!
 			if Reference.is(nMetaObject) then
-				nMetaObject = nMetaObject:getRawAwait()
+				nMetaObject = nMetaObject:getTypeAwait()
 			end
 			if not MetaObject.is(nMetaObject) then
 				error("intersect can only take interface")
 				break
 			end
 			nIntersectSet[nMetaObject] = true
-			nMetaObject:getKeyRefer():getRawAwait()
+			local nKeyList = nMetaObject:getKeyRefer():getListAwait()
 			local nValueDict = nMetaObject:getValueDict()
-			nMetaObject:getKeyType():foreach(function(vType)
-				nCollection:put(vType)
-				nAllValueDict[vType] = nValueDict[vType]
-			end)
+			for _, nKeyType in ipairs(nKeyList) do
+				nTypeList[#nTypeList + 1] = nKeyType
+				nAllValueDict[nKeyType] = nValueDict[nKeyType]
+			end
 		end
 		nNewStruct:init(nAllValueDict, false, nIntersectSet)
-		return nCollection
+		return nTypeList
+	end, function(vTypeList)
+		local nCollection = self:TypeCollection()
+		for _, v in ipairs(vTypeList) do
+			nCollection:put(v)
+		end
+		return nCollection:mergeToAtomUnion()
 	end)
 	return nNewStruct
 end
@@ -177,17 +183,26 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 	local l = {...}
 	local nNewRefer = self:Reference(false)
 	nNewRefer:setRawAsync(vNode, function()
-		local nCollection = self:TypeCollection()
+		local nTypeList:List(class.IAtomType) = {}
 		for i=1, #l do
 			local nItem = l[i]
 			if Reference.is(nItem) then
-				local nReferType = nItem:getRawAwait()
-				nCollection:put(nReferType)
+				local nList = nItem:getListAwait()
+				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
-				nCollection:put(self:_toType(nItem))
+				local nType = self:_toType(nItem)
+				nType:foreach(function(vAtomType)
+					nTypeList[#nTypeList + 1] = vAtomType
+				end)
 			end
 		end
-		return nCollection
+		return nTypeList
+	end, function(vTypeList)
+		local nCollection = self:TypeCollection()
+		for _, v in ipairs(vTypeList) do
+			nCollection:put(v)
+		end
+		return nCollection:mergeToAtomUnion()
 	end)
 	return nNewRefer
 end
@@ -200,7 +215,7 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(vNode, function()
-		local nCollection = self:TypeCollection()
+		local nTypeList:List(class.IAtomType) = {}
 		local nValueDict:Dict(class.UAtomUnion, class.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType
@@ -210,27 +225,35 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 				nValueType = self:_toType(nValue)
 			end
 			if Reference.is(nKey) then
-				local nKeyType = nKey:getRawAwait()
-				nKeyType:foreach(function(vSubKeyType)
-					nCollection:put(vSubKeyType)
-					if vSubKeyType:isSingleton() then
-						nValueDict[vSubKeyType] = nValueType
+				local nKeyList = nKey:getListAwait()
+				for _, nSubKeyType in ipairs(nKeyList) do
+					nTypeList[#nTypeList + 1] = nSubKeyType
+					if nSubKeyType:isSingleton() then
+						nValueDict[nSubKeyType] = nValueType
 					else
-						nValueDict[vSubKeyType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+						nValueDict[nSubKeyType] = self:buildUnion(vNode, nValueType, self.type.Nil)
 					end
-				end)
+				end
 			else
 				local nKeyType = self:_toType(nKey)
-				nCollection:put(nKeyType)
-				if nKeyType:isSingleton() then
-					nValueDict[nKeyType] = nValueType
-				else
-					nValueDict[nKeyType] = self:buildUnion(vNode, nValueType, self.type.Nil)
-				end
+				nKeyType:foreach(function(vAtomType)
+					nTypeList[#nTypeList + 1] = vAtomType
+					if nKeyType:isSingleton() then
+						nValueDict[vAtomType] = nValueType
+					else
+						nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+					end
+				end)
 			end
 		end
 		nNewStruct:init(nValueDict, true)
-		return nCollection
+		return nTypeList
+	end, function(vTypeList)
+		local nCollection = self:TypeCollection()
+		for _, v in ipairs(vTypeList) do
+			nCollection:put(v)
+		end
+		return nCollection:mergeToAtomUnion()
 	end)
 	return self:_recordTypeUnionSign(nNewStruct)
 end

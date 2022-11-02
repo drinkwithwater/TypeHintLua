@@ -50,13 +50,15 @@ function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(clas
 			vRefer:setRawAsync(self._node, function()
 				local nImplType = vStruct
 				if Reference.is(vStruct) then
-					vStruct:getRawAwait()
+					vStruct:getTypeAwait()
 					nImplType = vStruct:checkAtomUnion()
 					assert(not nImplType:isUnion(), "interface can't be union")
 				end
 				local nTable = self._manager:LuaTable()
 				nTable:initByClass(nCom, false, nImplType)
-				return nTable
+				return {nTable}
+			end, function(l)
+				return l[1]!
 			end)
 			self._fnCom = nCom
 			nCom:initByRetClass(self._context, vRefer)

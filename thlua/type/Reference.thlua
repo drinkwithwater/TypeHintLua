@@ -16,10 +16,11 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@Union(False, class.Reference),
-		_collection=false@Union(False, class.TypeCollection),
-		_referType=false@Union(class.UAtomUnion, False),
+		_listType=false@Union(False, List(class.IAtomType)),
+		_resultType=false@Union(False, class.UAtomUnion),
 		_thread=false,
-		_waitThreads={},
+		_waitListThreads={},
+		_waitResultThreads={},
 	}, Reference)
 	return self
 end
@@ -28,35 +29,59 @@ function Reference:detailString(v)::Ret(String)
 	return "Reference("..(self._key or tostring(self._setNode))..")"
 end
 
-(@let.RawItem = Union(class.UAtomUnion, class.TypeCollection))
+function Reference:setTypeAsync(vNode:class.AstNode, vType:Union(class.Reference, class.IAtomType))
+	if Reference.is(vType) then
+		self:setRawAsync(vNode, function()
+			return vType:getListAwait()
+		end, function(_)
+			return vType:getTypeAwait()
+		end)
+	else
+		assert(not vType:isUnion(), "set type async can't take IUnionType")
+		self:setRawAsync(vNode, function()
+			return {vType}
+		end, function(_)
+			return vType
+		end)
+	end
+end
 
-function Reference:setRawAsync(vNode:class.AstNode, vFunc:Fn():Ret(let.RawItem))::nocheck()
+function Reference:setRawAsync(vNode:class.AstNode,
+	vGetList:Fn():Ret(List(class.IAtomType)),
+	vMakeType:Fn(List(class.IAtomType)):Ret(class.UAtomUnion))::nocheck()
 	assert(not self._setNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._setNode = vNode
 	local co = coroutine.create(function()
-		local ok, nTypeOrCollection = pcall(vFunc)
+		local ok, nListOrExc = pcall(vGetList)
 		if not ok then
-			if Exception.is(nTypeOrCollection) then
-				nTypeOrCollection:fixNode(vNode)
-				error(nTypeOrCollection)
+			if Exception.is(nListOrExc) then
+				nListOrExc:fixNode(vNode)
+				error(nListOrExc)
 			else
-				error(Exception.new(tostring(nTypeOrCollection), vNode))
+				error(Exception.new(tostring(nListOrExc), vNode))
 			end
 		end
-		if TypeCollection.is(nTypeOrCollection) then
-			self._collection = nTypeOrCollection
-		else
-			self._referType = nTypeOrCollection
-			if self._referType.setReferName and self._key then
-				self._referType:setReferName(self._key)
-			end
-		end
-		local l = self._waitThreads
+		self._listType = nListOrExc
+		local l = self._waitListThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
 		end
-		if TypeCollection.is(nTypeOrCollection) then
-			self._referType = nTypeOrCollection:mergeToAtomUnion()
+		local ok, nTypeOrExc = pcall(vMakeType, nListOrExc)
+		if not ok then
+			if Exception.is(nTypeOrExc) then
+				nTypeOrExc:fixNode(vNode)
+				error(nTypeOrExc)
+			else
+				error(Exception.new(tostring(nTypeOrExc), vNode))
+			end
+		end
+		self._resultType = nTypeOrExc
+		if self._resultType.setReferName and self._key then
+			self._resultType:setReferName(self._key)
+		end
+		local l = self._waitResultThreads
+		for i=#l,1,-1 do
+			assert(coroutine.resume(l[i]))
 		end
 	end)
 	self._manager.coToRefer[co] = self
@@ -64,12 +89,12 @@ function Reference:setRawAsync(vNode:class.AstNode, vFunc:Fn():Ret(let.RawItem))
 	assert(coroutine.resume(co))
 end
 
-function Reference:getRawAwait()::Ret(let.RawItem)
-	local nReturn = self._referType or self._collection
+function Reference:getTypeAwait()::Ret(class.UAtomUnion)
+	local nReturn = self._resultType
 	if not nReturn then
 		local co, _ = coroutine.running()
-		local nWaitingRefer = self._manager.coToRefer[co]!
-		assert(nWaitingRefer, "can only call getRawAwait in Reference's coroutine")
+		local nWaitingRefer = self._manager.coToRefer[co]
+		assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine")
 		nWaitingRefer._waitRefer = self
 		local nCurRefer = self._waitRefer
 		while nCurRefer do
@@ -79,12 +104,35 @@ function Reference:getRawAwait()::Ret(let.RawItem)
 				nCurRefer = nCurRefer._waitRefer
 			end
 		end
-		local l = self._waitThreads
+		local l = self._waitResultThreads
 		l[#l+1] = coroutine.running()
 		coroutine.yield()
 		nWaitingRefer._waitRefer = false
 	end
-	return self._referType or self._collection
+	return assert(self._resultType, "result type not setted")
+end
+
+function Reference:getListAwait()::Ret(List(class.IAtomType))
+	local nReturn = self._listType
+	if not nReturn then
+		local co, _ = coroutine.running()
+		local nWaitingRefer = self._manager.coToRefer[co]
+		assert(nWaitingRefer, "can only call getListAwait in Reference's coroutine")
+		nWaitingRefer._waitRefer = self
+		local nCurRefer = self._waitRefer
+		while nCurRefer do
+			if nCurRefer == self then
+				error(Exception.new("recursive build type"))
+			else
+				nCurRefer = nCurRefer._waitRefer
+			end
+		end
+		local l = self._waitListThreads
+		l[#l+1] = coroutine.running()
+		coroutine.yield()
+		nWaitingRefer._waitRefer = false
+	end
+	return assert(self._listType, "type list not setted")
 end
 
 function Reference:getSetNode()::Ret(Union(False, class.AstNode))
@@ -92,11 +140,11 @@ function Reference:getSetNode()::Ret(Union(False, class.AstNode))
 end
 
 function Reference:getType()::Ret(Union(False, class.UAtomUnion))
-	return self._referType
+	return self._resultType
 end
 
 function Reference:checkAtomUnion()::Ret(class.UAtomUnion)
-	local nReferType = self._referType
+	local nReferType = self._resultType
 	if not nReferType then
 		error(Exception.new("reference "..tostring(self).." has not been setted"))
 	end
@@ -116,10 +164,14 @@ function Reference:isReference()::Ret(True)
 end
 
 function Reference:foreach(vFunc:Fn(class.IAtomType):Ret())
-	if self._referType then
-		self._referType:foreach(vFunc)
+	if self._resultType then
+		self._resultType:foreach(vFunc)
 	else
-		self._collection:foreach(vFunc)
+		local nListType = self._listType
+		assert(nListType, "reference "..tostring(self).." not setted")
+		for _, v in ipairs(nListType) do
+			vFunc(v)
+		end
 	end
 end
 
