@@ -42,18 +42,19 @@ function MetaObject:_intersectOneNotRefer(vRightType)
 end
 
 -- experiment code
-function MetaObject:recurContainObject(vCache, vRightObject:class.MetaObject)
+function MetaObject:containWithAssumption(vAssumptionPairSet:Dict(Integer, True), vRightObject:class.MetaObject)
 	if self == vRightObject then
 		return true
 	else
-		local nNotContain = false
-		local nPair = (self.id << 32) + vRightObject.id
-		local nResult = vCache[nPair]
-		if nResult == nil then
-			vCache[nPair] = true
-		else
+		local nPair, nResult = self._manager:getObjPairContain(self, vRightObject)
+		if nResult ~= nil then
 			return nResult
 		end
+		if vAssumptionPairSet[nPair] then
+			return true
+		end
+		vAssumptionPairSet[nPair] = true
+		local nNotContain = false
 		self:foreachGetPair(function(vLeftKey, vLeftValue)
 			if nNotContain then
 				return
@@ -65,16 +66,17 @@ function MetaObject:recurContainObject(vCache, vRightObject:class.MetaObject)
 			end
 			local nRightValue = vRightObject:getValueDict()[nRightKey]!
 			vLeftValue=vLeftValue:checkAtomUnion()
-			local re = vLeftValue:recurContainObject(vCache, nRightValue:checkAtomUnion())
-			if not re then
+			local nSubResult = vLeftValue:containWithAssumption(vAssumptionPairSet, nRightValue:checkAtomUnion())
+			if not nSubResult then
 				nNotContain = true
+				return
 			end
 		end)
 		if nNotContain then
-			vCache[nPair] = false
+			self._manager:setObjPairContain(nPair, false)
+			vAssumptionPairSet[nPair] = nil
 			return false
 		end
-		vCache[nPair] = true
 		return true
 	end
 end

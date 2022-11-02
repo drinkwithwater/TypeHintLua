@@ -46,6 +46,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		type={},
 		builtin={},
 		coToRefer={},
+		_objPairToContain={} @ Dict(Integer, Boolean),
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
 		_unionSignToType={}@Dict(String, class.UAtomUnion),
 		_typeIdCounter=0@Number,
@@ -55,6 +56,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	self.type.False = BooleanLiteral.new(self, false)
 	self.type.True = BooleanLiteral.new(self, true)
 	self.type.Number = Number.new(self)
+	self.type.Integer = self.type.Number
 	self.type.String = String.new(self)
 	self.type.Truth = Truth.new(self)
 	for k, nType in pairs(self.type) do
@@ -429,6 +431,16 @@ end
 function TypeManager:mergeToRefineTerm(vTypeCasePairList)::Ret(class.RefineTerm)
 	local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
 	return RefineTerm.new(self, nType, nTypeToCase)
+end
+
+function TypeManager:getObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, Option(Boolean))
+	local nPair = vLeft.id << 32 + vRight.id
+	local nContain = self._objPairToContain[nPair]
+	return nPair, nContain
+end
+
+function TypeManager:setObjContain(vPair:Integer, vContain:Boolean)
+	self._objPairToContain[vPair] = vContain
 end
 
 function TypeManager:genTypeId()::Ret(Number)
