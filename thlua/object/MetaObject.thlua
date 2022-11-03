@@ -59,7 +59,7 @@ function MetaObject:containWithAssumption(vAssumptionPairSet:Dict(Integer, True)
 			if nNotContain then
 				return
 			end
-			local nRightKey = vRightObject:getKeyRefer():contain(vLeftKey)
+			local nRightKey = vRightObject:getKeyRefer():containAllType(vLeftKey)
 			if not nRightKey then
 				nNotContain = true
 				return
@@ -103,11 +103,11 @@ function MetaObject:_containOneNotRefer(vRightType)
 			return self
 		else
 			nContainCache[nRightStruct] = true
-			if not nRightStruct:getKeyType():contain(self:getKeyType()) then
+			if not nRightStruct:getKeyType():containAllType(self:getKeyType()) then
 				nContainCache[nRightStruct] = false
 				return false
 			end
-			if not self:getKeyType():contain(nRightStruct:getKeyType()) then
+			if not self:getKeyType():containAllType(nRightStruct:getKeyType()) then
 				nContainCache[nRightStruct] = false
 				return false
 			end
@@ -118,7 +118,7 @@ function MetaObject:_containOneNotRefer(vRightType)
 				local nRightValue = nRightStruct._valueDict[nKey]!
 				if nValueType and nRightValue and nRightValue:getType() then
 					local nRightValueType = nRightValue:getType()
-					if not nValueType:contain(nRightValueType) then
+					if not nValueType:containAllType(nRightValueType) then
 						nContainCache[nRightStruct] = false
 						return false
 					end
@@ -200,7 +200,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 			local nSetType = nSetValue:checkAtomUnion()
 			if vContext:cast(vValueType, nSetType) then
 				return
-			elseif nSetType:contain(vValueType) then
+			elseif nSetType:containAllType(vValueType) then
 				return
 			else
 				vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
