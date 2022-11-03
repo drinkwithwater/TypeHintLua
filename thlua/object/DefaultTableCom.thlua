@@ -43,7 +43,7 @@ function DefaultTableCom:foreachGetPair(vFunc)
 end
 
 function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil,Boolean))
-	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
+	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		local nCurValueType = self._valueDict[nKeyContainType]!
 		if not nCurValueType:containAllType(vValueType) then
@@ -72,7 +72,7 @@ function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType
 end
 
 function DefaultTableCom:_meta_get(vContext, vKeyType)::Ret(Boolean, class.UAtomUnion)
-	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
+	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		return true, self._valueDict[nKeyContainType]!
 	end
@@ -107,7 +107,7 @@ function DefaultTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(Tru
 end
 
 function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil, Boolean))
-	local nContainType = self._keyType:_containOneNotRefer(vKeyType)
+	local nContainType = self._keyType:containAtom(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			-- TODO thinking when to lock this
@@ -135,7 +135,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValu
 end
 
 function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion)
-	local nKeyContainType = self._keyType:_containOneNotRefer(vKeyType)
+	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		return self._valueDict[nKeyContainType]!
 	else

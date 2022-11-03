@@ -156,12 +156,11 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 				break
 			end
 			nIntersectSet[nMetaObject] = true
-			local nKeyList = nMetaObject:getKeyRefer():getListAwait()
 			local nValueDict = nMetaObject:getValueDict()
-			for _, nKeyType in ipairs(nKeyList) do
-				nTypeList[#nTypeList + 1] = nKeyType
-				nAllValueDict[nKeyType] = nValueDict[nKeyType]
-			end
+			nMetaObject:getKeyRefer():foreach(function(vKeyType)
+				nTypeList[#nTypeList + 1] = vKeyType
+				nAllValueDict[vKeyType] = nValueDict[vKeyType]
+			end)
 		end
 		nNewStruct:init(nAllValueDict, false, nIntersectSet)
 		return nTypeList
@@ -224,27 +223,17 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 			else
 				nValueType = self:_toType(nValue)
 			end
-			if Reference.is(nKey) then
-				local nKeyList = nKey:getListAwait()
-				for _, nSubKeyType in ipairs(nKeyList) do
-					nTypeList[#nTypeList + 1] = nSubKeyType
-					if nSubKeyType:isSingleton() then
-						nValueDict[nSubKeyType] = nValueType
-					else
-						nValueDict[nSubKeyType] = self:buildUnion(vNode, nValueType, self.type.Nil)
-					end
-				end
-			else
-				local nKeyType = self:_toType(nKey)
-				nKeyType:foreach(function(vAtomType)
-					nTypeList[#nTypeList + 1] = vAtomType
-					if nKeyType:isSingleton() then
-						nValueDict[vAtomType] = nValueType
-					else
-						nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
-					end
-				end)
+			if not Reference.is(nKey) then
+				nKey = self:_toType(nKey)
 			end
+			nKey:foreach(function(vAtomType)
+				nTypeList[#nTypeList + 1] = vAtomType
+				if vAtomType:isSingleton() then
+					nValueDict[vAtomType] = nValueType
+				else
+					nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+				end
+			end)
 		end
 		nNewStruct:init(nValueDict, true)
 		return nTypeList

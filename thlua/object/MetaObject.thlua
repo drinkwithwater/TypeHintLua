@@ -34,7 +34,7 @@ end
 function MetaObject:_intersectOneNotRefer(vRightType)
 	if self == vRightType then
 		return self
-	elseif self:_containOneNotRefer(vRightType) then
+	elseif self:containAtom(vRightType) then
 		return vRightType
 	else
 		return false
@@ -55,22 +55,27 @@ function MetaObject:containWithAssumption(vAssumptionPairSet:Dict(Integer, True)
 		end
 		vAssumptionPairSet[nPair] = true
 		local nNotContain = false
-		self:foreachGetPair(function(vLeftKey, vLeftValue)
+		local nRightKeyRefer = vRightObject:getKeyRefer():getTypeAwait()
+		local nLeftKeyRefer = self._keyRefer:getTypeAwait()
+		nLeftKeyRefer:foreach(function(vLeftKey)
 			if nNotContain then
 				return
 			end
-			local nRightKey = vRightObject:getKeyRefer():containAllType(vLeftKey)
+			local nRightKey = nRightKeyRefer:containAtom(vLeftKey)
 			if not nRightKey then
 				nNotContain = true
 				return
 			end
+			local nLeftValue = self._valueDict[vLeftKey]!
 			local nRightValue = vRightObject:getValueDict()[nRightKey]!
-			vLeftValue=vLeftValue:checkAtomUnion()
-			local nSubResult = vLeftValue:containWithAssumption(vAssumptionPairSet, nRightValue:checkAtomUnion())
-			if not nSubResult then
-				nNotContain = true
-				return
-			end
+			nRightValue:foreach(function(vRightAtom)
+				if nNotContain then
+					return
+				end
+				if not nLeftValue:containAtom(vRightAtom) then
+					nNotContain = true
+				end
+			end)
 		end)
 		if nNotContain then
 			self._manager:setObjPairContain(nPair, false)
@@ -81,7 +86,7 @@ function MetaObject:containWithAssumption(vAssumptionPairSet:Dict(Integer, True)
 	end
 end
 
-function MetaObject:_containOneNotRefer(vRightType)
+function MetaObject:containAtom(vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
 		return false
@@ -180,7 +185,7 @@ function MetaObject:isSingleton(v)
 end
 
 function MetaObject:meta_get(vContext, vType)
-	local nKey = self._keyRefer:_containOneNotRefer(vType)
+	local nKey = self._keyRefer:containAtom(vType)
 	if nKey then
 		local nGetValue = self._valueDict[nKey]
 		if nGetValue then
@@ -193,7 +198,7 @@ function MetaObject:meta_get(vContext, vType)
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
-	local nKey = self._keyRefer:_containOneNotRefer(vKeyType)
+	local nKey = self._keyRefer:containAtom(vKeyType)
 	if nKey then
 		local nSetValue = self._valueDict[nKey]
 		if nSetValue then

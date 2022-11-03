@@ -33,7 +33,7 @@ class.IType = Interface {
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
 	containAllType=Mfn(class.UAllType):Ret(Union(class.UAtomUnion, False)),
 	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
-	_containOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
+	containAtom=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 
 	notnilType=Mfn():Ret(class.UAtomUnion),
 	trueType=Mfn():Ret(class.UAtomUnion),
@@ -119,8 +119,8 @@ local function TypeClass()::open()
 	function t:_intersectOneNotRefer?(vRight)
 		error(tostring(self).."_intersectOneNotRefer TODO")
 	end
-	function t:_containOneNotRefer?(vRight)
-		error(tostring(self).."_containOneNotRefer TODO")
+	function t:containAtom?(vRight)
+		error(tostring(self).."containAtom TODO")
 	end
 	function t:containAllType(vRight)
 		local nLeft:class.UAllType = self
@@ -131,12 +131,12 @@ local function TypeClass()::open()
 			vRight = vRight:checkAtomUnion()
 		end
 		if not vRight:isUnion() then
-			return nLeft:_containOneNotRefer(vRight)
+			return nLeft:containAtom(vRight)
 		else
 			local nCollection = nLeft._manager:TypeCollection()
 			local nContain = true
 			vRight:foreach(function(vSubType)
-				local nContainType = nLeft:_containOneNotRefer(vSubType)
+				local nContainType = nLeft:containAtom(vSubType)
 				if not nContainType then
 					nContain = false
 				else
