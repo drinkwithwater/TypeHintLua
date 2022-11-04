@@ -50,14 +50,14 @@ local function TupleClass()::open()
 		nTermTuple._typeTuple = self
 		return nTermTuple
 	end
-	function t:tupleContainWithAssume(vAssumeSet, vRightTypeTuple)::Ret(Boolean)
+	function t:tupleContainAssume(vAssumeSet:Option(Dict(Integer, True)), vRightTypeTuple)::Ret(Boolean)
 		local nLeftRepeatType = self:getRepeatType()
 		local nRightRepeatType = vRightTypeTuple:getRepeatType()
 		if (not nLeftRepeatType) and nRightRepeatType then
 			return false
 		end
 		if nLeftRepeatType and nRightRepeatType then
-			if not nLeftRepeatType:containAll(nRightRepeatType) then
+			if not nLeftRepeatType:allContainAssume(vAssumeSet, nRightRepeatType) then
 				return false
 			end
 		end
@@ -67,7 +67,7 @@ local function TupleClass()::open()
 			if not nLeftType then
 				return false
 			end
-			if not nLeftType:containAll(vRightTypeTuple:get(i)) then
+			if not nLeftType:allContainAssume(vAssumeSet, vRightTypeTuple:get(i)) then
 				return false
 			end
 		end
@@ -77,7 +77,7 @@ local function TupleClass()::open()
 				return false
 			end
 			if nRightRepeatType then
-				if not nLeftType:containAll(nRightRepeatType) then
+				if not nLeftType:allContainAssume(vAssumeSet, nRightRepeatType) then
 					return false
 				end
 			end
@@ -85,7 +85,7 @@ local function TupleClass()::open()
 		return true
 	end
 	function t:containTuple(vRightTypeTuple)::Ret(Boolean)
-		return self:tupleContainWithAssume(nil, vRightTypeTuple)
+		return self:tupleContainAssume(nil, vRightTypeTuple)
 	end
 	return t
 end

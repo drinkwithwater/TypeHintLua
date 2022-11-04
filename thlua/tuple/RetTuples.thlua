@@ -70,22 +70,30 @@ function RetTuples:detailString(vCache)::Ret(String)
 	return "("..table.concat(re, "|")..")"
 end
 
-function RetTuples:containTuples(vRetTuples:class.RetTuples)::Ret(Boolean)
+function RetTuples:tuplesContainAssume(vAssumeSet:Option(Dict(Integer, True)), vRetTuples:class.RetTuples)::Ret(Boolean)
 	for _, t in pairs(vRetTuples._signToTuple) do
-		if not self:containTuple(t) then
+		if not self:tupleContainAssume(vAssumeSet, t) then
 			return false
 		end
 	end
 	return true
 end
 
-function RetTuples:containTuple(vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
+function RetTuples:containTuples(vRetTuples:class.RetTuples)::Ret(Boolean)
+	return self:tuplesContainAssume(nil, vRetTuples)
+end
+
+function RetTuples:tupleContainAssume(vAssumeSet:Option(Dict(Integer, True)), vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
 	for _, t in pairs(self._signToTuple) do
-		if t:containTuple(vRightTypeTuple) then
+		if t:tupleContainAssume(vAssumeSet, vRightTypeTuple) then
 			return true
 		end
 	end
 	return false
+end
+
+function RetTuples:containTuple(vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
+	return self:tupleContainAssume(nil, vRightTypeTuple)
 end
 
 function RetTuples:structSign()::Ret(String)
