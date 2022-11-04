@@ -2,7 +2,7 @@
 local Exception = {}
 Exception.__index=Exception
 Exception.__tostring=function(t)
-	return "Exception:"..t.msg
+	return "Exception:"..tostring(t.node)..":"..t.msg
 end
 
 function Exception.new(vMsg, vNode)

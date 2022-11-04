@@ -42,7 +42,7 @@ function MetaObject:_intersectOneNotRefer(vRightType)
 end
 
 -- experiment code
-function MetaObject:containWithAssumption(vAssumptionPairSet:Dict(Integer, True), vRightObject:class.MetaObject)
+function MetaObject:objContainWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
 	if self == vRightObject then
 		return true
 	else
@@ -50,43 +50,42 @@ function MetaObject:containWithAssumption(vAssumptionPairSet:Dict(Integer, True)
 		if nResult ~= nil then
 			return nResult
 		end
-		if vAssumptionPairSet[nPair] then
+		if vAssumeSet[nPair] then
 			return true
 		end
-		vAssumptionPairSet[nPair] = true
+		vAssumeSet[nPair] = true
 		local nNotContain = false
 		local nRightKeyRefer = vRightObject:getKeyRefer():getTypeAwait()
-		local nLeftKeyRefer = self._keyRefer:getTypeAwait()
-		nLeftKeyRefer:foreach(function(vLeftKey)
-			if nNotContain then
-				return
-			end
-			local nRightKey = nRightKeyRefer:containAtom(vLeftKey)
+		self._keyRefer:getTypeAwait()
+		for nLeftKey, nLeftValue in pairs(self._valueDict) do
+			local nRightKey = nRightKeyRefer:containAtom(nLeftKey)
 			if not nRightKey then
 				nNotContain = true
-				return
+				break
 			end
-			local nLeftValue = self._valueDict[vLeftKey]!
 			local nRightValue = vRightObject:getValueDict()[nRightKey]!
 			nRightValue:foreach(function(vRightAtom)
 				if nNotContain then
 					return
 				end
-				if not nLeftValue:containAtom(vRightAtom) then
+				if not nLeftValue:atomContainAssume(vAssumeSet, vRightAtom) then
 					nNotContain = true
 				end
 			end)
-		end)
+			if nNotContain then
+				break
+			end
+		end
 		if nNotContain then
 			self._manager:setObjPairContain(nPair, false)
-			vAssumptionPairSet[nPair] = nil
+			vAssumeSet[nPair] = nil
 			return false
 		end
 		return true
 	end
 end
 
-function MetaObject:containAssume(vAssumeSet, vRightType)
+function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
 		return false
@@ -94,6 +93,7 @@ function MetaObject:containAssume(vAssumeSet, vRightType)
 	if nRightStruct._intersectSet[self] then
 		return self
 	end
+	--return self:objContainWithAssume(vAssumeSet or {}, nRightStruct) and self
 	local nContainCache = self._containCache
 	local nCacheResult = nContainCache[nRightStruct]
 	if nCacheResult == true then
