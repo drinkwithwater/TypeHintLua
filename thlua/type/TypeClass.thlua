@@ -31,7 +31,8 @@ class.IType = Interface {
 	unionSign=Mfn():Ret(String),
 
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
-	containAllType=Mfn(class.UAllType):Ret(Union(class.UAtomUnion, False)),
+	containAll=Mfn(class.UAllType):Ret(Boolean),
+	allContainAssume=Mfn(Option(Dict(Integer, True)), class.UAllType):Ret(Boolean),
 	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
 	containAtom=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 	atomContainAssume=Mfn(Option(Dict(Integer, True)), class.IAtomType):Ret(Union(class.IAtomType, False)),
@@ -126,33 +127,18 @@ local function TypeClass()::open()
 	function t:atomContainAssume?(vAssumeSet, vRight)
 		error(tostring(self).."containAtom TODO")
 	end
-	function t:containAllType(vRight)
+	function t:allContainAssume(vAssumeSet, vRight)
 		local nLeft:class.UAllType = self
-		if nLeft:isReference() then
-			nLeft = nLeft:checkAtomUnion()
-		end
-		if vRight:isReference() then
-			vRight = vRight:checkAtomUnion()
-		end
-		if not vRight:isUnion() then
-			return nLeft:containAtom(vRight)
-		else
-			local nCollection = nLeft._manager:TypeCollection()
-			local nContain = true
-			vRight:foreach(function(vSubType)
-				local nContainType = nLeft:containAtom(vSubType)
-				if not nContainType then
-					nContain = false
-				else
-					nCollection:put(nContainType)
-				end
-			end)
-			if nContain then
-				return nCollection:mergeToAtomUnion()
-			else
-				return false
+		local nContain:Boolean = true
+		vRight:foreach(function(vSubType)
+			if nContain and not nLeft:atomContainAssume(vAssumeSet, vSubType) then
+				nContain = false
 			end
-		end
+		end)
+		return nContain
+	end
+	function t:containAll(vRight)
+		return self:allContainAssume(nil, vRight)
 	end
 	function t:intersect(vRight)
 		local vLeft = self

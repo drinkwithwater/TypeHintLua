@@ -31,19 +31,19 @@ function ClassTableCom:checkDefine()
 end
 
 function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
-	local nContainKey = self._keyType:containAllType(vKeyType)
+	local nContainKey = self._keyType:containAtom(vKeyType)
 	if not nContainKey then
 		vContext:error("key not found", tostring(vKeyType))
 	else
 		local nValue = self._valueDict[nContainKey]
-		if not nValue:containAllType(vValueType) then
+		if not nValue:containAll(vValueType) then
 			vContext:error("field not match", tostring(vKeyType))
 		end
 	end
 end
 
 function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
-	local nContainKey = self._keyType:containAllType(vKeyType)
+	local nContainKey = self._keyType:containAtom(vKeyType)
 	if nContainKey then
 		return self._valueDict[nContainKey]
 	else
@@ -72,7 +72,7 @@ function ClassTableCom:implement(vContext)
 			if LuaFunction.is(vValue) then
 				if vValue:isMember() then
 					nCollection:put(vKey)
-					if self._interface:getKeyType():containAllType(vKey) then
+					if self._interface:getKeyType():containAll(vKey) then
 						local nIntfValue = self._interface:meta_get(vContext, vKey)
 						if TypeFunction.is(nIntfValue) then
 							self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nIntfValue)

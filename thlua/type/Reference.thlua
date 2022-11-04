@@ -163,7 +163,7 @@ function Reference:isReference()::Ret(True)
 	return true
 end
 
-function Reference:foreach(vFunc:Fn(class.IAtomType))
+function Reference:foreach(vFunc)
 	if self._resultType then
 		self._resultType:foreach(vFunc)
 	else
@@ -178,8 +178,14 @@ function Reference:_intersectOneNotRefer(vType:class.IAtomType)::Ret(Union(class
 	return self:checkAtomUnion():_intersectOneNotRefer(vType)
 end
 
-function Reference:atomContainAssume(vAssumeSet, vType:class.IAtomType)::Ret(Union(class.IAtomType, False))
-	return self:checkAtomUnion():atomContainAssume(vAssumeSet, vType)
+function Reference:atomContainAssume(vAssumeSet, vAtomType:class.IAtomType)::Ret(Union(class.IAtomType, False))
+	local nTypeList = self:getListAwait()
+	for _, nType in ipairs(nTypeList) do
+		if nType:atomContainAssume(vAssumeSet, vAtomType) then
+			return nType
+		end
+	end
+	return false
 end
 
 function Reference:trueType()
