@@ -64,14 +64,12 @@ function MetaObject:objContainWithAssume(vAssumeSet:Dict(Integer, True), vRightO
 				break
 			end
 			local nRightValue = vRightObject:getValueDict()[nRightKey]!
-			nRightValue:foreach(function(vRightAtom)
-				if nNotContain then
-					return
-				end
-				if not nLeftValue:atomContainAssume(vAssumeSet, vRightAtom) then
-					nNotContain = true
-				end
-			end)
+			if not nLeftValue:allContainAssume(vAssumeSet, nRightValue) then
+				nNotContain = true
+			end
+			if not nRightValue:allContainAssume(vAssumeSet, nLeftValue) then
+				nNotContain = true
+			end
 			if nNotContain then
 				break
 			end
@@ -93,8 +91,8 @@ function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	if nRightStruct._intersectSet[self] then
 		return self
 	end
-	--return self:objContainWithAssume(vAssumeSet or {}, nRightStruct) and self
-	local nContainCache = self._containCache
+	return self:objContainWithAssume(vAssumeSet or {}, nRightStruct) and self
+	--[[local nContainCache = self._containCache
 	local nCacheResult = nContainCache[nRightStruct]
 	if nCacheResult == true then
 		return self
@@ -135,7 +133,7 @@ function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	else
 		nContainCache[nRightStruct] = false
 		return false
-	end
+	end]]
 end
 
 function MetaObject:meta_len(vContext)
