@@ -41,45 +41,49 @@ function MetaObject:_intersectOneNotRefer(vRightType)
 	end
 end
 
--- experiment code
-function MetaObject:interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
-	if self == vRightObject then
-		return true
-	else
-		local nPair, nResult = self._manager:getObjPairContain(self, vRightObject)
-		if nResult ~= nil then
-			return nResult
-		end
-		if vAssumeSet[nPair] then
-			return true
-		end
-		vAssumeSet[nPair] = true
-		local nNotContain = false
-		local nRightKeyRefer = vRightObject:getKeyRefer()
-		for nLeftKey, nLeftValue in pairs(self._valueDict) do
-			local nRightKey = nRightKeyRefer:containAtom(nLeftKey)
-			if not nRightKey then
-				nNotContain = true
-				break
-			end
-			local nRightValue = vRightObject:getValueDict()[nRightKey]!
-			if not nLeftValue:allContainAssume(vAssumeSet, nRightValue) then
-				nNotContain = true
-			end
-			if not nRightValue:allContainAssume(vAssumeSet, nLeftValue) then
-				nNotContain = true
-			end
-			if nNotContain then
-				break
-			end
-		end
-		if nNotContain then
-			self._manager:setObjPairContain(nPair, false)
-			vAssumeSet[nPair] = nil
+function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
+	local nRightValueDict = vRightObject:getValueDict()
+	local nLeftValueDict = self._valueDict
+	for nLeftKey, nLeftValue in pairs(nLeftValueDict) do
+		local nRightValue = nRightValueDict[nLeftKey]
+		if not nRightValue then
 			return false
 		end
+		if not nRightValue:allContainAssume(vAssumeSet, nLeftValue) then
+			return false
+		end
+		if not nLeftValue:allContainAssume(vAssumeSet, nRightValue) then
+			return false
+		end
+	end
+	for nRightKey, nRightValue in pairs(nRightValueDict) do
+		if not nLeftValueDict[nRightKey] then
+			return false
+		end
+	end
+	return true
+end
+
+function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
+	if vRightObject._intersectSet[self] then
 		return true
 	end
+	local nRightKeyRefer = vRightObject:getKeyRefer()
+	local nRightValueDict = vRightObject:getValueDict()
+	for nLeftKey, nLeftValue in pairs(self._valueDict) do
+		local nRightKey = nRightKeyRefer:atomContainAssume(nil, nLeftKey)
+		if not nRightKey then
+			return false
+		end
+		local nRightValue = nRightValueDict[nRightKey]!
+		if not nLeftValue:allContainAssume(vAssumeSet, nRightValue) then
+			return false
+		end
+		if not nRightValue:allContainAssume(vAssumeSet, nLeftValue) then
+			return false
+		end
+	end
+	return true
 end
 
 function MetaObject:atomContainAssume(vAssumeSet, vRightType)
@@ -87,12 +91,36 @@ function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	if not nRightStruct then
 		return false
 	end
-	self._keyRefer:getTypeAwait()
-	nRightStruct:getKeyRefer():getTypeAwait()
-	if nRightStruct._intersectSet[self] then
+	if self == vRightType then
 		return self
 	end
-	return self:interfaceContainWithAssume(vAssumeSet or {}, nRightStruct) and self
+	local nLeftKeyRefer = self._keyRefer
+	nLeftKeyRefer:getListAwait()
+	local nRightKeyRefer = nRightStruct:getKeyRefer()
+	nRightKeyRefer:getListAwait()
+	local nPair, nResult = self._manager:getObjPairContain(self, nRightStruct)
+	if nResult ~= nil then
+		return nResult and self
+	end
+	vAssumeSet = vAssumeSet or {}
+	if vAssumeSet[nPair] then
+		return self
+	end
+	vAssumeSet[nPair] = true
+	local nAssumeContain:Boolean = false
+	if nLeftKeyRefer:isInterfaceKey() then
+		nAssumeContain = self:_interfaceContainWithAssume(vAssumeSet, nRightStruct)
+	elseif nRightKeyRefer:isInterfaceKey() then
+		nAssumeContain = false
+	else
+		nAssumeContain = self:_structSameWithAssume(vAssumeSet, nRightStruct)
+	end
+	if not nAssumeContain then
+		self._manager:setObjPairContain(nPair, false)
+		vAssumeSet[nPair] = nil
+		return false
+	end
+	return self
 	--[[local nContainCache = self._containCache
 	local nCacheResult = nContainCache[nRightStruct]
 	if nCacheResult == true then

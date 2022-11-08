@@ -18,6 +18,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, Fal
 		_waitRefer=false@Union(False, class.Reference),
 		_listType=false@Union(False, List(class.IAtomType)),
 		_resultType=false@Union(False, class.UAtomUnion),
+		_isInterfaceKey=true@Boolean,
 		_thread=false,
 		_waitListThreads={},
 		_waitResultThreads={},
@@ -62,6 +63,12 @@ function Reference:setRawAsync(vNode:class.AstNode,
 			end
 		end
 		self._listType = nListOrExc
+		for _, nType in ipairs(nListOrExc) do
+			if not nType:isStrNumLiteral() then
+				self._isInterfaceKey = false
+				break
+			end
+		end
 		local l = self._waitListThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
@@ -109,7 +116,7 @@ function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 		coroutine.yield()
 		nWaitingRefer._waitRefer = false
 	end
-	return assert(self._resultType, "result type not setted")
+	return (assert(self._resultType, "result type not setted"))
 end
 
 function Reference:getListAwait()::Ret(List(class.IAtomType))
@@ -132,7 +139,7 @@ function Reference:getListAwait()::Ret(List(class.IAtomType))
 		coroutine.yield()
 		nWaitingRefer._waitRefer = false
 	end
-	return assert(self._listType, "type list not setted")
+	return (assert(self._listType, "type list not setted"))
 end
 
 function Reference:getSetNode()::Ret(Union(False, class.AstNode))
@@ -191,6 +198,10 @@ function Reference:atomContainAssume(vAssumeSet, vAtomType:class.IAtomType)::Ret
 		end
 	end
 	return false
+end
+
+function Reference:isInterfaceKey()::Ret(Boolean)
+	return self._isInterfaceKey
 end
 
 function Reference:trueType()
