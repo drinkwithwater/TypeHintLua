@@ -170,10 +170,22 @@ function Reference:isReference()::Ret(True)
 	return true
 end
 
+function Reference:foreachAwait(vFunc)
+	if self._resultType then
+		self._resultType:foreach(vFunc)
+	else
+		local nListType = self:getListAwait()
+		for _, v in ipairs(nListType) do
+			vFunc(v)
+		end
+	end
+end
+
 function Reference:foreach(vFunc)
 	if self._resultType then
 		self._resultType:foreach(vFunc)
 	else
+		error("TODO"..debug.traceback())
 		local nListType = self:getListAwait()
 		for _, v in ipairs(nListType) do
 			vFunc(v)
@@ -186,8 +198,8 @@ function Reference:_intersectOneNotRefer(vType:class.IAtomType)::Ret(Union(class
 end
 
 function Reference:containAtom(vRightType)
-	self:getTypeAwait()
-	return self:atomContainAssume(nil, vRightType)
+	local nType = self:getTypeAwait()
+	return nType:containAtom(vRightType)
 end
 
 function Reference:atomContainAssume(vAssumeSet, vAtomType:class.IAtomType)::Ret(Union(class.IAtomType, False))

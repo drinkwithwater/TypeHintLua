@@ -157,7 +157,7 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 			end
 			nIntersectSet[nMetaObject] = true
 			local nValueDict = nMetaObject:getValueDict()
-			nMetaObject:getKeyRefer():foreach(function(vKeyType)
+			nMetaObject:getKeyRefer():foreachAwait(function(vKeyType)
 				nTypeList[#nTypeList + 1] = vKeyType
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
@@ -190,7 +190,7 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
 				local nType = self:_toType(nItem)
-				nType:foreach(function(vAtomType)
+				nType:foreachAwait(function(vAtomType)
 					nTypeList[#nTypeList + 1] = vAtomType
 				end)
 			end
@@ -226,7 +226,7 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 			if not Reference.is(nKey) then
 				nKey = self:_toType(nKey)
 			end
-			nKey:foreach(function(vAtomType)
+			nKey:foreachAwait(function(vAtomType)
 				nTypeList[#nTypeList + 1] = vAtomType
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType

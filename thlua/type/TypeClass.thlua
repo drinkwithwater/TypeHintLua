@@ -23,6 +23,7 @@ class.IType = Interface {
 	id=Number,
 	bits=Number,
 	foreach=Mfn(Fn(class.IAtomType)),
+	foreachAwait=Mfn(Fn(class.IAtomType)),
 
 	isSingleton=Mfn():Ret(Boolean),
 	isNilable=Mfn():Ret(Boolean),
@@ -31,9 +32,10 @@ class.IType = Interface {
 	unionSign=Mfn():Ret(String),
 
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
+	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
+
 	containAll=Mfn(class.UAllType):Ret(Boolean),
 	allContainAssume=Mfn(Option(Dict(Integer, True)), class.UAllType):Ret(Boolean),
-	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
 	containAtom=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 	atomContainAssume=Mfn(Option(Dict(Integer, True)), class.IAtomType):Ret(Union(class.IAtomType, False)),
 
@@ -44,11 +46,14 @@ class.IType = Interface {
 	same=Mfn(class.UAllType):Ret(Boolean),
 }
 
+class.IAtomContainAssume = Interface {
+}
+
 class.IMetaCall = Interface {
 	meta_call=Mfn(class.Context, class.UTypeTuple):Ret(class.RetTuples),
 }
 
-class.IAtomType = Intersect(class.IType, class.IMetaCall, Interface {
+class.IAtomType = Intersect(class.IType, class.IAtomContainAssume, class.IMetaCall, Interface {
 	_manager=class.TypeManager,
 	isReference=Mfn():Ret(False),
 	checkAtomUnion=Mfn():Ret(class.IAtomType),
@@ -79,7 +84,7 @@ class.IAtomType = Intersect(class.IType, class.IMetaCall, Interface {
 	checkStruct=Mfn():Ret(Union(False, class.MetaObject))
 })
 
-class.IUnionType = Intersect(class.IType, Interface {
+class.IUnionType = Intersect(class.IType, class.IAtomContainAssume, Interface {
 	_manager=class.TypeManager,
 	isReference=Mfn():Ret(False),
 	checkAtomUnion=Mfn():Ret(class.IUnionType),
@@ -100,6 +105,9 @@ local function TypeClass()::open()
 	function t.__tostring(self)
 		local cache = {}
 		return self:detailString(cache, false)
+	end
+	function t:foreachAwait?(vFunc)
+		self:foreach(vFunc)
 	end
 	function t.is?(v)::Ret(Boolean):nocheck()
 		return getmetatable(v) == t
@@ -128,9 +136,9 @@ local function TypeClass()::open()
 	function t:atomContainAssume?(vAssumeSet, vRight)
 		error(tostring(self).."containAtom TODO")
 	end
-	function t:allContainAssume(vAssumeSet, vRight)
+	function t:allContainAssume?(vAssumeSet, vRight)
 		local nContain:Boolean = true
-		vRight:foreach(function(vSubType)
+		vRight:foreachAwait(function(vSubType)
 			if nContain and not self:atomContainAssume(vAssumeSet, vSubType) then
 				nContain = false
 			end
