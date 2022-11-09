@@ -202,6 +202,31 @@ function Reference:containAtom(vRightType)
 	return nType:containAtom(vRightType)
 end
 
+function Reference:allContainAssume(vAssumeSet, vRightType)::Ret(Boolean)
+	local nResultType = self._resultType
+	if nResultType then
+		return nResultType:allContainAssume(vAssumeSet, vRightType)
+	end
+	local nTypeList = self:getListAwait()
+	local nAllContain:Boolean = true
+	vRightType:foreachAwait(function(vAtomType)
+		if not nAllContain then
+			return
+		end
+		local nCurContain:Boolean = false
+		for _, nType in ipairs(nTypeList) do
+			if nType:atomContainAssume(vAssumeSet, vAtomType) then
+				nCurContain = true
+				break
+			end
+		end
+		if not nCurContain then
+			nAllContain = false
+		end
+	end)
+	return nAllContain
+end
+
 function Reference:atomContainAssume(vAssumeSet, vAtomType:class.IAtomType)::Ret(Union(class.IAtomType, False))
 	local nTypeList = self:getListAwait()
 	for _, nType in ipairs(nTypeList) do

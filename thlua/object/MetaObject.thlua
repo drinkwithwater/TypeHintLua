@@ -71,7 +71,15 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 	local nRightKeyRefer = vRightObject:getKeyRefer()
 	local nRightValueDict = vRightObject:getValueDict()
 	for nLeftKey, nLeftValue in pairs(self._valueDict) do
-		local nRightKey = nRightKeyRefer:atomContainAssume(nil, nLeftKey)
+		local nRightKey:Union(class.IAtomType, False) = false
+		local nRightKeyResultType = nRightKeyRefer:getType()
+		if nRightKeyResultType then
+			nRightKey = nRightKeyResultType:atomContainAssume(nil, nLeftKey)
+		else
+			for _, nRightSubType in ipairs(nRightKeyRefer:getListAwait()) do
+				nRightKey = nRightSubType:atomContainAssume(nil, nLeftKey) or nRightKey
+			end
+		end
 		if not nRightKey then
 			return false
 		end
@@ -94,31 +102,34 @@ function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	if self == vRightType then
 		return self
 	end
-	local nLeftKeyRefer = self._keyRefer
-	nLeftKeyRefer:getListAwait()
-	local nRightKeyRefer = nRightStruct:getKeyRefer()
-	nRightKeyRefer:getListAwait()
 	local nPair, nResult = self._manager:getObjPairContain(self, nRightStruct)
 	if nResult ~= nil then
 		return nResult and self
 	end
-	vAssumeSet = vAssumeSet or {}
-	if vAssumeSet[nPair] then
+	local nLeftKeyRefer = self._keyRefer
+	nLeftKeyRefer:getListAwait()
+	local nRightKeyRefer = nRightStruct:getKeyRefer()
+	nRightKeyRefer:getListAwait()
+	local nAssumeSet:Dict(Integer, True) = vAssumeSet or {}
+	if nAssumeSet[nPair] then
 		return self
 	end
-	vAssumeSet[nPair] = true
+	nAssumeSet[nPair] = true
 	local nAssumeContain:Boolean = false
 	if nLeftKeyRefer:isInterfaceKey() then
-		nAssumeContain = self:_interfaceContainWithAssume(vAssumeSet, nRightStruct)
+		nAssumeContain = self:_interfaceContainWithAssume(nAssumeSet, nRightStruct)
 	elseif nRightKeyRefer:isInterfaceKey() then
 		nAssumeContain = false
 	else
-		nAssumeContain = self:_structSameWithAssume(vAssumeSet, nRightStruct)
+		nAssumeContain = self:_structSameWithAssume(nAssumeSet, nRightStruct)
 	end
 	if not nAssumeContain then
 		self._manager:setObjPairContain(nPair, false)
-		vAssumeSet[nPair] = nil
+		nAssumeSet[nPair] = nil
 		return false
+	end
+	if not vAssumeSet then
+		self._manager:setObjPairContain(nPair, true)
 	end
 	return self
 	--[[local nContainCache = self._containCache
