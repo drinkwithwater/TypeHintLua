@@ -477,9 +477,12 @@ end
 
 function TypeManager:setObjPairContain(vPair:Integer, vContain:Boolean)
 	local nContainRefer = self._objPairToContain[vPair]!
-	if not nContainRefer:getType() then
-		local nBoolType = vContain and self.type.True or self.type.False
-		nContainRefer:setTypeAsync(self._runtime:getNode(), nBoolType)
+	local nCurType = nContainRefer:getType()
+	local nAssignType = vContain and self.type.True or self.type.False
+	if not nCurType then
+		nContainRefer:setTypeAsync(self._runtime:getNode(), nAssignType)
+	else
+		assert(nAssignType == nCurType, "contain set conflict")
 	end
 end
 

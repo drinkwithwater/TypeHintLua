@@ -49,10 +49,10 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 		if not nRightValue then
 			return false
 		end
-		if not nRightValue:allContainAssume(vAssumeSet, nLeftValue) then
+		if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
 			return false
 		end
-		if not nLeftValue:allContainAssume(vAssumeSet, nRightValue) then
+		if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
 			return false
 		end
 	end
@@ -74,20 +74,20 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 		local nRightKey:Union(class.IAtomType, False) = false
 		local nRightKeyResultType = nRightKeyRefer:getType()
 		if nRightKeyResultType then
-			nRightKey = nRightKeyResultType:atomContainAssume(nil, nLeftKey)
+			nRightKey = nRightKeyResultType:assumeContainAtom(nil, nLeftKey)
 		else
 			for _, nRightSubType in ipairs(nRightKeyRefer:getListAwait()) do
-				nRightKey = nRightSubType:atomContainAssume(nil, nLeftKey) or nRightKey
+				nRightKey = nRightSubType:assumeContainAtom(nil, nLeftKey) or nRightKey
 			end
 		end
 		if not nRightKey then
 			return false
 		end
 		local nRightValue = nRightValueDict[nRightKey]!
-		if not nLeftValue:allContainAssume(vAssumeSet, nRightValue) then
+		if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
 			return false
 		end
-		if not nRightValue:allContainAssume(vAssumeSet, nLeftValue) then
+		if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
 			return false
 		end
 	end
@@ -109,7 +109,7 @@ function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, True), vRightOb
 	end
 end
 
-function MetaObject:atomContainAssume(vAssumeSet, vRightType)
+function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
 		return false
@@ -140,48 +140,6 @@ function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	else
 		return self
 	end
-	--[[local nContainCache = self._containCache
-	local nCacheResult = nContainCache[nRightStruct]
-	if nCacheResult == true then
-		return self
-	elseif nCacheResult == false then
-		return false
-	end
-	nContainCache[nRightStruct] = true
-	if MetaObject.is(nRightStruct) then
-		if self == nRightStruct then
-			nContainCache[nRightStruct] = true
-			return self
-		else
-			nContainCache[nRightStruct] = true
-			if not nRightStruct:getKeyType():containAll(self:getKeyType()) then
-				nContainCache[nRightStruct] = false
-				return false
-			end
-			if not self:getKeyType():containAll(nRightStruct:getKeyType()) then
-				nContainCache[nRightStruct] = false
-				return false
-			end
-			-- check for not late type
-			local nLatePairList:List(Struct {class.UAllType, class.UAllType}) = {}
-			for nKey, nValue in pairs(self._valueDict) do
-				local nValueType = nValue:getType()
-				local nRightValue = nRightStruct._valueDict[nKey]!
-				if nValueType and nRightValue and nRightValue:getType() then
-					local nRightValueType = nRightValue:getType()
-					if not nValueType:containAll(nRightValueType) then
-						nContainCache[nRightStruct] = false
-						return false
-					end
-				end
-			end
-			nContainCache[nRightStruct] = true
-			return self
-		end
-	else
-		nContainCache[nRightStruct] = false
-		return false
-	end]]
 end
 
 function MetaObject:meta_len(vContext)

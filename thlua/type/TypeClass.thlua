@@ -35,7 +35,7 @@ class.IType = Interface {
 	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(Union(class.UAtomUnion, False)),
 
 	containAll=Mfn(class.UAllType):Ret(Boolean),
-	allContainAssume=Mfn(Option(Dict(Integer, True)), class.UAllType):Ret(Boolean),
+	assumeContainAll=Mfn(Option(Dict(Integer, True)), class.UAllType):Ret(Boolean),
 	containAtom=Mfn(class.IAtomType):Ret(Union(class.IAtomType, False)),
 
 	notnilType=Mfn():Ret(class.UAtomUnion),
@@ -46,7 +46,7 @@ class.IType = Interface {
 }
 
 class.IAtomContainAssume = Interface {
-	atomContainAssume=Mfn(Option(Dict(Integer, True)), class.IAtomType):Ret(Union(class.IAtomType, False)),
+	assumeContainAtom=Mfn(Option(Dict(Integer, True)), class.IAtomType):Ret(Union(class.IAtomType, False)),
 }
 
 class.IMetaCall = Interface {
@@ -131,22 +131,22 @@ local function TypeClass()::open()
 		error(tostring(self).."_intersectOneNotRefer TODO")
 	end
 	function t:containAtom?(vRight)
-		return self:atomContainAssume(nil, vRight)
+		return self:assumeContainAtom(nil, vRight)
 	end
-	function t:atomContainAssume?(vAssumeSet, vRight)
+	function t:assumeContainAtom?(vAssumeSet, vRight)
 		error(tostring(self).."containAtom TODO")
 	end
-	function t:allContainAssume?(vAssumeSet, vRight)
+	function t:assumeContainAll?(vAssumeSet, vRight)
 		local nContain:Boolean = true
 		vRight:foreachAwait(function(vSubType)
-			if nContain and not self:atomContainAssume(vAssumeSet, vSubType) then
+			if nContain and not self:assumeContainAtom(vAssumeSet, vSubType) then
 				nContain = false
 			end
 		end)
 		return nContain
 	end
 	function t:containAll(vRight)
-		return self:allContainAssume(nil, vRight)
+		return self:assumeContainAll(nil, vRight)
 	end
 	function t:intersect(vRight)
 		local vLeft = self
