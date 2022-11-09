@@ -94,6 +94,21 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 	return true
 end
 
+function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
+	local nLeftKeyRefer = self._keyRefer
+	nLeftKeyRefer:getListAwait()
+	local nRightKeyRefer = vRightObject:getKeyRefer()
+	nRightKeyRefer:getListAwait()
+	local nAssumeContain:Boolean = false
+	if nLeftKeyRefer:isInterfaceKey() then
+		return self:_interfaceContainWithAssume(vAssumeSet, vRightObject)
+	elseif nRightKeyRefer:isInterfaceKey() then
+		return false
+	else
+		return self:_structSameWithAssume(vAssumeSet, vRightObject)
+	end
+end
+
 function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	local nRightStruct = vRightType:checkStruct()
 	if not nRightStruct then
@@ -102,36 +117,29 @@ function MetaObject:atomContainAssume(vAssumeSet, vRightType)
 	if self == vRightType then
 		return self
 	end
-	local nPair, nResult = self._manager:getObjPairContain(self, nRightStruct)
-	if nResult ~= nil then
-		return nResult and self
+	local nMgr = self._manager
+	local nPair, nContainRefer = nMgr:attachObjPairContain(self, nRightStruct)
+	if not vAssumeSet then
+		local nResultType = nContainRefer:getTypeAwait()
+		return nResultType == nMgr.type.True and self
+	else
+		local nResultType = nContainRefer:getType()
+		if nResultType then
+			return nResultType == nMgr.type.True and self
+		end
 	end
-	local nLeftKeyRefer = self._keyRefer
-	nLeftKeyRefer:getListAwait()
-	local nRightKeyRefer = nRightStruct:getKeyRefer()
-	nRightKeyRefer:getListAwait()
-	local nAssumeSet:Dict(Integer, True) = vAssumeSet or {}
-	if nAssumeSet[nPair] then
+	if vAssumeSet[nPair] then
 		return self
 	end
-	nAssumeSet[nPair] = true
-	local nAssumeContain:Boolean = false
-	if nLeftKeyRefer:isInterfaceKey() then
-		nAssumeContain = self:_interfaceContainWithAssume(nAssumeSet, nRightStruct)
-	elseif nRightKeyRefer:isInterfaceKey() then
-		nAssumeContain = false
-	else
-		nAssumeContain = self:_structSameWithAssume(nAssumeSet, nRightStruct)
-	end
+	vAssumeSet[nPair] = true
+	local nAssumeContain = self:assumeContainObject(vAssumeSet, nRightStruct)
 	if not nAssumeContain then
-		self._manager:setObjPairContain(nPair, false)
-		nAssumeSet[nPair] = nil
+		nMgr:setObjPairContain(nPair, false)
+		vAssumeSet[nPair] = nil
 		return false
+	else
+		return self
 	end
-	if not vAssumeSet then
-		self._manager:setObjPairContain(nPair, true)
-	end
-	return self
 	--[[local nContainCache = self._containCache
 	local nCacheResult = nContainCache[nRightStruct]
 	if nCacheResult == true then

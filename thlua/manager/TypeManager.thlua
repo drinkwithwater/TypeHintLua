@@ -45,8 +45,8 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		_runtime=vRuntime,
 		type={},
 		builtin={},
-		coToRefer={},
-		_objPairToContain={} @ Dict(Integer, Boolean),
+		coToRefer={} @ Dict(Truth, class.Reference),
+		_objPairToContain={} @ Dict(Integer, class.Reference),
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
 		_unionSignToType={}@Dict(String, class.UAtomUnion),
 		_typeIdCounter=0@Number,
@@ -445,14 +445,46 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList)::Ret(class.RefineTerm)
 	return RefineTerm.new(self, nType, nTypeToCase)
 end
 
-function TypeManager:getObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, Option(Boolean))
+function TypeManager:fork(vFunc)
+	local nNode = self._runtime:getNode()
+	local co, _ = coroutine.running()
+	local nCurRefer = self.coToRefer[co]
+	if nCurRefer then
+		nNode = nCurRefer:getSetNode() or nNode
+	end
+	local nNewRefer = self:Reference(false)
+	nNewRefer:setRawAsync(nNode, function()
+		vFunc()
+		return {}
+	end, function(vTypeList)
+		return self.type.Never
+	end)
+end
+
+function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, class.Reference)
 	local nPair = (vLeft.id << 32) + vRight.id
-	local nContain = self._objPairToContain[nPair]
-	return nPair, nContain
+	local nContainRefer = self._objPairToContain[nPair]
+	if not nContainRefer then
+		nContainRefer = self:Reference(false)
+		self._objPairToContain[nPair] = nContainRefer
+		self:fork(function()
+			local nContain = vLeft:assumeContainObject({nPair=true}, vRight)
+			self:setObjPairContain(nPair, nContain)
+		end)
+	end
+	return nPair, nContainRefer
 end
 
 function TypeManager:setObjPairContain(vPair:Integer, vContain:Boolean)
-	self._objPairToContain[vPair] = vContain
+	local nContainRefer = self._objPairToContain[vPair]!
+	if not nContainRefer:getType() then
+		local nBoolType = vContain and self.type.True or self.type.False
+		nContainRefer:setTypeAsync(self._runtime:getNode(), nBoolType)
+	end
+end
+
+function TypeManager:getRuntime()::Ret(class.Runtime)
+	return self._runtime
 end
 
 function TypeManager:genTypeId()::Ret(Number)
