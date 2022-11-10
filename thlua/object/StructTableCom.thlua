@@ -1,5 +1,6 @@
 
 local LuaFunction = require "thlua.func.LuaFunction"
+local MemberFunction = require "thlua.func.MemberFunction"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -38,51 +39,19 @@ end
 function StructTableCom:tryCast(vContext)
 	local nCastSuccess = true
 	local nDefaultCom = self._luaTable:getDefaultCom()
-	self._struct:foreachGetPair(function(vKeyType, vValueType)
-		local nDstType = vValueType:checkAtomUnion()
-		local nSrcType
-		local nRawValue = nDefaultCom:native_rawget(vContext, vKeyType)
-		if not nRawValue:isNilable() then
-			nSrcType = nRawValue
-		else
-			local _, nMetaGetValue = nDefaultCom:_meta_get(vContext, vKeyType)
-			nSrcType = nMetaGetValue
-		end
-		if LuaFunction.is(nSrcType) then
-			error("struct table function cast TODO")
-			--[[if not TypeFunction.is(nDstType) then
-				nCastSuccess = false
-				vContext:error("field cast failed, field="..tostring(vKeyType))
+	local nStruct = self._struct
+	nDefaultCom:foreachGetPair(function(vKeyType, vValueType)
+		local nKey, nValue = nStruct:indexKeyValue(vKeyType)
+		if nKey then
+			if nValue:containAll(vValueType) then
+				return
 			else
-				if nDstType:isMember() then
-					local nArgTuple = nDstType:getArgTuple()
-					nDstType = self._manager:Function(nArgTuple:replaceFirst(self), nDstType:getRetTuples())
-				end
-				if not vContext:cast(nSrcType, nDstType) then
-					nCastSuccess = false
-					vContext:error("field cast function failed, field="..tostring(vKeyType))
-				end
-			end]]
-		elseif not nDstType:containAll(nSrcType) then
-			vContext:error("field cast fail, field="..tostring(vKeyType))
-			nCastSuccess = false
-		end
-	end)
-	self._struct:foreachSetPair(function(vKeyType, vValueType)
-		if vKeyType:isSingleton() then
-			local nRawValue = nDefaultCom:native_rawget(vContext, vKeyType)
-			if not nRawValue:isNilable() then
-				if not nRawValue:containAll(vValueType) then
-					vContext:error(" setter field error, field=", vKeyType)
-				end
-			else
-				print("TODO check __newindex")
-				-- self:_meta_set(vContext, vKeyType, vValueType, false)
+				vContext:error("table cast fail, field="..tostring(vKeyType).." not match")
 			end
 		else
-			print("TODO check __newindex")
-			-- self:_meta_set(vContext, vKeyType, vValueType, false)
+			vContext:error("table cast fail, field="..tostring(vKeyType).." not existed")
 		end
+		nCastSuccess = false
 	end)
 	return nCastSuccess
 end

@@ -239,7 +239,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 		local nSetValue = self._valueDict[nKey]
 		if nSetValue then
 			if MemberFunction.is(nSetValue) then
-				vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
+				vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
 				return
 			end
 			local nSetType = nSetValue:checkAtomUnion()
@@ -255,26 +255,18 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
-function MetaObject:foreachGetPair(vFunc:Fn(class.IAtomType, Union(class.UAllType, class.MemberFunction)))
-	self._keyRefer:foreach(function(vKeyType)
-		local nGetValue = self._valueDict[vKeyType]
-		if nGetValue then
-			if MemberFunction.is(nGetValue) then
-				vFunc(vKeyType, nGetValue)
-			else
-				vFunc(vKeyType, nGetValue:checkAtomUnion())
-			end
+function MetaObject:indexKeyValue(vKey:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
+	local nKey = self._keyRefer:containAtom(vKey)
+	if nKey then
+		local nValue = self._valueDict[nKey]!
+		if not MemberFunction.is(nValue) then
+			return nKey, nValue
+		else
+			return false
 		end
-	end)
-end
-
-function MetaObject:foreachSetPair(vFunc:Fn(class.IAtomType, class.UAllType))
-	self._keyRefer:foreach(function(vKeyType)
-		local nSetValue = self._valueDict[vKeyType]
-		if nSetValue and not MemberFunction.is(nSetValue) then
-			vFunc(vKeyType, nSetValue:checkAtomUnion())
-		end
-	end)
+	else
+		return false
+	end
 end
 
 function MetaObject:detailString(vToStringCache, vVerbose)
@@ -302,6 +294,10 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	local nResult = "Interface {"..table.concat(l, ",").."}"
 	vToStringCache[self] = nResult
 	return nResult
+end
+
+function MetaObject:anyObject(vFunc)
+	return vFunc(self)
 end
 
 function MetaObject:getKeyType()::Ret(class.UAtomUnion)
