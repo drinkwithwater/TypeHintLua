@@ -1,21 +1,25 @@
 
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local MemberFunction = require "thlua.func.MemberFunction"
 local StringLiteral = require "thlua.type.StringLiteral"
 local Exception = require "thlua.Exception"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
 local MetaObject = AtomTypeClass()
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	class.MemberDict = Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction))
+end)
 
 function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	::RetClass(class.MetaObject, class.IAtomType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_keyRefer=vKeyRefer,
-		_valueDict=false@class.ValueDict,
+		_valueDict=false@class.MemberDict,
 		_nextValue=false,
-		_nextDict=false@Union(False, class.ValueDict),
+		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAllType)),
 		_intersectSet=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
@@ -25,7 +29,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict:class.ValueDict, vNext:Boolean, vIntersectSet)
+function MetaObject:init(vValueDict:class.MemberDict, vNext:Boolean, vIntersectSet)
 	self._valueDict = vValueDict
 	self._nextDict = {}
 	self._intersectSet = vIntersectSet or {}
@@ -49,11 +53,23 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 		if not nRightValue then
 			return false
 		end
-		if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
-			return false
-		end
-		if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
-			return false
+		if MemberFunction.is(nLeftValue) or MemberFunction.is(nRightValue) then
+			if MemberFunction.is(nLeftValue) and MemberFunction.is(nRightValue) then
+				local nLeftTypeFn = nLeftValue:indexTypeFn(self)
+				local nRightTypeFn = nRightValue:indexTypeFn(self)
+				if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
+					return false
+				end
+			else
+				return false
+			end
+		else
+			if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
+				return false
+			end
+			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+				return false
+			end
 		end
 	end
 	for nRightKey, nRightValue in pairs(nRightValueDict) do
@@ -84,11 +100,23 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 			return false
 		end
 		local nRightValue = nRightValueDict[nRightKey]!
-		if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
-			return false
-		end
-		if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
-			return false
+		if MemberFunction.is(nLeftValue) or MemberFunction.is(nRightValue) then
+			if MemberFunction.is(nLeftValue) and MemberFunction.is(nRightValue) then
+				local nLeftTypeFn = nLeftValue:indexTypeFn(self)
+				local nRightTypeFn = nRightValue:indexTypeFn(self)
+				if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
+					return false
+				end
+			else
+				return false
+			end
+		else
+			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+				return false
+			end
+			if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
+				return false
+			end
 		end
 	end
 	return true
@@ -193,7 +221,11 @@ function MetaObject:meta_get(vContext, vType)
 	if nKey then
 		local nGetValue = self._valueDict[nKey]
 		if nGetValue then
-			return nGetValue:checkAtomUnion()
+			if MemberFunction.is(nGetValue) then
+				return nGetValue:indexTypeFn(self)
+			else
+				return nGetValue:checkAtomUnion()
+			end
 		end
 	else
 		vContext:error("error get("..tostring(vType)..") in struct")
@@ -206,6 +238,10 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	if nKey then
 		local nSetValue = self._valueDict[nKey]
 		if nSetValue then
+			if MemberFunction.is(nSetValue) then
+				vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
+				return
+			end
 			local nSetType = nSetValue:checkAtomUnion()
 			if vContext:cast(vValueType, nSetType) then
 				return
@@ -219,11 +255,15 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
-function MetaObject:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAllType))
+function MetaObject:foreachGetPair(vFunc:Fn(class.IAtomType, Union(class.UAllType, class.MemberFunction)))
 	self._keyRefer:foreach(function(vKeyType)
 		local nGetValue = self._valueDict[vKeyType]
 		if nGetValue then
-			vFunc(vKeyType, nGetValue:checkAtomUnion())
+			if MemberFunction.is(nGetValue) then
+				vFunc(vKeyType, nGetValue)
+			else
+				vFunc(vKeyType, nGetValue:checkAtomUnion())
+			end
 		end
 	end)
 end
@@ -231,7 +271,7 @@ end
 function MetaObject:foreachSetPair(vFunc:Fn(class.IAtomType, class.UAllType))
 	self._keyRefer:foreach(function(vKeyType)
 		local nSetValue = self._valueDict[vKeyType]
-		if nSetValue then
+		if nSetValue and not MemberFunction.is(nSetValue) then
 			vFunc(vKeyType, nSetValue:checkAtomUnion())
 		end
 	end)
@@ -268,7 +308,7 @@ function MetaObject:getKeyType()::Ret(class.UAtomUnion)
 	return self._keyRefer:checkAtomUnion()
 end
 
-function MetaObject:getValueDict()::Ret(class.ValueDict)
+function MetaObject:getValueDict()::Ret(class.MemberDict)
 	return self._valueDict
 end
 

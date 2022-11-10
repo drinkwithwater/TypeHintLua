@@ -20,6 +20,8 @@ local TypeFunction = require "thlua.func.TypeFunction"
 local Reference = require "thlua.type.Reference"
 local Variable = require "thlua.func.Variable"
 
+local MemberFunction = require "thlua.func.MemberFunction"
+
 local StringLiteralUnion = require "thlua.union.StringLiteralUnion"
 local NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
 local ObjectUnion = require "thlua.union.ObjectUnion"
@@ -215,10 +217,12 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
-		local nValueDict:Dict(class.UAtomUnion, class.UAllType) = {}
+		local nValueDict:Dict(class.UAtomUnion, Union(class.UAllType, class.MemberFunction)) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType
 			if Reference.is(nValue) then
+				nValueType = nValue
+			elseif MemberFunction.is(nValue) then
 				nValueType = nValue
 			else
 				nValueType = self:_toType(nValue)
@@ -372,9 +376,9 @@ function TypeManager:SingleRetTuples(vTypeTuple:class.TypeTuple)::Ret(class.RetT
 	return nRetTuples:Add(vTypeTuple)
 end
 
-function TypeManager:buildMfn(vNode:class.AstNode, ...:Truth)::Ret(class.TypeFunction)
+function TypeManager:buildMfn(vNode:class.AstNode, ...:Truth)::Ret(class.MemberFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
-	return TypeFunction.new(self, nArgTuple, false, true)
+	return MemberFunction.new(self, nArgTuple, false)
 end
 
 function TypeManager:buildFn(vNode:class.AstNode, ...:Truth)::Ret(class.TypeFunction)

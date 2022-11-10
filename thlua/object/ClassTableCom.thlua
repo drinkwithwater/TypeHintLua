@@ -1,6 +1,7 @@
 
 local StringLiteral = require "thlua.type.StringLiteral"
 local TypeFunction = require "thlua.func.TypeFunction"
+local MemberFunction = require "thlua.func.MemberFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local Nil = require "thlua.type.Nil"
 
@@ -72,10 +73,10 @@ function ClassTableCom:implement(vContext)
 			if LuaFunction.is(vValue) then
 				if vValue:isMember() then
 					nCollection:put(vKey)
-					if self._interface:getKeyType():containAll(vKey) then
-						local nIntfValue = self._interface:meta_get(vContext, vKey)
-						if TypeFunction.is(nIntfValue) then
-							self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nIntfValue)
+					local nInterfaceValue = self._interface:getValueDict()[vKey]
+					if nInterfaceValue then
+						if MemberFunction.is(nInterfaceValue) then
+							self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nInterfaceValue:indexTypeFn(self._luaTable))
 							return
 						end
 					end
