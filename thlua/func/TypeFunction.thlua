@@ -95,19 +95,47 @@ function TypeFunction:_intersectOneNotRefer(vType)
 	end
 end
 
-function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
+function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, True), vRight:class.TypeFunction)::Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
-	if TypeFunction.is(vRight) then
-		local nRightRetTuples = vRight:_buildRetTuples()
-		if not vRight._argTuple:tupleContainAssume(vAssumeSet, self._argTuple) then
-			return false
-		end
-		if not nLeftRetTuples:tuplesContainAssume(vAssumeSet, nRightRetTuples) then
-			return false
-		end
-		return self
-	else
+	local nRightRetTuples = vRight:_buildRetTuples()
+	if not vRight._argTuple:tupleContainAssume(vAssumeSet, self._argTuple) then
 		return false
+	end
+	if not nLeftRetTuples:tuplesContainAssume(vAssumeSet, nRightRetTuples) then
+		return false
+	end
+	return true
+end
+
+function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
+	if self == vRight then
+		return self
+	end
+	if not TypeFunction.is(vRight) then
+		return false
+	end
+	local nMgr = self._manager
+	local nPair, nContainRefer = nMgr:attachFnPairContain(self, vRight)
+	if not vAssumeSet then
+		local nResultType = nContainRefer:getTypeAwait()
+		return nResultType == nMgr.type.True and self
+	else
+		local nResultType = nContainRefer:getType()
+		if nResultType then
+			return nResultType == nMgr.type.True and self
+		end
+	end
+	if vAssumeSet[nPair] then
+		return self
+	end
+	vAssumeSet[nPair] = true
+	local nAssumeContain = self:assumeContainFn(vAssumeSet, vRight)
+	if not nAssumeContain then
+		nMgr:setContainByPair(nPair, false)
+		vAssumeSet[nPair] = nil
+		return false
+	else
+		return self
 	end
 end
 

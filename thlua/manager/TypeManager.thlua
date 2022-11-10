@@ -46,7 +46,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		type={},
 		builtin={},
 		coToRefer={} @ Dict(Truth, class.Reference),
-		_objPairToContain={} @ Dict(Integer, class.Reference),
+		_pairToContain={} @ Dict(Integer, class.Reference),
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
 		_unionSignToType={}@Dict(String, class.UAtomUnion),
 		_typeIdCounter=0@Number,
@@ -463,20 +463,34 @@ end
 
 function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, class.Reference)
 	local nPair = (vLeft.id << 32) + vRight.id
-	local nContainRefer = self._objPairToContain[nPair]
+	local nContainRefer = self._pairToContain[nPair]
 	if not nContainRefer then
 		nContainRefer = self:Reference(false)
-		self._objPairToContain[nPair] = nContainRefer
+		self._pairToContain[nPair] = nContainRefer
 		self:fork(function()
 			local nContain = vLeft:assumeContainObject({nPair=true}, vRight)
-			self:setObjPairContain(nPair, nContain)
+			self:setContainByPair(nPair, nContain)
 		end)
 	end
 	return nPair, nContainRefer
 end
 
-function TypeManager:setObjPairContain(vPair:Integer, vContain:Boolean)
-	local nContainRefer = self._objPairToContain[vPair]!
+function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.TypeFunction)::Ret(Integer, class.Reference)
+	local nPair = (vLeft.id << 32) + vRight.id
+	local nContainRefer = self._pairToContain[nPair]
+	if not nContainRefer then
+		nContainRefer = self:Reference(false)
+		self._pairToContain[nPair] = nContainRefer
+		self:fork(function()
+			local nContain = vLeft:assumeContainFn({nPair=true}, vRight)
+			self:setContainByPair(nPair, nContain)
+		end)
+	end
+	return nPair, nContainRefer
+end
+
+function TypeManager:setContainByPair(vPair:Integer, vContain:Boolean)
+	local nContainRefer = self._pairToContain[vPair]!
 	local nCurType = nContainRefer:getType()
 	local nAssignType = vContain and self.type.True or self.type.False
 	if not nCurType then
