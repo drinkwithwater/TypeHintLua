@@ -94,13 +94,15 @@ function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function LateFnCom:cast(vContext, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
-	if not self._typeFunction then
+function LateFnCom:cast(vContext:class.Context, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
+	local nTypeFn = self._typeFunction
+	if not nTypeFn then
 		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
 		self._retTuples = self._retTuples or vDstTypeFn:getRetTuples()
-		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples or vDstTypeFn:getRetTuples())
+		nTypeFn = self._manager:Function(nArgTuple, self._retTuples or vDstTypeFn:getRetTuples())
+		self._typeFunction = nTypeFn
 	end
-	return vDstTypeFn:containAll(self._typeFunction) and true
+	return vDstTypeFn:containAll(nTypeFn) and true
 end
 
 function LateFnCom:_typeDefault()

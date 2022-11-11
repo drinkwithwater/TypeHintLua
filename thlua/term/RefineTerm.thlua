@@ -7,8 +7,8 @@ local Nil = require "thlua.type.Nil"
 
 local RefineTerm = {}
 RefineTerm.__index=RefineTerm
-RefineTerm.__bor=function(vLeft, vRight)
-	local nTypeCaseList = {}
+RefineTerm.__bor=function(vLeft:class.RefineTerm, vRight:class.RefineTerm)
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	vLeft:foreach(function(vType, vCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
 	end)
@@ -17,7 +17,7 @@ RefineTerm.__bor=function(vLeft, vRight)
 	end)
 	return vLeft._manager:mergeToRefineTerm(nTypeCaseList)
 end
-RefineTerm.__tostring=function(self)::Ret(String)
+RefineTerm.__tostring=function(self:class.RefineTerm)::Ret(String)
 	local l:List(String) = {}
 	for nType, nTermCase in pairs(self._typeToCase) do
 		l[#l + 1] = tostring(nType) .."=>"..tostring(nTermCase)
@@ -103,9 +103,9 @@ end
 
 function RefineTerm:notnilTerm()::Ret(class.RefineTerm)
 	local nNotnilType = self._type:notnilType()
-	local nTypeCaseList = {}
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	nNotnilType:foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
@@ -141,34 +141,34 @@ end
 
 function RefineTerm:falseTerm()::Ret(class.RefineTerm)
 	local nFalseType = self._type:falseType()
-	local nTypeCaseList = {}
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	nFalseType:foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:trueTerm()::Ret(class.RefineTerm)
 	local nTrueType = self._type:trueType()
-	local nTypeCaseList:List(Truth) = {}
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	nTrueType:foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]}
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:notTerm()::Ret(class.RefineTerm)
-	local nTypeCaseList = {}
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	self._type:falseType():foreach(function(vType)
 	nTypeCaseList[#nTypeCaseList + 1] = {
 		self._manager.type.True,
-		self._typeToCase[vType]
+		self._typeToCase[vType]!
 	}
 	end)
 	self._type:trueType():foreach(function(vType)
 	nTypeCaseList[#nTypeCaseList + 1] = {
 		self._manager.type.False,
-		self._typeToCase[vType]
+		self._typeToCase[vType]!
 	}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
@@ -196,12 +196,12 @@ function RefineTerm:add_self(vSymbolShot:class.SymbolShot)
 	end
 end
 
-function RefineTerm:filter(vType)::Ret(class.RefineTerm)
-	local nTypeCaseList = {}
+function RefineTerm:filter(vType:class.UAllType)::Ret(class.RefineTerm)
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	vType:foreach(function(vSubType)
 		local nContainType = self._type:containAtom(vSubType)
 		if nContainType then
-			local nCase = self._typeToCase[nContainType]
+			local nCase = self._typeToCase[nContainType]!
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, nCase}
 		else
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, TermCase.new()}

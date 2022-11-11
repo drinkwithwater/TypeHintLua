@@ -14,9 +14,10 @@ local function TupleClass()::open()
 		return #self._list
 	end
 	function t:detailString(vCache)
-		local re = {}
+		local re:List(String) = {}
 		for i=1, #self do
-			re[i] = self._list[i]:detailString(vCache)
+			local sth = self._list[i]!
+			re[i] = self._list[i]!:detailString(vCache)
 		end
 		local nRepeatType = self:getRepeatType()
 		if nRepeatType then
@@ -42,15 +43,15 @@ local function TupleClass()::open()
 		return nSign
 	end
 	function t:makeTermTuple()::Ret(class.TermTuple)
-		local nTermList = {}
+		local nTermList:List(class.RefineTerm) = {}
 		for i=1, #self do
-			nTermList[i] = self._manager:RefineTerm(self._list[i])
+			nTermList[i] = self._manager:RefineTerm(self._list[i]!)
 		end
 		local nTermTuple = self._manager:TermTuple(nTermList)
 		nTermTuple._typeTuple = self
 		return nTermTuple
 	end
-	function t:tupleContainAssume(vAssumeSet:Option(Dict(Integer, True)), vRightTypeTuple)::Ret(Boolean)
+	function t:tupleContainAssume(vAssumeSet:Option(Dict(Integer, True)), vRightTypeTuple:class.UTypeTuple)::Ret(Boolean)
 		local nLeftRepeatType = self:getRepeatType()
 		local nRightRepeatType = vRightTypeTuple:getRepeatType()
 		if (not nLeftRepeatType) and nRightRepeatType then
@@ -72,7 +73,7 @@ local function TupleClass()::open()
 			end
 		end
 		for i=#vRightTypeTuple + 1, #self do
-			local nLeftType = self._list[i]
+			local nLeftType = self._list[i]!
 			if not nLeftType:isNilable() then
 				return false
 			end
@@ -84,7 +85,7 @@ local function TupleClass()::open()
 		end
 		return true
 	end
-	function t:containTuple(vRightTypeTuple)::Ret(Boolean)
+	function t:containTuple(vRightTypeTuple:class.UTypeTuple)::Ret(Boolean)
 		return self:tupleContainAssume(nil, vRightTypeTuple)
 	end
 	return t

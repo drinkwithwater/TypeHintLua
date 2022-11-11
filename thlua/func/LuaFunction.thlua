@@ -102,8 +102,13 @@ function LuaFunction:native_type()
 	return self._manager:Literal("function")
 end
 
-function LuaFunction:cast(vContext, vTypeFn)::Ret(Boolean)
-	return self._unionFnCom:cast(vContext, vTypeFn)
+function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction)::Ret(Boolean)
+	local nUnionFnCom = self._unionFnCom
+	if LateFnCom.is(nUnionFnCom) then
+		return nUnionFnCom:cast(vContext, vTypeFn)
+	else
+		return false
+	end
 end
 
 function LuaFunction:implement(vContext, vSelfType, vIntfFnOrNil)
