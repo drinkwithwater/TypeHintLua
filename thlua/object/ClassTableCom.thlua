@@ -4,24 +4,24 @@ local TypeFunction = require "thlua.func.TypeFunction"
 local MemberFunction = require "thlua.func.MemberFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local Nil = require "thlua.type.Nil"
+local TableComClass = require "thlua.object.TableComClass"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-local ClassTableCom = {}
+local ClassTableCom = TableComClass()
 
-ClassTableCom.__index=ClassTableCom
 
 -- TODO vImplType can be struct, class
 function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable, vFnCom:class.ClassFnCom,
-	vBaseClass:Union(class.LuaTable, False), vInterface:Union(class.MetaObject, False))::RetClass(class.ClassTableCom)
+	vBaseClass:Union(class.LuaTable, False), vInterface:Union(class.MetaObject, False))::RetClass(class.ClassTableCom, class.ITableCom)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_luaTable=vLuaTable,
 		_defaultCom=vLuaTable:getDefaultCom(),
-		_valueDict={},
-		_keyType=false,
+		_valueDict={}@Dict(class.IAtomType, class.UAtomUnion),
+		_keyType=false@class.UAtomUnion,
 		_baseClass=vBaseClass,
-		_interface=vInterface or vManager.type.Object,
+		_interface=(vInterface or vManager.type.Object) @ class.MetaObject,
 		_fnCom=vFnCom,
 	}, ClassTableCom)
 	return self
@@ -36,7 +36,7 @@ function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
 	if not nContainKey then
 		vContext:error("key not found", tostring(vKeyType))
 	else
-		local nValue = self._valueDict[nContainKey]
+		local nValue = self._valueDict[nContainKey]!
 		if not nValue:containAll(vValueType) then
 			vContext:error("field not match", tostring(vKeyType))
 		end
@@ -46,14 +46,14 @@ end
 function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
 	local nContainKey = self._keyType:containAtom(vKeyType)
 	if nContainKey then
-		return self._valueDict[nContainKey]
+		return self._valueDict[nContainKey]!
 	else
 		vContext:error("key not found", tostring(vKeyType))
 		return self._manager.type.Nil
 	end
 end
 
-function ClassTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(True, Union(class.TypeFunction, class.LuaFunction))
+function ClassTableCom:meta_bop_func(vContext, vOper)
 	return self._luaTable:getDefaultCom():meta_bop_func(vContext, vOper)
 end
 
@@ -94,7 +94,7 @@ function ClassTableCom:implement(vContext)
 end
 
 function ClassTableCom:getCompletion()
-	local nDict = {}
+	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then
 			nDict[vType:getLiteral()] = true

@@ -1,13 +1,13 @@
 
 local LuaFunction = require "thlua.func.LuaFunction"
 local MemberFunction = require "thlua.func.MemberFunction"
+local TableComClass = require "thlua.object.TableComClass"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-local StructTableCom = {}
-StructTableCom.__index=StructTableCom
+local StructTableCom = TableComClass()
 
-function StructTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable, vStruct:class.MetaObject)::RetClass(class.StructTableCom)
+function StructTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable, vStruct:class.MetaObject)::RetClass(class.StructTableCom, class.ITableCom)
     local self = setmetatable({::Self()
         _manager=vManager,
         _luaTable=vLuaTable,
@@ -17,23 +17,23 @@ function StructTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable
 end
 
 function StructTableCom:meta_set(vContext, vKeyType, vValueType)
-    self._struct:meta_set(vContext, vKeyType, vValueType)
+	self._struct:meta_set(vContext, vKeyType, vValueType)
 end
 
 function StructTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
-    return self._struct:meta_get(vContext, vKeyType)
+	return self._struct:meta_get(vContext, vKeyType)
 end
 
 function StructTableCom:meta_ipairs(vContext)
-    return self._struct:meta_ipairs(vContext)
+	return self._struct:meta_ipairs(vContext)
 end
 
 function StructTableCom:meta_pairs(vContext)
-    return self._struct:meta_pairs(vContext)
+	return self._struct:meta_pairs(vContext)
 end
 
-function StructTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(True, Union(class.TypeFunction, class.LuaFunction))
-    return self._struct:meta_bop_func(vContext, vOper)
+function StructTableCom:meta_bop_func(vContext, vOper)
+	return self._struct:meta_bop_func(vContext, vOper)
 end
 
 function StructTableCom:tryCast(vContext)
@@ -57,10 +57,10 @@ function StructTableCom:tryCast(vContext)
 end
 
 function StructTableCom:checkStruct()
-    return self._struct:checkStruct()
+	return self._struct
 end
 
-function StructTableCom:getCompletion()
+function StructTableCom:getCompletion()::Ret(class.LspCompletion)
 	return self._struct:getCompletion()
 end
 

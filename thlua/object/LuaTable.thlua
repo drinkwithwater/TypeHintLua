@@ -40,7 +40,7 @@ function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
 	return self._defaultCom
 end
 
-function LuaTable:getCurrentCom()
+function LuaTable:getCurrentCom()::Ret(class.ITableCom)
 	if not self._sealed then
 		return self._defaultCom
 	else
@@ -143,16 +143,20 @@ function LuaTable:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:c
 	end
 end
 
-function LuaTable:meta_get(vContext, vKeyType:class.IAtomType)
+function LuaTable:meta_get(vContext, vKeyType)
 	return self:getCurrentCom():meta_get(vContext, vKeyType)
 end
 
-function LuaTable:meta_set(vContext, vKeyType, vValueType, vOverride)
-	self:getCurrentCom():meta_set(vContext, vKeyType, vValueType, false)
+function LuaTable:meta_set(vContext, vKeyType, vValueType)
+	self:getCurrentCom():meta_set(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
-	self:getCurrentCom():meta_set(vContext, vKeyType, vValueType, true)
+	if not self._sealed then
+		self._defaultCom:meta_set_override(vContext, vKeyType, vValueType)
+	else
+		vContext:error("override set can't work on sealed table")
+	end
 end
 
 function LuaTable:meta_len(vContext)
@@ -230,8 +234,9 @@ function LuaTable:getCompletion()
 end
 
 function LuaTable:checkDefine()
-	if ClassTableCom.is(self._sealCom) then
-		self._sealCom:checkDefine()
+	local nSealCom = self._sealCom
+	if ClassTableCom.is(nSealCom) then
+		nSealCom:checkDefine()
 	end
 end
 

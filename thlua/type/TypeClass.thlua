@@ -55,23 +55,10 @@ class.IMetaCall = Interface {
 	meta_call=Mfn(class.Context, class.UTypeTuple):Ret(class.RetTuples),
 }
 
-class.IAtomType = Intersect(class.IType, class.IAtomContainAssume, class.IMetaCall, Interface {
-	_manager=class.TypeManager,
-	isReference=Mfn():Ret(False),
-	checkAtomUnion=Mfn():Ret(class.IAtomType),
-	getType=Mfn():Ret(class.IAtomType),
-
-	isUnion=Mfn():Ret(False),
-	isStrNumLiteral=Mfn():Ret(Boolean),
-
-	native_type=Mfn():Ret(class.UAtomUnion),
-	native_next=Mfn(class.Context, class.UAtomUnion):Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAllType)),
-	native_tostring=Mfn():Ret(class.UAtomUnion),
-	native_getmetatable=Mfn():Ret(class.UAtomUnion),
-	native_setmetatable=Mfn(class.Context, class.UAtomUnion):Ret(class.UAtomUnion),
-
+class.IMetaNative = Interface {
 	native_rawget=Mfn(class.Context, class.IAtomType):Ret(class.UAtomUnion),
 	native_rawset=Mfn(class.Context, class.IAtomType, class.UAtomUnion, Union(Nil, Boolean)),
+	native_next=Mfn(class.Context, class.UAtomUnion):Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAllType)),
 
 	meta_pairs=Mfn(class.Context):Ret(class.UAtomUnion, class.UAtomUnion, class.UAtomUnion),
 	meta_ipairs=Mfn(class.Context):Ret(class.UAtomUnion, class.UAtomUnion, class.UAtomUnion),
@@ -82,6 +69,21 @@ class.IAtomType = Intersect(class.IType, class.IAtomContainAssume, class.IMetaCa
 	meta_len=Mfn(class.Context):Ret(class.IAtomType),
 	meta_uop_some=Mfn(class.Context, String):Ret(class.UAtomUnion),
 	meta_bop_func=Mfn(class.Context, String):Ret(Boolean, Union(class.IAtomType, Nil)),
+}
+
+class.IAtomType = Intersect(class.IType, class.IAtomContainAssume, class.IMetaCall, class.IMetaNative, Interface {
+	_manager=class.TypeManager,
+	isReference=Mfn():Ret(False),
+	checkAtomUnion=Mfn():Ret(class.IAtomType),
+	getType=Mfn():Ret(class.IAtomType),
+
+	isUnion=Mfn():Ret(False),
+	isStrNumLiteral=Mfn():Ret(Boolean),
+
+	native_type=Mfn():Ret(class.UAtomUnion),
+	native_tostring=Mfn():Ret(class.UAtomUnion),
+	native_getmetatable=Mfn():Ret(class.UAtomUnion),
+	native_setmetatable=Mfn(class.Context, class.UAtomUnion):Ret(class.UAtomUnion),
 
 	checkStruct=Mfn():Ret(Union(False, class.MetaObject))
 })
@@ -188,8 +190,8 @@ local function TypeClass()::open()
 	function t:unionSign?()
 		return tostring(self.id)
 	end
-	function t.__bor(vLeft, vRight)
-		return vLeft._manager:checkedUnion(vLeft, vRight)
+	function t.__bor(vLeft:class.IAtomType, vRight:class.IAtomType)
+		return vLeft._manager:checkedUnion(vLeft, vRight):getTypeAwait()
 	end
 	function t:isNever?()
 			return false

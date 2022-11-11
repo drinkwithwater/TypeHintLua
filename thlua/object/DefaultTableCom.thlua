@@ -4,13 +4,14 @@ local TypeFunction = require "thlua.func.TypeFunction"
 local LuaFunction = require "thlua.func.LuaFunction"
 local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local Nil = require "thlua.type.Nil"
+local TableComClass = require "thlua.object.TableComClass"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-local DefaultTableCom = {}
-DefaultTableCom.__index=DefaultTableCom
+local DefaultTableCom = TableComClass()
 
-function DefaultTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable)::RetClass(class.DefaultTableCom)
+function DefaultTableCom.new(vManager:class.TypeManager,
+	vLuaTable:class.LuaTable)::RetClass(class.DefaultTableCom, class.ITableCom)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_keyType=vManager.type.Never @class.UAtomUnion,
@@ -25,7 +26,7 @@ function DefaultTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTabl
 	return self
 end
 
-function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Dict(class.IAtomType, class.UAllType))::Ret()
+function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Dict(class.IAtomType, class.UAtomUnion))::Ret()
 	self._keyType = vKeyType
 	self._valueDict = vValueDict
 end
@@ -42,7 +43,15 @@ function DefaultTableCom:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUni
 	end)
 end
 
-function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil,Boolean))
+function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion)
+	self:_meta_set(vContext, vKeyType, vValueType, false)
+end
+
+function DefaultTableCom:meta_set_override(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion)
+	self:_meta_set(vContext, vKeyType, vValueType, true)
+end
+
+function DefaultTableCom:_meta_set(vContext:class.Context, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil,Boolean))
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		local nCurValueType = self._valueDict[nKeyContainType]!
@@ -71,7 +80,7 @@ function DefaultTableCom:meta_set(vContext, vKeyType:class.IAtomType, vValueType
 	end
 end
 
-function DefaultTableCom:_meta_get(vContext, vKeyType)::Ret(Boolean, class.UAtomUnion)
+function DefaultTableCom:_meta_get(vContext:class.Context, vKeyType:class.IAtomType)::Ret(Boolean, class.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		return true, self._valueDict[nKeyContainType]!
@@ -106,7 +115,7 @@ function DefaultTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(Tru
 	end
 end
 
-function DefaultTableCom:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil, Boolean))
+function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
 	local nContainType = self._keyType:containAtom(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
@@ -143,16 +152,12 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion
 	end
 end
 
-function DefaultTableCom:native_next(vContext, vInitType)
-	error("default table next TODO")
-end
-
 function DefaultTableCom:checkStruct()
 	return self._nothingStruct
 end
 
 function DefaultTableCom:getCompletion()
-	local nDict = {}
+	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then
 			nDict[vType:getLiteral()] = true
