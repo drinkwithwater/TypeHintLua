@@ -24,6 +24,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 		id=vManager:genTypeId(),
 		_unionSign=false,
 		_containCache={} @ Dict(class.MetaObject, Boolean),
+		_referName=false@Union(String, False),
 	}, MetaObject)
 	return self
 end
@@ -268,9 +269,16 @@ function MetaObject:indexKeyValue(vKey:class.IAtomType)::Ret(False):Ret(class.IA
 	end
 end
 
+function MetaObject:addNamedReference(vRefer, vName)
+	if not self._referName then
+		self._referName = vName
+	end
+end
+
 function MetaObject:detailString(vToStringCache, vVerbose)
-	if self._referName then
-		return self._referName
+	local nReferName = self._referName
+	if nReferName then
+		return nReferName
 	end
 	self._keyRefer:checkAtomUnion()
 	local nCache = vToStringCache[self]

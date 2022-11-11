@@ -83,8 +83,11 @@ function Reference:setRawAsync(vNode:class.AstNode,
 			end
 		end
 		self._resultType = nTypeOrExc
-		if self._resultType.setReferName and self._key then
-			self._resultType:setReferName(self._key)
+		if not nTypeOrExc:isUnion() then
+			local nKey = self._key
+			if nKey then
+				nTypeOrExc:addNamedReference(self, nKey)
+			end
 		end
 		local l = self._waitResultThreads
 		for i=#l,1,-1 do
