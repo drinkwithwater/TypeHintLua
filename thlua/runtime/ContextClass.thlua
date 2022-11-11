@@ -169,14 +169,11 @@ local function ContextClass()::open()
 
 	function Context:cast(vSrcType, vDstType)::Ret(Boolean)
 		vSrcType = vSrcType:checkAtomUnion()
-		vDstType = vDstType:checkAtomUnion()
+		vDstType = vDstType:checkAtomUnion():trueType()
 		if LuaFunction.is(vSrcType) and TypeFunction.is(vDstType) then
 			return vSrcType:cast(self, vDstType)
-		elseif LuaTable.is(vSrcType) then
-			return vDstType:anyObject(function(vObjectType)
-				return vSrcType:cast(self, vObjectType)
-			end)
-			--return vSrcType:cast(self, vDstType)
+		elseif LuaTable.is(vSrcType) and MetaObject.is(vDstType) then
+			return vSrcType:cast(self, vDstType)
 		end
 		return false
 	end

@@ -29,7 +29,7 @@ function Context.new(vRuntime:class.Runtime,
 	return self
 end
 
-function Context:BEGIN(vLexContext:class.UContext, vBlockNode:class.AstNode, vLuaFunc)
+function Context:BEGIN(vLexContext:class.UContext, vBlockNode:class.AstNode, vLuaFunc:class.LuaFunction)
 	assert(not self._region, "context can only begin once")
 	local nRegion = Region.new(self, vLuaFunc:getFnCom())
 	self._region = nRegion
@@ -39,10 +39,10 @@ function Context:BEGIN(vLexContext:class.UContext, vBlockNode:class.AstNode, vLu
 end
 
 -- pack explist to termtuple or lazyfunc
-function Context:EXPLIST_PACK(vNode, vLazy:Boolean,
-		l:List(class.TermTuple|class.RefineTerm|Fn():Ret(class.TermTuple|class.RefineTerm)))
-	local nTermList = {}
-	local nIndexToFunc:Dict(Number, Fn():Ret(Union(class.TermTuple, class.TermTuple))) = {}
+(@let.UPackExpr = Union(class.TermTuple, class.RefineTerm, Fn():Ret(Union(class.TermTuple, class.RefineTerm))))
+function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackExpr))
+	local nTermList:List(Union(class.RefineTerm, False)) = {}
+	local nIndexToFunc:Dict(Number, Fn():Ret(Union(class.TermTuple, class.RefineTerm))) = {}
 	for i=1, #l-1 do
 		local cur = l[i]
 		if TermTuple.is(cur) then
@@ -100,9 +100,9 @@ function Context:EXPLIST_PACK(vNode, vLazy:Boolean,
 end
 
 -- unpack explist to vNum term | termtuple
-function Context:EXPLIST_UNPACK(vNode, vNum, ...:Truth)
-	local l = {...}
-	local re = {}
+function Context:EXPLIST_UNPACK(vNode:class.AstNode, vNum:Number, ...:Union(class.RefineTerm, class.TermTuple))
+	local l:List(Union(class.RefineTerm, class.TermTuple)) = {...}
+	local re:List(class.RefineTerm) = {}
 	for i=1, vNum do
 		if i > #l then
 			local last = l[#l]
@@ -134,8 +134,8 @@ function Context:EXPLIST_UNPACK(vNode, vNum, ...:Truth)
 end
 
 -- unpack in function's argument & for_in
-function Context:TUPLE_UNPACK(vNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)
-	local l = {}
+function Context:TUPLE_UNPACK(vNode:class.AstNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)
+	local l:List(Union(class.RefineTerm, class.TermTuple)) = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(i)
 	end
@@ -146,7 +146,7 @@ function Context:TUPLE_UNPACK(vNode, vTuple:class.TermTuple, vNum:Number, vUseDo
 end
 
 -- meta items
-function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
+function Context:META_GET(vNode:class.AstNode, vTerm, vKeyTerm, vNotnil)
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList = {}
 	local nOkay = self:nodePcall(vNode, function()
@@ -167,7 +167,7 @@ function Context:META_GET(vNode, vTerm, vKeyTerm, vNotnil)
 	end
 end
 
-function Context:META_SET(vNode, vTerm, vKeyTerm, vValueTerm, vOverride)
+function Context:META_SET(vNode:class.AstNode, vTerm, vKeyTerm, vValueTerm, vOverride)
 	local nSetContext = self:newSealContext(vNode)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
@@ -247,7 +247,8 @@ function Context:_apply(vNode, vNativePair, vFuncArgCaseList)::Ret(class.TermTup
 	end
 end
 
-function Context:META_CALL(vNode, vFuncTerm, vLazyFunc)::Ret(class.TermTuple)
+function Context:META_CALL(vNode:class.AstNode,
+	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple))::Ret(class.TermTuple)
 	local nNativePair = nil
 	local nFuncArgCaseList = {}
 	local nNil = self._manager.type.Nil
@@ -272,7 +273,8 @@ function Context:META_CALL(vNode, vFuncTerm, vLazyFunc)::Ret(class.TermTuple)
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
 
-function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)::Ret(class.TermTuple)
+function Context:META_INVOKE(vNode:class.AstNode,
+	vTerm:class.RefineTerm, vName:String, vArgTuple:class.TermTuple)::Ret(class.TermTuple)
 	local nGetContext = self:newSealContext(vNode)
 	local nNativePair = nil
 	local nFuncArgCaseList = {}
@@ -303,8 +305,9 @@ function Context:META_INVOKE(vNode, vTerm, vName, vArgTuple)::Ret(class.TermTupl
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
 
-function Context:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)::Ret(class.RefineTerm)
-	local nTypeCaseList = {}
+function Context:META_EQ_NE(vNode:class.AstNode,
+	vIsEq:Boolean, vLeftTerm:class.RefineTerm, vRightTerm:class.RefineTerm)::Ret(class.RefineTerm)
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		vRightTerm:foreach(function(vRightType, vRightTermCase)
 			local nReType
@@ -331,7 +334,7 @@ function Context:META_EQ_NE(vNode, vIsEq, vLeftTerm, vRightTerm)::Ret(class.Refi
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)::Ret(class.RefineTerm)
+function Context:META_BOP_SOME(vNode:class.AstNode, vOper:String, vLeftTerm:class.RefineTerm, vRightTerm:class.RefineTerm)::Ret(class.RefineTerm)
 	local nBopContext = self:newSealContext(vNode)
 	local nCollection = self._manager:TypeCollection()
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
@@ -362,9 +365,9 @@ function Context:META_BOP_SOME(vNode, vOper, vLeftTerm, vRightTerm)::Ret(class.R
 	return self._manager:RefineTerm(nCollection:mergeToAtomUnion())
 end
 
-function Context:META_UOP(vNode, vOper, vData)
+function Context:META_UOP(vNode:class.AstNode, vOper:String, vData:class.RefineTerm)
 	local nUopContext = self:newSealContext(vNode)
-	local nTypeCaseList = {}
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	if vOper == "#" then
 		vData:foreach(function(vType, vTermCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {

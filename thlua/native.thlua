@@ -14,7 +14,7 @@ local native = {}
 (@let.class = import("thlua.type.TypeClass").class)
 
 function native._toTable(vManager:class.TypeManager, vTable:Dict(String, class.UAtomUnion))::Ret(class.LuaTable)
-	local nPairList = {}
+	local nPairList:List(Struct{class.IAtomType, class.UAtomUnion}) = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
 			vManager:Literal(k), v
@@ -49,7 +49,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 		end),
 		getmetatable=nManager:NativeFunction(function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(1)
-			local nTypeCaseList = {}
+			local nTypeCaseList:List(class.TypeCasePair) = {}
 			nTerm1:foreach(function(vType1, vTermCase)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					vType1:native_getmetatable(),
@@ -89,7 +89,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 		end),
 		type=nManager:NativeFunction(function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(1)
-			local nTypeCaseList = {}
+			local nTypeCaseList:List(class.TypeCasePair) = {}
 			nTerm:foreach(function(vType, vTermCase)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					vType:native_type(), vTermCase
@@ -266,7 +266,7 @@ function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_inext(vManager)::Ret(class.IAtomType)
+function native.make_inext(vManager:class.TypeManager)::Ret(class.IAtomType)
 	local nNumber = vManager.type.Number
 	local nNil = vManager.type.Nil
 	return vManager:NativeFunction(function(vContext, vTermTuple)
@@ -277,11 +277,11 @@ function native.make_inext(vManager)::Ret(class.IAtomType)
 		else
 			local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
 			local nValueTerm = vManager:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
-			local nKeyValue = {
+			local nKeyValue:Dict(class.IAtomType, class.UAtomUnion) = {
 				[nNumber]=nNotNilValue,
 				[nNil]=nNil,
 			}
-			local nTypeCaseList = {}
+			local nTypeCaseList:List(class.TypeCasePair) = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
 				local nCase = TermCase.new()
 				nCase:put_and(nValueTerm:attachSymbolShot(), nOneValue)
@@ -299,12 +299,13 @@ function native.make_next(vManager:class.TypeManager)::Ret(class.IAtomType)
 	return vManager:NativeFunction(function(vContext, vTermTuple)
 		local nType1 = vTermTuple:get(1):getType()
 		nType1 = nType1:trueType()
+		local nType2 = vTermTuple:get(2):getType()
 		if nType1:isUnion() then
 			error(Exception.new("TODO: next Union type"))
 		else
-			local nValueType, nKeyValue = nType1:native_next(vContext)
+			local nValueType, nKeyValue = nType1:native_next(vContext, nType2)
 			local nValueTerm = vManager:RefineTerm(nValueType)
-			local nTypeCaseList = {}
+			local nTypeCaseList:List(class.TypeCasePair) = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
 				local nCase = TermCase.new()
 				nCase:put_and(nValueTerm:attachSymbolShot(), nOneValue)
