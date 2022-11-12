@@ -183,15 +183,18 @@ function Context:META_SET(vNode:class.AstNode, vTerm, vKeyTerm, vValueTerm, vOve
 	end)
 end
 
-function Context:_apply(vNode, vNativePair, vFuncArgCaseList)::Ret(class.TermTuple)
+(@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
+(@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
+function Context:_apply(vNode:class.AstNode, vNativePair:Option(NativePair), vFuncArgCaseList:FuncArgCaseList)::Ret(class.TermTuple)
 	local ok, err = self:nodePcall(vNode, function()
 		local nListLen = #vFuncArgCaseList
-		if vNativePair then
+		local nNativePair = vNativePair
+		if nNativePair then
 			if nListLen ~= 0 then
 				self._runtime:nodeError(vNode, "can't mix call native function & not-native function")
 				return self:TermTuple({})
 			end
-			return vNativePair[1]:meta_native_call(self:newOpenContext(vNode), vNativePair[2])
+			return nNativePair[1]:meta_native_call(self:newOpenContext(vNode), nNativePair[2])
 		elseif nListLen >= 1 then
 			local nType1TupleCaseList = {}
 			local nMaxLength = 0
@@ -249,11 +252,12 @@ end
 
 function Context:META_CALL(vNode:class.AstNode,
 	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple))::Ret(class.TermTuple)
-	local nNativePair = nil
-	local nFuncArgCaseList = {}
+	local nNativePair:Option(NativePair) = nil
+	local nFuncArgCaseList:FuncArgCaseList ={}
 	local nNil = self._manager.type.Nil
+	local nRegion = assert(self._region, "region not setted")
 	vFuncTerm:foreach(function(vFuncType, vTermCase)
-		self._region:push_branch(vTermCase)
+		nRegion:push_branch(vTermCase)
 		local nArgTermTuple = vLazyFunc()
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
@@ -268,7 +272,7 @@ function Context:META_CALL(vNode:class.AstNode,
 				vFuncType, nArgTermTuple:getTypeTuple() , vTermCase
 			}
 		end
-		self._region:pop_branch()
+		nRegion:pop_branch()
 	end)
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
