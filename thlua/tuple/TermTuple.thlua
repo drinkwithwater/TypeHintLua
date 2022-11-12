@@ -1,8 +1,10 @@
 
+(@let.class = import("thlua.type.TypeClass").class)
+
 local TermTuple = {}
 
 TermTuple.__index=TermTuple
-TermTuple.__tostring=function(self)::Ret(String)
+TermTuple.__tostring=function(self:class.TermTuple)::Ret(String)
 	local re:List(String) = {}
 	for i=1, #self do
 		re[i] = tostring(self._list[i])
@@ -14,7 +16,7 @@ TermTuple.__tostring=function(self)::Ret(String)
 	return "TermTuple("..table.concat(re, ",")..")"
 end
 
-TermTuple.__bor=function(vLeftTuple, vRightTuple)
+TermTuple.__bor=function(vLeftTuple:class.TermTuple, vRightTuple:class.TermTuple)
 	local nLen = math.max(#vLeftTuple, #vRightTuple)
 	local l = {}
 	local nNil = vLeftTuple._manager.type.Nil
@@ -26,11 +28,10 @@ TermTuple.__bor=function(vLeftTuple, vRightTuple)
 	return vLeftTuple._manager:TermTuple(l)
 end
 
-TermTuple.__len=function(self)
+TermTuple.__len=function(self:class.TermTuple)
     return #self._list
 end
 
-(@let.class = import("thlua.type.TypeClass").class)
 
 function TermTuple.new(vManager:class.TypeManager, vTermList:List(class.RefineTerm), vTypeTuple:class.UTypeTuple)::RetClass(class.TermTuple)
 	local self = setmetatable({::Self()
