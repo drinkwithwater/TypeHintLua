@@ -1,16 +1,17 @@
 
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local AtomTypeClass = require "thlua.type.AtomTypeClass"
+local TermTuple = require "thlua.tuple.TermTuple"
 
 local NativeFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function NativeFunction.new(vManager:class.TypeManager, vFunc:class.GenFuncNative)::RetClass(class.NativeFunction, class.IAtomType)
+function NativeFunction.new(vManager:class.TypeManager, vFunc:class.GenNativeFunc)::RetClass(class.NativeFunction, class.IAtomType)
 	return setmetatable({::Self()
 		_manager=vManager,
 		func=vFunc,
-		name="unknown",
+		name="unknown"@String,
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
 	}, NativeFunction)
@@ -24,12 +25,17 @@ function NativeFunction:detailString(v)
 	return "NativeFunction-"..self.name
 end
 
-function NativeFunction:set_name(name)
+function NativeFunction:set_name(name:String)
 	self.name = name
 end
 
-function NativeFunction:meta_native_call(vContext, vTermTuple)
-	return self.func(vContext, vTermTuple)
+function NativeFunction:meta_native_call(vContext:class.Context, vTermTuple:class.TermTuple)::Ret(class.TermTuple)
+	local re = self.func(vContext, vTermTuple)
+	if TermTuple.is(re) then
+		return re
+	else
+		return self._manager:TermTuple({re})
+	end
 end
 
 function NativeFunction:check_call(vTermTuple)
