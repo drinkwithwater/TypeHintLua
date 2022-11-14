@@ -192,8 +192,8 @@ function CodeEnv:markDel(vStartPos, vFinishPos)
 	self._posToChange[vStartPos] = vFinishPos
 end
 
-function CodeEnv:markAdd(vStartPos, vContent)
-	self._posToChange[vStartPos] = vContent
+function CodeEnv:markConst(vStartPos)
+	self._posToChange[vStartPos] = "const"
 end
 
 function CodeEnv:genLuaCode()
@@ -228,6 +228,11 @@ function CodeEnv:genLuaCode()
 				nContents[#nContents + 1] = nLuaCode
 				nContents[#nContents + 1] = nChange
 				nPreFinishPos = nStartPos]]
+			elseif nChange == "const" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = "local"
+				nPreFinishPos = nStartPos + 4
 			else
 				error("unexpected branch")
 			end

@@ -333,7 +333,12 @@ local G = lpeg.P { "TypeHintLua";
 	Stat = (function()
 		local LocalFunc = tagC.Localrec(kw"function" * vvA.Id * vv.FuncBody)
 		local LocalAssign = tagC.Local(vv.NameList * (symb"=" * vvA.ExpList + tagC.ExpList()))
-		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement"))
+		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
+				Cenv * Cpos * kw"const" * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
+					env:markConst(pos)
+					t.isConst = true
+					return t
+				end
 		local FuncStat = (function()
 			local function makeNameIndex(ident1, ident2)
 				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
@@ -406,7 +411,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Keywords  = lpeg.P"and" + "break" + "do" + "elseif" + "else" + "end"
 		+ "false" + "for" + "function" + "goto" + "if" + "in"
 		+ "local" + "nil" + "not" + "or" + "repeat" + "return"
-		+ "then" + "true" + "until" + "while"
+		+ "then" + "true" + "until" + "while" + "const"
 		local Reserved = Keywords * -vv.IdRest
 		return token(-Reserved * lpeg.C(Ident) * -vv.IdRest);
 	end)();

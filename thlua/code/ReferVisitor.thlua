@@ -73,12 +73,31 @@ local TagToVisiting = {
 		self:rawVisit(stm)
 	end,
 	Local=function(self, stm)
+		local nNameList = stm[1]
+		if stm.isConst then
+			for i, name in ipairs(nNameList) do
+				name.isConst = true
+			end
+		end
 		self:realVisit(stm[2])
 		self.define_pos = true
-		self:realVisit(stm[1])
+		self:realVisit(nNameList)
 		self.define_pos = false
 	end,
+	Set=function(self, stm)
+		local nVarList = stm[1]
+		for i=1, #nVarList do
+			local var = nVarList[i]
+			if var.tag == "Id" then
+				var.isSet = true
+			end
+		end
+		self:rawVisit(stm)
+	end,
 	Localrec=function(self, stm)
+		if stm.isConst then
+			stm[1].isConst = true
+		end
 		self.define_pos = true
 		self:realVisit(stm[1])
 		self.define_pos = false
@@ -173,6 +192,9 @@ function ReferVisitor:symbolUse(vIdentNode)
 		local nDefineNode = nCurScope.symbol_ident_dict[nName]
 		if nDefineNode then
 			vIdentNode.ident_refer = nDefineNode.ident_refer
+			if nDefineNode.isConst and vIdentNode.isSet then
+				error(self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'"))
+			end
 		else
 			self:idToIndex(vIdentNode)
 		end
