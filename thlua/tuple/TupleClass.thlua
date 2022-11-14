@@ -4,8 +4,8 @@
 	class.UTypeTuple = Union(class.TypeTuple, class.TypeTupleDots)
 end)
 
-local function TupleClass()::open()
-	local t = {}
+const function TupleClass()::open()
+	const t = {}
 	t.__index=t
 	t.__tostring=function(self)
 		return self:detailString({})
@@ -14,11 +14,11 @@ local function TupleClass()::open()
 		return #self._list
 	end
 	function t:detailString(vCache)
-		local re:List(String) = {}
+		const re:List(String) = {}
 		for i=1, #self do
 			re[i] = self._list[i]!:detailString(vCache)
 		end
-		local nRepeatType = self:getRepeatType()
+		const nRepeatType = self:getRepeatType()
 		if nRepeatType then
 			re[#re + 1] = nRepeatType:detailString(vCache) .."*"
 		end
@@ -27,11 +27,11 @@ local function TupleClass()::open()
 	function t:structSign()::Ret(String)
 		local nSign = self._structSign
 		if not nSign then
-			local l = ({"t1"} @ List(Union(String, Number)))
+			const l:List(Union(String, Number)) = {"t1"}
 			for k, v in ipairs(self._list) do
 				l[#l + 1] = v.id
 			end
-			local nRepType = self._repeatType
+			const nRepType = self._repeatType
 			if nRepType then
 				l[1] = "t2"
 				l[#l + 1] = nRepType.id
@@ -42,17 +42,17 @@ local function TupleClass()::open()
 		return nSign
 	end
 	function t:makeTermTuple()::Ret(class.TermTuple)
-		local nTermList:List(class.RefineTerm) = {}
+		const nTermList:List(class.RefineTerm) = {}
 		for i=1, #self do
 			nTermList[i] = self._manager:RefineTerm(self._list[i]!)
 		end
-		local nTermTuple = self._manager:TermTuple(nTermList)
+		const nTermTuple = self._manager:TermTuple(nTermList)
 		nTermTuple._typeTuple = self
 		return nTermTuple
 	end
 	function t:tupleContainAssume(vAssumeSet:Option(Dict(Integer, True)), vRightTypeTuple:class.UTypeTuple)::Ret(Boolean)
-		local nLeftRepeatType = self:getRepeatType()
-		local nRightRepeatType = vRightTypeTuple:getRepeatType()
+		const nLeftRepeatType = self:getRepeatType()
+		const nRightRepeatType = vRightTypeTuple:getRepeatType()
 		if (not nLeftRepeatType) and nRightRepeatType then
 			return false
 		end
@@ -63,7 +63,7 @@ local function TupleClass()::open()
 		end
 		-- TODO thinking more for nilable
 		for i=1, #vRightTypeTuple do
-			local nLeftType = self._list[i] or nLeftRepeatType
+			const nLeftType = self._list[i] or nLeftRepeatType
 			if not nLeftType then
 				return false
 			end
@@ -72,7 +72,7 @@ local function TupleClass()::open()
 			end
 		end
 		for i=#vRightTypeTuple + 1, #self do
-			local nLeftType = self._list[i]!
+			const nLeftType = self._list[i]!
 			if not nLeftType:isNilable() then
 				return false
 			end

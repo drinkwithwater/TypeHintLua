@@ -1,16 +1,16 @@
 
-local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local UnionClass = require "thlua.union.UnionClass"
-local Truth = require "thlua.type.Truth"
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const UnionClass = require "thlua.union.UnionClass"
+const Truth = require "thlua.type.Truth"
 
-local FalsableUnion = UnionClass()
+const FalsableUnion = UnionClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
 function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UAtomUnion, vFalsableBits:Number)::RetClass(class.FalsableUnion, class.IUnionType)
-	local nNil = vTypeManager.type.Nil
-	local nFalse = vTypeManager.type.False
-	local self = setmetatable({::Self()
+	const nNil = vTypeManager.type.Nil
+	const nFalse = vTypeManager.type.False
+	const self = setmetatable({::Self()
 		_manager=vTypeManager,
 		_trueType=vTruableType,
 		_notnilType=nil @class.UAtomUnion,
@@ -31,7 +31,7 @@ function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UA
 		if not self._nil then
 			self._notnilType = self
 		else
-			local nFalse = self._false
+			const nFalse = self._false
 			if nFalse then
 				self._notnilType = vTypeManager:checkedUnion(self._trueType, nFalse):checkAtomUnion()
 			else
@@ -46,11 +46,11 @@ end
 
 function FalsableUnion:foreach(vFunc)
 	self._trueType:foreach(vFunc)
-	local nNilType = self._nil
+	const nNilType = self._nil
 	if nNilType then
 		vFunc(nNilType)
 	end
-	local nFalseType = self._false
+	const nFalseType = self._false
 	if nFalseType then
 		vFunc(nFalseType)
 	end
@@ -60,7 +60,7 @@ function FalsableUnion:_intersectOneNotRefer(vType)
     if Truth.is(vType) then
         return self:trueType()
     else
-        local nTrueIntersect = self._trueType:_intersectOneNotRefer(vType)
+        const nTrueIntersect = self._trueType:_intersectOneNotRefer(vType)
         if nTrueIntersect then
             return nTrueIntersect
         else
@@ -76,7 +76,7 @@ function FalsableUnion:_intersectOneNotRefer(vType)
 end
 
 function FalsableUnion:assumeContainAtom(vAssumeSet, vType)
-	local nTrueContain = self._trueType:assumeContainAtom(vAssumeSet, vType)
+	const nTrueContain = self._trueType:assumeContainAtom(vAssumeSet, vType)
 	if nTrueContain then
 		return nTrueContain
 	else
@@ -99,15 +99,15 @@ function FalsableUnion:isNilable()
 end
 
 function FalsableUnion:trueType()
-    return self._trueType
+	return self._trueType
 end
 
 function FalsableUnion:notnilType()
-    return self._notnilType
+	return self._notnilType
 end
 
 function FalsableUnion:falseType()
-    return self._falseType or self._manager.type.Never
+	return self._falseType or self._manager.type.Never
 end
 
 return FalsableUnion

@@ -1,8 +1,8 @@
 
-local TermCase = require "thlua.term.TermCase"
-local RefineTerm = require "thlua.term.RefineTerm"
+const TermCase = require "thlua.term.TermCase"
+const RefineTerm = require "thlua.term.RefineTerm"
 
-local Branch = {}
+const Branch = {}
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -12,7 +12,7 @@ Branch.__tostring = function(self)::Ret(String)
 end
 
 function Branch.new(vContext:class.Context, vPreBranch:Option(class.Branch), vTermCase:Option(class.TermCase))::RetClass(class.Branch)
-	local self = setmetatable({::Self()
+	const self = setmetatable({::Self()
 		_context=vContext,
 		_stop=false@Boolean,
 		case=nil@class.TermCase,
@@ -44,7 +44,7 @@ function Branch:symbol_get(vLocalSymbol:class.LocalSymbol)::Ret(class.RefineTerm
 	local nType = self.case[nSymbolShot]
 	if nType then
 		if not nType:isNever() then
-			local nTerm = self._context:RefineTerm(nType)
+			const nTerm = self._context:RefineTerm(nType)
 			nTerm:add_self(nSymbolShot)
 			return nTerm
 		else
@@ -52,7 +52,7 @@ function Branch:symbol_get(vLocalSymbol:class.LocalSymbol)::Ret(class.RefineTerm
 			return self._context:NeverTerm()
 		end
 	else
-		local nRefineTerm = self._context:RefineTerm(nSymbolShot:getType())
+		const nRefineTerm = self._context:RefineTerm(nSymbolShot:getType())
 		nRefineTerm:add_self(nSymbolShot)
 		return nRefineTerm
 	end
@@ -60,15 +60,15 @@ end
 
 function Branch:symbol_init(vSymbol:class.LocalSymbol, vTerm:class.RefineTerm)
 	self._context:getRuntime():recordSymbol(vSymbol)
-	local nSymbolShot = vTerm:attachSymbolShot()
+	const nSymbolShot = vTerm:attachSymbolShot()
 	nSymbolShot:addSymbol(vSymbol)
 	self.symbolToShot[vSymbol] = nSymbolShot
 end
 
 function Branch:symbol_set(vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
-	local nValueType = vValueTerm:getType()
+	const nValueType = vValueTerm:getType()
 	if vSymbol:getType():containAll(nValueType) then
-		local nSymbolShot = vValueTerm:attachSymbolShot()
+		const nSymbolShot = vValueTerm:attachSymbolShot()
 		self.symbolToShot[vSymbol] = nSymbolShot
 		nSymbolShot:addSymbol(vSymbol)
 		self.case:put_and(nSymbolShot, nValueType)

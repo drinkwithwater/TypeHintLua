@@ -1,6 +1,6 @@
 
-local RefineTerm = require "thlua.term.RefineTerm"
-local TableBuilder = {}
+const RefineTerm = require "thlua.term.RefineTerm"
+const TableBuilder = {}
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -26,7 +26,7 @@ end
 function TableBuilder.makeLongHint(self:class.TableBuilder)::RetClass(class.TableLongHint)
 	return {::Self()
 		Self=function(vLongHint:class.TableLongHint)::Ret(class.TableLongHint)
-			local nFnCom = assert(self._context:getRegion(), "region must existed when table::Self()"):getFnCom()
+			const nFnCom = assert(self._context:getRegion(), "region must existed when table::Self()"):getFnCom()
 			self._selfTable = nFnCom:regionTableSelf(self._context, self._node)
 			return vLongHint
 		end,
@@ -34,14 +34,14 @@ function TableBuilder.makeLongHint(self:class.TableBuilder)::RetClass(class.Tabl
 end
 
 function TableBuilder:build()::Ret(class.LuaTable)
-	local nContext = self._context
-	local nManager = nContext._manager
-	local nTableType = self._selfTable or nManager:LuaTable()
+	const nContext = self._context
+	const nManager = nContext._manager
+	const nTableType = self._selfTable or nManager:LuaTable()
 	nTableType:setName("("..tostring(self._node)..")")
-	local vList, vDotsStart, vDotsTuple = self._pairMaker()
-	local nTypePairList = {}
+	const vList, vDotsStart, vDotsTuple = self._pairMaker()
+	const nTypePairList = {}
 	for i, nPair in ipairs(vList) do
-		local nKey = nPair[1]:getType()
+		const nKey = nPair[1]:getType()
 		local nValue = nPair[2]:getType()
 		if not nKey:isSingleton() then
 			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
@@ -49,8 +49,8 @@ function TableBuilder:build()::Ret(class.LuaTable)
 		nTypePairList[i] = {nKey, nValue}
 	end
 	if vDotsTuple then
-		local nTypeTuple = vDotsTuple:getTypeTuple()
-		local nRepeatType = nTypeTuple:getRepeatType()
+		const nTypeTuple = vDotsTuple:getTypeTuple()
+		const nRepeatType = nTypeTuple:getRepeatType()
 		if nRepeatType then
 			nTypePairList[#nTypePairList + 1] = {
 				nManager.type.Number, nManager:checkedUnion(nRepeatType, nManager.type.Nil)
@@ -63,7 +63,7 @@ function TableBuilder:build()::Ret(class.LuaTable)
 			end
 		end
 	end
-	local nKeyUnion, nTypeDict = nManager:mergePairList(nTypePairList)
+	const nKeyUnion, nTypeDict = nManager:mergePairList(nTypePairList)
 	nTableType:getDefaultCom():initByKeyValue(nKeyUnion, nTypeDict)
 	return nTableType
 end

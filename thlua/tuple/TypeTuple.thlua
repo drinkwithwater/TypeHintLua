@@ -1,14 +1,14 @@
 
-local Reference = require "thlua.type.Reference"
-local TupleClass = require "thlua.tuple.TupleClass"
-local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
-local Nil = require "thlua.type.Nil"
-local TypeTuple = TupleClass()
+const Reference = require "thlua.type.Reference"
+const TupleClass = require "thlua.tuple.TupleClass"
+const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
+const Nil = require "thlua.type.Nil"
+const TypeTuple = TupleClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
 function TypeTuple.new(vManager:class.TypeManager, vList:List(class.UAllType))::RetClass(class.TypeTuple)
-	local self = setmetatable({::Self()
+	const self = setmetatable({::Self()
 		_manager=vManager,
 		_structSign=(false @ Union(String, False)),
 		_list=vList,
@@ -26,7 +26,7 @@ function TypeTuple:Dots(vType:class.UAllType)::Ret(class.TypeTupleDots)
 end
 
 function TypeTuple:replaceFirst(vType:class.UAtomUnion)::Ret(class.TypeTuple)
-	local nTuple = self._manager:Tuple(vType, table.unpack(self._list, 2))
+	const nTuple = self._manager:Tuple(vType, table.unpack(self._list, 2))
 	return nTuple
 end
 
@@ -43,15 +43,15 @@ function TypeTuple:castOrIn(vContext:class.UContext, vDstTypeTuple:class.UTypeTu
 		end
 	elseif #vDstTypeTuple < #self then
 		for i=#vDstTypeTuple + 1, #self do
-			local nSelfi = self:get(i):checkAtomUnion()
-			local nDstRepeatType = vDstTypeTuple:getRepeatType()
+			const nSelfi = self:get(i):checkAtomUnion()
+			const nDstRepeatType = vDstTypeTuple:getRepeatType()
 			if not Nil.is(nSelfi) and nDstRepeatType and not nDstRepeatType:containAll(nSelfi) then
 				return false
 			end
 		end
 	end
 	for i, nDstType in ipairs(vDstTypeTuple._list) do
-		local nSrcType = self:get(i)
+		const nSrcType = self:get(i)
 		if not vContext:cast(nSrcType, nDstType) then
 			if not nDstType:containAll(nSrcType) then
 				return false

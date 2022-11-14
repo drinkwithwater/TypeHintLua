@@ -1,5 +1,5 @@
 
-local RetTuples = {}
+const RetTuples = {}
 RetTuples.__index=RetTuples
 RetTuples.__tostring=function(self)
 	return self:detailString({})
@@ -8,7 +8,7 @@ end
 (@let.class = import("thlua.type.TypeClass").class)
 
 function RetTuples.new(vManager:class.TypeManager)::RetClass(class.RetTuples)
-	local self = setmetatable({::Self()
+	const self = setmetatable({::Self()
 		_manager=vManager,
 		_signToTuple={} @ Dict(String, class.TypeTuple),
 		_tupleCount=0 @ Number,
@@ -41,11 +41,11 @@ function RetTuples:Add(vTypeTuple:class.TypeTuple)::Ret(class.RetTuples)
 	if self._signToTuple[vTypeTuple:structSign()] then
 		return self
 	else
-		local nNew = RetTuples.new(self._manager)
+		const nNew = RetTuples.new(self._manager)
 		for nSign, nTuple in pairs(self._signToTuple) do
 			nNew._signToTuple[nSign] = nTuple
 		end
-		local nLength = #vTypeTuple
+		const nLength = #vTypeTuple
 		if nLength > self._tupleSizeMax then
 			nNew._tupleSizeMax = nLength
 		else
@@ -99,7 +99,7 @@ end
 function RetTuples:structSign()::Ret(String)
 	local nSign = self._structSign
 	if not nSign then
-		local l = {} @ List(String)
+		const l:List(String) = {}
 		for nSign, nTuple in pairs(self._signToTuple) do
 			l[#l + 1] = nSign
 		end
@@ -117,7 +117,7 @@ function RetTuples:foreach(vFunc:Fn(class.TypeTuple):Ret())
 end
 
 function RetTuples:makeFirstType()::Ret(class.UAllType)
-	local nCollection = self._manager:TypeCollection()
+	const nCollection = self._manager:TypeCollection()
 	for _, nTuple in pairs(self._signToTuple) do
 		nCollection:put(nTuple:get(1))
 	end

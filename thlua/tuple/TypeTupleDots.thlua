@@ -1,6 +1,6 @@
 
-local TupleClass = require "thlua.tuple.TupleClass"
-local TypeTupleDots = TupleClass()
+const TupleClass = require "thlua.tuple.TupleClass"
+const TypeTupleDots = TupleClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -8,7 +8,7 @@ function TypeTupleDots.new(
 	vManager:class.TypeManager,
 	vList:List(class.UAllType),
 	vRepeatType:class.UAllType)::RetClass(class.TypeTupleDots)
-	local self = setmetatable({::Self()
+	const self = setmetatable({::Self()
 		_manager=vManager,
 		_structSign=(false @ Union(String, False)),
 		_list=vList,
@@ -22,7 +22,7 @@ function TypeTupleDots:getRepeatType()::Ret(class.UAllType)
 end
 
 function TypeTupleDots:replaceFirst(vType)::Ret(class.TypeTupleDots)
-	local nList:List(class.UAllType) = {vType, table.unpack(self._list, 2)}
+	const nList:List(class.UAllType) = {vType, table.unpack(self._list, 2)}
 	return TypeTupleDots.new(self._manager, nList, self._repeatType)
 end
 
@@ -35,16 +35,16 @@ function TypeTupleDots:get(i:Number)::Ret(class.UAllType)
 end
 
 function TypeTupleDots:select(i)::Ret(class.TypeTupleDots)
-	local nList: List(class.UAllType) = {table.unpack(self._list, i)}
+	const nList: List(class.UAllType) = {table.unpack(self._list, i)}
 	return TypeTupleDots.new(self._manager, nList, self._repeatType)
 end
 
 function TypeTupleDots:castOrIn(vContext:class.UContext, vDstTypeTuple:class.UTypeTuple)::Ret(Boolean)
-	local nRepeatDstType = vDstTypeTuple:getRepeatType()
+	const nRepeatDstType = vDstTypeTuple:getRepeatType()
 	if not nRepeatDstType then
 		return false
 	else
-		local nRepeatSrcType = self._repeatType
+		const nRepeatSrcType = self._repeatType
 		if not vContext:cast(nRepeatSrcType, nRepeatDstType) then
 			if not nRepeatDstType:containAll(nRepeatSrcType) then
 				return false
@@ -52,7 +52,7 @@ function TypeTupleDots:castOrIn(vContext:class.UContext, vDstTypeTuple:class.UTy
 		end
 	end
 	for i, nDstType in ipairs(vDstTypeTuple._list) do
-		local nSrcType = self:get(i)
+		const nSrcType = self:get(i)
 		if not vContext:cast(nSrcType, nDstType) then
 			if not nDstType:containAll(nSrcType) then
 				return false
