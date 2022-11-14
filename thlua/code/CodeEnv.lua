@@ -269,7 +269,11 @@ function CodeEnv:_buildTypingFn()
 	if ok then
 		self._typingFn = fnOrErr
 	else
-		self._typingFn = tostring(fnOrErr)
+		if Exception.is(fnOrErr) then
+			self._typingFn = fnOrErr
+		else
+			self._typingFn = tostring(fnOrErr)
+		end
 	end
 end
 
@@ -277,7 +281,9 @@ function CodeEnv:checkOkay()
 	if self._astOrErr.tag == "Error" then
 		return false, Exception.new(self._astOrErr[1], self._astOrErr)
 	elseif type(self._typingFn) == "string" then
-		return false, Exception.new(self._typingFn, self._astOrErr)
+		return false, Exception.new(self._typingFn, self:makeErrNode(1, ""))
+	elseif Exception.is(self._typingFn) then
+		return false, self._typingFn
 	else
 		return true
 	end

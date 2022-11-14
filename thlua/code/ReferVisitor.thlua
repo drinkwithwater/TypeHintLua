@@ -1,6 +1,7 @@
 
 local VisitorExtend = require "thlua.code.VisitorExtend"
 
+local Exception = require "thlua.Exception"
 local CodeEnv = require "thlua.code.CodeEnv"
 
 local TagToVisiting = {
@@ -193,7 +194,8 @@ function ReferVisitor:symbolUse(vIdentNode)
 		if nDefineNode then
 			vIdentNode.ident_refer = nDefineNode.ident_refer
 			if nDefineNode.isConst and vIdentNode.isSet then
-				error(self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'"))
+				local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
+				error(Exception.new(nErrNode[1], nErrNode))
 			end
 		else
 			self:idToIndex(vIdentNode)
@@ -201,7 +203,8 @@ function ReferVisitor:symbolUse(vIdentNode)
 	elseif vIdentNode.tag == "Dots" then
 		local nDotsDefine = self._env:getScope(nCurScope.region_refer).symbol_dots
 		if not nDotsDefine then
-			error(self._env:makeErrNode(vIdentNode.pos, "cannot use '...' outside a vararg function"))
+			local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot use '...' outside a vararg function")
+			error(Exception.new(nErrNode[1], nErrNode))
 		end
 		vIdentNode.ident_refer = nDotsDefine.ident_refer
 	else
