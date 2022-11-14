@@ -15,7 +15,9 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_keyType=vManager.type.Never @class.UAtomUnion,
-		_valueDict={} @Dict(class.IAtomType, class.UAtomUnion),
+		_valueDict={}@Dict(class.IAtomType, class.UAtomUnion),
+		_nextValue=false@Union(False, class.UAtomUnion),
+		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_overrideLiteralSet={} @Dict(class.IAtomType, True),
 		_luaTable=vLuaTable,
 		__indexType=false,
@@ -150,6 +152,30 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion
 	else
 		return self._manager.type.Nil
 	end
+end
+
+function DefaultTableCom:native_next(vContext, vInitType)
+	local nNextDict = self._nextDict
+	local nValueType = self._nextValue
+	if not nNextDict or not nValueType then
+		nNextDict = {}
+		for k,v in pairs(self._valueDict) do
+			nNextDict[k] = v
+		end
+		local nNil = self._manager.type.Nil
+		local nCollection = self._manager:TypeCollection()
+		for nOneKey, nOneValue in pairs(self._valueDict) do
+			nOneValue = nOneValue:checkAtomUnion():notnilType()
+			nNextDict[nOneKey] = nOneValue
+			nCollection:put(nOneValue)
+		end
+		nCollection:put(nNil)
+		nValueType = nCollection:mergeToAtomUnion()
+		nNextDict[nNil] = nNil
+		self._nextValue = nValueType
+		self._nextDict = nNextDict
+	end
+	return nValueType, nNextDict
 end
 
 function DefaultTableCom:checkStruct()
