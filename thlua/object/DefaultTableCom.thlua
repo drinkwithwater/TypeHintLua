@@ -22,7 +22,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		_luaTable=vLuaTable,
 		__indexType=false,
 		__newindexType=false,
-		_operEventDict={},
+		_operToType={},
 		_nothingStruct=vManager.type.Object,
 	}, DefaultTableCom)
 	return self
@@ -36,7 +36,7 @@ end
 function DefaultTableCom:setMetaEvent(vEventToType, vOperEventToType)
 	self.__indexType = vEventToType.__index or false
 	self.__newindexType = vEventToType.__newindex or false
-	self._operEventDict = vOperEventToType
+	self._operToType = vOperEventToType
 end
 
 function DefaultTableCom:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
@@ -109,7 +109,7 @@ function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
 end
 
 function DefaultTableCom:meta_bop_func(vContext, vOper)::Ret(False, Nil):Ret(True, Union(class.TypeFunction, class.LuaFunction))
-	local nMethodType = self._operEventDict[vOper]
+	local nMethodType = self._operToType[vOper]
 	if not nMethodType then
 		return false, nil
 	else
