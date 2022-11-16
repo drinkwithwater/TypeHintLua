@@ -4,6 +4,7 @@ const MemberFunction = require "thlua.func.MemberFunction"
 const StringLiteral = require "thlua.type.StringLiteral"
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
 
 const MetaObject = AtomTypeClass()
 
@@ -20,6 +21,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAllType)),
 		_intersectSet=false,
+		_metaEventDict={}@Dict(String, class.IAtomType),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_unionSign=false,
@@ -29,10 +31,15 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict:class.MemberDict, vNext:Boolean, vIntersectSet)
+function MetaObject:init(vValueDict:class.MemberDict, vNext:Boolean, vMetaEventDict:Option(Dict(String, class.IAtomType)), vIntersectSet)
 	self._valueDict = vValueDict
 	self._nextDict = {}
 	self._intersectSet = vIntersectSet or {}
+	if vMetaEventDict then
+		for k,v in pairs(vMetaEventDict) do
+			self._metaEventDict[k] = v
+		end
+	end
 end
 
 function MetaObject:_intersectOneNotRefer(vRightType)
@@ -256,7 +263,13 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 end
 
 function MetaObject:meta_bop_func(vContext, vOper)
-	return false, nil
+	local nMethodEvent = OPER_ENUM.all[vOper]!
+	local nType = self._metaEventDict[nMethodEvent]
+	if nType then
+		return true, nType
+	else
+		return false, nil
+	end
 end
 
 function MetaObject:indexKeyValue(vKey:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
@@ -317,6 +330,10 @@ end
 
 function MetaObject:getValueDict()::Ret(class.MemberDict)
 	return self._valueDict
+end
+
+function MetaObject:getMetaEventDict()::Ret(Dict(String, class.IAtomType))
+	return self._metaEventDict
 end
 
 function MetaObject:getKeyRefer()::Ret(class.Reference)

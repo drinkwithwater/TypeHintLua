@@ -146,6 +146,7 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 	local l = {...}
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
+	local nMetaEventDict:Dict(String, class.IAtomType) = {}
 	nKeyRefer:setRawAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
 		local nAllValueDict = {}
@@ -165,8 +166,15 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 				nTypeList[#nTypeList + 1] = vKeyType
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
+			for k,v in pairs(nMetaObject:getMetaEventDict()) do
+				if nMetaEventDict[k] then
+					error("bop "..k.." conflict when intersect")
+				else
+					nMetaEventDict[k] = v
+				end
+			end
 		end
-		nNewStruct:init(nAllValueDict, false, nIntersectSet)
+		nNewStruct:init(nAllValueDict, false, nMetaEventDict, nIntersectSet)
 		return nTypeList
 	end, function(vTypeList)
 		local nCollection = self:TypeCollection()
@@ -210,16 +218,16 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.MetaObject)
-	return self:buildStruct(vNode, vTable, vNext)
+function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:Option(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
+	return self:buildStruct(vNode, vTable, vMetaEventDict, vNext)
 end
 
-function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vNext:Boolean)::Ret(class.MetaObject)
+function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:Option(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
-		local nValueDict:Dict(class.UAtomUnion, Union(class.UAllType, class.MemberFunction)) = {}
+		local nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType
 			if Reference.is(nValue) then
@@ -241,7 +249,7 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 				end
 			end)
 		end
-		nNewStruct:init(nValueDict, true)
+		nNewStruct:init(nValueDict, true, vMetaEventDict)
 		return nTypeList
 	end, function(vTypeList)
 		local nCollection = self:TypeCollection()
@@ -254,12 +262,12 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 end
 
 function TypeManager:buildDict(vNode:class.AstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
-	return self:buildStruct(vNode, {[vKey]=vValue}, true)
+	return self:buildStruct(vNode, {[vKey]=vValue}, {}, true)
 end
 
 function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.MetaObject)
 	-- TODO struct use meta
-	return self:buildStruct(vNode, {[self.type.Number]=vValue}, true)
+	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {}, true)
 end
 
 function TypeManager:buildOption(vNode:class.AstNode, vValue)::Ret(class.Reference)
