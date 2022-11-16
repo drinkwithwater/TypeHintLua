@@ -13,6 +13,7 @@ end
 function LocalSymbol.new(vContext:class.UContext, vRegion:Union(class.Region, False),
 		vNode:class.AstNode, vType:class.UAtomUnion, vRawTerm:class.RefineTerm)::RetClass(class.LocalSymbol)
 	return setmetatable({::Self()
+		_context=vContext,
 		_region=vRegion,
 		_node=vNode,
 		_type=vType,
@@ -20,9 +21,11 @@ function LocalSymbol.new(vContext:class.UContext, vRegion:Union(class.Region, Fa
 	}, LocalSymbol)
 end
 
-function LocalSymbol:makeShot()::Ret(class.SymbolShot)
-	local nShot = SymbolShot.new(self._type)
+function LocalSymbol:makeShot(vType:Option(class.UAtomUnion))::Ret(class.SymbolShot)
+	const nTerm = self._context:RefineTerm(vType or self._type)
+	const nShot = SymbolShot.new(nTerm)
 	nShot:addSymbol(self)
+	nTerm:add_self(nShot)
 	return nShot
 end
 

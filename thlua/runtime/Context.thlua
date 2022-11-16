@@ -146,9 +146,9 @@ function Context:TUPLE_UNPACK(vNode:class.AstNode, vTuple:class.TermTuple, vNum:
 end
 
 -- meta items
-function Context:META_GET(vNode:class.AstNode, vTerm, vKeyTerm, vNotnil)
+function Context:META_GET(vNode:class.AstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil)
 	local nGetContext = self:newSealContext(vNode)
-	local nTypeCaseList = {}
+	local nTypeCaseList:List(class.TypeCasePair) = {}
 	local nOkay = self:nodePcall(vNode, function()
 		vTerm:foreach(function(vType, vTermCase)
 			vKeyTerm:foreach(function(vKeyType, vKeyTermCase)
@@ -215,7 +215,7 @@ function Context:_apply(vNode:class.AstNode, vNativePair:Option(NativePair), vFu
 			if nMaxLength <= 0 then
 				return self:TermTuple({})
 			end
-			local nTermList = {}
+			local nTermList:List(class.RefineTerm) = {}
 			for i=2,nMaxLength do
 				local nCollection = self._manager:TypeCollection()
 				for _, nType1TupleCase in pairs(nType1TupleCaseList) do
@@ -314,7 +314,7 @@ function Context:META_EQ_NE(vNode:class.AstNode,
 	const nTypeCaseList:List(class.TypeCasePair) = {}
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		vRightTerm:foreach(function(vRightType, vRightTermCase)
-			local nReType
+			local nReType:Option(class.UAtomUnion) = nil
 			if vLeftType:isSingleton() and vRightType:isSingleton() then
 				-- TODO check for named type
 				const nTypeIsEq = vLeftType == vRightType
@@ -324,7 +324,7 @@ function Context:META_EQ_NE(vNode:class.AstNode,
 					nReType = self._manager.type.False
 				end
 			elseif not (vLeftType & vRightType):isNever() then
-				nReType = self._manager.type.Boolean
+				nReType = self._manager.type.Boolean:checkAtomUnion()
 			else
 				if vIsEq then
 					nReType = self._manager.type.False

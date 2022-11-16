@@ -153,6 +153,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 	global.string=nManager.builtin.string
 
 	global.math=native.make_math(nManager)
+	global.debug=native.make_debug(nManager)
 	global.table=native.make_table(nManager)
 	global.io=native.make_io(nManager)
 	global.coroutine=native.make_coroutine(nManager)
@@ -173,6 +174,17 @@ function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
 	}
 	local nTable = native._toTable(vManager, math)
 	nTable:setName("math")
+	return nTable
+end
+
+function native.make_debug(vManager:class.TypeManager)::Ret(class.LuaTable)
+	-- debug.traceback's arguments TODO
+	local type = vManager.type
+	local debug = {
+		traceback=vManager:checkedFn():Ret(type.String)
+	}
+	local nTable = native._toTable(vManager, debug)
+	nTable:setName("debug")
 	return nTable
 end
 
@@ -214,16 +226,19 @@ function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
 end
 
 function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
-	local function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String)
+	local function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String)::Ret(class.UAtomUnion)
 		local nNumber = vManager.type.Number
+		local nElementCollection = vManager:TypeCollection()
 		vType:foreach(function(vSubType)
 			local nLenType = vSubType:meta_len(vContext)
-			if not (Number.is(nLenType) or NumberLiteral.is(nLenType)) then
-				vContext:error("table."..vKey.." must take list-lick variable")
+			if not Number.is(nLenType) then
+				vContext:error("table."..vKey.." must take list-like variable")
 				return
 			end
-			vSubType:meta_get(vContext, nNumber)
+			local nValue = vSubType:meta_get(vContext, nNumber)
+			nElementCollection:put(nValue)
 		end)
+		return nElementCollection:mergeToAtomUnion()
 	end
 	local table = {
 		sort=vManager:NativeFunction(function(vContext, vTermTuple)
@@ -261,6 +276,10 @@ function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
 			local nRetType = nCollection:mergeToAtomUnion()
 			return vManager:Tuple():Dots(nRetType:notnilType()):makeTermTuple()
 		end),
+		move=vManager:NativeFunction(function(vContext, vTermTuple)
+			-- move TODO
+			return vTermTuple:get(5)
+		end)
 	}
 	local nTable = native._toTable(vManager, table)
 	nTable:setName("table")

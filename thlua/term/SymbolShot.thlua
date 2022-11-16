@@ -2,14 +2,14 @@
 const SymbolShot = {}
 SymbolShot.__index=SymbolShot
 SymbolShot.__tostring=function(self)
-	return tostring(next(self._symbolSet))
+	return "shot-"..tostring(next(self._symbolSet))
 end
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function SymbolShot.new(vType:class.UAtomUnion)::RetClass(class.SymbolShot)
+function SymbolShot.new(vTerm:class.RefineTerm)::RetClass(class.SymbolShot)
 	return setmetatable({::Self()
-		_type=vType,
+		_term=vTerm,
 		_symbolSet={} @ Dict(class.LocalSymbol, True),
 	}, SymbolShot)
 end
@@ -19,7 +19,11 @@ function SymbolShot:addSymbol(vSymbol:class.LocalSymbol)
 end
 
 function SymbolShot:getType()::Ret(class.UAtomUnion)
-	return self._type
+	return self._term:getType()
+end
+
+function SymbolShot:getTerm()::Ret(class.RefineTerm)
+	return self._term
 end
 
 return SymbolShot
