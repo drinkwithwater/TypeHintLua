@@ -82,7 +82,7 @@ function Region:IF(vNode, vTerm, vTrueFunction, vFalseFunction)
 		vFalseFunction()
 	end
 	local nFalseBranch = self:pop_branch()
-	self:top_branch():merge_from(self, nTrueBranch, nFalseBranch)
+	self:top_branch():merge_from(self._context, nTrueBranch, nFalseBranch)
 end
 
 function Region:WHILE(vNode:class.AstNode, vTerm, vTrueFunction)
@@ -96,7 +96,7 @@ function Region:WHILE(vNode:class.AstNode, vTerm, vTrueFunction)
 	local nTrueBranch = self:pop_branch()
 end
 
-function Region:FOR_IN(vNode, vFunc, vNext, vSelf, vInit)
+function Region:FOR_IN(vNode:class.AstNode, vFunc:Fn(class.TermTuple), vNext:class.RefineTerm, vSelf:class.RefineTerm, vInit:class.RefineTerm)
 	local nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value")
@@ -175,7 +175,7 @@ function Region:RETURN(vNode:class.AstNode, vTermTuple:class.TermTuple)
 	self:top_branch():setStop()
 end
 
-function Region:END(vNode)
+function Region:END(vNode:class.AstNode)
 	local re = self._fnCom:regionEnd(self._context, vNode, self._retList)
 	self._context:getNamespace():close()
 	self._context:seal()
