@@ -63,16 +63,17 @@ function Branch:symbol_init(vSymbol:class.LocalSymbol, vTerm:class.RefineTerm)
 	self.symbolToShot[vSymbol] = nSymbolShot
 end
 
-function Branch:symbol_set(vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
+function Branch:symbol_set(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	const nValueType = vValueTerm:getType()
-	if vSymbol:getType():containAll(nValueType) then
+	const nDstType = vSymbol:getType()
+	if self._context:cast(nValueType, nDstType) or vSymbol:getType():containAll(nValueType) then
 		const nSymbolShot = vValueTerm:attachSymbolShot()
 		self.symbolToShot[vSymbol] = nSymbolShot
 		nSymbolShot:addSymbol(vSymbol)
 		self.case:put_and(nSymbolShot, nValueType)
 		self.headCase:put_and(nSymbolShot, nValueType)
 	else
-		print(tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
+		self._context:getRuntime():nodeError(vNode, tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
 	end
 end
 
