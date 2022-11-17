@@ -229,7 +229,7 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 		local nTypeList:List(class.IAtomType) = {}
 		local nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		for nKey, nValue in pairs(vTable) do
-			local nValueType
+			local nValueType:Union(Nil, class.UAllType, class.MemberFunction)
 			if Reference.is(nValue) then
 				nValueType = nValue
 			elseif MemberFunction.is(nValue) then
@@ -245,6 +245,7 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
 				else
+					assert(nValueType and not MemberFunction.is(nValueType), "valuetype with non-singleton key can't be nil or MemberFunction")
 					nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
 				end
 			end)
@@ -427,7 +428,7 @@ function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil
 		nTermList[i] = nTerm
 		nTypeList[i] = nTerm:getType()
 	end
-	local nRepeatType = false
+	local nRepeatType:Union(False, class.UAllType) = false
 	if vTermTupleOrNil then
 		for i1=1, #vTermTupleOrNil do
 			local nTerm = vTermTupleOrNil:get(i1)

@@ -54,7 +54,7 @@ function RefineTerm.is(v)::isguard(class.RefineTerm)
 end
 
 function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
-	local nCase = nil
+	local nCase:Option(class.TermCase) = nil
 	self._type:foreach(function(vType)
 		if vType:containAll(vGuardType) then
 			nCase = self._typeToCase[vType]
@@ -73,9 +73,9 @@ function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.Term
 end
 
 function RefineTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
-	local reCase = nil
+	local reCase:Option(class.TermCase) = nil
 	self._type:foreach(function(vType)
-		const nCase = self._typeToCase[vType]
+		const nCase = self._typeToCase[vType]!
 		if vGuardType ~= vType then
 			if not reCase then
 				reCase = nCase
@@ -88,9 +88,9 @@ function RefineTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(Option(class.T
 end
 
 function RefineTerm:caseTrue()
-	local reCase = nil
+	local reCase:Option(class.TermCase) = nil
 	self._type:trueType():foreach(function(vType)
-		const nCase = self._typeToCase[vType]
+		const nCase = self._typeToCase[vType]!
 		if not reCase then
 			reCase = nCase
 		else
@@ -109,11 +109,11 @@ function RefineTerm:notnilTerm()::Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:caseNotnil()
-	local reCase = nil
+function RefineTerm:caseNotnil()::Ret(Option(class.TermCase))
+	local reCase:Option(class.TermCase) = nil
 	self._type:foreach(function(vType)
 		if not Nil.is(vType) then
-			const nCase = self._typeToCase[vType]
+			const nCase = self._typeToCase[vType]!
 			if not reCase then
 				reCase = nCase
 			else
@@ -126,9 +126,9 @@ end
 
 -- return TermCase | nil
 function RefineTerm:caseFalse()
-	local reCase = nil
+	local reCase:Option(class.TermCase) = nil
 	self._type:falseType():foreach(function(vType)
-		const nCase = self._typeToCase[vType]
+		const nCase = self._typeToCase[vType]!
 		if not reCase then
 			reCase = nCase
 		else

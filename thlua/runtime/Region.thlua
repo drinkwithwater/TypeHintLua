@@ -96,7 +96,7 @@ function Region:WHILE(vNode:class.AstNode, vTerm, vTrueFunction)
 end
 
 function Region:FOR_IN(vNode:class.AstNode, vFunc:Fn(class.TermTuple), vNext:class.RefineTerm, vSelf:class.RefineTerm, vInit:class.RefineTerm)
-	local nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
+	const nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value")
 		return
@@ -106,15 +106,26 @@ function Region:FOR_IN(vNode:class.AstNode, vFunc:Fn(class.TermTuple), vNext:cla
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : run logic when error")
 		return
 	end
-	local nNewTuple = self._context:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
 	local nCase = nFirstTerm:caseNotnil()
 	if not nCase then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN into a empty loop")
 		return
 	end
-	self:push_branch(nCase)
+	-- TODO, maybe symbolshot info is loss
+	const nTermList:List(class.RefineTerm) = {nFirstTerm:notnilTerm()}
+	for i=2, #nTuple do
+		local nTerm = nTuple:get(i)
+		const nType = nCase[nTerm:attachSymbolShot()]
+		if nType then
+			nTerm = self._context:RefineTerm(nType)
+		end
+		nTermList[i] = nTerm
+	end
+	--local nNewTuple = self._context:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
+	local nNewTuple = self._context:TermTuple(nTermList)
+	--self:push_branch(nCase)
 	vFunc(nNewTuple)
-	self:pop_branch()
+	--self:pop_branch()
 end
 
 function Region:FOR_NUM(vNode, vFunc, vStart, vStop, vStepOrNil)
