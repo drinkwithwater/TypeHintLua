@@ -342,20 +342,21 @@ function TypeManager:Boolean(vValue)::Ret(class.BooleanLiteral)
 	end
 end
 
-function TypeManager:Literal(vValue:Union(String, Number))::Ret(class.NumberLiteral):Ret(class.StringLiteral)
+function TypeManager:Literal(vValue:Union(String, Number))::Ret(Union(class.NumberLiteral,class.StringLiteral))
 	local t = type(vValue)
 	local nLiteralDict = self._literalDict
 	local nLiteralType = nLiteralDict[vValue]
 	if not nLiteralType then
 		if t == "number" then
 			nLiteralType = NumberLiteral.new(self, vValue)
+			nLiteralDict[vValue] = nLiteralType
 		elseif t == "string" then
 			nLiteralType = StringLiteral.new(self, vValue)
+			nLiteralDict[vValue] = nLiteralType
 		else
 			error("literal must take number or string value"..t)
 		end
 		self:_recordTypeUnionSign(nLiteralType)
-		nLiteralDict[vValue] = nLiteralType
 	end
 	return nLiteralType
 end

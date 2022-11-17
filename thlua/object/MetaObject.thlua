@@ -20,7 +20,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 		_valueDict=false@class.MemberDict,
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAllType)),
-		_intersectSet=false,
+		_intersectSet={}@Dict(class.MetaObject, True),
 		_metaEventDict={}@Dict(String, class.IAtomType),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
@@ -31,10 +31,12 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict:class.MemberDict, vNext:Boolean, vMetaEventDict:Option(Dict(String, class.IAtomType)), vIntersectSet)
+function MetaObject:init(vValueDict:class.MemberDict, vNext:Boolean, vMetaEventDict:Option(Dict(String, class.IAtomType)), vIntersectSet:Option(Dict(class.MetaObject, True)))
 	self._valueDict = vValueDict
 	self._nextDict = {}
-	self._intersectSet = vIntersectSet or {}
+	if vIntersectSet then
+		self._intersectSet = vIntersectSet
+	end
 	if vMetaEventDict then
 		for k,v in pairs(vMetaEventDict) do
 			self._metaEventDict[k] = v
