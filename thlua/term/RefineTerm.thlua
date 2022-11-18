@@ -1,5 +1,5 @@
 
-const SymbolShot = require "thlua.term.SymbolShot"
+const ImmutShot = require "thlua.term.ImmutShot"
 const TermCase = require "thlua.term.TermCase"
 const Nil = require "thlua.type.Nil"
 
@@ -33,7 +33,7 @@ function RefineTerm.new(
 		_manager=vManager,
 		_typeToCase=vTypeToCase or {}@Dict(class.IAtomType, class.TermCase),
 		_type=vType,
-		_symbolShot=false @ Union(False, class.SymbolShot),
+		_symbolShot=false @ Union(False, class.ImmutShot),
 	}, RefineTerm)
 	vType:foreach(function(vType)
 		if not self._typeToCase[vType] then
@@ -64,9 +64,9 @@ function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(OrNil(class.TermC
 		return nil
 	else
 		const nReCase = TermCase.new() & nCase
-		const nSymbolShot = self._symbolShot
-		if nSymbolShot then
-			nReCase:put_and(nSymbolShot, vGuardType)
+		const nImmutShot = self._symbolShot
+		if nImmutShot then
+			nReCase:put_and(nImmutShot, vGuardType)
 		end
 		return nReCase
 	end
@@ -183,14 +183,14 @@ function RefineTerm:and_case(vCase1:class.TermCase)
 	end
 end
 
-function RefineTerm:initShot(vSymbolShot:class.SymbolShot)
+function RefineTerm:initShot(vImmutShot:class.ImmutShot)
 	assert(not self._symbolShot, "term can only set symbolshot once")
-	self._symbolShot = vSymbolShot
+	self._symbolShot = vImmutShot
 	for nType, nTermCase in pairs(self._typeToCase) do
 		const nNewTermCase = TermCase.new() & nTermCase
-		const nSymbolShot = self._symbolShot
-		if nSymbolShot then
-			nNewTermCase:put_and(nSymbolShot, nType)
+		const nImmutShot = self._symbolShot
+		if nImmutShot then
+			nNewTermCase:put_and(nImmutShot, nType)
 		end
 		self._typeToCase[nType] = nNewTermCase
 	end
@@ -210,13 +210,13 @@ function RefineTerm:filter(vType:class.UAllType)::Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:attachSymbolShot()::Ret(class.SymbolShot)
-	local nSymbolShot = self._symbolShot
-	if not nSymbolShot then
-		nSymbolShot = SymbolShot.new(self)
-		self:initShot(nSymbolShot)
+function RefineTerm:attachImmutShot()::Ret(class.ImmutShot)
+	local nImmutShot = self._symbolShot
+	if not nImmutShot then
+		nImmutShot = ImmutShot.new(self)
+		self:initShot(nImmutShot)
 	end
-	return nSymbolShot
+	return nImmutShot
 end
 
 return RefineTerm

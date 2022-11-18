@@ -1,6 +1,6 @@
 
 const RefineTerm = require "thlua.term.RefineTerm"
-const SymbolShot = require "thlua.term.SymbolShot"
+const ImmutShot = require "thlua.term.ImmutShot"
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -20,9 +20,9 @@ function LocalSymbol.new(vContext:class.UContext,
 	}, LocalSymbol)
 end
 
-function LocalSymbol:makeShot(vType:OrNil(class.UAtomUnion))::Ret(class.SymbolShot)
+function LocalSymbol:makeShot(vType:OrNil(class.UAtomUnion))::Ret(class.ImmutShot)
 	const nTerm = self._context:RefineTerm(vType or self._type)
-	const nShot = nTerm:attachSymbolShot()
+	const nShot = nTerm:attachImmutShot()
 	nShot:addSymbol(self)
 	return nShot
 end
@@ -37,6 +37,10 @@ end
 
 function LocalSymbol:getName()::Ret(String)
 	return tostring(self._node)
+end
+
+function LocalSymbol.is(v)::isguard(class.LocalSymbol)
+	return getmetatable(v) == LocalSymbol
 end
 
 return LocalSymbol

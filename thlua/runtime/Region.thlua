@@ -46,33 +46,38 @@ function Region:top_branch()::Ret(class.Branch)
 end
 
 function Region:SYMBOL_SET(vNode:class.AstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
+	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
 	self:top_branch():symbol_set(vNode, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.LocalSymbol)
-	return self:top_branch():symbol_get(vSymbol)
+function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
+	local nBranch = self:top_branch()
+	if LocalSymbol.is(vSymbol) then
+		return nBranch:mutGetSymbol(vSymbol)
+	else
+		return nBranch:immutGetSymbol(vSymbol)
+	end
 end
 
-function Region:SYMBOL(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.LocalSymbol)
+function Region:SYMBOL(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
 	if not vTerm then
 		vTerm = self._context:NilTerm()
 	end
-	if not vHintType then
-		local nType = vTerm:getType()
-		local nLocalSymbol = LocalSymbol.new(self._context, vNode, nType, vTerm)
-		self:top_branch():symbol_init(nLocalSymbol, vTerm)
-		return nLocalSymbol
-	else
+	if vHintType then
 		local nSrcType = vTerm:getType()
 		if not self._context:cast(nSrcType, vHintType) then
 			if not vHintType:containAll(nSrcType) then
 				self._context:getRuntime():nodeError(vNode, "symbol init but type not match")
 			end
 		end
-		local nTerm = self._context:RefineTerm(vHintType)
-		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vHintType:checkAtomUnion(), vTerm)
-		self:top_branch():symbol_init(nLocalSymbol, nTerm)
+		vTerm = self._context:RefineTerm(vHintType)
+	end
+	if vMutable then
+		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vTerm:getType(), vTerm)
+		self:top_branch():symbol_init(nLocalSymbol, vTerm)
 		return nLocalSymbol
+	else
+		return vTerm:attachImmutShot()
 	end
 end
 
@@ -123,7 +128,7 @@ function Region:FOR_IN(vNode:class.AstNode, vFunc:Fn(class.TermTuple), vNext:cla
 	const nTermList:List(class.RefineTerm) = {nFirstTerm:notnilTerm()}
 	for i=2, #nTuple do
 		local nTerm = nTuple:get(i)
-		const nType = nCase[nTerm:attachSymbolShot()]
+		const nType = nCase[nTerm:attachImmutShot()]
 		if nType then
 			nTerm = self._context:RefineTerm(nType)
 		end

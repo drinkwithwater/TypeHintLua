@@ -1,0 +1,29 @@
+
+const ImmutShot = {}
+ImmutShot.__index=ImmutShot
+ImmutShot.__tostring=function(self)
+	return "shot-"..tostring(next(self._symbolSet))
+end
+
+(@let.class = import("thlua.type.TypeClass").class)
+
+function ImmutShot.new(vTerm:class.RefineTerm)::RetClass(class.ImmutShot)
+	return setmetatable({::Self()
+		_term=vTerm,
+		_symbolSet={} @ Dict(class.LocalSymbol, True),
+	}, ImmutShot)
+end
+
+function ImmutShot:addSymbol(vSymbol:class.LocalSymbol)
+	self._symbolSet[vSymbol] = true
+end
+
+function ImmutShot:getType()::Ret(class.UAtomUnion)
+	return self._term:getType()
+end
+
+function ImmutShot:getTerm()::Ret(class.RefineTerm)
+	return self._term
+end
+
+return ImmutShot
