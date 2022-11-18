@@ -185,7 +185,7 @@ end
 
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
 (@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
-function Context:_apply(vNode:class.AstNode, vNativePair:Option(NativePair), vFuncArgCaseList:FuncArgCaseList)::Ret(class.TermTuple)
+function Context:_apply(vNode:class.AstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList)::Ret(class.TermTuple)
 	const ok, err = self:nodePcall(vNode, function()
 		const nListLen = #vFuncArgCaseList
 		const nNativePair = vNativePair
@@ -252,7 +252,7 @@ end
 
 function Context:META_CALL(vNode:class.AstNode,
 	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple))::Ret(class.TermTuple)
-	local nNativePair:Option(NativePair) = nil
+	local nNativePair:OrNil(NativePair) = nil
 	const nFuncArgCaseList:FuncArgCaseList ={}
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
@@ -314,7 +314,7 @@ function Context:META_EQ_NE(vNode:class.AstNode,
 	const nTypeCaseList:List(class.TypeCasePair) = {}
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		vRightTerm:foreach(function(vRightType, vRightTermCase)
-			local nReType:Option(class.UAtomUnion) = nil
+			local nReType:OrNil(class.UAtomUnion) = nil
 			if vLeftType:isSingleton() and vRightType:isSingleton() then
 				-- TODO check for named type
 				const nTypeIsEq = vLeftType == vRightType

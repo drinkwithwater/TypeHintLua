@@ -8,16 +8,16 @@ local Reference = TypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function Reference.new(vManager:class.TypeManager, vKeyOrFalse:Union(String, False))::RetClass(class.Reference, class.IType)
+function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String))::RetClass(class.Reference, class.IType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_key=vKeyOrFalse,
-		_setNode=false@Union(False, class.AstNode),
+		_setNode=false@OrFalse(class.AstNode),
 		id=vManager:genTypeId(),
 		bits=false,
-		_waitRefer=false@Union(False, class.Reference),
-		_listType=false@Union(False, List(class.IAtomType)),
-		_resultType=false@Union(False, class.UAtomUnion),
+		_waitRefer=false@OrFalse(class.Reference),
+		_listType=false@OrFalse(List(class.IAtomType)),
+		_resultType=false@OrFalse(class.UAtomUnion),
 		_isInterfaceKey=true@Boolean,
 		_thread=false,
 		_waitListThreads={},
@@ -145,11 +145,11 @@ function Reference:getListAwait()::Ret(List(class.IAtomType))
 	return (assert(self._listType, "type list not setted"))
 end
 
-function Reference:getSetNode()::Ret(Union(False, class.AstNode))
+function Reference:getSetNode()::Ret(OrFalse(class.AstNode))
 	return self._setNode
 end
 
-function Reference:getType()::Ret(Union(False, class.UAtomUnion))
+function Reference:getType()::Ret(OrFalse(class.UAtomUnion))
 	return self._resultType
 end
 
@@ -196,7 +196,7 @@ function Reference:foreach(vFunc)
 	end
 end
 
-function Reference:_intersectOneNotRefer(vType:class.IAtomType)::Ret(Union(class.UAtomUnion, False))
+function Reference:_intersectOneNotRefer(vType:class.IAtomType)::Ret(OrFalse(class.UAtomUnion))
 	return self:checkAtomUnion():_intersectOneNotRefer(vType)
 end
 
@@ -230,7 +230,7 @@ function Reference:assumeContainAll(vAssumeSet, vRightType)::Ret(Boolean)
 	return nAllContain
 end
 
-function Reference:assumeContainAtom(vAssumeSet, vAtomType:class.IAtomType)::Ret(Union(class.IAtomType, False))
+function Reference:assumeContainAtom(vAssumeSet, vAtomType:class.IAtomType)::Ret(OrFalse(class.IAtomType))
 	local nTypeList = self:getListAwait()
 	for _, nType in ipairs(nTypeList) do
 		if nType:assumeContainAtom(vAssumeSet, vAtomType) then

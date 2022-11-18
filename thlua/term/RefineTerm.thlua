@@ -28,7 +28,7 @@ end
 function RefineTerm.new(
 	vManager:class.TypeManager,
 	vType:class.UAtomUnion,
-	vTypeToCase:Option(Dict(class.IAtomType, class.TermCase)))::RetClass(class.RefineTerm)
+	vTypeToCase:OrNil(Dict(class.IAtomType, class.TermCase)))::RetClass(class.RefineTerm)
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_typeToCase=vTypeToCase or {}@Dict(class.IAtomType, class.TermCase),
@@ -53,8 +53,8 @@ function RefineTerm.is(v)::isguard(class.RefineTerm)
 	return getmetatable(v) == RefineTerm
 end
 
-function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
-	local nCase:Option(class.TermCase) = nil
+function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(OrNil(class.TermCase))
+	local nCase:OrNil(class.TermCase) = nil
 	self._type:foreach(function(vType)
 		if vType:containAll(vGuardType) then
 			nCase = self._typeToCase[vType]
@@ -72,8 +72,8 @@ function RefineTerm:caseIsType(vGuardType:class.LuaTable)::Ret(Option(class.Term
 	end
 end
 
-function RefineTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(Option(class.TermCase))
-	local reCase:Option(class.TermCase) = nil
+function RefineTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(OrNil(class.TermCase))
+	local reCase:OrNil(class.TermCase) = nil
 	self._type:foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if vGuardType ~= vType then
@@ -88,7 +88,7 @@ function RefineTerm:caseIsNotType(vGuardType:class.LuaTable)::Ret(Option(class.T
 end
 
 function RefineTerm:caseTrue()
-	local reCase:Option(class.TermCase) = nil
+	local reCase:OrNil(class.TermCase) = nil
 	self._type:trueType():foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if not reCase then
@@ -109,8 +109,8 @@ function RefineTerm:notnilTerm()::Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:caseNotnil()::Ret(Option(class.TermCase))
-	local reCase:Option(class.TermCase) = nil
+function RefineTerm:caseNotnil()::Ret(OrNil(class.TermCase))
+	local reCase:OrNil(class.TermCase) = nil
 	self._type:foreach(function(vType)
 		if not Nil.is(vType) then
 			const nCase = self._typeToCase[vType]!
@@ -126,7 +126,7 @@ end
 
 -- return TermCase | nil
 function RefineTerm:caseFalse()
-	local reCase:Option(class.TermCase) = nil
+	local reCase:OrNil(class.TermCase) = nil
 	self._type:falseType():foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if not reCase then

@@ -218,11 +218,11 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:Option(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
+function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
 	return self:buildStruct(vNode, vTable, vMetaEventDict, vNext)
 end
 
-function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:Option(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
+function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer)
 	nKeyRefer:setRawAsync(vNode, function()
@@ -271,8 +271,12 @@ function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.MetaObjec
 	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {}, true)
 end
 
-function TypeManager:buildOption(vNode:class.AstNode, vValue)::Ret(class.Reference)
-	return self:buildUnion(vNode, vValue, self.type.Nil)
+function TypeManager:buildOrNil(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
+	return self:buildUnion(vNode, self.type.Nil, ...)
+end
+
+function TypeManager:buildOrFalse(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
+	return self:buildUnion(vNode, self.type.False, ...)
 end
 
 function TypeManager:_unifyUnion(vNewType:class.UAtomUnion)::Ret(class.UAtomUnion)
@@ -420,7 +424,7 @@ function TypeManager:RefineTerm(vType:class.UAllType)::Ret(class.RefineTerm)
 	return RefineTerm.new(self, nType)
 end
 
-function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil:Option(class.TermTuple))::Ret(class.TermTuple)
+function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil:OrNil(class.TermTuple))::Ret(class.TermTuple)
 	local nTermList:List(class.RefineTerm) = {}
 	local nTypeList:List(class.UAtomUnion) = {}
 	for _, nTerm in ipairs(vTermList) do
