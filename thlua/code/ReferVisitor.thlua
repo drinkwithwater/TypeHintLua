@@ -193,9 +193,12 @@ function ReferVisitor:symbolUse(vIdentNode)
 		local nDefineNode = nCurScope.symbol_ident_dict[nName]
 		if nDefineNode then
 			vIdentNode.ident_refer = nDefineNode.ident_refer
-			if nDefineNode.isConst and vIdentNode.isSet then
-				local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
-				error(Exception.new(nErrNode[1], nErrNode))
+			if vIdentNode.isSet then
+				if nDefineNode.isConst then
+					local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
+					error(Exception.new(nErrNode[1], nErrNode))
+				end
+				nDefineNode.isMutable = true
 			end
 		else
 			self:idToIndex(vIdentNode)
