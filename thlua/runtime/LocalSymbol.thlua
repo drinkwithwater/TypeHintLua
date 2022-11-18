@@ -10,11 +10,10 @@ LocalSymbol.__tostring=function(self)::Ret(String)
 	return "LocalSymbol-"..tostring(self._node).."-"..tostring(self._type)
 end
 
-function LocalSymbol.new(vContext:class.UContext, vRegion:Union(class.Region, False),
+function LocalSymbol.new(vContext:class.UContext,
 		vNode:class.AstNode, vType:class.UAtomUnion, vRawTerm:class.RefineTerm)::RetClass(class.LocalSymbol)
 	return setmetatable({::Self()
 		_context=vContext,
-		_region=vRegion,
 		_node=vNode,
 		_type=vType,
 		_rawTerm=vRawTerm,
@@ -38,22 +37,6 @@ end
 
 function LocalSymbol:getName()::Ret(String)
 	return tostring(self._node)
-end
-
-function LocalSymbol:GET(vNode:class.AstNode)::Ret(class.RefineTerm)
-	local nRegion = self._region
-	if nRegion then
-		return nRegion:top_branch():symbol_get(self)
-	else
-		return self._rawTerm
-	end
-end
-
-function LocalSymbol:SET(vNode:class.AstNode, vTerm:class.RefineTerm)
-	local nRegion = self._region
-	if nRegion then
-		nRegion:top_branch():symbol_set(vNode, self, vTerm)
-	end
 end
 
 return LocalSymbol

@@ -45,13 +45,21 @@ function Region:top_branch()::Ret(class.Branch)
 	return self._curBranch
 end
 
+function Region:SYMBOL_SET(vNode:class.AstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
+	self:top_branch():symbol_set(vNode, vSymbol, vTerm)
+end
+
+function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.LocalSymbol)
+	return self:top_branch():symbol_get(vSymbol)
+end
+
 function Region:SYMBOL(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.LocalSymbol)
 	if not vTerm then
 		vTerm = self._context:NilTerm()
 	end
 	if not vHintType then
 		local nType = vTerm:getType()
-		local nLocalSymbol = LocalSymbol.new(self._context, self, vNode, nType, vTerm)
+		local nLocalSymbol = LocalSymbol.new(self._context, vNode, nType, vTerm)
 		self:top_branch():symbol_init(nLocalSymbol, vTerm)
 		return nLocalSymbol
 	else
@@ -62,7 +70,7 @@ function Region:SYMBOL(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.
 			end
 		end
 		local nTerm = self._context:RefineTerm(vHintType)
-		local nLocalSymbol = LocalSymbol.new(self._context, self, vNode, vHintType:checkAtomUnion(), vTerm)
+		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vHintType:checkAtomUnion(), vTerm)
 		self:top_branch():symbol_init(nLocalSymbol, nTerm)
 		return nLocalSymbol
 	end
