@@ -47,19 +47,19 @@ end
 
 function Region:SYMBOL_SET(vNode:class.AstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
 	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
-	self:top_branch():symbol_set(vNode, vSymbol, vTerm)
+	self:top_branch():mutSet(vNode, vSymbol, vTerm)
 end
 
 function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
 	local nBranch = self:top_branch()
 	if LocalSymbol.is(vSymbol) then
-		return nBranch:mutGetSymbol(vSymbol)
+		return nBranch:mutGet(vSymbol)
 	else
-		return nBranch:immutGetSymbol(vSymbol)
+		return nBranch:immutGet(vSymbol)
 	end
 end
 
-function Region:SYMBOL(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
 	if not vTerm then
 		vTerm = self._context:NilTerm()
 	end
@@ -72,12 +72,14 @@ function Region:SYMBOL(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.
 		end
 		vTerm = self._context:RefineTerm(vHintType)
 	end
+	const nImmutShot = vTerm:attachImmutShot()
 	if vMutable then
 		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vTerm:getType(), vTerm)
-		self:top_branch():symbol_init(nLocalSymbol, vTerm)
+		self._context:getRuntime():recordSymbol(nLocalSymbol)
+		self:top_branch():mutMark(nLocalSymbol, nImmutShot)
 		return nLocalSymbol
 	else
-		return vTerm:attachImmutShot()
+		return nImmutShot
 	end
 end
 

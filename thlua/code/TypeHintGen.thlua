@@ -53,8 +53,8 @@ function TypeHintGen:codeRgn(vNode, vName)
 	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
-function TypeHintGen:codeSymbol(vNode)
-	return "____rgn:SYMBOL("..self:codeNode(vNode)..","..tostring(vNode.isMutable or false)
+function TypeHintGen:codeSymbolNew(vNode)
+	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..tostring(vNode.isMutable or false)
 end
 
 function TypeHintGen:codeCtx(vNode, vName)
@@ -98,20 +98,20 @@ local visitor_block = {
 			if node.is_fornum_block then
 				local idNode = parent[1]
 				visitor:print(idNode, "=")
-				visitor:print(visitor:codeSymbol(idNode), ", fornum_i) ")
+				visitor:print(visitor:codeSymbolNew(idNode), ", fornum_i) ")
 			elseif node.is_forin_block then
 				local nNameList = parent[1]
 				for i=1, #nNameList do
 					local idNode = nNameList[i]
 					visitor:print(idNode, "=")
-					visitor:print(visitor:codeSymbol(idNode), ", forin_gen", i, ") ")
+					visitor:print(visitor:codeSymbolNew(idNode), ", forin_gen", i, ") ")
 				end
 			elseif node.is_function_block then
 				local nParList = parent[1]
 				for i=1, #nParList do
 					local par = nParList[i]
 					if par.tag ~= "Dots" then
-						visitor:print(par, "=", visitor:codeSymbol(par), ", ", "v_"..par[1]..par.ident_refer, ") ")
+						visitor:print(par, "=", visitor:codeSymbolNew(par), ", ", "v_"..par[1]..par.ident_refer, ") ")
 					end
 				end
 			elseif node.is_chunk_block then
@@ -312,7 +312,7 @@ local visitor_stm = {
 			for i=1, #nNameList do
 				local idNode = nNameList[i]
 				visitor:print(idNode, "=")
-				visitor:print(visitor:codeSymbol(idNode), ", local_a"..i)
+				visitor:print(visitor:codeSymbolNew(idNode), ", local_a"..i)
 				if idNode.hintShort then
 					visitor:print(",", visitor:fixShort(idNode.hintShort))
 				end
@@ -324,7 +324,7 @@ local visitor_stm = {
 		override=function(visitor, node)
 			visitor:fixLinePrint(node)
 			local idNode = node[1]
-			visitor:print(idNode, "=", visitor:codeSymbol(idNode), ", ", node[2], ")")
+			visitor:print(idNode, "=", visitor:codeSymbolNew(idNode), ", ", node[2], ")")
 		end,
 	},
 	Goto={

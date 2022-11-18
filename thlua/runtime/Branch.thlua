@@ -34,7 +34,7 @@ function Branch.new(vContext:class.Context, vPreBranch:OrNil(class.Branch), vTer
 	return self
 end
 
-function Branch:immutGetSymbol(vImmutShot:class.ImmutShot)::Ret(class.RefineTerm)
+function Branch:immutGet(vImmutShot:class.ImmutShot)::Ret(class.RefineTerm)
 	local nType = self.case[vImmutShot]
 	if nType then
 		if not nType:isNever() then
@@ -50,32 +50,28 @@ function Branch:immutGetSymbol(vImmutShot:class.ImmutShot)::Ret(class.RefineTerm
 	end
 end
 
-function Branch:mutGetSymbol(vLocalSymbol:class.LocalSymbol)::Ret(class.RefineTerm)
+function Branch:mutGet(vLocalSymbol:class.LocalSymbol)::Ret(class.RefineTerm)
 	local nImmutShot = self.symbolToShot[vLocalSymbol]
 	if not nImmutShot then
 		-- TODO, consider upvalue symbol??
 		nImmutShot = vLocalSymbol:makeShot()
 		self.symbolToShot[vLocalSymbol] = nImmutShot
 	end
-	return self:immutGetSymbol(nImmutShot)
+	return self:immutGet(nImmutShot)
 end
 
-function Branch:symbol_init(vSymbol:class.LocalSymbol, vTerm:class.RefineTerm)
-	self._context:getRuntime():recordSymbol(vSymbol)
-	const nImmutShot = vTerm:attachImmutShot()
-	nImmutShot:addSymbol(vSymbol)
-	self.symbolToShot[vSymbol] = nImmutShot
+function Branch:mutMark(vSymbol:class.LocalSymbol, vImmutShot:class.ImmutShot)
+	self.symbolToShot[vSymbol] = vImmutShot
+	vImmutShot:addSymbol(vSymbol)
 end
 
-function Branch:symbol_set(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
+function Branch:mutSet(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
 	if self._context:cast(nValueType, nDstType) or vSymbol:getType():containAll(nValueType) then
 		const nImmutShot = vValueTerm:attachImmutShot()
 		self.symbolToShot[vSymbol] = nImmutShot
 		nImmutShot:addSymbol(vSymbol)
-		self.case:put_and(nImmutShot, nValueType)
-		self.headCase:put_and(nImmutShot, nValueType)
 	else
 		self._context:getRuntime():nodeError(vNode, tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
 	end
@@ -96,18 +92,16 @@ function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFa
 			if self.symbolToShot[nLocalSymbol] then
 				local nType:OrNil(class.UAtomUnion)
 				if nFalseStop or not vFalseBranch.headCase then
-					nType = vTrueBranch:mutGetSymbol(nLocalSymbol):getType()
+					nType = vTrueBranch:mutGet(nLocalSymbol):getType()
 				elseif nTrueStop or not vTrueBranch.headCase then
-					nType = vFalseBranch:mutGetSymbol(nLocalSymbol):getType()
+					nType = vFalseBranch:mutGet(nLocalSymbol):getType()
 				else
-					local nTrueType = vTrueBranch:mutGetSymbol(nLocalSymbol):getType()
-					local nFalseType = vFalseBranch:mutGetSymbol(nLocalSymbol):getType()
+					local nTrueType = vTrueBranch:mutGet(nLocalSymbol):getType()
+					local nFalseType = vFalseBranch:mutGet(nLocalSymbol):getType()
 					nType = nTrueType | nFalseType
 				end
 				local nImmutShot = nLocalSymbol:makeShot(nType)
 				self.symbolToShot[nLocalSymbol] = nImmutShot
-				self.case:put_and(nImmutShot, nType)
-				self.headCase:put_and(nImmutShot, nType)
 			end
 		end
 		local nAndCase:OrNil(class.TermCase)
