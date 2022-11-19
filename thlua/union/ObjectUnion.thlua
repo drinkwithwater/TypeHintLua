@@ -76,12 +76,23 @@ function ObjectUnion:putAwait(vType:class.IAtomType)
 	end
 end
 
-function ObjectUnion:_intersectOneNotRefer(vType)
-    if Truth.is(vType) then
-        return self
-    else
-        return self:containAtom(vType)
-    end
+function ObjectUnion:intersectAtom(vType)
+	if Truth.is(vType) then
+		return self
+	end
+	if self:containAtom(vType) then
+		return vType
+	end
+	if MetaObject.is(vType) then
+		const nCollection = self._manager:TypeCollection()
+		self:foreach(function(vSubType)
+			if vType:containAtom(vSubType) then
+				nCollection:put(vSubType)
+			end
+		end)
+		return nCollection:mergeToAtomUnion()
+	end
+	return false
 end
 
 function ObjectUnion:assumeContainAtom(vAssumeSet, vType)

@@ -35,7 +35,7 @@ class.IType = Interface ({
 	unionSign=Mfn():Ret(String),
 
 	detailString=Mfn(Dict(class.IAtomType, Union(True,String)), Boolean):Ret(String),
-	_intersectOneNotRefer=Mfn(class.IAtomType):Ret(OrFalse(class.UAtomUnion)),
+	intersectAtom=Mfn(class.IAtomType):Ret(OrFalse(class.UAtomUnion)),
 
 	containAll=Mfn(class.UAllType):Ret(Boolean),
 	assumeContainAll=Mfn(OrNil(Dict(Integer, True)), class.UAllType):Ret(Boolean),
@@ -140,8 +140,8 @@ const function TypeClass()::open()
 	function t:isNilable?()
 		return false
 	end
-	function t:_intersectOneNotRefer?(vRight)
-		error(tostring(self).."_intersectOneNotRefer TODO")
+	function t:intersectAtom?(vRight)
+		error(tostring(self).."intersectAtom TODO")
 	end
 	function t:containAtom?(vRight)
 		return self:assumeContainAtom(nil, vRight)
@@ -170,12 +170,12 @@ const function TypeClass()::open()
 			vRight = vRight:checkAtomUnion()
 		end
 		if not vRight:isUnion() then
-			const sth = vLeft:_intersectOneNotRefer(vRight)
+			const sth = vLeft:intersectAtom(vRight)
 			return sth or vLeft._manager.type.Never
 		else
 			const nCollection = vLeft._manager:TypeCollection()
 			vRight:foreach(function(vSubType)
-				local nIntersect = vLeft:_intersectOneNotRefer(vSubType)
+				local nIntersect = vLeft:intersectAtom(vSubType)
 				if nIntersect then
 					nCollection:put(nIntersect)
 				end

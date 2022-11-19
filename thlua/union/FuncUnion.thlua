@@ -64,12 +64,23 @@ function FuncUnion:putAwait(vType)
 	end
 end
 
-function FuncUnion:_intersectOneNotRefer(vType)
+function FuncUnion:intersectAtom(vType)
 	if Truth.is(vType) then
 		return self
-	else
-		return self:containAtom(vType)
 	end
+	if self:containAtom(vType) then
+		return vType
+	end
+	if TypeFunction.is(vType) then
+		const nCollection = self._manager:TypeCollection()
+		self:foreach(function(vSubType)
+			if vType:containAtom(vSubType) then
+				nCollection:put(vSubType)
+			end
+		end)
+		return nCollection:mergeToAtomUnion()
+	end
+	return false
 end
 
 function FuncUnion:assumeContainAtom(vAssumeSet, vType)
