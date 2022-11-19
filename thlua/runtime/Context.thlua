@@ -196,7 +196,7 @@ function Context:_apply(vNode:class.AstNode, vNativePair:OrNil(NativePair), vFun
 			end
 			return nNativePair[1]:meta_native_call(self:newOpenContext(vNode), nNativePair[2])
 		elseif nListLen >= 1 then
-			const nType1TupleCaseList = {}
+			const nType1TupleCaseList:List(Struct {class.UAtomUnion, class.TypeTuple, class.TermCase}) = {}
 			const nNil = self._manager.type.Nil
 			local nMaxLength = 0
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
@@ -208,7 +208,7 @@ function Context:_apply(vNode:class.AstNode, vNativePair:OrNil(NativePair), vFun
 						nMaxLength = nLength
 					end
 					nType1TupleCaseList[#nType1TupleCaseList + 1] = {
-						vTypeTuple:get(1), vTypeTuple, TermCase.new() & c
+						vTypeTuple:get(1):checkAtomUnion(), vTypeTuple, TermCase.new() & c
 					}
 				end)
 			end
@@ -224,13 +224,13 @@ function Context:_apply(vNode:class.AstNode, vNativePair:OrNil(NativePair), vFun
 				local nTypeI = nCollection:mergeToAtomUnion()
 				nTermList[i] = self:RefineTerm(nTypeI)
 			end
-			local nTypeCaseList = {}
+			local nTypeCaseList:List(class.TypeCasePair) = {}
 			for _, nType1TupleCase in pairs(nType1TupleCaseList) do
 				local nType1 = nType1TupleCase[1]
 				local nTypeTuple = nType1TupleCase[2]
 				local nCase = nType1TupleCase[3]
 				for i=2,nMaxLength do
-					nCase:put_and(nTermList[i]:attachImmutShot(), nTypeTuple:get(i):checkAtomUnion())
+					nCase:put_and(nTermList[i]!:attachImmutShot(), nTypeTuple:get(i):checkAtomUnion())
 				end
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					nType1, nCase

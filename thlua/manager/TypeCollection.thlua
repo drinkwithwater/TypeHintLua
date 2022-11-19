@@ -66,7 +66,7 @@ function TypeCollection:put(vType:class.UAllType)
 end
 
 function TypeCollection:_makeSimpleTrueType(vBit, vSet)::Ret(class.UAtomUnion)
-	local nUnionType:class.IUnionType = nil
+	local nUnionType:OrNil(class.IUnionType) = nil
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
 	elseif vBit == TYPE_BITS.NUMBER then
@@ -96,17 +96,16 @@ end
 
 function TypeCollection:mergeToAtomUnion()::Ret(class.UAtomUnion)
 	local nBits = self.bits
-	-- 0. only one type
-	if self.count == 1 then
-		return (next(self.bitsToSet[nBits]))
-	end
 	-- 1. fast type
 	if nBits == 0 then
 		-- 1) bits=0 for never
 		return self._type.Never
-	elseif FastTypeBitsToTrue[nBits] then
-		-- 2) some bit for only one type
-		return (next(self.bitsToSet[nBits]))
+	else
+		-- 2). count == 1 for only one type, some bit for only one type
+		if self.count == 1 or FastTypeBitsToTrue[nBits] then
+			const nOneType = (next(self.bitsToSet[nBits]))
+			return (assert(nOneType, "logic error when type merge"))
+		end
 	end
 	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
@@ -120,7 +119,7 @@ function TypeCollection:mergeToAtomUnion()::Ret(class.UAtomUnion)
 	local nTrueType:class.UAtomUnion = self._type.Never
 	if TrueBitToTrue[nTruableBits] then
 		-- if truablebits is bit, then just one case
-		nTrueType = nTrueBitToType[nTruableBits]
+		nTrueType = nTrueBitToType[nTruableBits]!
 	elseif nTruableBits == TYPE_BITS.TRUTH then
 		-- truetype is truth
 		nTrueType = self._type.Truth

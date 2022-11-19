@@ -19,7 +19,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 		_keyRefer=vKeyRefer,
 		_valueDict=false@class.MemberDict,
 		_nextValue=false@Union(False, class.UAtomUnion),
-		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAllType)),
+		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_metaEventDict={}@Dict(String, class.IAtomType),
 		bits=TYPE_BITS.OBJECT,
@@ -209,9 +209,13 @@ function MetaObject:native_next(vContext, vInitType)
 	if not nValueType then
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneValue in pairs(self._valueDict) do
-			nOneValue = nOneValue:checkAtomUnion():notnilType()
-			nNextDict[nOneKey] = nOneValue
-			nCollection:put(nOneValue)
+			if MemberFunction.is(nOneValue) then
+				vContext:error("struct.native_next with member function TODO")
+			else
+				nOneValue = nOneValue:checkAtomUnion():notnilType()
+				nNextDict[nOneKey] = nOneValue
+				nCollection:put(nOneValue)
+			end
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
