@@ -11,7 +11,7 @@ Branch.__tostring = function(self)::Ret(String)
 	return "Branch"
 end
 
-function Branch.new(vContext:class.Context, vPreBranch:OrNil(class.Branch), vTermCase:OrNil(class.TermCase))::RetClass(class.Branch)
+function Branch.new(vContext:class.Context, vPreBranch:OrNil(class.Branch), vTermCase:class.TermCase)::RetClass(class.Branch)
 	const self = setmetatable({::Self()
 		_context=vContext,
 		_stop=false@Boolean,
@@ -77,48 +77,69 @@ function Branch:mutSet(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTer
 	end
 end
 
+function Branch:mergeOneBranch(vContext:class.Context, vOneBranch:class.Branch, vOtherCase:OrNil(class.TermCase))
+	if vOneBranch:getStop() then
+		if vOtherCase then
+			self.case = self.case & vOtherCase
+			self.headCase = self.headCase & vOtherCase
+		end
+	else
+		const nSymbolToShot = self.symbolToShot
+		for nLocalSymbol, nOneShot in pairs(vOneBranch.symbolToShot) do
+			const nBeforeShot = nSymbolToShot[nLocalSymbol]
+			if nBeforeShot then
+				const nOneType = nOneShot:getType()
+				if not vOtherCase then
+					nSymbolToShot[nLocalSymbol] = nLocalSymbol:makeShot(nOneType)
+				else
+					const nOtherType = vOtherCase[nBeforeShot] or nBeforeShot:getType()
+					const nMergeType = nOneType | nOtherType
+					nSymbolToShot[nLocalSymbol] = nLocalSymbol:makeShot(nMergeType)
+				end
+			end
+		end
+	end
+end
+
 function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFalseBranch:class.Branch)
-	local nModLocalSymbolDict:Dict(class.LocalSymbol, True) = {}
 	local nTrueStop = vTrueBranch:getStop()
+	local nFalseStop = vFalseBranch:getStop()
+	if nTrueStop and nFalseStop then
+		self._stop = true
+		return
+	end
+	local nModLocalSymbolDict:Dict(class.LocalSymbol, True) = {}
 	for nLocalSymbol, _ in pairs(vTrueBranch.symbolToShot) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
-	local nFalseStop = vFalseBranch:getStop()
 	for nLocalSymbol, _ in pairs(vFalseBranch.symbolToShot) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
-	if (not nTrueStop) or (not nFalseStop) then
-		for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
-			if self.symbolToShot[nLocalSymbol] then
-				local nType:OrNil(class.UAtomUnion)
-				if nFalseStop or not vFalseBranch.headCase then
-					nType = vTrueBranch:mutGet(nLocalSymbol):getType()
-				elseif nTrueStop or not vTrueBranch.headCase then
-					nType = vFalseBranch:mutGet(nLocalSymbol):getType()
-				else
-					local nTrueType = vTrueBranch:mutGet(nLocalSymbol):getType()
-					local nFalseType = vFalseBranch:mutGet(nLocalSymbol):getType()
-					nType = nTrueType | nFalseType
-				end
-				local nImmutShot = nLocalSymbol:makeShot(nType)
-				self.symbolToShot[nLocalSymbol] = nImmutShot
+	for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
+		if self.symbolToShot[nLocalSymbol] then
+			local nType:OrNil(class.UAtomUnion)
+			if nFalseStop then
+				nType = vTrueBranch:mutGet(nLocalSymbol):getType()
+			elseif nTrueStop then
+				nType = vFalseBranch:mutGet(nLocalSymbol):getType()
+			else
+				const nTrueType = vTrueBranch:mutGet(nLocalSymbol):getType()
+				const nFalseType = vFalseBranch:mutGet(nLocalSymbol):getType()
+				nType = nTrueType | nFalseType
 			end
+			local nImmutShot = nLocalSymbol:makeShot(nType)
+			self.symbolToShot[nLocalSymbol] = nImmutShot
 		end
-		local nAndCase:OrNil(class.TermCase)
-		if nFalseStop then
-			nAndCase = vTrueBranch.headCase
-		elseif nTrueStop then
-			nAndCase = vFalseBranch.headCase
-		end
-		if nAndCase then
-			self.case = self.case & nAndCase
-			self.headCase = self.headCase & nAndCase
-		end
-	else
-		local nAndCase = vTrueBranch.headCase & vFalseBranch.headCase
+	end
+	local nAndCase:OrNil(class.TermCase)
+	if nFalseStop then
+		nAndCase = vTrueBranch.headCase
+	elseif nTrueStop then
+		nAndCase = vFalseBranch.headCase
+	end
+	if nAndCase then
 		self.case = self.case & nAndCase
 		self.headCase = self.headCase & nAndCase
-		self._stop = true
 	end
 end
 
