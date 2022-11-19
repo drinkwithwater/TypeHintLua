@@ -3,11 +3,17 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const Region = require "thlua.runtime.Region"
 const RefineTerm = require "thlua.term.RefineTerm"
 const TermCase = require "thlua.term.TermCase"
-const TypeFunction = require "thlua.func.TypeFunction"
 const ContextClass = require "thlua.runtime.ContextClass"
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.type.Reference"
 const Node = require "thlua.code.Node"
+
+const LuaFunction = require "thlua.func.LuaFunction"
+const TypeFunction = require "thlua.func.TypeFunction"
+const LuaTable = require "thlua.object.LuaTable"
+const MetaObject = require "thlua.object.MetaObject"
+
+const TableBuilder = require "thlua.builder.TableBuilder"
 
 const Context = ContextClass()
 
@@ -412,6 +418,29 @@ end
 
 function Context:getParentContext()::Ret(class.UContext)
 	return self._parentContext
+end
+
+(@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
+function Context:TABLE_NEW(vNode:class.AstNode, vHinterHandler:Fn(class.TableLongHint), vPairMaker:PairMaker)::Ret(class.LuaTable)
+	local nBuilder = TableBuilder.new(self, vNode, vPairMaker)
+	local nLongHint = nBuilder:makeLongHint()
+	local ok, err = pcall(vHinterHandler, nLongHint)
+	if not ok then
+		error(Exception.new(tostring(err), vNode))
+	end
+	local nTableType = nBuilder:build()
+	return nTableType
+end
+
+function Context:cast(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(Boolean)
+	vSrcType = vSrcType:checkAtomUnion()
+	vDstType = vDstType:checkAtomUnion():trueType()
+	if LuaFunction.is(vSrcType) and TypeFunction.is(vDstType) then
+		return vSrcType:cast(self, vDstType)
+	elseif LuaTable.is(vSrcType) and MetaObject.is(vDstType) then
+		return vSrcType:cast(self, vDstType)
+	end
+	return false
 end
 
 return Context

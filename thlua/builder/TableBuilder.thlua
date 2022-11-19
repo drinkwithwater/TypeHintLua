@@ -14,7 +14,7 @@ end)
 
 TableBuilder.__index=TableBuilder
 
-function TableBuilder.new(vContext:class.UContext, vNode:class.AstNode, vPairMaker:PairMaker)::RetClass(class.TableBuilder)
+function TableBuilder.new(vContext:class.Context, vNode:class.AstNode, vPairMaker:PairMaker)::RetClass(class.TableBuilder)
 	return setmetatable({::Self()
 		_context=vContext,
 		_node=vNode,
@@ -48,7 +48,7 @@ function TableBuilder:build()::Ret(class.LuaTable)
 		const nKey = nPair[1]:getType()
 		local nValue = nPair[2]:getType()
 		if not nKey:isSingleton() then
-			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
+			nValue = nManager:checkedUnion(nValue, nManager.type.Nil):checkAtomUnion()
 		end
 		nTypePairList[i] = {nKey, nValue}
 	end
