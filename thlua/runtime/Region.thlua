@@ -59,7 +59,7 @@ function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(clas
 	end
 end
 
-function Region:SYMBOL_NEW(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:class.AstNode, vImmutable:OrFalse("const", "local"), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
 	if not vTerm then
 		vTerm = self._context:NilTerm()
 	end
@@ -71,9 +71,18 @@ function Region:SYMBOL_NEW(vNode:class.AstNode, vMutable:Boolean, vTerm:OrNil(cl
 			end
 		end
 		vTerm = self._context:RefineTerm(vHintType)
+	else
+		-- convert string literal to string, number literal to number, boolean literal to boolean
+		if vImmutable ~= "const" then
+			const nFromType = vTerm:getType()
+			const nToType = self._context:getTypeManager():literal2Primitive(nFromType)
+			if nFromType ~= nToType then
+				vTerm = self._context:RefineTerm(nToType)
+			end
+		end
 	end
 	const nImmutShot = vTerm:attachImmutShot()
-	if vMutable then
+	if vImmutable then
 		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vTerm:getType(), vTerm)
 		self._context:getRuntime():recordSymbol(nLocalSymbol)
 		self:top_branch():mutMark(nLocalSymbol, nImmutShot)
