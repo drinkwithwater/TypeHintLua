@@ -183,7 +183,7 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 		end
 		return nCollection:mergeToAtomUnion()
 	end)
-	return nNewStruct
+	return self:_recordTypeUnionSign(nNewStruct)
 end
 
 function TypeManager:checkedUnion(...:Truth)::Ret(class.Reference)
@@ -399,19 +399,19 @@ end
 
 function TypeManager:buildFn(vNode:class.AstNode, ...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return TypeFunction.new(self, nArgTuple, false, false)
+	return self:_recordTypeUnionSign(TypeFunction.new(self, nArgTuple, false, false))
 end
 
 function TypeManager:checkedFn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return TypeFunction.new(self, nArgTuple, false, false)
+	return self:_recordTypeUnionSign(TypeFunction.new(self, nArgTuple, false, false))
 end
 
 function TypeManager:Function(vArgTuple:class.UTypeTuple, vRetTuples:class.RetTuples)::Ret(class.TypeFunction)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
-	return nFunc
+	return self:_recordTypeUnionSign(nFunc)
 end
 
 function TypeManager:RefineTerm(vType:class.UAllType)::Ret(class.RefineTerm)

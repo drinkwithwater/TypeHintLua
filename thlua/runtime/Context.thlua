@@ -45,10 +45,10 @@ function Context:BEGIN(vLexContext:class.UContext, vBlockNode:class.AstNode, vLu
 end
 
 -- pack explist to termtuple or lazyfunc
-(@let.UPackExpr = Union(class.TermTuple, class.RefineTerm, Fn():Ret(Union(class.TermTuple, class.RefineTerm))))
+(@let.UPackExpr = Union(class.TermTuple, class.RefineTerm, Fn():Ret(class.RefineTerm)))
 function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackExpr))
 	const nTermList:List(Union(class.RefineTerm, False)) = {}
-	const nIndexToFunc:Dict(Number, Fn():Ret(Union(class.TermTuple, class.RefineTerm))) = {}
+	const nIndexToFunc:Dict(Integer, Fn():Ret(class.RefineTerm)) = {}
 	for i=1, #l-1 do
 		const cur = l[i]
 		if TermTuple.is(cur) then
@@ -70,9 +70,9 @@ function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackEx
 			nTermList[i] = nFunc()
 		end
 	end
-	local reFunc
-	const nIndex = #l
-	const nLast = l[nIndex]
+	local reFunc:OrNil(Fn():Ret(class.TermTuple))
+	const nLastIndex = #l
+	const nLast = l[nLastIndex]
 	if not nLast then
 		reFunc = function()
 			return self:TermTuple({})
@@ -85,10 +85,10 @@ function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackEx
 			end
 		else
 			if RefineTerm.is(nLast) then
-				nTermList[nIndex] = nLast
+				nTermList[nLastIndex] = nLast
 			elseif type(nLast) == "function" then
-				nIndexToFunc[nIndex] = nLast
-				nTermList[nIndex] = false
+				nIndexToFunc[nLastIndex] = nLast
+				nTermList[nLastIndex] = false
 			else
 				error("unexcept branch")
 			end

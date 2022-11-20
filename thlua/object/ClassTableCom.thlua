@@ -74,26 +74,30 @@ function ClassTableCom:implement(vContext:class.Context)
 	end)
 	local nIndexTable = nDefaultCom.__indexType
 	if nIndexTable then
-		nIndexTable:foreachGetPair(function(vKey, vValue)
-			if LuaFunction.is(vValue) then
-				if vValue:isMember() then
-					nCollection:put(vKey)
-					local nInterfaceValue = self._interface:getValueDict()[vKey]
-					if nInterfaceValue then
-						if MemberFunction.is(nInterfaceValue) then
-							self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nInterfaceValue:indexTypeFn(self._luaTable))
-							return
+		if LuaFunction.is(nIndexTable) or TypeFunction.is(nIndexTable) then
+			-- TODO
+		else
+			nIndexTable:foreachGetPair(function(vKey, vValue)
+				if LuaFunction.is(vValue) then
+					if vValue:isMember() then
+						nCollection:put(vKey)
+						local nInterfaceValue = self._interface:getValueDict()[vKey]
+						if nInterfaceValue then
+							if MemberFunction.is(nInterfaceValue) then
+								self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nInterfaceValue:indexTypeFn(self._luaTable))
+								return
+							end
 						end
+						self._valueDict[vKey] = vValue:implement(vContext, self._luaTable)
+					else
+						nCollection:put(vKey)
+						self._valueDict[vKey] = vValue
 					end
-					self._valueDict[vKey] = vValue:implement(vContext, self._luaTable)
-				else
-					nCollection:put(vKey)
-					self._valueDict[vKey] = vValue
+				elseif TypeFunction.is(vValue) then
+					print("TypeFunction as indexing member TODO")
 				end
-			elseif TypeFunction.is(vValue) then
-				print("TypeFunction as indexing member TODO")
-			end
-		end)
+			end)
+		end
 	end
 	self._keyType = nCollection:mergeToAtomUnion()
 	const nLenFn = nDefaultCom:getMetaEventDict()["__len"]
