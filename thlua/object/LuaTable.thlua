@@ -32,8 +32,8 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 	return self
 end
 
-function LuaTable:initByClass(vFnCom:class.ClassFnCom, vBaseClass:Union(False, class.LuaTable), vStruct:Union(False, class.MetaObject))
-	self._sealCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vStruct)
+function LuaTable:initByClass(vFnCom:class.ClassFnCom, vBaseClass:Union(False, class.LuaTable), vInterface:Union(False, class.MetaObject))
+	self._sealCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vInterface)
 end
 
 function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
@@ -104,14 +104,21 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::
 	if isValidIndexType(nNewIndexType) then
 		nEventToType.__newindex=nNewIndexType
 	end
-	local nOperEventToType:Dict(String, class.IAtomType) = {}
+	local nMetaEventToType:Dict(String, class.IAtomType) = {}
 	for nOper, nEvent in pairs(OPER_ENUM.all) do
-		local nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
+		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
 		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
-			nOperEventToType[nOper] = nMethodType
+			nMetaEventToType[nEvent] = nMethodType
 		end
 	end
-	self._defaultCom:setMetaEvent(nEventToType, nOperEventToType)
+	const nSomeEvents:List(String) = {} -- {"__len", "__tostring"}
+	for _, nEvent in pairs(nSomeEvents) do
+		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
+		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
+			nMetaEventToType[nEvent] = nMethodType
+		end
+	end
+	self._defaultCom:setMetaEvent(nEventToType, nMetaEventToType)
 	return self
 end
 
@@ -197,18 +204,20 @@ function LuaTable:intersectAtom(vType)
 end
 
 -- called when New function checkDefine
-function LuaTable:sealNew(vContext)
+function LuaTable:sealNew(vContext:class.Context)
 	assert(not self._sealed, "is sealed")
 	self._sealed = true
-	self._sealCom:implement(vContext)
+	const clsCom = self._sealCom
+	assert(ClassTableCom.is(clsCom), "only ClassTableCom can call sealNew")
+	clsCom:implement(vContext)
 end
 
-function LuaTable:cast(vContext, vStruct)::Ret(Boolean)
+function LuaTable:cast(vContext, vStruct:class.MetaObject)::Ret(Boolean)
 	if self._sealCom then
 		return false
 	end
 	self._sealed = true
-	local nStructCom = StructTableCom.new(self._manager, self, vStruct)
+	const nStructCom = StructTableCom.new(self._manager, self, vStruct)
 	-- TODO cast maybe fail, fail may be because union
 	self._sealCom = nStructCom
 	nStructCom:tryCast(vContext)

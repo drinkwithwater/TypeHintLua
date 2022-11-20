@@ -65,13 +65,14 @@ function ClassTableCom:checkStruct()
 	return self._interface
 end
 
-function ClassTableCom:implement(vContext)
+function ClassTableCom:implement(vContext:class.Context)
 	const nCollection = self._manager:TypeCollection()
-	self._defaultCom:foreachGetPair(function(vKey, vValue)
+	const nDefaultCom:class.DefaultTableCom = self._defaultCom
+	nDefaultCom:foreachGetPair(function(vKey, vValue)
 		nCollection:put(vKey)
 		self._valueDict[vKey] = vValue
 	end)
-	local nIndexTable = self._defaultCom.__indexType
+	local nIndexTable = nDefaultCom.__indexType
 	if nIndexTable then
 		nIndexTable:foreachGetPair(function(vKey, vValue)
 			if LuaFunction.is(vValue) then
@@ -95,6 +96,16 @@ function ClassTableCom:implement(vContext)
 		end)
 	end
 	self._keyType = nCollection:mergeToAtomUnion()
+	const nLenFn = nDefaultCom:getMetaEventDict()["__len"]
+	if LuaFunction.is(nLenFn) then
+		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.Integer)
+		nLenFn:implement(vContext, self._luaTable, nFn)
+	end
+	const nStringFn = nDefaultCom:getMetaEventDict()["__tostring"]
+	if LuaFunction.is(nStringFn) then
+		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.String)
+		nStringFn:implement(vContext, self._luaTable, nFn)
+	end
 end
 
 function ClassTableCom:getCompletion()

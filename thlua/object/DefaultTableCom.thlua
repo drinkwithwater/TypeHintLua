@@ -22,7 +22,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		_luaTable=vLuaTable,
 		__indexType=false,
 		__newindexType=false,
-		_operToType={}@Dict(String, class.IAtomType),
+		_metaEventDict={}@Dict(String, class.IAtomType),
 		_nothingStruct=vManager.type.Object,
 	}, DefaultTableCom)
 	return self
@@ -33,10 +33,10 @@ function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Di
 	self._valueDict = vValueDict
 end
 
-function DefaultTableCom:setMetaEvent(vEventToType, vOperEventToType:Dict(String, class.IAtomType))
+function DefaultTableCom:setMetaEvent(vEventToType, vMetaEventDict:Dict(String, class.IAtomType))
 	self.__indexType = vEventToType.__index or false
 	self.__newindexType = vEventToType.__newindex or false
-	self._operToType = vOperEventToType
+	self._metaEventDict = vMetaEventDict
 end
 
 function DefaultTableCom:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
@@ -108,8 +108,13 @@ function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
 	return nReType
 end
 
+function DefaultTableCom:getMetaEventDict()::Ret(Dict(String, class.IAtomType))
+	return self._metaEventDict
+end
+
 function DefaultTableCom:meta_bop_func(vContext, vOper)
-	local nMethodType = self._operToType[vOper]
+	local nMethodEvent = OPER_ENUM.all[vOper]!
+	local nMethodType = self._metaEventDict[nMethodEvent]
 	if not nMethodType then
 		return false, nil
 	else
