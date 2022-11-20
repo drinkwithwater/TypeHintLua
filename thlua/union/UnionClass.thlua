@@ -5,10 +5,11 @@ const TypeClass = require "thlua.type.TypeClass"
 
 const function UnionClass()::open()
 	const t = TypeClass()
-	function t:__len()
-			error("union class len TODO")
+	function t.__len?(self)
+		error("union class len TODO")
+		return 0
 	end
-	function t:detailString?(v)::Ret(String):nocheck()
+	function t:detailString?(vCache, vVerbose)::Ret(String):nocheck()
 		const l:List(class.IAtomType) = {}
 		self:foreach(function(vType)
 			l[#l+1] = vType
@@ -18,7 +19,7 @@ const function UnionClass()::open()
 		end)
 		const sl:List(String) = {}
 		for i=1, #l do
-			sl[i] = l[i]:detailString(v)
+			sl[i] = l[i]:detailString(vCache, vVerbose)
 		end
 		return "Union("..table.concat(sl,",")..")"
 	end
