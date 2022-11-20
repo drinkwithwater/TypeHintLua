@@ -73,7 +73,8 @@ function Region:SYMBOL_NEW(vNode:class.AstNode, vImmutable:OrFalse("const", "loc
 		vTerm = self._context:RefineTerm(vHintType)
 	else
 		-- convert string literal to string, number literal to number, boolean literal to boolean
-		if vImmutable ~= "const" then
+		-- TODO , think symbol in more case, local , args, const, for, ...
+		if not vImmutable then
 			const nFromType = vTerm:getType()
 			const nToType = self._context:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
@@ -82,7 +83,7 @@ function Region:SYMBOL_NEW(vNode:class.AstNode, vImmutable:OrFalse("const", "loc
 		end
 	end
 	const nImmutShot = vTerm:attachImmutShot()
-	if vImmutable then
+	if not vImmutable then
 		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vTerm:getType(), vTerm)
 		self._context:getRuntime():recordSymbol(nLocalSymbol)
 		self:top_branch():mutMark(nLocalSymbol, nImmutShot)

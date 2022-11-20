@@ -81,9 +81,8 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	return self
 end
 
-local tableToTypeFuncDict = {
+const AtomMetatableSet:Dict(Truth, True) = {
 	[Nil]=true,
-	[Never]=true,
 	[String]=true,
 	[StringLiteral]=true,
 	[Number]=true,
@@ -92,22 +91,28 @@ local tableToTypeFuncDict = {
 	[MetaObject]=true,
 	[Truth]=true,
 	[LuaTable]=true,
+	[LuaFunction]=true,
+	[TypeFunction]=true,
+	[NativeFunction]=true,
+}
 
+const AtomUnionMetatableSet:Dict(Truth, True) = {
+	[Never]=true,
 	[NumberLiteralUnion]=true,
 	[StringLiteralUnion]=true,
 	[FalsableUnion]=true,
 	[ObjectUnion]=true,
 	[FuncUnion]=true,
 	[ComplexUnion]=true,
-
-	[LuaFunction]=true,
-	[TypeFunction]=true,
-	[NativeFunction]=true,
 }
+
+for k, v in pairs(AtomMetatableSet) do
+	AtomUnionMetatableSet[k] = v
+end
 
 function TypeManager:isValueType(vData)::Ret(Boolean)
 	local meta = getmetatable(vData)
-	if meta and (tableToTypeFuncDict[meta] or meta == Reference) then
+	if meta and (AtomUnionMetatableSet[meta] or meta == Reference) then
 			return true
 	else
 		return false
@@ -126,7 +131,7 @@ function TypeManager:_toType(vData)::Ret(class.UAtomUnion)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
-		if tableToTypeFuncDict[meta] then
+		if AtomUnionMetatableSet[meta] then
 			return vData
 		else
 			error("to type failed")
@@ -322,7 +327,7 @@ function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, 
 	return nKeyUnion, nTypeDict
 end
 
-function TypeManager:_recordTypeUnionSign(vType:class.UAtomUnion)::Ret(class.UAtomUnion)
+function TypeManager:_recordTypeUnionSign(vType)::open()
 	self._unionSignToType[vType:unionSign()] = vType
 	return vType
 end
