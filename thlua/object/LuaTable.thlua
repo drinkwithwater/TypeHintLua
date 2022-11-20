@@ -25,7 +25,7 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_sealed=false@Boolean,
-		_metaTable=false,
+		_metaTable=false@OrFalse(class.LuaTable),
 		_sealCom=false@Union(class.StructTableCom, class.ClassTableCom),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
@@ -87,23 +87,20 @@ function LuaTable:native_next(vContext, vInitType)
 	end
 end
 
-function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::Ret(class.LuaTable)
+function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- TODO thinking when to lock this ?
 	assert(not self._metaTable, "meta table can be only set once")
 	self._metaTable = vMetaTableType
 	local nManager = self._manager
-	local nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
-	local nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
-	local nEventToType = {}
-	local function isValidIndexType(vType)
-		return LuaTable.is(vType) or TypeFunction.is(vType) or LuaFunction.is(vType)
+	const function checkValidIndexType(vType)::Ret(OrFalse(class.UIndexType))
+		if LuaTable.is(vType) or TypeFunction.is(vType) or LuaFunction.is(vType) then
+			return vType
+		else
+			return false
+		end
 	end
-	if isValidIndexType(nIndexType) then
-		nEventToType.__index=nIndexType
-	end
-	if isValidIndexType(nNewIndexType) then
-		nEventToType.__newindex=nNewIndexType
-	end
+	const nIndexType = checkValidIndexType(vMetaTableType:native_rawget(vContext, nManager:Literal("__index")))
+	const nNewIndexType = checkValidIndexType(vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex")))
 	local nMetaEventToType:Dict(String, class.IAtomType) = {}
 	for nOper, nEvent in pairs(OPER_ENUM.all) do
 		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
@@ -118,20 +115,15 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType:class.LuaTable)::
 			nMetaEventToType[nEvent] = nMethodType
 		end
 	end
-	self._defaultCom:setMetaEvent(nEventToType, nMetaEventToType)
-	return self
+	self._defaultCom:setMeta(nIndexType, nNewIndexType, nMetaEventToType)
 end
 
 function LuaTable:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
 	self._defaultCom:foreachGetPair(vFunc)
 end
 
-function LuaTable:native_getmetatable()::Ret(Union(class.LuaTable, class.Nil))
-	if self._metaTable then
-		return self._metaTable
-	else
-		return self._manager.type.Nil
-	end
+function LuaTable:native_getmetatable()
+	return self._metaTable or self._manager.type.Nil
 end
 
 function LuaTable:native_type()
