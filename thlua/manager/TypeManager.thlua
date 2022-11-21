@@ -66,8 +66,8 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	for k, nType in pairs(self.type) do
 		self:_recordTypeUnionSign(nType)
 	end
-	self.type.Boolean = self:checkedUnion(self.type.False, self.type.True)
-	self.type.Any = self:checkedUnion(self.type.False, self.type.Nil, self.type.Truth)
+	self.type.Boolean = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.True)
+	self.type.Any = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.Nil, self.type.Truth)
 	self.type.Object = self:buildInterface(self._runtime:getNode(), {}, nil, false)
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
@@ -81,29 +81,29 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	return self
 end
 
-const AtomMetatableSet:Dict(Truth, True) = {
-	[Nil]=true,
-	[String]=true,
-	[StringLiteral]=true,
-	[Number]=true,
-	[NumberLiteral]=true,
-	[BooleanLiteral]=true,
-	[MetaObject]=true,
-	[Truth]=true,
-	[LuaTable]=true,
-	[LuaFunction]=true,
-	[TypeFunction]=true,
-	[NativeFunction]=true,
+const AtomMetatableSet:Dict(Truth, String) = {
+	[Nil]="Nil",
+	[String]="String",
+	[StringLiteral]="StringLiteral",
+	[Number]="Number",
+	[NumberLiteral]="NumberLiteral",
+	[BooleanLiteral]="BooleanLiteral",
+	[MetaObject]="MetaObject",
+	[Truth]="Truth",
+	[LuaTable]="LuaTable",
+	[LuaFunction]="LuaFunction",
+	[TypeFunction]="TypeFunction",
+	[NativeFunction]="NativeFunction",
 }
 
-const AtomUnionMetatableSet:Dict(Truth, True) = {
-	[Never]=true,
-	[NumberLiteralUnion]=true,
-	[StringLiteralUnion]=true,
-	[FalsableUnion]=true,
-	[ObjectUnion]=true,
-	[FuncUnion]=true,
-	[ComplexUnion]=true,
+const AtomUnionMetatableSet:Dict(Truth, String) = {
+	[Never]="Never",
+	[NumberLiteralUnion]="NumberLiteralUnion",
+	[StringLiteralUnion]="StringLiteralUnion",
+	[FalsableUnion]="FalsableUnion",
+	[ObjectUnion]="ObjectUnion",
+	[FuncUnion]="FuncUnion",
+	[ComplexUnion]="ComplexUnion",
 }
 
 for k, v in pairs(AtomMetatableSet) do
@@ -127,11 +127,11 @@ function TypeManager:assertValueType(vData)::Ret(class.UAllType)
 	end
 end
 
-function TypeManager:_toType(vData)::Ret(class.UAtomUnion)
+function TypeManager:_toType(vData:Any)::Ret(class.UAtomUnion):nocheck()
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
-		if AtomUnionMetatableSet[meta] then
+		if AtomMetatableSet[meta] then
 			return vData
 		else
 			error("to type failed")
@@ -191,16 +191,24 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 	return self:_recordTypeUnionSign(nNewStruct)
 end
 
-function TypeManager:checkedUnion(...:Truth)::Ret(class.Reference)
-	return self:buildUnion(self._runtime:getNode(), ...)
+function TypeManager:checkedUnion(...:class.UAllType)::Ret(class.UAtomUnion)
+	const l:List(class.UAllType) = {...}
+	const nCollection = self:TypeCollection()
+	for i=1, select("#", ...) do
+		l[i]!:foreach(function(vAtomType)
+			nCollection:put(vAtomType)
+		end)
+	end
+	return nCollection:mergeToAtomUnion()
 end
 
 function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
 	local l = {...}
+	const nLen = select("#", ...)
 	local nNewRefer = self:Reference(false)
 	nNewRefer:setRawAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
-		for i=1, #l do
+		for i=1, nLen do
 			local nItem = l[i]
 			if Reference.is(nItem) then
 				local nList = nItem:getListAwait()
