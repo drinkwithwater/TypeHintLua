@@ -47,7 +47,7 @@ end
 -- pack explist to termtuple or lazyfunc
 (@let.UPackExpr = Union(class.TermTuple, class.RefineTerm, Fn():Ret(class.RefineTerm)))
 function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackExpr))
-	const nTermList:List(Union(class.RefineTerm, False)) = {}
+	const nTermFalseList:List(Union(class.RefineTerm, False)) = {}
 	const nIndexToFunc:Dict(Integer, Fn():Ret(class.RefineTerm)) = {}
 	for i=1, #l-1 do
 		const cur = l[i]
@@ -55,19 +55,19 @@ function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackEx
 			if #cur ~= 1 then
 				self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
 			end
-			nTermList[i] = cur:get(1) or self:RefineTerm(self._manager.type.Nil)
+			nTermFalseList[i] = cur:get(1) or self:RefineTerm(self._manager.type.Nil)
 		elseif RefineTerm.is(cur) then
-			nTermList[i] = cur
+			nTermFalseList[i] = cur
 		elseif type(cur) == "function" then
 			nIndexToFunc[i] = cur
-			nTermList[i] = false
+			nTermFalseList[i] = false
 		else
 			error("unexcept branch")
 		end
 	end
 	const lazyEvalFunc = function()
 		for i, nFunc in pairs(nIndexToFunc) do
-			nTermList[i] = nFunc()
+			nTermFalseList[i] = nFunc()
 		end
 	end
 	local reFunc:OrNil(Fn():Ret(class.TermTuple))
@@ -78,6 +78,8 @@ function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackEx
 			return self:TermTuple({})
 		end
 	else
+		-- force cast
+		const nTermList:List(class.RefineTerm) = nTermFalseList
 		if TermTuple.is(nLast) then
 			reFunc = function()
 				lazyEvalFunc()
@@ -85,10 +87,10 @@ function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackEx
 			end
 		else
 			if RefineTerm.is(nLast) then
-				nTermList[nLastIndex] = nLast
+				nTermFalseList[nLastIndex] = nLast
 			elseif type(nLast) == "function" then
 				nIndexToFunc[nLastIndex] = nLast
-				nTermList[nLastIndex] = false
+				nTermFalseList[nLastIndex] = false
 			else
 				error("unexcept branch")
 			end
