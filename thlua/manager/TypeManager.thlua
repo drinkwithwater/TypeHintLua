@@ -127,7 +127,7 @@ function TypeManager:assertValueType(vData)::Ret(class.UAllType)
 	end
 end
 
-function TypeManager:_toType(vData:Any)::Ret(class.UAtomUnion):nocheck()
+function TypeManager:_toType(vData:Any)::Ret(class.IAtomType):nocheck()
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
@@ -214,10 +214,7 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 				local nList = nItem:getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
-				local nType = self:_toType(nItem)
-				nType:foreachAwait(function(vAtomType)
-					nTypeList[#nTypeList + 1] = vAtomType
-				end)
+				nTypeList[#nTypeList + 1] = self:_toType(nItem)
 			end
 		end
 		return nTypeList
