@@ -50,7 +50,7 @@ local TagToVisiting = {
 	end,
 	Function=function(self, func)
 		local block_node = func[2]
-		self:scopeBegin(block_node, true)
+		self:scopeBegin(block_node, func)
 		self.define_pos = true
 		self:realVisit(func[1])
 		self.define_pos = false
@@ -106,9 +106,9 @@ local TagToVisiting = {
 	end,
 	Dots=function(self, node)
 		if self.define_pos then
-			self:symbolDefine(node)
+			self:dotsDefine(node)
 		else
-			self:symbolUse(node)
+			self:dotsUse(node)
 		end
 	end,
 	Id=function(self, node)
@@ -121,7 +121,7 @@ local TagToVisiting = {
 	Chunk=function(self, chunk)
 		self._env:record_ENV(chunk[1])
 		local block_node = chunk[3]
-		self:scopeBegin(block_node, true)
+		self:scopeBegin(block_node, chunk)
 		self.define_pos = true
 		self:realVisit(chunk[2])
 		self.define_pos = false
@@ -150,16 +150,18 @@ local ReferVisitor = VisitorExtend(setmetatable({}, {
 
 ReferVisitor.__index=ReferVisitor
 
-function ReferVisitor:scopeBegin(vBlockNode, vIsRegion)
+function ReferVisitor:scopeBegin(vBlockNode, vFuncOrChunk)
 	local nCurScope = self.scope_stack[#self.scope_stack]
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
 	self._env:recordScope(nCurScope, vBlockNode)
 	table.insert(self.scope_stack, vBlockNode)
-	if vIsRegion then
+	if vFuncOrChunk then
 		vBlockNode.is_region = true
-		table.insert(self.region_stack, vBlockNode)
+		table.insert(self.region_stack, vFuncOrChunk)
+		vBlockNode.region_node = vFuncOrChunk
+	else
+		vBlockNode.region_node = self.region_stack[#self.region_stack]
 	end
-	vBlockNode.region_refer = self.region_stack[#self.region_stack].scope_refer
 	return nNextScope
 end
 
@@ -176,6 +178,21 @@ function ReferVisitor:symbolDefine(vIdentNode)
 	self._env:recordSymbol(nCurScopeOrNil, vIdentNode)
 end
 
+function ReferVisitor:dotsDefine(vDotsNode)
+	local nCurRegion = self.region_stack[#self.region_stack]
+	nCurRegion.symbol_dots = vDotsNode
+end
+
+function ReferVisitor:dotsUse(vDotsNode)
+	assert(vDotsNode.tag == "Dots")
+	local nCurRegion = self.region_stack[#self.region_stack]
+	local nDotsDefine = nCurRegion.symbol_dots
+	if not nDotsDefine then
+		local nErrNode = self._env:makeErrNode(vDotsNode.pos, "cannot use '...' outside a vararg function")
+		error(Exception.new(nErrNode[1], nErrNode))
+	end
+end
+
 function ReferVisitor:idToIndex(vIdentNode)
 	local e1 = {tag="Id", pos=vIdentNode.pos, posEnd=vIdentNode.pos, "_ENV"}
 	e1.ident_refer = 1
@@ -188,30 +205,30 @@ end
 function ReferVisitor:symbolUse(vIdentNode)
 	assert(not vIdentNode.ident_refer, "ident_refer has been setted")
 	local nCurScope = self.scope_stack[#self.scope_stack]
-	if vIdentNode.tag == "Id" then
-		local nName = vIdentNode[1]
-		local nDefineNode = nCurScope.symbol_ident_dict[nName]
-		if nDefineNode then
-			vIdentNode.ident_refer = nDefineNode.ident_refer
-			if vIdentNode.isSet then
-				if nDefineNode.isConst then
-					local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
-					error(Exception.new(nErrNode[1], nErrNode))
-				end
-				nDefineNode.isMutable = true
+	assert(vIdentNode.tag == "Id")
+	local nName = vIdentNode[1]
+	local nDefineNode = nCurScope.symbol_ident_dict[nName]
+	if nDefineNode then
+		local nDefineScope = self._env:getScope(nDefineNode.scope_refer)
+		vIdentNode.ident_refer = nDefineNode.ident_refer
+		if vIdentNode.isSet then
+			if nDefineNode.isConst then
+				local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
+				error(Exception.new(nErrNode[1], nErrNode))
 			end
-		else
-			self:idToIndex(vIdentNode)
+			nDefineNode.isMutable = true
 		end
-	elseif vIdentNode.tag == "Dots" then
-		local nDotsDefine = self._env:getScope(nCurScope.region_refer).symbol_dots
-		if not nDotsDefine then
-			local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot use '...' outside a vararg function")
-			error(Exception.new(nErrNode[1], nErrNode))
+		local nStackIndex = #self.region_stack
+		if nDefineScope.region_node ~= self.region_stack[nStackIndex] then
+			vIdentNode.isUpValue = true
+			while nDefineScope.region_node ~= self.region_stack[nStackIndex] do
+				local nPreRegion = self.region_stack[nStackIndex]
+				nStackIndex = nStackIndex - 1
+				-- TODO
+			end
 		end
-		vIdentNode.ident_refer = nDotsDefine.ident_refer
 	else
-		error("ident refer error tag"..tostring(vIdentNode.tag))
+		self:idToIndex(vIdentNode)
 	end
 end
 

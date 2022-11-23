@@ -172,7 +172,7 @@ function CodeEnv:_init()
 	end
 	self._linePosList = nList
 	-- 2. gen ast
-	local ok, astOrErr = pcall(parser.parse,self, self._subject)
+	local ok, astOrErr = pcall(parser.parse, self, self._subject)
 	if not ok then
 		if type(astOrErr) == "table" and astOrErr.tag == "Error" then
 			self._astOrErr = astOrErr
@@ -289,6 +289,10 @@ function CodeEnv:checkOkay()
 	end
 end
 
+function CodeEnv:recordRegion(vChunkOrFunc)
+	-- TODO
+end
+
 function CodeEnv:recordScope(vCurScopeOrNil, vNode)
 	local nNewIndex = #self._scopeList + 1
 	vNode.scope_refer = nNewIndex
@@ -304,7 +308,6 @@ function CodeEnv:recordScope(vCurScopeOrNil, vNode)
 		self._rootScope = vNode
 	end
 	vNode.scope_children = {}
-	vNode.symbol_dots = false
 	vNode.is_region = false
 	vNode.lookup_block = vCurScopeOrNil or false
 	self._scopeList[nNewIndex] = vNode
@@ -320,21 +323,16 @@ function CodeEnv:record_ENV(vIdentNode)
 end
 
 function CodeEnv:recordSymbol(vCurScope, vIdentNode)
+	assert(vIdentNode.tag == "Id")
 	local nNewIndex = #self._identList + 1
 	vIdentNode.ident_refer = nNewIndex
 	vIdentNode.scope_refer = vCurScope.scope_refer
 	vIdentNode.is_define = true
 	self._identList[nNewIndex] = vIdentNode
-	if vIdentNode.tag == "Id" then
-		local nName = vIdentNode[1]
-		local nLookupNode = vCurScope.symbol_ident_dict[nName]
-		vCurScope.symbol_ident_dict[nName] = vIdentNode
-		vIdentNode.lookup_ident = nLookupNode
-	elseif vIdentNode.tag == "Dots" then
-		vCurScope.symbol_dots = vIdentNode
-	else
-		error("ident type error:"..tostring(vIdentNode.tag))
-	end
+	local nName = vIdentNode[1]
+	local nLookupNode = vCurScope.symbol_ident_dict[nName]
+	vCurScope.symbol_ident_dict[nName] = vIdentNode
+	vIdentNode.lookup_ident = nLookupNode
 end
 
 function CodeEnv:getNodeList()
