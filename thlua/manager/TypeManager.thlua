@@ -303,35 +303,6 @@ function TypeManager:_unifyUnion(vNewType:class.UAtomUnion)::Ret(class.UAtomUnio
 	end
 end
 
-function TypeManager:mergePairList(vTypeBorablePairList)::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAllType))
-	local nTypeToBorable = {}
-	local nCollection = self:TypeCollection()
-	for _, nPair in ipairs(vTypeBorablePairList) do
-		local nFieldType = nPair[1]
-		if nFieldType:isReference() then
-			nFieldType = nFieldType:checkAtomUnion()
-			nPair[1] = nFieldType
-		end
-		nCollection:put(nFieldType)
-	end
-	local nKeyUnion = nCollection:mergeToAtomUnion()
-	local nTypeDict = {}
-	for _, nPair in ipairs(vTypeBorablePairList) do
-		local nKey = nPair[1]
-		local nBorableValue = nPair[2]
-		nKey:foreach(function(vSubType)
-			local nContainType = assert(nKeyUnion:containAtom(vSubType), "merge error")
-			local nOld = nTypeDict[nContainType]
-			if nOld then
-				nTypeDict[nContainType] = nOld | nBorableValue
-			else
-				nTypeDict[nContainType] = nBorableValue
-			end
-		end)
-	end
-	return nKeyUnion, nTypeDict
-end
-
 function TypeManager:_recordTypeUnionSign(vType)::open()
 	self._unionSignToType[vType:unionSign()] = vType
 	return vType
@@ -463,9 +434,60 @@ function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)
 	return Reference.new(self, vName)
 end
 
+function TypeManager:mergePairList(vTypePairList:List(Struct {class.UAtomUnion, class.UAtomUnion}))::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAtomUnion))
+	local nCollection = self:TypeCollection()
+	for _, nPair in ipairs(vTypePairList) do
+		local nFieldType = nPair[1]
+		if nFieldType:isReference() then
+			nFieldType = nFieldType:checkAtomUnion()
+			nPair[1] = nFieldType
+		end
+		nCollection:put(nFieldType)
+	end
+	local nKeyUnion = nCollection:mergeToAtomUnion()
+	local nTypeDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+	for _, nPair in ipairs(vTypePairList) do
+		local nKey = nPair[1]
+		local nValueType = nPair[2]
+		nKey:foreach(function(vSubType)
+			local nContainType = assert(nKeyUnion:containAtom(vSubType), "merge error")
+			local nOldType = nTypeDict[nContainType]
+			if nOldType then
+				nTypeDict[nContainType] = nOldType | nValueType
+			else
+				nTypeDict[nContainType] = nValueType
+			end
+		end)
+	end
+	return nKeyUnion, nTypeDict
+end
+
 function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair))::Ret(class.RefineTerm)
-	local nType, nTypeToCase = self:mergePairList(vTypeCasePairList)
-	return RefineTerm.new(self, nType, nTypeToCase)
+	local nCollection = self:TypeCollection()
+	for _, nPair in ipairs(vTypeCasePairList) do
+		local nFieldType = nPair[1]
+		if nFieldType:isReference() then
+			nFieldType = nFieldType:checkAtomUnion()
+			nPair[1] = nFieldType
+		end
+		nCollection:put(nFieldType)
+	end
+	local nKeyUnion = nCollection:mergeToAtomUnion()
+	local nTypeDict:Dict(class.IAtomType, class.TermCase) = {}
+	for _, nPair in ipairs(vTypeCasePairList) do
+		local nKey = nPair[1]
+		local nCase = nPair[2]
+		nKey:foreach(function(vSubType)
+			local nContainType = assert(nKeyUnion:containAtom(vSubType), "merge error")
+			local nOldCase = nTypeDict[nContainType]
+			if nOldCase then
+				nTypeDict[nContainType] = nOldCase | nCase
+			else
+				nTypeDict[nContainType] = nCase
+			end
+		end)
+	end
+	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
 function TypeManager:fork(vFunc)
