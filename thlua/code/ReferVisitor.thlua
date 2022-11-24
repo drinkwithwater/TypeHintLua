@@ -159,6 +159,7 @@ function ReferVisitor:scopeBegin(vBlockNode, vFuncOrChunk)
 		vBlockNode.is_region = true
 		table.insert(self.region_stack, vFuncOrChunk)
 		vBlockNode.region_node = vFuncOrChunk
+		self._env:recordRegion(vFuncOrChunk)
 	else
 		vBlockNode.region_node = self.region_stack[#self.region_stack]
 	end
@@ -218,13 +219,16 @@ function ReferVisitor:symbolUse(vIdentNode)
 			end
 			nDefineNode.isMutable = true
 		end
-		local nStackIndex = #self.region_stack
-		if nDefineScope.region_node ~= self.region_stack[nStackIndex] then
+		local nStackLen = #self.region_stack
+		if nDefineScope.region_node ~= self.region_stack[nStackLen] then
 			vIdentNode.isUpValue = true
-			while nDefineScope.region_node ~= self.region_stack[nStackIndex] do
-				local nPreRegion = self.region_stack[nStackIndex]
-				nStackIndex = nStackIndex - 1
-				-- TODO
+			for i=nStackLen,1,-1 do
+				const nDownRegion = self.region_stack[i]
+				if nDefineScope.region_node == nDownRegion then
+					break
+				else
+					table.insert(nDownRegion.uv_list, vIdentNode)
+				end
 			end
 		end
 	else

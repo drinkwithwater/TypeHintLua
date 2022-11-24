@@ -18,6 +18,7 @@ function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTyping)
 		_nodeList = false, -- as init flag
 		_nameList = {},
 		_scopeList = {},
+		_regionList = {},
 		_rootScope = false,
 		_identList = {},
 		_version = vVersion or -1,
@@ -289,8 +290,11 @@ function CodeEnv:checkOkay()
 	end
 end
 
-function CodeEnv:recordRegion(vChunkOrFunc)
-	-- TODO
+function CodeEnv:recordRegion(vNode)
+	local nNewIndex = #self._regionList + 1
+	vNode.region_refer = nNewIndex
+	self._regionList[nNewIndex] = vNode
+	vNode.uv_list = {}
 end
 
 function CodeEnv:recordScope(vCurScopeOrNil, vNode)
