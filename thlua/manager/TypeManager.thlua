@@ -110,20 +110,31 @@ for k, v in pairs(AtomMetatableSet) do
 	AtomUnionMetatableSet[k] = v
 end
 
-function TypeManager:isValueType(vData)::Ret(Boolean)
+function TypeManager:pcheckAtomOrReference(vData)::Ret(True, Union(class.Reference, class.IAtomType)):Ret(False, String)
 	local meta = getmetatable(vData)
-	if meta and (AtomUnionMetatableSet[meta] or meta == Reference) then
-		return true
+	if meta and (AtomMetatableSet[meta] or meta == Reference) then
+		return true, vData @!! Union(class.Reference, class.IAtomType)
 	else
-		return false
+		return false, "fdsfs"
 	end
 end
 
-function TypeManager:assertValueType(vData)::Ret(class.UAllType)
-	if self:isValueType(vData) then
-		return vData
+function TypeManager:checkLuaTable(vType:class.UAllType)::Ret(class.LuaTable)
+	if Reference.is(vType) then
+		vType = vType:checkAtomUnion()
+	end
+	if not LuaTable.is(vType) then
+		error("assert lua table failed")
+	end
+	return vType
+end
+
+function TypeManager:assertAllType(vData)::Ret(class.UAllType)
+	local meta = getmetatable(vData)
+	if meta and (AtomUnionMetatableSet[meta] or meta == Reference) then
+		return vData @!! class.UAllType
 	else
-		error("assertValueType failed, type="..type(vData)..tostring(debug.traceback()))
+		error("assertAllType failed, type="..type(vData)..tostring(debug.traceback()))
 	end
 end
 
@@ -354,7 +365,7 @@ function TypeManager:Tuple(...:Truth)::Ret(class.TypeTuple)
 		if Reference.is(nArg) then
 			nTypeList[i] = nArg
 		else
-			nTypeList[i] = self:assertValueType(nArg)
+			nTypeList[i] = self:assertAllType(nArg)
 		end
 	end
 	return TypeTuple.new(self, nTypeList)

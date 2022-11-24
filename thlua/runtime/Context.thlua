@@ -80,7 +80,7 @@ function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackEx
 		end
 	else
 		-- force cast
-		const nTermList:List(class.RefineTerm) = nTermFalseList
+		const nTermList = nTermFalseList @!! List(class.RefineTerm)
 		if TermTuple.is(nLast) then
 			reFunc = function()
 				lazyEvalFunc()
@@ -433,6 +433,11 @@ function Context:TABLE_NEW(vNode:class.AstNode, vHinterHandler:Fn(class.TableLon
 	end
 	local nTableType = nBuilder:build()
 	return nTableType
+end
+
+function Context:HINT(vNode:class.AstNode, vTerm:class.RefineTerm, vType:class.UAllType)::Ret(class.RefineTerm)
+	-- TODO check cast valid
+	return self._manager:RefineTerm(vType)
 end
 
 function Context:cast(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(Boolean)

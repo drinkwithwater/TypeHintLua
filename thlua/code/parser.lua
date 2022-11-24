@@ -46,17 +46,21 @@ end
 
 local function symb(str)
 	if str=="." then
-	   return token(lpeg.P(".")*-lpeg.P("."))
+		return token(lpeg.P(".")*-lpeg.P("."))
 	elseif str==":" then
-	   return token(lpeg.P(":")*-lpeg.P(":"))
+		return token(lpeg.P(":")*-lpeg.P(":"))
 	elseif str=="-" then
-	   return token(lpeg.P("-")*-lpeg.P("-"))
+		return token(lpeg.P("-")*-lpeg.P("-"))
 	elseif str == "[" then
-	   return token(lpeg.P("[")*-lpeg.S("=["))
+		return token(lpeg.P("[")*-lpeg.S("=["))
 	elseif str == "~" then
-	   return token(lpeg.P("~")*-lpeg.P("="))
-    else
-	   return token(lpeg.P(str))
+		return token(lpeg.P("~")*-lpeg.P("="))
+	elseif str == "@" then
+		return token(lpeg.P("@")*-lpeg.P("!"))
+	elseif str == "@!" then
+		return token(lpeg.P("@!")*-lpeg.P("!"))
+	else
+		return token(lpeg.P(str))
 	end
 end
 
@@ -183,7 +187,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	OverrideHint = hintC.char("?");
 
-	AtHint = hintC.string(symb("@"), vvA.SimpleExpr);
+	AtHint = hintC.string(symb("@") + symb("@!!"), vvA.SimpleExpr);
 
 	ColonHint = hintC.string(symb(":"), vvA.Expr);
 

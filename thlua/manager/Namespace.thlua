@@ -15,7 +15,7 @@ Namespace.__index=Namespace
 	}
 end)
 
-const function throw(vMsg:String)
+const function throw(vMsg:String)::open()
 	const nNode = Node.getDebugNode(4)
 	error(Exception.new(vMsg, nNode))
 end
@@ -56,13 +56,15 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
-				if not self._manager:isValueType(newV) then
+				const nOkay, nAtomOrRefer = self._manager:pcheckAtomOrReference(newV)
+				if not nOkay then
 					throw("namespace assign a non-type value, key="..tostring(k))
-				end
-				if Reference.is(rawgetV) then
-					rawgetV:setTypeAsync(Node.getDebugNode(3), newV)
 				else
-					throw("conflict assign : key="..tostring(k))
+					if Reference.is(rawgetV) then
+						rawgetV:setTypeAsync(Node.getDebugNode(3), nAtomOrRefer)
+					else
+						throw("conflict assign : key="..tostring(k))
+					end
 				end
 			else
 				local namespace = Namespace.fromLocalExport(newV)
@@ -70,12 +72,14 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 					namespace:trySetKey(k)
 					self._key2type[k] = newV
 				else
-					if not self._manager:isValueType(newV) then
+					const nOkay, nAtomOrRefer = self._manager:pcheckAtomOrReference(newV)
+					if not nOkay then
 						throw("namespace assign a non-type value, key="..tostring(k))
+					else
+						local refer = self._manager:Reference(k)
+						refer:setTypeAsync(Node.getDebugNode(3), nAtomOrRefer)
+						self._key2type[k] = refer
 					end
-					local refer = self._manager:Reference(k)
-					refer:setTypeAsync(Node.getDebugNode(3), newV)
-					self._key2type[k] = refer
 				end
 			end
 		end,
