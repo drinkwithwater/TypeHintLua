@@ -15,27 +15,23 @@ function Branch.new(vContext:class.Context, vPreBranch:OrNil(class.Branch), vTer
 	const self = setmetatable({::Self()
 		_context=vContext,
 		_stop=false@Boolean,
-		case=nil@class.TermCase,
-		headCase=vTermCase,
+		_case=nil@class.TermCase,
+		_headCase=vTermCase,
 		symbolToShot=nil@Dict(class.LocalSymbol, class.ImmutShot),
 	}, Branch)
 	self.symbolToShot = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToShot})
 	local nTermCase:OrNil(class.TermCase) = nil
 	if vPreBranch then
-		if vTermCase then
-			nTermCase = vPreBranch.case & vTermCase
-		else
-			nTermCase = vPreBranch.case
-		end
+		nTermCase = vPreBranch:getCase() & vTermCase
 	else
-		nTermCase = TermCase.new()
+		nTermCase = vTermCase
 	end
-	self.case=nTermCase
+	self._case=nTermCase
 	return self
 end
 
 function Branch:immutGet(vImmutShot:class.ImmutShot)::Ret(class.RefineTerm)
-	local nType = self.case[vImmutShot]
+	local nType = self._case[vImmutShot]
 	if nType then
 		if not nType:isNever() then
 			const nTerm = self._context:RefineTerm(nType)
@@ -80,8 +76,8 @@ end
 function Branch:mergeOneBranch(vContext:class.Context, vOneBranch:class.Branch, vOtherCase:OrNil(class.TermCase))
 	if vOneBranch:getStop() then
 		if vOtherCase then
-			self.case = self.case & vOtherCase
-			self.headCase = self.headCase & vOtherCase
+			self._case = self._case & vOtherCase
+			self._headCase = self._headCase & vOtherCase
 		end
 	else
 		const nSymbolToShot = self.symbolToShot
@@ -133,23 +129,27 @@ function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFa
 	end
 	local nAndCase:OrNil(class.TermCase)
 	if nFalseStop then
-		nAndCase = vTrueBranch.headCase
+		nAndCase = vTrueBranch._headCase
 	elseif nTrueStop then
-		nAndCase = vFalseBranch.headCase
+		nAndCase = vFalseBranch._headCase
 	end
 	if nAndCase then
-		self.case = self.case & nAndCase
-		self.headCase = self.headCase & nAndCase
+		self._case = self._case & nAndCase
+		self._headCase = self._headCase & nAndCase
 	end
 end
 
 function Branch:assertCase(vTermCase:class.TermCase)
-	self.case = self.case & vTermCase
-	self.headCase = self.headCase & vTermCase
+	self._case = self._case & vTermCase
+	self._headCase = self._headCase & vTermCase
 end
 
 function Branch:setStop()
 	self._stop = true
+end
+
+function Branch:getCase()::Ret(class.TermCase)
+	return self._case
 end
 
 function Branch:getStop()::Ret(Boolean)
