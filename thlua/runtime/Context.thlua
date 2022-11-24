@@ -10,8 +10,10 @@ const Node = require "thlua.code.Node"
 
 const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
+const NativeFunction = require "thlua.func.NativeFunction"
 const LuaTable = require "thlua.object.LuaTable"
 const MetaObject = require "thlua.object.MetaObject"
+const Truth = require "thlua.type.Truth"
 
 const TableBuilder = require "thlua.builder.TableBuilder"
 
@@ -268,20 +270,24 @@ function Context:META_CALL(vNode:class.AstNode,
 	vFuncTerm:foreach(function(vFuncType, vTermCase)
 		nRegion:push_branch(vTermCase)
 		const nArgTermTuple = vLazyFunc()
+		nRegion:pop_branch()
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
-		elseif vFuncType:isNative() then
-			if not nNativePair then
-				nNativePair = {vFuncType, nArgTermTuple}
+		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or NativeFunction.is(vFuncType) or LuaFunction.is(vFuncType) then
+			if vFuncType:isNative() then
+				if not nNativePair then
+					nNativePair = {vFuncType, nArgTermTuple}
+				else
+					error("can't mix use native function")
+				end
 			else
-				error("can't mix use native function")
+				nFuncArgCaseList[#nFuncArgCaseList + 1] = {
+					vFuncType, nArgTermTuple:getTypeTuple() , vTermCase
+				}
 			end
 		else
-			nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-				vFuncType, nArgTermTuple:getTypeTuple() , vTermCase
-			}
+			error("TODO non-function-call TODO"..tostring(vFuncType))
 		end
-		nRegion:pop_branch()
 	end)
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
@@ -289,7 +295,7 @@ end
 function Context:META_INVOKE(vNode:class.AstNode,
 	vTerm:class.RefineTerm, vName:String, vArgTuple:class.TermTuple)::Ret(class.TermTuple)
 	const nGetContext = self:newSealContext(vNode)
-	local nNativePair = nil
+	local nNativePair:OrNil(NativePair) = nil
 	const nFuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	vTerm:foreach(function(vType, vTermCase)
@@ -301,16 +307,20 @@ function Context:META_INVOKE(vNode:class.AstNode,
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
-				elseif vSingleFuncType:isNative() then
-					if not nNativePair then
-						nNativePair = {vSingleFuncType, nNewArgTuple}
+				elseif Truth.is(vSingleFuncType) or TypeFunction.is(vSingleFuncType) or NativeFunction.is(vSingleFuncType) or LuaFunction.is(vSingleFuncType) then
+					if vSingleFuncType:isNative() then
+						if not nNativePair then
+							nNativePair = {vSingleFuncType, nNewArgTuple}
+						else
+							error("can't mix use native function")
+						end
 					else
-						error("can't mix use native function")
+						nFuncArgCaseList[#nFuncArgCaseList + 1] = {
+							vSingleFuncType, nNewArgTuple:getTypeTuple() , vTermCase
+						}
 					end
 				else
-					nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-						vSingleFuncType, nNewArgTuple:getTypeTuple() , vTermCase
-					}
+					error("TODO non-function-invoke TODO"..tostring(vSingleFuncType))
 				end
 			end)
 		end
@@ -361,7 +371,7 @@ function Context:META_BOP_SOME(vNode:class.AstNode, vOper:String, vLeftTerm:clas
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-					const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 					nCollection:put(nRetTuples:makeFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
