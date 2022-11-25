@@ -434,11 +434,13 @@ function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil
 		end
 		nRepeatType = vTermTupleOrNil:getRepeatType()
 	end
-	local nTypeTuple = self:Tuple(table.unpack(nTypeList))
+	const nTypeTuple = self:Tuple(table.unpack(nTypeList))
 	if nRepeatType then
-		nTypeTuple = nTypeTuple:Dots(nRepeatType)
+		const nTypeTupleDots = nTypeTuple:Dots(nRepeatType)
+		return TermTuple.new(self, nTermList, nTypeTupleDots)
+	else
+		return TermTuple.new(self, nTermList, nTypeTuple)
 	end
-	return TermTuple.new(self, nTermList, nTypeTuple)
 end
 
 function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)

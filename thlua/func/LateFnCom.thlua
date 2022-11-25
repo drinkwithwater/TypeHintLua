@@ -107,9 +107,10 @@ end
 
 function LateFnCom:_typeDefault()
 	if not self._typeFunction then
-		local nArgTuple = self._autoArgs:checkByDefault(vContext)
-		self._retTuples = self._retTuples or self._manager:VoidRetTuples()
-		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
+		const nArgTuple = self._autoArgs:checkByDefault()
+		const nRetTuples = self._retTuples or self._manager:VoidRetTuples()
+		self._retTuples = nRetTuples
+		self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 	end
 end
 
@@ -133,8 +134,10 @@ function LateFnCom:implement(vContext:class.UContext, vSelfType:class.LuaTable, 
 	else
 		self:_typeDefault()
 	end
-	local nArgTuple = self._typeFunction:getArgTuple()
-	return self._manager:Function(nArgTuple, self._retTuples)
+	const nTypeFn = assert(self._typeFunction, "no type-fn when late-fn-com implement")
+	const nRetTuples = assert(self._retTuples, "no ret-tuples when late-fn-com implement")
+	const nArgTuple = nTypeFn:getArgTuple()
+	return self._manager:Function(nArgTuple, nRetTuples)
 end
 
 function LateFnCom.is(v)::isguard(class.LateFnCom)
