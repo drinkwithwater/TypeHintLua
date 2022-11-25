@@ -214,7 +214,22 @@ end
 
 function Region:RETURN(vNode:class.AstNode, vTermTuple:class.TermTuple)
 	table.insert(self._retList, vTermTuple)
-	self._fnCom:regionReturn(self._context, vNode, vTermTuple:getTypeTuple())
+	if #vTermTuple <= 0 or vTermTuple:getRepeatType() then
+		self._fnCom:regionReturn(self._context, vNode, vTermTuple:getTypeTuple())
+	else
+		const nManager = self._context:getTypeManager()
+		const nFirstTerm = vTermTuple:get(1)
+		nFirstTerm:foreach(function(vAtomType, vCase)
+			const nTypeList:List(class.UAtomUnion) = {vAtomType}
+			for i=2, #vTermTuple do
+				local nTerm = vTermTuple:get(i)
+				const nType = vCase[nTerm:attachImmutShot()] or nTerm:getType()
+				nTypeList[i] = nType
+			end
+			const nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
+			self._fnCom:regionReturn(self._context, vNode, nTypeTuple)
+		end)
+	end
 	self:top_branch():setStop()
 end
 
