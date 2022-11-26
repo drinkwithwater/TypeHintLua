@@ -60,13 +60,15 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 		end),
 		next=nManager.builtin.next,
 		ipairs=nManager:NativeFunction(function(vContext, vTermTuple)
-			local nTerm1 = vTermTuple:get(1)
-			local nTypeTuple = nManager:Tuple(nTerm1:getType():meta_ipairs(vContext))
+			local nType1 = vTermTuple:get(1):getType()
+			assert(not nType1:isUnion(), "ipairs for union type TODO")
+			local nTypeTuple = nManager:Tuple(nType1:meta_ipairs(vContext))
 			return nTypeTuple:makeTermTuple()
 		end),
 		pairs=nManager:NativeFunction(function(vContext, vTermTuple)
-			local nTerm1 = vTermTuple:get(1)
-			local nTypeTuple = nManager:Tuple(nTerm1:getType():meta_pairs(vContext))
+			local nType1 = vTermTuple:get(1):getType()
+			assert(not nType1:isUnion(), "pairs for union type TODO")
+			local nTypeTuple = nManager:Tuple(nType1:meta_pairs(vContext))
 			return nTypeTuple:makeTermTuple()
 		end),
 		rawequal=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -76,8 +78,10 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 			return nManager:RefineTerm(nManager.type.Boolean)
 		end),
 		rawget=nManager:NativeFunction(function(vContext, vTermTuple)
-			local nType1 = vTermTuple:get(1):getType()
-			local nType2 = vTermTuple:get(2):getType()
+			const nType1 = vTermTuple:get(1):getType()
+			const nType2 = vTermTuple:get(2):getType()
+			assert(not nType1:isUnion(), "rawget for union type TODO")
+			assert(not nType2:isUnion(), "rawget for union type TODO")
 			return nManager:RefineTerm(nType1:native_rawget(vContext, nType2))
 		end),
 		rawset=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -108,10 +112,23 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 			return nManager:TermTuple({nFirst:trueTerm()})
 		end),
 		select=nManager:NativeFunction(function(vContext, vTermTuple)
-			if vTermTuple:get(1):getType() == nManager:Literal("#") then
+			const nFirstType = vTermTuple:get(1):getType()
+			if nFirstType == nManager:Literal("#") then
 				return nManager:RefineTerm(nManager.type.Integer)
 			else
-				print("select TODO")
+				local nStart = 1
+				if NumberLiteral.is(nFirstType) then
+					nStart = nFirstType:getLiteral()
+				elseif not Number.is(nFirstType) then
+					vContext:error("select's first value must be number or number-literal")
+					return nManager:TermTuple({})
+				end
+				const nCollection = nManager:TypeCollection()
+				for i=nStart, #vTermTuple do
+					const nType = vTermTuple:get(i):getType()
+					nCollection:put(nType)
+				end
+				return nManager:RefineTerm(nCollection:mergeToAtomUnion())
 			end
 		end),
 		print=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -141,10 +158,22 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 			end
 		end),
 		pcall=nManager:NativeFunction(function(vContext, vTermTuple)
-			print("TODO pcall")
+			const nFunc = vTermTuple:get(1)
+			const nArgs = vTermTuple:select(2)
+			const nParentContext = (vContext:getParentContext()) @!!class.Context
+			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
+			const nRetFirst = nManager:RefineTerm(nManager.type.True)
+			-- TODO combine first & second
+			return nManager:TermTuple({nRetFirst}, nTermTuple)
 		end),
 		xpcall=nManager:NativeFunction(function(vContext, vTermTuple)
-			print("TODO xpcall")
+			const nFunc = vTermTuple:get(1)
+			const nArgs = vTermTuple:select(3)
+			const nParentContext = (vContext:getParentContext()) @!!class.Context
+			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
+			const nRetFirst = nManager:RefineTerm(nManager.type.True)
+			-- TODO combine first & second
+			return nManager:TermTuple({nRetFirst}, nTermTuple)
 		end),
 		error=nManager:NativeFunction(function(vContext, vTermTuple)
 			local nRegion = vContext:getParentContext():getRegion()
