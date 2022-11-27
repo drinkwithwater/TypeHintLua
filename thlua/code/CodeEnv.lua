@@ -6,7 +6,7 @@ local CodeEnv = {}
 
 CodeEnv.__index=CodeEnv
 
-function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTyping)
+function CodeEnv.new(vSubject, vChunkName, vVersion)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
@@ -26,7 +26,7 @@ function CodeEnv.new(vSubject, vChunkName, vVersion, vGenTyping)
 	}, CodeEnv)
 
 	self:_init()
-	if vGenTyping then
+	if vVersion then
 		self:_buildTypingFn()
 	end
 	return self
@@ -246,9 +246,9 @@ end
 function CodeEnv:genTypingCode()
 	local ReferVisitor = require "thlua.code.ReferVisitor"
 	local TypeHintGen = require "thlua.code.TypeHintGen"
-    ReferVisitor.new(self):realVisit(self:getAstTree())
-    self:prepare()
-    return TypeHintGen.visit(self)
+	ReferVisitor.new(self):realVisit(self:getAstTree())
+	self:prepare()
+	return TypeHintGen.visit(self)
 end
 
 function CodeEnv:_buildTypingFn()

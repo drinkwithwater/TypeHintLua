@@ -1,6 +1,232 @@
 
 (@let.class = import("thlua.type.TypeClass").class)
 
+(@do
+
+let.node = namespace()
+
+let.NodeCommon = Interface {
+	pos=Number,
+	l=Number,
+	c=Number,
+}
+
+node.Chunk = Intersect(let.NodeCommon, Interface {
+	tag = "Chunk",
+	[1] = node.Block,
+})
+
+node.Block = Intersect(let.NodeCommon, Interface {
+	tag = "Block",
+	[Number] = node.Stat,
+})
+
+node.Stat = Union (
+	node.Do,
+	node.Set,
+	node.While,
+	node.Repeat,
+	node.If,
+	node.Fornum,
+	node.Forin,
+	node.Local,
+	node.Localrec,
+	node.Return,
+	node.Break,
+	node.Apply,
+	node.HintStat
+)
+
+node.Do = Intersect(let.NodeCommon, Interface {
+	tag = "Do",
+	[1] = node.Block,
+})
+
+node.Set = Intersect(let.NodeCommon, Interface {
+	tag = "Set",
+	[1] = node.VarList,
+	[2] = node.ExpList,
+})
+
+node.While = Intersect(let.NodeCommon, Interface {
+	tag = "While",
+	[1] = node.Expr,
+	[2] = node.Block,
+})
+
+node.Repeat = Intersect(let.NodeCommon, Interface {
+	tag = "Repeat",
+	[1] = node.Block,
+	[2] = node.Expr,
+})
+
+node.If = Intersect(let.NodeCommon, Interface {
+	tag = "Repeat",
+	[Number] = Union(node.Block, node.Expr),
+})
+
+node.Fornum = Intersect(let.NodeCommon, Interface {
+	tag = "Fornum",
+	[1] = node.Id,
+	[2] = node.Expr,
+	[3] = node.Expr,
+	[4] = Union(node.Expr, node.Block),
+	[5] = Union(node.Block, Nil),
+})
+
+node.Forin = Intersect(let.NodeCommon, Interface {
+	tag = "Forin",
+	[1] = node.NameList,
+	[2] = node.ExpList,
+	[3] = node.Block,
+})
+
+node.Local = Intersect(let.NodeCommon, Interface {
+	tag = "Local",
+	[1] = node.NameList,
+	[2] = node.ExpList,
+})
+
+node.Localrec = Intersect(let.NodeCommon, Interface {
+	tag = "Localrec",
+	[1] = node.Id,
+	[2] = node.Expr,
+})
+
+node.Return = Intersect(let.NodeCommon, Interface {
+	tag = "Return",
+	[1] = node.ExpList,
+})
+
+node.Break = Intersect(let.NodeCommon, Interface {
+	tag = "Break",
+})
+
+node.HintStat = Intersect(let.NodeCommon, Interface {
+	tag = "HintStat",
+	[1] = String,
+})
+
+node.Apply = Union (
+	node.Call,
+	node.Invoke
+)
+
+node.Call = Intersect(let.NodeCommon, Interface {
+	tag = "Call",
+	[1] = node.Expr,
+	[2] = node.ExpList,
+})
+
+node.Invoke = Intersect(let.NodeCommon, Interface {
+	tag = "Invoke",
+	[1] = node.Expr,
+	[2] = node.String,
+	[3] = node.ExpList,
+})
+
+node.Lhs = Union (
+	node.Id,
+	node.Index
+)
+
+node.Index = Intersect(let.NodeCommon, Interface {
+	tag = "Index",
+	[1] = node.Expr,
+	[2] = node.Expr,
+})
+
+node.Id = Intersect(let.NodeCommon, Interface {
+	tag = "Id",
+	[1] = String,
+})
+
+node.Expr = Union (
+	node.Nil,
+	node.False,
+	node.True,
+	node.Number,
+	node.String,
+	node.Lhs
+)
+
+node.Nil = Intersect(let.NodeCommon, Interface {
+	tag = "Nil"
+})
+
+node.False = Intersect(let.NodeCommon, Interface {
+	tag = "False"
+})
+
+node.True = Intersect(let.NodeCommon, Interface {
+	tag = "True"
+})
+
+node.Number = Intersect(let.NodeCommon, Interface {
+	tag = "Number",
+	[1] = Number,
+})
+
+node.String = Intersect(let.NodeCommon, Interface {
+	tag = "String",
+	[1] = String,
+})
+
+node.Function = Intersect(let.NodeCommon, Interface {
+	tag = "Function",
+	[1] = node.ParList,
+	[2] = node.Block,
+})
+
+node.Table = Intersect(let.NodeCommon, Interface {
+	tag = "Table",
+	[Number] = Union(node.Pair, node.Expr)
+})
+
+node.Pair = Intersect(let.NodeCommon, Interface {
+	tag = "Pair",
+	[1] = node.Expr,
+	[2] = node.Expr,
+})
+
+node.Op = Intersect(let.NodeCommon, Interface {
+	tag = "Op",
+	[1] = String,
+	[2] = node.Expr,
+	[3] = Union(node.Expr, Nil),
+})
+
+node.Dots = Intersect(let.NodeCommon, Interface {
+	tag = "Dots"
+})
+
+node.Paren = Intersect(let.NodeCommon, Interface {
+	tag = "Paren",
+	[1] = node.Expr
+})
+
+node.ParList = Intersect(let.NodeCommon, Interface {
+	tag = "ParList",
+	[Number] = Union(node.Id, node.Dots),
+})
+
+node.ExpList = Intersect(let.NodeCommon, Interface {
+	tag = "ExpList",
+	[Number] = node.Expr,
+})
+
+node.VarList = Intersect(let.NodeCommon, Interface {
+	tag = "VarList",
+	[Number] = node.Lhs,
+})
+
+node.NameList = Intersect(let.NodeCommon, Interface {
+	tag = "NameList",
+	[Number] = node.Id,
+})
+
+end)
+
 local Node = {}
 
 Node.__index=Node
