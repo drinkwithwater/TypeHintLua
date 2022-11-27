@@ -158,14 +158,22 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
+function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
+	...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
+	local nKeyRefer = self:Reference(false)
+	local nNewStruct = MetaObject.new(self, nKeyRefer, false)
+	-- struct extend TODO
+	return self:_recordTypeUnionSign(nNewStruct)
+end
+
 function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
 	local l:List(class.UAllType) = {...}
 	local nKeyRefer = self:Reference(false)
-	local nNewStruct = MetaObject.new(self, nKeyRefer)
+	local nNewStruct = MetaObject.new(self, nKeyRefer, true)
 	local nMetaEventDict:Dict(String, class.IAtomType) = {}
 	nKeyRefer:setRawAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
-		local nAllValueDict = {}
+		local nAllValueDict:class.MemberDict = {}
 		local nIntersectSet:Dict(class.MetaObject, True) = {}
 		for i=1,#l do
 			local nMetaObject = l[i]!
@@ -190,7 +198,8 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 				end
 			end
 		end
-		nNewStruct:init(nAllValueDict, false, nMetaEventDict, nIntersectSet)
+		nNewStruct:init(nAllValueDict, nMetaEventDict)
+		nNewStruct:initIntersectSet(nIntersectSet)
 		return nTypeList
 	end, function(vTypeList)
 		local nCollection = self:TypeCollection()
@@ -239,13 +248,17 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
-	return self:buildStruct(vNode, vTable, vMetaEventDict, vNext)
+function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.MetaObject)
+	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, true)
 end
 
-function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vNext:Boolean)::Ret(class.MetaObject)
+function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.MetaObject)
+	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, false)
+end
+
+function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vIsInterface:Boolean)::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
-	local nNewStruct = MetaObject.new(self, nKeyRefer)
+	local nNewStruct = MetaObject.new(self, nKeyRefer, vIsInterface)
 	nKeyRefer:setRawAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
 		local nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
@@ -271,7 +284,7 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 				end
 			end)
 		end
-		nNewStruct:init(nValueDict, true, vMetaEventDict)
+		nNewStruct:init(nValueDict, vMetaEventDict)
 		return nTypeList
 	end, function(vTypeList)
 		local nCollection = self:TypeCollection()
@@ -284,12 +297,12 @@ function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), 
 end
 
 function TypeManager:buildDict(vNode:class.AstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
-	return self:buildStruct(vNode, {[vKey]=vValue}, {}, true)
+	return self:buildStruct(vNode, {[vKey]=vValue}, {})
 end
 
 function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.MetaObject)
 	-- TODO struct use meta
-	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {}, true)
+	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {})
 end
 
 function TypeManager:buildOrNil(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
@@ -300,13 +313,12 @@ function TypeManager:buildOrFalse(vNode:class.AstNode, ...:Truth)::Ret(class.Ref
 	return self:buildUnion(vNode, self.type.False, ...)
 end
 
-function TypeManager:_unifyUnion(vNewType:class.UAtomUnion)::Ret(class.UAtomUnion)
+function TypeManager:_unifyUnion(vNewType:class.IUnionType)::Ret(class.UAtomUnion)
 	local nSign = vNewType:unionSign()
 	local nSignToType = self._unionSignToType
 	local nOldType = nSignToType[nSign]
 	if not nOldType then
-		assert(vNewType.id == 0, "newunion's id must be 0")
-		vNewType.id = self:genTypeId()
+		vNewType:initTypeId(self:genTypeId())
 		nSignToType[nSign] = vNewType
 		return vNewType
 	else

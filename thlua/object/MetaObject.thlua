@@ -12,7 +12,7 @@ const MetaObject = AtomTypeClass()
 	let.class = import("thlua.type.TypeClass").class
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
+function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference, vIsInterface:Boolean)
 	::RetClass(class.MetaObject, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
@@ -22,6 +22,7 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_metaEventDict={}@Dict(String, class.IAtomType),
+		_isInterface=vIsInterface,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_unionSign=false,
@@ -31,12 +32,13 @@ function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference)
 	return self
 end
 
-function MetaObject:init(vValueDict:class.MemberDict, vNext:Boolean, vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vIntersectSet:OrNil(Dict(class.MetaObject, True)))
+function MetaObject:initIntersectSet(vIntersectSet:Dict(class.MetaObject, True))
+	self._intersectSet = vIntersectSet
+end
+
+function MetaObject:init(vValueDict:class.MemberDict, vMetaEventDict:OrNil(Dict(String, class.IAtomType)))
 	self._valueDict = vValueDict
 	self._nextDict = {} @ Dict(class.IAtomType, class.UAtomUnion)
-	if vIntersectSet then
-		self._intersectSet = vIntersectSet
-	end
 	if vMetaEventDict then
 		for k,v in pairs(vMetaEventDict) do
 			self._metaEventDict[k] = v
@@ -247,6 +249,10 @@ function MetaObject:meta_get(vContext, vType)
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
+	if self:isInterface() then
+		vContext:error("interface's field is readonly")
+		return
+	end
 	local nKey = self._keyRefer:containAtom(vKeyType)
 	if nKey then
 		local nSetValue = self._valueDict[nKey]
@@ -346,6 +352,10 @@ end
 
 function MetaObject:checkStruct()
 	return self
+end
+
+function MetaObject:isInterface()::Ret(Boolean)
+	return self._isInterface
 end
 
 function MetaObject:native_type()
