@@ -12,17 +12,17 @@ const MetaObject = AtomTypeClass()
 	let.class = import("thlua.type.TypeClass").class
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vKeyRefer:class.Reference, vIsInterface:Boolean)
+function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, vMoreKey:OrFalse(class.Reference))
 	::RetClass(class.MetaObject, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
-		_keyRefer=vKeyRefer,
+		_basicKey=vBasicKey,
+		_moreKey=vMoreKey,
 		_valueDict=false@class.MemberDict,
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_metaEventDict={}@Dict(String, class.IAtomType),
-		_isInterface=vIsInterface,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_unionSign=false,
@@ -95,18 +95,10 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 	if vRightObject._intersectSet[self] then
 		return true
 	end
-	local nRightKeyRefer = vRightObject:getKeyRefer()
+	const nRightBasicKey, _ = vRightObject:getKeyTypes()
 	local nRightValueDict = vRightObject:getValueDict()
 	for nLeftKey, nLeftValue in pairs(self._valueDict) do
-		local nRightKey:Union(class.IAtomType, False) = false
-		local nRightKeyResultType = nRightKeyRefer:getType()
-		if nRightKeyResultType then
-			nRightKey = nRightKeyResultType:assumeContainAtom(nil, nLeftKey)
-		else
-			for _, nRightSubType in ipairs(nRightKeyRefer:getListAwait()) do
-				nRightKey = nRightSubType:assumeContainAtom(nil, nLeftKey) or nRightKey
-			end
-		end
+		const nRightKey = nRightBasicKey:containAtom(nLeftKey)
 		if not nRightKey then
 			return false
 		end
@@ -125,19 +117,12 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
 				return false
 			end
-			if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
-				return false
-			end
 		end
 	end
 	return true
 end
 
 function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
-	local nLeftKeyRefer = self._keyRefer
-	nLeftKeyRefer:getListAwait()
-	local nRightKeyRefer = vRightObject:getKeyRefer()
-	nRightKeyRefer:getListAwait()
 	local nAssumeContain:Boolean = false
 	if self:isInterface() then
 		return self:_interfaceContainWithAssume(vAssumeSet, vRightObject)
@@ -162,7 +147,7 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 		local nResultType = nContainRefer:getTypeAwait()
 		return nResultType == nMgr.type.True and self
 	else
-		local nResultType = nContainRefer:getType()
+		local nResultType = nContainRefer:getResultType()
 		if nResultType then
 			return nResultType == nMgr.type.True and self
 		end
@@ -231,9 +216,17 @@ function MetaObject:isSingleton(v)
 	return false
 end
 
+function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(OrFalse(class.IAtomType))
+	const nMoreKey = self._moreKey
+	return self._basicKey:containAtom(vType) or (nMoreKey and nMoreKey:containAtom(vType))
+end
+
 function MetaObject:meta_get(vContext, vType)
-	local nKey = self._keyRefer:containAtom(vType)
-	if nKey then
+	const nKey = self:_keyContainAtom(vType)
+	if not nKey then
+		vContext:error("error get("..tostring(vType)..") in struct")
+		return self._manager.type.Nil
+	else
 		local nGetValue = self._valueDict[nKey]
 		if nGetValue then
 			if MemberFunction.is(nGetValue) then
@@ -242,9 +235,6 @@ function MetaObject:meta_get(vContext, vType)
 				return nGetValue:checkAtomUnion()
 			end
 		end
-	else
-		vContext:error("error get("..tostring(vType)..") in struct")
-		return self._manager.type.Nil
 	end
 end
 
@@ -253,7 +243,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 		vContext:error("interface's field is readonly")
 		return
 	end
-	local nKey = self._keyRefer:containAtom(vKeyType)
+	const nKey = self:_keyContainAtom(vKeyType)
 	if nKey then
 		local nSetValue = self._valueDict[nKey]
 		if nSetValue then
@@ -284,8 +274,8 @@ function MetaObject:meta_bop_func(vContext, vOper)
 	end
 end
 
-function MetaObject:indexKeyValue(vKey:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
-	local nKey = self._keyRefer:containAtom(vKey)
+function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
+	const nKey = self:_keyContainAtom(vKeyType)
 	if nKey then
 		local nValue = self._valueDict[nKey]!
 		if not MemberFunction.is(nValue) then
@@ -309,7 +299,6 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	if nReferName then
 		return nReferName
 	end
-	self._keyRefer:checkAtomUnion()
 	local nCache = vToStringCache[self]
 	if nCache then
 		return nCache
@@ -334,10 +323,6 @@ function MetaObject:anyObject(vFunc)
 	return vFunc(self)
 end
 
-function MetaObject:getKeyType()::Ret(class.UAtomUnion)
-	return self._keyRefer:checkAtomUnion()
-end
-
 function MetaObject:getValueDict()::Ret(class.MemberDict)
 	return self._valueDict
 end
@@ -346,8 +331,8 @@ function MetaObject:getMetaEventDict()::Ret(Dict(String, class.IAtomType))
 	return self._metaEventDict
 end
 
-function MetaObject:getKeyRefer()::Ret(class.Reference)
-	return self._keyRefer
+function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, OrFalse(class.Reference))
+	return self._basicKey, self._moreKey
 end
 
 function MetaObject:checkStruct()
@@ -355,7 +340,7 @@ function MetaObject:checkStruct()
 end
 
 function MetaObject:isInterface()::Ret(Boolean)
-	return self._isInterface
+	return not self._moreKey
 end
 
 function MetaObject:native_type()
@@ -364,7 +349,7 @@ end
 
 function MetaObject:getCompletion()::Ret(class.LspCompletion)
 	local nDict:Dict(String, True) = {}
-	self._keyRefer:foreach(function(vType)
+	self._basicKey:foreach(function(vType)
 		if StringLiteral.is(vType) then
 			nDict[vType:getLiteral()] = true
 		end

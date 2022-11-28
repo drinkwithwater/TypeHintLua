@@ -68,7 +68,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	end
 	self.type.Boolean = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.Nil, self.type.Truth)
-	self.type.Object = self:buildInterface(self._runtime:getNode(), {}, nil, false)
+	self.type.Object = (self:buildInterface(self._runtime:getNode(), {}, nil, false):checkAtomUnion()) @!! class.MetaObject
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -81,20 +81,27 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	return self
 end
 
-const AtomMetatableSet:Dict(Truth, String) = {
+const BasicAtomMetatableSet:Dict(Truth, String)  = {
 	[Nil]="Nil",
 	[String]="String",
 	[StringLiteral]="StringLiteral",
 	[Number]="Number",
 	[NumberLiteral]="NumberLiteral",
 	[BooleanLiteral]="BooleanLiteral",
-	[MetaObject]="MetaObject",
 	[Truth]="Truth",
+}
+
+const AtomMetatableSet:Dict(Truth, String) = {
+	[MetaObject]="MetaObject",
 	[LuaTable]="LuaTable",
 	[LuaFunction]="LuaFunction",
 	[TypeFunction]="TypeFunction",
 	[NativeFunction]="NativeFunction",
 }
+
+for k, v in pairs(BasicAtomMetatableSet) do
+	AtomMetatableSet[k] = v
+end
 
 const AtomUnionMetatableSet:Dict(Truth, String) = {
 	[Never]="Never",
@@ -115,7 +122,7 @@ function TypeManager:pcheckAtomOrReference(vData)::Ret(True, Union(class.Referen
 	if meta and (AtomMetatableSet[meta] or meta == Reference) then
 		return true, vData @!! Union(class.Reference, class.IAtomType)
 	else
-		return false, "fdsfs"
+		return false, "not atom or reference"
 	end
 end
 
@@ -127,6 +134,15 @@ function TypeManager:checkLuaTable(vType:class.UAllType)::Ret(class.LuaTable)
 		error("assert lua table failed")
 	end
 	return vType
+end
+
+function TypeManager:isBasicAtomType(vData:class.IAtomType)::Ret(Boolean):nocheck()
+	local meta = getmetatable(vData)
+	if meta and BasicAtomMetatableSet[meta] then
+		return true
+	else
+		return false
+	end
 end
 
 function TypeManager:assertAllType(vData)::Ret(class.UAllType)
@@ -158,23 +174,22 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
+--[[function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
 	...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
 	local nKeyRefer = self:Reference(false)
 	local nNewStruct = MetaObject.new(self, nKeyRefer, false)
 	-- struct extend TODO
 	return self:_recordTypeUnionSign(nNewStruct)
-end
+end]]
 
-function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
-	local l:List(class.UAllType) = {...}
-	local nKeyRefer = self:Reference(false)
-	local nNewStruct = MetaObject.new(self, nKeyRefer, true)
-	local nMetaEventDict:Dict(String, class.IAtomType) = {}
-	nKeyRefer:setRawAsync(vNode, function()
-		local nTypeList:List(class.IAtomType) = {}
-		local nAllValueDict:class.MemberDict = {}
-		local nIntersectSet:Dict(class.MetaObject, True) = {}
+function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
+	const l:List(class.UAllType) = {...}
+	const nObjectRefer = self:Reference(false)
+	nObjectRefer:setRawAsync(vNode, function()
+		const nMetaEventDict:Dict(String, class.IAtomType) = {}
+		const nCollection = self:TypeCollection()
+		const nAllValueDict:class.MemberDict = {}
+		const nIntersectSet:Dict(class.MetaObject, True) = {}
 		for i=1,#l do
 			local nMetaObject = l[i]!
 			if Reference.is(nMetaObject) then
@@ -186,8 +201,9 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 			end
 			nIntersectSet[nMetaObject] = true
 			local nValueDict = nMetaObject:getValueDict()
-			nMetaObject:getKeyRefer():foreachAwait(function(vKeyType)
-				nTypeList[#nTypeList + 1] = vKeyType
+			const nBasicKey = nMetaObject:getKeyTypes()
+			nBasicKey:foreach(function(vKeyType)
+				nCollection:put(vKeyType)
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
 			for k,v in pairs(nMetaObject:getMetaEventDict()) do
@@ -198,17 +214,14 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 				end
 			end
 		end
+		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), false)
 		nNewStruct:init(nAllValueDict, nMetaEventDict)
 		nNewStruct:initIntersectSet(nIntersectSet)
-		return nTypeList
+		return {self:_recordTypeUnionSign(nNewStruct)}
 	end, function(vTypeList)
-		local nCollection = self:TypeCollection()
-		for _, v in ipairs(vTypeList) do
-			nCollection:put(v)
-		end
-		return nCollection:mergeToAtomUnion()
+		return vTypeList[1]!
 	end)
-	return self:_recordTypeUnionSign(nNewStruct)
+	return nObjectRefer
 end
 
 function TypeManager:checkedUnion(...:class.UAllType)::Ret(class.UAtomUnion)
@@ -248,19 +261,19 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.MetaObject)
+function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.Reference)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, true)
 end
 
-function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.MetaObject)
+function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.Reference)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, false)
 end
 
-function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vIsInterface:Boolean)::Ret(class.MetaObject)
-	local nKeyRefer = self:Reference(false)
-	local nNewStruct = MetaObject.new(self, nKeyRefer, vIsInterface)
-	nKeyRefer:setRawAsync(vNode, function()
-		local nTypeList:List(class.IAtomType) = {}
+function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vIsInterface:Boolean)::Ret(class.Reference)
+	const nObjectRefer = self:Reference(false)
+	nObjectRefer:setRawAsync(vNode, function()
+		const nBasicCollection = self:TypeCollection()
+		const nNonBasicTypeList:List(class.IAtomType) = {}
 		local nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType:Union(Nil, class.UAllType, class.MemberFunction)
@@ -275,9 +288,13 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 				nKey = self:_toType(nKey)
 			end
 			nKey:foreachAwait(function(vAtomType)
-				nTypeList[#nTypeList + 1] = vAtomType
 				if vIsInterface then
 					assert(vAtomType:isStrNumLiteral(), "interface must take string or number literal as key")
+				end
+				if self:isBasicAtomType(vAtomType) then
+					nBasicCollection:put(vAtomType)
+				else
+					nNonBasicTypeList[#nNonBasicTypeList + 1] = vAtomType
 				end
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
@@ -287,23 +304,34 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 				end
 			end)
 		end
-		nNewStruct:init(nValueDict, vMetaEventDict)
-		return nTypeList
-	end, function(vTypeList)
-		local nCollection = self:TypeCollection()
-		for _, v in ipairs(vTypeList) do
-			nCollection:put(v)
+		const nBasicKey = nBasicCollection:mergeToAtomUnion()
+		local nNonBasicKeyRefer:OrFalse(class.Reference) = false
+		if not vIsInterface then
+			nNonBasicKeyRefer = self:Reference(false)
+			nNonBasicKeyRefer:setRawAsync(vNode, function()
+				return nNonBasicTypeList
+			end, function(vTypeList)
+				local nCollection = self:TypeCollection()
+				for _, v in ipairs(vTypeList) do
+					nCollection:put(v)
+				end
+				return nCollection:mergeToAtomUnion()
+			end)
 		end
-		return nCollection:mergeToAtomUnion()
+		const nNewStruct = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer)
+		nNewStruct:init(nValueDict, vMetaEventDict)
+		return {self:_recordTypeUnionSign(nNewStruct)}
+	end, function(vTypeList)
+		return vTypeList[1]!
 	end)
-	return self:_recordTypeUnionSign(nNewStruct)
+	return nObjectRefer
 end
 
 function TypeManager:buildDict(vNode:class.AstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
 	return self:buildStruct(vNode, {[vKey]=vValue}, {})
 end
 
-function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.MetaObject)
+function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.Reference)
 	-- TODO struct use meta
 	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {})
 end
@@ -564,7 +592,7 @@ end
 
 function TypeManager:setContainByPair(vPair:Integer, vContain:Boolean)
 	local nContainRefer = self._pairToContain[vPair]!
-	local nCurType = nContainRefer:getType()
+	local nCurType = nContainRefer:getResultType()
 	local nAssignType = vContain and self.type.True or self.type.False
 	if not nCurType then
 		nContainRefer:setTypeAsync(self._runtime:getNode(), nAssignType)
