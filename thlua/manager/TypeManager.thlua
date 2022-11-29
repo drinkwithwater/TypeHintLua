@@ -274,7 +274,8 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 	nObjectRefer:setRawAsync(vNode, function()
 		const nBasicCollection = self:TypeCollection()
 		const nNonBasicTypeList:List(class.IAtomType) = {}
-		local nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
+		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
+		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
 			local nValueType:Union(Nil, class.UAllType, class.MemberFunction)
 			if Reference.is(nValue) then
@@ -291,6 +292,7 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 				if vIsInterface then
 					assert(vAtomType:isStrNumLiteral(), "interface must take string or number literal as key")
 				end
+				nKeyCount = nKeyCount + 1
 				if self:isBasicAtomType(vAtomType) then
 					nBasicCollection:put(vAtomType)
 				else
@@ -304,7 +306,11 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 				end
 			end)
 		end
+		local nFinalCount = 0
 		const nBasicKey = nBasicCollection:mergeToAtomUnion()
+		nBasicKey:foreach(function(_)
+			nFinalCount = nFinalCount + 1
+		end)
 		local nNonBasicKeyRefer:OrFalse(class.Reference) = false
 		if not vIsInterface then
 			nNonBasicKeyRefer = self:Reference(false)
@@ -315,8 +321,19 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 				for _, v in ipairs(vTypeList) do
 					nCollection:put(v)
 				end
-				return nCollection:mergeToAtomUnion()
+				const nMoreKey = nCollection:mergeToAtomUnion()
+				nMoreKey:foreach(function(_)
+					nFinalCount = nFinalCount + 1
+				end)
+				if nFinalCount ~= nKeyCount then
+					error("Struct's key can not has intersect part")
+				end
+				return nMoreKey
 			end)
+		else
+			if nFinalCount ~= nKeyCount then
+				error("Interface's key can not has intersect part")
+			end
 		end
 		const nNewStruct = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer)
 		nNewStruct:init(nValueDict, vMetaEventDict)
