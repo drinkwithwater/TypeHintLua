@@ -174,30 +174,25 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
---[[function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
-	...:Union(class.Reference, class.MetaObject))::Ret(class.MetaObject)
-	local nKeyRefer = self:Reference(false)
-	local nNewStruct = MetaObject.new(self, nKeyRefer, false)
-	-- struct extend TODO
-	return self:_recordTypeUnionSign(nNewStruct)
-end]]
-
-function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
-	const l:List(class.UAllType) = {...}
+function TypeManager:_buildCombineObject(vNode:class.AstNode, vObjectList:List(class.UAllType))::Ret(class.Reference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setRawAsync(vNode, function()
 		const nMetaEventDict:Dict(String, class.IAtomType) = {}
 		const nCollection = self:TypeCollection()
 		const nAllValueDict:class.MemberDict = {}
 		const nIntersectSet:Dict(class.MetaObject, True) = {}
-		for i=1,#l do
-			local nMetaObject = l[i]!
+		local nFirstObject:OrNil(class.MetaObject) = nil
+		for i=1,#vObjectList do
+			local nMetaObject = vObjectList[i]!
 			if Reference.is(nMetaObject) then
 				nMetaObject = nMetaObject:getTypeAwait()
 			end
 			if not MetaObject.is(nMetaObject) then
 				error("intersect can only take interface")
 				break
+			end
+			if not nFirstObject then
+				nFirstObject = nMetaObject
 			end
 			nIntersectSet[nMetaObject] = true
 			local nValueDict = nMetaObject:getValueDict()
@@ -214,7 +209,9 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 				end
 			end
 		end
-		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), false)
+		const _, nMoreKeyRefer = nFirstObject:getKeyTypes()
+		-- TODO, nFirstObject's type refine is error here
+		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), nMoreKeyRefer)
 		nNewStruct:init(nAllValueDict, nMetaEventDict)
 		nNewStruct:initIntersectSet(nIntersectSet)
 		return {self:_recordTypeUnionSign(nNewStruct)}
@@ -222,6 +219,18 @@ function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Referen
 		return vTypeList[1]!
 	end)
 	return nObjectRefer
+end
+
+function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
+	...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
+	const nStruct = MetaObject.is(vFirst) and vFirst or self:buildStruct(vNode, vFirst)
+	const l:List(class.UAllType) = {nStruct, ...}
+	return self:_buildCombineObject(vNode, l)
+end
+
+function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
+	const l:List(class.UAllType) = {...}
+	return self:_buildCombineObject(vNode, l)
 end
 
 function TypeManager:checkedUnion(...:class.UAllType)::Ret(class.UAtomUnion)
