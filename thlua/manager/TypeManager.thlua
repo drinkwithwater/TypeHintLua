@@ -174,9 +174,14 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:_buildCombineObject(vNode:class.AstNode, vObjectList:List(class.UAllType))::Ret(class.Reference)
+function TypeManager:_buildCombineObject(vNode:class.AstNode, vIsInterface:Boolean, vObjectList:List(class.UAllType))::Ret(class.Reference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setRawAsync(vNode, function()
+		if vIsInterface then
+			assert(#vObjectList>=1, "Interface must take at least one arguments")
+		else
+			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
+		end
 		const nMetaEventDict:Dict(String, class.IAtomType) = {}
 		const nCollection = self:TypeCollection()
 		const nAllValueDict:class.MemberDict = {}
@@ -188,13 +193,23 @@ function TypeManager:_buildCombineObject(vNode:class.AstNode, vObjectList:List(c
 				nMetaObject = nMetaObject:getTypeAwait()
 			end
 			if not MetaObject.is(nMetaObject) then
-				error("intersect can only take interface")
+				error("Interface or Struct is expected here")
 				break
 			end
 			if not nFirstObject then
 				nFirstObject = nMetaObject
+				if vIsInterface then
+					assert(nFirstObject:isInterface(), "Intersect must take Interface")
+					nIntersectSet[nMetaObject] = true
+				else
+					assert(not nFirstObject:isInterface(), "StructExtend must take Struct as first argument")
+				end
+			else
+				assert(nMetaObject:isInterface(), vIsInterface
+					and "Intersect must take Interface as args"
+					or "StructExtend must take Interface after first argument")
+				nIntersectSet[nMetaObject] = true
 			end
-			nIntersectSet[nMetaObject] = true
 			local nValueDict = nMetaObject:getValueDict()
 			const nBasicKey = nMetaObject:getKeyTypes()
 			nBasicKey:foreach(function(vKeyType)
@@ -210,7 +225,12 @@ function TypeManager:_buildCombineObject(vNode:class.AstNode, vObjectList:List(c
 			end
 		end
 		const _, nMoreKeyRefer = nFirstObject:getKeyTypes()
-		-- TODO, nFirstObject's type refine is error here
+		if nMoreKeyRefer then
+			const nValueDict = nFirstObject:getValueDict()
+			for i, nType in ipairs(nMoreKeyRefer:getListAwait()) do
+				nAllValueDict[nType] = nValueDict[nType]
+			end
+		end
 		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), nMoreKeyRefer)
 		nNewStruct:init(nAllValueDict, nMetaEventDict)
 		nNewStruct:initIntersectSet(nIntersectSet)
@@ -225,12 +245,12 @@ function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Tr
 	...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
 	const nStruct = MetaObject.is(vFirst) and vFirst or self:buildStruct(vNode, vFirst)
 	const l:List(class.UAllType) = {nStruct, ...}
-	return self:_buildCombineObject(vNode, l)
+	return self:_buildCombineObject(vNode, false, l)
 end
 
 function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
 	const l:List(class.UAllType) = {...}
-	return self:_buildCombineObject(vNode, l)
+	return self:_buildCombineObject(vNode, true, l)
 end
 
 function TypeManager:checkedUnion(...:class.UAllType)::Ret(class.UAtomUnion)
