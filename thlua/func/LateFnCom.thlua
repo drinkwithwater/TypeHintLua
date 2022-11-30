@@ -33,10 +33,11 @@ function LateFnCom:checkLateRun()
 	end
 	self:_typeDefault()
 	if self._luaFunction:isMember() then
+		const nTypeFn = assert(self._typeFunction)
 		for nType, nOnce in pairs(self._selfOnceDict) do
 			if not nOnce then
 				self._selfOnceDict[nType] = true
-				const nBeforeArgTuple = self._typeFunction:getArgTuple()
+				const nBeforeArgTuple = nTypeFn:getArgTuple()
 				const nArgTuple = nBeforeArgTuple:replaceFirst(nType)
 				local nInplaceContext = self._luaFunction:newInplaceSealContext()
 				local ok, err = pcall(function()
@@ -114,7 +115,7 @@ function LateFnCom:_typeDefault()
 	end
 end
 
-function LateFnCom:implement(vContext:class.UContext, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))
+function LateFnCom:specialize(vContext:class.UContext, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))
 	self._selfOnceDict[vSelfType] = false
 	if vIntfFnOrNil then
 		self._autoArgs:checkWhenApply(vContext, vIntfFnOrNil:getArgTuple())

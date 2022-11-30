@@ -84,11 +84,11 @@ function ClassTableCom:implement(vContext:class.Context)
 						local nInterfaceValue = self._interface:getValueDict()[vKey]
 						if nInterfaceValue then
 							if MemberFunction.is(nInterfaceValue) then
-								self._valueDict[vKey] = vValue:implement(vContext, self._luaTable, nInterfaceValue:indexTypeFn(self._luaTable))
+								self._valueDict[vKey] = vValue:specialize(vContext, self._luaTable, nInterfaceValue:indexTypeFn(self._luaTable))
 								return
 							end
 						end
-						self._valueDict[vKey] = vValue:implement(vContext, self._luaTable)
+						self._valueDict[vKey] = vValue:specialize(vContext, self._luaTable)
 					else
 						nCollection:put(vKey)
 						self._valueDict[vKey] = vValue
@@ -103,12 +103,12 @@ function ClassTableCom:implement(vContext:class.Context)
 	const nLenFn = nDefaultCom:getMetaEventDict()["__len"]
 	if LuaFunction.is(nLenFn) then
 		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.Integer)
-		nLenFn:implement(vContext, self._luaTable, nFn)
+		nLenFn:specialize(vContext, self._luaTable, nFn)
 	end
 	const nStringFn = nDefaultCom:getMetaEventDict()["__tostring"]
 	if LuaFunction.is(nStringFn) then
 		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.String)
-		nStringFn:implement(vContext, self._luaTable, nFn)
+		nStringFn:specialize(vContext, self._luaTable, nFn)
 	end
 end
 
