@@ -57,36 +57,85 @@ function MetaObject:intersectAtom(vRightType)
 end
 
 function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
-	local nRightValueDict = vRightObject:getValueDict()
-	local nLeftValueDict = self._valueDict
-	for nLeftKey, nLeftValue in pairs(nLeftValueDict) do
-		local nRightValue = nRightValueDict[nLeftKey]
-		if not nRightValue then
-			return false
-		end
-		if MemberFunction.is(nLeftValue) or MemberFunction.is(nRightValue) then
-			if MemberFunction.is(nLeftValue) and MemberFunction.is(nRightValue) then
-				local nLeftTypeFn = nLeftValue:indexTypeFn(self)
-				local nRightTypeFn = nRightValue:indexTypeFn(self)
-				if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
+	const nRightValueDict:class.MemberDict = {}
+	for k,v in pairs(vRightObject:getValueDict()) do
+		nRightValueDict[k] = v
+	end
+	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
+	assert(nRightMoreRefer, "only struct & struct can call this function")
+	for nLeftKey, nLeftValue in pairs(self._valueDict) do
+		const function isMatchedKeyValue(nRightKey:class.IAtomType, nRightValue:Union(class.UAllType, class.MemberFunction))::Ret(Boolean)
+			if MemberFunction.is(nLeftValue) or MemberFunction.is(nRightValue) then
+				if MemberFunction.is(nLeftValue) and MemberFunction.is(nRightValue) then
+					local nLeftTypeFn = nLeftValue:indexTypeFn(self)
+					local nRightTypeFn = nRightValue:indexTypeFn(vRightObject)
+					if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
+						return false
+					end
+					if not nRightTypeFn:assumeContainAtom(vAssumeSet, nLeftTypeFn) then
+						return false
+					end
+				else
 					return false
 				end
 			else
+				if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
+					return false
+				end
+				if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+					return false
+				end
+			end
+			if not nLeftKey:assumeContainAtom(vAssumeSet, nRightKey) then
 				return false
 			end
-		else
-			if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
+			return true
+		end
+		const nRightBasicKey = nRightBasic:containAtom(nLeftKey)
+		if nRightBasicKey then --  key is basic type
+			const nRightValue = nRightValueDict[nRightBasicKey]
+			if not nRightValue then
 				return false
 			end
-			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+			if not isMatchedKeyValue(nRightBasicKey, nRightValue) then
 				return false
+			end
+			nRightValueDict[nRightBasicKey] = nil
+		else -- key is non-basic type
+			const nMoreType = nRightMoreRefer:getResultType()
+			if nMoreType then -- key is merged, just get one matched
+				const nRightMoreKey = nMoreType:assumeContainAtom(vAssumeSet, nLeftKey)
+				if not nRightMoreKey then
+					return false
+				end
+				const nRightValue = nRightValueDict[nRightMoreKey]
+				if not nRightValue then
+					return false
+				end
+				if not isMatchedKeyValue(nRightMoreKey, nRightValue) then
+					return false
+				end
+				nRightValueDict[nRightMoreKey] = nil
+			else -- key is not merged, iter for one matched
+				local nMatchedKey:OrNil(class.IAtomType) = nil
+				for _, nRightMoreKey in ipairs(nRightMoreRefer:getListAwait()) do
+					if nRightMoreKey:assumeContainAtom(vAssumeSet, nLeftKey) then
+						const nRightValue = nRightValueDict[nRightMoreKey]
+						if nRightValue and isMatchedKeyValue(nRightMoreKey, nRightValue) then
+							nMatchedKey = nRightMoreKey
+							break
+						end
+					end
+				end
+				if not nMatchedKey then
+					return false
+				end
+				nRightValueDict[nMatchedKey] = nil
 			end
 		end
 	end
-	for nRightKey, nRightValue in pairs(nRightValueDict) do
-		if not nLeftValueDict[nRightKey] then
-			return false
-		end
+	if next(nRightValueDict) then
+		return false
 	end
 	return true
 end
