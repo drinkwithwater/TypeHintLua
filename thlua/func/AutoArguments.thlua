@@ -124,6 +124,9 @@ end
 
 function AutoArguments:checkWhenApply(vContext:class.UContext, vTypeTuple:class.UTypeTuple)::Ret(class.UTypeTuple)
 	local l:List(class.UAllType) = {}
+	if #vTypeTuple ~= #self._argList then
+		vContext:getRuntime():nodeError(self._node, "arguments num not match when specification")
+	end
 	for i, nArg in ipairs(self._argList) do
 		local nInputType = vTypeTuple:get(i)
 		if Variable.is(nArg) then
@@ -131,7 +134,7 @@ function AutoArguments:checkWhenApply(vContext:class.UContext, vTypeTuple:class.
 		else
 			l[i] = nArg
 			if not nArg:containAll(nInputType) then
-				vContext:getRuntime():nodeError(self._node, "arguments not match when checkout")
+				vContext:getRuntime():nodeError(self._node, "arguments type not match when checkout")
 			end
 		end
 	end
