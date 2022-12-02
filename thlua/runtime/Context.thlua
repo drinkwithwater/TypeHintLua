@@ -47,7 +47,7 @@ function Context:getTypeFn()::Ret(OrFalse(class.TypeFunction))
 end
 
 function Context:BEGIN(vLexContext:class.UContext, vBlockNode:class.AstNode,
-	vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase))
+	vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase))::Ret(class.Region, class.SpaceDict, class.SpaceDict)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vLuaFunc:getFnCom(), vUpCase or TermCase.new())
 	self._region = nRegion
@@ -58,7 +58,7 @@ end
 
 -- pack explist to termtuple or lazyfunc
 (@let.UPackExpr = Union(class.TermTuple, class.RefineTerm, Fn():Ret(class.RefineTerm)))
-function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackExpr))
+function Context:EXPLIST_PACK(vNode:class.AstNode, vLazy:Boolean, l:List(UPackExpr))::Ret(class.TermTuple):Ret(Fn():Ret(class.TermTuple))
 	const nTermFalseList:List(Union(class.RefineTerm, False)) = {}
 	const nIndexToFunc:Dict(Integer, Fn():Ret(class.RefineTerm)) = {}
 	for i=1, #l-1 do
@@ -166,7 +166,7 @@ function Context:TUPLE_UNPACK(vNode:class.AstNode, vTuple:class.TermTuple, vNum:
 end
 
 -- meta items
-function Context:META_GET(vNode:class.AstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil)
+function Context:META_GET(vNode:class.AstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil)::Ret(class.RefineTerm)
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList:List(class.TypeCasePair) = {}
 	local nOkay = self:nodePcall(vNode, function()
@@ -206,7 +206,7 @@ end
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
 (@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
 function Context:_apply(vNode:class.AstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList)::Ret(class.TermTuple)
-	const ok, err = self:nodePcall(vNode, function()
+	const ok, err = self:nodePcall(vNode, function()::Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nNativePair = vNativePair
 		if nNativePair then
@@ -397,7 +397,7 @@ function Context:META_BOP_SOME(vNode:class.AstNode, vOper:String, vLeftTerm:clas
 	return self._manager:RefineTerm(nCollection:mergeToAtomUnion())
 end
 
-function Context:META_UOP(vNode:class.AstNode, vOper:String, vData:class.RefineTerm)
+function Context:META_UOP(vNode:class.AstNode, vOper:String, vData:class.RefineTerm)::Ret(class.RefineTerm)
 	const nUopContext = self:newSealContext(vNode)
 	const nTypeCaseList:List(class.TypeCasePair) = {}
 	if vOper == "#" then
@@ -418,8 +418,8 @@ function Context:META_UOP(vNode:class.AstNode, vOper:String, vData:class.RefineT
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function Context:nodePcall(vNode:class.AstNode, vFunc, ...:Truth)
-	const ok, err = xpcall(vFunc, function(exc)
+function Context:nodePcall(vNode:class.AstNode, vFunc:Fn(), ...)::open()
+	const ok, err = xpcall(vFunc, function(exc)::Ret(class.Exception)
 		if Exception.is(exc) then
 			return exc
 		else

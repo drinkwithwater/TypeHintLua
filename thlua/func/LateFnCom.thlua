@@ -116,7 +116,7 @@ function LateFnCom:_typeDefault()
 	end
 end
 
-function LateFnCom:specialize(vContext:class.Context, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))
+function LateFnCom:specialize(vContext:class.Context, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))::Ret(class.TypeFunction)
 	if vIntfFnOrNil then
 		self._autoArgs:checkWhenApply(vContext, vIntfFnOrNil:getArgTuple())
 		self._typeFunction = vIntfFnOrNil
@@ -137,7 +137,9 @@ function LateFnCom:specialize(vContext:class.Context, vSelfType:class.LuaTable, 
 		const nArgTuple = self._autoArgs:checkByFirst(vContext, vSelfType)
 		local nRetTuples = self._retTuples
 		if not nRetTuples then
-			vContext:getRuntime():nodeError(self._luaFunction:getNode(), "return something but no hint TODO")
+			if not self._nocheck then
+				vContext:getRuntime():nodeError(self._luaFunction:getNode(), "return something but no hint TODO")
+			end
 			nRetTuples = self._manager:VoidRetTuples()
 		end
 		const nTypeFn = self._manager:Function(nArgTuple, nRetTuples)

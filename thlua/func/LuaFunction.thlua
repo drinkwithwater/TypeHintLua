@@ -111,14 +111,10 @@ function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction)::R
 	end
 end
 
-function LuaFunction:specialize(vContext:class.Context, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))
+function LuaFunction:specialize(vContext:class.Context, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))::Ret(class.TypeFunction)
 	local nUnionCom = self._unionFnCom
-	if LateFnCom.is(nUnionCom) then
-		return nUnionCom:specialize(vContext, vSelfType, vIntfFnOrNil)
-	else
-		vContext:error("invalid as member")
-		return false
-	end
+	assert(LateFnCom.is(nUnionCom), "only LateFnCom can specificate")
+	return nUnionCom:specialize(vContext, vSelfType, vIntfFnOrNil)
 end
 
 function LuaFunction:isMember()::Ret(Boolean)
