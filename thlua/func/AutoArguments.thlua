@@ -55,6 +55,40 @@ function AutoArguments:hasVariable()::Ret(Boolean)
 	return false
 end
 
+function AutoArguments:checkByFirst(vContext:class.Context, vFirst:class.UAllType)::Ret(class.UTypeTuple)
+	const l:List(class.UAllType) = {}
+	const nArgList = self._argList
+	const nFirstArg = nArgList[1]
+	if not nFirstArg then
+		vContext:error("an argument maybe required here?")
+		l[1] = vFirst
+	else
+		if Variable.is(nFirstArg) then
+			l[1] = vFirst
+		else
+			l[1] = nFirstArg
+			if not nFirstArg:containAll(vFirst) then
+				vContext:error("first argument not match when cast")
+			end
+		end
+	end
+	for i=2,#nArgList do
+		const nArg = nArgList[i]!
+		if Variable.is(nArg) then
+			l[i] = self._manager.type.Truth
+		else
+			l[i] = nArg
+		end
+	end
+	const nTuple = self._manager:Tuple(table.unpack(l))
+	const nArgDots = self._argDots
+	if nArgDots then
+		return nTuple:Dots(nArgDots)
+	else
+		return nTuple
+	end
+end
+
 function AutoArguments:checkByDefault()::Ret(class.UTypeTuple)
 	local l:List(class.UAllType) = {}
 	for i, nArg in ipairs(self._argList) do

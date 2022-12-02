@@ -11,7 +11,7 @@ function LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_typeFunction=false@Union(False, class.TypeFunction),
-		_selfOnceDict={}@Dict(class.IAtomType, Boolean),
+		_selfOnceDict={}@Dict(class.IAtomType, Union(False, class.TypeFunction)),
 		_once=false@Boolean,
 		_autoArgs=nil@class.AutoArguments,
 		_retTuples=false@Union(False, class.RetTuples),
@@ -33,13 +33,13 @@ function LateFnCom:checkLateRun()
 	end
 	self:_typeDefault()
 	if self._luaFunction:isMember() then
-		const nTypeFn = assert(self._typeFunction)
-		for nType, nOnce in pairs(self._selfOnceDict) do
-			if not nOnce then
-				self._selfOnceDict[nType] = true
+		for nType, nTypeFn in pairs(self._selfOnceDict) do
+			if nTypeFn then
+				self._selfOnceDict[nType] = false
 				const nBeforeArgTuple = nTypeFn:getArgTuple()
 				const nArgTuple = nBeforeArgTuple:replaceFirst(nType)
 				local nInplaceContext = self._luaFunction:newInplaceSealContext()
+				nInplaceContext:setTypeFn(nTypeFn)
 				local ok, err = pcall(function()
 					self._luaFunction._runFunc(nInplaceContext, nArgTuple:makeTermTuple())
 				end)
@@ -51,10 +51,10 @@ function LateFnCom:checkLateRun()
 	else
 		if not self._once then
 			self._once = true
-			local nTypeFunction = self._typeFunction
-			assert(nTypeFunction, "type-fn not setted in late-fn")
-			local nArgTuple = nTypeFunction:getArgTuple()
+			const nTypeFn = assert(self._typeFunction, "type-fn not setted in late-fn")
+			const nArgTuple = nTypeFn:getArgTuple()
 			local nInplaceContext = self._luaFunction:newInplaceSealContext()
+			nInplaceContext:setTypeFn(nTypeFn)
 			local ok, err = pcall(function()
 				self._luaFunction._runFunc(nInplaceContext, nArgTuple:makeTermTuple())
 			end)
@@ -74,15 +74,15 @@ function LateFnCom:meta_call(vContext, vTypeTuple)
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
-function LateFnCom:regionReturn(vContext, vNode, vTypeTuple)
-	if vTypeTuple:getRepeatType() then
+function LateFnCom:regionReturn(vContext, vNode, vRetTypeTuple)
+	if vRetTypeTuple:getRepeatType() then
 		vContext:getRuntime():nodeError(vNode, "return dots type is invalid")
 	end
 	local nOneOkay = false
-	local nRetTuples = self._retTuples
+	local nRetTuples = assert(vContext:getTypeFn(), "LateFnCom's context must set TypeFn"):getRetTuples()
 	assert(nRetTuples, "ret tuples not setted when return")
 	nRetTuples:foreach(function(vDstTuple)
-		if vTypeTuple:castOrIn(vContext, vDstTuple) then
+		if vRetTypeTuple:castOrIn(vContext, vDstTuple) then
 			nOneOkay = true
 		end
 	end)
@@ -115,15 +115,14 @@ function LateFnCom:_typeDefault()
 	end
 end
 
-function LateFnCom:specialize(vContext:class.UContext, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))
-	self._selfOnceDict[vSelfType] = false
+function LateFnCom:specialize(vContext:class.Context, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))
 	if vIntfFnOrNil then
 		self._autoArgs:checkWhenApply(vContext, vIntfFnOrNil:getArgTuple())
 		self._typeFunction = vIntfFnOrNil
 		local nNewRetTuples = vIntfFnOrNil:getRetTuples()
-		local nOldRetTuples = self._retTuples
-		if nOldRetTuples then
-			if not nNewRetTuples:containTuples(nOldRetTuples) then
+		local nHintRetTuples = self._retTuples
+		if nHintRetTuples then
+			if not nNewRetTuples:containTuples(nHintRetTuples) then
 				if not self._nocheck then
 					vContext:getRuntime():nodeError(self._luaFunction:getNode(), "interface-fn ret and hint ret notmatch")
 				end
@@ -132,8 +131,10 @@ function LateFnCom:specialize(vContext:class.UContext, vSelfType:class.LuaTable,
 		else
 			self._retTuples = nNewRetTuples
 		end
+		self._selfOnceDict[vSelfType] = vIntfFnOrNil
 	else
 		self:_typeDefault()
+		self._selfOnceDict[vSelfType] = self._typeFunction
 	end
 	const nTypeFn = assert(self._typeFunction, "no type-fn when late-fn-com implement")
 	const nRetTuples = assert(self._retTuples, "no ret-tuples when late-fn-com implement")
