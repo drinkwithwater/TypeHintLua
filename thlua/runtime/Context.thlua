@@ -459,13 +459,13 @@ function Context:HINT(vNode:class.AstNode, vTerm:class.RefineTerm, vType:class.U
 	return self._manager:RefineTerm(vType)
 end
 
-function Context:cast(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(Boolean)
+function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(OrFalse(class.IAtomType))
 	vSrcType = vSrcType:checkAtomUnion()
 	vDstType = vDstType:checkAtomUnion():trueType()
 	if LuaFunction.is(vSrcType) and TypeFunction.is(vDstType) then
-		return vSrcType:cast(self, vDstType)
+		return vSrcType:cast(self, vDstType) and vDstType
 	elseif LuaTable.is(vSrcType) and MetaObject.is(vDstType) then
-		return vSrcType:cast(self, vDstType)
+		return vSrcType:cast(self, vDstType) and vDstType
 	end
 	return false
 end

@@ -65,7 +65,13 @@ end
 function Branch:mutSet(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
-	if self._context:cast(nValueType, nDstType) or vSymbol:getType():containAll(nValueType) then
+	const nCastType = self._context:castLuaType(nValueType, nDstType)
+	if nCastType then
+		const nCastTerm = self._context:RefineTerm(nCastType)
+		const nImmutShot = nCastTerm:attachImmutShot()
+		self.symbolToShot[vSymbol] = nImmutShot
+		nImmutShot:addSymbol(vSymbol)
+	elseif vSymbol:getType():containAll(nValueType) then
 		const nImmutShot = vValueTerm:attachImmutShot()
 		self.symbolToShot[vSymbol] = nImmutShot
 		nImmutShot:addSymbol(vSymbol)

@@ -36,14 +36,14 @@ function StructTableCom:meta_bop_func(vContext, vOper)
 	return self._struct:meta_bop_func(vContext, vOper)
 end
 
-function StructTableCom:tryCast(vContext)::Ret(Boolean)
+function StructTableCom:tryCast(vContext:class.Context)::Ret(Boolean)
 	local nCastSuccess = true
 	local nDefaultCom = self._luaTable:getDefaultCom()
 	local nStruct = self._struct
 	nDefaultCom:foreachGetPair(function(vKeyType, vValueType)
 		local nKey, nValue = nStruct:indexKeyValue(vKeyType)
 		if nKey then
-			if vContext:cast(vValueType, nValue) then
+			if vContext:castLuaType(vValueType, nValue) then
 				return
 			elseif nValue:containAll(vValueType) then
 				return
