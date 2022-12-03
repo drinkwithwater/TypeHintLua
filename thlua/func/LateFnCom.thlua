@@ -15,7 +15,7 @@ function LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 		_castSpecFn=false@Union(False, class.TypeFunction),
 		_once=false@Boolean,
 		_autoArgs=nil@class.AutoArguments,
-		_retTuples=false@Union(False, class.RetTuples),
+		_hintRetTuples=false@Union(False, class.RetTuples),
 		_nocheck=false@Boolean,
 	}, LateFnCom)
 	vLuaFunction:setFnCom(self)
@@ -24,7 +24,7 @@ end
 
 function LateFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
 	self._autoArgs = self._luaFunction._autoArgs
-	self._retTuples = vRetTuples or false
+	self._hintRetTuples = vRetTuples or false
 	self._nocheck = vNocheck
 end
 
@@ -91,17 +91,16 @@ end
 function LateFnCom:_typeDefault()
 	if not self._typeFunction then
 		const nArgTuple = self._autoArgs:checkByDefault()
-		const nRetTuples = self._retTuples or self._manager:VoidRetTuples()
-		self._retTuples = nRetTuples
+		const nRetTuples = self._hintRetTuples or self._manager:VoidRetTuples()
+		self._hintRetTuples = nRetTuples
 		self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 	end
 end
 
 function LateFnCom:_typeFnSpecialize(vContext:class.Context, vTypeFn:class.TypeFunction)::Ret(class.TypeFunction)
-	const nArgTuple = vTypeFn:getArgTuple()
-	self._autoArgs:checkWhenApply(vContext, vTypeFn:getArgTuple())
+	const nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeFn:getArgTuple())
 	local nRetTuples = vTypeFn:getRetTuples()
-	const nHintRetTuples = self._retTuples
+	const nHintRetTuples = self._hintRetTuples
 	if nHintRetTuples then
 		if nRetTuples:containTuples(nHintRetTuples) then
 			nRetTuples = nHintRetTuples
@@ -111,18 +110,17 @@ function LateFnCom:_typeFnSpecialize(vContext:class.Context, vTypeFn:class.TypeF
 			end
 		end
 	end
-	const nArgTuple = vTypeFn:getArgTuple()
 	return self._manager:Function(nArgTuple, nRetTuples)
 end
 
-function LateFnCom:specialize(vContext:class.Context, vSelfType:class.LuaTable, vTypeFnOrNil:OrNil(class.TypeFunction))::Ret(class.TypeFunction)
+function LateFnCom:selfSpecialize(vContext:class.Context, vSelfType:class.LuaTable, vTypeFnOrNil:OrNil(class.TypeFunction))::Ret(class.TypeFunction)
 	if vTypeFnOrNil then
 		const nNewTypeFn = self:_typeFnSpecialize(vContext, vTypeFnOrNil)
 		self._selfSpecDict[vSelfType] = nNewTypeFn
 		return nNewTypeFn
 	else
 		const nArgTuple = self._autoArgs:checkByFirst(vContext, vSelfType)
-		local nRetTuples = self._retTuples
+		local nRetTuples = self._hintRetTuples
 		if not nRetTuples then
 			if not self._nocheck then
 				vContext:getRuntime():nodeError(self._luaFunction:getNode(), "return something but no hint TODO")
@@ -135,18 +133,18 @@ function LateFnCom:specialize(vContext:class.Context, vSelfType:class.LuaTable, 
 	end
 end
 
-function LateFnCom:cast(vContext:class.Context, vDstTypeFn:class.TypeFunction)::Ret(Boolean)
+function LateFnCom:castSpecialize(vContext:class.Context, vDstTypeFn:class.TypeFunction)::Ret(class.TypeFunction)
 	local nTypeFn = self._castSpecFn
 	if not nTypeFn then
-		-- nTypeFn = self:_typeFnSpecialize(vContext, vDstTypeFn)
-		local nArgTuple = self._autoArgs:checkWhenApply(vContext, vDstTypeFn:getArgTuple())
-		self._retTuples = self._retTuples or vDstTypeFn:getRetTuples()
-		nTypeFn = self._manager:Function(nArgTuple, self._retTuples or vDstTypeFn:getRetTuples())
+		nTypeFn = self:_typeFnSpecialize(vContext, vDstTypeFn)
 		self._castSpecFn = nTypeFn
-	elseif not vDstTypeFn:containAll(nTypeFn) then
-		vContext:warn("polymorphism cast TODO")
 	end
-	return true
+	if not vDstTypeFn:containAll(nTypeFn) then
+		vContext:warn("polymorphism cast TODO")
+		return vDstTypeFn
+	else
+		return nTypeFn
+	end
 end
 
 function LateFnCom.is(v)::isguard(class.LateFnCom)

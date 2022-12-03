@@ -102,10 +102,10 @@ function LuaFunction:native_type()
 	return self._manager:Literal("function")
 end
 
-function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction)::Ret(Boolean)
+function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction)::Ret(OrFalse(class.TypeFunction))
 	local nUnionFnCom = self._unionFnCom
 	if LateFnCom.is(nUnionFnCom) then
-		return nUnionFnCom:cast(vContext, vTypeFn)
+		return nUnionFnCom:castSpecialize(vContext, vTypeFn)
 	else
 		return false
 	end
@@ -114,7 +114,7 @@ end
 function LuaFunction:specialize(vContext:class.Context, vSelfType:class.LuaTable, vIntfFnOrNil:OrNil(class.TypeFunction))::Ret(class.TypeFunction)
 	local nUnionCom = self._unionFnCom
 	assert(LateFnCom.is(nUnionCom), "only LateFnCom can specificate")
-	return nUnionCom:specialize(vContext, vSelfType, vIntfFnOrNil)
+	return nUnionCom:selfSpecialize(vContext, vSelfType, vIntfFnOrNil)
 end
 
 function LuaFunction:isMember()::Ret(Boolean)
