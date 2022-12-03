@@ -26,7 +26,7 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		id=vManager:genTypeId(),
 		_sealed=false@Boolean,
 		_metaTable=false@OrFalse(class.LuaTable),
-		_sealCom=false@Union(class.StructTableCom, class.ClassTableCom),
+		_sealCom=false@OrFalse(class.DefaultTableCom, class.StructTableCom, class.ClassTableCom),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
@@ -233,13 +233,14 @@ function LuaTable.is(v)::isguard(class.LuaTable)
 end
 
 -- called when struct contain
-function LuaTable:checkStruct()
-	local nStructOrCom = self._sealCom
-	if not nStructOrCom then
-		nStructOrCom = self._manager.type.Object
-		self._sealCom = nStructOrCom
+function LuaTable:checkBaseObjectType()
+	local nSealCom = self._sealCom
+	if not nSealCom then
+		nSealCom = self._defaultCom
+		self._sealed = true
+		self._sealCom = nSealCom
 	end
-	return nStructOrCom:checkStruct()
+	return nSealCom:checkBaseObjectType()
 end
 
 function LuaTable:getCompletion()::Ret(class.LspCompletion)
