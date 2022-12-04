@@ -23,7 +23,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		__indexType=false@OrFalse(class.UIndexType),
 		__newindexType=false@OrFalse(class.UIndexType),
 		_metaEventDict={}@Dict(String, class.IAtomType),
-		_nothingStruct=vManager.type.Object,
+		_baseStruct=false@Union(False, class.MetaObject),
 	}, DefaultTableCom)
 	return self
 end
@@ -184,7 +184,7 @@ function DefaultTableCom:native_next(vContext, vInitType)
 end
 
 function DefaultTableCom:checkBaseObjectType()
-	return self._nothingStruct
+	return self._baseStruct or self._manager.type.Object
 end
 
 function DefaultTableCom:getCompletion()
@@ -195,6 +195,26 @@ function DefaultTableCom:getCompletion()
 		end
 	end)
 	return nDict
+end
+
+function DefaultTableCom:tryCast(vContext:class.Context, vStruct:class.MetaObject)::Ret(Boolean)
+	local nCastSuccess = true
+	self:foreachGetPair(function(vKeyType, vValueType)
+		local nKey, nValue = vStruct:indexKeyValue(vKeyType)
+		if nKey then
+			if vContext:castLuaType(vValueType, nValue) then
+				return
+			elseif nValue:containAll(vValueType) then
+				return
+			else
+				vContext:error("table cast fail, field="..tostring(vKeyType).." not match")
+			end
+		else
+			vContext:error("table cast fail, field="..tostring(vKeyType).." not existed")
+		end
+		nCastSuccess = false
+	end)
+	return nCastSuccess
 end
 
 return DefaultTableCom

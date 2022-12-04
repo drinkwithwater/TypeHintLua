@@ -8,7 +8,6 @@ const Nil = require "thlua.type.Nil"
 const TypeFunction = require "thlua.func.TypeFunction"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const ClassTableCom = require "thlua.object.ClassTableCom"
-const StructTableCom = require "thlua.object.StructTableCom"
 const DefaultTableCom = require "thlua.object.DefaultTableCom"
 
 const LuaTable = AtomTypeClass()
@@ -26,7 +25,7 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		id=vManager:genTypeId(),
 		_sealed=false@Boolean,
 		_metaTable=false@OrFalse(class.LuaTable),
-		_sealCom=false@OrFalse(class.DefaultTableCom, class.StructTableCom, class.ClassTableCom),
+		_sealCom=false@OrFalse(class.DefaultTableCom, class.ClassTableCom),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
@@ -59,24 +58,16 @@ end
 
 function LuaTable:meta_pairs(vContext)
 	self:checkDefine()
-	local nSealCom = self._sealCom
-	if StructTableCom.is(nSealCom) then
-		return nSealCom:meta_pairs(vContext)
-	else
-		local nManager = self._manager
-		return nManager.builtin.next, self, nManager.type.Nil
-	end
+	vContext:error("lua table meta_pairs TODO")
+	local nManager = self._manager
+	return nManager.builtin.next, self, nManager.type.Nil
 end
 
 function LuaTable:meta_ipairs(vContext)
 	self:checkDefine()
-	local nSealCom = self._sealCom
-	if StructTableCom.is(nSealCom) then
-		return nSealCom:meta_ipairs(vContext)
-	else
-		local nManager = self._manager
-		return nManager.builtin.inext, self, nManager.type.Nil
-	end
+	vContext:error("lua table meta_ipairs TODO")
+	local nManager = self._manager
+	return nManager.builtin.inext, self, nManager.type.Nil
 end
 
 function LuaTable:native_next(vContext, vInitType)
@@ -221,10 +212,8 @@ function LuaTable:cast(vContext:class.Context, vStruct:class.MetaObject)::Ret(Or
 		return false
 	end
 	self._sealed = true
-	const nStructCom = StructTableCom.new(self._manager, self, vStruct)
-	-- TODO cast maybe fail, fail may be because union
-	self._sealCom = nStructCom
-	nStructCom:tryCast(vContext)
+	self._sealCom = self._defaultCom
+	self._defaultCom:tryCast(vContext, vStruct)
 	return vStruct
 end
 

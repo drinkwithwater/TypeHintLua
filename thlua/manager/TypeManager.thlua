@@ -136,6 +136,14 @@ function TypeManager:checkLuaTable(vType:class.UAllType)::Ret(class.LuaTable)
 	return vType
 end
 
+function TypeManager:sealDefaultTable(vType:class.UAtomUnion)
+	vType:foreach(function(vAtomType)
+		if LuaTable.is(vAtomType) then
+			vAtomType:checkBaseObjectType()
+		end
+	end)
+end
+
 function TypeManager:isBasicAtomType(vData:class.IAtomType)::Ret(Boolean):nocheck()
 	local meta = getmetatable(vData)
 	if meta and BasicAtomMetatableSet[meta] then
