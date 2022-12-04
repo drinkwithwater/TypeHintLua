@@ -24,7 +24,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		__indexType=false@OrFalse(class.UIndexType),
 		__newindexType=false@OrFalse(class.UIndexType),
 		_metaEventDict={}@Dict(String, class.IAtomType),
-		_sealInterface=false@Union(False, class.MetaObject),
+		_isBasingDefault=false@Boolean,
 	}, DefaultTableCom)
 	return self
 end
@@ -212,13 +212,13 @@ function DefaultTableCom:native_next(vContext, vInitType)
 	return nValueType, nNextDict
 end
 
-function DefaultTableCom:checkBaseObjectType()
-	local nObject = self._sealInterface
-	if not nObject then
-		nObject = self._manager.type.Object
-		self._sealInterface = nObject
+function DefaultTableCom:basingByDefault()
+	if not self._isBasingDefault then
+		self._isBasingDefault = true
+		for k, v in pairs(self._valueDict) do
+			self._manager:basingByDefault(v)
+		end
 	end
-	return nObject
 end
 
 function DefaultTableCom:getCompletion()
@@ -232,7 +232,7 @@ function DefaultTableCom:getCompletion()
 end
 
 function DefaultTableCom:castStruct(vContext:class.Context, vStruct:class.MetaObject)::Ret(Boolean)
-	if self._sealInterface then
+	if self._isBasingDefault then
 		return false
 	end
 	self:foreachGetPair(function(vKeyType, vValueType)

@@ -22,7 +22,8 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		_unionSign=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		_sealCom=false@OrFalse(class.DefaultTableCom, class.ClassTableCom),
+		_defaultCom=nil@class.DefaultTableCom,
+		_classCom=false@OrFalse(class.ClassTableCom),
 		_castStruct=false@OrFalse(class.MetaObject),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
@@ -30,18 +31,21 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 end
 
 function LuaTable:initByClass(vFnCom:class.ClassFnCom, vBaseClass:Union(False, class.LuaTable), vInterface:Union(False, class.MetaObject))
-	self._sealCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vInterface)
+	self._classCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vInterface)
 end
 
 function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
 	return self._defaultCom
 end
 
-function LuaTable:_checkTableCom(vContext)::Ret(class.ITableCom)
-	if self._castStruct then
-		vContext:error("table has been cast to other type")
+function LuaTable:_checkComOrStruct(vContext)::Ret(Union(class.ITableCom, class.MetaObject))
+	const nCastStruct = self._castStruct
+	if nCastStruct then
+		vContext:warn("table has been cast to other type")
+		return nCastStruct
+	else
+		return self._classCom or self._defaultCom
 	end
-	return self._sealCom or self._defaultCom
 end
 
 function LuaTable:detailString(v, vVerbose)
@@ -65,7 +69,7 @@ function LuaTable:meta_ipairs(vContext)
 end
 
 function LuaTable:native_next(vContext, vInitType)
-	const nClassCom = self._sealCom
+	const nClassCom = self._classCom
 	if nClassCom then
 		return nClassCom:native_next(vContext, vInitType)
 	else
@@ -75,11 +79,11 @@ function LuaTable:native_next(vContext, vInitType)
 end
 
 function LuaTable:native_setmetatable(vContext, vMetaTableType)
-	self:_checkTableCom(vContext):native_setmetatable(vContext, vMetaTableType)
+	self:_checkComOrStruct(vContext):native_setmetatable(vContext, vMetaTableType)
 end
 
 function LuaTable:native_getmetatable(vContext)
-	return self:_checkTableCom(vContext):native_getmetatable(vContext)
+	return self:_checkComOrStruct(vContext):native_getmetatable(vContext)
 end
 
 function LuaTable:native_type()
@@ -87,23 +91,23 @@ function LuaTable:native_type()
 end
 
 function LuaTable:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion)
-	return self:_checkTableCom(vContext):native_rawget(vContext, vKeyType)
+	return self:_checkComOrStruct(vContext):native_rawget(vContext, vKeyType)
 end
 
 function LuaTable:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil, Boolean))
-	self:_checkTableCom(vContext):native_rawset(vContext, vKeyType, vValueType, vOverride)
+	self:_checkComOrStruct(vContext):native_rawset(vContext, vKeyType, vValueType, vOverride)
 end
 
 function LuaTable:meta_get(vContext, vKeyType)
-	return self:_checkTableCom(vContext):meta_get(vContext, vKeyType)
+	return self:_checkComOrStruct(vContext):meta_get(vContext, vKeyType)
 end
 
 function LuaTable:meta_set(vContext, vKeyType, vValueType)
-	self:_checkTableCom(vContext):meta_set(vContext, vKeyType, vValueType)
+	self:_checkComOrStruct(vContext):meta_set(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
-	if self._sealCom then
+	if self._classCom then
 		vContext:error("override set can't work on class table")
 	else
 		self._defaultCom:meta_set_override(vContext, vKeyType, vValueType)
@@ -121,7 +125,7 @@ function LuaTable:meta_uop_some(vContext, vOper)
 end
 
 function LuaTable:meta_bop_func(vContext, vOper)
-	return self:_checkTableCom(vContext):meta_bop_func(vContext, vOper)
+	return self:_checkComOrStruct(vContext):meta_bop_func(vContext, vOper)
 end
 
 function LuaTable:isSingleton()
@@ -149,23 +153,25 @@ end
 
 -- called when New function checkDefine
 function LuaTable:sealNew(vContext:class.Context)
-	const clsCom = self._sealCom
+	const clsCom = self._classCom
 	assert(ClassTableCom.is(clsCom), "only ClassTableCom can call sealNew")
 	clsCom:implement(vContext)
 end
 
 function LuaTable:cast(vContext:class.Context, vStruct:class.MetaObject)::Ret(OrFalse(class.MetaObject))
-	if self._sealCom then
+	if self._classCom then
 		return false
 	end
 	const nOldStruct = self._castStruct
 	if nOldStruct then
-		if vStruct:containAll(nOldStruct) then
+		if vStruct:containAll(nOldStruct) and nOldStruct:containAll(vStruct) then
 			return vStruct
 		end
+		vContext:error("table can't cast to multi struct type")
 		return false
 	end
 	if not self._defaultCom:castStruct(vContext, vStruct) then
+		vContext:error("default table can't cast to struct type")
 		return false
 	end
 	self._castStruct = vStruct
@@ -178,12 +184,21 @@ end
 
 -- called when struct contain
 function LuaTable:checkBaseObjectType()
-	const com = self._sealCom or self._defaultCom
-	return com:checkBaseObjectType()
+	const nClassCom = self._classCom
+	if nClassCom then
+		return nClassCom:getBase()
+	end
+	const nStruct = self._castStruct
+	if nStruct then
+		print("unexcepted case, table has been cast to struct, but still call checkBaseObjectType...")
+		return nStruct
+	end
+	self._defaultCom:basingByDefault()
+	return self._manager.type.Object
 end
 
 function LuaTable:getCompletion()::Ret(class.LspCompletion)
-	const com = self._sealCom or self._defaultCom
+	const com = self._classCom or self._defaultCom
 	return com:getCompletion()
 end
 
