@@ -20,11 +20,9 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		_manager=vManager,
 		_name="Table"@String,
 		_unionSign=false,
-		singleton=false,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_sealed=false@Boolean,
-		_metaTable=false@OrFalse(class.LuaTable),
 		_sealCom=false@OrFalse(class.DefaultTableCom, class.ClassTableCom),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
@@ -82,43 +80,16 @@ function LuaTable:native_next(vContext, vInitType)
 end
 
 function LuaTable:native_setmetatable(vContext, vMetaTableType)
-	-- TODO thinking when to lock this ?
-	assert(not self._metaTable, "meta table can be only set once")
-	self._metaTable = vMetaTableType
-	local nManager = self._manager
-	const function checkValidIndexType(vType)::Ret(OrFalse(class.UIndexType))
-		if LuaTable.is(vType) or TypeFunction.is(vType) or LuaFunction.is(vType) then
-			return vType
-		else
-			return false
-		end
-	end
-	const nIndexType = checkValidIndexType(vMetaTableType:native_rawget(vContext, nManager:Literal("__index")))
-	const nNewIndexType = checkValidIndexType(vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex")))
-	local nMetaEventToType:Dict(String, class.IAtomType) = {}
-	for nOper, nEvent in pairs(OPER_ENUM.all) do
-		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
-		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
-			nMetaEventToType[nEvent] = nMethodType
-		end
-	end
-	const nSomeEvents:List(String) = {"__len", "__tostring"}
-	for _, nEvent in pairs(nSomeEvents) do
-		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
-		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
-			nMetaEventToType[nEvent] = nMethodType
-		end
-	end
-	self._defaultCom:setMeta(nIndexType, nNewIndexType, nMetaEventToType)
-end
-
-function LuaTable:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
-	self._defaultCom:foreachGetPair(vFunc)
+	self._defaultCom:native_setmetatable(vContext, vMetaTableType)
 end
 
 function LuaTable:native_getmetatable()
 	self:checkDefine()
-	return self._metaTable or self._manager.type.Nil
+	return self._defaultCom:native_getmetatable()
+end
+
+function LuaTable:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
+	self._defaultCom:foreachGetPair(vFunc)
 end
 
 function LuaTable:native_type()
@@ -176,7 +147,7 @@ function LuaTable:meta_bop_func(vContext, vOper)
 end
 
 function LuaTable:isSingleton()
-	return self.singleton
+	return false
 end
 
 function LuaTable:assumeContainAtom(vAssumeSet, vType)
