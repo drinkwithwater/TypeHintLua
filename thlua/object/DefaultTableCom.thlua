@@ -55,6 +55,9 @@ function DefaultTableCom:meta_set_override(vContext, vKeyType:class.IAtomType, v
 end
 
 function DefaultTableCom:_meta_set(vContext:class.Context, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil,Boolean))
+	if self._isBasingDefault then
+		self._manager:basingByDefault(vValueType)
+	end
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		local nCurValueType = self._valueDict[nKeyContainType]!
@@ -124,6 +127,9 @@ function DefaultTableCom:meta_bop_func(vContext, vOper)
 end
 
 function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+	if self._isBasingDefault then
+		self._manager:basingByDefault(vValueType)
+	end
 	local nContainType = self._keyType:containAtom(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
