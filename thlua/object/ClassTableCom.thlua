@@ -20,6 +20,7 @@ function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable,
 		_defaultCom=vLuaTable:getDefaultCom(),
 		_valueDict={}@Dict(class.IAtomType, class.UAtomUnion),
 		_keyType=false@class.UAtomUnion,
+		_sealed=false@Boolean,
 		_baseClass=vBaseClass,
 		_interface=(vInterface or vManager.type.Object) @ class.MetaObject,
 		_fnCom=vFnCom,
@@ -27,12 +28,13 @@ function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable,
 	return self
 end
 
-function ClassTableCom:checkDefine()
-	self._fnCom:checkDefine()
-end
-
 function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
-	local nContainKey = self._keyType:containAtom(vKeyType)
+	self._fnCom:checkDefine()
+	if not self._sealed then
+		self._defaultCom:meta_set(vContext, vKeyType, vValueType)
+		return
+	end
+	const nContainKey = self._keyType:containAtom(vKeyType)
 	if not nContainKey then
 		vContext:error("key not found", tostring(vKeyType))
 	else
@@ -44,7 +46,11 @@ function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
 end
 
 function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
-	local nContainKey = self._keyType:containAtom(vKeyType)
+	self._fnCom:checkDefine()
+	if not self._sealed then
+		return self._defaultCom:meta_get(vContext, vKeyType)
+	end
+	const nContainKey = self._keyType:containAtom(vKeyType)
 	if nContainKey then
 		return self._valueDict[nContainKey]!
 	else
@@ -54,18 +60,23 @@ function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
 end
 
 function ClassTableCom:meta_bop_func(vContext, vOper)
-	return self._luaTable:getDefaultCom():meta_bop_func(vContext, vOper)
+	self._fnCom:checkDefine()
+	return self._defaultCom:meta_bop_func(vContext, vOper)
 end
 
 function ClassTableCom:native_next(vContext, vInitType)
-	return self._luaTable:getDefaultCom():native_next(vContext, vInitType)
+	self._fnCom:checkDefine()
+	return self._defaultCom:native_next(vContext, vInitType)
 end
 
-function ClassTableCom:native_getmetatable()
-	return self._defaultCom:native_getmetatable()
+function ClassTableCom:native_getmetatable(vContext)
+	self._fnCom:checkDefine()
+	return self._defaultCom:native_getmetatable(vContext)
 end
 
 function ClassTableCom:native_setmetatable(vContext, vMetaTable)
+	-- TODO, can only set once in ClassFn's context
+	self._fnCom:checkDefine()
 	return self._defaultCom:native_setmetatable(vContext, vMetaTable)
 end
 
@@ -74,6 +85,11 @@ function ClassTableCom:checkBaseObjectType()
 end
 
 function ClassTableCom:implement(vContext:class.Context)
+	if self._sealed then
+		vContext:error("class table try seal more than once")
+		return
+	end
+	self._sealed = true
 	const nCollection = self._manager:TypeCollection()
 	const nDefaultCom:class.DefaultTableCom = self._defaultCom
 	nDefaultCom:foreachGetPair(function(vKey, vValue)
@@ -85,7 +101,7 @@ function ClassTableCom:implement(vContext:class.Context)
 		if LuaFunction.is(nIndexTable) or TypeFunction.is(nIndexTable) then
 			-- TODO
 		else
-			nIndexTable:foreachGetPair(function(vKey, vValue)
+			nIndexTable:getDefaultCom():foreachGetPair(function(vKey, vValue)
 				if LuaFunction.is(vValue) then
 					if vValue:isMember() then
 						nCollection:put(vKey)

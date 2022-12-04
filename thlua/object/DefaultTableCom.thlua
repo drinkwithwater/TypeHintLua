@@ -24,7 +24,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		__indexType=false@OrFalse(class.UIndexType),
 		__newindexType=false@OrFalse(class.UIndexType),
 		_metaEventDict={}@Dict(String, class.IAtomType),
-		_baseStruct=false@Union(False, class.MetaObject),
+		_sealInterface=false@Union(False, class.MetaObject),
 	}, DefaultTableCom)
 	return self
 end
@@ -160,7 +160,7 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion
 	end
 end
 
-function DefaultTableCom:native_getmetatable()
+function DefaultTableCom:native_getmetatable(vContext)
 	return self._metaTable or self._manager.type.Nil
 end
 
@@ -213,7 +213,12 @@ function DefaultTableCom:native_next(vContext, vInitType)
 end
 
 function DefaultTableCom:checkBaseObjectType()
-	return self._baseStruct or self._manager.type.Object
+	local nObject = self._sealInterface
+	if not nObject then
+		nObject = self._manager.type.Object
+		self._sealInterface = nObject
+	end
+	return nObject
 end
 
 function DefaultTableCom:getCompletion()
@@ -226,8 +231,10 @@ function DefaultTableCom:getCompletion()
 	return nDict
 end
 
-function DefaultTableCom:tryCast(vContext:class.Context, vStruct:class.MetaObject)::Ret(Boolean)
-	local nCastSuccess = true
+function DefaultTableCom:castStruct(vContext:class.Context, vStruct:class.MetaObject)::Ret(Boolean)
+	if self._sealInterface then
+		return false
+	end
 	self:foreachGetPair(function(vKeyType, vValueType)
 		local nKey, nValue = vStruct:indexKeyValue(vKeyType)
 		if nKey then
@@ -241,9 +248,8 @@ function DefaultTableCom:tryCast(vContext:class.Context, vStruct:class.MetaObjec
 		else
 			vContext:error("table cast fail, field="..tostring(vKeyType).." not existed")
 		end
-		nCastSuccess = false
 	end)
-	return nCastSuccess
+	return true
 end
 
 return DefaultTableCom
