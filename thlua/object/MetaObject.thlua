@@ -18,7 +18,7 @@ function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, 
 		_manager=vManager,
 		_basicKey=vBasicKey,
 		_moreKey=vMoreKey,
-		_valueDict=false@class.MemberDict,
+		_memberDict=false@class.MemberDict,
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_intersectSet={}@Dict(class.MetaObject, True),
@@ -36,8 +36,8 @@ function MetaObject:initIntersectSet(vIntersectSet:Dict(class.MetaObject, True))
 	self._intersectSet = vIntersectSet
 end
 
-function MetaObject:init(vValueDict:class.MemberDict, vMetaEventDict:OrNil(Dict(String, class.IAtomType)))
-	self._valueDict = vValueDict
+function MetaObject:init(vMemberDict:class.MemberDict, vMetaEventDict:OrNil(Dict(String, class.IAtomType)))
+	self._memberDict = vMemberDict
 	self._nextDict = {} @ Dict(class.IAtomType, class.UAtomUnion)
 	if vMetaEventDict then
 		for k,v in pairs(vMetaEventDict) do
@@ -57,34 +57,19 @@ function MetaObject:intersectAtom(vRightType)
 end
 
 function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
-	const nRightValueDict:class.MemberDict = {}
-	for k,v in pairs(vRightObject:getValueDict()) do
-		nRightValueDict[k] = v
-	end
+	const nRightValueDict = vRightObject:copyValueDict()
 	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
 	assert(nRightMoreRefer, "only struct & struct can call this function")
-	for nLeftKey, nLeftValue in pairs(self._valueDict) do
-		const function isMatchedKeyValue(nRightKey:class.IAtomType, nRightValue:Union(class.UAllType, class.MemberFunction))::Ret(Boolean)
-			if MemberFunction.is(nLeftValue) or MemberFunction.is(nRightValue) then
-				if MemberFunction.is(nLeftValue) and MemberFunction.is(nRightValue) then
-					local nLeftTypeFn = nLeftValue:indexTypeFn(self)
-					local nRightTypeFn = nRightValue:indexTypeFn(vRightObject)
-					if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
-						return false
-					end
-					if not nRightTypeFn:assumeContainAtom(vAssumeSet, nLeftTypeFn) then
-						return false
-					end
-				else
-					return false
-				end
-			else
-				if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
-					return false
-				end
-				if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
-					return false
-				end
+	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+		const function isMatchedKeyValue(nRightKey:class.IAtomType, nRightValue:class.UAllType)::Ret(Boolean)
+			if MemberFunction.is(nLeftValue) then
+				nLeftValue = nLeftValue:indexTypeFn(self)
+			end
+			if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
+				return false
+			end
+			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+				return false
 			end
 			if not nLeftKey:assumeContainAtom(vAssumeSet, nRightKey) then
 				return false
@@ -145,8 +130,8 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 		return true
 	end
 	const nRightBasicKey, _ = vRightObject:getKeyTypes()
-	local nRightValueDict = vRightObject:getValueDict()
-	for nLeftKey, nLeftValue in pairs(self._valueDict) do
+	local nRightValueDict = vRightObject:getMemberDict()
+	for nLeftKey, nLeftValue in pairs(self._memberDict) do
 		const nRightKey = nRightBasicKey:containAtom(nLeftKey)
 		if not nRightKey then
 			return false
@@ -244,7 +229,7 @@ function MetaObject:native_next(vContext, vInitType)
 	local nNil = self._manager.type.Nil
 	if not nValueType then
 		local nCollection = self._manager:TypeCollection()
-		for nOneKey, nOneValue in pairs(self._valueDict) do
+		for nOneKey, nOneValue in pairs(self._memberDict) do
 			if MemberFunction.is(nOneValue) then
 				vContext:error("struct.native_next with member function TODO")
 			else
@@ -276,7 +261,7 @@ function MetaObject:meta_get(vContext, vType)
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
 	else
-		local nGetValue = self._valueDict[nKey]
+		local nGetValue = self._memberDict[nKey]
 		if nGetValue then
 			if MemberFunction.is(nGetValue) then
 				return nGetValue:indexTypeFn(self)
@@ -294,7 +279,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	end
 	const nKey = self:_keyContainAtom(vKeyType)
 	if nKey then
-		local nSetValue = self._valueDict[nKey]
+		local nSetValue = self._memberDict[nKey]
 		if nSetValue then
 			if MemberFunction.is(nSetValue) then
 				vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
@@ -326,7 +311,7 @@ end
 function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
 	const nKey = self:_keyContainAtom(vKeyType)
 	if nKey then
-		local nValue = self._valueDict[nKey]!
+		local nValue = self._memberDict[nKey]!
 		if not MemberFunction.is(nValue) then
 			return nKey, nValue
 		else
@@ -354,7 +339,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	end
 	vToStringCache[self] = "Struct {...}"
 	local l:List(String) = {}
-	for k,v in pairs(self._valueDict) do
+	for k,v in pairs(self._memberDict) do
 		local nKeyString:String = ""
 		if StringLiteral.is(k) and not vVerbose then
 			nKeyString = k:getLiteral()
@@ -372,8 +357,19 @@ function MetaObject:anyObject(vFunc)
 	return vFunc(self)
 end
 
-function MetaObject:getValueDict()::Ret(class.MemberDict)
-	return self._valueDict
+function MetaObject:getMemberDict()::Ret(class.MemberDict)
+	return self._memberDict
+end
+
+function MetaObject:copyValueDict()::Ret(Dict(class.IAtomType, class.UAllType))
+	const nValueDict:Dict(class.IAtomType, class.UAllType) = {}
+	for k,v in pairs(self._memberDict) do
+		if not MemberFunction.is(v) then
+			print("TODO, struct can't take member function")
+			nValueDict[k] = v
+		end
+	end
+	return nValueDict
 end
 
 function MetaObject:getMetaEventDict()::Ret(Dict(String, class.IAtomType))

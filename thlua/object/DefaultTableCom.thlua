@@ -241,9 +241,11 @@ function DefaultTableCom:castStruct(vContext:class.Context, vStruct:class.MetaOb
 	if self._isBasingDefault then
 		return false
 	end
+	const nStructValueDict = vStruct:copyValueDict()
 	self:foreachGetPair(function(vKeyType, vValueType)
 		local nKey, nValue = vStruct:indexKeyValue(vKeyType)
 		if nKey then
+			nStructValueDict[nKey] = nil
 			if vContext:castLuaType(vValueType, nValue) then
 				return
 			elseif nValue:containAll(vValueType) then
@@ -255,6 +257,11 @@ function DefaultTableCom:castStruct(vContext:class.Context, vStruct:class.MetaOb
 			vContext:error("table cast fail, field="..tostring(vKeyType).." not existed")
 		end
 	end)
+	for k,v in pairs(nStructValueDict) do
+		if not v:isNilable() then
+			vContext:error("table cast fail, field="..tostring(k).." is required")
+		end
+	end
 	return true
 end
 
