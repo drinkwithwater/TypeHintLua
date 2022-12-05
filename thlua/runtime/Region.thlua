@@ -47,7 +47,8 @@ end
 
 function Region:SYMBOL_SET(vNode:class.AstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
 	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
-	self:top_branch():mutSet(vNode, vSymbol, vTerm)
+	const nAssignContext = self._context:newOpenContext(vNode)
+	self:top_branch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
 function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
@@ -60,33 +61,34 @@ function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(clas
 end
 
 function Region:SYMBOL_NEW(vNode:class.AstNode, vImmutable:OrFalse("const", "local"), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
-		vTerm = self._context:NilTerm()
+		vTerm = nAssignContext:NilTerm()
 	end
 	if vHintType then
 		local nSrcType = vTerm:getType()
-		if not self._context:castLuaType(nSrcType, vHintType) then
+		if not nAssignContext:castLuaType(nSrcType, vHintType) then
 			if not vHintType:containAll(nSrcType) then
-				self._context:getRuntime():nodeError(vNode, "symbol init but type not match")
+				nAssignContext:error("symbol init but type not match")
 			end
 		end
-		vTerm = self._context:RefineTerm(vHintType)
+		vTerm = nAssignContext:RefineTerm(vHintType)
 	else
 		-- convert string literal to string, number literal to number, boolean literal to boolean
 		-- TODO , think symbol in more case, local , args, const, for, ...
 		if not vImmutable then
 			const nFromType = vTerm:getType()
-			const nToType = self._context:getTypeManager():literal2Primitive(nFromType)
+			const nToType = nAssignContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
-				vTerm = self._context:RefineTerm(nToType)
+				vTerm = nAssignContext:RefineTerm(nToType)
 			end
 		end
-		self._context:getTypeManager():basingByDefault(vTerm:getType())
+		nAssignContext:getTypeManager():basingByDefault(vTerm:getType())
 	end
 	const nImmutShot = vTerm:attachImmutShot()
 	if not vImmutable then
-		local nLocalSymbol = LocalSymbol.new(self._context, vNode, vTerm:getType(), vTerm)
-		self._context:getRuntime():recordSymbol(nLocalSymbol)
+		local nLocalSymbol = LocalSymbol.new(nAssignContext, vNode, vTerm:getType(), vTerm)
+		nAssignContext:getRuntime():recordSymbol(nLocalSymbol)
 		self:top_branch():mutMark(nLocalSymbol, nImmutShot)
 		return nLocalSymbol
 	else

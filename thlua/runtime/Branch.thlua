@@ -62,12 +62,12 @@ function Branch:mutMark(vSymbol:class.LocalSymbol, vImmutShot:class.ImmutShot)
 	vImmutShot:addSymbol(vSymbol)
 end
 
-function Branch:mutSet(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
+function Branch:mutSet(vContext:class.Context, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
-	const nCastType = self._context:castLuaType(nValueType, nDstType)
+	const nCastType = vContext:castLuaType(nValueType, nDstType)
 	if nCastType then
-		const nCastTerm = self._context:RefineTerm(nCastType)
+		const nCastTerm = vContext:RefineTerm(nCastType)
 		const nImmutShot = nCastTerm:attachImmutShot()
 		self.symbolToShot[vSymbol] = nImmutShot
 		nImmutShot:addSymbol(vSymbol)
@@ -76,7 +76,7 @@ function Branch:mutSet(vNode:class.AstNode, vSymbol:class.LocalSymbol, vValueTer
 		self.symbolToShot[vSymbol] = nImmutShot
 		nImmutShot:addSymbol(vSymbol)
 	else
-		self._context:getRuntime():nodeError(vNode, tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
+		vContext:error(tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
 	end
 end
 
