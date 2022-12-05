@@ -6,63 +6,65 @@ local Exception = require "thlua.Exception"
 
 let.node = import("thlua.code.Node").node
 
-local TNodeVisitor = function(IVisitor)
+local TNodeVisitor = function(TVisitor)
 	return Struct {
-		Chunk=Fn(IVisitor, node.Chunk),
-		Block=Fn(IVisitor, node.Block),
+		Chunk=Fn(TVisitor, node.Chunk),
+		Block=Fn(TVisitor, node.Block),
 
 		-- stat
-		Do=Fn(IVisitor, node.Do),
-		Set=Fn(IVisitor, node.Set),
-		While=Fn(IVisitor, node.While),
-		Repeat=Fn(IVisitor, node.Repeat),
-		If=Fn(IVisitor, node.If),
-		Fornum=Fn(IVisitor, node.Fornum),
-		Forin=Fn(IVisitor, node.Forin),
-		Local=Fn(IVisitor, node.Local),
-		Localrec=Fn(IVisitor, node.Localrec),
-		Return=Fn(IVisitor, node.Return),
-		Break=Fn(IVisitor, node.Break),
-		Label=Fn(IVisitor, node.Label),
-		HintStat=Fn(IVisitor, node.HintStat),
+		Do=Fn(TVisitor, node.Do),
+		Set=Fn(TVisitor, node.Set),
+		While=Fn(TVisitor, node.While),
+		Repeat=Fn(TVisitor, node.Repeat),
+		If=Fn(TVisitor, node.If),
+		Fornum=Fn(TVisitor, node.Fornum),
+		Forin=Fn(TVisitor, node.Forin),
+		Local=Fn(TVisitor, node.Local),
+		Localrec=Fn(TVisitor, node.Localrec),
+		Return=Fn(TVisitor, node.Return),
+		Break=Fn(TVisitor, node.Break),
+		Label=Fn(TVisitor, node.Label),
+		HintStat=Fn(TVisitor, node.HintStat),
 
 		-- apply
-		Call=Fn(IVisitor, node.Call),
-		Invoke=Fn(IVisitor, node.Invoke),
+		Call=Fn(TVisitor, node.Call),
+		Invoke=Fn(TVisitor, node.Invoke),
 
 		-- expr
-		Nil=Fn(IVisitor, node.Nil),
-		False=Fn(IVisitor, node.False),
-		True=Fn(IVisitor, node.True),
-		Number=Fn(IVisitor, node.Number),
-		String=Fn(IVisitor, node.String),
-		Function=Fn(IVisitor, node.Function),
-		Table=Fn(IVisitor, node.Table),
-		Op=Fn(IVisitor, node.Op),
-		Paren=Fn(IVisitor, node.Paren),
-		Dots=Fn(IVisitor, node.Dots),
+		Nil=Fn(TVisitor, node.Nil),
+		False=Fn(TVisitor, node.False),
+		True=Fn(TVisitor, node.True),
+		Number=Fn(TVisitor, node.Number),
+		String=Fn(TVisitor, node.String),
+		Function=Fn(TVisitor, node.Function),
+		Table=Fn(TVisitor, node.Table),
+		Op=Fn(TVisitor, node.Op),
+		Paren=Fn(TVisitor, node.Paren),
+		Dots=Fn(TVisitor, node.Dots),
 
 		-- lhs
-		Index=Fn(IVisitor, node.Index),
-		Id=Fn(IVisitor, node.Id),
+		Index=Fn(TVisitor, node.Index),
+		Id=Fn(TVisitor, node.Id),
 
 		-- list
-		ParList=Fn(IVisitor, node.ParList),
-		VarList=Fn(IVisitor, node.VarList),
-		ExpList=Fn(IVisitor, node.ExpList),
-		NameList=Fn(IVisitor, node.NameList),
+		ParList=Fn(TVisitor, node.ParList),
+		VarList=Fn(TVisitor, node.VarList),
+		ExpList=Fn(TVisitor, node.ExpList),
+		NameList=Fn(TVisitor, node.NameList),
 	}
 end
 
 node.IVisitor = Struct {
-	realVisit=Fn(node.IVisitor, Truth),
-	rawVisit=Fn(node.IVisitor, Truth),
+	realVisit=Mfn(Truth),
+	rawVisit=Mfn(Truth),
 }
+
+node.RawTraverser = Struct {} -- TNodeVisitor(node.IVisitor)
 
 end)
 
-local TagToTraverse = {
-	Error=function(self, node)::nocheck()
+const TagToTraverse:node.RawTraverser = {
+	Error=function(self, node)
 		error(Exception.new(node[1], node))
 	end,
 	Chunk=function(self, node)

@@ -30,8 +30,12 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 	}, Namespace)
 	self.localExport=(setmetatable({}, {
 		__index=function(_,k:String)
+			const nNode = Node.getDebugNode(3)
 			local rawgetV = rawget(self._key2type, k)
 			if rawgetV ~= nil then
+				if Reference.is(rawgetV) then
+					rawgetV:pushReferNode(nNode)
+				end
 				return rawgetV
 			end
 			if self._closed then
@@ -41,7 +45,8 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.AstNode, vIndexTa
 			if getV ~= nil then
 				throw("let shadow get : key="..tostring(k))
 			end
-			local refer = self._manager:Reference(k)
+			const refer = self._manager:Reference(k)
+			refer:pushReferNode(nNode)
 			self._key2type[k] = refer
 			return refer
 		end,

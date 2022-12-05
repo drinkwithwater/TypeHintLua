@@ -13,13 +13,13 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_key=vKeyOrFalse,
-		_setNode=false@OrFalse(class.AstNode),
+		_assignNode=false@OrFalse(class.AstNode),
+		_referNodes={}@List(class.AstNode),
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@OrFalse(class.Reference),
 		_listType=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
-		_isInterfaceKey=true@Boolean,
 		_thread=false,
 		_waitListThreads={} @ List(Truth),
 		_waitResultThreads={} @ List(Truth),
@@ -28,7 +28,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 end
 
 function Reference:detailString(v, vVerbose)
-	return "Reference("..(self._key or tostring(self._setNode))..")"
+	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
 function Reference:setTypeAsync(vNode:class.AstNode, vType:Union(class.Reference, class.IAtomType))
@@ -51,8 +51,8 @@ end
 function Reference:setRawAsync(vNode:class.AstNode,
 	vGetList:Fn():Ret(List(class.IAtomType)),
 	vMakeType:Fn(List(class.IAtomType)):Ret(class.UAtomUnion))::nocheck()
-	assert(not self._setNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._setNode = vNode
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
 	local co = coroutine.create(function()
 		local ok, nListOrExc = pcall(vGetList)
 		if not ok then
@@ -64,12 +64,6 @@ function Reference:setRawAsync(vNode:class.AstNode,
 			end
 		end
 		self._listType = nListOrExc
-		for _, nType in ipairs(nListOrExc) do
-			if not nType:isStrNumLiteral() then
-				self._isInterfaceKey = false
-				break
-			end
-		end
 		local l = self._waitListThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
@@ -100,21 +94,33 @@ function Reference:setRawAsync(vNode:class.AstNode,
 	assert(coroutine.resume(co))
 end
 
+function Reference:recurGetWaitByCond(vCondFn:Fn(class.Reference):Ret(Boolean))::Ret(OrFalse(class.Reference))
+	local nCurRefer:OrFalse(class.Reference) = self
+	while nCurRefer do
+		if vCondFn(nCurRefer) then
+			return nCurRefer
+		end
+		nCurRefer = nCurRefer._waitRefer
+	end
+	return false
+end
+
 function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 	local nReturn = self._resultType
 	if not nReturn then
 		local co, _ = coroutine.running()
 		local nWaitingRefer = self._manager.coToRefer[co]
-		assert(nWaitingRefer, "can only call getTypeAwait in Reference's coroutine:"..tostring(self))
-		nWaitingRefer._waitRefer = self
-		local nCurRefer = self._waitRefer
-		while nCurRefer do
-			if nCurRefer == self then
+		if not nWaitingRefer then
+			const nNamedRefer = self:recurGetWaitByCond(function(vRefer)
+				return vRefer._key and true
+			end) or self
+			error(tostring(nNamedRefer)..",can only call getTypeAwait in Reference's coroutine:"..debug.traceback())
+		else
+			if self:recurGetWaitByCond(function(vRefer) return vRefer == nWaitingRefer end) then
 				error(Exception.new("recursive build type"))
-			else
-				nCurRefer = nCurRefer._waitRefer
 			end
 		end
+		nWaitingRefer._waitRefer = self
 		local l = self._waitResultThreads
 		l[#l+1] = coroutine.running()
 		coroutine.yield()
@@ -146,8 +152,17 @@ function Reference:getListAwait()::Ret(List(class.IAtomType))
 	return (assert(self._listType, "type list not setted"))
 end
 
-function Reference:getSetNode()::Ret(OrFalse(class.AstNode))
-	return self._setNode
+function Reference:getAssignNode()::Ret(OrFalse(class.AstNode))
+	return self._assignNode
+end
+
+function Reference:getReferNode()::Ret(List(class.AstNode))
+	return self._referNodes
+end
+
+function Reference:pushReferNode(vNode:class.AstNode)
+	const nNodes = self._referNodes
+	nNodes[#nNodes + 1] = vNode
 end
 
 function Reference:getResultType()::Ret(OrFalse(class.UAtomUnion))
@@ -231,10 +246,6 @@ function Reference:assumeContainAll(vAssumeSet, vRightType)::Ret(Boolean)
 		end
 	end)
 	return nAllContain
-end
-
-function Reference:isInterfaceKey()::Ret(Boolean)
-	return self._isInterfaceKey
 end
 
 function Reference:trueType()

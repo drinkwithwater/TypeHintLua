@@ -130,25 +130,7 @@ local TagToVisiting = {
 	end,
 }
 
-local ReferVisitor = VisitorExtend(setmetatable({}, {
-	__index=function(t, tag)
-		local nTraverse = TagToVisiting[tag]
-		local nFunc
-		if nTraverse then
-			nFunc = function(self, node)
-				nTraverse(self, node)
-			end
-		else
-			nFunc = function(self, node)
-				self:rawVisit(node)
-			end
-		end
-		t[tag] = nFunc
-		return nFunc
-	end
-}))
-
-ReferVisitor.__index=ReferVisitor
+const ReferVisitor = VisitorExtend(TagToVisiting)
 
 function ReferVisitor:scopeBegin(vBlockNode, vFuncOrChunk)
 	local nCurScope = self.scope_stack[#self.scope_stack]
