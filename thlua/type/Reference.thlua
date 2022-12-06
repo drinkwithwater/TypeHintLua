@@ -20,7 +20,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_waitRefer=false@OrFalse(class.Reference),
 		_listType=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
-		_thread=false,
+		_thread=false@OrFalse(Truth), -- TODO coroutine type
 		_waitListThreads={} @ List(Truth),
 		_waitResultThreads={} @ List(Truth),
 	}, Reference)
@@ -53,8 +53,8 @@ function Reference:setRawAsync(vNode:class.AstNode,
 	vMakeType:Fn(List(class.IAtomType)):Ret(class.UAtomUnion))::nocheck()
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	local co = coroutine.create(function()
-		local ok, nListOrExc = pcall(vGetList)
+	const co = coroutine.create(function()
+		const ok, nListOrExc = pcall(vGetList)
 		if not ok then
 			if Exception.is(nListOrExc) then
 				nListOrExc:fixNode(vNode)
@@ -68,7 +68,7 @@ function Reference:setRawAsync(vNode:class.AstNode,
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
 		end
-		local ok, nTypeOrExc = pcall(vMakeType, nListOrExc)
+		const ok, nTypeOrExc = pcall(vMakeType, nListOrExc)
 		if not ok then
 			if Exception.is(nTypeOrExc) then
 				nTypeOrExc:fixNode(vNode)

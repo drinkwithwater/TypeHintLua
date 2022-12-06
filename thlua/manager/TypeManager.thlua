@@ -630,9 +630,11 @@ function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.M
 	if not nContainRefer then
 		nContainRefer = self:Reference(false)
 		self._pairToContain[nPair] = nContainRefer
-		self:fork(function()
+		nContainRefer:setRawAsync(self._runtime:getNode(), function()
 			local nContain = vLeft:assumeContainObject({[nPair]=true}, vRight)
-			self:setContainByPair(nPair, nContain)
+			return {nContain and self.type.True or self.type.False}
+		end, function(vTypeList)
+			return vTypeList[1]!
 		end)
 	end
 	return nPair, nContainRefer
@@ -644,23 +646,14 @@ function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.
 	if not nContainRefer then
 		nContainRefer = self:Reference(false)
 		self._pairToContain[nPair] = nContainRefer
-		self:fork(function()
+		nContainRefer:setRawAsync(self._runtime:getNode(), function()
 			local nContain = vLeft:assumeContainFn({[nPair]=true}, vRight)
-			self:setContainByPair(nPair, nContain)
+			return {nContain and self.type.True or self.type.False}
+		end, function(vTypeList)
+			return vTypeList[1]!
 		end)
 	end
 	return nPair, nContainRefer
-end
-
-function TypeManager:setContainByPair(vPair:Integer, vContain:Boolean)
-	local nContainRefer = self._pairToContain[vPair]!
-	local nCurType = nContainRefer:getResultType()
-	local nAssignType = vContain and self.type.True or self.type.False
-	if not nCurType then
-		nContainRefer:setTypeAsync(self._runtime:getNode(), nAssignType)
-	else
-		assert(nAssignType == nCurType, "contain set conflict")
-	end
 end
 
 function TypeManager:getRuntime()::Ret(class.Runtime)
