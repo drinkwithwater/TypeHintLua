@@ -29,7 +29,7 @@ const TermCase = require "thlua.term.TermCase"
 	}
 
 	let.Diagnostic = Struct {
-		node=class.AstNode,
+		node=class.IAstNode,
 		msg=String,
 		severity=Union(1,2,3,4),
 	}
@@ -60,7 +60,7 @@ function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runt
 	self._loadedDict = {} @ Dict(String, LoadedState)
 	self._lateFnSet = {} @ Dict(class.LateFnCom, True)
 	self._classFnSet = {} @ Dict(class.ClassFnCom, True)
-	self._nodeToSymbolSet = {} @ Dict(class.AstNode, Dict(class.LocalSymbol, True))
+	self._nodeToSymbolSet = {} @ Dict(class.IAstNode, Dict(class.LocalSymbol, True))
 	self._fileStateDict = {} @Dict(String, FileState)
 	self._region = false
 	return self
@@ -76,7 +76,7 @@ function Runtime:recordSymbol(vLocalSymbol:class.LocalSymbol)
 	nLocalSymbolSet[vLocalSymbol] = true
 end
 
-function Runtime:getNodeLocalSymbolSet(vNode:class.AstNode)::Ret(Dict(class.LocalSymbol, True))
+function Runtime:getNodeLocalSymbolSet(vNode:class.IAstNode)::Ret(Dict(class.LocalSymbol, True))
 	local nLocalSymbolSet = self._nodeToSymbolSet[vNode]
 	if not nLocalSymbolSet then
 		nLocalSymbolSet = {} @ Dict(class.LocalSymbol, True)
@@ -109,7 +109,7 @@ function Runtime:main()::Ret(Boolean, Nil)
 	end)
 end
 
-function Runtime:newContext(vApplyNode:class.AstNode, vSealContext:Union(False, class.UContext), vParentContext:class.UContext)::Ret(class.Context)
+function Runtime:newContext(vApplyNode:class.IAstNode, vSealContext:Union(False, class.UContext), vParentContext:class.UContext)::Ret(class.Context)
 	return Context.new(self, vApplyNode, vSealContext, vParentContext)
 end
 
@@ -212,19 +212,19 @@ function Runtime:RootNamespace()::Ret(class.Namespace)
 	return nSpace
 end
 
-function Runtime:LetNamespace(vParentLet:class.Namespace, vBlockNode:class.AstNode)::Ret(class.Namespace)
+function Runtime:LetNamespace(vParentLet:class.Namespace, vBlockNode:class.IAstNode)::Ret(class.Namespace)
 	local nSpace = Namespace.new(self._manager, vBlockNode, vParentLet:getKeyToType())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
 end
 
-function Runtime:makeSymbol_ENV(vNode:class.AstNode)::Ret(class.LocalSymbol)
+function Runtime:makeSymbol_ENV(vNode:class.IAstNode)::Ret(class.LocalSymbol)
 	local nTerm = self:RefineTerm(self._globalTable)
 	return LocalSymbol.new(self, vNode, self._globalTable, nTerm)
 end
 
-function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.AstNode, ...:Truth)
+function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.IAstNode, ...:Truth)
 	local l:List(String) = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
@@ -238,17 +238,17 @@ function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.AstNode, ...:Truth)
 	}
 end
 
-function Runtime:nodeError(vNode:class.AstNode, ...:Truth)
+function Runtime:nodeError(vNode:class.IAstNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
-function Runtime:nodeWarn(vNode:class.AstNode, ...:Truth)
+function Runtime:nodeWarn(vNode:class.IAstNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
-function Runtime:nodeInfo(vNode:class.AstNode, ...:Truth)
+function Runtime:nodeInfo(vNode:class.IAstNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end

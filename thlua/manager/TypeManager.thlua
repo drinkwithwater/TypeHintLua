@@ -190,7 +190,7 @@ function TypeManager:TypeCollection()::Ret(class.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:_buildCombineObject(vNode:class.AstNode, vIsInterface:Boolean, vObjectList:List(class.UAllType))::Ret(class.Reference)
+function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Boolean, vObjectList:List(class.UAllType))::Ret(class.Reference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setRawAsync(vNode, function()
 		if vIsInterface then
@@ -257,14 +257,14 @@ function TypeManager:_buildCombineObject(vNode:class.AstNode, vIsInterface:Boole
 	return nObjectRefer
 end
 
-function TypeManager:buildStructExtend(vNode:class.AstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
+function TypeManager:buildStructExtend(vNode:class.IAstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
 	...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
 	const nStruct = MetaObject.is(vFirst) and vFirst or self:buildStruct(vNode, vFirst)
 	const l:List(class.UAllType) = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end
 
-function TypeManager:buildIntersect(vNode:class.AstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
+function TypeManager:buildIntersect(vNode:class.IAstNode, ...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
 	const l:List(class.UAllType) = {...}
 	return self:_buildCombineObject(vNode, true, l)
 end
@@ -280,7 +280,7 @@ function TypeManager:checkedUnion(...:class.UAllType)::Ret(class.UAtomUnion)
 	return nCollection:mergeToAtomUnion()
 end
 
-function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
+function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth)::Ret(class.Reference)
 	local l = {...}
 	const nLen = select("#", ...)
 	local nNewRefer = self:Reference(false)
@@ -306,15 +306,15 @@ function TypeManager:buildUnion(vNode:class.AstNode, ...:Truth)::Ret(class.Refer
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.Reference)
+function TypeManager:buildInterface(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.Reference)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, true)
 end
 
-function TypeManager:buildStruct(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.Reference)
+function TypeManager:buildStruct(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)))::Ret(class.Reference)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, false)
 end
 
-function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vIsInterface:Boolean)::Ret(class.Reference)
+function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.IAtomType)), vIsInterface:Boolean)::Ret(class.Reference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setRawAsync(vNode, function()
 		const nBasicCollection = self:TypeCollection()
@@ -389,20 +389,20 @@ function TypeManager:_buildMetaObject(vNode:class.AstNode, vTable:Dict(Truth,Tru
 	return nObjectRefer
 end
 
-function TypeManager:buildDict(vNode:class.AstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
+function TypeManager:buildDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
 	return self:buildStruct(vNode, {[vKey]=vValue}, {})
 end
 
-function TypeManager:buildList(vNode:class.AstNode, vValue)::Ret(class.Reference)
+function TypeManager:buildList(vNode:class.IAstNode, vValue)::Ret(class.Reference)
 	-- TODO struct use meta
 	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {})
 end
 
-function TypeManager:buildOrNil(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
+function TypeManager:buildOrNil(vNode:class.IAstNode, ...:Truth)::Ret(class.Reference)
 	return self:buildUnion(vNode, self.type.Nil, ...)
 end
 
-function TypeManager:buildOrFalse(vNode:class.AstNode, ...:Truth)::Ret(class.Reference)
+function TypeManager:buildOrFalse(vNode:class.IAstNode, ...:Truth)::Ret(class.Reference)
 	return self:buildUnion(vNode, self.type.False, ...)
 end
 
@@ -489,12 +489,12 @@ function TypeManager:SingleRetTuples(vTypeTuple:class.TypeTuple)::Ret(class.RetT
 	return nRetTuples:Add(vTypeTuple)
 end
 
-function TypeManager:buildMfn(vNode:class.AstNode, ...:Truth)::Ret(class.MemberFunction)
+function TypeManager:buildMfn(vNode:class.IAstNode, ...:Truth)::Ret(class.MemberFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
 	return MemberFunction.new(self, nArgTuple, false)
 end
 
-function TypeManager:buildFn(vNode:class.AstNode, ...:Truth)::Ret(class.TypeFunction)
+function TypeManager:buildFn(vNode:class.IAstNode, ...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, nArgTuple, false, false))
 end

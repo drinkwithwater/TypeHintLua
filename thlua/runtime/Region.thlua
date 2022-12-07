@@ -45,13 +45,13 @@ function Region:top_branch()::Ret(class.Branch)
 	return self._curBranch
 end
 
-function Region:SYMBOL_SET(vNode:class.AstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
+function Region:SYMBOL_SET(vNode:class.IAstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
 	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
 	const nAssignContext = self._context:newOpenContext(vNode)
 	self:top_branch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
+function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
 	local nBranch = self:top_branch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
@@ -60,7 +60,7 @@ function Region:SYMBOL_GET(vNode:class.AstNode, vSymbol:class.USymbol)::Ret(clas
 	end
 end
 
-function Region:SYMBOL_NEW(vNode:class.AstNode, vImmutable:OrFalse("const", "local"), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutable:OrFalse("const", "local"), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
 		vTerm = nAssignContext:NilTerm()
@@ -96,7 +96,7 @@ function Region:SYMBOL_NEW(vNode:class.AstNode, vImmutable:OrFalse("const", "loc
 	end
 end
 
-function Region:IF(vNode:class.AstNode, vTerm:class.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
+function Region:IF(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
 	const nBeforeBranch = self:top_branch()
@@ -120,7 +120,7 @@ function Region:IF(vNode:class.AstNode, vTerm:class.RefineTerm, vTrueFunction:Fn
 	end
 end
 
-function Region:WHILE(vNode:class.AstNode, vTerm:class.RefineTerm, vTrueFunction:Fn())
+function Region:WHILE(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:Fn())
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
 		self:push_branch(nTrueCase)
@@ -131,7 +131,7 @@ function Region:WHILE(vNode:class.AstNode, vTerm:class.RefineTerm, vTrueFunction
 	end
 end
 
-function Region:FOR_IN(vNode:class.AstNode, vFunc:Fn(class.TermTuple), vNext:class.RefineTerm, vSelf:class.RefineTerm, vInit:class.RefineTerm)
+function Region:FOR_IN(vNode:class.IAstNode, vFunc:Fn(class.TermTuple), vNext:class.RefineTerm, vSelf:class.RefineTerm, vInit:class.RefineTerm)
 	const nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value")
@@ -169,7 +169,7 @@ function Region:FOR_NUM(vNode, vFunc, vStart, vStop, vStepOrNil)
 	vFunc(self._context:NumberTerm())
 end
 
-function Region:LOGIC_OR(vNode:class.AstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm))::Ret(class.RefineTerm)
+function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm))::Ret(class.RefineTerm)
 	local nLeftTrueTerm = vLeftTerm:trueTerm()
 	local nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
@@ -183,7 +183,7 @@ function Region:LOGIC_OR(vNode:class.AstNode, vLeftTerm:class.RefineTerm, vRight
 	end
 end
 
-function Region:LOGIC_AND(vNode:class.AstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm))::Ret(class.RefineTerm)
+function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm))::Ret(class.RefineTerm)
 	local nLeftFalseTerm = vLeftTerm:falseTerm()
 	local nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
@@ -197,7 +197,7 @@ function Region:LOGIC_AND(vNode:class.AstNode, vLeftTerm:class.RefineTerm, vRigh
 	end
 end
 
-function Region:LOGIC_NOT(vNode:class.AstNode, vData:class.RefineTerm)::Ret(class.RefineTerm)
+function Region:LOGIC_NOT(vNode:class.IAstNode, vData:class.RefineTerm)::Ret(class.RefineTerm)
 	return vData:notTerm()
 end
 
@@ -212,11 +212,11 @@ function Region:nativeAssert(vTerm:class.RefineTerm)
 	end
 end
 
-function Region:BREAK(vNode:class.AstNode)
+function Region:BREAK(vNode:class.IAstNode)
 	self:top_branch():setStop()
 end
 
-function Region:RETURN(vNode:class.AstNode, vTermTuple:class.TermTuple)
+function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getRepeatType() then
 		self._fnCom:regionReturn(self._context, vNode, vTermTuple:getTypeTuple())
@@ -237,7 +237,7 @@ function Region:RETURN(vNode:class.AstNode, vTermTuple:class.TermTuple)
 	self:top_branch():setStop()
 end
 
-function Region:END(vNode:class.AstNode)::Ret(class.TermTuple)
+function Region:END(vNode:class.IAstNode)::Ret(class.TermTuple)
 	local re = self._fnCom:regionEnd(self._context, vNode, self._retList)
 	self._context:getNamespace():close()
 	self._context:seal()

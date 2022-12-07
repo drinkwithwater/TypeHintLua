@@ -13,8 +13,8 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_key=vKeyOrFalse,
-		_assignNode=false@OrFalse(class.AstNode),
-		_referNodes={}@List(class.AstNode),
+		_assignNode=false@OrFalse(class.IAstNode),
+		_referNodes={}@List(class.IAstNode),
 		id=vManager:genTypeId(),
 		bits=false,
 		_waitRefer=false@OrFalse(class.Reference),
@@ -31,7 +31,7 @@ function Reference:detailString(v, vVerbose)
 	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
-function Reference:setTypeAsync(vNode:class.AstNode, vType:Union(class.Reference, class.IAtomType))
+function Reference:setTypeAsync(vNode:class.IAstNode, vType:Union(class.Reference, class.IAtomType))
 	if Reference.is(vType) then
 		self:setRawAsync(vNode, function()
 			return vType:getListAwait()
@@ -48,7 +48,7 @@ function Reference:setTypeAsync(vNode:class.AstNode, vType:Union(class.Reference
 	end
 end
 
-function Reference:setRawAsync(vNode:class.AstNode,
+function Reference:setRawAsync(vNode:class.IAstNode,
 	vGetList:Fn():Ret(List(class.IAtomType)),
 	vMakeType:Fn(List(class.IAtomType)):Ret(class.UAtomUnion))::nocheck()
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
@@ -152,15 +152,15 @@ function Reference:getListAwait()::Ret(List(class.IAtomType))
 	return (assert(self._listType, "type list not setted"))
 end
 
-function Reference:getAssignNode()::Ret(OrFalse(class.AstNode))
+function Reference:getAssignNode()::Ret(OrFalse(class.IAstNode))
 	return self._assignNode
 end
 
-function Reference:getReferNode()::Ret(List(class.AstNode))
+function Reference:getReferNode()::Ret(List(class.IAstNode))
 	return self._referNodes
 end
 
-function Reference:pushReferNode(vNode:class.AstNode)
+function Reference:pushReferNode(vNode:class.IAstNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
 end

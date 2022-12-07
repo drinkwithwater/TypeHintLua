@@ -1,27 +1,34 @@
 
-(@let.class = import("thlua.type.TypeClass").class)
 
 (@do
 
 let.node = namespace()
 
-let.NodeCommon = Interface {
+let.IAstNode = Interface {
+	path=String,
 	pos=Number,
 	l=Number,
 	c=Number,
 }
+
+node.IAstNode = let.IAstNode
+
+node.Error = StructExtend({
+	tag = "Error",
+	[1] = String,
+}, let.IAstNode)
 
 node.Chunk = StructExtend({
 	tag = "Chunk",
 	[1] = node.Id,
 	[2] = node.ParList,
 	[3] = node.Block,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Block = StructExtend({
 	tag = "Block",
 	[Number] = node.Stat,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Stat = Union (
 	node.Do,
@@ -44,30 +51,30 @@ node.Stat = Union (
 node.Do = StructExtend({
 	tag = "Do",
 	[1] = node.Block,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Set = StructExtend({
 	tag = "Set",
 	[1] = node.VarList,
 	[2] = node.ExpList,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.While = StructExtend({
 	tag = "While",
 	[1] = node.Expr,
 	[2] = node.Block,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Repeat = StructExtend({
 	tag = "Repeat",
 	[1] = node.Block,
 	[2] = node.Expr,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.If = StructExtend({
 	tag = "Repeat",
 	[Number] = Union(node.Block, node.Expr),
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Fornum = StructExtend({
 	tag = "Fornum",
@@ -76,50 +83,50 @@ node.Fornum = StructExtend({
 	[3] = node.Expr,
 	[4] = Union(node.Expr, node.Block),
 	[5] = Union(node.Block, Nil),
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Forin = StructExtend({
 	tag = "Forin",
 	[1] = node.NameList,
 	[2] = node.ExpList,
 	[3] = node.Block,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Local = StructExtend({
 	tag = "Local",
 	[1] = node.NameList,
 	[2] = node.ExpList,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Localrec = StructExtend({
 	tag = "Localrec",
 	[1] = node.Id,
 	[2] = node.Expr,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Goto = StructExtend({
 	tag = "Goto",
 	[1] = String,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Label = StructExtend({
 	tag = "Label",
 	[1] = String,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Return = StructExtend({
 	tag = "Return",
 	[1] = node.ExpList,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Break = StructExtend({
 	tag = "Break",
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.HintStat = StructExtend({
 	tag = "HintStat",
 	[1] = String,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Apply = Union (
 	node.Call,
@@ -130,14 +137,14 @@ node.Call = StructExtend({
 	tag = "Call",
 	[1] = node.Expr,
 	[2] = node.ExpList,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Invoke = StructExtend({
 	tag = "Invoke",
 	[1] = node.Expr,
 	[2] = node.String,
 	[3] = node.ExpList,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Lhs = Union (
 	node.Id,
@@ -148,12 +155,12 @@ node.Index = StructExtend({
 	tag = "Index",
 	[1] = node.Expr,
 	[2] = node.Expr,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Id = StructExtend({
 	tag = "Id",
 	[1] = String,
-}, let.NodeCommon)
+}, let.IAstNode)
 
 node.Expr = Union (
 	node.Nil,
@@ -166,78 +173,78 @@ node.Expr = Union (
 
 node.Nil = StructExtend({
 	tag = "Nil"
-},let.NodeCommon)
+},let.IAstNode)
 
 node.False = StructExtend({
 	tag = "False"
-},let.NodeCommon)
+},let.IAstNode)
 
 node.True = StructExtend({
 	tag = "True"
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Number = StructExtend({
 	tag = "Number",
 	[1] = Number,
-},let.NodeCommon)
+},let.IAstNode)
 
 node.String = StructExtend({
 	tag = "String",
 	[1] = String,
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Function = StructExtend({
 	tag = "Function",
 	[1] = node.ParList,
 	[2] = node.Block,
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Table = StructExtend({
 	tag = "Table",
 	[Number] = Union(node.Pair, node.Expr)
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Pair = StructExtend({
 	tag = "Pair",
 	[1] = node.Expr,
 	[2] = node.Expr,
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Op = StructExtend({
 	tag = "Op",
 	[1] = String,
 	[2] = node.Expr,
 	[3] = Union(node.Expr, Nil),
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Dots = StructExtend({
 	tag = "Dots"
-},let.NodeCommon)
+},let.IAstNode)
 
 node.Paren = StructExtend({
 	tag = "Paren",
 	[1] = node.Expr
-},let.NodeCommon)
+},let.IAstNode)
 
 node.ParList = StructExtend({
 	tag = "ParList",
 	[Number] = Union(node.Id, node.Dots),
-},let.NodeCommon)
+},let.IAstNode)
 
 node.ExpList = StructExtend({
 	tag = "ExpList",
 	[Number] = node.Expr,
-},let.NodeCommon)
+},let.IAstNode)
 
 node.VarList = StructExtend({
 	tag = "VarList",
 	[Number] = node.Lhs,
-},let.NodeCommon)
+},let.IAstNode)
 
 node.NameList = StructExtend({
 	tag = "NameList",
 	[Number] = node.Id,
-},let.NodeCommon)
+},let.IAstNode)
 
 end)
 
@@ -245,13 +252,13 @@ local Node = {}
 
 Node.__index=Node
 
-function Node.newRootNode(vMainFileName:String)::Ret(class.AstNode):nocheck()
+function Node.newRootNode(vMainFileName:String)::Ret(node.IAstNode):nocheck()
 end
 
-function Node.getDebugNode(vDepth:Number)::Ret(class.AstNode):nocheck()
+function Node.getDebugNode(vDepth:Number)::Ret(node.IAstNode):nocheck()
 end
 
-function Node.is(vNode)::isguard(class.AstNode)
+function Node.is(vNode)::isguard(node.IAstNode)
 end
 
 return Node
