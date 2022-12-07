@@ -6,70 +6,24 @@ local Exception = require "thlua.Exception"
 
 let.node = import("thlua.code.Node").node
 
-local TNodeVisitor = function(TVisitor)
-	return Struct {
-		Error=Fn(TVisitor, node.Error),
-
-		-- chunk
-		Chunk=Fn(TVisitor, node.Chunk),
-
-		-- block
-		Block=Fn(TVisitor, node.Block),
-
-		-- stat
-		Do=Fn(TVisitor, node.Do),
-		Set=Fn(TVisitor, node.Set),
-		While=Fn(TVisitor, node.While),
-		Repeat=Fn(TVisitor, node.Repeat),
-		If=Fn(TVisitor, node.If),
-		Fornum=Fn(TVisitor, node.Fornum),
-		Forin=Fn(TVisitor, node.Forin),
-		Local=Fn(TVisitor, node.Local),
-		Localrec=Fn(TVisitor, node.Localrec),
-		Return=Fn(TVisitor, node.Return),
-		Break=Fn(TVisitor, node.Break),
-		Label=Fn(TVisitor, node.Label),
-		HintStat=Fn(TVisitor, node.HintStat),
-
-		-- apply
-		Call=Fn(TVisitor, node.Call),
-		Invoke=Fn(TVisitor, node.Invoke),
-
-		-- expr
-		Nil=Fn(TVisitor, node.Nil),
-		False=Fn(TVisitor, node.False),
-		True=Fn(TVisitor, node.True),
-		Number=Fn(TVisitor, node.Number),
-		String=Fn(TVisitor, node.String),
-		Function=Fn(TVisitor, node.Function),
-		Table=Fn(TVisitor, node.Table),
-		Op=Fn(TVisitor, node.Op),
-		Paren=Fn(TVisitor, node.Paren),
-		Dots=Fn(TVisitor, node.Dots),
-		Pair=Fn(TVisitor, node.Pair),
-
-		-- lhs
-		Index=Fn(TVisitor, node.Index),
-		Id=Fn(TVisitor, node.Id),
-
-		-- list
-		ParList=Fn(TVisitor, node.ParList),
-		VarList=Fn(TVisitor, node.VarList),
-		ExpList=Fn(TVisitor, node.ExpList),
-		NameList=Fn(TVisitor, node.NameList),
-	}
-end
-
 node.IVisitor = Struct {
-	realVisit=Mfn(Truth),
-	rawVisit=Mfn(node.NodeCommon),
+	realVisit=Mfn(node.IAstNode),
+	rawVisit=Mfn(node.IAstNode),
 }
 
-node.RawTraverser = TNodeVisitor(node.IVisitor)
+let.RawTraverser = Struct((function()
+	local t = {}
+	foreachPair(node.AllNodeType, function(vTag, vNodeType)
+		if not vNodeType:getResultType():isUnion() then
+			t[vTag] = Fn(node.IVisitor, vNodeType)
+		end
+	end)
+	return t
+end)())
 
 end)
 
-const TagToTraverse:node.RawTraverser = {
+const TagToTraverse:let.RawTraverser = {
 	Error=function(self, node)
 		error(Exception.new(node[1], node))
 	end,
@@ -127,6 +81,8 @@ const TagToTraverse:node.RawTraverser = {
 	Localrec=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])
+	end,
+	Goto=function(self, node)
 	end,
 	Return=function(self, node)
 		self:realVisit(node[1])

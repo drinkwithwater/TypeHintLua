@@ -1,10 +1,27 @@
 
-local VisitorExtend = require "thlua.code.VisitorExtend"
+const VisitorExtend = require "thlua.code.VisitorExtend"
 
-local Exception = require "thlua.Exception"
-local CodeEnv = require "thlua.code.CodeEnv"
+const Exception = require "thlua.Exception"
+const CodeEnv = require "thlua.code.CodeEnv"
 
-local TagToVisiting = {
+(@do
+
+let.node = import("thlua.code.Node").node
+let.class = import("thlua.type.TypeClass").class
+
+let.RealTraverser = Struct((function()
+	local t = {}
+	foreachPair(node.AllNodeType, function(vTag, vNodeType)
+		if not vNodeType:getResultType():isUnion() then
+			t[vTag] = Fn(let.ReferVisitor, OrNil(vNodeType))
+		end
+	end)
+	return t
+end)())
+
+end)
+
+local TagToVisiting:let.RealTraverser = {
 	Do=function(self, stm)
 		self:scopeBegin(stm[1])
 		self:rawVisit(stm)
@@ -218,12 +235,12 @@ function ReferVisitor:symbolUse(vIdentNode)
 	end
 end
 
-function ReferVisitor.new(vFileEnv)
+function ReferVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.ReferVisitor)
 	local self = setmetatable({
 		_env = vFileEnv,
-		scope_stack = {},
-		region_stack = {},
-		define_pos=false,
+		scope_stack={},
+		region_stack={},
+		define_pos=false@Boolean,
 	}, ReferVisitor)
 	return self
 end
