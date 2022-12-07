@@ -12,7 +12,7 @@ function LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 		_luaFunction=vLuaFunction,
 		_typeFunction=false@Union(False, class.TypeFunction),
 		_selfSpecDict={}@Dict(class.LuaTable, class.TypeFunction),
-		_castSpecFn=false@Union(False, class.TypeFunction),
+		_castSpecList={}@List(class.TypeFunction),
 		_once=false@Boolean,
 		_autoArgs=nil@class.AutoArguments,
 		_hintRetTuples=false@Union(False, class.RetTuples),
@@ -41,7 +41,18 @@ function LateFnCom:checkLateRun()
 	for _, nTypeFn in pairs(self._selfSpecDict) do
 		nSpecFnList[#nSpecFnList + 1] = nTypeFn
 	end
-	nSpecFnList[#nSpecFnList + 1] = self._castSpecFn or nil
+	local nCastFn = self._castSpecList[1]
+	if nCastFn then
+		nSpecFnList[#nSpecFnList + 1] = nCastFn
+		const nList = self._castSpecList
+		for i=2,#nList do
+			const nTypeFn = nList[i]!
+			if not nCastFn:containAll(nTypeFn) then
+				nSpecFnList[#nSpecFnList + 1] = nTypeFn
+				print("polymorphism cast TODO")
+			end
+		end
+	end
 	for _, nTypeFn in ipairs(nSpecFnList) do
 		const nArgTuple = nTypeFn:getArgTuple()
 		const nInplaceContext = self._luaFunction:newInplaceSealContext()
@@ -53,8 +64,8 @@ function LateFnCom:checkLateRun()
 			nInplaceContext:error(tostring(err))
 		end
 	end
-	if self._castSpecFn and self._typeFunction then
-		self._manager:getRuntime():nodeError(self._luaFunction:getNode(), "both castFn and typeFunc ???", tostring(self._castSpecFn), tostring(self._typeFunction))
+	if nCastFn and self._typeFunction then
+		self._manager:getRuntime():nodeError(self._luaFunction:getNode(), "both castFn and typeFunc ???")
 	end
 end
 
@@ -134,17 +145,9 @@ function LateFnCom:selfSpecialize(vContext:class.Context, vSelfType:class.LuaTab
 end
 
 function LateFnCom:castSpecialize(vContext:class.Context, vDstTypeFn:class.TypeFunction)::Ret(class.TypeFunction)
-	local nTypeFn = self._castSpecFn
-	if not nTypeFn then
-		nTypeFn = self:_typeFnSpecialize(vContext, vDstTypeFn)
-		self._castSpecFn = nTypeFn
-	end
-	if not vDstTypeFn:containAll(nTypeFn) then
-		vContext:warn("polymorphism cast TODO")
-		return vDstTypeFn
-	else
-		return nTypeFn
-	end
+	const nList = self._castSpecList
+	nList[#nList + 1] = vDstTypeFn
+	return vDstTypeFn
 end
 
 function LateFnCom.is(v)::isguard(class.LateFnCom)
