@@ -17,10 +17,7 @@ function CodeEnv.new(vSubject, vChunkName, vVersion)
 		_astOrErr = nil,
 		_nodeList = false, -- as init flag
 		_nameList = {},
-		_scopeList = {},
-		_regionList = {},
 		_rootScope = false,
-		_identList = {},
 		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
 	}, CodeEnv)
@@ -246,7 +243,12 @@ end
 function CodeEnv:genTypingCode()
 	local ReferVisitor = require "thlua.code.ReferVisitor"
 	local TypeHintGen = require "thlua.code.TypeHintGen"
-	ReferVisitor.new(self):realVisit(self:getAstTree())
+	local nReferVisitor = ReferVisitor.new(self)
+	nReferVisitor:realVisit(self:getAstTree())
+	self._identList = nReferVisitor._identList
+	self._scopeList = nReferVisitor._scopeList
+	self._regionList = nReferVisitor._regionList
+	self._rootScope = nReferVisitor._rootScope
 	self:prepare()
 	return TypeHintGen.visit(self)
 end
@@ -288,55 +290,6 @@ function CodeEnv:checkOkay()
 	else
 		return true
 	end
-end
-
-function CodeEnv:recordRegion(vNode)
-	local nNewIndex = #self._regionList + 1
-	vNode.region_refer = nNewIndex
-	self._regionList[nNewIndex] = vNode
-	vNode.uv_list = {}
-end
-
-function CodeEnv:recordScope(vCurScopeOrNil, vNode)
-	local nNewIndex = #self._scopeList + 1
-	vNode.scope_refer = nNewIndex
-	if vCurScopeOrNil then
-		vNode.symbol_ident_dict = setmetatable({}, {
-			__index=vCurScopeOrNil.symbol_ident_dict,
-		})
-		table.insert(vCurScopeOrNil.scope_children, vNode)
-	else
-		vNode.symbol_ident_dict = setmetatable({}, {
-			__index={_ENV=self._identList[1]}
-		})
-		self._rootScope = vNode
-	end
-	vNode.scope_children = {}
-	vNode.is_region = false
-	vNode.lookup_block = vCurScopeOrNil or false
-	self._scopeList[nNewIndex] = vNode
-end
-
-function CodeEnv:record_ENV(vIdentNode)
-	assert(#self._identList == 0, "_ENV must be first identity")
-	assert(vIdentNode[1] == "_ENV", "only _ENV can be used in this function")
-	self._identList[1] = vIdentNode
-	vIdentNode.ident_refer = 1
-	vIdentNode.scope_refer = 0
-	vIdentNode.is_define = true
-end
-
-function CodeEnv:recordSymbol(vCurScope, vIdentNode)
-	assert(vIdentNode.tag == "Id")
-	local nNewIndex = #self._identList + 1
-	vIdentNode.ident_refer = nNewIndex
-	vIdentNode.scope_refer = vCurScope.scope_refer
-	vIdentNode.is_define = true
-	self._identList[nNewIndex] = vIdentNode
-	local nName = vIdentNode[1]
-	local nLookupNode = vCurScope.symbol_ident_dict[nName]
-	vCurScope.symbol_ident_dict[nName] = vIdentNode
-	vIdentNode.lookup_ident = nLookupNode
 end
 
 function CodeEnv:getNodeList()

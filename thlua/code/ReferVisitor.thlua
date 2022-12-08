@@ -138,7 +138,7 @@ local TagToVisiting:let.RealTraverser = {
 		end
 	end,
 	Chunk=function(self, chunk)
-		self._env:record_ENV(chunk[1])
+		self:record_ENV(chunk[1])
 		const nBlockNode = chunk[3]
 		self:scopeBegin(nBlockNode, chunk)
 		self.define_pos = true
@@ -154,13 +154,13 @@ const ReferVisitor = VisitorExtend(TagToVisiting)
 function ReferVisitor:scopeBegin(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode))
 	local nCurScope = self.scope_stack[#self.scope_stack]
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
-	self._env:recordScope(nCurScope, vBlockNode)
+	self:recordScope(nCurScope, vBlockNode)
 	table.insert(self.scope_stack, vBlockNode)
 	if vFuncOrChunk then
 		vBlockNode.is_region = true
 		table.insert(self.region_stack, vFuncOrChunk)
 		vBlockNode.region_node = vFuncOrChunk
-		self._env:recordRegion(vFuncOrChunk)
+		self:recordRegion(vFuncOrChunk)
 	else
 		vBlockNode.region_node = self.region_stack[#self.region_stack]!
 	end
@@ -176,8 +176,8 @@ end
 
 function ReferVisitor:symbolDefine(vIdentNode:node.Id)
 	-- create and set ident_refer
-	local nCurScopeOrNil = self.scope_stack[#self.scope_stack]
-	self._env:recordSymbol(nCurScopeOrNil, vIdentNode)
+	local nCurScopeOrNil = self.scope_stack[#self.scope_stack]!
+	self:recordSymbol(nCurScopeOrNil, vIdentNode)
 end
 
 function ReferVisitor:dotsDefine(vDotsNode:node.Dots)
@@ -211,7 +211,7 @@ function ReferVisitor:symbolUse(vIdentNode:node.Id)
 	local nName = vIdentNode[1]
 	local nDefineNode = nCurScope.symbol_ident_dict[nName]
 	if nDefineNode then
-		local nDefineScope = self._env:getScope(nDefineNode.scope_refer)
+		const nDefineScope = self._scopeList[nDefineNode.scope_refer]!
 		vIdentNode.ident_refer = nDefineNode.ident_refer
 		if vIdentNode.isSet then
 			if nDefineNode.isConst then
@@ -224,7 +224,7 @@ function ReferVisitor:symbolUse(vIdentNode:node.Id)
 		if nDefineScope.region_node ~= self.region_stack[nStackLen] then
 			vIdentNode.isUpValue = true
 			for i=nStackLen,1,-1 do
-				const nDownRegion = self.region_stack[i]
+				const nDownRegion = self.region_stack[i]!
 				if nDefineScope.region_node == nDownRegion then
 					break
 				else
@@ -243,8 +243,60 @@ function ReferVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.ReferVisitor)
 		scope_stack={}@List(node.Block),
 		region_stack={}@List(node.URegionNode),
 		define_pos=false@Boolean,
+		_identList={}@List(node.Id),
+		_scopeList={}@List(node.Block),
+		_regionList={}@List(node.URegionNode),
+		_rootScope=false@OrFalse(node.Block),
 	}, ReferVisitor)
 	return self
 end
+
+function ReferVisitor:record_ENV(vIdentNode:node.Id)
+	assert(#self._identList == 0, "_ENV must be first identity")
+	assert(vIdentNode[1] == "_ENV", "only _ENV can be used in this function")
+	self._identList[1] = vIdentNode
+	vIdentNode.ident_refer = 1
+	vIdentNode.scope_refer = 0
+	vIdentNode.is_define = true
+end
+
+function ReferVisitor:recordSymbol(vCurScope:node.Block, vIdentNode:node.Id)
+	assert(vIdentNode.tag == "Id")
+	local nNewIndex = #self._identList + 1
+	vIdentNode.ident_refer = nNewIndex
+	vIdentNode.scope_refer = vCurScope.scope_refer
+	vIdentNode.is_define = true
+	self._identList[nNewIndex] = vIdentNode
+	local nName = vIdentNode[1]
+	local nLookupNode = vCurScope.symbol_ident_dict[nName]
+	vCurScope.symbol_ident_dict[nName] = vIdentNode
+	vIdentNode.lookup_ident = nLookupNode
+end
+
+function ReferVisitor:recordScope(vCurScopeOrNil:OrNil(node.Block), vNode:node.Block)
+	local nNewIndex = #self._scopeList + 1
+	vNode.scope_refer = nNewIndex
+	if vCurScopeOrNil then
+		vNode.symbol_ident_dict = setmetatable({}, {
+			__index=vCurScopeOrNil.symbol_ident_dict,
+		})
+		table.insert(vCurScopeOrNil.scope_children, vNode)
+	else
+		vNode.symbol_ident_dict = setmetatable({}, {
+			__index={_ENV=self._identList[1]}
+		})
+		self._rootScope = vNode
+	end
+	vNode.scope_children = {}
+	self._scopeList[nNewIndex] = vNode
+end
+
+function ReferVisitor:recordRegion(vNode:node.URegionNode)
+	local nNewIndex = #self._regionList + 1
+	vNode.region_refer = nNewIndex
+	self._regionList[nNewIndex] = vNode
+	vNode.uv_list = {}
+end
+
 
 return ReferVisitor
