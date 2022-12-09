@@ -232,11 +232,7 @@ Node.__index=Node
 
 function Node.__tostring(self)
 	local before = self.path..":".. self.l ..(self.c > 0 and ("," .. self.c) or "")
-	if self.tag ~= "Error" then
-		return before
-	else
-		return before .." ".. (self[1] or "")
-	end
+	return before
 end
 
 function Node.newRootNode(vFileName)

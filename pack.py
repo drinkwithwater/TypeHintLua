@@ -8,9 +8,9 @@ pyskynet.start()
 compileService = pyskynet.scriptservice("""
 local foreign = require "pyskynet.foreign"
 local pyskynet = require "pyskynet"
-local CodeEnv = require "thlua.code.CodeEnv"
+local ParseEnv = require "thlua.code.ParseEnv"
 foreign.dispatch("compile", function(content)
-    local env = CodeEnv.new(content, "default")
+    local env = ParseEnv.new(content, "default")
     return env:genLuaCode()
 end)
 pyskynet.start(function()

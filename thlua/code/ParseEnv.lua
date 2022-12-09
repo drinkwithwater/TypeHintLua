@@ -11,7 +11,9 @@ lpeg.locale(lpeg)
 
 local Node = require "thlua.code.Node"
 
-local parser = {}
+local ParseEnv = {}
+
+ParseEnv.__index = ParseEnv
 
 local Cenv = lpeg.Carg(1)
 local Cpos = lpeg.Cp()
@@ -422,8 +424,105 @@ local G = lpeg.P { "TypeHintLua";
 
 }
 
-function parser.parse(vFileEnv, vSubject)
-    return lpeg.match(G, vSubject, nil, vFileEnv)
+function ParseEnv.new(vSubject, vChunkName)
+	local self = setmetatable({
+		hinting = false,
+		scopeTraceList = {},
+		_subject = vSubject,
+		_chunkName = vChunkName,
+		_posToChange = {},
+		_astOrErr = nil,
+	}, ParseEnv)
+	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
+	if not nOkay then
+		if type(nAstOrErr) == "table" and nAstOrErr.tag == "Error" then
+			self._astOrErr = nAstOrErr
+		else
+			self._astOrErr = self:makeErrNode(1, "unknown parse error: "..tostring(nAstOrErr))
+		end
+	else
+		self._astOrErr = nAstOrErr
+	end
+	return self
 end
 
-return parser
+function ParseEnv:get()
+	return self._astOrErr
+end
+
+function ParseEnv:makeErrNode(vPos, vErr)
+	return {
+		tag="Error",
+		pos=vPos,
+		vErr
+	}
+end
+
+function ParseEnv:subScript(vStartPos, vFinishPos)
+	return self._subject:sub(vStartPos, vFinishPos)
+end
+
+function ParseEnv:markDel(vStartPos, vFinishPos)
+	self._posToChange[vStartPos] = vFinishPos
+end
+
+function ParseEnv:markConst(vStartPos)
+	self._posToChange[vStartPos] = "const"
+end
+
+function ParseEnv:assertWithLineNum()
+	local nNode = self._astOrErr
+	local nLineNum = select(2, self._subject:sub(1, nNode.pos):gsub('\n', '\n'))
+	if nNode.tag == "Error" then
+		local nMsg = self._chunkName..":".. nLineNum .." ".. nNode[1]
+		error(nMsg)
+	end
+end
+
+function ParseEnv:genLuaCode()
+	self:assertWithLineNum()
+	local nSubject = self._subject
+	local nPosToChange = self._posToChange
+	local nStartPosList = {}
+	for nStartPos, _ in pairs(nPosToChange) do
+		nStartPosList[#nStartPosList + 1] = nStartPos
+	end
+	table.sort(nStartPosList)
+	local nContents = {}
+	local nPreFinishPos = 0
+	for _, nStartPos in pairs(nStartPosList) do
+		if nStartPos <= nPreFinishPos then
+			-- hint in hint
+			-- TODO replace in hint script
+			-- continue
+		else
+			local nChange = nPosToChange[nStartPos]
+			if type(nChange) == "number" then
+				-- 1. save lua code
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				-- 2. replace hint code with space and newline
+				local nFinishPos = nPosToChange[nStartPos]
+				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
+				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n \t]", "")
+				nPreFinishPos = nFinishPos
+			--[[elseif type(nChange) == "string" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = nChange
+				nPreFinishPos = nStartPos]]
+			elseif nChange == "const" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = "local"
+				nPreFinishPos = nStartPos + 4
+			else
+				error("unexpected branch")
+			end
+		end
+	end
+	nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, #nSubject)
+	return table.concat(nContents)
+end
+
+return ParseEnv

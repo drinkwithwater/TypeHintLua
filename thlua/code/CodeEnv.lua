@@ -1,5 +1,5 @@
 
-local parser = require "thlua.code.parser"
+local ParseEnv = require "thlua.code.ParseEnv"
 local Node = require "thlua.code.Node"
 local Exception = require "thlua.Exception"
 local CodeEnv = {}
@@ -8,12 +8,9 @@ CodeEnv.__index=CodeEnv
 
 function CodeEnv.new(vSubject, vChunkName, vVersion)
 	local self = setmetatable({
-		hinting = false,
-		scopeTraceList = {},
 		_linePosList = {},
 		_subject = vSubject,
 		_chunkName = vChunkName,
-		_posToChange = {}, -- if value is string then insert else remove
 		_astOrErr = nil,
 		_nodeList = false, -- as init flag
 		_nameList = {},
@@ -169,78 +166,18 @@ function CodeEnv:_init()
 		end
 	end
 	self._linePosList = nList
-	-- 2. gen ast
-	local ok, astOrErr = pcall(parser.parse, self, self._subject)
-	if not ok then
-		if type(astOrErr) == "table" and astOrErr.tag == "Error" then
-			self._astOrErr = astOrErr
-		else
-			self._astOrErr = self:makeErrNode(1, "parse error: "..tostring(astOrErr))
-		end
-	else
-		self._astOrErr = astOrErr
-	end
-end
-
-function CodeEnv:subScript(vStartPos, vFinishPos)
-	return self._subject:sub(vStartPos, vFinishPos)
-end
-
-function CodeEnv:markDel(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = vFinishPos
-end
-
-function CodeEnv:markConst(vStartPos)
-	self._posToChange[vStartPos] = "const"
-end
-
-function CodeEnv:genLuaCode()
-	assert(self._astOrErr.tag ~= "Error", tostring(self._astOrErr))
-	local nSubject = self._subject
-	local nPosToChange = self._posToChange
-	local nStartPosList = {}
-	for nStartPos, _ in pairs(nPosToChange) do
-		nStartPosList[#nStartPosList + 1] = nStartPos
-	end
-	table.sort(nStartPosList)
-	local nContents = {}
-	local nPreFinishPos = 0
-	for _, nStartPos in pairs(nStartPosList) do
-		if nStartPos <= nPreFinishPos then
-			-- hint in hint
-			-- TODO replace in hint script
-			-- continue
-		else
-			local nChange = nPosToChange[nStartPos]
-			if type(nChange) == "number" then
-				-- 1. save lua code
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				-- 2. replace hint code with space and newline
-				local nFinishPos = nPosToChange[nStartPos]
-				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n \t]", "")
-				nPreFinishPos = nFinishPos
-			--[[elseif type(nChange) == "string" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos]]
-			elseif nChange == "const" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = "local"
-				nPreFinishPos = nStartPos + 4
-			else
-				error("unexpected branch")
-			end
-		end
-	end
-	nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, #nSubject)
-	return table.concat(nContents)
+	local nParseEnv = ParseEnv.new(self._subject, self._chunkName)
+	self._astOrErr = nParseEnv:get()
 end
 
 function CodeEnv:genTypingCode()
+	local nAstOrErr = self._astOrErr
+	if nAstOrErr.tag == "Error" then
+		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
+		nAstOrErr.path = self._chunkName
+		setmetatable(nAstOrErr, Node)
+		error(Exception.new(nAstOrErr[1], nAstOrErr))
+	end
 	local ReferVisitor = require "thlua.code.ReferVisitor"
 	local TypeHintGen = require "thlua.code.TypeHintGen"
 	local nReferVisitor = ReferVisitor.new(self)

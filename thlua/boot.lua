@@ -3,15 +3,15 @@ end
 ttprint=function()
 end
 
-local CodeEnv = require "thlua.code.CodeEnv"
+local ParseEnv = require "thlua.code.ParseEnv"
 
 local boot = {}
 
 boot.path = package.path:gsub("[.]lua", ".thlua")
 
 function boot.load(chunk, chunkName, ...)
-	local codeEnv = CodeEnv.new(chunk, chunkName)
-	local luaCode = codeEnv:genLuaCode()
+	local parser = ParseEnv.new(chunk, chunkName)
+	local luaCode = parser:genLuaCode()
 	local f, err3 = load(luaCode, chunkName, ...)
 	if not f then
 		error(err3)
