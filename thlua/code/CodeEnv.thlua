@@ -1,21 +1,294 @@
 
-local CodeEnv = {}
-CodeEnv.__index=CodeEnv
+const ParseEnv = require "thlua.code.ParseEnv"
+const Node = require "thlua.code.Node"
+const Exception = require "thlua.Exception"
+const VisitorExtend = require "thlua.code.VisitorExtend"
 
 (@let.class = import("thlua.type.TypeClass").class)
 (@let.node = import("thlua.code.Node").node)
 
-function CodeEnv.new()::RetClass(class.CodeEnv)
-	return setmetatable({::Self()}, CodeEnv)
+local CodeEnv = {}
+CodeEnv.__index=CodeEnv
+
+function CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer)::RetClass(class.CodeEnv)
+	local self = setmetatable({::Self()
+		_linePosList = {}@Dict(Integer, Struct{pos=Integer, posEnd=Integer}),
+		_subject = vSubject,
+		_chunkName = vChunkName,
+		_astOrErr = nil@Union(node.Error, node.Chunk),
+		_nodeList = {}@List(node.IAstNode),
+		_nameList = {}@List(node.Id),
+		_rootScope = false@OrFalse(node.Block),
+		_version = vVersion or -1,
+		_typingFn = "typing code not execute",
+	}, CodeEnv)
+
+	self:_init()
+	if vVersion then
+		self:_buildTypingFn()
+	end
+	return self
 end
 
-function CodeEnv:getTypingFn()::Ret(Fn(class.Runtime, List(class.IAstNode)):Ret(class.LuaFunction)):nocheck()
+function CodeEnv:makeErrNode(vPos:Integer, vErr:String)::Ret(node.Error)
+	local nLine, nColumn = self:fixupPos(vPos)
+	return setmetatable({
+		tag="Error",
+		path=self._chunkName,
+		pos=vPos,
+		l=nLine,
+		c=nColumn,
+		vErr
+	}, Node)
 end
 
-function CodeEnv:getNodeList()::Ret(List(class.IAstNode)):nocheck()
+function CodeEnv:prepare()
+	assert(#self._nodeList == 0, "node list has been setted")
+	local nNodeList = self._nodeList
+
+	-- 1. set line & column, parent
+	local nStack = {}
+	self:visit(function(visitor, vNode)::nocheck()
+		-- 1. put into nodelist
+		local nIndex = #nNodeList + 1
+		nNodeList[nIndex] = vNode
+		vNode.index = nIndex
+		-- 2. put into namelist
+		if (vNode.tag == "Id" or vNode.tag == "String") and vNode.posEnd > vNode.pos then
+			table.insert(self._nameList, vNode)
+		end
+		-- 3. get path, parent, l, c
+		vNode.parent = nStack[#nStack] or false
+		vNode.path = self._chunkName
+		vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
+		nStack[#nStack + 1] = vNode
+		visitor:rawVisit(vNode)
+		nStack[#nStack] = nil
+		setmetatable(vNode, Node)
+		-- 4. mark return statement for chunk or function
+		if vNode.tag == "Return" then
+			local nFuncOrChunk = vNode.parent
+			while not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
+				nFuncOrChunk = nFuncOrChunk.parent
+			end
+			if #vNode[1] > 0 then
+				nFuncOrChunk.retFlag = true
+			end
+		end
+	end)
+	table.sort(self._nameList, function(a,b)
+		return a.pos < b.pos
+	end)
 end
 
-function CodeEnv:makeErrNode(vPos, vErr)::Ret(node.Error):nocheck()
+function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
+	local visitor = VisitorExtend(vFunc)
+	visitor:realVisit(self._astOrErr)
+end
+
+function CodeEnv:binSearch(vList, vPos)::open()
+	if #vList <= 0 then
+		return false
+	end
+	if vPos < vList[1]!.pos then
+		return false
+	end
+	local nLeft = 1
+	local nRight = #vList
+	local count = 0
+	while nRight > nLeft do
+		count = count + 1
+		local nMiddle = (nLeft + nRight) // 2
+		local nMiddle1 = nMiddle + 1
+		if vPos < vList[nMiddle]!.pos then
+			nRight = nMiddle - 1
+		elseif vPos >= vList[nMiddle1]!.pos then
+			nLeft = nMiddle1
+		else
+			nLeft = nMiddle
+			nRight = nMiddle
+		end
+	end
+	return nLeft, vList[nLeft]
+end
+
+-- pos to line & column
+function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode))::Ret(Integer, Integer)
+	local line, lineInfo = self:binSearch(self._linePosList, vPos)
+	if not line or not lineInfo then
+		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
+		return 1, 1
+	else
+		return line, vPos - lineInfo.pos + 1
+	end
+end
+
+function CodeEnv:_init()
+	const nSubject = self._subject
+	const nList = self._linePosList
+	-- 1. calc line pos
+	local nStartPos = 1
+	local nFinishPos:OrNil(Integer) = 0
+	local nLineCount = 0
+	while true do
+		nLineCount = nLineCount + 1
+		nFinishPos = nSubject:find("\n", nStartPos)
+		if nFinishPos then
+			nList[#nList + 1] = {
+				pos=nStartPos,
+				posEnd=nFinishPos
+			}
+			nStartPos = nFinishPos + 1
+		else
+			if nStartPos <= #nSubject then
+				nList[#nList + 1] = {
+					pos=nStartPos,
+					posEnd=#nSubject
+				}
+			end
+			break
+		end
+	end
+	local nParseEnv = ParseEnv.new(self._subject, self._chunkName)
+	self._astOrErr = nParseEnv:get()
+end
+
+function CodeEnv:genTypingCode()::Ret(String)
+	local nAstOrErr = self._astOrErr
+	if nAstOrErr.tag == "Error" then
+		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
+		nAstOrErr.path = self._chunkName
+		setmetatable(nAstOrErr, Node)
+		error(Exception.new(nAstOrErr[1], nAstOrErr))
+	end
+	local ReferVisitor = require "thlua.code.ReferVisitor"
+	local TypeHintGen = require "thlua.code.TypeHintGen"
+	local nReferVisitor = ReferVisitor.new(self)
+	nReferVisitor:realVisit(self:getAstTree())
+	self._identList = nReferVisitor._identList
+	self._scopeList = nReferVisitor._scopeList
+	self._regionList = nReferVisitor._regionList
+	self._rootScope = nReferVisitor._rootScope
+	self:prepare()
+	return TypeHintGen.visit(self)
+end
+
+function CodeEnv:_buildTypingFn()
+	local ok, fnOrErr = pcall(function ()
+		local nTypingCode = self:genTypingCode()
+		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
+			__index=function(t,k)
+				-- TODO, give node pos
+				error("indexing global is fatal error")
+			end
+		}))
+		assert(type(nFunc) == "function", "typing code must return function")
+		if not nFunc then
+			-- TODO, give node pos
+			error(nInfo)
+		end
+		return nFunc
+	end)
+	if ok then
+		self._typingFn = fnOrErr
+	else
+		if Exception.is(fnOrErr) then
+			self._typingFn = fnOrErr
+		else
+			self._typingFn = tostring(fnOrErr)
+		end
+	end
+end
+
+function CodeEnv:checkOkay()
+	if self._astOrErr.tag == "Error" then
+		return false, Exception.new(self._astOrErr[1], self._astOrErr)
+	elseif type(self._typingFn) == "string" then
+		return false, Exception.new(self._typingFn, self:makeErrNode(1, ""))
+	elseif Exception.is(self._typingFn) then
+		return false, self._typingFn
+	else
+		return true
+	end
+end
+
+function CodeEnv:getNodeList()::Ret(List(class.IAstNode))
+	return self._nodeList
+end
+
+function CodeEnv:getIdent(vIdentRefer)
+	return self._identList[vIdentRefer]
+end
+
+function CodeEnv:getScope(vScopeRefer)
+	return self._scopeList[vScopeRefer]
+end
+
+function CodeEnv:getAstTree()
+	return self._astOrErr
+end
+
+function CodeEnv:getTypingFn()::Ret(Fn(class.Runtime, List(class.IAstNode)):Ret(class.LuaFunction))
+	return self._typingFn
+end
+
+function CodeEnv:lcToPos(l:Integer, c:Integer)::Ret(Integer)
+	local nLineInfo = self._linePosList[l]
+	if nLineInfo then
+		return nLineInfo.pos + c - 1
+	else
+		return 0
+	end
+end
+
+function CodeEnv:searchScopeByTrace(vList:List(Integer))::Ret(node.Block)
+	local nScope = self._rootScope
+	assert(nScope, "scope not setted")
+	for i=1,#vList-1 do
+		const nTrace = vList[i]!
+		nScope = nScope.scope_children[nTrace]!
+	end
+	return nScope
+end
+
+function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Id))
+	local nErrExpr = vErrorNode[2]
+	if not nErrExpr or nErrExpr.tag ~= "Id" then
+		-- other typp TODO
+		return nil
+	end
+	local nTraceList = vErrorNode[3]!
+	local nPos = nErrExpr.pos
+	local nScope = self:searchScopeByTrace(nTraceList)
+	local nName = nErrExpr[1]
+	local nIdent = nScope.symbol_ident_dict[nName]
+	while nIdent and nIdent.pos > nPos do
+		nIdent = nIdent.lookup_ident
+	end
+	return nIdent
+end
+
+function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Id))
+	local nIndex, nNode = self:binSearch(self._nameList, vPos)
+	if not nIndex then
+		return nil
+	end
+	if vPos >= nNode.pos + #nNode[1] or vPos > nNode.posEnd then
+		return nil
+	end
+	return nNode
+end
+
+function CodeEnv:getContent()::Ret(String)
+	return self._subject
+end
+
+function CodeEnv:getVersion()::Ret(Integer)
+	return self._version
+end
+
+function CodeEnv:getChunkName()::Ret(String)
+	return self._chunkName
 end
 
 return CodeEnv
