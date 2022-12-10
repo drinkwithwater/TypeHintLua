@@ -3,6 +3,7 @@ const ParseEnv = require "thlua.code.ParseEnv"
 const Node = require "thlua.code.Node"
 const Exception = require "thlua.Exception"
 const VisitorExtend = require "thlua.code.VisitorExtend"
+const ReferVisitor = require "thlua.code.ReferVisitor"
 
 (@let.class = import("thlua.type.TypeClass").class)
 (@let.node = import("thlua.code.Node").node)
@@ -153,16 +154,15 @@ function CodeEnv:_init()
 	self._astOrErr = nParseEnv:get()
 end
 
-function CodeEnv:genTypingCode()::Ret(String)
+function CodeEnv:genTypingCode()::Ret(String):nocheck()
 	local nAstOrErr = self._astOrErr
 	if nAstOrErr.tag == "Error" then
 		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
 		nAstOrErr.path = self._chunkName
-		setmetatable(nAstOrErr, Node)
+		Node.bind(nAstOrErr, Node)
 		error(Exception.new(nAstOrErr[1], nAstOrErr))
 	end
-	local ReferVisitor = require "thlua.code.ReferVisitor"
-	local TypeHintGen = require "thlua.code.TypeHintGen"
+	const TypeHintGen = require "thlua.code.TypeHintGen"
 	local nReferVisitor = ReferVisitor.new(self)
 	nReferVisitor:realVisit(self:getAstTree())
 	self._identList = nReferVisitor._identList
@@ -182,6 +182,9 @@ function CodeEnv:_buildTypingFn()
 				error("indexing global is fatal error")
 			end
 		}))
+		if not nFunc then
+			error(nInfo)
+		end
 		assert(type(nFunc) == "function", "typing code must return function")
 		if not nFunc then
 			-- TODO, give node pos
