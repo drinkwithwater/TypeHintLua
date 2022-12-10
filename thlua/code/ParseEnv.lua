@@ -9,8 +9,6 @@ local lpeg = require "lpeg"
 lpeg.setmaxstack(1000)
 lpeg.locale(lpeg)
 
-local Node = require "thlua.code.Node"
-
 local ParseEnv = {}
 
 ParseEnv.__index = ParseEnv

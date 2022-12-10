@@ -286,13 +286,18 @@ local Node = {}
 
 Node.__index=Node
 
-function Node.newRootNode(vMainFileName:String)::Ret(node.IAstNode):nocheck()
+function Node.__tostring(self:node.IAstNode)::Ret(String)
+	local before = self.path..":".. self.l ..(self.c > 0 and ("," .. self.c) or "")
+	return before
 end
 
-function Node.getDebugNode(vDepth:Number)::Ret(node.IAstNode):nocheck()
+function Node.newRootNode(vFileName:String)::Ret(node.IAstNode):nocheck()
+	return setmetatable({tag = "Root", pos=1, l=1, c=1, path=vFileName}, Node)
 end
 
-function Node.is(vNode)::isguard(node.IAstNode)
+function Node.getDebugNode(vDepth:Integer)::Ret(node.IAstNode):nocheck()
+	local nInfo = debug.getinfo(vDepth)
+	return setmetatable({tag = "Root", pos=1, l=nInfo.currentline, c=1, path=nInfo.source}, Node)
 end
 
 return Node

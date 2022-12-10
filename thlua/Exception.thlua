@@ -1,24 +1,33 @@
 
 (@do
-
-let.class = import("thlua.type.TypeClass").class
-
+	let.class = import("thlua.type.TypeClass").class
+	let.node = import("thlua.code.Node").node
 end)
 
 local Exception = {}
-
-function Exception.new(vMsg:String, vNode:Union(class.IAstNode, False, Nil))::RetClass(class.Exception)
-	return {::Self()
-		msg=vMsg,
-		node=vNode or nil,
-	}
+Exception.__index=Exception
+Exception.__tostring=function(t)
+	return "Exception:"..tostring(t.node)..":"..t.msg
 end
 
-function Exception:fixNode(vNode:class.IAstNode)::nocheck()
+function Exception.new(vMsg:String, vNode:OrNil(class.IAstNode, False))::RetClass(class.Exception)
+	--[[if Exception.is(vMsg) then
+		vMsg = vMsg.msg
+	end]]
+	return setmetatable({::Self()
+		msg=tostring(vMsg), -- ..debug.traceback()
+		node=vNode,
+	}, Exception)
+end
+
+function Exception:fixNode(vNode:node.IAstNode)
+	if not self.node then
+		self.node = vNode
+	end
 end
 
 function Exception.is(v)::isguard(class.Exception)
-	return false
+	return getmetatable(v) == Exception
 end
 
 return Exception
