@@ -5,8 +5,10 @@ const Exception = require "thlua.Exception"
 const VisitorExtend = require "thlua.code.VisitorExtend"
 const ReferVisitor = require "thlua.code.ReferVisitor"
 
-(@let.class = import("thlua.type.TypeClass").class)
-(@let.node = import("thlua.code.Node").node)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.node = import("thlua.code.Node").node
+end)
 
 local CodeEnv = {}
 CodeEnv.__index=CodeEnv
@@ -65,7 +67,7 @@ function CodeEnv:prepare()
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
-		setmetatable(vNode, Node)
+		Node.bind(vNode)
 		-- 4. mark return statement for chunk or function
 		if vNode.tag == "Return" then
 			local nFuncOrChunk = vNode.parent
@@ -159,16 +161,12 @@ function CodeEnv:genTypingCode()::Ret(String):nocheck()
 	if nAstOrErr.tag == "Error" then
 		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
 		nAstOrErr.path = self._chunkName
-		Node.bind(nAstOrErr, Node)
+		Node.bind(nAstOrErr)
 		error(Exception.new(nAstOrErr[1], nAstOrErr))
 	end
 	const TypeHintGen = require "thlua.code.TypeHintGen"
 	local nReferVisitor = ReferVisitor.new(self)
 	nReferVisitor:realVisit(self:getAstTree())
-	self._identList = nReferVisitor._identList
-	self._scopeList = nReferVisitor._scopeList
-	self._regionList = nReferVisitor._regionList
-	self._rootScope = nReferVisitor._rootScope
 	self:prepare()
 	return TypeHintGen.visit(self)
 end
@@ -219,19 +217,11 @@ function CodeEnv:getNodeList()::Ret(List(class.IAstNode))
 	return self._nodeList
 end
 
-function CodeEnv:getIdent(vIdentRefer)
-	return self._identList[vIdentRefer]
-end
-
-function CodeEnv:getScope(vScopeRefer)
-	return self._scopeList[vScopeRefer]
-end
-
-function CodeEnv:getAstTree()
+function CodeEnv:getAstTree()::Ret(node.IAstNode)
 	return self._astOrErr
 end
 
-function CodeEnv:getTypingFn()::Ret(Fn(class.Runtime, List(class.IAstNode)):Ret(class.LuaFunction))
+function CodeEnv:getTypingFn()::Ret(Union(Fn(class.Runtime, List(class.IAstNode),class.LuaFunction)))
 	return self._typingFn
 end
 
