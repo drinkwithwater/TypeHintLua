@@ -171,7 +171,7 @@ function CodeEnv:genTypingCode()::Ret(String):nocheck()
 	return TypeHintGen.visit(self)
 end
 
-function CodeEnv:_buildTypingFn()
+function CodeEnv:_buildTypingFn()::nocheck()
 	local ok, fnOrErr = pcall(function ()
 		local nTypingCode = self:genTypingCode()
 		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
@@ -201,7 +201,7 @@ function CodeEnv:_buildTypingFn()
 	end
 end
 
-function CodeEnv:checkOkay()
+function CodeEnv:checkOkay()::nocheck()
 	if self._astOrErr.tag == "Error" then
 		return false, Exception.new(self._astOrErr[1], self._astOrErr)
 	elseif type(self._typingFn) == "string" then
@@ -221,7 +221,7 @@ function CodeEnv:getAstTree()::Ret(node.IAstNode)
 	return self._astOrErr
 end
 
-function CodeEnv:getTypingFn()::Ret(Union(Fn(class.Runtime, List(class.IAstNode),class.LuaFunction)))
+function CodeEnv:getTypingFn()::Ret(Fn(class.Runtime, List(class.IAstNode)):Ret(class.LuaFunction)):nocheck()
 	return self._typingFn
 end
 
@@ -261,7 +261,7 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Id))
 	return nIdent
 end
 
-function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Id))
+function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Id)):nocheck()
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
 	if not nIndex then
 		return nil
