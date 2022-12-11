@@ -9,6 +9,7 @@ const TypeFunction = require "thlua.func.TypeFunction"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const ClassTableCom = require "thlua.object.ClassTableCom"
 const DefaultTableCom = require "thlua.object.DefaultTableCom"
+const MetaObject = require "thlua.object.MetaObject"
 
 const LuaTable = AtomTypeClass()
 
@@ -158,31 +159,45 @@ function LuaTable:sealNew(vContext:class.Context)
 	clsCom:implement(vContext)
 end
 
-function LuaTable:cast(vContext:class.Context, vStruct:class.MetaObject)::Ret(OrFalse(class.MetaObject))
+function LuaTable:cast(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion)::Ret(OrFalse(class.MetaObject))
 	if self._classCom then
-		return false
-	end
-	if vStruct:isInterface() then
 		return false
 	end
 	const nOldStruct = self._castStruct
 	if nOldStruct then
-		if vStruct:containAll(nOldStruct) and nOldStruct:containAll(vStruct) then
-			return vStruct
+		local nMatchStruct:OrNil(class.MetaObject) = nil
+		vObjectAtomUnion:foreach(function(vAtomType)
+			if not nMatchStruct and MetaObject.is(vAtomType)
+				and vAtomType:containAll(nOldStruct) and nOldStruct:containAll(vAtomType) then
+				nMatchStruct = vAtomType
+			end
+		end)
+		if not nMatchStruct then
+			vContext:error("table can't cast to multi struct type")
+			return false
 		end
-		vContext:error("table can't cast to multi struct type")
+		return nMatchStruct
+	end
+	if not MetaObject.is(vObjectAtomUnion) then
 		return false
 	end
-	if not self._defaultCom:castStruct(vContext, vStruct) then
+	if vObjectAtomUnion:isInterface() then
+		return false
+	end
+	if not self._defaultCom:castStruct(vContext, vObjectAtomUnion) then
 		vContext:error("default table can't cast to struct type")
 		return false
 	end
-	self._castStruct = vStruct
-	return vStruct
+	self._castStruct = vObjectAtomUnion
+	return vObjectAtomUnion
 end
 
 function LuaTable.is(v)::isguard(class.LuaTable)
 	return getmetatable(v) == LuaTable
+end
+
+function LuaTable:objectType()
+	return self
 end
 
 -- called when struct contain
