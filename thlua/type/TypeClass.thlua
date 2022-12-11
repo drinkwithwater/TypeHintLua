@@ -28,7 +28,6 @@ class.IType = Interface ({
 	bits=Number,
 	foreach=Mfn(Fn(class.IAtomType)),
 	foreachAwait=Mfn(Fn(class.IAtomType)),
-	anyObject=Mfn(Fn(class.MetaObject):Ret(Boolean)),
 
 	isNilable=Mfn():Ret(Boolean),
 	isNever=Mfn():Ret(Boolean),
@@ -45,6 +44,7 @@ class.IType = Interface ({
 	notnilType=Mfn():Ret(class.UAtomUnion),
 	trueType=Mfn():Ret(class.UAtomUnion),
 	falseType=Mfn():Ret(class.UAtomUnion),
+	objectType=Mfn():Ret(class.UAtomUnion),
 
 	same=Mfn(class.UAllType):Ret(Boolean),
 }, {
@@ -116,9 +116,6 @@ const function TypeClass()::open()
 	t.__index=t
 	function t.__tostring(self)
 		return self:detailString({}, false)
-	end
-	function t:anyObject?(vFunc)
-		return false
 	end
 	function t:foreachAwait?(vFunc)
 		self:foreach(vFunc)
@@ -201,6 +198,9 @@ const function TypeClass()::open()
 	end
 	function t:trueType?()
 			return self:checkAtomUnion()
+	end
+	function t:objectType?()
+			return self._manager.type.Never
 	end
 	function t:falseType?()
 			return self._manager.type.Never
