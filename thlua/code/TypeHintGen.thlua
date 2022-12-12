@@ -76,7 +76,7 @@ local visitor_block = {
 		before=function(visitor, node)
 			visitor:print('local ____ctx, ____nodes=... ')
 			-- chunk _ENV
-			visitor:print("local ____s__ENV1=____ctx:makeSymbol_ENV(",visitor:codeNode(node[1]),") ")
+			visitor:print("local ____s__ENV"..node[1].index.."=____ctx:makeSymbol_ENV(",visitor:codeNode(node[1]),") ")
 			-- function begin
 			local nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 			local nParPrint = "____ctx:AutoArguments("..visitor:codeNode(node[1])..",{}, ____ctx:Variable(false))"
@@ -111,7 +111,7 @@ local visitor_block = {
 				for i=1, #nParList do
 					local par = nParList[i]
 					if par.tag ~= "Dots" then
-						visitor:print(" local ", par, "=", visitor:codeSymbolNew(par), ", ", "v_"..par[1]..par.ident_refer, ") ")
+						visitor:print(" local ", par, "=", visitor:codeSymbolNew(par), ", ", "v_"..par[1]..par.index, ") ")
 					end
 				end
 			elseif node.is_chunk_block then
@@ -158,7 +158,7 @@ local visitor_stm = {
 				visitor:indent()
 				local var = node[1][i]
 				if var.tag == "Id" then
-					assert(var.isSet, "isSet be true here")
+					assert(var.kindState!.kind == "set", "id must be 'set' kind here")
 					visitor:print(visitor:codeRgn(var, "SYMBOL_SET"), ",", var, ",")
 				elseif var.tag == "Index" then
 					visitor:print(visitor:codeCtx(node, "META_SET"), ",")
@@ -582,18 +582,25 @@ local visitor_exp = {
 	Id = {
 		before=function(visitor, node)
 			visitor:fixLinePrint(node)
-			local ident_refer = node.ident_refer
-			local symbol = "____s_"..node[1]..ident_refer
-			if node.is_define or node.isSet then
+			const nKindState = node.kindState!
+			const nKind = nKindState.kind
+			if nKind == "declare" then
+				const symbol = "____s_"..node[1]..node.index
 				visitor:print(symbol)
 			else
-				local preNode = node.parent
-				if preNode.tag == "ExpList" and preNode.is_args then
-					visitor:print(" function() return ")
-				end
-				visitor:print(visitor:codeRgn(node, "SYMBOL_GET"), ",", symbol,")")
-				if preNode.tag == "ExpList" and preNode.is_args then
-					visitor:print(" end ")
+				const nDeclareId = nKindState.declareId
+				const symbol = "____s_"..nDeclareId[1]..nDeclareId.index
+				if nKind ==  "set" then
+					visitor:print(symbol)
+				else
+					local preNode = node.parent
+					if preNode.tag == "ExpList" and preNode.is_args then
+						visitor:print(" function() return ")
+					end
+					visitor:print(visitor:codeRgn(node, "SYMBOL_GET"), ",", symbol,")")
+					if preNode.tag == "ExpList" and preNode.is_args then
+						visitor:print(" end ")
+					end
 				end
 			end
 			--visitor:print(node[1])
@@ -628,7 +635,7 @@ local visitor_list = {
 			for i=1, #node do
 				local curPar = node[i]
 				if curPar.tag == "Id" then
-					l[#l+1] = "v_"..curPar[1]..curPar.ident_refer
+					l[#l+1] = "v_"..curPar[1]..curPar.index
 				elseif curPar.tag == "Dots" then
 					l[#l+1] = "vDOTS"
 				end
