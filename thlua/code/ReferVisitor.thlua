@@ -21,69 +21,69 @@ end)
 
 local TagToVisiting:let.RealTraverser = {
 	Do=function(self, stm)
-		self:scopeBegin(stm[1])
-		self:rawVisit(stm)
-		self:scopeEnd()
+		self:withScope(stm[1], nil, function()
+			self:rawVisit(stm)
+		end)
 	end,
 	While=function(self, stm)
-		self:scopeBegin(stm[2])
-		self:rawVisit(stm)
-		self:scopeEnd()
+		self:withScope(stm[2], nil, function()
+			self:rawVisit(stm)
+		end)
 	end,
 	Repeat=function(self, stm)
-		self:scopeBegin(stm[1])
-		self:rawVisit(stm)
-		self:scopeEnd()
+		self:withScope(stm[1], nil, function()
+			self:rawVisit(stm)
+		end)
 	end,
 	-- some complicate node
 	Fornum=function(self, stm)
-		local nBlockNode:OrNil(node.Block) = nil
+		local nBlockNode = stm[5]
 		self:realVisit(stm[2])
 		self:realVisit(stm[3])
-		if stm[5] then
+		if nBlockNode then
 			self:realVisit(stm[4])
-			nBlockNode = stm[5]!
 		else
-			const nChild4 = stm[4]
-			assert(nChild4.tag == "Block", "node must be block here")
-			nBlockNode = nChild4
+			const nSubNode = stm[4]
+			assert(nSubNode.tag == "Block", "node must be block here")
+			nBlockNode = nSubNode
 		end
-		self:scopeBegin(nBlockNode)
-		self:symbolDeclare(stm[1], "param")
-		-- self:realVisit(stm[1])
-		self:realVisit(nBlockNode)
-		self:scopeEnd()
+		self:withScope(nBlockNode, nil, function()
+			self:symbolDeclare(stm[1], "param")
+			-- self:realVisit(stm[1])
+			-- TODO can't get block node's right type here, so assert this
+			self:realVisit(assert(nBlockNode))
+		end)
 	end,
 	Forin=function(self, stm)
-		local nBlockNode = stm[3]
+		const nBlockNode = stm[3]
 		self:realVisit(stm[2])
-		self:scopeBegin(nBlockNode)
-		for i, name in ipairs(stm[1]) do
-			self:symbolDeclare(name, "param")
-		end
-		self:realVisit(nBlockNode)
-		self:scopeEnd()
+		self:withScope(nBlockNode, nil, function()
+			for i, name in ipairs(stm[1]) do
+				self:symbolDeclare(name, "param")
+			end
+			self:realVisit(nBlockNode)
+		end)
 	end,
 	Function=function(self, func)
-		local block_node = func[2]
-		self:scopeBegin(block_node, func)
-		for i, par in ipairs(func[1]) do
-			if par.tag == "Id" then
-				self:symbolDeclare(par, "param")
-			else
-				self:dotsDeclare(par)
+		const nBlockNode = func[2]
+		self:withScope(nBlockNode, func, function()
+			for i, par in ipairs(func[1]) do
+				if par.tag == "Id" then
+					self:symbolDeclare(par, "param")
+				else
+					self:dotsDeclare(par)
+				end
 			end
-		end
-		-- self:realVisit(func[1])
-		self:realVisit(block_node)
-		self:scopeEnd()
+			-- self:realVisit(func[1])
+			self:realVisit(nBlockNode)
+		end)
 	end,
 	If=function(self, node)
 		for i, subNode in ipairs(node) do
 			if subNode.tag == "Block" then
-				self:scopeBegin(subNode)
-				self:realVisit(subNode)
-				self:scopeEnd()
+				self:withScope(subNode, nil, function()
+					self:realVisit(subNode)
+				end)
 			else
 				self:realVisit(subNode)
 			end
@@ -128,62 +128,67 @@ local TagToVisiting:let.RealTraverser = {
 	Chunk=function(self, chunk)
 		self:record_ENV(chunk[1])
 		const nBlockNode = chunk[3]
-		self:scopeBegin(nBlockNode, chunk)
-		for k, name in ipairs(chunk[2]) do
-			if name.tag == "dots" then
-				self:dotsDeclare(name)
+		self:withScope(nBlockNode, chunk, function()
+			for k, name in ipairs(chunk[2]) do
+				if name.tag == "dots" then
+					self:dotsDeclare(name)
+				end
 			end
-		end
-		self:realVisit(nBlockNode)
-		self:scopeEnd()
+			self:realVisit(nBlockNode)
+		end)
 	end,
 }
 
 const ReferVisitor = VisitorExtend(TagToVisiting)
 
-function ReferVisitor:scopeBegin(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode))
-	local nCurScope = self.scope_stack[#self.scope_stack]
+function ReferVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vFunc:Fn())
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
-	self:recordScope(nCurScope, vBlockNode)
-	table.insert(self.scope_stack, vBlockNode)
-	if vFuncOrChunk then
-		vBlockNode.is_region = true
-		table.insert(self.region_stack, vFuncOrChunk)
-		vBlockNode.region_node = vFuncOrChunk
+	vBlockNode.scope_children = {}
+	const nScopeStack = self._scopeStack
+	const nStackLen = #nScopeStack
+	if nStackLen > 0 then
+		const nCurScope = nScopeStack[nStackLen]!
+		vBlockNode.symbolTable = setmetatable({}, {
+			__index=nCurScope.symbolTable,
+		})
+		table.insert(nCurScope.scope_children, vBlockNode)
 	else
-		vBlockNode.region_node = self.region_stack[#self.region_stack]!
+		vBlockNode.symbolTable = setmetatable({}, {
+			__index={_ENV=self._ident_ENV}
+		})
 	end
-end
-
-function ReferVisitor:scopeEnd()
-	const nScope = table.remove(self.scope_stack)
-	assert(nScope, "scope can't be nil here")
-	if nScope.is_region then
-		table.remove(self.region_stack)
+	table.insert(self._scopeStack, vBlockNode)
+	if vFuncOrChunk then
+		table.insert(self._regionStack, vFuncOrChunk)
+		vFunc()
+		table.remove(self._regionStack)
+	else
+		vFunc()
 	end
+	table.remove(self._scopeStack)
 end
 
 function ReferVisitor:symbolDeclare(vIdentNode:node.Id, vImmutKind:node.ImmutKindEnum)
-	local nScope = self.scope_stack[#self.scope_stack]!
+	local nScope = self._scopeStack[#self._scopeStack]!
 	assert(vIdentNode.tag == "Id")
 	vIdentNode.kindState = {
 		kind="declare",
 		immutKind=vImmutKind,
 	}
 	local nName = vIdentNode[1]
-	local nLookupNode = nScope.symbol_ident_dict[nName]
-	nScope.symbol_ident_dict[nName] = vIdentNode
+	local nLookupNode = nScope.symbolTable[nName]
+	nScope.symbolTable[nName] = vIdentNode
 	vIdentNode.lookup_ident = nLookupNode
 end
 
 function ReferVisitor:dotsDeclare(vDotsNode:node.Dots)
-	local nCurRegion = self.region_stack[#self.region_stack]!
+	local nCurRegion = self._regionStack[#self._regionStack]!
 	nCurRegion.symbol_dots = vDotsNode
 end
 
 function ReferVisitor:dotsUse(vDotsNode:node.Dots)
 	assert(vDotsNode.tag == "Dots")
-	const nCurRegion = self.region_stack[#self.region_stack]!
+	const nCurRegion = self._regionStack[#self._regionStack]!
 	const nDotsDeclare = nCurRegion.symbol_dots
 	if not nDotsDeclare then
 		const nErrNode = self._env:makeErrNode(vDotsNode.pos, "cannot use '...' outside a vararg function")
@@ -207,10 +212,8 @@ function ReferVisitor:idToIndex(vIdentNode:node.Id)::nocheck()
 end
 
 function ReferVisitor:symbolUse(vIdentNode:node.Id, vIsAssign:Boolean)
-	local nCurScope = self.scope_stack[#self.scope_stack]!
 	assert(vIdentNode.tag == "Id")
-	local nName = vIdentNode[1]
-	local nDeclareNode = nCurScope.symbol_ident_dict[nName]
+	const nDeclareNode = self._scopeStack[#self._scopeStack]!.symbolTable[vIdentNode[1]]
 	if not nDeclareNode then
 		self:idToIndex(vIdentNode)
 		return
@@ -239,9 +242,8 @@ end
 function ReferVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.ReferVisitor)
 	const self = setmetatable({::Self()
 		_env = vFileEnv,
-		scope_stack={}@List(node.Block),
-		region_stack={}@List(node.URegionNode),
-		_rootScope=false@OrFalse(node.Block),
+		_scopeStack={}@List(node.Block),
+		_regionStack={}@List(node.URegionNode),
 		_ident_ENV=nil@node.Id,
 	}, ReferVisitor)
 	return self
@@ -249,21 +251,6 @@ end
 
 function ReferVisitor:record_ENV(vIdentNode:node.Id)
 	self._ident_ENV = vIdentNode
-end
-
-function ReferVisitor:recordScope(vCurScopeOrNil:OrNil(node.Block), vNode:node.Block)
-	if vCurScopeOrNil then
-		vNode.symbol_ident_dict = setmetatable({}, {
-			__index=vCurScopeOrNil.symbol_ident_dict,
-		})
-		table.insert(vCurScopeOrNil.scope_children, vNode)
-	else
-		vNode.symbol_ident_dict = setmetatable({}, {
-			__index={_ENV=self._ident_ENV}
-		})
-		self._rootScope = vNode
-	end
-	vNode.scope_children = {}
 end
 
 return ReferVisitor

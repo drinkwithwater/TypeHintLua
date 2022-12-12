@@ -84,7 +84,7 @@ function CodeEnv:prepare()
 	end)
 end
 
-function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
+function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))::nocheck()
 	local visitor = VisitorExtend(vFunc)
 	visitor:realVisit(self._astOrErr)
 end
@@ -254,7 +254,7 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Id))
 	local nPos = nErrExpr.pos
 	local nScope = self:searchScopeByTrace(nTraceList)
 	local nName = nErrExpr[1]
-	local nIdent = nScope.symbol_ident_dict[nName]
+	local nIdent = nScope.symbolTable[nName]
 	while nIdent and nIdent.pos > nPos do
 		nIdent = nIdent.lookup_ident
 	end
