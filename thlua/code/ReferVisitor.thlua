@@ -128,7 +128,7 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 	Id=function(self, node)
 		if self.define_pos then
-			self:symbolDefine(node)
+			self:symbolDeclare(node)
 		else
 			self:symbolUse(node)
 		end
@@ -156,7 +156,6 @@ function ReferVisitor:scopeBegin(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 		vBlockNode.is_region = true
 		table.insert(self.region_stack, vFuncOrChunk)
 		vBlockNode.region_node = vFuncOrChunk
-		self:recordRegion(vFuncOrChunk)
 	else
 		vBlockNode.region_node = self.region_stack[#self.region_stack]!
 	end
@@ -170,10 +169,24 @@ function ReferVisitor:scopeEnd()
 	end
 end
 
-function ReferVisitor:symbolDefine(vIdentNode:node.Id)
+function ReferVisitor:symbolDeclare(vIdentNode:node.Id)
 	-- create and set ident_refer
-	local nCurScopeOrNil = self.scope_stack[#self.scope_stack]!
-	self:recordSymbol(nCurScopeOrNil, vIdentNode)
+	local nScope = self.scope_stack[#self.scope_stack]!
+	assert(vIdentNode.tag == "Id")
+	local nNewIndex = #self._identList + 1
+	vIdentNode.ident_refer = nNewIndex
+	vIdentNode.defineBlock = nScope
+	vIdentNode.is_define = true
+	vIdentNode.kindState = {
+		kind="declare",
+		block=nScope,
+		immutKind=vIdentNode.isConst and "const" or "local"
+	}
+	self._identList[nNewIndex] = vIdentNode
+	local nName = vIdentNode[1]
+	local nLookupNode = nScope.symbol_ident_dict[nName]
+	nScope.symbol_ident_dict[nName] = vIdentNode
+	vIdentNode.lookup_ident = nLookupNode
 end
 
 function ReferVisitor:dotsDefine(vDotsNode:node.Dots)
@@ -191,9 +204,16 @@ function ReferVisitor:dotsUse(vDotsNode:node.Dots)
 	end
 end
 
-function ReferVisitor:idToIndex(vIdentNode)
-	const e1 = {tag="Id", pos=vIdentNode.pos, posEnd=vIdentNode.pos, "_ENV"}
-	e1.ident_refer = 1
+function ReferVisitor:idToIndex(vIdentNode:node.Id)::nocheck()
+	-- "_ENV" index TODO
+	const e1 = {"_ENV",
+		tag="Id", pos=vIdentNode.pos, posEnd=vIdentNode.pos,
+		kindState = {
+			kind="get",
+			declareId=self._identList[1],
+		},
+		ident_refer = 1,
+	}
 	const e2 = {tag="String", pos=vIdentNode.pos, posEnd=vIdentNode.posEnd, vIdentNode[1]}
 	vIdentNode.tag = "Index"
 	vIdentNode[1] = e1
@@ -215,18 +235,15 @@ function ReferVisitor:symbolUse(vIdentNode:node.Id)
 				error(Exception.new(nErrNode[1], nErrNode))
 			end
 			nDefineNode.isMutable = true
-		end
-		local nStackLen = #self.region_stack
-		if nDefineScope.region_node ~= self.region_stack[nStackLen] then
-			vIdentNode.isUpValue = true
-			for i=nStackLen,1,-1 do
-				const nDownRegion = self.region_stack[i]!
-				if nDefineScope.region_node == nDownRegion then
-					break
-				else
-					table.insert(nDownRegion.uv_list, vIdentNode)
-				end
-			end
+			vIdentNode.kindState = {
+				kind="set",
+				declareId = nDefineNode,
+			}
+		else
+			vIdentNode.kindState = {
+				kind="get",
+				declareId = nDefineNode,
+			}
 		end
 	else
 		self:idToIndex(vIdentNode)
@@ -254,19 +271,6 @@ function ReferVisitor:record_ENV(vIdentNode:node.Id)
 	vIdentNode.is_define = true
 end
 
-function ReferVisitor:recordSymbol(vCurScope:node.Block, vIdentNode:node.Id)
-	assert(vIdentNode.tag == "Id")
-	local nNewIndex = #self._identList + 1
-	vIdentNode.ident_refer = nNewIndex
-	vIdentNode.defineBlock = vCurScope
-	vIdentNode.is_define = true
-	self._identList[nNewIndex] = vIdentNode
-	local nName = vIdentNode[1]
-	local nLookupNode = vCurScope.symbol_ident_dict[nName]
-	vCurScope.symbol_ident_dict[nName] = vIdentNode
-	vIdentNode.lookup_ident = nLookupNode
-end
-
 function ReferVisitor:recordScope(vCurScopeOrNil:OrNil(node.Block), vNode:node.Block)
 	if vCurScopeOrNil then
 		vNode.symbol_ident_dict = setmetatable({}, {
@@ -281,10 +285,5 @@ function ReferVisitor:recordScope(vCurScopeOrNil:OrNil(node.Block), vNode:node.B
 	end
 	vNode.scope_children = {}
 end
-
-function ReferVisitor:recordRegion(vNode:node.URegionNode)
-	vNode.uv_list = {}
-end
-
 
 return ReferVisitor
