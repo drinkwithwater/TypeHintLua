@@ -1,5 +1,6 @@
 
 const StringLiteral = require "thlua.type.StringLiteral"
+const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
@@ -237,33 +238,59 @@ function DefaultTableCom:getCompletion()
 	return nDict
 end
 
-function DefaultTableCom:castStruct(vContext:class.Context, vStruct:class.MetaObject)::Ret(Boolean)
+function DefaultTableCom:castStruct(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion)::Ret(OrFalse(class.MetaObject))
 	if self._isBasingDefault then
 		return false
 	end
-	const nStructValueDict = vStruct:copyValueDict()
-	self:foreachGetPair(function(vKeyType, vValueType)
-		local nKey, nValue = vStruct:indexKeyValue(vKeyType)
-		if nKey then
-			nStructValueDict[nKey] = nil
-			if vContext:castLuaType(vValueType, nValue) then
+	local nFinalMatchStruct:OrFalse(class.MetaObject) = false
+	local nFinalMatchCastList:List(Struct {class.LuaTable, class.UAllType}) = {}
+	vObjectAtomUnion:foreach(function(vAtomType)
+		if not MetaObject.is(vAtomType) then return end
+		if vAtomType:isInterface() then return end
+		const nCopyValueDict = vAtomType:copyValueDict()
+		local nMatchSucc = true
+		const nCastList:List(Struct {class.LuaTable, class.UAllType}) = {}
+		self:foreachGetPair(function(vTableKey, vTableValue)
+			if not nMatchSucc then
 				return
-			elseif nValue:containAll(vValueType) then
-				return
-			else
-				vContext:error("table cast fail, field="..tostring(vKeyType).." not match")
 			end
+			local nMatchKey, nMatchValue = vAtomType:indexKeyValue(vTableKey)
+			if not nMatchKey then
+				nMatchSucc = false
+				return
+			end
+			const nIsTable, nTableToCast = self._manager:tryLuaTable(vTableValue)
+			if not nIsTable then
+				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:containAll(vTableValue)
+				if not nOneMatchSucc then
+					nMatchSucc = false
+					return
+				end
+			else
+				nCastList[#nCastList + 1] = {nTableToCast, nMatchValue}
+			end
+			nCopyValueDict[nMatchKey] = nil
+		end)
+		if not nMatchSucc then
+			return
+		end
+		for k,v in pairs(nCopyValueDict) do
+			if not v:isNilable() then
+				nMatchSucc = false
+				break
+			end
+		end
+		if nMatchSucc and not nFinalMatchStruct then
+			nFinalMatchStruct = vAtomType
+			nFinalMatchCastList = nCastList
 		else
-			vContext:error("table cast fail, field="..tostring(vKeyType).." not existed")
+			vContext:error("table cast error, table may match more than one struct")
 		end
 	end)
-	for k,v in pairs(nStructValueDict) do
-		if not v:isNilable() then
-			vContext:error("table cast fail, field="..tostring(k).." is required")
-		else
-		end
+	for _, nPair in ipairs(nFinalMatchCastList) do
+		vContext:castLuaType(nPair[1], nPair[2])
 	end
-	return true
+	return nFinalMatchStruct
 end
 
 return DefaultTableCom

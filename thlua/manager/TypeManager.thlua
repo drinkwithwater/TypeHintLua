@@ -134,14 +134,15 @@ function TypeManager:validIndexType(vType:class.UAtomUnion)::Ret(OrFalse(class.U
 	end
 end
 
-function TypeManager:checkLuaTable(vType:class.UAllType)::Ret(class.LuaTable)
+function TypeManager:tryLuaTable(vType:class.UAllType)::Ret(False):Ret(True, class.LuaTable)
 	if Reference.is(vType) then
 		vType = vType:checkAtomUnion()
 	end
 	if not LuaTable.is(vType) then
-		error("assert lua table failed")
+		return false
+	else
+		return true, vType
 	end
-	return vType
 end
 
 function TypeManager:basingByDefault(vType:class.UAtomUnion)

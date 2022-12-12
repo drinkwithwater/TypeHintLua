@@ -178,18 +178,13 @@ function LuaTable:cast(vContext:class.Context, vObjectAtomUnion:class.UObjectAto
 		end
 		return nMatchStruct
 	end
-	if not MetaObject.is(vObjectAtomUnion) then
+	const nMatchStruct = self._defaultCom:castStruct(vContext, vObjectAtomUnion)
+	if not nMatchStruct then
+		vContext:error("default table can't cast to struct type", self)
 		return false
 	end
-	if vObjectAtomUnion:isInterface() then
-		return false
-	end
-	if not self._defaultCom:castStruct(vContext, vObjectAtomUnion) then
-		vContext:error("default table can't cast to struct type")
-		return false
-	end
-	self._castStruct = vObjectAtomUnion
-	return vObjectAtomUnion
+	self._castStruct = nMatchStruct
+	return nMatchStruct
 end
 
 function LuaTable.is(v)::isguard(class.LuaTable)
