@@ -49,28 +49,32 @@ local TagToVisiting:let.RealTraverser = {
 			nBlockNode = nChild4
 		end
 		self:scopeBegin(nBlockNode)
-		self.define_pos = true
-		self:realVisit(stm[1])
-		self.define_pos = false
+		self:symbolDeclare(stm[1], "param")
+		-- self:realVisit(stm[1])
 		self:realVisit(nBlockNode)
 		self:scopeEnd()
 	end,
 	Forin=function(self, stm)
-		local block_node = stm[3]
+		local nBlockNode = stm[3]
 		self:realVisit(stm[2])
-		self:scopeBegin(block_node)
-		self.define_pos = true
-		self:realVisit(stm[1])
-		self.define_pos = false
-		self:realVisit(block_node)
+		self:scopeBegin(nBlockNode)
+		for i, name in ipairs(stm[1]) do
+			self:symbolDeclare(name, "param")
+		end
+		self:realVisit(nBlockNode)
 		self:scopeEnd()
 	end,
 	Function=function(self, func)
 		local block_node = func[2]
 		self:scopeBegin(block_node, func)
-		self.define_pos = true
-		self:realVisit(func[1])
-		self.define_pos = false
+		for i, par in ipairs(func[1]) do
+			if par.tag == "Id" then
+				self:symbolDeclare(par, "param")
+			else
+				self:dotsDeclare(par)
+			end
+		end
+		-- self:realVisit(func[1])
 		self:realVisit(block_node)
 		self:scopeEnd()
 	end,
@@ -90,56 +94,46 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 	Local=function(self, stm)
 		local nNameList = stm[1]
-		if stm.isConst then
-			for i, name in ipairs(nNameList) do
-				name.isConst = true
-			end
-		end
 		self:realVisit(stm[2])
-		self.define_pos = true
-		self:realVisit(nNameList)
-		self.define_pos = false
+		-- self:realVisit(nNameList)
+		for i, name in ipairs(nNameList) do
+			self:symbolDeclare(name, stm.isConst and "const" or "local")
+		end
 	end,
 	Set=function(self, stm)
 		local nVarList = stm[1]
 		for i=1, #nVarList do
 			local var = nVarList[i]!
 			if var.tag == "Id" then
-				var.isSet = true
+				self:symbolUse(var, true)
 			end
 		end
 		self:rawVisit(stm)
 	end,
 	Localrec=function(self, stm)
-		if stm.isConst then
-			stm[1].isConst = true
-		end
-		self.define_pos = true
-		self:realVisit(stm[1])
-		self.define_pos = false
+		self:symbolDeclare(stm[1], stm.isConst and "const" or "local")
 		self:realVisit(stm[2])
 	end,
 	Dots=function(self, node)
-		if self.define_pos then
-			self:dotsDefine(node)
-		else
-			self:dotsUse(node)
-		end
+		self:dotsUse(node)
 	end,
 	Id=function(self, node)
-		if self.define_pos then
-			self:symbolDeclare(node)
+		const nKindState = node.kindState
+		if nKindState then
+			assert(nKindState.kind ~= "get", "'set' or 'declare' kind id called outside")
 		else
-			self:symbolUse(node)
+			self:symbolUse(node, false)
 		end
 	end,
 	Chunk=function(self, chunk)
 		self:record_ENV(chunk[1])
 		const nBlockNode = chunk[3]
 		self:scopeBegin(nBlockNode, chunk)
-		self.define_pos = true
-		self:realVisit(chunk[2])
-		self.define_pos = false
+		for k, name in ipairs(chunk[2]) do
+			if name.tag == "dots" then
+				self:dotsDeclare(name)
+			end
+		end
 		self:realVisit(nBlockNode)
 		self:scopeEnd()
 	end,
@@ -169,12 +163,12 @@ function ReferVisitor:scopeEnd()
 	end
 end
 
-function ReferVisitor:symbolDeclare(vIdentNode:node.Id)
+function ReferVisitor:symbolDeclare(vIdentNode:node.Id, vImmutKind:node.ImmutKindEnum)
 	local nScope = self.scope_stack[#self.scope_stack]!
 	assert(vIdentNode.tag == "Id")
 	vIdentNode.kindState = {
 		kind="declare",
-		immutKind=vIdentNode.isConst and "const" or "local"
+		immutKind=vImmutKind,
 	}
 	local nName = vIdentNode[1]
 	local nLookupNode = nScope.symbol_ident_dict[nName]
@@ -182,17 +176,17 @@ function ReferVisitor:symbolDeclare(vIdentNode:node.Id)
 	vIdentNode.lookup_ident = nLookupNode
 end
 
-function ReferVisitor:dotsDefine(vDotsNode:node.Dots)
+function ReferVisitor:dotsDeclare(vDotsNode:node.Dots)
 	local nCurRegion = self.region_stack[#self.region_stack]!
 	nCurRegion.symbol_dots = vDotsNode
 end
 
 function ReferVisitor:dotsUse(vDotsNode:node.Dots)
 	assert(vDotsNode.tag == "Dots")
-	local nCurRegion = self.region_stack[#self.region_stack]!
-	local nDotsDefine = nCurRegion.symbol_dots
-	if not nDotsDefine then
-		local nErrNode = self._env:makeErrNode(vDotsNode.pos, "cannot use '...' outside a vararg function")
+	const nCurRegion = self.region_stack[#self.region_stack]!
+	const nDotsDeclare = nCurRegion.symbol_dots
+	if not nDotsDeclare then
+		const nErrNode = self._env:makeErrNode(vDotsNode.pos, "cannot use '...' outside a vararg function")
 		error(Exception.new(nErrNode[1], nErrNode))
 	end
 end
@@ -212,30 +206,33 @@ function ReferVisitor:idToIndex(vIdentNode:node.Id)::nocheck()
 	vIdentNode[2] = e2
 end
 
-function ReferVisitor:symbolUse(vIdentNode:node.Id)
+function ReferVisitor:symbolUse(vIdentNode:node.Id, vIsAssign:Boolean)
 	local nCurScope = self.scope_stack[#self.scope_stack]!
 	assert(vIdentNode.tag == "Id")
 	local nName = vIdentNode[1]
-	local nDefineNode = nCurScope.symbol_ident_dict[nName]
-	if nDefineNode then
-		if vIdentNode.isSet then
-			if nDefineNode.isConst then
-				local nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
-				error(Exception.new(nErrNode[1], nErrNode))
-			end
-			nDefineNode.isMutable = true
-			vIdentNode.kindState = {
-				kind="set",
-				declareId = nDefineNode,
-			}
-		else
-			vIdentNode.kindState = {
-				kind="get",
-				declareId = nDefineNode,
-			}
-		end
-	else
+	local nDeclareNode = nCurScope.symbol_ident_dict[nName]
+	if not nDeclareNode then
 		self:idToIndex(vIdentNode)
+		return
+	end
+	const nDeclareState = nDeclareNode.kindState!
+	assert(nDeclareState.kind == "declare", "declare node must take 'declare' kind")
+	if vIsAssign then
+		if nDeclareState.immutKind == "const" then
+			const nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
+			error(Exception.new(nErrNode[1], nErrNode))
+		else
+			nDeclareState.immutKind = false
+		end
+		vIdentNode.kindState = {
+			kind="set",
+			declareId = nDeclareNode,
+		}
+	else
+		vIdentNode.kindState = {
+			kind="get",
+			declareId = nDeclareNode,
+		}
 	end
 end
 
@@ -244,7 +241,6 @@ function ReferVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.ReferVisitor)
 		_env = vFileEnv,
 		scope_stack={}@List(node.Block),
 		region_stack={}@List(node.URegionNode),
-		define_pos=false@Boolean,
 		_rootScope=false@OrFalse(node.Block),
 		_ident_ENV=nil@node.Id,
 	}, ReferVisitor)

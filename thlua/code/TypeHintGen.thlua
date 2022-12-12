@@ -54,8 +54,9 @@ function TypeHintGen:codeRgn(vNode, vName)
 end
 
 function TypeHintGen:codeSymbolNew(vNode)
-	const nImmutable = vNode.isConst and "\"const\"" or ((not vNode.isMutable) and "\"local\"" or "false")
-	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..nImmutable
+	const nDeclareState = vNode.kindState!
+	assert(nDeclareState.kind == "declare", "declare node must take 'declare' kind")
+	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", nDeclareState.immutKind)
 end
 
 function TypeHintGen:codeCtx(vNode, vName)

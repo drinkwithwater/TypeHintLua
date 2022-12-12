@@ -5,6 +5,7 @@ const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.runtime.LocalSymbol"
 
 (@let.class = import("thlua.type.TypeClass").class)
+(@let.node= import("thlua.code.Node").node)
 
 Region.__index = Region
 Region.__tostring = function(self)::Ret(String)
@@ -60,7 +61,7 @@ function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol)::Ret(cla
 	end
 end
 
-function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutable:OrFalse("const", "local"), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutKind:OrFalse(node.ImmutKindEnum), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
 		vTerm = nAssignContext:NilTerm()
@@ -76,7 +77,7 @@ function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutable:OrFalse("const", "lo
 	else
 		-- convert string literal to string, number literal to number, boolean literal to boolean
 		-- TODO , think symbol in more case, local , args, const, for, ...
-		if not vImmutable then
+		if not vImmutKind then
 			const nFromType = vTerm:getType()
 			const nToType = nAssignContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
@@ -86,7 +87,7 @@ function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutable:OrFalse("const", "lo
 		nAssignContext:getTypeManager():basingByDefault(vTerm:getType())
 	end
 	const nImmutShot = vTerm:attachImmutShot()
-	if not vImmutable then
+	if not vImmutKind then
 		local nLocalSymbol = LocalSymbol.new(nAssignContext, vNode, vTerm:getType(), vTerm)
 		nAssignContext:getRuntime():recordSymbol(nLocalSymbol)
 		self:top_branch():mutMark(nLocalSymbol, nImmutShot)
