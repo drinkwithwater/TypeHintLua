@@ -196,19 +196,22 @@ function ReferVisitor:dotsUse(vDotsNode:node.Dots)
 	end
 end
 
-function ReferVisitor:idToIndex(vIdentNode:node.Id)::nocheck()
+function ReferVisitor:idToIndex(vIdentNode:node.Id)::nocheck():Ret(node.Index)
 	-- "_ENV" index TODO
 	const e1 = {"_ENV",
 		tag="Id", pos=vIdentNode.pos, posEnd=vIdentNode.pos,
 		kindState = {
 			kind="get",
-			declareId=self._ident_ENV,
-		},
+			declareId = self._ident_ENV
+		}
 	}
 	const e2 = {tag="String", pos=vIdentNode.pos, posEnd=vIdentNode.posEnd, vIdentNode[1]}
 	vIdentNode.tag = "Index"
 	vIdentNode[1] = e1
 	vIdentNode[2] = e2
+	self._env:prepareNode(e1, vIdentNode)
+	self._env:prepareNode(e2, vIdentNode)
+	return vIdentNode
 end
 
 function ReferVisitor:symbolUse(vIdentNode:node.Id, vIsAssign:Boolean)

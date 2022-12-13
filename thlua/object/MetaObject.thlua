@@ -60,6 +60,9 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 	const nRightValueDict = vRightObject:copyValueDict()
 	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
 	assert(nRightMoreRefer, "only struct & struct can call this function")
+	if not self._basicKey:containAll(nRightBasic) or not nRightBasic:containAll(self._basicKey) then
+		return false
+	end
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
 		const function isMatchedKeyValue(nRightKey:class.IAtomType, nRightValue:class.UAllType)::Ret(Boolean)
 			if MemberFunction.is(nLeftValue) then
@@ -130,6 +133,9 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 		return true
 	end
 	const nRightBasicKey, _ = vRightObject:getKeyTypes()
+	if not nRightBasicKey:containAll(self._basicKey) then
+		return false
+	end
 	local nRightValueDict = vRightObject:getMemberDict()
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
 		const nRightKey = nRightBasicKey:containAtom(nLeftKey)

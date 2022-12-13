@@ -45,30 +45,33 @@ function CodeEnv:makeErrNode(vPos:Integer, vErr:String)::Ret(node.Error)
 	}, Node)
 end
 
+function CodeEnv:prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))::nocheck()
+	const nNodeList = self._nodeList
+	const nIndex = #nNodeList + 1
+	nNodeList[nIndex] = vNode
+	vNode.index = nIndex
+	vNode.parent = vParent
+	vNode.path = self._chunkName
+	vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
+	Node.bind(vNode)
+end
+
 function CodeEnv:prepare()
 	assert(#self._nodeList == 0, "node list has been setted")
-	local nNodeList = self._nodeList
 
 	-- 1. set line & column, parent
 	local nStack = {}
 	self:visit(function(visitor, vNode)::nocheck()
-		-- 1. put into nodelist
-		local nIndex = #nNodeList + 1
-		nNodeList[nIndex] = vNode
-		vNode.index = nIndex
-		-- 2. put into namelist
-		if (vNode.tag == "Id" or vNode.tag == "String") and vNode.posEnd > vNode.pos then
-			table.insert(self._nameList, vNode)
-		end
-		-- 3. get path, parent, l, c
-		vNode.parent = nStack[#nStack] or false
-		vNode.path = self._chunkName
-		vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
+		-- 1. prepare
+		self:prepareNode(vNode, nStack[#nStack])
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
-		Node.bind(vNode)
-		-- 4. mark return statement for chunk or function
+		--[[ 2. put into namelist
+		if (vNode.tag == "Id" or vNode.tag == "String") and vNode.posEnd > vNode.pos then
+			table.insert(self._nameList, vNode)
+		end]]
+		-- 3. mark return statement for chunk or function
 		if vNode.tag == "Return" then
 			local nFuncOrChunk = vNode.parent
 			while not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
@@ -79,9 +82,9 @@ function CodeEnv:prepare()
 			end
 		end
 	end)
-	table.sort(self._nameList, function(a,b)
+	--[[table.sort(self._nameList, function(a,b)
 		return a.pos < b.pos
-	end)
+	end)]]
 end
 
 function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))::nocheck()
@@ -164,11 +167,16 @@ function CodeEnv:genTypingCode()::Ret(String):nocheck()
 		Node.bind(nAstOrErr)
 		error(Exception.new(nAstOrErr[1], nAstOrErr))
 	end
-	const TypeHintGen = require "thlua.code.TypeHintGen"
-	local nReferVisitor = ReferVisitor.new(self)
-	nReferVisitor:realVisit(self:getAstTree())
+	-- 2. prepare
 	self:prepare()
-	return TypeHintGen.visit(self)
+	-- 1. refer visitor
+	const nReferVisitor = ReferVisitor.new(self)
+	nReferVisitor:realVisit(self:getAstTree())
+	-- 3. hint gen visitor
+	const HintGenVisitor = require "thlua.code.HintGenVisitor"
+	const visitor = HintGenVisitor.new()
+	visitor:realVisit(self:getAstTree())
+	return visitor:getCode()
 end
 
 function CodeEnv:_buildTypingFn()::nocheck()
