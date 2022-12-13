@@ -11,9 +11,12 @@ local TermCase = require "thlua.term.TermCase"
 
 local native = {}
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.StringToAtomUnion = Dict(String, class.UAtomUnion)
+end)
 
-function native._toTable(vManager:class.TypeManager, vTable:Dict(String, class.UAtomUnion))::Ret(class.LuaTable)
+function native._toTable(vManager:class.TypeManager, vTable:let.StringToAtomUnion)::Ret(class.LuaTable)
 	local nPairList:List(Struct{class.UAtomUnion, class.UAtomUnion}) = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
@@ -27,8 +30,8 @@ function native._toTable(vManager:class.TypeManager, vTable:Dict(String, class.U
 end
 
 function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
-	local nManager = vRuntime:getTypeManager()
-	local global = {
+	const nManager = vRuntime:getTypeManager()
+	const global:StringToAtomUnion = {
 		--- meta_native
 		setmetatable=nManager:NativeFunction(function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(1)
@@ -196,44 +199,44 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 	global.coroutine=native.make_coroutine(nManager)
 
 	-- global.next = vRuntime.func.next
-	local nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
+	const nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
     nGlobalTable:setName("_G")
 
 	return nGlobalTable
 end
 
 function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
-	local type = vManager.type
-	local math = {
+	const type = vManager.type
+	const math:StringToAtomUnion = {
 		random=vManager:checkedFn():Dots(type.Number):Ret(type.Number),
 		max=vManager:checkedFn(type.Number):Dots(type.Number):Ret(type.Number),
 		min=vManager:checkedFn(type.Number):Dots(type.Number):Ret(type.Number),
 		tointeger=vManager:checkedFn(type.Any):Ret(vManager:checkedUnion(type.Number, type.Nil)),
 	}
-	local nTable = native._toTable(vManager, math)
+	const nTable = native._toTable(vManager, math)
 	nTable:setName("math")
 	return nTable
 end
 
 function native.make_debug(vManager:class.TypeManager)::Ret(class.LuaTable)
 	-- debug.traceback's arguments TODO
-	local type = vManager.type
-	local debug = {
+	const type = vManager.type
+	const debug:StringToAtomUnion = {
 		traceback=vManager:checkedFn():Ret(type.String)
 	}
-	local nTable = native._toTable(vManager, debug)
+	const nTable = native._toTable(vManager, debug)
 	nTable:setName("debug")
 	return nTable
 end
 
 function native.make_io(vManager:class.TypeManager)::Ret(class.LuaTable)
-	local type = vManager.type
-	local io = {
+	const type = vManager.type
+	const io:StringToAtomUnion = {
 		read=vManager:checkedFn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
 		write=vManager:checkedFn(type.String),
 		flush=vManager:checkedFn(),
 	}
-	local nTable = native._toTable(vManager, io)
+	const nTable = native._toTable(vManager, io)
 	nTable:setName("io")
 	return nTable
 end
@@ -246,7 +249,7 @@ function native.make_coroutine(vManager:class.TypeManager)::Ret(class.LuaTable)
 		vManager:Literal("normal"),
 		vManager:Literal("dead")
 	)
-	local co = {
+	const co:StringToAtomUnion = {
 		create=vManager:checkedFn(vManager:checkedFn()):Ret(type.Truth),
 		running=vManager:checkedFn():Ret(type.Truth, type.Boolean),
 		resume=vManager:checkedFn(type.Truth):Dots(type.Truth):Ret(type.True):Ret(type.False,type.String),
@@ -259,34 +262,34 @@ function native.make_coroutine(vManager:class.TypeManager)::Ret(class.LuaTable)
 end
 
 function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
-	local type = vManager.type
-	local string = {
+	const type = vManager.type
+	const string:StringToAtomUnion = {
 		format=vManager:checkedFn(type.String):Dots(type.Truth):Ret(type.String),
 		gsub=vManager:checkedFn(type.String, type.String, type.String):Ret(type.String),
 		match=vManager:checkedFn(type.String, type.String):Ret():Ret(type.String),
 		find=vManager:checkedFn(type.String, type.String, type.Integer, vManager:checkedUnion(type.True, type.Nil)):Ret(type.Nil):Ret(type.Integer, type.Integer),
 	}
-	local nTable = native._toTable(vManager, string)
+	const nTable = native._toTable(vManager, string)
 	nTable:setName("string")
 	return nTable
 end
 
 function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
-	local function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String)::Ret(class.UAtomUnion)
-		local nNumber = vManager.type.Number
-		local nElementCollection = vManager:TypeCollection()
+	const function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String)::Ret(class.UAtomUnion)
+		const nNumber = vManager.type.Number
+		const nElementCollection = vManager:TypeCollection()
 		vType:foreach(function(vSubType)
-			local nLenType = vSubType:meta_len(vContext)
+			const nLenType = vSubType:meta_len(vContext)
 			if not Number.is(nLenType) then
 				vContext:error("table."..vKey.." must take list-like variable")
 				return
 			end
-			local nValue = vSubType:meta_get(vContext, nNumber)
+			const nValue = vSubType:meta_get(vContext, nNumber)
 			nElementCollection:put(nValue)
 		end)
 		return nElementCollection:mergeToAtomUnion()
 	end
-	local table = {
+	const table:StringToAtomUnion = {
 		sort=vManager:NativeFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(1)
 			local nType = nFirstTerm:getType()

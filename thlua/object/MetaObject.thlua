@@ -63,29 +63,32 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 	if not self._basicKey:containAll(nRightBasic) or not nRightBasic:containAll(self._basicKey) then
 		return false
 	end
-	for nLeftKey, nLeftValue in pairs(self._memberDict) do
-		const function isMatchedKeyValue(nRightKey:class.IAtomType, nRightValue:class.UAllType)::Ret(Boolean)
-			if MemberFunction.is(nLeftValue) then
-				nLeftValue = nLeftValue:indexTypeFn(self)
-			end
-			if not nRightValue:assumeContainAll(vAssumeSet, nLeftValue) then
-				return false
-			end
-			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
-				return false
-			end
-			if not nLeftKey:assumeContainAtom(vAssumeSet, nRightKey) then
-				return false
-			end
-			return true
+	const function isMatchedKeyValue(
+		vLeftKey:class.IAtomType, vLeftValue:Union(class.UAllType, class.MemberFunction),
+		vRightKey:class.IAtomType, vRightValue:class.UAllType)::Ret(Boolean)
+		if MemberFunction.is(vLeftValue) then
+			vLeftValue = vLeftValue:indexTypeFn(self)
 		end
+		if not vRightValue:assumeContainAll(vAssumeSet, vLeftValue) then
+			return false
+		end
+		if not vLeftValue:assumeContainAll(vAssumeSet, vRightValue) then
+			return false
+		end
+		if not vLeftKey:assumeContainAtom(vAssumeSet, vRightKey) then
+			return false
+		end
+		return true
+	end
+	const function popMatchedKeyValue(nLeftKey:class.IAtomType,
+		nLeftValue:Union(class.UAllType, class.MemberFunction))::Ret(Boolean)
 		const nRightBasicKey = nRightBasic:containAtom(nLeftKey)
 		if nRightBasicKey then --  key is basic type
 			const nRightValue = nRightValueDict[nRightBasicKey]
 			if not nRightValue then
 				return false
 			end
-			if not isMatchedKeyValue(nRightBasicKey, nRightValue) then
+			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightBasicKey, nRightValue) then
 				return false
 			end
 			nRightValueDict[nRightBasicKey] = nil
@@ -100,7 +103,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 				if not nRightValue then
 					return false
 				end
-				if not isMatchedKeyValue(nRightMoreKey, nRightValue) then
+				if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightMoreKey, nRightValue) then
 					return false
 				end
 				nRightValueDict[nRightMoreKey] = nil
@@ -109,7 +112,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 				for _, nRightMoreKey in ipairs(nRightMoreRefer:getListAwait()) do
 					if nRightMoreKey:assumeContainAtom(vAssumeSet, nLeftKey) then
 						const nRightValue = nRightValueDict[nRightMoreKey]
-						if nRightValue and isMatchedKeyValue(nRightMoreKey, nRightValue) then
+						if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightMoreKey, nRightValue) then
 							nMatchedKey = nRightMoreKey
 							break
 						end
@@ -119,6 +122,21 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 					return false
 				end
 				nRightValueDict[nMatchedKey] = nil
+			end
+		end
+		return true
+	end
+	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+		if MemberFunction.is(nLeftValue) or not nLeftValue:isReference() then
+			if not popMatchedKeyValue(nLeftKey, nLeftValue) then
+				return false
+			end
+		end
+	end
+	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+		if not MemberFunction.is(nLeftValue) and nLeftValue:isReference() then
+			if not popMatchedKeyValue(nLeftKey, nLeftValue) then
+				return false
 			end
 		end
 	end
