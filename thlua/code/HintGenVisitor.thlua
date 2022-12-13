@@ -1,5 +1,6 @@
 
 const VisitorExtend = require "thlua.code.VisitorExtend"
+
 (@do
 
 let.node = import("thlua.code.Node").node
@@ -28,43 +29,43 @@ local TagToVisiting:RealTraverser = {
 		visitor:print("local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 			-- region begin
 			visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn,____uv) ")
-			node[3].is_chunk_block = true
 			visitor:realVisit(node[3])
 			visitor:print("end) return ____fn")
 	end,
 	Block=function(visitor, node)
 		visitor.indent_count = visitor.indent_count + 1
-		local parent = node.parent
-		if parent.tag == "Fornum" then
-			local idNode = parent[1]
+		const nParent = node.parent!
+		const nParentTag = nParent.tag
+		if nParentTag == "Fornum" then
+			local idNode = nParent[1]
 			visitor:print(" local ", idNode, "=")
 			visitor:print(visitor:codeSymbolNew(idNode), ", fornum_i) ")
-		elseif parent.tag == "Forin" then
-			local nNameList = parent[1]
+		elseif nParentTag == "Forin" then
+			local nNameList = nParent[1]
 			for i=1, #nNameList do
-				local idNode = nNameList[i]
+				const idNode = nNameList[i]!
 				visitor:print(" local ", idNode, "=")
 				visitor:print(visitor:codeSymbolNew(idNode), ", forin_gen", i, ") ")
 			end
-		elseif node.is_function_block then
-			local nParList = parent[1]
+		elseif nParentTag == "Function" then
+			local nParList = nParent[1]
 			for i=1, #nParList do
-				local par = nParList[i]
+				local par = nParList[i]!
 				if par.tag ~= "Dots" then
 					visitor:print(" local ", par, "=", visitor:codeSymbolNew(par), ", ", "v_"..par[1]..par.index, ") ")
 				end
 			end
-		elseif node.is_chunk_block then
+		elseif nParentTag == "Chunk" then
 			-- chunk vDots
-			visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(parent),",vArgTuple,0,true)")
+			visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(nParent),",vArgTuple,0,true)")
 		end
 		visitor:fixLinePrint(node)
 		for i=1, #node do
 			visitor:indent()
-			visitor:print(node[i])
+			visitor:print(node[i]!)
 			visitor:print(" ")
 		end
-		if parent.tag == "Function" or parent.tag == "Chunk" then
+		if nParentTag == "Function" or nParentTag == "Chunk" then
 			visitor:indent()
 			visitor:print("return ", visitor:codeRgn(node, "END"), ") ")
 		end
@@ -84,13 +85,14 @@ local TagToVisiting:RealTraverser = {
 		visitor:print("=", visitor:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",")
 		visitor:print(node[2])
 		visitor:print(") ")
-		for i=1, #node[1] do
+		const nVarList = node[1]
+		for i=1, #nVarList do
 			visitor:indent()
-			local var = node[1][i]
+			const var = nVarList[i]!
 			if var.tag == "Id" then
 				assert(var.kindState!.kind == "set", "id must be 'set' kind here")
 				visitor:print(visitor:codeRgn(var, "SYMBOL_SET"), ",", var, ",")
-			elseif var.tag == "Index" then
+			else
 				visitor:print(visitor:codeCtx(node, "META_SET"), ",")
 				visitor:print(var[1])
 				visitor:print(", ")
@@ -100,7 +102,7 @@ local TagToVisiting:RealTraverser = {
 			if i == #node[1] then
 				visitor:print("set_a", i, ",", tostring(node.override or false), ")")
 			else
-				visitor:print("set_a", i, ",", tostring(node.override or false), ") ")
+				visitor:print("set_a", i, ",", tostring(node.override or false), ")")
 			end
 		end
 	end,
@@ -118,18 +120,11 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Repeat=function(visitor, node)
 		print("TODO repeat not implement")
-		--[[visitor:indent()
-		visitor:print("repeat")
-		visitor:print(node[1])
-		visitor:indent()
-		visitor:print("until(")
-		visitor:print(node[2])
-		visitor:print(")\n")]]
 	end,
 	If=function(visitor, node)
 		visitor:fixLinePrint(node)
 		visitor:print("--[[ if begin ]]")
-		local function put(exprNode, blockNode, nextIndex, level)
+		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer)
 			visitor:indent()
 			visitor:print("local if_a"..level.."=")
 			visitor:print(exprNode)
@@ -154,7 +149,9 @@ local TagToVisiting:RealTraverser = {
 				visitor:print("end) ")
 			end
 		end
-		put(node[1], node[2], 3, 1)
+		const nExpr, nBlock = node[1], node[2]
+		assert(nExpr.tag ~= "Block" and nBlock.tag == "Block", "if statement error")
+		put(nExpr, nBlock, 3, 1)
 		visitor:indent()
 		visitor:print("--[[ if end ]]")
 	end,
@@ -219,7 +216,7 @@ local TagToVisiting:RealTraverser = {
 	Localrec=function(visitor, node)
 		visitor:fixLinePrint(node)
 		local idNode = node[1]
-		visitor:print(" local ", idNode, "=", visitor:codeSymbolNew(idNode), ", ", node[2], ")")
+		visitor:print(" local ", idNode, " ", idNode, "=", visitor:codeSymbolNew(idNode), ", ", node[2], ")")
 	end,
 	Goto=function()
 		print("--goto TODO")
@@ -548,25 +545,25 @@ function HintGenVisitor:print(...)
 	end
 end
 
-function HintGenVisitor:codeNode(vNode)
+function HintGenVisitor:codeNode(vNode:node.IAstNode)::Ret(String)
 	return "____nodes["..vNode.index.."]"
 end
 
-function HintGenVisitor:codeRgn(vNode, vName)
+function HintGenVisitor:codeRgn(vNode:node.IAstNode, vName:String)::Ret(String)
 	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
-function HintGenVisitor:codeSymbolNew(vNode)
+function HintGenVisitor:codeSymbolNew(vNode:node.Id)::Ret(String)
 	const nDeclareState = vNode.kindState!
 	assert(nDeclareState.kind == "declare", "declare node must take 'declare' kind")
 	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", nDeclareState.immutKind)
 end
 
-function HintGenVisitor:codeCtx(vNode, vName)
+function HintGenVisitor:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)
 	return "____ctx:"..vName.."("..self:codeNode(vNode)
 end
 
-function HintGenVisitor:printn(c, n)
+function HintGenVisitor:printn(c:String, n:Integer)
 	for i=1, n do
 		self:print(c..i)
 		if i < n then
@@ -577,14 +574,14 @@ end
 
 function HintGenVisitor.new()::RetClass(let.HintGenVisitor)
 	const self = setmetatable({::Self()
-		buffer_list = {},
-		indent_count = 0,
-		line = 1,
+		buffer_list = {} @List(String),
+		indent_count = 0 @Integer,
+		line = 1 @ Integer,
 	}, HintGenVisitor)
 	return self
 end
 
-function HintGenVisitor:getCode()
+function HintGenVisitor:getCode()::Ret(String)
 	return table.concat(self.buffer_list)
 end
 
