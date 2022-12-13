@@ -351,7 +351,7 @@ local G = lpeg.P { "TypeHintLua";
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
 			return Cpos * kw("function") * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, prefix, methodName, override, posMid, funcExpr, posEnd)
 				if methodName then
-					table.insert(funcExpr[1], 1, { tag = "Id", pos=pos, self=true, [1] = "self", posEnd=pos})
+					table.insert(funcExpr[1], 1, { tag = "Id", pos=pos, isSelf=true, [1] = "self", posEnd=pos})
 					prefix = makeNameIndex(prefix, methodName)
 				end
 				return {

@@ -172,6 +172,8 @@ __node.Id = StructExtend({
 		kind="declare",
 		immutKind=OrFalse(node.ImmutKindEnum),
 	}),
+	hintShort=OrNil(String),
+	isSelf=OrNil(True),
 	lookup_ident = OrNil(node.Id),
 	[1] = String,
 }, let.IAstNode)
@@ -182,6 +184,13 @@ __node.Expr = Union (
 	node.True,
 	node.Number,
 	node.String,
+	node.Function,
+	node.Table,
+	node.Dots,
+	node.Op,
+	node.Paren,
+	node.Call,
+	node.Invoke,
 	node.Lhs
 )
 
@@ -204,18 +213,22 @@ __node.Number = StructExtend({
 
 __node.String = StructExtend({
 	tag = "String",
+	isLong = OrNil(True),
 	[1] = String,
 },let.IAstNode)
 
 __node.Function = StructExtend({
 	tag = "Function",
 	symbol_dots = OrNil(node.Dots),
+	hintLong = OrNil(String),
+	retFlag = OrNil(True),
 	[1] = node.ParList,
 	[2] = node.Block,
 },let.IAstNode)
 
 __node.Table = StructExtend({
 	tag = "Table",
+	hintLong = OrNil(String),
 	[Number] = Union(node.Pair, node.Expr)
 },let.IAstNode)
 
@@ -233,11 +246,13 @@ __node.Op = StructExtend({
 },let.IAstNode)
 
 __node.Dots = StructExtend({
-	tag = "Dots"
+	tag = "Dots",
+	hintShort = OrNil(String),
 },let.IAstNode)
 
 __node.Paren = StructExtend({
 	tag = "Paren",
+	hintShort = OrNil(String),
 	[1] = node.Expr
 },let.IAstNode)
 
@@ -270,6 +285,8 @@ end
 node.UNodeType = Union(table.unpack(nodeTypeList))
 
 node.IAstNode = let.IAstNode
+
+node.UTupleExpr = Union(node.Call, node.Invoke, node.Dots)
 
 node.AllNodeType = Struct(__node)
 
