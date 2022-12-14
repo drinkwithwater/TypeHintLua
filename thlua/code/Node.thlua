@@ -160,23 +160,34 @@ __node.Index = StructExtend({
 	[2] = node.Expr,
 }, let.IAstNode)
 
-__node.Ident = StructExtend({
+node.Ident_use = StructExtend({
 	tag = "Ident",
+	kind = "use",
 	kindState = OrNil(Struct {
 		kind="set",
 		defineIdent=node.Ident,
 	}, Struct {
 		kind="get",
 		defineIdent=node.Ident,
-	}, Struct {
-		kind="def",
-		immutKind=OrFalse(node.ImmutKindEnum),
 	}),
-	hintShort=OrNil(String),
-	isSelf=OrNil(True),
 	lookup_ident = OrNil(node.Ident),
 	[1] = String,
 }, let.IAstNode)
+
+node.Ident_def = StructExtend({
+	tag = "Ident",
+	kind = "def",
+	kindState = OrNil(Struct {
+		kind="def",
+		immutKind=OrFalse(node.ImmutKindEnum),
+	}),
+	isSelf=OrNil(True),
+	hintShort=OrNil(String),
+	lookup_ident = OrNil(node.Ident),
+	[1] = String,
+}, let.IAstNode)
+
+__node.Ident = Union(node.Ident_use, node.Ident_def)
 
 __node.Expr = Union (
 	node.Nil,
