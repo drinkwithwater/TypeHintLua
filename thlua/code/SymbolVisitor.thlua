@@ -10,7 +10,7 @@ let.class = import("thlua.type.TypeClass").class
 let.RealTraverser = Struct((function()
 	local t = {}
 	foreachPair(node.TagToNodeType, function(vTag, vNodeType)
-		t[vTag] = OrNil(Fn(let.ReferVisitor, vNodeType))
+		t[vTag] = OrNil(Fn(let.SymbolVisitor, vNodeType))
 	end)
 	return t
 end)())
@@ -136,9 +136,9 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 }
 
-const ReferVisitor = VisitorExtend(TagToVisiting)
+const SymbolVisitor = VisitorExtend(TagToVisiting)
 
-function ReferVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vFunc:Fn())
+function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vFunc:Fn())
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
 	vBlockNode.scope_children = {}
 	const nScopeStack = self._scopeStack
@@ -165,23 +165,21 @@ function ReferVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.U
 	table.remove(self._scopeStack)
 end
 
-function ReferVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.ImmutKindEnum)
+function SymbolVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.ImmutKindEnum)
 	local nScope = self._scopeStack[#self._scopeStack]!
-	assert(vIdentNode.tag == "Ident" and vIdentNode.kind == "def")
 	vIdentNode.immutKind = vImmutKind
 	local nName = vIdentNode[1]
 	local nLookupNode = nScope.symbolTable[nName]
 	nScope.symbolTable[nName] = vIdentNode
-	vIdentNode.lookup_ident = nLookupNode
+	vIdentNode.lookupIdent = nLookupNode
 end
 
-function ReferVisitor:dotsDefine(vDotsNode:node.Dots)
+function SymbolVisitor:dotsDefine(vDotsNode:node.Dots)
 	local nCurRegion = self._regionStack[#self._regionStack]!
 	nCurRegion.symbol_dots = vDotsNode
 end
 
-function ReferVisitor:dotsUse(vDotsNode:node.Dots)
-	assert(vDotsNode.tag == "Dots")
+function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
 	const nCurRegion = self._regionStack[#self._regionStack]!
 	const nDotsDefine = nCurRegion.symbol_dots
 	if not nDotsDefine then
@@ -190,7 +188,7 @@ function ReferVisitor:dotsUse(vDotsNode:node.Dots)
 	end
 end
 
-function ReferVisitor:idToIndex(vIdentNode:node.Ident)::nocheck():Ret(node.Index)
+function SymbolVisitor:idToIndex(vIdentNode:node.Ident_use)::nocheck():Ret(node.Index)
 	-- "_ENV" index TODO
 	const e1 = {[1]="_ENV",
 		tag="Ident", pos=vIdentNode.pos, posEnd=vIdentNode.pos, kind="use",
@@ -205,8 +203,7 @@ function ReferVisitor:idToIndex(vIdentNode:node.Ident)::nocheck():Ret(node.Index
 	return vIdentNode
 end
 
-function ReferVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
-	assert(vIdentNode.tag == "Ident")
+function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	const nDefineNode = self._scopeStack[#self._scopeStack]!.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
 		self:idToIndex(vIdentNode)
@@ -227,18 +224,18 @@ function ReferVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	end
 end
 
-function ReferVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.ReferVisitor)
+function SymbolVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.SymbolVisitor)
 	const self = setmetatable({::Self()
 		_env = vFileEnv,
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
 		_ident_ENV=nil@node.Ident_def,
-	}, ReferVisitor)
+	}, SymbolVisitor)
 	return self
 end
 
-function ReferVisitor:record_ENV(vIdentNode:node.Ident_def)
+function SymbolVisitor:record_ENV(vIdentNode:node.Ident_def)
 	self._ident_ENV = vIdentNode
 end
 
-return ReferVisitor
+return SymbolVisitor

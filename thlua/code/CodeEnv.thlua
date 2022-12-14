@@ -3,7 +3,7 @@ const ParseEnv = require "thlua.code.ParseEnv"
 const Node = require "thlua.code.Node"
 const Exception = require "thlua.Exception"
 const VisitorExtend = require "thlua.code.VisitorExtend"
-const ReferVisitor = require "thlua.code.ReferVisitor"
+const SymbolVisitor = require "thlua.code.SymbolVisitor"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
@@ -171,8 +171,8 @@ function CodeEnv:genTypingCode()::Ret(String):nocheck()
 	-- 2. prepare
 	self:prepare()
 	-- 1. refer visitor
-	const nReferVisitor = ReferVisitor.new(self)
-	nReferVisitor:realVisit(self:getAstTree())
+	const nSymbolVisitor = SymbolVisitor.new(self)
+	nSymbolVisitor:realVisit(self:getAstTree())
 	-- 3. hint gen visitor
 	const HintGenVisitor = require "thlua.code.HintGenVisitor"
 	const visitor = HintGenVisitor.new()
@@ -265,7 +265,7 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Ident)
 	local nName = nErrExpr[1]
 	local nIdent = nScope.symbolTable[nName]
 	while nIdent and nIdent.pos > nPos do
-		nIdent = nIdent.lookup_ident
+		nIdent = nIdent.lookupIdent
 	end
 	return nIdent
 end
