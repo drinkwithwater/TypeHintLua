@@ -20,7 +20,7 @@ function CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer)::RetC
 		_chunkName = vChunkName,
 		_astOrErr = nil@Union(node.Error, node.Chunk),
 		_nodeList = {}@List(node.IAstNode),
-		_nameList = {}@List(node.Id),
+		_nameList = {}@List(node.Ident),
 		_rootScope = false@OrFalse(node.Block),
 		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
@@ -69,7 +69,7 @@ function CodeEnv:prepare()
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
 		--[[ 2. put into namelist
-		if (vNode.tag == "Id" or vNode.tag == "String") and vNode.posEnd > vNode.pos then
+		if (vNode.tag == "Ident" or vNode.tag == "String") and vNode.posEnd > vNode.pos then
 			table.insert(self._nameList, vNode)
 		end]]
 		-- 3. mark return statement for chunk or function
@@ -253,9 +253,9 @@ function CodeEnv:searchScopeByTrace(vList:List(Integer))::Ret(node.Block)
 	return nScope
 end
 
-function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Id))
+function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Ident))
 	local nErrExpr = vErrorNode[2]
-	if not nErrExpr or nErrExpr.tag ~= "Id" then
+	if not nErrExpr or nErrExpr.tag ~= "Ident" then
 		-- other typp TODO
 		return nil
 	end
@@ -270,7 +270,7 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Id))
 	return nIdent
 end
 
-function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Id)):nocheck()
+function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Ident)):nocheck()
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
 	if not nIndex then
 		return nil

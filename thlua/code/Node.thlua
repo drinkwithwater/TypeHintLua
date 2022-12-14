@@ -18,14 +18,14 @@ local __node = {}
 __node.Chunk = StructExtend({
 	tag = "Chunk",
 	symbol_dots = OrNil(node.Dots),
-	[1] = node.Id,
+	[1] = node.Ident,
 	[2] = node.ParList,
 	[3] = node.Block,
 }, let.IAstNode)
 
 __node.Block = StructExtend({
 	tag = "Block",
-	symbolTable = Dict(String, node.Id),
+	symbolTable = Dict(String, node.Ident),
 	scope_children = List(node.Block),
 	[Number] = node.Stat,
 }, let.IAstNode)
@@ -79,7 +79,7 @@ __node.If = StructExtend({
 
 __node.Fornum = StructExtend({
 	tag = "Fornum",
-	[1] = node.Id,
+	[1] = node.Ident,
 	[2] = node.Expr,
 	[3] = node.Expr,
 	[4] = Union(node.Expr, node.Block),
@@ -103,7 +103,7 @@ __node.Local = StructExtend({
 __node.Localrec = StructExtend({
 	tag = "Localrec",
 	isConst = OrNil(True),
-	[1] = node.Id,
+	[1] = node.Ident,
 	[2] = node.Expr,
 }, let.IAstNode)
 
@@ -150,7 +150,7 @@ __node.Invoke = StructExtend({
 }, let.IAstNode)
 
 __node.Lhs = Union (
-	node.Id,
+	node.Ident,
 	node.Index
 )
 
@@ -160,21 +160,21 @@ __node.Index = StructExtend({
 	[2] = node.Expr,
 }, let.IAstNode)
 
-__node.Id = StructExtend({
-	tag = "Id",
+__node.Ident = StructExtend({
+	tag = "Ident",
 	kindState = OrNil(Struct {
 		kind="set",
-		declareId=node.Id,
+		defineIdent=node.Ident,
 	}, Struct {
 		kind="get",
-		declareId=node.Id,
+		defineIdent=node.Ident,
 	}, Struct {
-		kind="declare",
+		kind="def",
 		immutKind=OrFalse(node.ImmutKindEnum),
 	}),
 	hintShort=OrNil(String),
 	isSelf=OrNil(True),
-	lookup_ident = OrNil(node.Id),
+	lookup_ident = OrNil(node.Ident),
 	[1] = String,
 }, let.IAstNode)
 
@@ -258,7 +258,7 @@ __node.Paren = StructExtend({
 
 __node.ParList = StructExtend({
 	tag = "ParList",
-	[Number] = Union(node.Id, node.Dots),
+	[Number] = Union(node.Ident, node.Dots),
 },let.IAstNode)
 
 __node.ExpList = StructExtend({
@@ -273,7 +273,7 @@ __node.VarList = StructExtend({
 
 __node.NameList = StructExtend({
 	tag = "NameList",
-	[Number] = node.Id,
+	[Number] = node.Ident,
 },let.IAstNode)
 
 local nodeTypeList = {}
@@ -297,7 +297,7 @@ node.ImmutKindEnum = Union("const", "local", "param")
 node.Error = StructExtend({
 	tag = "Error",
 	[1] = String,
-	[2] = OrNil(node.Id, node.Paren, node.Invoke, node.Call, node.Index),
+	[2] = OrNil(node.Ident, node.Paren, node.Invoke, node.Call, node.Index),
 	[3] = OrNil(List(Integer)),
 }, let.IAstNode)
 

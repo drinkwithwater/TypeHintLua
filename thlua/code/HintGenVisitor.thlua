@@ -89,7 +89,7 @@ local TagToVisiting:RealTraverser = {
 		for i=1, #nVarList do
 			visitor:indent()
 			const var = nVarList[i]!
-			if var.tag == "Id" then
+			if var.tag == "Ident" then
 				assert(var.kindState!.kind == "set", "id must be 'set' kind here")
 				visitor:print(visitor:codeRgn(var, "SYMBOL_SET"), ",", var, ",")
 			else
@@ -432,16 +432,16 @@ local TagToVisiting:RealTraverser = {
 			visitor:print(",", visitor:fixShort(nHintShort), ")")
 		end
 	end,
-	Id=function(visitor, node)
+	Ident=function(visitor, node)
 		visitor:fixLinePrint(node)
 		const nKindState = node.kindState!
 		const nKind = nKindState.kind
-		if nKind == "declare" then
+		if nKind == "def" then
 			const symbol = "____s_"..node[1]..node.index
 			visitor:print(symbol)
 		else
-			const nDeclareId = nKindState.declareId
-			const symbol = "____s_"..nDeclareId[1]..nDeclareId.index
+			const nDefineId = nKindState.defineIdent
+			const symbol = "____s_"..nDefineId[1]..nDefineId.index
 			if nKind ==  "set" then
 				visitor:print(symbol)
 			else
@@ -478,7 +478,7 @@ local TagToVisiting:RealTraverser = {
 		const l:List(String) = {}
 		for i=1, #node do
 			const nParNode = node[i]!
-			if nParNode.tag == "Id" then
+			if nParNode.tag == "Ident" then
 				l[#l+1] = "v_"..nParNode[1]..nParNode.index
 			else
 				l[#l+1] = "vDOTS"
@@ -558,10 +558,10 @@ function HintGenVisitor:codeRgn(vNode:node.IAstNode, vName:String)::Ret(String)
 	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
-function HintGenVisitor:codeSymbolNew(vNode:node.Id)::Ret(String)
-	const nDeclareState = vNode.kindState!
-	assert(nDeclareState.kind == "declare", "declare node must take 'declare' kind")
-	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", nDeclareState.immutKind)
+function HintGenVisitor:codeSymbolNew(vNode:node.Ident)::Ret(String)
+	const nDefineState = vNode.kindState!
+	assert(nDefineState.kind == "def", "define node must take 'def' kind")
+	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", nDefineState.immutKind)
 end
 
 function HintGenVisitor:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)

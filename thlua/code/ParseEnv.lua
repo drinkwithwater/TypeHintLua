@@ -69,7 +69,7 @@ local function symbA(str)
 end
 
 local function kw (str)
-  return token(lpeg.P(str) * -vv.IdRest)
+  return token(lpeg.P(str) * -vv.IdentRest)
 end
 
 local function kwA(str)
@@ -199,7 +199,7 @@ local G = lpeg.P { "TypeHintLua";
 
 
 	-- parser
-	Chunk = tagC.Chunk(tagC.Id(cc("_ENV")) * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
+	Chunk = tagC.Chunk(tagC.Ident(cc("_ENV")) * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
 
 	FuncDef = kw("function") * vv.FuncBody;
 
@@ -213,10 +213,10 @@ local G = lpeg.P { "TypeHintLua";
 		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
 	end)();
 
-	Id = tagC.Id(vv.Name);
-	IdHintable = tagC.Id(vv.Name * lpeg.Cg(vv.ColonHint, "hintShort")^-1);
+	Ident = tagC.Ident(vv.Name);
+	IdentHintable = tagC.Ident(vv.Name * lpeg.Cg(vv.ColonHint, "hintShort")^-1);
 
-	NameList = tagC.NameList(vv.IdHintable * (symb(",") * vv.IdHintable)^0);
+	NameList = tagC.NameList(vv.IdentHintable * (symb(",") * vv.IdentHintable)^0);
 
 	ExpList = tagC.ExpList(vv.Expr * (symb(",") * vv.Expr)^0);
 
@@ -297,9 +297,9 @@ local G = lpeg.P { "TypeHintLua";
 	end)();
 
 	ApplyExp = lpeg.Cmt(vv.SuffixedExp, function(_,_,exp) return exp.tag == "Call" or exp.tag == "Invoke", exp end);
-	VarExp = lpeg.Cmt(vv.SuffixedExp, function(_,_,exp) return exp.tag == "Id" or exp.tag == "Index", exp end);
+	VarExp = lpeg.Cmt(vv.SuffixedExp, function(_,_,exp) return exp.tag == "Ident" or exp.tag == "Index", exp end);
 
-	PrimaryExp = vv.Id + Cpos * symb("(") * vv.Expr * symbA(")") * Cpos / expF.paren;
+	PrimaryExp = vv.Ident + Cpos * symb("(") * vv.Expr * symbA(")") * Cpos / expF.paren;
 
 	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,_,env)
 		if not env.hinting then
@@ -318,9 +318,9 @@ local G = lpeg.P { "TypeHintLua";
 	end));
 	DoStat = tagC.Do(kw"do" * vv.Block * kwA"end");
 	FuncBody = (function()
-		local IdHintableList = vv.IdHintable * (symb(",") * vv.IdHintable)^0;
+		local IdentHintableList = vv.IdentHintable * (symb(",") * vv.IdentHintable)^0;
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
-		local ParList = tagC.ParList(IdHintableList * (symb(",") * DotsHintable)^-1) +
+		local ParList = tagC.ParList(IdentHintableList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
 		return tagC.Function(symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA("end"))
@@ -335,7 +335,7 @@ local G = lpeg.P { "TypeHintLua";
 	RetStat = tagC.Return(kw("return") * (vv.ExpList + tagC.ExpList()) * symb(";")^-1);
 
 	Stat = (function()
-		local LocalFunc = tagC.Localrec(kw"function" * vvA.Id * vv.FuncBody)
+		local LocalFunc = tagC.Localrec(kw"function" * vvA.Ident * vv.FuncBody)
 		local LocalAssign = tagC.Local(vv.NameList * (symb"=" * vvA.ExpList + tagC.ExpList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
 				Cenv * Cpos * kw"const" * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
@@ -347,11 +347,11 @@ local G = lpeg.P { "TypeHintLua";
 			local function makeNameIndex(ident1, ident2)
 				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
 			end
-			local FuncName = lpeg.Cf(vv.Id * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
+			local FuncName = lpeg.Cf(vv.Ident * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
 			return Cpos * kw("function") * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, prefix, methodName, override, posMid, funcExpr, posEnd)
 				if methodName then
-					table.insert(funcExpr[1], 1, { tag = "Id", pos=pos, isSelf=true, [1] = "self", posEnd=pos})
+					table.insert(funcExpr[1], 1, { tag = "Ident", pos=pos, isSelf=true, [1] = "self", posEnd=pos})
 					prefix = makeNameIndex(prefix, methodName)
 				end
 				return {
@@ -372,7 +372,7 @@ local G = lpeg.P { "TypeHintLua";
 		local WhileStat = tagC.While(kw("while") * vvA.Expr * kwA("do") * vv.Block * kwA("end"))
 		local ForStat = (function()
 			local ForBody = kwA("do") * vv.Block
-			local ForNum = tagC.Fornum(vv.Id * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
+			local ForNum = tagC.Fornum(vv.Ident * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.NameList * kwA("in") * vvA.ExpList * ForBody)
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA("end")
 		end)()
@@ -408,16 +408,16 @@ local G = lpeg.P { "TypeHintLua";
 	ShortString = lpeg.P('"') * lpeg.C(((lpeg.P('\\') * lpeg.P(1)) + (lpeg.P(1) - lpeg.P('"')))^0) * (lpeg.P'"' + throw('" not close'))
 							+ lpeg.P("'") * lpeg.C(((lpeg.P("\\") * lpeg.P(1)) + (lpeg.P(1) - lpeg.P("'")))^0) * (lpeg.P"'" + throw("' not close"));
 
-	IdRest = lpeg.alnum + lpeg.P"_";
+	IdentRest = lpeg.alnum + lpeg.P"_";
 
 	Name = (function()
-		local Ident = (lpeg.alpha + lpeg.P"_") * vv.IdRest^0
+		local Ident = (lpeg.alpha + lpeg.P"_") * vv.IdentRest^0
 		local Keywords  = lpeg.P"and" + "break" + "do" + "elseif" + "else" + "end"
 		+ "false" + "for" + "function" + "goto" + "if" + "in"
 		+ "local" + "nil" + "not" + "or" + "repeat" + "return"
 		+ "then" + "true" + "until" + "while" + "const"
-		local Reserved = Keywords * -vv.IdRest
-		return token(-Reserved * lpeg.C(Ident) * -vv.IdRest);
+		local Reserved = Keywords * -vv.IdentRest
+		return token(-Reserved * lpeg.C(Ident) * -vv.IdentRest);
 	end)();
 
 }
