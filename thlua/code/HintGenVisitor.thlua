@@ -39,9 +39,9 @@ local TagToVisiting:RealTraverser = {
 			visitor:print(" local ", idNode, "=")
 			visitor:print(visitor:codeSymbolNew(idNode), ", fornum_i) ")
 		elseif nParentTag == "Forin" then
-			local nNameList = nParent[1]
-			for i=1, #nNameList do
-				const idNode = nNameList[i]!
+			local nIdentList = nParent[1]
+			for i=1, #nIdentList do
+				const idNode = nIdentList[i]!
 				visitor:print(" local ", idNode, "=")
 				visitor:print(visitor:codeSymbolNew(idNode), ", forin_gen", i, ") ")
 			end
@@ -201,9 +201,9 @@ local TagToVisiting:RealTraverser = {
 			visitor:print(")")
 		end
 		visitor:print(" ")
-		local nNameList = node[1]
-		for i=1, #nNameList do
-			local idNode = nNameList[i]!
+		local nIdentList = node[1]
+		for i=1, #nIdentList do
+			local idNode = nIdentList[i]!
 			visitor:print(" local ", idNode, "=")
 			visitor:print(visitor:codeSymbolNew(idNode), ", local_a"..i)
 			const nHintShort = idNode.hintShort
@@ -443,11 +443,11 @@ local TagToVisiting:RealTraverser = {
 				const nParent = node.parent!
 				const nParentTag = nParent.tag
 				const nParentParentTag = nParent.parent!.tag
-				if nParentTag == "ExpList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
+				if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
 					visitor:print(" function() return ")
 				end
 				visitor:print(visitor:codeRgn(node, "SYMBOL_GET"), ",", symbol,")")
-				if nParentTag == "ExpList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
+				if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
 					visitor:print(" end ")
 				end
 			end
@@ -461,7 +461,7 @@ local TagToVisiting:RealTraverser = {
 		visitor:print(node[2])
 		visitor:print(",", tostring(node.notnil or false), ")")
 	end,
-	ExpList=function(visitor, node)
+	ExprList=function(visitor, node)
 		visitor:fixLinePrint(node)
 		for i=1, #node do
 			visitor:print(node[i]!)
@@ -490,7 +490,7 @@ local TagToVisiting:RealTraverser = {
 			visitor:print(i < #node and "," or "")
 		end
 	end,
-	NameList=function(visitor, node)
+	IdentList=function(visitor, node)
 		visitor:fixLinePrint(node)
 		for i=1, #node do
 			visitor:print(node[i]!)
@@ -508,7 +508,7 @@ end
 
 function HintGenVisitor:autoUnpack(vNode:node.UTupleExpr)::Ret(Boolean)
 	local nParent = vNode.parent!
-	if nParent.tag == "ExpList" or nParent.tag == "ParList" or nParent.tag == "Block" then
+	if nParent.tag == "ExprList" or nParent.tag == "ParList" or nParent.tag == "Block" then
 		-- block is for function-Call-statement
 		return false
 	elseif vNode.table_tail then
