@@ -193,7 +193,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	LongHint = hintC.string(lpeg.P(":"), (symb":" * vv.Name * vv.FuncArgs)^1, symb(";")^-1);
 
-	HintStat = tagC.HintStat(hintC.string(symb("(")*symb("@"), vv.AssignStat + vv.ApplyExp + vv.DoStat + throw("hint-statement need do-statment or apply-statement or assign-statement inside"), symbA(")")));
+	HintStat = tagC.HintStat(hintC.string(symb("(")*symb("@"), vv.AssignStat + vv.ApplyExp + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"), symbA(")")));
 
   -- hint end }}}
 
