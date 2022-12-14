@@ -8,10 +8,8 @@ let.class = import("thlua.type.TypeClass").class
 
 let.RealTraverser = Struct((function()
 	local t = {}
-	foreachPair(node.AllNodeType, function(vTag, vNodeType)
-		if not vNodeType:getResultType():isUnion() then
-			t[vTag] = OrNil(Fn(let.HintGenVisitor, vNodeType))
-		end
+	foreachPair(node.TagToNodeType, function(vTag, vNodeType)
+		t[vTag] = OrNil(Fn(let.HintGenVisitor, vNodeType))
 	end)
 	return t
 end)())
@@ -90,7 +88,6 @@ local TagToVisiting:RealTraverser = {
 			visitor:indent()
 			const var = nVarList[i]!
 			if var.tag == "Ident" then
-				assert(var.kindState!.kind == "set", "id must be 'set' kind here")
 				visitor:print(visitor:codeRgn(var, "SYMBOL_SET"), ",", var, ",")
 			else
 				visitor:print(visitor:codeCtx(node, "META_SET"), ",")
@@ -434,15 +431,13 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Ident=function(visitor, node)
 		visitor:fixLinePrint(node)
-		const nKindState = node.kindState!
-		const nKind = nKindState.kind
-		if nKind == "def" then
+		if node.kind == "def" then
 			const symbol = "____s_"..node[1]..node.index
 			visitor:print(symbol)
 		else
-			const nDefineId = nKindState.defineIdent
+			const nDefineId = node.defineIdent
 			const symbol = "____s_"..nDefineId[1]..nDefineId.index
-			if nKind ==  "set" then
+			if node.isSet then
 				visitor:print(symbol)
 			else
 				const nParent = node.parent!
@@ -559,9 +554,8 @@ function HintGenVisitor:codeRgn(vNode:node.IAstNode, vName:String)::Ret(String)
 end
 
 function HintGenVisitor:codeSymbolNew(vNode:node.Ident)::Ret(String)
-	const nDefineState = vNode.kindState!
-	assert(nDefineState.kind == "def", "define node must take 'def' kind")
-	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", nDefineState.immutKind)
+	assert(vNode.kind == "def", "define node must take 'def' kind")
+	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", vNode.immutKind)
 end
 
 function HintGenVisitor:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)

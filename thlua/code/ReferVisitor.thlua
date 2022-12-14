@@ -9,10 +9,8 @@ let.class = import("thlua.type.TypeClass").class
 
 let.RealTraverser = Struct((function()
 	local t = {}
-	foreachPair(node.AllNodeType, function(vTag, vNodeType)
-		if not vNodeType:getResultType():isUnion() then
-			t[vTag] = OrNil(Fn(let.ReferVisitor, vNodeType))
-		end
+	foreachPair(node.TagToNodeType, function(vTag, vNodeType)
+		t[vTag] = OrNil(Fn(let.ReferVisitor, vNodeType))
 	end)
 	return t
 end)())
@@ -118,9 +116,8 @@ local TagToVisiting:let.RealTraverser = {
 		self:dotsUse(node)
 	end,
 	Ident=function(self, node)
-		const nKindState = node.kindState
-		if nKindState then
-			assert(nKindState.kind ~= "get", "'set' or 'def' kind id called outside")
+		assert(node.kind == "use")
+		if node.isSet then
 		else
 			self:symbolUse(node, false)
 		end
@@ -168,13 +165,10 @@ function ReferVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.U
 	table.remove(self._scopeStack)
 end
 
-function ReferVisitor:symbolDefine(vIdentNode:node.Ident, vImmutKind:node.ImmutKindEnum)
+function ReferVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.ImmutKindEnum)
 	local nScope = self._scopeStack[#self._scopeStack]!
-	assert(vIdentNode.tag == "Ident")
-	vIdentNode.kindState = {
-		kind="def",
-		immutKind=vImmutKind,
-	}
+	assert(vIdentNode.tag == "Ident" and vIdentNode.kind == "def")
+	vIdentNode.immutKind = vImmutKind
 	local nName = vIdentNode[1]
 	local nLookupNode = nScope.symbolTable[nName]
 	nScope.symbolTable[nName] = vIdentNode
@@ -198,12 +192,9 @@ end
 
 function ReferVisitor:idToIndex(vIdentNode:node.Ident)::nocheck():Ret(node.Index)
 	-- "_ENV" index TODO
-	const e1 = {"_ENV",
+	const e1 = {[1]="_ENV",
 		tag="Ident", pos=vIdentNode.pos, posEnd=vIdentNode.pos, kind="use",
-		kindState = {
-			kind="get",
-			defineIdent = self._ident_ENV
-		}
+		isSet=false, defineIdent = self._ident_ENV,
 	}
 	const e2 = {tag="String", pos=vIdentNode.pos, posEnd=vIdentNode.posEnd, vIdentNode[1]}
 	vIdentNode.tag = "Index"
@@ -214,31 +205,25 @@ function ReferVisitor:idToIndex(vIdentNode:node.Ident)::nocheck():Ret(node.Index
 	return vIdentNode
 end
 
-function ReferVisitor:symbolUse(vIdentNode:node.Ident, vIsAssign:Boolean)
+function ReferVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	assert(vIdentNode.tag == "Ident")
 	const nDefineNode = self._scopeStack[#self._scopeStack]!.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
 		self:idToIndex(vIdentNode)
 		return
 	end
-	const nDefineState = nDefineNode.kindState!
-	assert(nDefineState.kind == "def", "define node must take 'def' kind")
 	if vIsAssign then
-		if nDefineState.immutKind == "const" then
+		if nDefineNode.immutKind == "const" then
 			const nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
 			error(Exception.new(nErrNode[1], nErrNode))
 		else
-			nDefineState.immutKind = false
+			nDefineNode.immutKind = false
 		end
-		vIdentNode.kindState = {
-			kind="set",
-			defineIdent = nDefineNode,
-		}
+		vIdentNode.isSet = true
+		vIdentNode.defineIdent = nDefineNode
 	else
-		vIdentNode.kindState = {
-			kind="get",
-			defineIdent = nDefineNode,
-		}
+		vIdentNode.isSet = false
+		vIdentNode.defineIdent = nDefineNode
 	end
 end
 
@@ -247,12 +232,12 @@ function ReferVisitor.new(vFileEnv:class.CodeEnv)::RetClass(let.ReferVisitor)
 		_env = vFileEnv,
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
-		_ident_ENV=nil@node.Ident,
+		_ident_ENV=nil@node.Ident_def,
 	}, ReferVisitor)
 	return self
 end
 
-function ReferVisitor:record_ENV(vIdentNode:node.Ident)
+function ReferVisitor:record_ENV(vIdentNode:node.Ident_def)
 	self._ident_ENV = vIdentNode
 end
 
