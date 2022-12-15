@@ -27,6 +27,8 @@ local TagToVisiting:RealTraverser = {
 		visitor:print("local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 		-- region begin
 		visitor:print("local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ", ____fn,____uv) ")
+		-- chunk vDots
+		visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(node),",vArgTuple,0,true)")
 		visitor:realVisit(node[3])
 		visitor:print("end) return ____fn")
 	end,
@@ -34,33 +36,10 @@ local TagToVisiting:RealTraverser = {
 		visitor.indent_count = visitor.indent_count + 1
 		const nParent = node.parent!
 		const nParentTag = nParent.tag
-		if nParentTag == "Fornum" then
-			local idNode = nParent[1]
-			visitor:print(" local ", idNode, "=")
-			visitor:print(visitor:codeSymbolNew(idNode), ", fornum_i) ")
-		elseif nParentTag == "Forin" then
-			local nIdentList = nParent[1]
-			for i=1, #nIdentList do
-				const idNode = nIdentList[i]!
-				visitor:print(" local ", idNode, "=")
-				visitor:print(visitor:codeSymbolNew(idNode), ", forin_gen", i, ") ")
-			end
-		elseif nParentTag == "Function" then
-			local nParList = nParent[1]
-			for i=1, #nParList do
-				local par = nParList[i]!
-				if par.tag ~= "Dots" then
-					visitor:print(" local ", par, "=", visitor:codeSymbolNew(par), ", ", "v_"..par[1]..par.index, ") ")
-				end
-			end
-		elseif nParentTag == "Chunk" then
-			-- chunk vDots
-			visitor:print("local vDOTS=____ctx:TUPLE_UNPACK(", visitor:codeNode(nParent),",vArgTuple,0,true)")
-		end
 		visitor:fixLinePrint(node)
 		for i=1, #node do
 			visitor:indent()
-			visitor:print(node[i]!)
+			visitor:realVisit(node[i]!)
 			visitor:print(" ")
 		end
 		if nParentTag == "Function" or nParentTag == "Chunk" then
@@ -72,7 +51,7 @@ local TagToVisiting:RealTraverser = {
 	Do=function(visitor, node)
 		visitor:fixLinePrint(node)
 		visitor:print("do ")
-		visitor:rawVisit(node)
+		visitor:realVisit(node[1])
 		visitor:indent()
 		visitor:print("end")
 	end,
@@ -81,7 +60,7 @@ local TagToVisiting:RealTraverser = {
 		visitor:print("local ")
 		visitor:printn("set_a", #node[1])
 		visitor:print("=", visitor:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",")
-		visitor:print(node[2])
+		visitor:realVisit(node[2])
 		visitor:print(") ")
 		const nVarList = node[1]
 		for i=1, #nVarList do
@@ -168,15 +147,13 @@ local TagToVisiting:RealTraverser = {
 			nBlockNode = nSubNode
 		end
 		visitor:print(visitor:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ")
+		visitor:printSymbolNew(node[1], "fornum_i")
 		visitor:print(nBlockNode)
 		visitor:indent()
 		visitor:print("end, fornum_r1, fornum_r2, fornum_r3) ")
 	end,
 	Forin=function(visitor, node)
 		visitor:fixLinePrint(node)
-		--visitor:print("for ")
-		--visitor:print(node[1])
-		--visitor:print(" in ")
 		visitor:indent()
 		visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ") ")
 		visitor:print(visitor:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ")
@@ -184,9 +161,11 @@ local TagToVisiting:RealTraverser = {
 		visitor:print("\tlocal ")
 		visitor:printn("forin_gen", #node[1])
 		visitor:print("=", visitor:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ")
-		--visitor:print("for ")
-		--visitor:print(" in forin_gen do\n")
 		visitor:indent()
+		const nIdentList = node[1]
+		for i=1, #nIdentList do
+			visitor:printSymbolNew(nIdentList[i]!, "forin_gen"..i)
+		end
 		visitor:print(node[3])
 		visitor:indent()
 		visitor:print("end, forin_next, forin_self, forin_init) ")
@@ -203,20 +182,12 @@ local TagToVisiting:RealTraverser = {
 		visitor:print(" ")
 		local nIdentList = node[1]
 		for i=1, #nIdentList do
-			local idNode = nIdentList[i]!
-			visitor:print(" local ", idNode, "=")
-			visitor:print(visitor:codeSymbolNew(idNode), ", local_a"..i)
-			const nHintShort = idNode.hintShort
-			if nHintShort then
-				visitor:print(",", visitor:fixShort(nHintShort))
-			end
-			visitor:print(") ")
+			visitor:printSymbolNew(nIdentList[i]!, "local_a"..i)
 		end
 	end,
 	Localrec=function(visitor, node)
 		visitor:fixLinePrint(node)
-		local idNode = node[1]
-		visitor:print(" local ", idNode, " ", idNode, "=", visitor:codeSymbolNew(idNode), ", ", node[2], ")")
+		visitor:printSymbolNew(node[1], node[2])
 	end,
 	Goto=function()
 		print("--goto TODO")
@@ -330,6 +301,12 @@ local TagToVisiting:RealTraverser = {
 			else
 				visitor:print(", vArgTuple, ",tostring(#nParList),", false) ")
 			end
+			for i=1, #nParList do
+				local par = nParList[i]!
+				if par.tag ~= "Dots" then
+					visitor:printSymbolNew(par, "v_"..par[1]..par.index, true)
+				end
+			end
 		end
 		visitor:print(node[2])
 		visitor:indent()
@@ -405,40 +382,36 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Ident=function(visitor, node)
 		visitor:fixLinePrint(node)
-		if node.kind == "def" then
-			const symbol = "____s_"..node[1]..node.index
+		assert(node.kind ~= "def")
+		const nDefineId = node.defineIdent
+		const symbol = "____s_"..nDefineId[1]..nDefineId.index
+		if node.isSet then
 			visitor:print(symbol)
 		else
-			const nDefineId = node.defineIdent
-			const symbol = "____s_"..nDefineId[1]..nDefineId.index
-			if node.isSet then
-				visitor:print(symbol)
-			else
-				const nParent = node.parent!
-				const nParentTag = nParent.tag
-				const nParentParentTag = nParent.parent!.tag
-				if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
-					visitor:print(" function() return ")
-				end
-				visitor:print(visitor:codeRgn(node, "SYMBOL_GET"), ",", symbol,")")
-				if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
-					visitor:print(" end ")
-				end
+			const nParent = node.parent!
+			const nParentTag = nParent.tag
+			const nParentParentTag = nParent.parent!.tag
+			if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
+				visitor:print(" function() return ")
+			end
+			visitor:print(visitor:codeRgn(node, "SYMBOL_GET"), ",", symbol,")")
+			if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
+				visitor:print(" end ")
 			end
 		end
 	end,
 	Index=function(visitor, node)
 		visitor:fixLinePrint(node)
 		visitor:print(visitor:codeCtx(node, "META_GET"), ",")
-		visitor:print(node[1])
+		visitor:realVisit(node[1])
 		visitor:print(",")
-		visitor:print(node[2])
+		visitor:realVisit(node[2])
 		visitor:print(",", tostring(node.notnil or false), ")")
 	end,
 	ExprList=function(visitor, node)
 		visitor:fixLinePrint(node)
 		for i=1, #node do
-			visitor:print(node[i]!)
+			visitor:realVisit(node[i]!)
 			visitor:print(i < #node and "," or "")
 		end
 	end,
@@ -460,14 +433,14 @@ local TagToVisiting:RealTraverser = {
 	VarList=function(visitor, node)
 		visitor:fixLinePrint(node)
 		for i=1, #node do
-			visitor:print(node[i]!)
+			visitor:realVisit(node[i]!)
 			visitor:print(i < #node and "," or "")
 		end
 	end,
 	IdentList=function(visitor, node)
 		visitor:fixLinePrint(node)
 		for i=1, #node do
-			visitor:print(node[i]!)
+			visitor:realVisit(node[i]!)
 			visitor:print(i < #node and "," or "")
 		end
 	end
@@ -531,8 +504,29 @@ function HintGenVisitor:codeRgn(vNode:node.IAstNode, vName:String)::Ret(String)
 	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
-function HintGenVisitor:codeSymbolNew(vNode:node.Ident_def)::Ret(String)
-	return "____rgn:SYMBOL_NEW("..self:codeNode(vNode)..","..string.format("%q", vNode.immutKind)
+function HintGenVisitor:formatIdentDef(vIdentNode:node.Ident_def)::Ret(String)
+	return "____s_"..vIdentNode[1]..vIdentNode.index
+end
+
+function HintGenVisitor:printSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String, node.Function), vNoHint:OrNil(True))
+	if type(vValue) == "string" then
+		self:print(
+		" local ", self:formatIdentDef(vIdentNode), "=____rgn:SYMBOL_NEW(",
+			self:codeNode(vIdentNode), ",",
+			string.format("%q", vIdentNode.immutKind), ",",
+			vValue, ",",
+			vNoHint and "nil" or (vIdentNode.hintShort or "nil"),
+		")")
+	else
+		const nIdentFormat = self:formatIdentDef(vIdentNode)
+		self:print(
+		" local ", nIdentFormat, " ", nIdentFormat, "=____rgn:SYMBOL_NEW(",
+			self:codeNode(vIdentNode), ",",
+			string.format("%q", vIdentNode.immutKind), ","
+		)
+		self:realVisit(vValue)
+		self:print(")")
+	end
 end
 
 function HintGenVisitor:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)
