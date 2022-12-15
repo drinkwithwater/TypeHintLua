@@ -46,12 +46,12 @@ function Context:getTypeFn()::Ret(OrFalse(class.TypeFunction))
 	return self._typeFn
 end
 
-function Context:BEGIN(vLexContext:class.UContext, vBlockNode:class.IAstNode,
+function Context:BEGIN(vLexContext:class.UContext, vRegionNode:class.IAstNode,
 	vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase))::Ret(class.Region, class.SpaceDict, class.SpaceDict)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vLuaFunc:getFnCom(), vUpCase or TermCase.new())
 	self._region = nRegion
-	const nSpace = self._runtime:LetNamespace(vLexContext:getNamespace(), vBlockNode)
+	const nSpace = self._runtime:LetNamespace(vLexContext:getNamespace(), vRegionNode)
 	self._namespace = nSpace
 	return nRegion, nSpace.localExport, nSpace.globalExport
 end

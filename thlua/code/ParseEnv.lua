@@ -117,6 +117,12 @@ local parF = {
 	identDefENV=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def"}
 	end,
+	dotsDef=function(vPos, vHintShort, vPosEnd)
+		return {tag="Dots", pos=vPos, posEnd=vPosEnd, kind="def", hintShort=vHintShort}
+	end,
+	dotsUse=function(vPos, vPosEnd)
+		return {tag="Dots", pos=vPos, posEnd=vPosEnd, kind="use"}
+	end,
 }
 
 local tagC=setmetatable({
