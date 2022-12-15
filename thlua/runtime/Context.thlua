@@ -460,12 +460,13 @@ function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.
 end
 
 function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(OrFalse(class.IAtomType))
-	vSrcType = vSrcType:checkAtomUnion()
-	vDstType = vDstType:checkAtomUnion():trueType()
-	if LuaFunction.is(vSrcType) and TypeFunction.is(vDstType) then
-		return vSrcType:cast(self, vDstType)
+	if LuaFunction.is(vSrcType) then
+		const nFnPartType = vDstType:fnPartType()
+		if TypeFunction.is(nFnPartType) then
+			return vSrcType:cast(self, nFnPartType)
+		end
 	elseif LuaTable.is(vSrcType) then
-		return vSrcType:cast(self, vDstType:objectType())
+		return vSrcType:cast(self, vDstType:objectPartType())
 	end
 	return false
 end
