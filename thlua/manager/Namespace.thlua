@@ -66,7 +66,13 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 					throw("namespace assign a non-type value, key="..tostring(k))
 				else
 					if Reference.is(rawgetV) then
-						rawgetV:setTypeAsync(Node.getDebugNode(3), nAtomOrRefer)
+						rawgetV:setRawAsync(Node.getDebugNode(3), function()
+							if Reference.is(nAtomOrRefer) then
+								return nAtomOrRefer
+							else
+								return {nAtomOrRefer}
+							end
+						end)
 					else
 						throw("conflict assign : key="..tostring(k))
 					end
@@ -82,7 +88,13 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 						throw("namespace assign a non-type value, key="..tostring(k))
 					else
 						local refer = self._manager:Reference(k)
-						refer:setTypeAsync(Node.getDebugNode(3), nAtomOrRefer)
+						refer:setRawAsync(Node.getDebugNode(3), function()
+							if Reference.is(nAtomOrRefer) then
+								return nAtomOrRefer
+							else
+								return {nAtomOrRefer}
+							end
+						end)
 						self._key2type[k] = refer
 					end
 				end

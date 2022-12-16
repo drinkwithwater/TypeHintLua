@@ -31,62 +31,64 @@ function Reference:detailString(v, vVerbose)
 	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
-function Reference:setTypeAsync(vNode:class.IAstNode, vType:Union(class.Reference, class.IAtomType))
-	if Reference.is(vType) then
-		self:setRawAsync(vNode, function()
-			return vType:getListAwait()
-		end, function(_)
-			return vType:getTypeAwait()
-		end)
-	else
-		assert(not vType:isUnion(), "set type async can't take IUnionType")
-		self:setRawAsync(vNode, function()
-			return {vType}
-		end, function(_)
-			return vType
-		end)
-	end
-end
-
 function Reference:setRawAsync(vNode:class.IAstNode,
-	vGetList:Fn():Ret(List(class.IAtomType)),
-	vMakeType:Fn(List(class.IAtomType)):Ret(class.UAtomUnion))::nocheck()
+	vGetList:Fn():Ret(Union(List(class.IAtomType), class.Reference)),
+	vLaterCall:OrNil(Fn(class.UAtomUnion)))::nocheck()
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	const co = coroutine.create(function()
-		const ok, nListOrExc = pcall(vGetList)
-		if not ok then
-			if Exception.is(nListOrExc) then
-				nListOrExc:fixNode(vNode)
-				error(nListOrExc)
-			else
-				error(Exception.new(tostring(nListOrExc), vNode))
-			end
+	const coRunFn = function()
+		-- step 1. get list
+		const nListOrRefer = vGetList()
+		if Reference.is(nListOrRefer) then
+			self._listType = nListOrRefer:getListAwait()
+		else
+			self._listType = nListOrRefer
 		end
-		self._listType = nListOrExc
 		local l = self._waitListThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
 		end
-		const ok, nTypeOrExc = pcall(vMakeType, nListOrExc)
-		if not ok then
-			if Exception.is(nTypeOrExc) then
-				nTypeOrExc:fixNode(vNode)
-				error(nTypeOrExc)
+		-- step 2. merge to result
+		if Reference.is(nListOrRefer) then
+			self._resultType = nListOrRefer:getTypeAwait()
+		else
+			if #nListOrRefer == 0 then
+				self._resultType = self._manager.type.Never
+			elseif #nListOrRefer == 1 then
+				self._resultType = nListOrRefer[1]
 			else
-				error(Exception.new(tostring(nTypeOrExc), vNode))
+				local nCollection = self._manager:TypeCollection()
+				for _, v in ipairs(nListOrRefer) do
+					nCollection:put(v)
+				end
+				self._resultType = nCollection:mergeToAtomUnion()
 			end
 		end
-		self._resultType = nTypeOrExc
-		if not nTypeOrExc:isUnion() then
-			local nKey = self._key
+		const nResultType = self._resultType
+		if not nResultType:isUnion() then
+			const nKey = self._key
 			if nKey then
-				nTypeOrExc:addNamedReference(self, nKey)
+				nResultType:addNamedReference(self, nKey)
 			end
 		end
 		local l = self._waitResultThreads
 		for i=#l,1,-1 do
 			assert(coroutine.resume(l[i]))
+		end
+		-- step 3. later call
+		if vLaterCall then
+			vLaterCall(nResultType)
+		end
+	end
+	const co = coroutine.create(function()
+		const ok, nExc = pcall(coRunFn)
+		if not ok then
+			if Exception.is(nExc) then
+				nExc:fixNode(vNode)
+				error(nExc)
+			else
+				error(Exception.new(tostring(nExc), vNode))
+			end
 		end
 	end)
 	self._manager.coToRefer[co] = self

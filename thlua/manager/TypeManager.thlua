@@ -252,8 +252,6 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		nNewStruct:init(nAllValueDict, nMetaEventDict)
 		nNewStruct:initIntersectSet(nIntersectSet)
 		return {self:_recordTypeUnionSign(nNewStruct)}
-	end, function(vTypeList)
-		return vTypeList[1]!
 	end)
 	return nObjectRefer
 end
@@ -297,12 +295,6 @@ function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth)::Ret(class.Refe
 			end
 		end
 		return nTypeList
-	end, function(vTypeList)
-		local nCollection = self:TypeCollection()
-		for _, v in ipairs(vTypeList) do
-			nCollection:put(v)
-		end
-		return nCollection:mergeToAtomUnion()
 	end)
 	return nNewRefer
 end
@@ -362,19 +354,13 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 			nNonBasicKeyRefer = self:Reference(false)
 			nNonBasicKeyRefer:setRawAsync(vNode, function()
 				return nNonBasicTypeList
-			end, function(vTypeList)
-				local nCollection = self:TypeCollection()
-				for _, v in ipairs(vTypeList) do
-					nCollection:put(v)
-				end
-				const nMoreKey = nCollection:mergeToAtomUnion()
-				nMoreKey:foreach(function(_)
+			end, function(vMoreKey)
+				vMoreKey:foreach(function(_)
 					nFinalCount = nFinalCount + 1
 				end)
 				if nFinalCount ~= nKeyCount then
 					error("Struct's key can not has intersect part")
 				end
-				return nMoreKey
 			end)
 		else
 			if nFinalCount ~= nKeyCount then
@@ -384,8 +370,6 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		const nNewStruct = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer)
 		nNewStruct:init(nValueDict, vMetaEventDict)
 		return {self:_recordTypeUnionSign(nNewStruct)}
-	end, function(vTypeList)
-		return vTypeList[1]!
 	end)
 	return nObjectRefer
 end
@@ -620,8 +604,6 @@ function TypeManager:fork(vFunc)
 	nNewRefer:setRawAsync(nNode, function()
 		vFunc()
 		return {}
-	end, function(vTypeList)
-		return self.type.Never
 	end)
 end
 
@@ -634,8 +616,6 @@ function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.M
 		nContainRefer:setRawAsync(self._runtime:getNode(), function()
 			local nContain = vLeft:assumeContainObject({[nPair]=true}, vRight)
 			return {nContain and self.type.True or self.type.False}
-		end, function(vTypeList)
-			return vTypeList[1]!
 		end)
 	end
 	return nPair, nContainRefer
@@ -650,8 +630,6 @@ function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.
 		nContainRefer:setRawAsync(self._runtime:getNode(), function()
 			local nContain = vLeft:assumeContainFn({[nPair]=true}, vRight)
 			return {nContain and self.type.True or self.type.False}
-		end, function(vTypeList)
-			return vTypeList[1]!
 		end)
 	end
 	return nPair, nContainRefer
