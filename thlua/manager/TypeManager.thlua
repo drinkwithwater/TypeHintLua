@@ -51,19 +51,23 @@ TypeManager.__index=TypeManager
 function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	const self = setmetatable({::Self()
 		_runtime=vRuntime,
+		-- type items
 		type={},
 		builtin={},
-		coToRefer={} @ Dict(Truth, class.Reference),
-		coStop=CoroutineInterrupt(),
 		_pairToContain={} @ Dict(Integer, class.Reference),
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
 		_unionSignToType={}@Dict(String, class.UAtomUnion),
 		_typeIdCounter=0@Number,
+		-- coroutine items
+		_coStop=CoroutineInterrupt(),
+		_coToRefer={} @ Dict(Truth, class.Reference),
 		_waitCoToSessionId={}@Dict(Truth, Integer),
 		_sessionIdToWaitCo={}@Dict(Integer, Truth),
 		_resumeCoList={}@List(Truth),
 		_stopCoList={}@List(Truth),
+		_referDependDict={}@Dict(class.Reference, class.Reference),
 		_sessionIdCounter=0@Number,
+		_selfCo=coroutine.running(),
 	}, TypeManager)
 	self.type.Never = Never.new(self)
 	self.type.Nil = Nil.new(self)
@@ -603,17 +607,38 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair
 	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
-function TypeManager:wait(vSessionId:Integer)
+function TypeManager:yield(vSessionId:Integer, vDependRefer:class.Reference)
 	const co = coroutine.running()
+	local nWaitingRefer = self._coToRefer[co]
+	if not nWaitingRefer then
+		error(tostring(vDependRefer)..",can only call getTypeAwait in Reference's coroutine:")
+	end
+	local nCurRefer:OrNil(class.Reference) = vDependRefer
+	while nCurRefer do
+		if nCurRefer == nWaitingRefer then
+			break
+		else
+			nCurRefer = self._referDependDict[nCurRefer]
+		end
+	end
+	if nCurRefer then
+		error(Exception.new("recursive build type"))
+	end
+	self._referDependDict[nWaitingRefer] = vDependRefer
 	self._waitCoToSessionId[co] = vSessionId
 	self._sessionIdToWaitCo[vSessionId] = co
-	coroutine.yield()
+	const nSucc = coroutine.yield()
+	if not nSucc then
+		error(self._coStop)
+	end
+	self._referDependDict[nWaitingRefer] = nil
 end
 
-function TypeManager:wakeup(vWakeupSid:Integer)
+function TypeManager:resume(vWakeupSid:Integer)
 	const co = self._sessionIdToWaitCo[vWakeupSid]
 	if not co then
 		-- session is cancel
+		print("error...session is cancel")
 		return
 	end
 	const nWaitSid = self._waitCoToSessionId[co]
@@ -648,9 +673,11 @@ function TypeManager:fork(vRefer:class.Reference, vFunc:Fn())
 			end
 		end
 	end)
-	self.coToRefer[co] = vRefer
+	self._coToRefer[co] = vRefer
 	self._resumeCoList[#self._resumeCoList + 1] = co
-	self:_schedule()
+	if coroutine.running() == self._selfCo then
+		self:_schedule()
+	end
 end
 
 function TypeManager:_schedule()
@@ -660,13 +687,13 @@ function TypeManager:_schedule()
 		if #nResumeList == 0 and #nStopList == 0 then
 			break
 		else
-			self._resumeCoList = {} @ List(Truth)
+			self._resumeCoList = {} @List(Truth)
 			self._stopCoList = {} @List(Truth)
 			for i, co in ipairs(nResumeList) do
-				coroutine.resume(co, true)
+				assert(coroutine.resume(co, true))
 			end
 			for i, co in ipairs(nStopList) do
-				coroutine.resume(co, false)
+				assert(coroutine.resume(co, false))
 			end
 		end
 	end

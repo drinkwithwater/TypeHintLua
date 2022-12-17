@@ -20,9 +20,8 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_waitRefer=false@OrFalse(class.Reference),
 		_listType=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
-		_thread=false@OrFalse(Truth), -- TODO coroutine type
-		_waitListCoToSessionId={} @ Dict(Truth, Integer),
-		_waitResultCoToSessionId={} @ Dict(Truth, Integer),
+		_waitListSessionIds={} @ List(Integer),
+		_waitResultSessionIds={} @ List(Integer),
 	}, Reference)
 	return self
 end
@@ -44,10 +43,10 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		else
 			self._listType = nListOrRefer
 		end
-		local d = self._waitListCoToSessionId
-		for k,v in pairs(d) do
-			assert(coroutine.resume(k, true))
+		for _, sid in pairs(self._waitListSessionIds) do
+			self._manager:resume(sid)
 		end
+		self._waitListSessionIds = {}
 		-- step 2. merge to result
 		if Reference.is(nListOrRefer) then
 			self._resultType = nListOrRefer:getTypeAwait()
@@ -71,29 +70,16 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 				nResultType:addNamedReference(self, nKey)
 			end
 		end
-		local d = self._waitResultCoToSessionId
-		for k,v in pairs(d) do
-			assert(coroutine.resume(k, true))
+		for _, sid in pairs(self._waitResultSessionIds) do
+			self._manager:resume(sid)
 		end
+		self._waitResultSessionIds = {}
 		-- step 3. later call
 		if vLaterCall then
 			vLaterCall(nResultType)
 		end
 	end
-	const co = coroutine.create(function()
-		const ok, nExc = pcall(coRunFn)
-		if not ok then
-			if Exception.is(nExc) then
-				nExc:fixNode(vNode)
-				error(nExc)
-			else
-				error(Exception.new(tostring(nExc), vNode))
-			end
-		end
-	end)
-	self._manager.coToRefer[co] = self
-	self._thread = co
-	assert(coroutine.resume(co, true))
+	self._manager:fork(self, coRunFn)
 end
 
 function Reference:recurGetWaitByCond(vCondFn:Fn(class.Reference):Ret(Boolean))::Ret(OrFalse(class.Reference))
@@ -110,23 +96,9 @@ end
 function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 	local nReturn = self._resultType
 	if not nReturn then
-		local co, _ = coroutine.running()
-		local nWaitingRefer = self._manager.coToRefer[co]
-		if not nWaitingRefer then
-			const nNamedRefer = self:recurGetWaitByCond(function(vRefer)
-				return vRefer._key and true
-			end) or self
-			error(tostring(nNamedRefer)..",can only call getTypeAwait in Reference's coroutine:")
-		else
-			if self:recurGetWaitByCond(function(vRefer) return vRefer == nWaitingRefer end) then
-				error(Exception.new("recursive build type"))
-			end
-		end
-		nWaitingRefer._waitRefer = self
 		const nSessionId = self._manager:genSessionId()
-		self._waitResultCoToSessionId[co] = nSessionId
-		self._manager:wait(nSessionId)
-		nWaitingRefer._waitRefer = false
+		table.insert(self._waitResultSessionIds, nSessionId)
+		self._manager:yield(nSessionId, self)
 	end
 	return (assert(self._resultType, "result type not setted"))
 end
@@ -134,22 +106,9 @@ end
 function Reference:getListAwait()::Ret(List(class.IAtomType))
 	local nReturn = self._listType
 	if not nReturn then
-		local co, _ = coroutine.running()
-		local nWaitingRefer = self._manager.coToRefer[co]
-		assert(nWaitingRefer, "can only call getListAwait in Reference's coroutine:"..tostring(self))
-		nWaitingRefer._waitRefer = self
-		local nCurRefer = self._waitRefer
-		while nCurRefer do
-			if nCurRefer == self then
-				error(Exception.new("recursive build type"))
-			else
-				nCurRefer = nCurRefer._waitRefer
-			end
-		end
 		const nSessionId = self._manager:genSessionId()
-		self._waitListCoToSessionId[co] = nSessionId
-		self._manager:wait(nSessionId)
-		nWaitingRefer._waitRefer = false
+		table.insert(self._waitListSessionIds, nSessionId)
+		self._manager:yield(nSessionId, self)
 	end
 	return (assert(self._listType, "type list not setted"))
 end
