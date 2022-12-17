@@ -21,8 +21,8 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_listType=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
 		_thread=false@OrFalse(Truth), -- TODO coroutine type
-		_waitListThreads={} @ List(Truth),
-		_waitResultThreads={} @ List(Truth),
+		_waitListCoToSessionId={} @ Dict(Truth, Integer),
+		_waitResultCoToSessionId={} @ Dict(Truth, Integer),
 	}, Reference)
 	return self
 end
@@ -44,9 +44,9 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		else
 			self._listType = nListOrRefer
 		end
-		local l = self._waitListThreads
-		for i=#l,1,-1 do
-			assert(coroutine.resume(l[i]))
+		local d = self._waitListCoToSessionId
+		for k,v in pairs(d) do
+			assert(coroutine.resume(k, true))
 		end
 		-- step 2. merge to result
 		if Reference.is(nListOrRefer) then
@@ -71,9 +71,9 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 				nResultType:addNamedReference(self, nKey)
 			end
 		end
-		local l = self._waitResultThreads
-		for i=#l,1,-1 do
-			assert(coroutine.resume(l[i]))
+		local d = self._waitResultCoToSessionId
+		for k,v in pairs(d) do
+			assert(coroutine.resume(k, true))
 		end
 		-- step 3. later call
 		if vLaterCall then
@@ -93,7 +93,7 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 	end)
 	self._manager.coToRefer[co] = self
 	self._thread = co
-	assert(coroutine.resume(co))
+	assert(coroutine.resume(co, true))
 end
 
 function Reference:recurGetWaitByCond(vCondFn:Fn(class.Reference):Ret(Boolean))::Ret(OrFalse(class.Reference))
@@ -123,9 +123,9 @@ function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 			end
 		end
 		nWaitingRefer._waitRefer = self
-		local l = self._waitResultThreads
-		l[#l+1] = coroutine.running()
-		coroutine.yield()
+		const nSessionId = self._manager:genSessionId()
+		self._waitResultCoToSessionId[co] = nSessionId
+		self._manager:wait(nSessionId)
 		nWaitingRefer._waitRefer = false
 	end
 	return (assert(self._resultType, "result type not setted"))
@@ -146,9 +146,9 @@ function Reference:getListAwait()::Ret(List(class.IAtomType))
 				nCurRefer = nCurRefer._waitRefer
 			end
 		end
-		local l = self._waitListThreads
-		l[#l+1] = coroutine.running()
-		coroutine.yield()
+		const nSessionId = self._manager:genSessionId()
+		self._waitListCoToSessionId[co] = nSessionId
+		self._manager:wait(nSessionId)
 		nWaitingRefer._waitRefer = false
 	end
 	return (assert(self._listType, "type list not setted"))
