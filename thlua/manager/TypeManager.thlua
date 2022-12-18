@@ -41,7 +41,7 @@ const native = require "thlua.native"
 	let.class = import("thlua.type.TypeClass").class
 	let.WaitingInfo = Struct {
 		waitSid = Integer,
-		dependCo = Truth
+		dependCo = Truth,
 	}
 end)
 
@@ -65,11 +65,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		-- coroutine items
 		_coStop=CoroutineInterrupt(),
 		_coToRefer={} @ Dict(Truth, class.Reference),
-		_waitCoToSessionId={}@Dict(Truth, Integer),
-		_sessionIdToWaitCo={}@Dict(Integer, Truth),
-		_resumeCoList={}@List(Truth),
-		_stopCoList={}@List(Truth),
-		_referDependDict={}@Dict(class.Reference, class.Reference),
+		_coToScheduleParam={}@Dict(Truth, Union(True, False, Fn())),
 		_coToWaitingInfo={}@Dict(Truth, WaitingInfo),
 		_sessionIdCounter=0@Number,
 		_selfCo=coroutine.running(),
@@ -553,7 +549,9 @@ function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil
 end
 
 function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)
-	return Reference.new(self, vName)
+	const nRefer = Reference.new(self, vName)
+	self._coToRefer[nRefer:getSelfCo()] = nRefer
+	return nRefer
 end
 
 function TypeManager:mergePairList(vTypePairList:List(Struct {class.UAtomUnion, class.UAtomUnion}))::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAtomUnion))
@@ -612,75 +610,64 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair
 	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
-function TypeManager:yield(vSessionId:Integer, vDependRefer:class.Reference)
+function TypeManager:coWait(vWaitCo:Truth, vWaitSid:Integer, vDependCo:Truth)
 	const co = coroutine.running()
 	local nWaitingRefer = self._coToRefer[co]
 	if not nWaitingRefer then
-		error(tostring(vDependRefer)..",can only call getTypeAwait in Reference's coroutine:")
+		error(tostring(nWaitingRefer)..",can only call getTypeAwait in Reference's coroutine:")
 	end
-	local nCurRefer:OrNil(class.Reference) = vDependRefer
-	while nCurRefer do
-		if nCurRefer == nWaitingRefer then
+	local nCurCo:OrNil(Truth) = vDependCo
+	while nCurCo do
+		if nCurCo == vWaitCo then
 			break
 		else
-			nCurRefer = self._referDependDict[nCurRefer]
+			const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
+			if nNextWaitingInfo then
+				nCurCo = nNextWaitingInfo.dependCo
+			else
+				nCurCo = nil
+				break
+			end
 		end
 	end
-	if nCurRefer then
+	if nCurCo then
 		error(Exception.new("recursive build type"))
 	end
-	self._referDependDict[nWaitingRefer] = vDependRefer
-	self._waitCoToSessionId[co] = vSessionId
-	self._sessionIdToWaitCo[vSessionId] = co
+	self._coToWaitingInfo[co] = {
+		waitSid = vWaitSid,
+		dependCo = vDependCo,
+	}
 	const nSucc = coroutine.yield()
 	if not nSucc then
 		error(self._coStop)
 	end
-	self._referDependDict[nWaitingRefer] = nil
 end
 
-function TypeManager:resume(vWakeupSid:Integer)
-	const co = self._sessionIdToWaitCo[vWakeupSid]
-	if not co then
+function TypeManager:coWakeup(vWaitCo:Truth, vWaitSid:Integer)
+	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
+	if not nWaitingInfo then
 		-- session is cancel
 		print("error...session is cancel")
 		return
 	end
-	const nWaitSid = self._waitCoToSessionId[co]
-	assert(nWaitSid == vWakeupSid, "wait sid & wakeup sid not match")
-	self._sessionIdToWaitCo[vWakeupSid] = nil
-	self._waitCoToSessionId[co] = nil
-	const nList = self._resumeCoList
-	nList[#nList + 1] = co
+	assert(vWaitSid == nWaitingInfo.waitSid, "wait sid & wakeup sid not match")
+	self._coToWaitingInfo[vWaitCo] = nil
+	self._coToScheduleParam[vWaitCo] = true
 end
 
-function TypeManager:kill(vWaitCo:Truth)
-	const nWaitSid = self._waitCoToSessionId[vWaitCo]
-	if nWaitSid then
-		self._waitCoToSessionId[vWaitCo] = nil
-		self._sessionIdToWaitCo[nWaitSid] = nil
-		const nList = self._stopCoList
-		nList[#nList + 1] = vWaitCo
+function TypeManager:coKill(vWaitCo:Truth)
+	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
+	if nWaitingInfo then
+		self._coToWaitingInfo[vWaitCo] = nil
+		self._coToScheduleParam[vWaitCo] = false
 	else
 		-- session is canceled
 		print("error...session is cancel")
 	end
 end
 
-function TypeManager:fork(vRefer:class.Reference, vFunc:Fn())
-	const co = coroutine.create(function(_)
-		const ok, nExc = pcall(vFunc)
-		if not ok then
-			if Exception.is(nExc) then
-				nExc:fixNode(vRefer:getAssignNode())
-				error(nExc)
-			else
-				error(Exception.new(tostring(nExc), vRefer:getAssignNode()))
-			end
-		end
-	end)
-	self._coToRefer[co] = vRefer
-	self._resumeCoList[#self._resumeCoList + 1] = co
+function TypeManager:coStart(vCo:Truth, vFunc:Fn())
+	self._coToScheduleParam[vCo] = vFunc
 	if coroutine.running() == self._selfCo then
 		self:_schedule()
 	end
@@ -688,18 +675,13 @@ end
 
 function TypeManager:_schedule()
 	while true do
-		const nResumeList = self._resumeCoList
-		const nStopList = self._stopCoList
-		if #nResumeList == 0 and #nStopList == 0 then
+		const nCoToParam = self._coToScheduleParam
+		if not next(nCoToParam) then
 			break
 		else
-			self._resumeCoList = {} @List(Truth)
-			self._stopCoList = {} @List(Truth)
-			for i, co in ipairs(nResumeList) do
-				assert(coroutine.resume(co, true))
-			end
-			for i, co in ipairs(nStopList) do
-				assert(coroutine.resume(co, false))
+			self._coToScheduleParam = {}@Dict(Truth, Union(True, False, Fn()))
+			for co, param in pairs(nCoToParam) do
+				assert(coroutine.resume(co, param))
 			end
 		end
 	end

@@ -17,12 +17,28 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_referNodes={}@List(class.IAstNode),
 		id=vManager:genTypeId(),
 		bits=false,
+		_selfCo=nil@Truth,
 		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
-		_waitListSessionIds={} @ List(Integer),
-		_waitResultSessionIds={} @ List(Integer),
+		_waitListCoToSid={} @ Dict(Truth, Integer),
+		_waitResultCoToSid={} @ Dict(Truth, Integer),
 	}, Reference)
+	self._selfCo = coroutine.create(function(vRunFn:Fn())
+		const ok, nExc = pcall(vRunFn)
+		if not ok then
+			if Exception.is(nExc) then
+				nExc:fixNode(self:getAssignNode())
+				error(nExc)
+			else
+				error(Exception.new(tostring(nExc), self:getAssignNode()))
+			end
+		end
+	end)
 	return self
+end
+
+function Reference:getSelfCo()::Ret(Truth)
+	return self._selfCo
 end
 
 function Reference:detailString(v, vVerbose)
@@ -42,10 +58,10 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		else
 			self._typeList = nListOrRefer
 		end
-		for _, sid in pairs(self._waitListSessionIds) do
-			self._manager:resume(sid)
+		for co, sid in pairs(self._waitListCoToSid) do
+			self._manager:coWakeup(co, sid)
 		end
-		self._waitListSessionIds = {}
+		self._waitListCoToSid = {}
 		-- step 2. merge to result
 		if Reference.is(nListOrRefer) then
 			self._resultType = nListOrRefer:getTypeAwait()
@@ -69,24 +85,25 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 				nResultType:addNamedReference(self, nKey)
 			end
 		end
-		for _, sid in pairs(self._waitResultSessionIds) do
-			self._manager:resume(sid)
+		for co, sid in pairs(self._waitResultCoToSid) do
+			self._manager:coWakeup(co, sid)
 		end
-		self._waitResultSessionIds = {}
+		self._waitResultCoToSid = {}
 		-- step 3. later call
 		if vLaterCall then
 			vLaterCall(nResultType)
 		end
 	end
-	self._manager:fork(self, coRunFn)
+	self._manager:coStart(self._selfCo, coRunFn)
 end
 
 function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 	local nReturn = self._resultType
 	if not nReturn then
 		const nSessionId = self._manager:genSessionId()
-		table.insert(self._waitResultSessionIds, nSessionId)
-		self._manager:yield(nSessionId, self)
+		const nCurCo = coroutine.running()
+		self._waitResultCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._selfCo)
 	end
 	return (assert(self._resultType, "result type not setted"))
 end
@@ -95,8 +112,9 @@ function Reference:getListAwait()::Ret(List(class.IAtomType))
 	local nReturn = self._typeList
 	if not nReturn then
 		const nSessionId = self._manager:genSessionId()
-		table.insert(self._waitListSessionIds, nSessionId)
-		self._manager:yield(nSessionId, self)
+		const nCurCo = coroutine.running()
+		self._waitListCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._selfCo)
 	end
 	return (assert(self._typeList, "type list not setted"))
 end
