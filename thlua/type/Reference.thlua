@@ -17,8 +17,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_referNodes={}@List(class.IAstNode),
 		id=vManager:genTypeId(),
 		bits=false,
-		_waitRefer=false@OrFalse(class.Reference),
-		_listType=false@OrFalse(List(class.IAtomType)),
+		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
 		_waitListSessionIds={} @ List(Integer),
 		_waitResultSessionIds={} @ List(Integer),
@@ -39,9 +38,9 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		-- step 1. get list
 		const nListOrRefer = vGetList()
 		if Reference.is(nListOrRefer) then
-			self._listType = nListOrRefer:getListAwait()
+			self._typeList = nListOrRefer:getListAwait()
 		else
-			self._listType = nListOrRefer
+			self._typeList = nListOrRefer
 		end
 		for _, sid in pairs(self._waitListSessionIds) do
 			self._manager:resume(sid)
@@ -82,17 +81,6 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 	self._manager:fork(self, coRunFn)
 end
 
-function Reference:recurGetWaitByCond(vCondFn:Fn(class.Reference):Ret(Boolean))::Ret(OrFalse(class.Reference))
-	local nCurRefer:OrFalse(class.Reference) = self
-	while nCurRefer do
-		if vCondFn(nCurRefer) then
-			return nCurRefer
-		end
-		nCurRefer = nCurRefer._waitRefer
-	end
-	return false
-end
-
 function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 	local nReturn = self._resultType
 	if not nReturn then
@@ -104,13 +92,13 @@ function Reference:getTypeAwait()::Ret(class.UAtomUnion)
 end
 
 function Reference:getListAwait()::Ret(List(class.IAtomType))
-	local nReturn = self._listType
+	local nReturn = self._typeList
 	if not nReturn then
 		const nSessionId = self._manager:genSessionId()
 		table.insert(self._waitListSessionIds, nSessionId)
 		self._manager:yield(nSessionId, self)
 	end
-	return (assert(self._listType, "type list not setted"))
+	return (assert(self._typeList, "type list not setted"))
 end
 
 function Reference:getAssignNode()::Ret(OrFalse(class.IAstNode))

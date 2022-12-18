@@ -39,6 +39,10 @@ const native = require "thlua.native"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
+	let.WaitingInfo = Struct {
+		waitSid = Integer,
+		dependCo = Truth
+	}
 end)
 
 const function CoroutineInterrupt()::RetClass(class.CoroutineInterrupt)
@@ -66,6 +70,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		_resumeCoList={}@List(Truth),
 		_stopCoList={}@List(Truth),
 		_referDependDict={}@Dict(class.Reference, class.Reference),
+		_coToWaitingInfo={}@Dict(Truth, WaitingInfo),
 		_sessionIdCounter=0@Number,
 		_selfCo=coroutine.running(),
 	}, TypeManager)
@@ -658,11 +663,12 @@ function TypeManager:kill(vWaitCo:Truth)
 		nList[#nList + 1] = vWaitCo
 	else
 		-- session is canceled
+		print("error...session is cancel")
 	end
 end
 
 function TypeManager:fork(vRefer:class.Reference, vFunc:Fn())
-	const co = coroutine.create(function()
+	const co = coroutine.create(function(_)
 		const ok, nExc = pcall(vFunc)
 		if not ok then
 			if Exception.is(nExc) then
