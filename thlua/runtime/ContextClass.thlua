@@ -119,14 +119,21 @@ const function ContextClass()::open()
 	end
 
 	function Context:recordDefineLuaFunction(vFunc:class.ClassFnCom)
-		if self._sealContext == self then
-			self._classFnSet[vFunc] = true
-		else
+		if self._sealContext ~= self then
 			self._sealContext:recordDefineLuaFunction(vFunc)
+			return
 		end
+		self._classFnSet[vFunc] = true
+		const co = coroutine.running()
+		const sid = self._manager:genSessionId()
+		self._startClassCoToSid[co] = sid
+		self._manager:coWait(co, sid)
 	end
 
 	function Context:checkDefineLuaFunction()
+		for co, sid in pairs(self._startClassCoToSid) do
+			self._manager:coWakeup(co, sid)
+		end
 		for fn, v in pairs(self._classFnSet) do
 			fn:checkDefine()
 		end

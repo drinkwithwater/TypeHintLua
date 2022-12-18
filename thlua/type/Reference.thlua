@@ -22,6 +22,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_resultType=false@OrFalse(class.UAtomUnion),
 		_waitListCoToSid={} @ Dict(Thread, Integer),
 		_waitResultCoToSid={} @ Dict(Thread, Integer),
+		_waitFinalCoToSid={} @ Dict(Thread, Integer),
 	}, Reference)
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
@@ -90,6 +91,9 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		-- step 3. later call
 		if vLaterCall then
 			vLaterCall(nResultType)
+		end
+		for co, sid in pairs(self._waitFinalCoToSid) do
+			self._manager:coWakeup(co, sid)
 		end
 	end
 	self._manager:coStart(self._selfCo, coRunFn)

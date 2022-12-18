@@ -613,28 +613,32 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair
 	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
-function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:Thread)
+function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
 	const co = coroutine.running()
-	local nWaitingRefer = self._coToRefer[co]
-	if not nWaitingRefer then
-		error(tostring(nWaitingRefer)..",can only call getTypeAwait in Reference's coroutine:")
-	end
-	local nCurCo:OrNil(Thread) = vDependCo
-	while nCurCo do
-		if nCurCo == vWaitCo then
-			break
-		else
-			const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
-			if nNextWaitingInfo then
-				nCurCo = nNextWaitingInfo.dependCo
-			else
-				nCurCo = nil
+	if vDependCo then
+		local nWaitingRefer = self._coToRefer[co]
+		if not nWaitingRefer then
+			error(tostring(nWaitingRefer)..",can only call getTypeAwait in Reference's coroutine:")
+		end
+		local nCurCo:OrNil(Thread) = vDependCo
+		while nCurCo do
+			if nCurCo == vWaitCo then
 				break
+			else
+				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
+				if nNextWaitingInfo then
+					nCurCo = nNextWaitingInfo.dependCo
+				else
+					nCurCo = nil
+					break
+				end
 			end
 		end
-	end
-	if nCurCo then
-		error(Exception.new("recursive build type"))
+		if nCurCo then
+			error(Exception.new("recursive build type"))
+		end
+	else
+		vDependCo = self._selfCo
 	end
 	self._coToWaitingInfo[co] = {
 		waitSid = vWaitSid,
@@ -650,12 +654,17 @@ function TypeManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
 	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
 	if not nWaitingInfo then
 		-- session is cancel
-		print("error...session is cancel")
+		print("session is cancel when wakeup")
+		return
+	elseif vWaitSid ~= nWaitingInfo.waitSid then
+		print("wait sid not match when wakeup")
 		return
 	end
-	assert(vWaitSid == nWaitingInfo.waitSid, "wait sid & wakeup sid not match")
 	self._coToWaitingInfo[vWaitCo] = nil
 	self._coToScheduleParam[vWaitCo] = true
+	if coroutine.running() == self._selfCo then
+		self:_schedule()
+	end
 end
 
 function TypeManager:coKill(vWaitCo:Thread)
