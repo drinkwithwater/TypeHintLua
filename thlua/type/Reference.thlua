@@ -17,11 +17,11 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_referNodes={}@List(class.IAstNode),
 		id=vManager:genTypeId(),
 		bits=false,
-		_selfCo=nil@Truth,
+		_selfCo=nil@Thread,
 		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
-		_waitListCoToSid={} @ Dict(Truth, Integer),
-		_waitResultCoToSid={} @ Dict(Truth, Integer),
+		_waitListCoToSid={} @ Dict(Thread, Integer),
+		_waitResultCoToSid={} @ Dict(Thread, Integer),
 	}, Reference)
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
@@ -37,7 +37,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 	return self
 end
 
-function Reference:getSelfCo()::Ret(Truth)
+function Reference:getSelfCo()::Ret(Thread)
 	return self._selfCo
 end
 
@@ -61,7 +61,6 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		for co, sid in pairs(self._waitListCoToSid) do
 			self._manager:coWakeup(co, sid)
 		end
-		self._waitListCoToSid = {}
 		-- step 2. merge to result
 		if Reference.is(nListOrRefer) then
 			self._resultType = nListOrRefer:getTypeAwait()
@@ -88,7 +87,6 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		for co, sid in pairs(self._waitResultCoToSid) do
 			self._manager:coWakeup(co, sid)
 		end
-		self._waitResultCoToSid = {}
 		-- step 3. later call
 		if vLaterCall then
 			vLaterCall(nResultType)
