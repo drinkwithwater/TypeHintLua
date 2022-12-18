@@ -31,8 +31,10 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 	return self
 end
 
-function LuaTable:initByClass(vFnCom:class.ClassFnCom, vBaseClass:Union(False, class.LuaTable), vInterface:Union(False, class.MetaObject))
-	self._classCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vInterface)
+function LuaTable:createClassTableCom(vFnCom:class.ClassFnCom, vBaseClass:Union(False, class.LuaTable), vInterface:Union(False, class.MetaObject))::Ret(class.ClassTableCom)
+	const nCom = ClassTableCom.new(self._manager, self, vFnCom, vBaseClass, vInterface)
+	self._classCom = nCom
+	return nCom
 end
 
 function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
@@ -150,13 +152,6 @@ function LuaTable:intersectAtom(vType)
 	else
 		return false
 	end
-end
-
--- called when New function checkDefine
-function LuaTable:sealNew(vContext:class.Context)
-	const clsCom = self._classCom
-	assert(ClassTableCom.is(clsCom), "only ClassTableCom can call sealNew")
-	clsCom:implement(vContext)
 end
 
 function LuaTable:cast(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion)::Ret(OrFalse(class.MetaObject))

@@ -58,11 +58,9 @@ function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(clas
 				const nTable = self._manager:LuaTable()
 				if nImplType then
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
-					nTable:initByClass(nFnCom, false, nImplType)
-				else
-					nTable:initByClass(nFnCom, false, false)
 				end
-				nFnCom:initByRetClass(self._context, nTable)
+				const nClassTableCom = nTable:createClassTableCom(nFnCom, false, nImplType or false)
+				nFnCom:bind(self._context, nClassTableCom)
 				return {nTable}
 			end, function(vLuaTable)
 				self._context:recordDefineLuaFunction(nFnCom)

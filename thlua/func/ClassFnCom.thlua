@@ -12,7 +12,7 @@ function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFuncti
 		_luaFunction=vLuaFunction,
 		_newRefer=vRefer,
 		_typeFunction=false@class.TypeFunction,
-		_newTable=false@class.LuaTable,
+		_classTableCom=false@class.ClassTableCom,
 		_once=false@Boolean,
 		_onceHintNew=false@Boolean,
 	}, ClassFnCom)
@@ -20,11 +20,11 @@ function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFuncti
 	return self
 end
 
-function ClassFnCom:initByRetClass(vContext:class.UContext, vTable:class.LuaTable)
-	self._newTable = vTable
+function ClassFnCom:bind(vContext:class.UContext, vTableCom:class.ClassTableCom)
+	self._classTableCom = vTableCom
 	local nAutoArgs = self._luaFunction._autoArgs
 	local nArgTuple = nAutoArgs:checkWhenLate(vContext)
-	local nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(vTable))
+	local nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(vTableCom:getLuaTable()))
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 end
 
@@ -46,7 +46,7 @@ function ClassFnCom:checkDefine()
 	local nContext = self._luaFunction:newInplaceOpenContext()
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
-	self._newTable:sealNew(nContext)
+	self._classTableCom:implement(nContext)
 end
 
 function ClassFnCom:meta_call(vContext, vTypeTuple)
@@ -57,7 +57,7 @@ end
 function ClassFnCom:regionTableSelf(vContext, vNode)
 	assert(not self._onceHintNew, "New() can only be called once")
 	self._onceHintNew = true
-	return self._newTable
+	return self._classTableCom:getLuaTable()
 end
 
 function ClassFnCom:regionReturn(vContext, vNode, vTypeTuple)
@@ -65,7 +65,7 @@ function ClassFnCom:regionReturn(vContext, vNode, vTypeTuple)
 		vContext:getRuntime():nodeError(vNode, "return tuple not match")
 	else
 		local aType = vTypeTuple:get(1):checkAtomUnion()
-		local bType = self._newTable
+		local bType = self._classTableCom:getLuaTable()
 		if aType ~= bType then
 			vContext:getRuntime():nodeError(vNode, "return type not match")
 		end
