@@ -28,6 +28,16 @@ function ClassFnCom:initByRetClass(vContext:class.UContext, vTable:class.LuaTabl
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 end
 
+function ClassFnCom:waitClassTableBuild()
+	if self._once then
+		return
+	end
+	if coroutine.running() == self._newRefer:getSelfCo() then
+		return
+	end
+	self._newRefer:waitFinish()
+end
+
 function ClassFnCom:checkDefine()
 	if self._once then
 		return
