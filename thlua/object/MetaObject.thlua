@@ -381,13 +381,14 @@ function MetaObject:getMemberDict()::Ret(class.MemberDict)
 	return self._memberDict
 end
 
-function MetaObject:copyValueDict()::Ret(Dict(class.IAtomType, class.UAllType))
+function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaObject))::Ret(Dict(class.IAtomType, class.UAllType))
 	const nValueDict:Dict(class.IAtomType, class.UAllType) = {}
 	for k,v in pairs(self._memberDict) do
 		if not MemberFunction.is(v) then
 			nValueDict[k] = v
 		else
-			print("TODO, struct can't take member function", self)
+			assert(vSelfObject, "member function copy require SelfObject")
+			nValueDict[k] = v:indexTypeFn(vSelfObject)
 		end
 	end
 	return nValueDict

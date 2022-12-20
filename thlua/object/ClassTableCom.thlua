@@ -77,39 +77,25 @@ end
 function ClassTableCom:native_setmetatable(vContext, vMetaTable)
 	-- TODO, can only set once in ClassFn's context
 	self._fnCom:checkDefine()
-	return self._defaultCom:native_setmetatable(vContext, vMetaTable)
-end
-
-function ClassTableCom:getBase()::Ret(class.MetaObject)
-	return self._interface
-end
-
-function ClassTableCom:implement(vContext:class.Context)
-	if self._sealed then
-		vContext:error("class table try seal more than once")
-		return
-	end
-	self._sealed = true
+	const nRe = self._defaultCom:native_setmetatable(vContext, vMetaTable)
+	--self:implement(vContext)
 	const nCollection = self._manager:TypeCollection()
 	const nDefaultCom:class.DefaultTableCom = self._defaultCom
-	nDefaultCom:foreachGetPair(function(vKey, vValue)
-		nCollection:put(vKey)
-		self._valueDict[vKey] = vValue
-	end)
 	local nIndexTable = nDefaultCom.__indexType
 	if nIndexTable then
 		if LuaFunction.is(nIndexTable) or TypeFunction.is(nIndexTable) then
+			print("TODO, __index's value is function")
 			-- TODO
 		else
+			const nInterfaceKeyValue = self._interface:copyValueDict(self._luaTable)
 			nIndexTable:getDefaultCom():foreachGetPair(function(vKey, vValue)
+				local nInterfaceValue = nInterfaceKeyValue[vKey]
 				if LuaFunction.is(vValue) then
 					if vValue:isMember() then
 						nCollection:put(vKey)
-						local nInterfaceValue = self._interface:getMemberDict()[vKey]
 						if nInterfaceValue then
-							if MemberFunction.is(nInterfaceValue) then
-								const nTypeFn = nInterfaceValue:indexTypeFn(self._luaTable)
-								self._valueDict[vKey] = vValue:specialize(vContext, self._luaTable, nTypeFn)
+							if TypeFunction.is(nInterfaceValue) then
+								self._valueDict[vKey] = vValue:specialize(vContext, self._luaTable, nInterfaceValue)
 								return
 							end
 						end
@@ -135,6 +121,29 @@ function ClassTableCom:implement(vContext:class.Context)
 		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.String)
 		nStringFn:specialize(vContext, self._luaTable, nFn)
 	end
+	return nRe
+end
+
+function ClassTableCom:getBase()::Ret(class.MetaObject)
+	return self._interface
+end
+
+function ClassTableCom:implement(vContext:class.Context)
+	if self._sealed then
+		vContext:error("class table try seal more than once")
+		return
+	end
+	self._sealed = true
+	const nCollection = self._manager:TypeCollection()
+	if self._keyType then
+		nCollection:put(self._keyType)
+	end
+	const nDefaultCom:class.DefaultTableCom = self._defaultCom
+	nDefaultCom:foreachGetPair(function(vKey, vValue)
+		nCollection:put(vKey)
+		self._valueDict[vKey] = vValue
+	end)
+	self._keyType = nCollection:mergeToAtomUnion()
 end
 
 function ClassTableCom:getLuaTable()::Ret(class.LuaTable)
