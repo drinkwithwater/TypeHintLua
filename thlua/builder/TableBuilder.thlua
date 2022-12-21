@@ -19,7 +19,7 @@ function TableBuilder.new(vContext:class.Context, vNode:class.IAstNode, vPairMak
 		_context=vContext,
 		_node=vNode,
 		_pairMaker=vPairMaker,
-		_selfTable=false@Union(False, class.LuaTable),
+		_selfClassTableCom=false@Union(False, class.ClassTableCom),
 		_selfInitDict=false@Union(False, Dict(class.UAllType, class.UAllType)),
 	}, TableBuilder)
 end
@@ -28,7 +28,7 @@ function TableBuilder.makeLongHint(self:class.TableBuilder)::RetClass(class.Tabl
 	return {::Self()
 		Self=function(vLongHint:class.TableLongHint, vInitDict:OrNil(Dict(class.UAllType, class.UAllType)))::Ret(class.TableLongHint)
 			const nFnCom = assert(self._context:getRegion(), "region must existed when table::Self()"):getFnCom()
-			self._selfTable = nFnCom:regionTableSelf(self._context, self._node)
+			self._selfClassTableCom = nFnCom:regionTableSelf(self._context, self._node)
 			if vInitDict then
 				self._selfInitDict = vInitDict
 			end
@@ -40,7 +40,8 @@ end
 function TableBuilder:build()::Ret(class.LuaTable)
 	const nContext = self._context
 	const nManager = nContext:getTypeManager()
-	const nTableType = self._selfTable or nManager:LuaTable()
+	const nClassTableCom = self._selfClassTableCom
+	const nTableType = nClassTableCom and nClassTableCom:getLuaTable() or nManager:LuaTable()
 	nTableType:setName("("..tostring(self._node)..")")
 	const vList, vDotsStart, vDotsTuple = self._pairMaker()
 	const nTypePairList:List(Struct {class.UAtomUnion, class.UAtomUnion}) = {}
@@ -79,6 +80,8 @@ function TableBuilder:build()::Ret(class.LuaTable)
 	end
 	const nKeyUnion, nTypeDict = nManager:mergePairList(nTypePairList)
 	nTableType:getDefaultCom():initByKeyValue(nKeyUnion, nTypeDict)
+	if nClassTableCom then
+	end
 	return nTableType
 end
 
