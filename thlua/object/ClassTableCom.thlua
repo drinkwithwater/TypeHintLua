@@ -29,7 +29,7 @@ function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable,
 end
 
 function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
-	self._fnCom:checkDefine()
+	self._fnCom:waitBuild()
 	if not self._sealed then
 		self._defaultCom:meta_set(vContext, vKeyType, vValueType)
 		return
@@ -46,7 +46,7 @@ function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
 end
 
 function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
-	self._fnCom:checkDefine()
+	self._fnCom:waitBuild()
 	if not self._sealed then
 		return self._defaultCom:meta_get(vContext, vKeyType)
 	end
@@ -60,23 +60,23 @@ function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
 end
 
 function ClassTableCom:meta_bop_func(vContext, vOper)
-	self._fnCom:checkDefine()
+	self._fnCom:waitBuild()
 	return self._defaultCom:meta_bop_func(vContext, vOper)
 end
 
 function ClassTableCom:native_next(vContext, vInitType)
-	self._fnCom:checkDefine()
+	self._fnCom:waitBuild()
 	return self._defaultCom:native_next(vContext, vInitType)
 end
 
 function ClassTableCom:native_getmetatable(vContext)
-	self._fnCom:checkDefine()
+	self._fnCom:waitBuild()
 	return self._defaultCom:native_getmetatable(vContext)
 end
 
 function ClassTableCom:native_setmetatable(vContext, vMetaTable)
 	-- TODO, can only set once in ClassFn's context
-	self._fnCom:checkDefine()
+	self._fnCom:waitBuild()
 	const nRe = self._defaultCom:native_setmetatable(vContext, vMetaTable)
 	--self:implement(vContext)
 	const nCollection = self._manager:TypeCollection()

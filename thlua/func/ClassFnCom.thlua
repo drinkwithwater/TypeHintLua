@@ -15,6 +15,9 @@ function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFuncti
 		_classTableCom=false@class.ClassTableCom,
 		_once=false@Boolean,
 		_onceHintNew=false@Boolean,
+		_startSid=vManager:genSessionId(),
+		_waitCoToSid={}@Dict(Thread, Integer),
+		_buildFinish=false@Boolean,
 	}, ClassFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
@@ -28,25 +31,37 @@ function ClassFnCom:bind(vContext:class.UContext, vTableCom:class.ClassTableCom)
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 end
 
-function ClassFnCom:waitClassTableBuild()
-	if self._once then
-		return
-	end
-	if coroutine.running() == self._newRefer:getSelfCo() then
-		return
-	end
-	self._newRefer:waitFinish()
-end
-
-function ClassFnCom:checkDefine()
-	if self._once then
-		return
-	end
+function ClassFnCom:runBuild()
+	const co = coroutine.running()
+	self._manager:coWait(co, self._startSid)
+	assert(not self._once)
 	self._once = true
 	local nContext = self._luaFunction:newInplaceOpenContext()
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
 	self._classTableCom:implement(nContext)
+end
+
+function ClassFnCom:wakeupBuild()
+	self._buildFinish=true
+	for co, sid in pairs(self._waitCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
+end
+
+function ClassFnCom:waitBuild()
+	const nSelfCo = self._newRefer:getSelfCo()
+	self._manager:coWakeup(nSelfCo, self._startSid)
+	if not self._buildFinish then
+		const nCurCo = coroutine.running()
+		const nSessionId = self._manager:genSessionId()
+		self._waitCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, nSelfCo)
+	end
+end
+
+function ClassFnCom:checkDefine()
+	self._manager:coWakeup(self._newRefer:getSelfCo(), self._startSid)
 end
 
 function ClassFnCom:meta_call(vContext, vTypeTuple)
