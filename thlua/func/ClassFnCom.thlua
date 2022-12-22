@@ -10,14 +10,12 @@ function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFuncti
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_newRefer=vRefer,
+		_refer=vRefer,
 		_typeFunction=false@class.TypeFunction,
 		_classTableCom=false@class.ClassTableCom,
-		_once=false@Boolean,
-		_onceHintNew=false@Boolean,
+		_onceHintSelf=false@Boolean,
 		_startSid=vManager:genSessionId(),
-		_waitCoToSid={}@Dict(Thread, Integer),
-		_buildFinish=false@Boolean,
+		_started=false@Boolean,
 	}, ClassFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
@@ -34,34 +32,18 @@ end
 function ClassFnCom:runBuild()
 	const co = coroutine.running()
 	self._manager:coWait(co, self._startSid)
-	assert(not self._once)
-	self._once = true
 	local nContext = self._luaFunction:newInplaceOpenContext()
 	local nTypeTuple = self._typeFunction:getArgTuple()
 	self._luaFunction._runFunc(nContext, nTypeTuple:makeTermTuple())
-	self._classTableCom:implement(nContext)
+	self._classTableCom:finishBuild(nContext)
 end
 
-function ClassFnCom:wakeupBuild()
-	self._buildFinish=true
-	for co, sid in pairs(self._waitCoToSid) do
-		self._manager:coWakeup(co, sid)
+function ClassFnCom:startBuild()
+	if not self._started then
+		self._started = true
+		const co = self._classTableCom:getRefer():getSelfCo()
+		self._manager:coWakeup(co, self._startSid)
 	end
-end
-
-function ClassFnCom:waitBuild()
-	const nSelfCo = self._newRefer:getSelfCo()
-	self._manager:coWakeup(nSelfCo, self._startSid)
-	if not self._buildFinish then
-		const nCurCo = coroutine.running()
-		const nSessionId = self._manager:genSessionId()
-		self._waitCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, nSelfCo)
-	end
-end
-
-function ClassFnCom:checkDefine()
-	self._manager:coWakeup(self._newRefer:getSelfCo(), self._startSid)
 end
 
 function ClassFnCom:meta_call(vContext, vTypeTuple)
@@ -70,8 +52,8 @@ function ClassFnCom:meta_call(vContext, vTypeTuple)
 end
 
 function ClassFnCom:regionTableSelf(vContext, vNode)
-	assert(not self._onceHintNew, "New() can only be called once")
-	self._onceHintNew = true
+	assert(not self._onceHintSelf, "Self() can only be used once")
+	self._onceHintSelf = true
 	return self._classTableCom
 end
 

@@ -57,7 +57,9 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	const self = setmetatable({::Self()
 		_runtime=vRuntime,
 		-- type items
-		type={},
+		type={
+			Object=nil @ class.MetaObject,
+		},
 		builtin={},
 		_pairToContain={} @ Dict(Integer, class.Reference),
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
@@ -654,10 +656,10 @@ function TypeManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
 	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
 	if not nWaitingInfo then
 		-- session is cancel
-		-- print("session is cancel when wakeup")
+		print("session is cancel when wakeup")
 		return
 	elseif vWaitSid ~= nWaitingInfo.waitSid then
-		-- print("wait sid not match when wakeup")
+		print("wait sid not match when wakeup")
 		return
 	end
 	self._coToWaitingInfo[vWaitCo] = nil

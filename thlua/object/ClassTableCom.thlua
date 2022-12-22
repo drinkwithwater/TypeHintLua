@@ -10,26 +10,48 @@ const TableComClass = require "thlua.object.TableComClass"
 
 const ClassTableCom = TableComClass()
 
-
 -- TODO vImplType can be struct, class
-function ClassTableCom.new(vManager:class.TypeManager, vLuaTable:class.LuaTable, vFnCom:class.ClassFnCom,
-	vBaseClass:Union(class.LuaTable, False), vInterface:Union(class.MetaObject, False))::RetClass(class.ClassTableCom, class.ITableCom)
+function ClassTableCom.new(vManager:class.TypeManager, vRefer:class.Reference, vLuaTable:class.LuaTable, vFnCom:class.ClassFnCom,
+	vBaseClass:Union(class.LuaTable, False), vInterface:class.MetaObject)::RetClass(class.ClassTableCom, class.ITableCom)
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_luaTable=vLuaTable,
+		_refer=vRefer,
 		_defaultCom=vLuaTable:getDefaultCom(),
 		_valueDict={}@Dict(class.IAtomType, class.UAtomUnion),
 		_keyType=false@class.UAtomUnion,
 		_sealed=false@Boolean,
 		_baseClass=vBaseClass,
-		_interface=(vInterface or vManager.type.Object) @ class.MetaObject,
+		_interface=vInterface,
 		_fnCom=vFnCom,
+		_waitCoToSid={}@Dict(Thread, Integer),
+		_buildReady=false@Boolean,
+		_calledSelf=false@Boolean,
 	}, ClassTableCom)
 	return self
 end
 
+function ClassTableCom:longHintSelf()
+	self._calledSelf = true
+end
+
+function ClassTableCom:waitBuild()
+	self._fnCom:startBuild()
+	const nCurCo = coroutine.running()
+	const nSelfCo = self._refer:getSelfCo()
+	if nCurCo ~= nSelfCo then
+		if not self._buildReady then
+			const nSessionId = self._manager:genSessionId()
+			self._waitCoToSid[nCurCo] = nSessionId
+			self._manager:coWait(nCurCo, nSessionId, nSelfCo)
+		end
+	else
+		assert(self._calledSelf, "build a ClassTable with {Self()} before use it")
+	end
+end
+
 function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
-	self._fnCom:waitBuild()
+	self:waitBuild()
 	if not self._sealed then
 		self._defaultCom:meta_set(vContext, vKeyType, vValueType)
 		return
@@ -46,7 +68,7 @@ function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
 end
 
 function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
-	self._fnCom:waitBuild()
+	self:waitBuild()
 	if not self._sealed then
 		return self._defaultCom:meta_get(vContext, vKeyType)
 	end
@@ -60,23 +82,23 @@ function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
 end
 
 function ClassTableCom:meta_bop_func(vContext, vOper)
-	self._fnCom:waitBuild()
+	self:waitBuild()
 	return self._defaultCom:meta_bop_func(vContext, vOper)
 end
 
 function ClassTableCom:native_next(vContext, vInitType)
-	self._fnCom:waitBuild()
+	self:waitBuild()
 	return self._defaultCom:native_next(vContext, vInitType)
 end
 
 function ClassTableCom:native_getmetatable(vContext)
-	self._fnCom:waitBuild()
+	self:waitBuild()
 	return self._defaultCom:native_getmetatable(vContext)
 end
 
 function ClassTableCom:native_setmetatable(vContext, vMetaTable)
 	-- TODO, can only set once in ClassFn's context
-	self._fnCom:waitBuild()
+	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
 	const nRe = self._defaultCom:native_setmetatable(vContext, vMetaTable)
 	--self:implement(vContext)
 	const nCollection = self._manager:TypeCollection()
@@ -121,6 +143,10 @@ function ClassTableCom:native_setmetatable(vContext, vMetaTable)
 		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.String)
 		nStringFn:specialize(vContext, self._luaTable, nFn)
 	end
+	self._buildReady=true
+	for co, sid in pairs(self._waitCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
 	return nRe
 end
 
@@ -128,7 +154,7 @@ function ClassTableCom:getBase()::Ret(class.MetaObject)
 	return self._interface
 end
 
-function ClassTableCom:implement(vContext:class.Context)
+function ClassTableCom:finishBuild(vContext:class.Context)
 	if self._sealed then
 		vContext:error("class table try seal more than once")
 		return
@@ -148,6 +174,10 @@ end
 
 function ClassTableCom:getLuaTable()::Ret(class.LuaTable)
 	return self._luaTable
+end
+
+function ClassTableCom:getRefer()::Ret(class.Reference)
+	return self._refer
 end
 
 function ClassTableCom:getCompletion()
