@@ -23,10 +23,9 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_keyType=vManager.type.Never @class.UAtomUnion,
-		_valueDict={}@Dict(class.IAtomType, class.UAtomUnion),
+		_fieldDict={}@Dict(class.IAtomType, let.TableField),
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
-		_overrideLiteralSet={} @Dict(class.IAtomType, True),
 		_luaTable=vLuaTable,
 		_metaTable=false@OrFalse(class.LuaTable),
 		__indexType=false@OrFalse(class.UIndexType),
@@ -39,7 +38,13 @@ end
 
 function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Dict(class.IAtomType, class.UAtomUnion))::Ret()
 	self._keyType = vKeyType
-	self._valueDict = vValueDict
+	for k,v in pairs(vValueDict) do
+		self._fieldDict[k] = {
+			rawValueType = v,
+			castValueType = false,
+			kind = "init",
+		}
+	end
 end
 
 function DefaultTableCom:_setMeta(vIndexType:OrFalse(class.UIndexType), vNewIndexType:OrFalse(class.UIndexType), vMetaEventDict:Dict(String, class.IAtomType))
@@ -50,7 +55,7 @@ end
 
 function DefaultTableCom:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
 	self._keyType:foreach(function(vType)
-		vFunc(vType, self._valueDict[vType]!)
+		vFunc(vType, self._fieldDict[vType]!.rawValueType)
 	end)
 end
 
@@ -68,15 +73,16 @@ function DefaultTableCom:_meta_set(vContext:class.Context, vKeyType:class.IAtomT
 	end
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
-		local nCurValueType = self._valueDict[nKeyContainType]!
-		if not nCurValueType:containAll(vValueType) then
-			if vKeyType:isSingleton() and not vKeyType:isNilable() and self._overrideLiteralSet[vKeyType] then
-				self._valueDict[vKeyType] = vValueType
-				if vOverride then
-					self._overrideLiteralSet[vKeyType] = true
+		const nTableField = self._fieldDict[nKeyContainType]!
+		const nFieldType = nTableField.castValueType or nTableField.rawValueType
+		if not nFieldType:containAll(vValueType) then
+			if nTableField.kind == "override" then
+				nTableField.rawValueType = vValueType
+				if not vOverride then
+					nTableField.kind = "final"
 				end
 			else
-				vContext:error("wrong value type when set, value:"..tostring(vValueType).." !<= "..tostring(nCurValueType)..", key:"..tostring(nKeyContainType))
+				vContext:error("wrong value type when set key:"..tostring(nKeyContainType))
 			end
 		end
 		return
@@ -97,7 +103,8 @@ end
 function DefaultTableCom:_pmeta_get(vContext:class.Context, vKeyType:class.IAtomType)::Ret(Boolean, class.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
-		return true, self._valueDict[nKeyContainType]!
+		const nField = self._fieldDict[nKeyContainType]!
+		return true, nField.castValueType or nField.rawValueType
 	end
 	local nIndexType = self.__indexType
 	if not nIndexType then
@@ -143,23 +150,23 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
-			self._valueDict[vKeyType] = vValueType
-			if vOverride then
-				self._overrideLiteralSet[vKeyType] = true
-			end
+			self._fieldDict[vKeyType] = {
+				rawValueType = vValueType,
+				castValueType = false,
+				kind = vOverride and "override" or "final",
+			}
 		else
-			vContext:error("rawset("..tostring(vKeyType)..","..tostring(vValueType)..") error")
+			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
 		end
 	else
-		local nCurValueType = self._valueDict[nContainType]!
-		if not nCurValueType:containAll(vValueType) then
-			if vKeyType:isSingleton() and not vKeyType:isNilable() and self._overrideLiteralSet[vKeyType] then
-				self._valueDict[vKeyType] = vValueType
-				if vOverride then
-					self._overrideLiteralSet[vKeyType] = true
-				end
-			else
-				vContext:error("wrong value type when set, value:"..tostring(vValueType).." !<= "..tostring(nCurValueType)..", key:"..tostring(nContainType))
+		assert(not vOverride, "unexcepted case, rawset take override=true")
+		const nTableField = self._fieldDict[nContainType]!
+		const nFieldType = nTableField.castValueType or nTableField.rawValueType
+		if not nFieldType:containAll(vValueType) then
+			vContext:error("wrong value type when set, key:"..tostring(nContainType))
+		else
+			if nTableField.kind == "override" then
+				nTableField.kind = "final"
 			end
 		end
 	end
@@ -168,7 +175,8 @@ end
 function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
-		return self._valueDict[nKeyContainType]!
+		const nField = self._fieldDict[nKeyContainType]!
+		return nField.castValueType or nField.rawValueType
 	else
 		return self._manager.type.Nil
 	end
@@ -207,15 +215,16 @@ function DefaultTableCom:native_next(vContext, vInitType)
 	local nValueType = self._nextValue
 	if not nNextDict or not nValueType then
 		nNextDict = {}
-		for k,v in pairs(self._valueDict) do
-			nNextDict[k] = v
+		for k,v in pairs(self._fieldDict) do
+			nNextDict[k] = v.castValueType or v.rawValueType
 		end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
-		for nOneKey, nOneValue in pairs(self._valueDict) do
-			nOneValue = nOneValue:checkAtomUnion():notnilType()
-			nNextDict[nOneKey] = nOneValue
-			nCollection:put(nOneValue)
+		for nOneKey, nOneField in pairs(self._fieldDict) do
+			const nValueType = nOneField.castValueType or nOneField.rawValueType
+			const nNotnilType = nValueType:notnilType()
+			nNextDict[nOneKey] = nNotnilType
+			nCollection:put(nNotnilType)
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
@@ -229,8 +238,8 @@ end
 function DefaultTableCom:basingByDefault()
 	if not self._isBasingDefault then
 		self._isBasingDefault = true
-		for k, v in pairs(self._valueDict) do
-			self._manager:basingByDefault(v)
+		for k, v in pairs(self._fieldDict) do
+			self._manager:basingByDefault(v.rawValueType)
 		end
 	end
 end
