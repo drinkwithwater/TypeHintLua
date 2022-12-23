@@ -7,7 +7,14 @@ const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 const TableComClass = require "thlua.object.TableComClass"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.TableField = Struct {
+		rawValueType = class.UAtomUnion,
+		castValueType = OrFalse(class.UAtomUnion),
+		kind = Union("init", "override", "final"),
+	}
+end)
 
 const DefaultTableCom = TableComClass()
 
@@ -87,7 +94,7 @@ function DefaultTableCom:_meta_set(vContext:class.Context, vKeyType:class.IAtomT
 	end
 end
 
-function DefaultTableCom:_meta_get(vContext:class.Context, vKeyType:class.IAtomType)::Ret(Boolean, class.UAtomUnion)
+function DefaultTableCom:_pmeta_get(vContext:class.Context, vKeyType:class.IAtomType)::Ret(Boolean, class.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		return true, self._valueDict[nKeyContainType]!
@@ -98,7 +105,7 @@ function DefaultTableCom:_meta_get(vContext:class.Context, vKeyType:class.IAtomT
 	else
 		if not LuaFunction.is(nIndexType) and not TypeFunction.is(nIndexType) then
 			-- TODO if nIndexType is Function, call it...
-			return nIndexType:getDefaultCom():_meta_get(vContext, vKeyType)
+			return nIndexType:getDefaultCom():_pmeta_get(vContext, vKeyType)
 		else
 			return false, self._manager.type.Nil
 		end
@@ -106,7 +113,7 @@ function DefaultTableCom:_meta_get(vContext:class.Context, vKeyType:class.IAtomT
 end
 
 function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
-	local nOkay, nReType = self:_meta_get(vContext, vKeyType)
+	local nOkay, nReType = self:_pmeta_get(vContext, vKeyType)
 	if not nOkay then
 		vContext:error("index error, key=", tostring(vKeyType))
 	end
@@ -236,6 +243,9 @@ function DefaultTableCom:getCompletion()
 		end
 	end)
 	return nDict
+end
+
+function DefaultTableCom:implInterface(vContext:class.Context, vInterface:class.MetaObject)
 end
 
 function DefaultTableCom:castStruct(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion)::Ret(OrFalse(class.MetaObject))

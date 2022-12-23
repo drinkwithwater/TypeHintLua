@@ -211,7 +211,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	AtHint = hintC.string(symb("@") + symb("@!!"), vvA.SimpleExpr);
 
-	ColonHint = hintC.string(symb(":"), vvA.Expr);
+	ColonHint = hintC.string(symb(":"), vvA.SimpleExpr);
 
 	LongHint = hintC.string(lpeg.P(":"), (symb":" * vv.Name * vv.FuncArgs)^1, symb(";")^-1);
 
