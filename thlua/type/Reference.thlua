@@ -17,6 +17,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_referNodes={}@List(class.IAstNode),
 		id=vManager:genTypeId(),
 		bits=false,
+		_mayRecursive=false@Boolean,
 		_selfCo=nil@Thread,
 		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
@@ -55,8 +56,14 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 		const nListOrRefer = vGetList()
 		if Reference.is(nListOrRefer) then
 			self._typeList = nListOrRefer:getListAwait()
+			self._mayRecursive = nListOrRefer:mayRecursive()
 		else
 			self._typeList = nListOrRefer
+			for k, v in ipairs(nListOrRefer) do
+				if v:mayRecursive() then
+					self._mayRecursive = true
+				end
+			end
 		end
 		for co, sid in pairs(self._waitListCoToSid) do
 			self._manager:coWakeup(co, sid)
@@ -182,6 +189,11 @@ end
 function Reference:containAtom(vRightType)
 	local nType = self:getTypeAwait()
 	return nType:containAtom(vRightType)
+end
+
+function Reference:mayRecursive()
+	self:getListAwait()
+	return self._mayRecursive
 end
 
 function Reference:objectPartType()

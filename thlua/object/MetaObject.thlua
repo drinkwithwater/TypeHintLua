@@ -10,6 +10,7 @@ const MetaObject = AtomTypeClass()
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
+	let.UMemberField = Union(class.UAllType, class.MemberFunction)
 end)
 
 function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, vMoreKey:OrFalse(class.Reference))
@@ -64,7 +65,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		return false
 	end
 	const function isMatchedKeyValue(
-		vLeftKey:class.IAtomType, vLeftValue:Union(class.UAllType, class.MemberFunction),
+		vLeftKey:class.IAtomType, vLeftValue:let.UMemberField,
 		vRightKey:class.IAtomType, vRightValue:class.UAllType)::Ret(Boolean)
 		if MemberFunction.is(vLeftValue) then
 			vLeftValue = vLeftValue:indexTypeFn(self)
@@ -80,8 +81,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		end
 		return true
 	end
-	const function popMatchedKeyValue(nLeftKey:class.IAtomType,
-		nLeftValue:Union(class.UAllType, class.MemberFunction))::Ret(Boolean)
+	const function popMatchedKeyValue(nLeftKey:class.IAtomType, nLeftValue:let.UMemberField)::Ret(Boolean)
 		const nRightBasicKey = nRightBasic:containAtom(nLeftKey)
 		if nRightBasicKey then --  key is basic type
 			const nRightValue = nRightValueDict[nRightBasicKey]
@@ -127,17 +127,13 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		return true
 	end
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
-		if MemberFunction.is(nLeftValue) or not nLeftValue:isReference() then
-			if not popMatchedKeyValue(nLeftKey, nLeftValue) then
-				return false
-			end
+		if not nLeftValue:mayRecursive() and not popMatchedKeyValue(nLeftKey, nLeftValue) then
+			return false
 		end
 	end
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
-		if not MemberFunction.is(nLeftValue) and nLeftValue:isReference() then
-			if not popMatchedKeyValue(nLeftKey, nLeftValue) then
-				return false
-			end
+		if nLeftValue:mayRecursive() and not popMatchedKeyValue(nLeftKey, nLeftValue) then
+			return false
 		end
 	end
 	if next(nRightValueDict) then
@@ -155,15 +151,15 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 		return false
 	end
 	local nRightValueDict = vRightObject:getMemberDict()
-	for nLeftKey, nLeftValue in pairs(self._memberDict) do
-		const nRightKey = nRightBasicKey:containAtom(nLeftKey)
+	const function matchKeyValue(vLeftKey:class.IAtomType, vLeftValue:let.UMemberField)
+		const nRightKey = nRightBasicKey:containAtom(vLeftKey)
 		if not nRightKey then
 			return false
 		end
 		local nRightValue = nRightValueDict[nRightKey]!
-		if MemberFunction.is(nLeftValue) or MemberFunction.is(nRightValue) then
-			if MemberFunction.is(nLeftValue) and MemberFunction.is(nRightValue) then
-				local nLeftTypeFn = nLeftValue:indexTypeFn(self)
+		if MemberFunction.is(vLeftValue) or MemberFunction.is(nRightValue) then
+			if MemberFunction.is(vLeftValue) and MemberFunction.is(nRightValue) then
+				local nLeftTypeFn = vLeftValue:indexTypeFn(self)
 				local nRightTypeFn = nRightValue:indexTypeFn(self)
 				if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
 					return false
@@ -172,9 +168,20 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 				return false
 			end
 		else
-			if not nLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+			if not vLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
 				return false
 			end
+		end
+		return true
+	end
+	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+		if not nLeftValue:mayRecursive() and not matchKeyValue(nLeftKey, nLeftValue) then
+			return false
+		end
+	end
+	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+		if nLeftValue:mayRecursive() and not matchKeyValue(nLeftKey, nLeftValue) then
+			return false
 		end
 	end
 	return true
@@ -416,6 +423,10 @@ end
 
 function MetaObject:objectPartType()
 	return self
+end
+
+function MetaObject:mayRecursive()
+	return true
 end
 
 function MetaObject:getCompletion()::Ret(class.LspCompletion)
