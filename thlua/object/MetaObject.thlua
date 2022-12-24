@@ -57,15 +57,20 @@ function MetaObject:intersectAtom(vRightType)
 	end
 end
 
-function MetaObject:_everyMemberLateRecursive(vFunc:Fn(class.IAtomType, let.UMemberField):Ret(Boolean))::Ret(Boolean)
+function MetaObject:_everyKeyValueLateRecursive(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType):Ret(Boolean))::Ret(Boolean)
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
 		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue) then
 			return false
 		end
 	end
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
-		if nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue) then
-			return false
+		if nLeftValue:mayRecursive() then
+			if MemberFunction.is(nLeftValue) then
+				nLeftValue = nLeftValue:indexTypeFn(vRightObject)
+			end
+			if not vFunc(nLeftKey, nLeftValue) then
+				return false
+			end
 		end
 	end
 	return true
@@ -79,11 +84,8 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		return false
 	end
 	const function isMatchedKeyValue(
-		vLeftKey:class.IAtomType, vLeftValue:let.UMemberField,
+		vLeftKey:class.IAtomType, vLeftValue:class.UAllType,
 		vRightKey:class.IAtomType, vRightValue:class.UAllType)::Ret(Boolean)
-		if MemberFunction.is(vLeftValue) then
-			vLeftValue = vLeftValue:indexTypeFn(self)
-		end
 		if not vRightValue:assumeContainAll(vAssumeSet, vLeftValue) then
 			return false
 		end
@@ -95,7 +97,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		end
 		return true
 	end
-	if not self:_everyMemberLateRecursive(function(nLeftKey, nLeftValue)
+	if not self:_everyKeyValueLateRecursive(vRightObject, function(nLeftKey, nLeftValue)
 		const nRightBasicKey = nRightBasic:containAtom(nLeftKey)
 		if nRightBasicKey then --  key is basic type
 			const nRightValue = nRightValueDict[nRightBasicKey]
@@ -157,20 +159,15 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 		return false
 	end
 	const nRightValueDict = vRightObject:getMemberDict()
-	return self:_everyMemberLateRecursive(function(vLeftKey, vLeftValue)
+	return self:_everyKeyValueLateRecursive(vRightObject, function(vLeftKey, vLeftValue)
 		const nRightKey = nRightBasicKey:containAtom(vLeftKey)
 		if not nRightKey then
 			return false
 		end
 		local nRightValue = nRightValueDict[nRightKey]!
-		if MemberFunction.is(vLeftValue) or MemberFunction.is(nRightValue) then
-			if MemberFunction.is(vLeftValue) and MemberFunction.is(nRightValue) then
-				local nLeftTypeFn = vLeftValue:indexTypeFn(self)
-				local nRightTypeFn = nRightValue:indexTypeFn(self)
-				if not nLeftTypeFn:assumeContainAtom(vAssumeSet, nRightTypeFn) then
-					return false
-				end
-			else
+		if MemberFunction.is(nRightValue) then
+			const nRightTypeFn = nRightValue:indexTypeFn(vRightObject)
+			if not vLeftValue:assumeContainAtom(vAssumeSet, nRightTypeFn) then
 				return false
 			end
 		else
@@ -387,7 +384,7 @@ function MetaObject:canIntersect(vRightObject:class.MetaObject)::Ret(Boolean)
 	if self:isInterface() and vRightObject:isInterface() then
 		const nRightValueDict = vRightObject:getMemberDict()
 		const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
-		self:_everyMemberLateRecursive(function(vLeftKey, vLeftValue)
+		self:_everyKeyValueLateRecursive(vRightObject, function(vLeftKey, vLeftValue)
 			const nRightKey = nRightBasic:containAtom(vLeftKey)
 			if not nRightKey then
 				return true
