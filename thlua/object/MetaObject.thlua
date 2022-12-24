@@ -200,15 +200,15 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 		return self
 	end
 	const nMgr = self._manager
-	const nPair, nContainRefer = nMgr:attachObjPairContain(self, nRightStruct)
 	if not vAssumeSet then
+		const nPair, nContainRefer = nMgr:attachObjPairContain(self, nRightStruct)
 		local nResultType = nContainRefer:getTypeAwait()
 		return nResultType == nMgr.type.True and self
-	else
-		local nResultType = nContainRefer:getResultType()
-		if nResultType then
-			return nResultType == nMgr.type.True and self
-		end
+	end
+	const nPair, nContainRefer = nMgr:getTypePairContain(self, nRightStruct)
+	const nResultType = nContainRefer and nContainRefer:getResultType()
+	if nResultType then
+		return nResultType == nMgr.type.True and self
 	end
 	const nAssumeResult = vAssumeSet[nPair]
 	if nAssumeResult ~= nil then
@@ -217,7 +217,6 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 	vAssumeSet[nPair] = true
 	local nAssumeContain = self:assumeContainObject(vAssumeSet, nRightStruct)
 	if not nAssumeContain then
-		-- nContainRefer:setStopWithFalse()
 		vAssumeSet[nPair] = false
 		return false
 	else

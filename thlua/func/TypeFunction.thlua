@@ -114,15 +114,15 @@ function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
 		return false
 	end
 	const nMgr = self._manager
-	const nPair, nContainRefer = nMgr:attachFnPairContain(self, vRight)
 	if not vAssumeSet then
+		const nPair, nContainRefer = nMgr:attachFnPairContain(self, vRight)
 		local nResultType = nContainRefer:getTypeAwait()
 		return nResultType == nMgr.type.True and self
-	else
-		local nResultType = nContainRefer:getResultType()
-		if nResultType then
-			return nResultType == nMgr.type.True and self
-		end
+	end
+	const nPair, nContainRefer = nMgr:getTypePairContain(self, vRight)
+	const nResultType = nContainRefer and nContainRefer:getResultType()
+	if nResultType then
+		return nResultType == nMgr.type.True and self
 	end
 	const nAssumeResult = vAssumeSet[nPair]
 	if nAssumeResult ~= nil then

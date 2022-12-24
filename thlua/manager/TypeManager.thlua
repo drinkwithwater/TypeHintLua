@@ -68,7 +68,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		-- coroutine items
 		_coStop=CoroutineInterrupt(),
 		_coToRefer={} @ Dict(Thread, class.Reference),
-		_coToScheduleParam={}@Dict(Thread, Union(True, False, Fn())),
+		_coToScheduleParam={}@Dict(Thread, Union(True, Fn())),
 		_coToWaitingInfo={}@Dict(Thread, WaitingInfo),
 		_sessionIdCounter=0@Integer,
 		_selfCo=coroutine.running(),
@@ -669,17 +669,6 @@ function TypeManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
 	end
 end
 
-function TypeManager:coKill(vWaitCo:Thread)
-	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
-	if nWaitingInfo then
-		self._coToWaitingInfo[vWaitCo] = nil
-		self._coToScheduleParam[vWaitCo] = false
-	else
-		-- session is canceled
-		print("error...session is cancel")
-	end
-end
-
 function TypeManager:coStart(vCo:Thread, vFunc:Fn())
 	self._coToScheduleParam[vCo] = vFunc
 	if coroutine.running() == self._selfCo then
@@ -693,7 +682,7 @@ function TypeManager:_schedule()
 		if not next(nCoToParam) then
 			break
 		else
-			self._coToScheduleParam = {}@Dict(Thread, Union(True, False, Fn()))
+			self._coToScheduleParam = {}@Dict(Thread, Union(True, Fn()))
 			for co, param in pairs(nCoToParam) do
 				assert(coroutine.resume(co, param))
 			end
@@ -702,8 +691,12 @@ function TypeManager:_schedule()
 end
 
 function TypeManager:setPairContainFalse(vPair:Integer)
-	const nRefer = self._pairToContain[vPair]
-	if nRefer then
+	if not self._pairToContain[vPair] then
+		const nRefer = self:Reference(false)
+		nRefer:setRawAsync(self._runtime:getNode(), function()
+			return {self.type.False}
+		end)
+		self._pairToContain[vPair] = nRefer
 	end
 end
 
@@ -713,6 +706,11 @@ function TypeManager:makePair(vLeft:class.UAllType, vRight:class.UAllType)::Ret(
 	return (nLeftId << 32) + nRightId
 end
 
+function TypeManager:getTypePairContain(vLeft:class.UAllType, vRight:class.UAllType)::Ret(Integer, OrNil(class.Reference))
+	const nPair = self:makePair(vLeft, vRight)
+	return nPair, self._pairToContain[nPair]
+end
+
 function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, class.Reference)
 	const nPair = self:makePair(vLeft, vRight)
 	local nContainRefer = self._pairToContain[nPair]
@@ -720,7 +718,7 @@ function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.M
 		nContainRefer = self:Reference(false)
 		self._pairToContain[nPair] = nContainRefer
 		nContainRefer:setRawAsync(self._runtime:getNode(), function()
-			local nContain = vLeft:assumeContainObject({[nPair]=true}, vRight)
+			const nContain = vLeft:assumeContainObject({[nPair]=true}, vRight)
 			return {nContain and self.type.True or self.type.False}
 		end)
 	end
@@ -734,7 +732,7 @@ function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.
 		nContainRefer = self:Reference(false)
 		self._pairToContain[nPair] = nContainRefer
 		nContainRefer:setRawAsync(self._runtime:getNode(), function()
-			local nContain = vLeft:assumeContainFn({[nPair]=true}, vRight)
+			const nContain = vLeft:assumeContainFn({[nPair]=true}, vRight)
 			return {nContain and self.type.True or self.type.False}
 		end)
 	end
