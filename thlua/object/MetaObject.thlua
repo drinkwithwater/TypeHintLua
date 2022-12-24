@@ -56,7 +56,7 @@ function MetaObject:intersectAtom(vRightType)
 	end
 end
 
-function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	const nRightValueDict = vRightObject:copyValueDict()
 	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
 	assert(nRightMoreRefer, "only struct & struct can call this function")
@@ -146,7 +146,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, True), vRight
 	return true
 end
 
-function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	if vRightObject._intersectSet[self] then
 		return true
 	end
@@ -180,7 +180,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, True), 
 	return true
 end
 
-function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, True), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	local nAssumeContain:Boolean = false
 	if self:isInterface() then
 		return self:_interfaceContainWithAssume(vAssumeSet, vRightObject)
@@ -210,14 +210,15 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 			return nResultType == nMgr.type.True and self
 		end
 	end
-	if vAssumeSet[nPair] then
-		return self
+	const nAssumeResult = vAssumeSet[nPair]
+	if nAssumeResult ~= nil then
+		return nAssumeResult and self
 	end
 	vAssumeSet[nPair] = true
 	local nAssumeContain = self:assumeContainObject(vAssumeSet, nRightStruct)
 	if not nAssumeContain then
 		-- nContainRefer:setStopWithFalse()
-		vAssumeSet[nPair] = nil
+		vAssumeSet[nPair] = false
 		return false
 	else
 		return self

@@ -40,7 +40,7 @@ class.IType = Interface ({
 	intersectAtom=Mfn(class.IAtomType):Ret(OrFalse(class.UAtomUnion)),
 
 	containAll=Mfn(class.UAllType):Ret(Boolean),
-	assumeContainAll=Mfn(OrNil(Dict(Integer, True)), class.UAllType):Ret(Boolean),
+	assumeContainAll=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
 	containAtom=Mfn(class.IAtomType):Ret(OrFalse(class.IAtomType)),
 
 	notnilType=Mfn():Ret(class.UAtomUnion),
@@ -56,7 +56,7 @@ class.IType = Interface ({
 })
 
 class.IAtomContainAssume = Interface {
-	assumeContainAtom=Mfn(OrNil(Dict(Integer, True)), class.IAtomType):Ret(OrFalse(class.IAtomType)),
+	assumeContainAtom=Mfn(OrNil(Dict(Integer, Boolean)), class.IAtomType):Ret(OrFalse(class.IAtomType)),
 }
 
 class.IMetaCall = Interface {
@@ -145,13 +145,49 @@ const function TypeClass()::open()
 		error(tostring(self).."containAtom TODO")
 	end
 	function t:assumeContainAll?(vAssumeSet, vRight)
-		local nContain:Boolean = true
-		vRight:foreachAwait(function(vSubType)
-			if nContain and not self:assumeContainAtom(vAssumeSet, vSubType) then
-				nContain = false
+		const nPair = self._manager:makePair(self, vRight)
+		if vAssumeSet then
+			const nAssumeResult = vAssumeSet[nPair]
+			if nAssumeResult ~= nil then
+				return nAssumeResult
+			else
+				vAssumeSet[nPair] = true
 			end
-		end)
-		return nContain
+		end
+		local nAllContain:Boolean = true
+		if self:isReference() then
+			const nResultType = self:getResultType()
+			if nResultType then
+				nAllContain = nResultType:assumeContainAll(vAssumeSet, vRight)
+			else
+				const nTypeList = self:getListAwait()
+				vRight:foreachAwait(function(vAtomType)
+					if not nAllContain then
+						return
+					end
+					local nCurContain:Boolean = false
+					for _, nType in ipairs(nTypeList) do
+						if nType:assumeContainAtom(vAssumeSet, vAtomType) then
+							nCurContain = true
+							break
+						end
+					end
+					if not nCurContain then
+						nAllContain = false
+					end
+				end)
+			end
+		else
+			vRight:foreachAwait(function(vSubType)
+				if nAllContain and not self:assumeContainAtom(vAssumeSet, vSubType) then
+					nAllContain = false
+				end
+			end)
+		end
+		if not nAllContain and vAssumeSet then
+			vAssumeSet[nPair] = false
+		end
+		return nAllContain
 	end
 	function t:containAll(vRight)
 		return self:assumeContainAll(nil, vRight)

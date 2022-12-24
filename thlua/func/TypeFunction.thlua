@@ -94,7 +94,7 @@ function TypeFunction:intersectAtom(vType)
 	end
 end
 
-function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, True), vRight:class.TypeFunction)::Ret(Boolean)
+function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:class.TypeFunction)::Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
 	if not vRight:getArgTuple():tupleContainAssume(vAssumeSet, self._argTuple) then
@@ -124,14 +124,14 @@ function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
 			return nResultType == nMgr.type.True and self
 		end
 	end
-	if vAssumeSet[nPair] then
-		return self
+	const nAssumeResult = vAssumeSet[nPair]
+	if nAssumeResult ~= nil then
+		return nAssumeResult and self
 	end
 	vAssumeSet[nPair] = true
 	local nAssumeContain = self:assumeContainFn(vAssumeSet, vRight)
 	if not nAssumeContain then
-		-- nContainRefer:setStopWithFalse()
-		vAssumeSet[nPair] = nil
+		vAssumeSet[nPair] = false
 		return false
 	else
 		return self

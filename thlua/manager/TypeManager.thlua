@@ -701,8 +701,20 @@ function TypeManager:_schedule()
 	end
 end
 
+function TypeManager:setPairContainFalse(vPair:Integer)
+	const nRefer = self._pairToContain[vPair]
+	if nRefer then
+	end
+end
+
+function TypeManager:makePair(vLeft:class.UAllType, vRight:class.UAllType)::Ret(Integer)
+	local nLeftId, nRightId = vLeft.id, vRight.id
+	assert(nLeftId ~= 0 and nRightId ~=0, "use id ==0")
+	return (nLeftId << 32) + nRightId
+end
+
 function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, class.Reference)
-	local nPair = (vLeft.id << 32) + vRight.id
+	const nPair = self:makePair(vLeft, vRight)
 	local nContainRefer = self._pairToContain[nPair]
 	if not nContainRefer then
 		nContainRefer = self:Reference(false)
@@ -716,7 +728,7 @@ function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.M
 end
 
 function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.TypeFunction)::Ret(Integer, class.Reference)
-	local nPair = (vLeft.id << 32) + vRight.id
+	local nPair = self:makePair(vLeft, vRight)
 	local nContainRefer = self._pairToContain[nPair]
 	if not nContainRefer then
 		nContainRefer = self:Reference(false)
