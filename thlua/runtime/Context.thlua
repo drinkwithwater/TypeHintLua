@@ -166,7 +166,7 @@ function Context:TUPLE_UNPACK(vNode:class.IAstNode, vTuple:class.TermTuple, vNum
 end
 
 -- meta items
-function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil)::Ret(class.RefineTerm)
+function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil:Boolean)::Ret(class.RefineTerm)
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList:List(class.TypeCasePair) = {}
 	local nOkay = self:nodePcall(vNode, function()
@@ -312,7 +312,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
 			const nNewArgTuple = self:TermTuple({self:RefineTerm(vType)}, vArgTuple)
-			const nFuncType = vType:meta_get(nGetContext, self:Literal(vName))
+			const nFuncType = vType:meta_get_invoke(nGetContext, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")

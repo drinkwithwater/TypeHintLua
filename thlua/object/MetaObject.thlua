@@ -279,6 +279,14 @@ function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(OrFalse(class.IA
 end
 
 function MetaObject:meta_get(vContext, vType)
+	return self:_meta_get(vContext, vType, false)
+end
+
+function MetaObject:meta_get_invoke(vContext, vType)
+	return self:_meta_get(vContext, vType, true)
+end
+
+function MetaObject:_meta_get(vContext:class.Context, vType:class.IAtomType, vIsInvoke:Boolean)::Ret(class.UAtomUnion)
 	const nKey = self:_keyContainAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
@@ -287,6 +295,9 @@ function MetaObject:meta_get(vContext, vType)
 		local nGetValue = self._memberDict[nKey]
 		if nGetValue then
 			if MemberFunction.is(nGetValue) then
+				if not vIsInvoke then
+					vContext:warn("index a member function but using as invoke")
+				end
 				return nGetValue:indexTypeFn(self)
 			else
 				return nGetValue:checkAtomUnion()
