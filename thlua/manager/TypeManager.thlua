@@ -690,42 +690,64 @@ function TypeManager:_schedule()
 	end
 end
 
-function TypeManager:setPairContainFalse(vPair:Integer)
-	if not self._pairToContain[vPair] then
-		const nRefer = self:Reference(false)
-		nRefer:setRawAsync(self._runtime:getNode(), function()
-			return {self.type.False}
-		end)
-		self._pairToContain[vPair] = nRefer
-	end
-end
-
 function TypeManager:makePair(vLeft:class.UAllType, vRight:class.UAllType)::Ret(Integer)
-	local nLeftId, nRightId = vLeft.id, vRight.id
+	const nLeftId, nRightId = vLeft.id, vRight.id
 	assert(nLeftId ~= 0 and nRightId ~=0, "use id ==0")
 	return (nLeftId << 32) + nRightId
 end
 
-function TypeManager:getTypePairContain(vLeft:class.UAllType, vRight:class.UAllType)::Ret(Integer, OrNil(class.Reference))
-	const nPair = self:makePair(vLeft, vRight)
-	return nPair, self._pairToContain[nPair]
+function TypeManager:_makeFixPair(vLeft:class.UAllType, vRight:class.UAllType)::Ret(Boolean, Integer, Integer)
+	const nLeftId, nRightId = vLeft.id, vRight.id
+	if nLeftId < nRightId then
+		return false, (nLeftId << 32) + nRightId, (nRightId << 32) + nLeftId
+	else
+		return true, (nRightId << 32) + nLeftId, (nLeftId << 32) + nRightId
+	end
 end
 
-function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject)::Ret(Integer, class.Reference)
+function TypeManager:getTypePairContain(vLeft:class.UAllType, vRight:class.UAllType)::Ret(OrNil(class.Reference))
 	const nPair = self:makePair(vLeft, vRight)
-	local nContainRefer = self._pairToContain[nPair]
-	if not nContainRefer then
+	return self._pairToContain[nPair]
+end
+
+function TypeManager:attachObjPairContain(vLeft:class.MetaObject, vRight:class.MetaObject, vCreate:Boolean)::Ret(OrNil(class.RelationEnum))
+	const nInverse, nLRPair, nRLPair = self:_makeFixPair(vLeft, vRight)
+	if nInverse then
+		vRight, vLeft = vLeft, vRight
+	end
+	local nContainRefer = self._pairToContain[nLRPair]
+	if not nContainRefer and vCreate then
 		nContainRefer = self:Reference(false)
-		self._pairToContain[nPair] = nContainRefer
+		self._pairToContain[nLRPair] = nContainRefer
 		nContainRefer:setRawAsync(self._runtime:getNode(), function()
-			const nContain = vLeft:assumeContainObject({[nPair]=true}, vRight)
-			return {nContain and self.type.True or self.type.False}
+			const nLRContain = vLeft:assumeContainObject({[nLRPair]=true}, vRight)
+			const nRLContain = vRight:assumeContainObject({[nRLPair]=true}, vLeft)
+			if nLRContain and nRLContain then
+				return {self:Literal("==")}
+			elseif nLRContain then
+				return {self:Literal(">")}
+			elseif nRLContain then
+				return {self:Literal("<")}
+			else
+				return {self:Literal("~=")}
+			end
+			-- return {nContain and self.type.True or self.type.False}
 		end)
 	end
-	return nPair, nContainRefer
+	if nContainRefer then
+		const nResult = (nContainRefer:getTypeAwait()) @!! class.StringLiteral
+		const nRelation = (nResult:getLiteral()) @!! class.RelationEnum
+		if nInverse and nRelation == ">" then
+			return "<"
+		else
+			return nRelation
+		end
+	else
+		return nil
+	end
 end
 
-function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.TypeFunction)::Ret(Integer, class.Reference)
+function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.TypeFunction)::Ret(class.Reference)
 	local nPair = self:makePair(vLeft, vRight)
 	local nContainRefer = self._pairToContain[nPair]
 	if not nContainRefer then
@@ -736,7 +758,7 @@ function TypeManager:attachFnPairContain(vLeft:class.TypeFunction, vRight:class.
 			return {nContain and self.type.True or self.type.False}
 		end)
 	end
-	return nPair, nContainRefer
+	return nContainRefer
 end
 
 function TypeManager:getRuntime()::Ret(class.Runtime)

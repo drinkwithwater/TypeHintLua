@@ -52,6 +52,8 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 		return self
 	elseif self:assumeContainAtom(nil, vRightType) then
 		return vRightType
+	elseif vRightType:assumeContainAtom(nil, self) then
+		return self
 	else
 		return false
 	end
@@ -204,16 +206,17 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 		return self
 	end
 	const nMgr = self._manager
-	if not vAssumeSet then
-		const nPair, nContainRefer = nMgr:attachObjPairContain(self, nRightStruct)
-		local nResultType = nContainRefer:getTypeAwait()
-		return nResultType == nMgr.type.True and self
+	const nRelation = nMgr:attachObjPairContain(self, nRightStruct, not vAssumeSet)
+	if nRelation then
+		if nRelation == ">" or nRelation == "==" then
+			return self
+		else
+			return false
+		end
+	else
+		assert(vAssumeSet, "assume set must be existed here")
 	end
-	const nPair, nContainRefer = nMgr:getTypePairContain(self, nRightStruct)
-	const nResultType = nContainRefer and nContainRefer:getResultType()
-	if nResultType then
-		return nResultType == nMgr.type.True and self
-	end
+	const nPair = self._manager:makePair(self, nRightStruct)
 	const nAssumeResult = vAssumeSet[nPair]
 	if nAssumeResult ~= nil then
 		return nAssumeResult and self
