@@ -37,8 +37,9 @@ class.IType = Interface ({
 	unionSign=Mfn():Ret(String),
 
 	detailString=Mfn(Dict(class.IAtomType, String), Boolean):Ret(String),
+
+	assumeIntersectAny=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
 	intersectAtom=Mfn(class.IAtomType):Ret(OrFalse(class.UAtomUnion)),
-	intersect=Mfn(class.UAllType):Ret(class.UAtomUnion),
 
 	containAll=Mfn(class.UAllType):Ret(Boolean),
 	assumeContainAll=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
@@ -58,8 +59,9 @@ class.IType = Interface ({
 	__band=Fn(class.UAllType, class.UAllType):Ret(class.UAtomUnion),
 })
 
-class.IAtomContainAssume = Interface {
+class.IAssumeRelationBase = Interface {
 	assumeContainAtom=Mfn(OrNil(Dict(Integer, Boolean)), class.IAtomType):Ret(OrFalse(class.IAtomType)),
+	assumeIntersectAtom=Mfn(OrNil(Dict(Integer, Boolean)), class.IAtomType):Ret(Union(Boolean, class.UAtomUnion)),
 }
 
 class.IMetaCall = Interface {
@@ -86,7 +88,7 @@ class.IMetaNative = Interface {
 	checkBaseObjectType=Mfn():Ret(OrFalse(class.MetaObject)),
 }
 
-class.IAtomType = Intersect(class.IType, class.IAtomContainAssume, class.IMetaCall, class.IMetaNative, Interface {
+class.IAtomType = Intersect(class.IType, class.IAssumeRelationBase, class.IMetaCall, class.IMetaNative, Interface {
 	_manager=class.TypeManager,
 	isReference=Mfn():Ret(False),
 	addNamedReference=Mfn(class.Reference, String),
@@ -103,7 +105,7 @@ class.IAtomType = Intersect(class.IType, class.IAtomContainAssume, class.IMetaCa
 	native_type=Mfn():Ret(class.UAtomUnion),
 })
 
-class.IUnionType = Intersect(class.IType, class.IAtomContainAssume, Interface {
+class.IUnionType = Intersect(class.IType, class.IAssumeRelationBase, Interface {
 	_manager=class.TypeManager,
 	isReference=Mfn():Ret(False),
 	checkAtomUnion=Mfn():Ret(class.IUnionType),
@@ -141,13 +143,28 @@ const function TypeClass()::open()
 		return false
 	end
 	function t:intersectAtom?(vRight)
-		error(tostring(self).."intersectAtom TODO")
+		const re = self:assumeIntersectAtom(nil, vRight)
+		if re == true then
+			error("implict create intersect type")
+		else
+			return re
+		end
 	end
 	function t:containAtom?(vRight)
 		return self:assumeContainAtom(nil, vRight)
 	end
 	function t:assumeContainAtom?(vAssumeSet, vRight)
 		error(tostring(self).."containAtom TODO")
+	end
+	function t:assumeIntersectAtom?(vAssumeSet, vRight)
+		error(tostring(self).."intersectAtom TODO")
+	end
+	function t:assumeIntersectAny(vAssumeSet, vRight)
+		self:foreachAwait(function(vLeftAtomType)
+			vRight:foreachAwait(function(vRightAtomType)
+			end)
+		end)
+		return false
 	end
 	function t:assumeContainAll?(vAssumeSet, vRight)
 		local nAllContain:Boolean = true
@@ -185,8 +202,7 @@ const function TypeClass()::open()
 	function t:containAll(vRight)
 		return self:assumeContainAll(nil, vRight)
 	end
-	function t:intersect(vRight)
-		local vLeft:class.UAllType = self
+	function t.__band(vLeft, vRight)
 		if vLeft:isReference() then
 			vLeft = vLeft:checkAtomUnion()
 		end
@@ -206,9 +222,6 @@ const function TypeClass()::open()
 			end)
 			return nCollection:mergeToAtomUnion()
 		end
-	end
-	function t.__band(vLeft, vRight)
-		return vLeft:intersect(vRight)
 	end
 	function t:isUnion?()
 		return false
