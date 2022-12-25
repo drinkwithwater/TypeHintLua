@@ -38,6 +38,7 @@ class.IType = Interface ({
 
 	detailString=Mfn(Dict(class.IAtomType, String), Boolean):Ret(String),
 
+	intersectAny=Mfn(class.UAllType):Ret(Boolean),
 	assumeIntersectAny=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
 	intersectAtom=Mfn(class.IAtomType):Ret(OrFalse(class.UAtomUnion)),
 
@@ -159,45 +160,26 @@ const function TypeClass()::open()
 	function t:assumeIntersectAtom?(vAssumeSet, vRight)
 		error(tostring(self).."intersectAtom TODO")
 	end
-	function t:assumeIntersectAny(vAssumeSet, vRight)
-		self:foreachAwait(function(vLeftAtomType)
-			vRight:foreachAwait(function(vRightAtomType)
-			end)
+	function t:assumeIntersectAny?(vAssumeSet, vRight)
+		local nAnyIntersect:Boolean = false
+		vRight:foreachAwait(function(vSubType)
+			if not nAnyIntersect and self:assumeIntersectAtom(vAssumeSet, vSubType) then
+				nAnyIntersect = true
+			end
 		end)
-		return false
+		return nAnyIntersect
 	end
 	function t:assumeContainAll?(vAssumeSet, vRight)
 		local nAllContain:Boolean = true
-		if self:isReference() then
-			const nResultType = self:getResultType()
-			if nResultType then
-				nAllContain = nResultType:assumeContainAll(vAssumeSet, vRight)
-			else
-				const nTypeList = self:getListAwait()
-				vRight:foreachAwait(function(vAtomType)
-					if not nAllContain then
-						return
-					end
-					local nCurContain:Boolean = false
-					for _, nType in ipairs(nTypeList) do
-						if nType:assumeContainAtom(vAssumeSet, vAtomType) then
-							nCurContain = true
-							break
-						end
-					end
-					if not nCurContain then
-						nAllContain = false
-					end
-				end)
+		vRight:foreachAwait(function(vSubType)
+			if nAllContain and not self:assumeContainAtom(vAssumeSet, vSubType) then
+				nAllContain = false
 			end
-		else
-			vRight:foreachAwait(function(vSubType)
-				if nAllContain and not self:assumeContainAtom(vAssumeSet, vSubType) then
-					nAllContain = false
-				end
-			end)
-		end
+		end)
 		return nAllContain
+	end
+	function t:intersectAny(vRight)
+		return self:assumeIntersectAny(nil, vRight)
 	end
 	function t:containAll(vRight)
 		return self:assumeContainAll(nil, vRight)

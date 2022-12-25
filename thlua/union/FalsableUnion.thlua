@@ -21,11 +21,11 @@ function FalsableUnion.new(vTypeManager:class.TypeManager, vTruableType:class.UA
 		id=0@Integer,
 	}, FalsableUnion)
     if self._trueType == vTypeManager.type.Never then
-        self._falseType = self
+			self._falseType = self
     elseif self._nil and self._false then
-        self._falseType = vTypeManager:checkedUnion(nNil, nFalse)
+			self._falseType = vTypeManager:checkedUnion(nNil, nFalse)
     else
-        self._falseType = self._nil or self._false
+			self._falseType = self._nil or self._false
     end
 	if self._false then
 		if not self._nil then
@@ -58,7 +58,12 @@ end
 
 function FalsableUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
-		return self:trueType()
+		const nTrueType = self._trueType
+		if nTrueType == self._manager.type.Never then
+			return false
+		else
+			return nTrueType
+		end
 	else
 		const nTrueIntersect = self._trueType:assumeIntersectAtom(vAssumeSet, vType)
 		if nTrueIntersect then

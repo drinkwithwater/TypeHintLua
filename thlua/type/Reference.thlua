@@ -192,6 +192,58 @@ function Reference:containAtom(vRightType)
 	return nType:containAtom(vRightType)
 end
 
+function Reference:assumeIntersectAny(vAssumeSet, vRight)
+	const nResultType = self:getResultType()
+	if nResultType then
+		return nResultType:assumeIntersectAny(vAssumeSet, vRight)
+	else
+		local nAnyIntersect:Boolean = false
+		const nTypeList = self:getListAwait()
+		vRight:foreachAwait(function(vAtomType)
+			if nAnyIntersect then
+				return
+			end
+			local nCurIntersect:Boolean = false
+			for _, nType in ipairs(nTypeList) do
+				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
+					nCurIntersect = true
+					break
+				end
+			end
+			if nCurIntersect then
+				nAnyIntersect = true
+			end
+		end)
+		return nAnyIntersect
+	end
+end
+
+function Reference:assumeContainAll(vAssumeSet, vRight)
+	const nResultType = self:getResultType()
+	if nResultType then
+		return nResultType:assumeContainAll(vAssumeSet, vRight)
+	else
+		local nAllContain:Boolean = true
+		const nTypeList = self:getListAwait()
+		vRight:foreachAwait(function(vAtomType)
+			if not nAllContain then
+				return
+			end
+			local nCurContain:Boolean = false
+			for _, nType in ipairs(nTypeList) do
+				if nType:assumeContainAtom(vAssumeSet, vAtomType) then
+					nCurContain = true
+					break
+				end
+			end
+			if not nCurContain then
+				nAllContain = false
+			end
+		end)
+		return nAllContain
+	end
+end
+
 function Reference:mayRecursive()
 	self:getListAwait()
 	return self._mayRecursive
