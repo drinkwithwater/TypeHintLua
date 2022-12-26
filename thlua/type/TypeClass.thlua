@@ -42,7 +42,6 @@ class.IType = Interface ({
 
 	intersectAny=Mfn(class.UAllType):Ret(Boolean),
 	assumeIntersectAny=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
-	intersectAtom=Mfn(class.IAtomType):Ret(OrFalse(class.UAtomUnion)),
 
 	containAll=Mfn(class.UAllType):Ret(Boolean),
 	assumeContainAll=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
@@ -145,14 +144,6 @@ const function TypeClass()::open()
 	function t:isNilable?()
 		return false
 	end
-	function t:intersectAtom?(vRight)
-		const re = self:assumeIntersectAtom(nil, vRight)
-		if re == true then
-			error("implict create intersect type")
-		else
-			return re
-		end
-	end
 	function t:containAtom?(vRight)
 		return self:assumeContainAtom(nil, vRight)
 	end
@@ -194,14 +185,22 @@ const function TypeClass()::open()
 			vRight = vRight:checkAtomUnion()
 		end
 		if not vRight:isUnion() then
-			const sth = vLeft:intersectAtom(vRight)
-			return sth or vLeft._manager.type.Never
+			const nIntersect = vLeft:assumeIntersectAtom(nil, vRight)
+			if nIntersect == true then
+				error("implict create intersect")
+			else
+				return nIntersect or vLeft._manager.type.Never
+			end
 		else
 			const nCollection = vLeft._manager:TypeCollection()
 			vRight:foreach(function(vSubType)
-				local nIntersect = vLeft:intersectAtom(vSubType)
+				local nIntersect = vLeft:assumeIntersectAtom(nil, vSubType)
 				if nIntersect then
-					nCollection:put(nIntersect)
+					if nIntersect == true then
+						error("implict create intersect")
+					else
+						nCollection:put(nIntersect)
+					end
 				end
 			end)
 			return nCollection:mergeToAtomUnion()
