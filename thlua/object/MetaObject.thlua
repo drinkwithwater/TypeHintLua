@@ -211,7 +211,7 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 	if not nRightStruct then
 		return false
 	end
-	if self == vRightType then
+	if self == nRightStruct then
 		return self
 	end
 	const nMgr = self._manager
@@ -241,7 +241,7 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 end
 
 function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
-	--if (not (MetaObject.is(vRightType) and vRightType:isInterface())) or (not self:isInterface()) then
+	if (not (MetaObject.is(vRightType) and vRightType:isInterface())) or (not self:isInterface()) then
 		if self == vRightType then
 			return self
 		elseif self:assumeContainAtom(nil, vRightType) then
@@ -251,14 +251,19 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 		else
 			return false
 		end
-	--[[end
+	end
+	if self == vRightType then
+		return self
+	end
 	const nRightStruct = vRightType
 	const nMgr = self._manager
 	const nRelation = nMgr:attachPairContain(self, nRightStruct, not vAssumeSet)
 	if nRelation then
-		if nRelation == ">" or nRelation == "=" then
+		if nRelation == ">" then
 			return vRightType
 		elseif nRelation == "<" then
+			return self
+		elseif nRelation == "=" then
 			return self
 		elseif nRelation == "&" then
 			return true
@@ -278,8 +283,8 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 		vAssumeSet[nLRPair] = false
 		return false
 	else
-		return self
-	end]]
+		return nAssumeIntersect
+	end
 end
 
 function MetaObject:meta_len(vContext)
