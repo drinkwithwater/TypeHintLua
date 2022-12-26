@@ -47,18 +47,6 @@ function MetaObject:init(vMemberDict:class.MemberDict, vMetaEventDict:OrNil(Dict
 	end
 end
 
-function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
-	if self == vRightType then
-		return self
-	elseif self:assumeContainAtom(nil, vRightType) then
-		return vRightType
-	elseif vRightType:assumeContainAtom(nil, self) then
-		return self
-	else
-		return false
-	end
-end
-
 function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean))::Ret(Boolean)
 	for nLeftKey, nLeftValue in pairs(self._memberDict) do
 		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue, false) then
@@ -154,6 +142,27 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 	return true
 end
 
+function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
+	assert(self:isInterface(), vRightObject:isInterface(), "here must be interface")
+	const nRightValueDict = vRightObject:getMemberDict()
+	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
+	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
+		const nRightKey = nRightBasic:containAtom(vLeftKey)
+		if not nRightKey then
+			return true
+		end
+		local nRightValue = nRightValueDict[nRightKey]!
+		if MemberFunction.is(nRightValue) then
+			nRightValue = nRightValue:indexTypeFn(vRightObject)
+		end
+		if vLeftValue:assumeIntersectAny(vAssumeSet, nRightValue) then
+			return true
+		else
+			return false
+		end
+	end)
+end
+
 function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	if vRightObject._intersectSet[self] then
 		return true
@@ -206,9 +215,9 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 		return self
 	end
 	const nMgr = self._manager
-	const nRelation = nMgr:attachObjPairContain(self, nRightStruct, not vAssumeSet)
+	const nRelation = nMgr:attachPairContain(self, nRightStruct, not vAssumeSet)
 	if nRelation then
-		if nRelation == ">" or nRelation == "==" then
+		if nRelation == ">" or nRelation == "=" then
 			return self
 		else
 			return false
@@ -229,6 +238,48 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 	else
 		return self
 	end
+end
+
+function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
+	--if (not (MetaObject.is(vRightType) and vRightType:isInterface())) or (not self:isInterface()) then
+		if self == vRightType then
+			return self
+		elseif self:assumeContainAtom(nil, vRightType) then
+			return vRightType
+		elseif vRightType:assumeContainAtom(nil, self) then
+			return self
+		else
+			return false
+		end
+	--[[end
+	const nRightStruct = vRightType
+	const nMgr = self._manager
+	const nRelation = nMgr:attachPairContain(self, nRightStruct, not vAssumeSet)
+	if nRelation then
+		if nRelation == ">" or nRelation == "=" then
+			return vRightType
+		elseif nRelation == "<" then
+			return self
+		elseif nRelation == "&" then
+			return true
+		else
+			return false
+		end
+	end
+	assert(vAssumeSet, "assume set must be existed here")
+	const _, nLRPair, nRLPair = self._manager:makeDuPair(self, nRightStruct)
+	const nAssumeResult = vAssumeSet[nLRPair]
+	if nAssumeResult ~= nil then
+		return nAssumeResult and self
+	end
+	vAssumeSet[nLRPair] = true
+	local nAssumeIntersect = self:assumeIntersectInterface(vAssumeSet, nRightStruct)
+	if not nAssumeIntersect then
+		vAssumeSet[nLRPair] = false
+		return false
+	else
+		return self
+	end]]
 end
 
 function MetaObject:meta_len(vContext)
