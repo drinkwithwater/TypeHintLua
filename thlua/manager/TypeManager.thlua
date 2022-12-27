@@ -496,23 +496,23 @@ end
 
 function TypeManager:buildMfn(vNode:class.IAstNode, ...:Truth)::Ret(class.MemberFunction)
 	local nArgTuple = self:Tuple(self.type.Truth, ...)
-	return MemberFunction.new(self, nArgTuple, false)
+	return MemberFunction.new(self, vNode, nArgTuple, false)
 end
 
 function TypeManager:buildFn(vNode:class.IAstNode, ...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return self:_recordTypeUnionSign(TypeFunction.new(self, nArgTuple, false, false))
+	return self:_recordTypeUnionSign(TypeFunction.new(self, vNode, nArgTuple, false))
 end
 
 function TypeManager:checkedFn(...:Truth)::Ret(class.TypeFunction)
 	local nArgTuple = self:Tuple(...)
-	return self:_recordTypeUnionSign(TypeFunction.new(self, nArgTuple, false, false))
+	return self:_recordTypeUnionSign(TypeFunction.new(self, self._runtime:getNode(), nArgTuple, false))
 end
 
 function TypeManager:Function(vArgTuple:class.UTypeTuple, vRetTuples:class.RetTuples)::Ret(class.TypeFunction)
 	assert(TypeTuple.is(vArgTuple) or TypeTupleDots.is(vArgTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, vArgTuple, vRetTuples, false)
+	local nFunc = TypeFunction.new(self, self._runtime:getNode(), vArgTuple, vRetTuples)
 	return self:_recordTypeUnionSign(nFunc)
 end
 

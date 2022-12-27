@@ -10,11 +10,10 @@ end
 function RetTuples.new(vManager:class.TypeManager)::RetClass(class.RetTuples)
 	const self = setmetatable({::Self()
 		_manager=vManager,
-		_signToTuple={} @ Dict(String, class.TypeTuple),
+		_firstToTuple={} @ Dict(class.UAllType, class.TypeTuple),
 		_tupleCount=0 @ Number,
 		_tupleSizeMin=0x7FFFFFFF @ Number,
 		_tupleSizeMax=0 @ Number,
-		_structSign=false @ Union(False, String)
 	}, RetTuples)
 	return self
 end
@@ -30,7 +29,7 @@ end
 function RetTuples:Merge(vRetTuples:class.RetTuples)::Ret(class.RetTuples)
 	assert(RetTuples.is(vRetTuples), "ret tuples must merge with ret tuples")
 	local re = self
-	for _, t in pairs(vRetTuples._signToTuple) do
+	for _, t in pairs(vRetTuples._firstToTuple) do
 		re = re:Add(t)
 	end
 	return re
@@ -38,12 +37,12 @@ end
 
 function RetTuples:Add(vTypeTuple:class.TypeTuple)::Ret(class.RetTuples)
 	assert(not vTypeTuple:getRepeatType(), "RetTuples can't take TypeTuple with repeatType")
-	if self._signToTuple[vTypeTuple:structSign()] then
+	if self._firstToTuple[vTypeTuple:get(1)] then
 		return self
 	else
 		const nNew = RetTuples.new(self._manager)
-		for nSign, nTuple in pairs(self._signToTuple) do
-			nNew._signToTuple[nSign] = nTuple
+		for nFirst, nTuple in pairs(self._firstToTuple) do
+			nNew._firstToTuple[nFirst] = nTuple
 		end
 		const nLength = #vTypeTuple
 		if nLength > self._tupleSizeMax then
@@ -56,7 +55,7 @@ function RetTuples:Add(vTypeTuple:class.TypeTuple)::Ret(class.RetTuples)
 		else
 			nNew._tupleSizeMin = self._tupleSizeMin
 		end
-		nNew._signToTuple[vTypeTuple:structSign()] = vTypeTuple
+		nNew._firstToTuple[vTypeTuple:get(1)] = vTypeTuple
 		nNew._tupleCount = self._tupleCount + 1
 		return nNew
 	end
@@ -64,14 +63,14 @@ end
 
 function RetTuples:detailString(vCache:Dict(class.IAtomType, String), vVerbose:Boolean)::Ret(String)
 	local re:List(String) = {}
-	for _, t in pairs(self._signToTuple) do
+	for _, t in pairs(self._firstToTuple) do
 		re[#re+1] = t:detailString(vCache, vVerbose)
 	end
 	return "("..table.concat(re, "|")..")"
 end
 
 function RetTuples:assumeContainTuples(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRetTuples:class.RetTuples)::Ret(Boolean)
-	for _, t in pairs(vRetTuples._signToTuple) do
+	for _, t in pairs(vRetTuples._firstToTuple) do
 		if not self:assumeContainTuple(vAssumeSet, t) then
 			return false
 		end
@@ -84,7 +83,7 @@ function RetTuples:containTuples(vRetTuples:class.RetTuples)::Ret(Boolean)
 end
 
 function RetTuples:assumeContainTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
-	for _, t in pairs(self._signToTuple) do
+	for _, t in pairs(self._firstToTuple) do
 		if t:assumeContainTuple(vAssumeSet, vRightTypeTuple) then
 			return true
 		end
@@ -96,29 +95,15 @@ function RetTuples:containTuple(vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
 	return self:assumeContainTuple(nil, vRightTypeTuple)
 end
 
-function RetTuples:structSign()::Ret(String)
-	local nSign = self._structSign
-	if not nSign then
-		const l:List(String) = {}
-		for nSign, nTuple in pairs(self._signToTuple) do
-			l[#l + 1] = nSign
-		end
-		table.sort(l)
-		nSign = table.concat(l, ",")
-		self._structSign = nSign
-	end
-	return nSign
-end
-
 function RetTuples:foreach(vFunc:Fn(class.TypeTuple):Ret())
-	for _, t in pairs(self._signToTuple) do
+	for _, t in pairs(self._firstToTuple) do
 		vFunc(t)
 	end
 end
 
 function RetTuples:makeFirstType()::Ret(class.UAllType)
 	const nCollection = self._manager:TypeCollection()
-	for _, nTuple in pairs(self._signToTuple) do
+	for _, nTuple in pairs(self._firstToTuple) do
 		nCollection:put(nTuple:get(1))
 	end
 	return nCollection:mergeToAtomUnion()

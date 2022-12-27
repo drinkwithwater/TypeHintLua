@@ -8,16 +8,14 @@ const TypeFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function TypeFunction.new(vManager:class.TypeManager,
-	vArgTuple:class.UTypeTuple,
-	vRetTuples:Union(False, class.RetTuples),
-	vMember:Boolean)::RetClass(class.TypeFunction, class.IAtomType)
+function TypeFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
+	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples))::RetClass(class.TypeFunction, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
+		_node=vNode,
 		_buildingRetTuples=vRetTuples,
 		_retTuples=vRetTuples,
 		_argTuple=vArgTuple,
-		_member=vMember,
 		id=vManager:genTypeId(),
 		bits=TYPE_BITS.FUNCTION,
 	}, TypeFunction)
@@ -61,16 +59,12 @@ function TypeFunction:_buildRetTuples()::Ret(class.RetTuples)
 	return nRetTuples
 end
 
-function TypeFunction:isMember()::Ret(Boolean)
-	return self._member
-end
-
 function TypeFunction:isNative()::Ret(False)
 	return false
 end
 
 function TypeFunction:detailString(v, vVerbose)
-	return (self._member and "mfn-" or "fn-") .. tostring(self._argTuple).."->"..tostring(self._retTuples)
+	return "fn-" .. tostring(self._argTuple).."->"..tostring(self._retTuples)
 end
 
 function TypeFunction:meta_call(vContext, vTypeTuple)
