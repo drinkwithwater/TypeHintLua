@@ -71,19 +71,27 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
 		return self
 	end
-	if self:assumeContainAtom(nil, vType) then
-		return vType
+	if not MetaObject.is(vType) and not LuaTable.is(vType) then
+		return false
 	end
-	if MetaObject.is(vType) then
-		const nCollection = self._manager:TypeCollection()
-		self:foreach(function(vSubType)
-			if vType:assumeContainAtom(nil, vSubType) then
-				nCollection:put(vSubType)
+	const nCollection = self._manager:TypeCollection()
+	local nExplicitCount:OrFalse(Integer) = 0
+	self:foreach(function(vSubType)
+		if nExplicitCount then
+			const nCurIntersect = vType:assumeIntersectAtom(vAssumeSet, vSubType)
+			if nCurIntersect == true then
+				nExplicitCount = false
+			elseif nCurIntersect then
+				nExplicitCount = nExplicitCount + 1
+				nCollection:put(nCurIntersect)
 			end
-		end)
-		return nCollection:mergeToAtomUnion()
+		end
+	end)
+	if not nExplicitCount then
+		return true
+	else
+		return nExplicitCount > 0 and nCollection:mergeToAtomUnion()
 	end
-	return false
 end
 
 function ObjectUnion:objectPartType()
