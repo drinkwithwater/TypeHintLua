@@ -486,12 +486,40 @@ function TypeManager:Variable(vIsGeneric:Boolean)::Ret(class.Variable)
 end
 
 function TypeManager:VoidRetTuples()::Ret(class.RetTuples)
-	return self:SingleRetTuples(self:Tuple())
+	const nFirst = self.type.Nil
+	return RetTuples.new(self, nFirst, {[nFirst]=self:Tuple()})
 end
 
 function TypeManager:SingleRetTuples(vTypeTuple:class.TypeTuple)::Ret(class.RetTuples)
-	local nRetTuples = RetTuples.new(self)
-	return nRetTuples:Add(vTypeTuple)
+	const nFirst = vTypeTuple:get(1)
+	return RetTuples.new(self, nFirst, {[nFirst]=vTypeTuple})
+end
+
+function TypeManager:retConcat(vNode:class.IAstNode, vRetTuples:class.RetTuples, vTypeTuple:class.TypeTuple)::Ret(class.RetTuples)
+	const nFirstToTuple:Dict(class.UAllType, class.TypeTuple) = {}
+	vRetTuples:foreachWithFirst(function(vTuple, vFirst)
+		nFirstToTuple[vFirst] = vTuple
+	end)
+	nFirstToTuple[vTypeTuple:get(1)] = vTypeTuple
+	const nFirstRefer = self:Reference(false)
+	local nTypeList:List(class.IAtomType) = {}
+	nFirstRefer:setRawAsync(vNode, function()
+		for nFirst, _ in pairs(nFirstToTuple) do
+			nFirst:foreachAwait(function(vSubType)
+				nTypeList[#nTypeList + 1] = vSubType
+			end)
+		end
+		return nTypeList
+	end, function(vAtomUnion)
+		local nCount = 0
+		vAtomUnion:foreach(function()
+			nCount = nCount + 1
+		end)
+		if nCount ~= #nTypeList then
+			error("first type has intersect part")
+		end
+	end)
+	return RetTuples.new(self, nFirstRefer, nFirstToTuple)
 end
 
 function TypeManager:buildMfn(vNode:class.IAstNode, ...:Truth)::Ret(class.MemberFunction)

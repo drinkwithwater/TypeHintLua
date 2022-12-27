@@ -222,7 +222,7 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFu
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
 				const nRetTuples = f:meta_call(self:newSealContext(vNode), a)
-				nRetTuples:foreach(function(vTypeTuple)
+				nRetTuples:foreachWithFirst(function(vTypeTuple, _)
 					local nLength = #vTypeTuple
 					if nLength > nMaxLength then
 						nMaxLength = nLength
@@ -374,19 +374,19 @@ function Context:META_BOP_SOME(vNode:class.IAstNode, vOper:String, vLeftTerm:cla
 		if nLeftHigh then
 			const nTypeTuple = self._manager:Tuple(vLeftType, vRightTerm:getType())
 			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
-			nCollection:put(nRetTuples:makeFirstType())
+			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightTermCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
 					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
-					nCollection:put(nRetTuples:makeFirstType())
+					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
 						const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
-						nCollection:put(nRetTuples:makeFirstType())
+						nCollection:put(nRetTuples:getFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
 					end

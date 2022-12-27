@@ -75,7 +75,7 @@ function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(clas
 			if not nRetTuples then
 				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
 			else
-				nRetTuples = nRetTuples:Add(self._manager:Tuple(...))
+				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:Tuple(...))
 			end
 			self._retTuples = nRetTuples
 			return vLongHint
@@ -113,7 +113,7 @@ function FunctionBuilder:build()::Ret(class.LuaFunction)
 			elseif not self._nocheck then
 				local hasVoid = false
 				local hasSome = false
-				nRetTuples:foreach(function(vTypeTuple)
+				nRetTuples:foreachWithFirst(function(vTypeTuple, _)
 					if #vTypeTuple > 0 then
 						hasSome = true
 					else
