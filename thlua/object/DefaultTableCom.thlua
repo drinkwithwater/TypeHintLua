@@ -32,6 +32,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		__newindexType=false@OrFalse(class.UIndexType),
 		_metaEventDict={}@Dict(String, class.IAtomType),
 		_isBasingDefault=false@Boolean,
+		_interface=false@OrFalse(class.MetaObject),
 	}, DefaultTableCom)
 	return self
 end
@@ -45,6 +46,10 @@ function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Di
 			kind = "property",
 		}
 	end
+end
+
+function DefaultTableCom:setInterface(vInterface:class.MetaObject)
+	self._interface = vInterface
 end
 
 function DefaultTableCom:_setMeta(vIndexType:OrFalse(class.UIndexType), vNewIndexType:OrFalse(class.UIndexType), vMetaEventDict:Dict(String, class.IAtomType))
@@ -254,6 +259,12 @@ function DefaultTableCom:native_setmetatable(vContext, vMetaTableType)
 					kind = nSetter and "property" or "getter",
 				}
 			end)
+			self._fieldDict = nFinalFieldDict
+			self._keyType = nMergedKeyType
+			const nInterface = self._interface
+			if nInterface then
+				self:implInterface(vContext, nInterface)
+			end
 		end
 	end
 end
@@ -263,16 +274,20 @@ function DefaultTableCom:native_next(vContext, vInitType)
 	local nValueType = self._nextValue
 	if not nNextDict or not nValueType then
 		nNextDict = {}
-		for k,v in pairs(self._fieldDict) do
-			nNextDict[k] = v.castValueType or v.rawValueType
+		for nKeyAtom, nField in pairs(self._fieldDict) do
+			if nField.kind == "property" then
+				nNextDict[nKeyAtom] = nField.castValueType or nField.rawValueType
+			end
 		end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
-			const nValueType = nOneField.castValueType or nOneField.rawValueType
-			const nNotnilType = nValueType:notnilType()
-			nNextDict[nOneKey] = nNotnilType
-			nCollection:put(nNotnilType)
+			if nOneField.kind == "property" then
+				const nValueType = nOneField.castValueType or nOneField.rawValueType
+				const nNotnilType = nValueType:notnilType()
+				nNextDict[nOneKey] = nNotnilType
+				nCollection:put(nNotnilType)
+			end
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
@@ -311,6 +326,39 @@ function DefaultTableCom:getCompletion()
 end
 
 function DefaultTableCom:implInterface(vContext:class.Context, vInterface:class.MetaObject)
+	const nInterfaceKeyValue = vInterface:copyValueDict(self._luaTable)
+	const nSelfKey = self._keyType
+	const nSelfFieldDict = self._fieldDict
+	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
+		const nSelfKeyAtom = nSelfKey:containAtom(nKeyAtom)
+		if nSelfKeyAtom then
+			const nField = nSelfFieldDict[nSelfKeyAtom]!
+			const nSelfValue = nField.rawValueType
+			if LuaFunction.is(nSelfValue) then
+				if nSelfValue:isMember() then
+					if TypeFunction.is(nValue) then
+						nField.castValueType = nSelfValue:specialize(vContext, self._luaTable, nValue)
+					end
+				end
+			else
+				if not nValue:containAll(nSelfValue) then
+					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
+				end
+			end
+		else
+			vContext:error("interface has field not implement, key="..tostring(nKeyAtom))
+		end
+	end
+	for _, nField in pairs(nSelfFieldDict) do
+		if not nField.castValueType then
+			const nSelfValue = nField.rawValueType
+			if LuaFunction.is(nSelfValue) then
+				if nSelfValue:isMember() then
+					nField.castValueType = nSelfValue:specialize(vContext, self._luaTable)
+				end
+			end
+		end
+	end
 end
 
 function DefaultTableCom:castStruct(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion)::Ret(OrFalse(class.MetaObject))

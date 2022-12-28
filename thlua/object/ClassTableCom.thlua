@@ -19,7 +19,6 @@ function ClassTableCom.new(vManager:class.TypeManager, vRefer:class.Reference, v
 		_refer=vRefer,
 		_defaultCom=vLuaTable:getDefaultCom(),
 		_valueDict={}@Dict(class.IAtomType, class.UAtomUnion),
-		_keyType=false@class.UAtomUnion,
 		_sealed=false@Boolean,
 		_baseClass=vBaseClass,
 		_interface=vInterface,
@@ -52,33 +51,12 @@ end
 
 function ClassTableCom:meta_set(vContext, vKeyType, vValueType)
 	self:waitBuild()
-	if not self._sealed then
-		self._defaultCom:meta_set(vContext, vKeyType, vValueType)
-		return
-	end
-	const nContainKey = self._keyType:containAtom(vKeyType)
-	if not nContainKey then
-		vContext:error("key not found", tostring(vKeyType))
-	else
-		local nValue = self._valueDict[nContainKey]!
-		if not nValue:containAll(vValueType) then
-			vContext:error("field not match", tostring(vKeyType))
-		end
-	end
+	self._defaultCom:meta_set(vContext, vKeyType, vValueType)
 end
 
 function ClassTableCom:meta_get(vContext, vKeyType)::Ret(class.UAtomUnion)
 	self:waitBuild()
-	if not self._sealed then
-		return self._defaultCom:meta_get(vContext, vKeyType)
-	end
-	const nContainKey = self._keyType:containAtom(vKeyType)
-	if nContainKey then
-		return self._valueDict[nContainKey]!
-	else
-		vContext:error("key not found", tostring(vKeyType))
-		return self._manager.type.Nil
-	end
+	return self._defaultCom:meta_get(vContext, vKeyType)
 end
 
 function ClassTableCom:meta_bop_func(vContext, vOper)
@@ -100,39 +78,7 @@ function ClassTableCom:native_setmetatable(vContext, vMetaTable)
 	-- TODO, can only set once in ClassFn's context
 	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
 	const nRe = self._defaultCom:native_setmetatable(vContext, vMetaTable)
-	--self:implement(vContext)
-	const nCollection = self._manager:TypeCollection()
 	const nDefaultCom:class.DefaultTableCom = self._defaultCom
-	local nIndexTable = nDefaultCom.__indexType
-	if nIndexTable then
-		if LuaFunction.is(nIndexTable) or TypeFunction.is(nIndexTable) then
-			print("TODO, __index's value is function")
-			-- TODO
-		else
-			const nInterfaceKeyValue = self._interface:copyValueDict(self._luaTable)
-			nIndexTable:getDefaultCom():foreachGetPair(function(vKey, vValue)
-				local nInterfaceValue = nInterfaceKeyValue[vKey]
-				if LuaFunction.is(vValue) then
-					if vValue:isMember() then
-						nCollection:put(vKey)
-						if nInterfaceValue then
-							if TypeFunction.is(nInterfaceValue) then
-								self._valueDict[vKey] = vValue:specialize(vContext, self._luaTable, nInterfaceValue)
-								return
-							end
-						end
-						self._valueDict[vKey] = vValue:specialize(vContext, self._luaTable)
-					else
-						nCollection:put(vKey)
-						self._valueDict[vKey] = vValue
-					end
-				elseif TypeFunction.is(vValue) then
-					print("TypeFunction as indexing member TODO")
-				end
-			end)
-		end
-	end
-	self._keyType = nCollection:mergeToAtomUnion()
 	const nLenFn = nDefaultCom:getMetaEventDict()["__len"]
 	if LuaFunction.is(nLenFn) then
 		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.Integer)
@@ -155,7 +101,7 @@ function ClassTableCom:getBase()::Ret(class.MetaObject)
 end
 
 function ClassTableCom:finishBuild(vContext:class.Context)
-	if self._sealed then
+	--[[if self._sealed then
 		vContext:error("class table try seal more than once")
 		return
 	end
@@ -169,7 +115,7 @@ function ClassTableCom:finishBuild(vContext:class.Context)
 		nCollection:put(vKey)
 		self._valueDict[vKey] = vValue
 	end)
-	self._keyType = nCollection:mergeToAtomUnion()
+	self._keyType = nCollection:mergeToAtomUnion()]]
 end
 
 function ClassTableCom:getLuaTable()::Ret(class.LuaTable)
@@ -182,7 +128,7 @@ end
 
 function ClassTableCom:getCompletion()
 	local nDict:Dict(String, True) = {}
-	self._keyType:foreach(function(vType)
+	self._defaultCom:foreachGetPair(function(vType)
 		if StringLiteral.is(vType) then
 			nDict[vType:getLiteral()] = true
 		end
