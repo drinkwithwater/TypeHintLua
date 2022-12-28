@@ -12,7 +12,7 @@ const TableComClass = require "thlua.object.TableComClass"
 	let.TableField = Struct {
 		rawValueType = class.UAtomUnion,
 		castValueType = OrFalse(class.UAtomUnion),
-		kind = Union("init", "override", "final"),
+		kind = Union("property", "override", "getter"),
 	}
 end)
 
@@ -42,7 +42,7 @@ function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Di
 		self._fieldDict[k] = {
 			rawValueType = v,
 			castValueType = false,
-			kind = "init",
+			kind = "property",
 		}
 	end
 end
@@ -75,7 +75,7 @@ function DefaultTableCom:meta_set_ifoverride(vContext:class.Context, vKeyType:cl
 			if nTableField.kind == "override" then
 				nTableField.rawValueType = vValueType
 				if not vOverride then
-					nTableField.kind = "final"
+					nTableField.kind = "property"
 				end
 			else
 				vContext:error("wrong value type when set key:"..tostring(nKeyContainType))
@@ -149,7 +149,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride
 			self._fieldDict[vKeyType] = {
 				rawValueType = vValueType,
 				castValueType = false,
-				kind = vOverride and "override" or "final",
+				kind = vOverride and "override" or "property",
 			}
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
@@ -162,7 +162,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride
 			vContext:error("wrong value type when set, key:"..tostring(nContainType))
 		else
 			if nTableField.kind == "override" then
-				nTableField.kind = "final"
+				nTableField.kind = "property"
 			end
 		end
 	end
@@ -204,6 +204,58 @@ function DefaultTableCom:native_setmetatable(vContext, vMetaTableType)
 		end
 	end
 	self:_setMeta(nIndexType, nNewIndexType, nMetaEventToType)
+	if nIndexType then
+		if LuaFunction.is(nIndexType) or TypeFunction.is(nIndexType) then
+			-- print("TODO, __index's value is function")
+			-- TODO
+		else
+			const nMetaIndexKey, nMetaIndexValueDict = nIndexType:getDefaultCom():lockAndGetKV()
+			const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
+			const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKey, nSelfKey)
+			const nFinalFieldDict:Dict(class.IAtomType, let.TableField) = {}
+			const nNever = self._manager.type.Never
+			nMergedKeyType:foreach(function(vKeyAtom)
+				const nSelfInter = nSelfKey:intersectAtom(vKeyAtom) or nNever
+				const nMetaInter = nMetaIndexKey:intersectAtom(vKeyAtom) or nNever
+				assert(type(nSelfInter) == "table")
+				assert(type(nMetaInter) == "table")
+				const nCollection = self._manager:TypeCollection()
+				local nSetter = false
+				local nMemberCount = 0
+				local nNotMemberCount = 0
+				nSelfInter:foreach(function(vAtom)
+					const nValue = nSelfFieldDict[vAtom]!.rawValueType
+					nCollection:put(nValue)
+					nSetter = true
+					if LuaFunction.is(nValue) and nValue:isMember() then
+						nMemberCount = nMemberCount + 1
+					else
+						nNotMemberCount = nNotMemberCount + 1
+					end
+				end)
+				nMetaInter:foreach(function(vAtom)
+					const nValue = nMetaIndexValueDict[vAtom]!
+					nCollection:put(nValue)
+					if LuaFunction.is(nValue) and nValue:isMember() then
+						nMemberCount = nMemberCount + 1
+					else
+						nNotMemberCount = nNotMemberCount + 1
+					end
+				end)
+				if nMemberCount > 0 then
+					if not (nMemberCount == 1 and nNotMemberCount == 0) then
+						vContext:error("member function must be isolate field in table, key="..tostring(vKeyAtom))
+						return
+					end
+				end
+				nFinalFieldDict[vKeyAtom] = {
+					rawValueType = nCollection:mergeToAtomUnion(),
+					castValueType = false,
+					kind = nSetter and "property" or "getter",
+				}
+			end)
+		end
+	end
 end
 
 function DefaultTableCom:native_next(vContext, vInitType)
@@ -229,6 +281,14 @@ function DefaultTableCom:native_next(vContext, vInitType)
 		self._nextDict = nNextDict
 	end
 	return nValueType, nNextDict
+end
+
+function DefaultTableCom:lockAndGetKV()::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAtomUnion))
+	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+	for k,v in pairs(self._fieldDict) do
+		nDict[k] = v.rawValueType
+	end
+	return self._keyType, nDict
 end
 
 function DefaultTableCom:basingByDefault()

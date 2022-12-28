@@ -41,6 +41,7 @@ class.IType = Interface ({
 	detailString=Mfn(Dict(class.IAtomType, String), Boolean):Ret(String),
 
 	intersectAny=Mfn(class.UAllType):Ret(Boolean),
+	safeIntersect=Mfn(class.UAllType):Ret(OrFalse(class.UAtomUnion)),
 	assumeIntersectAny=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
 	intersectAtom=Mfn(class.IAtomType):Ret(Union(Boolean, class.UAtomUnion)),
 
@@ -181,33 +182,37 @@ const function TypeClass()::open()
 	function t:containAll(vRight)
 		return self:assumeContainAll(nil, vRight)
 	end
-	function t.__band(vLeft, vRight)
-		if vLeft:isReference() then
-			vLeft = vLeft:checkAtomUnion()
-		end
-		if vRight:isReference() then
-			vRight = vRight:checkAtomUnion()
-		end
-		if not vRight:isUnion() then
-			const nIntersect = vLeft:assumeIntersectAtom(nil, vRight)
+	function t:safeIntersect(vRight)
+		const nLeft = self:isReference() and self:checkAtomUnion() or self
+		const nRight = vRight:isReference() and vRight:checkAtomUnion() or vRight
+		if not nRight:isUnion() then
+			const nIntersect = nLeft:assumeIntersectAtom(nil, nRight)
 			if nIntersect == true then
-				error("unexpected intersect")
+				return false
 			else
-				return nIntersect or vLeft._manager.type.Never
+				return nIntersect or self._manager.type.Never
 			end
 		else
-			const nCollection = vLeft._manager:TypeCollection()
-			vRight:foreach(function(vSubType)
-				local nIntersect = vLeft:assumeIntersectAtom(nil, vSubType)
+			const nCollection = self._manager:TypeCollection()
+			nRight:foreach(function(vSubType)
+				local nIntersect = nLeft:assumeIntersectAtom(nil, vSubType)
 				if nIntersect then
 					if nIntersect == true then
-						error("unexpected intersect")
+						return false
 					else
 						nCollection:put(nIntersect)
 					end
 				end
 			end)
 			return nCollection:mergeToAtomUnion()
+		end
+	end
+	function t.__band(vLeft, vRight)
+		const nTypeOrFalse = vLeft:safeIntersect(vRight)
+		if nTypeOrFalse then
+			return nTypeOrFalse
+		else
+			error("unexpected intersect")
 		end
 	end
 	function t:isUnion?()
