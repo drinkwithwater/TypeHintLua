@@ -42,7 +42,7 @@ function FuncUnion:putAwait(vType)
 		self._nativeFnDict[vType] = true
 	elseif LuaFunction.is(vType) then
 		for nTypeFn, _ in pairs(self._typeFnDict) do
-			if nTypeFn:containAll(vType) then
+			if nTypeFn:containAtom(vType) then
 				return
 			end
 		end
@@ -51,8 +51,13 @@ function FuncUnion:putAwait(vType)
 		-- delete small struct
 		const nDeleteList:List(class.TypeFunction) = {}
 		for nTypeFn, _ in pairs(self._typeFnDict) do
-			if vType:containAll(nTypeFn) then
+			if vType:containAtom(nTypeFn) then
 				nDeleteList[#nDeleteList + 1] = nTypeFn
+			else
+				const nIntersect = vType:intersectAtom(nTypeFn)
+				if nIntersect then
+					error("unexpected intersect when union function")
+				end
 			end
 		end
 		for _, nTypeFn in pairs(nDeleteList) do
