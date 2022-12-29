@@ -21,6 +21,7 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		_manager=vManager,
 		_name="Table"@String,
 		_unionSign=false,
+		_metaTable=false@OrFalse(class.LuaTable),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_defaultCom=nil@class.DefaultTableCom,
@@ -83,11 +84,41 @@ function LuaTable:native_next(vContext, vInitType)
 end
 
 function LuaTable:native_setmetatable(vContext, vMetaTableType)
-	self:_checkComOrStruct(vContext):native_setmetatable(vContext, vMetaTableType)
+	self._metaTable = vMetaTableType
+	-- 1. copyout meta items
+	local nManager = self._manager
+	const nMetaEventToType:Dict(String, class.IAtomType) = {}
+	for nOper, nEvent in pairs(OPER_ENUM.all) do
+		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
+		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
+			nMetaEventToType[nEvent] = nMethodType
+		end
+	end
+	const nSomeEvents:List(String) = {"__len", "__tostring"}
+	for _, nEvent in pairs(nSomeEvents) do
+		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
+		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
+			nMetaEventToType[nEvent] = nMethodType
+		end
+	end
+	-- 2. set default com
+	const nDefaultCom = self._defaultCom
+	nDefaultCom:native_setmetatable(vContext, vMetaTableType)
+	nDefaultCom:setmetatable_setEventPart(vContext, nMetaEventToType)
+	-- 3. set class com
+	const nClassCom = self._classCom
+	if nClassCom then
+		nClassCom:setmetatable_finish()
+	end
+	return self
 end
 
 function LuaTable:native_getmetatable(vContext)
-	return self:_checkComOrStruct(vContext):native_getmetatable(vContext)
+	const nClassCom = self._classCom
+	if nClassCom then
+		nClassCom:waitBuild()
+	end
+	return self._metaTable or self._manager.type.Nil
 end
 
 function LuaTable:native_type()
