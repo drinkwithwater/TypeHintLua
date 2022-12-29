@@ -84,8 +84,12 @@ function LuaTable:native_next(vContext, vInitType)
 end
 
 function LuaTable:native_setmetatable(vContext, vMetaTableType)
+	if self._metaTable then
+		vContext:error("can only setmetatable once for one table")
+		return
+	end
 	self._metaTable = vMetaTableType
-	-- 1. copyout meta items
+	-- 1. copyout meta event items
 	local nManager = self._manager
 	const nMetaEventToType:Dict(String, class.IAtomType) = {}
 	for nOper, nEvent in pairs(OPER_ENUM.all) do
@@ -101,11 +105,23 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 			nMetaEventToType[nEvent] = nMethodType
 		end
 	end
-	-- 2. set default com
+	-- 2. copyout index/newindex event items
+	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
+	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	local nAsIndex:OrFalse(class.MetaIndexField) = false
+	local nAsNewIndex:OrFalse(class.MetaIndexField) = false
+	if LuaTable.is(nIndexType) then
+		nAsIndex = nIndexType:getDefaultCom():lockAsMetaIndex()
+	end
+	if LuaTable.is(nNewIndexType) then
+		nAsNewIndex = nNewIndexType:getDefaultCom():lockAsMetaNewIndex()
+	end
+	-- 3. set default com
 	const nDefaultCom = self._defaultCom
-	nDefaultCom:native_setmetatable(vContext, vMetaTableType)
+	--nDefaultCom:native_setmetatable(vContext, vMetaTableType)
+	nDefaultCom:setmetatable_setIndexPart(vContext, nAsIndex, nAsNewIndex)
 	nDefaultCom:setmetatable_setEventPart(vContext, nMetaEventToType)
-	-- 3. set class com
+	-- 4. set class com
 	const nClassCom = self._classCom
 	if nClassCom then
 		nClassCom:setmetatable_finish()

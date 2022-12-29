@@ -149,7 +149,82 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion
 	end
 end
 
-function DefaultTableCom:setmetatable_setIndexPart(vContext)
+function DefaultTableCom:setmetatable_setIndexPart(vContext:class.Context, vAsIndex:OrFalse(class.MetaIndexField), vAsNewIndex:OrFalse(class.MetaIndexField))
+	if not vAsIndex then
+		return
+	end
+	const nMetaIndexKey, nMetaIndexValueDict = vAsIndex.keyType, vAsIndex.valueDict
+	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
+	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKey, nSelfKey)
+	const nFinalFieldDict:Dict(class.IAtomType, let.TableField) = {}
+	const nNever = self._manager.type.Never
+	nMergedKeyType:foreach(function(vKeyAtom)
+		const nSelfInter = nSelfKey:intersectAtom(vKeyAtom) or nNever
+		const nMetaInter = nMetaIndexKey:intersectAtom(vKeyAtom) or nNever
+		assert(type(nSelfInter) == "table")
+		assert(type(nMetaInter) == "table")
+		local nSetter = false
+		local nLuaFnCount = 0
+		local nLuaMfnCount = 0
+		local nNotLuaFnCount = 0
+		local nSelfIsNilable = false
+		const nCollection = self._manager:TypeCollection()
+		nSelfInter:foreach(function(vAtom)
+			const nValue = nSelfFieldDict[vAtom]!.rawValueType
+			nCollection:put(nValue)
+			nSelfIsNilable = nSelfIsNilable or nValue:isNilable()
+			nSetter = true
+			if LuaFunction.is(nValue) then
+				nLuaFnCount = nLuaFnCount + 1
+				if nValue:isMember() then
+					nLuaMfnCount = nLuaMfnCount + 1
+				end
+			else
+				nNotLuaFnCount = nNotLuaFnCount + 1
+			end
+		end)
+		if not nSelfInter:containAll(nMetaInter) or nSelfIsNilable then
+			local nMetaIsNilable = false
+			nMetaInter:foreach(function(vAtom)
+				const nValue = nMetaIndexValueDict[vAtom]!
+				nMetaIsNilable = nMetaIsNilable or nValue:isNilable()
+				nCollection:put(nValue)
+				if LuaFunction.is(nValue) then
+					nLuaFnCount = nLuaFnCount + 1
+					if nValue:isMember() then
+						nLuaMfnCount = nLuaMfnCount + 1
+					end
+				else
+					nNotLuaFnCount = nNotLuaFnCount + 1
+				end
+			end)
+			const nMergedValueType = nCollection:mergeToAtomUnion()
+			nFinalFieldDict[vKeyAtom] = {
+				rawValueType = nMetaIsNilable and nMergedValueType or nMergedValueType:notnilType(),
+				castValueType = false,
+				kind = nSetter and "property" or "getter",
+			}
+		else
+			nFinalFieldDict[vKeyAtom] = {
+				rawValueType = nCollection:mergeToAtomUnion(),
+				castValueType = false,
+				kind = nSetter and "property" or "getter",
+			}
+		end
+		if nLuaFnCount > 0 then
+			if nNotLuaFnCount > 0 then
+				vContext:error("mix lua function and other type when setmetatable, key="..tostring(vKeyAtom))
+			elseif nLuaMfnCount > 0 and nLuaFnCount ~= nLuaMfnCount then
+				vContext:error("mix member lua function and normal lua function when setmetatable, key="..tostring(vKeyAtom))
+			end
+		end
+	end)
+	self._fieldDict = nFinalFieldDict
+	self._keyType = nMergedKeyType
+	const nInterface = self._interface
+	if nInterface then
+		self:implInterface(vContext, nInterface)
+	end
 end
 
 function DefaultTableCom:setmetatable_setEventPart(vContext:class.Context, vMetaEventToType:Dict(String, class.IAtomType))
@@ -163,94 +238,6 @@ function DefaultTableCom:setmetatable_setEventPart(vContext:class.Context, vMeta
 	if LuaFunction.is(nStringFn) then
 		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.String)
 		nStringFn:specialize(vContext, self._luaTable, nFn)
-	end
-end
-
-function DefaultTableCom:native_setmetatable(vContext:class.Context, vMetaTableType:class.LuaTable)
-	-- TODO thinking when to lock this ?
-	assert(not self._metaTable, "meta table can be only set once")
-	self._metaTable = vMetaTableType
-	local nManager = self._manager
-	const nIndexType = nManager:validIndexType(vMetaTableType:native_rawget(vContext, nManager:Literal("__index")))
-	const nNewIndexType = nManager:validIndexType(vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex")))
-	if nIndexType then
-		if LuaFunction.is(nIndexType) or TypeFunction.is(nIndexType) then
-			-- print("TODO, __index's value is function")
-			-- TODO
-		else
-			const nMetaIndexKey, nMetaIndexValueDict = nIndexType:getDefaultCom():lockAndGetKV()
-			const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
-			const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKey, nSelfKey)
-			const nFinalFieldDict:Dict(class.IAtomType, let.TableField) = {}
-			const nNever = self._manager.type.Never
-			nMergedKeyType:foreach(function(vKeyAtom)
-				const nSelfInter = nSelfKey:intersectAtom(vKeyAtom) or nNever
-				const nMetaInter = nMetaIndexKey:intersectAtom(vKeyAtom) or nNever
-				assert(type(nSelfInter) == "table")
-				assert(type(nMetaInter) == "table")
-				local nSetter = false
-				local nLuaFnCount = 0
-				local nLuaMfnCount = 0
-				local nNotLuaFnCount = 0
-				local nSelfIsNilable = false
-				const nCollection = self._manager:TypeCollection()
-				nSelfInter:foreach(function(vAtom)
-					const nValue = nSelfFieldDict[vAtom]!.rawValueType
-					nCollection:put(nValue)
-					nSelfIsNilable = nSelfIsNilable or nValue:isNilable()
-					nSetter = true
-					if LuaFunction.is(nValue) then
-						nLuaFnCount = nLuaFnCount + 1
-						if nValue:isMember() then
-							nLuaMfnCount = nLuaMfnCount + 1
-						end
-					else
-						nNotLuaFnCount = nNotLuaFnCount + 1
-					end
-				end)
-				if not nSelfInter:containAll(nMetaInter) or nSelfIsNilable then
-					local nMetaIsNilable = false
-					nMetaInter:foreach(function(vAtom)
-						const nValue = nMetaIndexValueDict[vAtom]!
-						nMetaIsNilable = nMetaIsNilable or nValue:isNilable()
-						nCollection:put(nValue)
-						if LuaFunction.is(nValue) then
-							nLuaFnCount = nLuaFnCount + 1
-							if nValue:isMember() then
-								nLuaMfnCount = nLuaMfnCount + 1
-							end
-						else
-							nNotLuaFnCount = nNotLuaFnCount + 1
-						end
-					end)
-					const nMergedValueType = nCollection:mergeToAtomUnion()
-					nFinalFieldDict[vKeyAtom] = {
-						rawValueType = nMetaIsNilable and nMergedValueType or nMergedValueType:notnilType(),
-						castValueType = false,
-						kind = nSetter and "property" or "getter",
-					}
-				else
-					nFinalFieldDict[vKeyAtom] = {
-						rawValueType = nCollection:mergeToAtomUnion(),
-						castValueType = false,
-						kind = nSetter and "property" or "getter",
-					}
-				end
-				if nLuaFnCount > 0 then
-					if nNotLuaFnCount > 0 then
-						vContext:error("mix lua function and other type when setmetatable, key="..tostring(vKeyAtom))
-					elseif nLuaMfnCount > 0 and nLuaFnCount ~= nLuaMfnCount then
-						vContext:error("mix member lua function and normal lua function when setmetatable, key="..tostring(vKeyAtom))
-					end
-				end
-			end)
-			self._fieldDict = nFinalFieldDict
-			self._keyType = nMergedKeyType
-			const nInterface = self._interface
-			if nInterface then
-				self:implInterface(vContext, nInterface)
-			end
-		end
 	end
 end
 
@@ -281,6 +268,30 @@ function DefaultTableCom:native_next(vContext, vInitType)
 		self._nextDict = nNextDict
 	end
 	return nValueType, nNextDict
+end
+
+function DefaultTableCom:lockAsMetaIndex()::Ret(class.MetaIndexField)
+	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+	for k, nField in pairs(self._fieldDict) do
+		nDict[k] = nField.castValueType or nField.rawValueType
+	end
+	return {
+		keyType=self._keyType,
+		valueDict=nDict,
+		fnType=false,
+	}
+end
+
+function DefaultTableCom:lockAsMetaNewIndex()::Ret(class.MetaIndexField)
+	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+	for k, nField in pairs(self._fieldDict) do
+		nDict[k] = nField.castValueType or nField.rawValueType
+	end
+	return {
+		keyType=self._keyType,
+		valueDict=nDict,
+		fnType=false,
+	}
 end
 
 function DefaultTableCom:lockAndGetKV()::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAtomUnion))
