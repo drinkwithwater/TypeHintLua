@@ -150,17 +150,19 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion
 end
 
 function DefaultTableCom:setmetatable_setIndexPart(vContext:class.Context, vAsIndex:OrFalse(class.MetaIndexField), vAsNewIndex:OrFalse(class.MetaIndexField))
-	if not vAsIndex then
+	if not vAsIndex and not vAsNewIndex then
+		print("TODO, impl interface if setmetatable without index")
 		return
 	end
-	const nMetaIndexKey, nMetaIndexValueDict = vAsIndex.keyType, vAsIndex.valueDict
-	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
-	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKey, nSelfKey)
-	const nFinalFieldDict:Dict(class.IAtomType, let.TableField) = {}
 	const nNever = self._manager.type.Never
+	const nMetaIndexKeyType = vAsIndex and vAsIndex.keyType or nNever
+	const nMetaIndexValueDict = vAsIndex and vAsIndex.valueDict or {} @ Dict(class.IAtomType, class.UAtomUnion)
+	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
+	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKeyType, nSelfKey)
+	const nFinalFieldDict:Dict(class.IAtomType, let.TableField) = {}
 	nMergedKeyType:foreach(function(vKeyAtom)
 		const nSelfInter = nSelfKey:intersectAtom(vKeyAtom) or nNever
-		const nMetaInter = nMetaIndexKey:intersectAtom(vKeyAtom) or nNever
+		const nMetaInter = nMetaIndexKeyType:intersectAtom(vKeyAtom) or nNever
 		assert(type(nSelfInter) == "table")
 		assert(type(nMetaInter) == "table")
 		local nSetter = false
@@ -292,14 +294,6 @@ function DefaultTableCom:lockAsMetaNewIndex()::Ret(class.MetaIndexField)
 		valueDict=nDict,
 		fnType=false,
 	}
-end
-
-function DefaultTableCom:lockAndGetKV()::Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAtomUnion))
-	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
-	for k,v in pairs(self._fieldDict) do
-		nDict[k] = v.castValueType or v.rawValueType
-	end
-	return self._keyType, nDict
 end
 
 function DefaultTableCom:basingByDefault()
