@@ -1,0 +1,64 @@
+
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const Nil = require "thlua.type.Nil"
+const TypeFunction = require "thlua.func.TypeFunction"
+const LuaFunction = require "thlua.func.LuaFunction"
+
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.MetaFnField = Struct {
+		luaFn=OrFalse(class.LuaFunction),
+		typeFn=class.TypeFunction,
+	}
+end)
+
+const MetaEventCom = {}
+MetaEventCom.__index=MetaEventCom
+
+function MetaEventCom.new(vManager)::RetClass(class.MetaEventCom)
+	const self = setmetatable({::Self()
+		_manager=vManager,
+		bopEq=false,
+		bopDict={}@Dict(String, let.MetaFnField),
+		uopLen=false,
+		uopDict={}@Dict(String, let.MetaFnField),
+		-- special
+		mode=false,
+		call=false@OrFalse(let.MetaFnField),
+		metatable=false,
+		tostring=false,
+		pairs=false,
+		ipairs=false,
+		gc=false,
+		name=false,
+		close=false,
+	}, MetaEventCom)
+end
+
+function MetaEventCom.fromDefaultTable(vContext:class.Context, vTableCom:class.DefaultTableCom)::Ret(class.MetaEventCom)
+	const nMetaCom = MetaEventCom.new(vContext:getTypeManager())
+	for nOper, nEvent in pairs(OPER_ENUM.all) do
+		const nMethodType = vTableCom:native_rawget(vContext, nManager:Literal(nEvent))
+		if nMethodType:isUnion() then
+			vContext:error("bop meta method can't be union type,bop:"..nEvent)
+		elseif TypeFunction.is(nMethodType) then
+			self.bopDict[nEvent] = {
+				luaFn=false,
+				typeFn=nMethodType
+			}
+		elseif LuaFunction.is(nMethodType) then
+			self.bopDict[nEvent] = {
+				luaFn=nMethodType,
+				typeFn=nMethodType:specialize(vContext)
+			}
+		elseif not Nil.is(nMethodType) then
+			vContext:error("bop meta method must be function or nil,bop:"..nEvent)
+		end
+	end
+end
+
+function MetaEventCom.fromObjectMetaBuild()::Ret(class.MetaEventCom)
+	const nCom = MetaEventCom.new()
+end
+
+return MetaEventCom

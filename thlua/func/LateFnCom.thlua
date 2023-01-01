@@ -74,11 +74,7 @@ function LateFnCom:checkLateRun()
 end
 
 function LateFnCom:meta_call(vContext, vTypeTuple)
-	if not self._typeFunction then
-		self:_typeDefault()
-	end
-	local nTypeFn = self._typeFunction
-	assert(nTypeFn, "type-fn not setted in late-fn when meta_call")
+	const nTypeFn = self:typeDefault()
 	return nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -103,13 +99,16 @@ function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function LateFnCom:_typeDefault()
-	if not self._typeFunction then
+function LateFnCom:typeDefault()::Ret(class.TypeFunction)
+	local nTypeFn = self._typeFunction
+	if not nTypeFn then
 		const nArgTuple = self._autoArgs:checkByDefault()
 		const nRetTuples = self._hintRetTuples or self._manager:VoidRetTuples()
 		self._hintRetTuples = nRetTuples
-		self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
+		nTypeFn = self._manager:Function(nArgTuple, nRetTuples)
+		self._typeFunction = nTypeFn
 	end
+	return nTypeFn
 end
 
 function LateFnCom:_typeFnSpecialize(vContext:class.Context, vTypeFn:class.TypeFunction)::Ret(class.TypeFunction)
