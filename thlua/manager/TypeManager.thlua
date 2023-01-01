@@ -636,11 +636,12 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair
 end
 
 function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
-	const co = coroutine.running()
+	assert(vWaitCo == coroutine.running(), "wait co must be current co")
 	if vDependCo then
-		local nWaitingRefer = self._coToRefer[co]
+		const nWaitingRefer = self._coToRefer[vWaitCo]
 		if not nWaitingRefer then
-			error(tostring(nWaitingRefer)..",can only call getTypeAwait in Reference's coroutine:")
+			const nDependRefer = self._coToRefer[vDependCo]
+			error("can only call getTypeAwait in Reference's coroutine, try to get:"..tostring(nDependRefer))
 		end
 		local nCurCo:OrNil(Thread) = vDependCo
 		while nCurCo do
@@ -662,7 +663,7 @@ function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Th
 	else
 		vDependCo = self._selfCo
 	end
-	self._coToWaitingInfo[co] = {
+	self._coToWaitingInfo[vWaitCo] = {
 		waitSid = vWaitSid,
 		dependCo = vDependCo,
 	}

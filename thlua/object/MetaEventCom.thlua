@@ -15,12 +15,12 @@ end)
 const MetaEventCom = {}
 MetaEventCom.__index=MetaEventCom
 
-function MetaEventCom.new(vManager)::RetClass(class.MetaEventCom)
+function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventCom)
 	const self = setmetatable({::Self()
 		_manager=vManager,
-		bopEq=false,
+		bopEq=false@OrFalse(let.MetaFnField),
 		bopDict={}@Dict(String, let.MetaFnField),
-		uopLen=false,
+		uopLen=false@OrFalse(let.MetaFnField),
 		uopDict={}@Dict(String, let.MetaFnField),
 		-- special
 		mode=false,
@@ -33,32 +33,46 @@ function MetaEventCom.new(vManager)::RetClass(class.MetaEventCom)
 		name=false,
 		close=false,
 	}, MetaEventCom)
+	return self
+end
+
+const function fieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:class.IAtomType,
+	vTypeFn:OrNil(class.TypeFunction))::Ret(OrNil(class.MetaFnField))
+	if vMethodFn:isUnion() then
+		vContext:error("meta method can't be union type, event:"..vEvent)
+		return nil
+	elseif TypeFunction.is(vMethodFn) then
+		return {
+			luaFn=false,
+			typeFn=vMethodFn
+		}
+	elseif LuaFunction.is(vMethodFn) then
+		return {
+			luaFn=false,
+			typeFn=vMethodFn:specialize(vContext, nil, vTyepFn)
+		}
+	elseif not Nil.is(vMethodFn) then
+		vContext:error("meta method type must be function or nil, event:"..vEvent)
+	end
+	return nil
 end
 
 function MetaEventCom.fromDefaultTable(vContext:class.Context, vTableCom:class.DefaultTableCom)::Ret(class.MetaEventCom)
-	const nMetaCom = MetaEventCom.new(vContext:getTypeManager())
+	const nManager = vContext:getTypeManager()
+	const self = MetaEventCom.new(nManager)
 	for nOper, nEvent in pairs(OPER_ENUM.all) do
 		const nMethodType = vTableCom:native_rawget(vContext, nManager:Literal(nEvent))
-		if nMethodType:isUnion() then
-			vContext:error("bop meta method can't be union type,bop:"..nEvent)
-		elseif TypeFunction.is(nMethodType) then
-			self.bopDict[nEvent] = {
-				luaFn=false,
-				typeFn=nMethodType
-			}
-		elseif LuaFunction.is(nMethodType) then
-			self.bopDict[nEvent] = {
-				luaFn=nMethodType,
-				typeFn=nMethodType:specialize(vContext)
-			}
-		elseif not Nil.is(nMethodType) then
-			vContext:error("bop meta method must be function or nil,bop:"..nEvent)
+		const nField = fieldFromFn(vContext, nEvent, nMethodType)
+		if nField then
+			self.bopDict[nEvent] = nField
 		end
 	end
+	return self
 end
 
-function MetaEventCom.fromObjectMetaBuild()::Ret(class.MetaEventCom)
-	const nCom = MetaEventCom.new()
+function MetaEventCom.fromObjectMetaBuild(vContext:class.Context)::Ret(class.MetaEventCom)
+	const nCom = MetaEventCom.new(vContext:getTypeManager())
+	return nCom
 end
 
 return MetaEventCom
