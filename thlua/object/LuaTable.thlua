@@ -14,8 +14,18 @@ const MetaObject = require "thlua.object.MetaObject"
 
 const LuaTable = AtomTypeClass()
 
-
 (@let.class = import("thlua.type.TypeClass").class)
+
+const function newEmpty()::RetClass(let.EmptyClassTableCom, class.IClassTableCom)
+	const meta = {}
+	meta.__index=meta
+	function meta:waitBuild()
+	end
+	function meta:finishSetMetaTable()
+	end
+	return setmetatable({::Self()
+	}, meta)
+end
 
 function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, class.IAtomType)
 	const self = setmetatable({::Self()
@@ -49,7 +59,7 @@ function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
 	return self._defaultCom
 end
 
-function LuaTable:_checkComOrStruct(vContext)::Ret(Union(class.ITableCom, class.MetaObject))
+function LuaTable:_checkComOrStruct(vContext)::Ret(class.IMetaNative)
 	const nCastStruct = self._castStruct
 	if nCastStruct then
 		vContext:warn("table has been cast to other type")
