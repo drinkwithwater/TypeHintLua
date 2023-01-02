@@ -18,26 +18,27 @@ MetaEventCom.__index=MetaEventCom
 function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventCom)
 	const self = setmetatable({::Self()
 		_manager=vManager,
-		bopEq=false@OrFalse(let.MetaFnField),
-		bopDict={}@Dict(String, let.MetaFnField),
-		uopLen=false@OrFalse(let.MetaFnField),
-		uopDict={}@Dict(String, let.MetaFnField),
+		_selfType=false@OrFalse(class.LuaTable, class.MetaObject),
+		_bopEq=false@OrFalse(let.MetaFnField),
+		_bopDict={}@Dict(String, let.MetaFnField),
+		_uopLen=false@OrFalse(let.MetaFnField),
+		_uopDict={}@Dict(String, let.MetaFnField),
 		-- special
-		mode=false,
-		call=false@OrFalse(let.MetaFnField),
-		metatable=false,
-		tostring=false,
-		pairs=false,
-		ipairs=false,
-		gc=false,
-		name=false,
-		close=false,
+		_mode=false,
+		_call=false@OrFalse(let.MetaFnField),
+		_metatable=false,
+		_tostring=false,
+		_pairs=false,
+		_ipairs=false,
+		_gc=false,
+		_name=false,
+		_close=false,
 	}, MetaEventCom)
 	return self
 end
 
-const function fieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:class.IAtomType,
-	vTypeFn:OrNil(class.TypeFunction))::Ret(OrNil(class.MetaFnField))
+const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:class.UAtomUnion,
+	vTypeFn:OrNil(class.TypeFunction))::Ret(OrNil(let.MetaFnField))
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
 		return nil
@@ -49,7 +50,7 @@ const function fieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:clas
 	elseif LuaFunction.is(vMethodFn) then
 		return {
 			luaFn=false,
-			typeFn=vMethodFn:specialize(vContext, nil, vTyepFn)
+			typeFn=vMethodFn:specialize(vContext, nil, vTypeFn)
 		}
 	elseif not Nil.is(vMethodFn) then
 		vContext:error("meta method type must be function or nil, event:"..vEvent)
@@ -57,22 +58,36 @@ const function fieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:clas
 	return nil
 end
 
-function MetaEventCom.fromDefaultTable(vContext:class.Context, vTableCom:class.DefaultTableCom)::Ret(class.MetaEventCom)
-	const nManager = vContext:getTypeManager()
-	const self = MetaEventCom.new(nManager)
-	for nOper, nEvent in pairs(OPER_ENUM.all) do
-		const nMethodType = vTableCom:native_rawget(vContext, nManager:Literal(nEvent))
-		const nField = fieldFromFn(vContext, nEvent, nMethodType)
-		if nField then
-			self.bopDict[nEvent] = nField
-		end
-	end
-	return self
+function MetaEventCom:getBopFunc(vBopEvent:String)::Ret(OrNil(class.TypeFunction))
+	const nField = self._bopDict[vBopEvent]
+	return nField and nField.typeFn
 end
 
-function MetaEventCom.fromObjectMetaBuild(vContext:class.Context)::Ret(class.MetaEventCom)
-	const nCom = MetaEventCom.new(vContext:getTypeManager())
-	return nCom
+function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTable, vMetaTable:class.DefaultTableCom)
+	if not self._selfType then
+		self._selfType = vSelf
+	else
+		vContext:error("meta event com init more than once")
+		return
+	end
+	const nManager = self._manager
+	-- 1. build bop
+	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
+		const nMethodType = vMetaTable:native_rawget(vContext, nManager:Literal(nEvent))
+		const nField = buildFieldFromFn(vContext, nEvent, nMethodType)
+		self._bopDict[nEvent] = nField
+	end
+	const nEqFn = vMetaTable:native_rawget(vContext, nManager:Literal("__eq"))
+	if not Nil.is(nEqFn) then
+		vContext:error("TODO meta logic for bop __eq", tostring(nEqFn))
+	end
+	-- 2. build uop
+	const nLenFn = vMetaTable:native_rawget(vContext, nManager:Literal("__len"))
+	const nLenTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.Integer)
+	self._uopLen = buildFieldFromFn(vContext, "__len", nLenFn, nLenTypeFn) or false
+end
+
+function MetaEventCom:initByObjectMeta(vContext:class.Context)
 end
 
 return MetaEventCom

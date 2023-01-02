@@ -29,6 +29,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		_luaTable=vLuaTable,
 		_metaTable=false@OrFalse(class.LuaTable),
 		_metaEventDict={}@Dict(String, class.IAtomType),
+		_metaEventCom=vLuaTable:getMetaEventCom(),
 		_isBasingDefault=false@Boolean,
 		_interface=false@OrFalse(class.MetaObject),
 	}, DefaultTableCom)
@@ -94,17 +95,13 @@ function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
 	end
 end
 
-function DefaultTableCom:getMetaEventDict()::Ret(Dict(String, class.IAtomType))
-	return self._metaEventDict
-end
-
 function DefaultTableCom:meta_bop_func(vContext, vOper)
-	local nMethodEvent = OPER_ENUM.all[vOper]!
-	local nMethodType = self._metaEventDict[nMethodEvent]
-	if not nMethodType then
+	const nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
+	const nMethodFn = self._metaEventCom:getBopFunc(nMethodEvent)
+	if not nMethodFn then
 		return false, nil
 	else
-		return true, nMethodType
+		return true, nMethodFn
 	end
 end
 
