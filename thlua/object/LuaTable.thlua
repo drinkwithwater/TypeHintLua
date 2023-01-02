@@ -16,17 +16,6 @@ const LuaTable = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-const function newEmpty()::RetClass(let.EmptyClassTableCom, class.IClassTableCom)
-	const meta = {}
-	meta.__index=meta
-	function meta:waitBuild()
-	end
-	function meta:finishSetMetaTable()
-	end
-	return setmetatable({::Self()
-	}, meta)
-end
-
 function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
@@ -59,13 +48,15 @@ function LuaTable:getDefaultCom()::Ret(class.DefaultTableCom)
 	return self._defaultCom
 end
 
-function LuaTable:_checkComOrStruct(vContext)::Ret(class.IMetaNative)
+function LuaTable:_lockOrWaitClass(vContext:class.Context)
 	const nCastStruct = self._castStruct
 	if nCastStruct then
 		vContext:warn("table has been cast to other type")
-		return nCastStruct
-	else
-		return self._classCom or self._defaultCom
+		return
+	end
+	const nClassCom = self._classCom
+	if nClassCom then
+		nClassCom:waitBuild()
 	end
 end
 
@@ -78,12 +69,14 @@ function LuaTable:setName(vName:String)
 end
 
 function LuaTable:meta_pairs(vContext)
+	self:_lockOrWaitClass(vContext)
 	vContext:warn("lua table meta_pairs TODO")
 	local nManager = self._manager
 	return nManager.builtin.next, self, nManager.type.Nil
 end
 
 function LuaTable:meta_ipairs(vContext)
+	self:_lockOrWaitClass(vContext)
 	vContext:warn("lua table meta_ipairs TODO")
 	local nManager = self._manager
 	return nManager.builtin.inext, self, nManager.type.Nil
@@ -92,7 +85,8 @@ end
 function LuaTable:native_next(vContext, vInitType)
 	const nClassCom = self._classCom
 	if nClassCom then
-		return nClassCom:native_next(vContext, vInitType)
+		nClassCom:waitBuild()
+		return self._defaultCom:native_next(vContext, vInitType)
 	else
 		vContext:error("only class table can take next")
 		return self._manager.type.Never, {}
@@ -145,10 +139,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 end
 
 function LuaTable:native_getmetatable(vContext)
-	const nClassCom = self._classCom
-	if nClassCom then
-		nClassCom:waitBuild()
-	end
+	self:_lockOrWaitClass(vContext)
 	return self._metaTable or self._manager.type.Nil
 end
 
@@ -157,11 +148,24 @@ function LuaTable:native_type()
 end
 
 function LuaTable:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion)
-	return self:_checkComOrStruct(vContext):native_rawget(vContext, vKeyType)
+	self:_lockOrWaitClass(vContext)
+	return self._defaultCom:native_rawget(vContext, vKeyType)
 end
 
 function LuaTable:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil, Boolean))
-	self:_checkComOrStruct(vContext):native_rawset(vContext, vKeyType, vValueType, vOverride)
+	self:_lockOrWaitClass(vContext)
+	return self._defaultCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+end
+
+function LuaTable:_checkComOrStruct(vContext:class.Context)::Ret(class.IMetaNative)
+	const nCastStruct = self._castStruct
+	if nCastStruct then
+		vContext:warn("table has been cast to other type")
+		return nCastStruct
+	else
+		self:_lockOrWaitClass(vContext)
+		return self._defaultCom
+	end
 end
 
 function LuaTable:meta_get(vContext, vKeyType)
@@ -173,6 +177,7 @@ function LuaTable:meta_set(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
+	self:_lockOrWaitClass(vContext)
 	if self._classCom then
 		vContext:error("override set can't work on class table")
 	else
@@ -186,12 +191,20 @@ function LuaTable:meta_len(vContext)
 end
 
 function LuaTable:meta_uop_some(vContext, vOper)
+	self:_lockOrWaitClass(vContext)
 	vContext:error("meta uop TODO:"..tostring(vOper))
 	return self._manager.type.Never
 end
 
 function LuaTable:meta_bop_func(vContext, vOper)
-	return self:_checkComOrStruct(vContext):meta_bop_func(vContext, vOper)
+	self:_lockOrWaitClass(vContext)
+	const nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
+	const nMethodFn = self._metaEventCom:getBopFunc(nMethodEvent)
+	if not nMethodFn then
+		return false, nil
+	else
+		return true, nMethodFn
+	end
 end
 
 function LuaTable:isSingleton()
