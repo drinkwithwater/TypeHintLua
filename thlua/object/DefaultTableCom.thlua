@@ -28,7 +28,6 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_luaTable=vLuaTable,
 		_metaTable=false@OrFalse(class.LuaTable),
-		_metaEventDict={}@Dict(String, class.IAtomType),
 		_metaEventCom=vLuaTable:getMetaEventCom(),
 		_isBasingDefault=false@Boolean,
 		_interface=false@OrFalse(class.MetaObject),
@@ -146,7 +145,7 @@ function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion
 	end
 end
 
-function DefaultTableCom:setmetatable_setIndexPart(vContext:class.Context, vAsIndex:OrFalse(class.MetaIndexField), vAsNewIndex:OrFalse(class.MetaIndexField))
+function DefaultTableCom:setMetaIndex(vContext:class.Context, vAsIndex:OrFalse(class.MetaIndexField), vAsNewIndex:OrFalse(class.MetaIndexField))
 	if not vAsIndex and not vAsNewIndex then
 		print("TODO, impl interface if setmetatable without index")
 		return
@@ -226,20 +225,6 @@ function DefaultTableCom:setmetatable_setIndexPart(vContext:class.Context, vAsIn
 	end
 end
 
-function DefaultTableCom:setmetatable_setEventPart(vContext:class.Context, vMetaEventToType:Dict(String, class.IAtomType))
-	self._metaEventDict = vMetaEventToType
-	const nLenFn = vMetaEventToType["__len"]
-	if LuaFunction.is(nLenFn) then
-		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.Integer)
-		nLenFn:specialize(vContext, self._luaTable, nFn)
-	end
-	const nStringFn = vMetaEventToType["__tostring"]
-	if LuaFunction.is(nStringFn) then
-		const nFn = self._manager:checkedFn(self._luaTable):Ret(self._manager.type.String)
-		nStringFn:specialize(vContext, self._luaTable, nFn)
-	end
-end
-
 function DefaultTableCom:native_next(vContext, vInitType)
 	local nNextDict = self._nextDict
 	local nValueType = self._nextValue
@@ -302,7 +287,7 @@ function DefaultTableCom:basingByDefault()
 	end
 end
 
-function DefaultTableCom:getCompletion()
+function DefaultTableCom:getCompletion()::Ret(class.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then

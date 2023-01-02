@@ -6,13 +6,16 @@ const LuaFunction = require "thlua.func.LuaFunction"
 const Nil = require "thlua.type.Nil"
 const TableComClass = require "thlua.object.TableComClass"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.IClassTableCom = Intersect(class.IClassCom, class.IMetaNative)
+end)
 
 const ClassTableCom = TableComClass()
 
 -- TODO vImplType can be struct, class
 function ClassTableCom.new(vManager:class.TypeManager, vRefer:class.Reference, vLuaTable:class.LuaTable, vFnCom:class.ClassFnCom,
-	vBaseClass:Union(class.LuaTable, False), vInterface:class.MetaObject)::RetClass(class.ClassTableCom, class.ITableCom)
+	vBaseClass:Union(class.LuaTable, False), vInterface:class.MetaObject)::RetClass(class.ClassTableCom, let.IClassTableCom)
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_luaTable=vLuaTable,
@@ -77,7 +80,7 @@ function ClassTableCom:native_next(vContext, vInitType)
 	return self._defaultCom:native_next(vContext, vInitType)
 end
 
-function ClassTableCom:setmetatable_finish()
+function ClassTableCom:finishSetMetaTable()
 	-- TODO, can only set once in ClassFn's context
 	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
 	self._buildReady=true
@@ -91,21 +94,7 @@ function ClassTableCom:getBase()::Ret(class.MetaObject)
 end
 
 function ClassTableCom:finishBuild(vContext:class.Context)
-	--[[if self._sealed then
-		vContext:error("class table try seal more than once")
-		return
-	end
-	self._sealed = true
-	const nCollection = self._manager:TypeCollection()
-	if self._keyType then
-		nCollection:put(self._keyType)
-	end
-	const nDefaultCom:class.DefaultTableCom = self._defaultCom
-	nDefaultCom:foreachGetPair(function(vKey, vValue)
-		nCollection:put(vKey)
-		self._valueDict[vKey] = vValue
-	end)
-	self._keyType = nCollection:mergeToAtomUnion()]]
+	-- TODO seal table
 end
 
 function ClassTableCom:getLuaTable()::Ret(class.LuaTable)
@@ -114,16 +103,6 @@ end
 
 function ClassTableCom:getRefer()::Ret(class.Reference)
 	return self._refer
-end
-
-function ClassTableCom:getCompletion()
-	local nDict:Dict(String, True) = {}
-	self._defaultCom:foreachGetPair(function(vType)
-		if StringLiteral.is(vType) then
-			nDict[vType:getLiteral()] = true
-		end
-	end)
-	return nDict
 end
 
 function ClassTableCom.is(vType)::isguard(class.ClassTableCom)

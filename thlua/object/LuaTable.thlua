@@ -125,12 +125,11 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	end
 	-- 3. set default com
 	const nDefaultCom = self._defaultCom
-	nDefaultCom:setmetatable_setIndexPart(vContext, nAsIndex, nAsNewIndex)
-	nDefaultCom:setmetatable_setEventPart(vContext, nMetaEventToType)
+	nDefaultCom:setMetaIndex(vContext, nAsIndex, nAsNewIndex)
 	-- 4. set class com
 	const nClassCom = self._classCom
 	if nClassCom then
-		nClassCom:setmetatable_finish()
+		nClassCom:finishSetMetaTable()
 	end
 	return self
 end
@@ -258,8 +257,7 @@ function LuaTable:checkBaseObjectType()
 end
 
 function LuaTable:getCompletion()::Ret(class.LspCompletion)
-	const com = self._classCom or self._defaultCom
-	return com:getCompletion()
+	return self._defaultCom:getCompletion()
 end
 
 function LuaTable.is(v)::isguard(class.LuaTable)

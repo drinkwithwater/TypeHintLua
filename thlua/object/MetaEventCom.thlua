@@ -27,7 +27,7 @@ function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventC
 		_mode=false,
 		_call=false@OrFalse(let.MetaFnField),
 		_metatable=false,
-		_tostring=false,
+		_tostring=false@OrFalse(let.MetaFnField),
 		_pairs=false,
 		_ipairs=false,
 		_gc=false,
@@ -85,6 +85,12 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	const nLenFn = vMetaTable:native_rawget(vContext, nManager:Literal("__len"))
 	const nLenTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.Integer)
 	self._uopLen = buildFieldFromFn(vContext, "__len", nLenFn, nLenTypeFn) or false
+	-- 3. build other
+	-- 1) __tostring
+	const nStringTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.String)
+	const nStringFn = vMetaTable:native_rawget(vContext, nManager:Literal("__tostring"))
+	self._tostring = buildFieldFromFn(vContext, "__tostring", nStringFn, nStringTypeFn) or false
+	-- 2) __tostring
 end
 
 function MetaEventCom:initByObjectMeta(vContext:class.Context)
