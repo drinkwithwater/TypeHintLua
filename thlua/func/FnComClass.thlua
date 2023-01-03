@@ -2,25 +2,26 @@
 (@do
 	let.class = import("thlua.type.TypeClass").class
 	class.UFnCom = Union(class.LateFnCom, class.OpenFnCom, class.ClassFnCom)
-	class.IFnCom = Intersect(class.IMetaCall, Interface {
+	class.IFnCom = Interface {
 		regionTableSelf=Mfn(class.Context, class.IAstNode):Ret(class.ClassTableCom),
 		regionReturn=Mfn(class.Context, class.IAstNode, class.UTypeTuple),
 		regionEnd=Mfn(class.Context, class.IAstNode, List(class.TermTuple)):Ret():Ret(class.TermTuple),
-	})
+		matchTypeFn=Mfn(class.Context, class.UTypeTuple):Ret(class.TypeFunction)
+	}
 end)
 
 
 const function FnComClass()::open()
 	const FnCom = {}
 	FnCom.__index = FnCom
+	function FnCom:matchTypeFn?(vContext, vTypeTuple)::nocheck()
+		error("match type fn not implement")
+	end
 	function FnCom:regionTableSelf?(vContext, vNode)::nocheck()
 		error("only fn with RetClass can take New()")
 	end
 	function FnCom:regionReturn?(vContext, vNode, vTypeTuple)
 		error("return not implement")
-	end
-	function FnCom:meta_call?(vContext, vTypeTuple)::nocheck()
-		error("meta call TODO")
 	end
 	function FnCom:regionEnd?(vContext, vNode, vTermTupleList)
 		-- do nothing
