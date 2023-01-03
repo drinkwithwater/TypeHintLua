@@ -6,6 +6,11 @@ const ClassFnCom = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
+ClassFnCom.SELF_EMPTY = 1
+ClassFnCom.SELF_INIT = 2
+ClassFnCom.SELF_META = 3
+ClassFnCom.SELF_FINISH = 3
+
 function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction, vRefer:class.Reference)::RetClass(class.ClassFnCom, class.IFnCom)
 	local self = setmetatable({::Self()
 		_manager=vManager,
@@ -16,6 +21,9 @@ function ClassFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFuncti
 		_onceHintSelf=false@Boolean,
 		_startSid=vManager:genSessionId(),
 		_started=false@Boolean,
+		_buildReady=false@Boolean,
+		_waitCoToSid={}@Dict(Thread, Integer),
+		_calledSelf=false@Boolean,
 	}, ClassFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
@@ -38,11 +46,34 @@ function ClassFnCom:runBuild()
 	self._classTableCom:finishBuild(nContext)
 end
 
+function ClassFnCom:waitBuild()
+	self:startBuild()
+	const nCurCo = coroutine.running()
+	const nSelfCo = self._refer:getSelfCo()
+	if nCurCo ~= nSelfCo then
+		if not self._buildReady then
+			const nSessionId = self._manager:genSessionId()
+			self._waitCoToSid[nCurCo] = nSessionId
+			self._manager:coWait(nCurCo, nSessionId, nSelfCo)
+		end
+	else
+		assert(self._calledSelf, "build a ClassTable with {Self()} before use it")
+	end
+end
+
 function ClassFnCom:startBuild()
 	if not self._started then
 		self._started = true
-		const co = self._classTableCom:getRefer():getSelfCo()
+		const co = self._refer:getSelfCo()
 		self._manager:coWakeup(co, self._startSid)
+	end
+end
+
+function ClassFnCom:finishSetMetaTable()
+	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
+	self._buildReady=true
+	for co, sid in pairs(self._waitCoToSid) do
+		self._manager:coWakeup(co, sid)
 	end
 end
 
@@ -53,7 +84,15 @@ end
 function ClassFnCom:regionTableSelf(vContext, vNode)
 	assert(not self._onceHintSelf, "Self() can only be used once")
 	self._onceHintSelf = true
-	return self._classTableCom
+	return self
+end
+
+function ClassFnCom:longHintSelf()
+	self._calledSelf = true
+end
+
+function ClassFnCom:getLuaTable()::Ret(class.LuaTable)
+	return self._classTableCom:getLuaTable()
 end
 
 function ClassFnCom:regionReturn(vContext, vNode, vTypeTuple)

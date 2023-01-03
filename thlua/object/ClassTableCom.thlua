@@ -27,39 +27,16 @@ function ClassTableCom.new(vManager:class.TypeManager,
 		_baseClass=vBaseClass,
 		_interface=vInterface,
 		_fnCom=vFnCom,
-		_waitCoToSid={}@Dict(Thread, Integer),
-		_buildReady=false@Boolean,
-		_calledSelf=false@Boolean,
 	}, ClassTableCom)
 	return self
 end
 
-function ClassTableCom:longHintSelf()
-	self._calledSelf = true
-end
-
 function ClassTableCom:waitBuild()
-	self._fnCom:startBuild()
-	const nCurCo = coroutine.running()
-	const nSelfCo = self._refer:getSelfCo()
-	if nCurCo ~= nSelfCo then
-		if not self._buildReady then
-			const nSessionId = self._manager:genSessionId()
-			self._waitCoToSid[nCurCo] = nSessionId
-			self._manager:coWait(nCurCo, nSessionId, nSelfCo)
-		end
-	else
-		assert(self._calledSelf, "build a ClassTable with {Self()} before use it")
-	end
+	self._fnCom:waitBuild()
 end
 
 function ClassTableCom:finishSetMetaTable()
-	-- TODO, can only set once in ClassFn's context
-	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
-	self._buildReady=true
-	for co, sid in pairs(self._waitCoToSid) do
-		self._manager:coWakeup(co, sid)
-	end
+	self._fnCom:finishSetMetaTable()
 end
 
 function ClassTableCom:getBase()::Ret(class.MetaObject)
@@ -72,10 +49,6 @@ end
 
 function ClassTableCom:getLuaTable()::Ret(class.LuaTable)
 	return self._luaTable
-end
-
-function ClassTableCom:getRefer()::Ret(class.Reference)
-	return self._refer
 end
 
 function ClassTableCom.is(vType)::isguard(class.ClassTableCom)
