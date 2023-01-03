@@ -7,7 +7,7 @@ const TermCase = require "thlua.term.TermCase"
 const Exception = require "thlua.Exception"
 const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
-const ClassFnCom = require "thlua.func.ClassFnCom"
+const ClassFactory = require "thlua.func.ClassFactory"
 const MetaObject = require "thlua.object.MetaObject"
 
 const FunctionBuilder = {}
@@ -47,7 +47,7 @@ function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(clas
 			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			assert(not self._retTuples, Exception.new("function builder case conflict"))
-			const nFnCom = ClassFnCom.new(self._manager, self._luaFunc, vRefer)
+			const nFnCom = ClassFactory.new(self._manager, self._luaFunc, vRefer)
 			vRefer:setRawAsync(self._node, function()
 				local nImplType = vStruct
 				if Reference.is(nImplType) then
@@ -59,9 +59,7 @@ function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(clas
 				if nImplType then
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
 				end
-				const nTable = nFnCom:createLuaTable(nImplType or self._manager.type.Object)
-				const nClassTableCom = nTable:createClassTableCom(nFnCom, vRefer, false, nImplType or self._manager.type.Object)
-				nFnCom:bind(self._context, nClassTableCom)
+				const nTable = nFnCom:createLuaTable(self._context, nImplType or self._manager.type.Object)
 				return {nTable}
 			end, function(vLuaTable)
 				nFnCom:runBuild()

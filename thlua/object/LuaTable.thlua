@@ -7,7 +7,6 @@ const LuaFunction = require "thlua.func.LuaFunction"
 const Nil = require "thlua.type.Nil"
 const TypeFunction = require "thlua.func.TypeFunction"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
-const ClassTableCom = require "thlua.object.ClassTableCom"
 const DefaultTableCom = require "thlua.object.DefaultTableCom"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const MetaObject = require "thlua.object.MetaObject"
@@ -26,18 +25,16 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		id=vManager:genTypeId(),
 		_defaultCom=nil@class.DefaultTableCom,
 		_metaEventCom=MetaEventCom.new(vManager),
-		_classCom=false@OrFalse(class.ClassTableCom),
+		_classCom=false@OrFalse(class.ClassFactory),
 		_castStruct=false@OrFalse(class.MetaObject),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
 end
 
-function LuaTable:createClassTableCom(vFnCom:class.ClassFnCom, vRefer:class.Reference, vBaseClass:Union(False, class.LuaTable), vInterface:class.MetaObject)::Ret(class.ClassTableCom)
-	const nCom = ClassTableCom.new(self._manager, vRefer, self, vFnCom, vBaseClass, vInterface)
-	self._classCom = nCom
+function LuaTable:initByClassCom(vFnCom:class.ClassFactory, vInterface:class.MetaObject)
+	self._classCom = vFnCom
 	self._defaultCom:setInterface(vInterface)
-	return nCom
 end
 
 function LuaTable:getMetaEventCom()::Ret(class.MetaEventCom)
@@ -133,7 +130,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- 4. set class com
 	const nClassCom = self._classCom
 	if nClassCom then
-		nClassCom:finishSetMetaTable()
+		nClassCom:onSetMetaTable()
 	end
 	return self
 end
@@ -268,7 +265,7 @@ end
 function LuaTable:checkBaseObjectType()
 	const nClassCom = self._classCom
 	if nClassCom then
-		return nClassCom:getBase()
+		return nClassCom:getInterface()
 	end
 	const nStruct = self._castStruct
 	if nStruct then

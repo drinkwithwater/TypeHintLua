@@ -19,7 +19,7 @@ function TableBuilder.new(vContext:class.Context, vNode:class.IAstNode, vPairMak
 		_context=vContext,
 		_node=vNode,
 		_pairMaker=vPairMaker,
-		_selfClassFnCom=false@Union(False, class.ClassFnCom),
+		_selfClassFactory=false@Union(False, class.ClassFactory),
 		_selfInitDict=false@Union(False, Dict(class.UAllType, class.UAllType)),
 	}, TableBuilder)
 end
@@ -28,7 +28,7 @@ function TableBuilder.makeLongHint(self:class.TableBuilder)::RetClass(class.Tabl
 	return {::Self()
 		Self=function(vLongHint:class.TableLongHint, vInitDict:OrNil(Dict(class.UAllType, class.UAllType)))::Ret(class.TableLongHint)
 			const nFnCom = assert(self._context:getRegion(), "region must existed when table::Self()"):getFnCom()
-			self._selfClassFnCom = nFnCom
+			self._selfClassFactory = nFnCom
 			if vInitDict then
 				self._selfInitDict = vInitDict
 			end
@@ -83,9 +83,9 @@ end
 function TableBuilder:build()::Ret(class.LuaTable)
 	const nContext = self._context
 	const nManager = nContext:getTypeManager()
-	const nClassFnCom = self._selfClassFnCom
-	if nClassFnCom then
-		return nClassFnCom:regionTableSelf(self._context, self._node, function(vNewTable)
+	const nClassFactory = self._selfClassFactory
+	if nClassFactory then
+		return nClassFactory:regionTableSelf(self._context, self._node, function(vNewTable)
 			self:_build(vNewTable)
 		end)
 	else
