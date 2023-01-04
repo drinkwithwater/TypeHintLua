@@ -41,28 +41,23 @@ const TermCase = require "thlua.term.TermCase"
 end)
 
 
-local Runtime = ContextClass()
-
+local Runtime = {}
+Runtime.__index=Runtime
 
 function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runtime)
 	local self = setmetatable({::Self()
 	}, Runtime)
 	self._loader = vLoader
-	self._runtime = self
-	self._sealContext = self
 	self._mainFileName = vMainFileName
 	self._node = Node.newRootNode(vMainFileName)
 	self._spaceList = {} @ List(class.Namespace)
 	self._manager = TypeManager.new(self)
-	self._namespace = self:RootNamespace()
-	self._namespace:close()
 	self._globalTable = native.make(self)
 	self._loadedDict = {} @ Dict(String, LoadedState)
-	self._lateFnSet = {} @ Dict(class.LateFnCom, True)
-	self._classFnSet = {} @ Dict(class.ClassFactory, True)
 	self._nodeToSymbolSet = {} @ Dict(class.IAstNode, Dict(class.LocalSymbol, True))
 	self._fileStateDict = {} @Dict(String, FileState)
-	self._region = false
+	self._rootContext = self:newContext(self._node, false, false)
+	self._rootContext:rootSetNamespace(self:RootNamespace())
 	return self
 end
 
@@ -103,13 +98,13 @@ function Runtime:main()::Ret(Boolean, Nil)
 	return pcall(function()
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._manager:TermTuple({})
-		nLuaFunc:meta_native_call(self:newOpenContext(nLuaFunc:getNode()), nTermTuple)
-		self:checkDefineLuaFunction()
-		self:checkLateLuaFunction()
+		nLuaFunc:meta_native_call(self._rootContext:newOpenContext(nLuaFunc:getNode()), nTermTuple)
+		self._rootContext:checkDefineLuaFunction()
+		self._rootContext:checkLateLuaFunction()
 	end)
 end
 
-function Runtime:newContext(vApplyNode:class.IAstNode, vSealContext:Union(False, class.UContext), vParentContext:class.UContext)::Ret(class.Context)
+function Runtime:newContext(vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context))::Ret(class.Context)
 	return Context.new(self, vApplyNode, vSealContext, vParentContext)
 end
 
@@ -126,7 +121,7 @@ function Runtime:cacheLoadFile(vFileName:String)::Ret(class.LuaFunction)
 	else
 		nCodeEnv = nFileState.codeEnv
 	end
-	return nCodeEnv:getTypingFn()(self, nCodeEnv:getNodeList())
+	return nCodeEnv:getTypingFn()(self, self._rootContext, nCodeEnv:getNodeList())
 end
 
 function Runtime:require(vPath:String)::Ret(class.RefineTerm)
@@ -144,7 +139,7 @@ function Runtime:require(vPath:String)::Ret(class.RefineTerm)
 		} @ LoadedState
 		self._loadedDict[vPath] = nLoadedState
 		local nTermTuple = self._manager:TermTuple({})
-		local nContext = self:newOpenContext(nLuaFunc:getNode())
+		local nContext = self._rootContext:newOpenContext(nLuaFunc:getNode())
 		local ret = nLuaFunc:meta_native_call(nContext, nTermTuple)
 		nLoadedState.term = ret:get(1)
 		nLoadedState.context = nContext
@@ -227,8 +222,8 @@ function Runtime:LetNamespace(vParentLet:class.Namespace, vRegionNode:class.IAst
 end
 
 function Runtime:makeSymbol_ENV(vNode:class.IAstNode)::Ret(class.LocalSymbol)
-	local nTerm = self:RefineTerm(self._globalTable)
-	return LocalSymbol.new(self, vNode, self._globalTable, nTerm)
+	local nTerm = self._rootContext:RefineTerm(self._globalTable)
+	return LocalSymbol.new(self._rootContext, vNode, self._globalTable, nTerm)
 end
 
 function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.IAstNode, ...:Truth)
@@ -268,12 +263,12 @@ function Runtime:getAllDiagnostic()::Ret(Dict(String, List(Diagnostic)))
 	return nFileToDiaList
 end
 
-function Runtime:getParentContext()::Ret(False)
-	return false
+function Runtime:getNode()::Ret(class.IAstNode)
+	return self._node
 end
 
-function Runtime:getRegion()::Ret(False)
-	return false
+function Runtime:getTypeManager()::Ret(class.TypeManager)
+	return self._manager
 end
 
 return Runtime
