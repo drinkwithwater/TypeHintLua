@@ -67,9 +67,21 @@ end
 
 function LuaTable:meta_pairs(vContext)
 	self:_lockOrWaitClass(vContext)
-	vContext:warn("lua table meta_pairs TODO")
-	local nManager = self._manager
-	return nManager.builtin.next, self, nManager.type.Nil
+	const nPairsFn = self._metaEventCom:getPairsFunc()
+	if nPairsFn then
+		const nManager = self._manager
+		const nRetTuples = nPairsFn:meta_call(vContext, nManager:Tuple(self))
+		local nRetOneTuple:OrFalse(class.TypeTuple) = false
+		nRetTuples:foreachWithFirst(function(vTuple, _)
+			nRetOneTuple = vTuple
+		end)
+		if nRetTuples:getTupleCount() ~= 1 then
+			vContext:error("__pairs must return only one tuple")
+		end
+		return nRetOneTuple
+	else
+		return false
+	end
 end
 
 function LuaTable:meta_ipairs(vContext)
@@ -80,14 +92,7 @@ function LuaTable:meta_ipairs(vContext)
 end
 
 function LuaTable:native_next(vContext, vInitType)
-	const nClassCom = self._classCom
-	if nClassCom then
-		nClassCom:waitBuild()
-		return self._defaultCom:native_next(vContext, vInitType)
-	else
-		vContext:error("only class table can take next")
-		return self._manager.type.Never, {}
-	end
+	return self:_checkComOrStruct(vContext):native_next(vContext, vInitType)
 end
 
 function LuaTable:native_setmetatable(vContext, vMetaTableType)

@@ -28,7 +28,7 @@ function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventC
 		_call=false@OrFalse(let.MetaFnField),
 		_metatable=false,
 		_tostring=false@OrFalse(let.MetaFnField),
-		_pairs=false,
+		_pairs=false@OrFalse(let.MetaFnField),
 		_ipairs=false,
 		_gc=false,
 		_name=false,
@@ -38,7 +38,7 @@ function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventC
 end
 
 const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:class.UAtomUnion,
-	vTypeFn:OrNil(class.TypeFunction))::Ret(OrNil(let.MetaFnField))
+	vSelfOrTypeFn:OrNil(class.TypeFunction, class.LuaTable))::Ret(OrNil(let.MetaFnField))
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
 		return nil
@@ -48,10 +48,22 @@ const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn
 			typeFn=vMethodFn
 		}
 	elseif LuaFunction.is(vMethodFn) then
-		return {
-			luaFn=false,
-			typeFn=vMethodFn:specialize(vContext, nil, vTypeFn)
-		}
+		if TypeFunction.is(vSelfOrTypeFn) then
+			return {
+				luaFn=false,
+				typeFn=vMethodFn:specialize(vContext, nil, vSelfOrTypeFn)
+			}
+		elseif vSelfOrTypeFn then
+			return {
+				luaFn=false,
+				typeFn=vMethodFn:specialize(vContext, vSelfOrTypeFn, nil)
+			}
+		else
+			return {
+				luaFn=false,
+				typeFn=vMethodFn:specialize(vContext, nil, nil)
+			}
+		end
 	elseif not Nil.is(vMethodFn) then
 		vContext:error("meta method type must be function or nil, event:"..vEvent)
 	end
@@ -61,6 +73,11 @@ end
 function MetaEventCom:getBopFunc(vBopEvent:String)::Ret(OrNil(class.TypeFunction))
 	const nField = self._bopDict[vBopEvent]
 	return nField and nField.typeFn
+end
+
+function MetaEventCom:getPairsFunc()::Ret(OrNil(class.TypeFunction))
+	const nField = self._pairs
+	return nField and nField.typeFn or nil
 end
 
 function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTable, vMetaTable:class.DefaultTableCom)
@@ -90,7 +107,9 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	const nStringTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.String)
 	const nStringFn = vMetaTable:native_rawget(vContext, nManager:Literal("__tostring"))
 	self._tostring = buildFieldFromFn(vContext, "__tostring", nStringFn, nStringTypeFn) or false
-	-- 2) __tostring
+	-- 2) __pairs
+	const nPairsFn = vMetaTable:native_rawget(vContext, nManager:Literal("__pairs"))
+	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, vSelf) or false
 end
 
 function MetaEventCom:initByObjectMeta(vContext:class.Context)
