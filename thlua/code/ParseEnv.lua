@@ -289,10 +289,15 @@ local G = lpeg.P { "TypeHintLua";
 	SuffixedExpr = (function()
 		local primary = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
 		Cpos * symb"(" * (
-			vv.Expr * symb")" * (vv.AtHint + cc(nil)) +
+			vv.Expr * cc(nil) * symb")" +
 			vv.ApplyExpr * vv.AtHint * symb")" +
 			throw("invalid paren expression")
-		) * Cpos / exprF.paren;
+		) * Cpos * (vv.AtHint + cc(nil)) * Cpos / function(pos, inExpr, inHint, posMid, outHint, posEnd)
+			if inHint then
+				inExpr = exprF.paren(pos, inExpr, inHint, posMid)
+			end
+			return exprF.paren(pos, inExpr, outHint, posEnd)
+		end
 		local function addAtHint(patt)
 			return patt * (vv.AtHint + cc(nil)) / function(expr, hintShort)
 				expr.hintShort = hintShort
