@@ -98,8 +98,8 @@ exprF = {
 			return e2
 		end
 	end,
-	paren=function(pos, e, posEnd)
-		return { tag = "Paren", pos = pos, [1] = e, posEnd=posEnd}
+	paren=function(pos, e, hintShort, posEnd)
+		return { tag = "Paren", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
 	end,
 	hintExpr=function(pos, e, hintShort, posEnd)
 		if not hintShort then
@@ -195,7 +195,7 @@ local G = lpeg.P { "TypeHintLua";
 			env.hinting = true
 			return true
 		else
-			error(env:makeErrNode(i, "syntax error : hint-in-hint not allow"))
+			error(env:makeErrNode(i, "syntax error : hint-in-hint syntax not allow"))
 			return false
 		end
 	end);
@@ -287,14 +287,18 @@ local G = lpeg.P { "TypeHintLua";
               vv.SuffixedExpr + tagC.Dots(symb"...");
 
 	SuffixedExpr = (function()
+		local primary = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
+		Cpos * symb"(" * (
+			vv.Expr * symb")" * (vv.AtHint + cc(nil)) +
+			vv.ApplyExpr * vv.AtHint * symb")" +
+			throw("invalid paren expression")
+		) * Cpos / exprF.paren;
 		local function addAtHint(patt)
 			return patt * (vv.AtHint + cc(nil)) / function(expr, hintShort)
 				expr.hintShort = hintShort
 				return expr
 			end
 		end
-		local primary = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
-		addAtHint(Cpos * symb("(") * vv.Expr * symbA(")") * Cpos / exprF.paren);
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
