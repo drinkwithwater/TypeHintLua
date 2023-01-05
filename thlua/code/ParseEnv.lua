@@ -59,6 +59,8 @@ local function symb(str)
 		return token(lpeg.P("@")*-lpeg.P("!"))
 	elseif str == "@!" then
 		return token(lpeg.P("@!")*-lpeg.P("!"))
+	elseif str == "(" then
+		return token(lpeg.P("(")*-lpeg.P("@"))
 	else
 		return token(lpeg.P(str))
 	end
@@ -147,21 +149,20 @@ local tagC=setmetatable({
 })
 
 local hintC={
-	string=function(pattBegin,pattScript,pattEndOrNil)
-		pattScript = pattScript/function(...) end
-		local pattEndPos = (pattEndOrNil and pattEndOrNil * Cpos or Cpos)
-		local patt = Cenv * Cpos * pattBegin * Cpos * pattScript * Cpos * pattEndPos / function(env,p1,p2,p3,p4)
-			env:markDel(p1, p4-1)
+	short=function(pattBegin)
+		local exprPatt = vvA.SimpleExpr * vv.HintEnd / function(...) end
+		return Cenv * Cpos * pattBegin * vv.HintBegin *
+			Cpos * exprPatt * Cpos / function(env,p1,p2,p3)
+			env:markDel(p1, p3-1)
 			return env:subScript(p2, p3-1)
 		end
-		-- TODO, refactor this capture to be faster
-		local thluaPatt = vv.HintBegin * (patt * vv.HintSuccessEnd + vv.HintFailEnd)
-		return thluaPatt
-		--local commentPatt = lpeg.P"--[["*Cenv*pattBegin*
-		--Cpos*pattScript*Cpos*pattEndPos*lpeg.P"]]"*vv.Skip/function(env,p1,p2,p3)
-			--return env:subScript(p1, p2-1)
-		--end
-		--return thluaPatt + commentPatt
+	end,
+	long=function(startOffset, pattBegin, pattBody, pattEnd)
+		local pattScript = pattBegin * vv.HintBegin * pattBody / function(...) end
+		return Cenv * Cpos * pattScript * vv.HintEnd * Cpos * pattEnd * Cpos / function(env,p1,p2,p3)
+			env:markDel(p1, p3-1)
+			return env:subScript(p1+startOffset, p2-1)
+		end
 	end,
 	char=function(char)
 		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
@@ -194,33 +195,34 @@ local G = lpeg.P { "TypeHintLua";
 			env.hinting = true
 			return true
 		else
+			error(env:makeErrNode(i, "syntax error : hint-in-hint not allow"))
 			return false
 		end
 	end);
 
-	HintSuccessEnd = lpeg.Cmt(Cenv, function(_, _, env)
+	HintEnd = lpeg.Cmt(Cenv, function(_, _, env)
 		assert(env.hinting, "hinting state error when lpeg parsing when success case")
 		env.hinting = false
 		return true
 	end);
 
-	HintFailEnd = lpeg.Cmt(Cenv, function(_, _, env)
-		assert(env.hinting, "hinting state error when lpeg parsing when fail case")
-		env.hinting = false
-		return true
-	end) * lpeg.P(false);
-
 	NotnilHint = hintC.char("!");
 
 	OverrideHint = hintC.char("?");
 
-	AtHint = hintC.string(symb("@") + symb("@!!"), vvA.SimpleExpr);
+	AtHint = hintC.short(symb("@") + symb("@!!"));
 
-	ColonHint = hintC.string(symb(":"), vvA.SimpleExpr);
+	ColonHint = hintC.short(symb(":"));
 
-	LongHint = hintC.string(lpeg.P(":"), (symb":" * vv.Name * vv.FuncArgs)^1, symb(";")^-1);
+	LongHint = hintC.long(1,
+		symb"::" * vv.Name * symb"(",
+		vv.ExprList^-1 * symbA ")" * (symb":" * vvA.Name * symbA"(" * vv.ExprList^-1 * symbA")")^0,
+		symb(";")^-1);
 
-	HintStat = tagC.HintStat(hintC.string(symb("(")*symb("@"), vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"), symbA(")")));
+	HintStat = tagC.HintStat(hintC.long(2,
+		symb("(@"),
+		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
+		symbA(")")));
 
   -- hint end }}}
 
