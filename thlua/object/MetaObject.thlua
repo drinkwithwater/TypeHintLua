@@ -10,7 +10,6 @@ const MetaObject = AtomTypeClass()
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
-	let.UMemberField = Union(class.UAllType, class.MemberFunction)
 end)
 
 function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, vMoreKey:class.Reference, vIsInterface:Boolean)
@@ -172,14 +171,8 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	if not nRightBasicKey:containAll(self._basicKey) then
 		return false
 	end
-	const nRightValueDict = vRightObject:getMemberDict()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
-		const nRightKey = nRightBasicKey:containAtom(vLeftKey)
-		if not nRightKey then
-			return false
-		end
-		local nRightValue = nRightValueDict[nRightKey]!
-		if MemberFunction.is(nRightValue) then
+	const function isMatchedValue(vLeftValue:class.UAllType, vRightValue:class.UMemberAllType, vLeftIsMfn:Boolean)::Ret(Boolean)
+		if MemberFunction.is(vRightValue) then
 			if not vLeftIsMfn then
 				return false
 			end
@@ -188,11 +181,42 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 				return false
 			end
 		else
-			if not vLeftValue:assumeContainAll(vAssumeSet, nRightValue) then
+			if not vLeftValue:assumeContainAll(vAssumeSet, vRightValue) then
 				return false
 			end
 		end
 		return true
+	end
+	const nRightValueDict = vRightObject:getMemberDict()
+	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
+		const nRightBasicKey = nRightBasicKey:containAtom(vLeftKey)
+		if nRightBasicKey then -- basic key
+			local nRightValue = nRightValueDict[nRightBasicKey]!
+			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
+		else -- more key
+			const nMoreType = nRightMoreRefer:getResultType()
+			if nMoreType then -- key is merged, just get one matched
+				const nRightMoreKey = nMoreType:assumeContainAtom(vAssumeSet, vLeftKey)
+				if not nRightMoreKey then
+					return false
+				end
+				const nRightValue = nRightValueDict[nRightMoreKey]
+				if not nRightValue then
+					return false
+				end
+				return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
+			else -- key is not merged, iter for one matched
+				for _, nRightMoreKey in ipairs(nRightMoreRefer:getListAwait()) do
+					if nRightMoreKey:assumeContainAtom(vAssumeSet, vLeftKey) then
+						const nRightValue = nRightValueDict[nRightMoreKey]
+						if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
+							return true
+						end
+					end
+				end
+				return false
+			end
+		end
 	end)
 end
 

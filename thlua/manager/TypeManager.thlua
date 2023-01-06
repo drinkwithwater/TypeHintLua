@@ -100,7 +100,8 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	return self
 end
 
-const BasicAtomMetatableSet:Dict(Truth, String)  = {
+const AtomMetatableSet:Dict(Truth, String) = {
+	-- not recursive
 	[Nil]="Nil",
 	[String]="String",
 	[StringLiteral]="StringLiteral",
@@ -109,19 +110,13 @@ const BasicAtomMetatableSet:Dict(Truth, String)  = {
 	[BooleanLiteral]="BooleanLiteral",
 	[Thread]="Thread",
 	[Truth]="Truth",
-}
-
-const AtomMetatableSet:Dict(Truth, String) = {
+	-- may recursive
 	[MetaObject]="MetaObject",
 	[LuaTable]="LuaTable",
-	[LuaFunction]="LuaFunction",
 	[TypeFunction]="TypeFunction",
+	[LuaFunction]="LuaFunction",
 	[NativeFunction]="NativeFunction",
 }
-
-for k, v in pairs(BasicAtomMetatableSet) do
-	AtomMetatableSet[k] = v
-end
 
 const AtomUnionMetatableSet:Dict(Truth, String) = {
 	[Never]="Never",
@@ -163,15 +158,6 @@ function TypeManager:basingByDefault(vType:class.UAtomUnion)
 			vAtomType:checkBaseObjectType()
 		end
 	end)
-end
-
-function TypeManager:isBasicAtomType(vData:class.IAtomType)::Ret(Boolean):pass()
-	local meta = getmetatable(vData)
-	if meta and BasicAtomMetatableSet[meta] then
-		return true
-	else
-		return false
-	end
 end
 
 function TypeManager:assertAllType(vData)::Ret(class.UAllType)
@@ -338,7 +324,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 			end
 			nKey:foreachAwait(function(vAtomType)
 				nKeyCount = nKeyCount + 1
-				if self:isBasicAtomType(vAtomType) then
+				if not vAtomType:mayRecursive() then
 					nBasicCollection:put(vAtomType)
 				else
 					nNonBasicTypeList[#nNonBasicTypeList + 1] = vAtomType
@@ -364,12 +350,12 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 				nFinalCount = nFinalCount + 1
 			end)
 			if nFinalCount ~= nKeyCount then
-				error("Struct's key can not has intersect part")
+				error("Object's key can not has intersect part")
 			end
 		end)
-		const nNewStruct = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer, vIsInterface)
-		nNewStruct:init(nValueDict, vMetaEventDict)
-		return {self:_recordTypeUnionSign(nNewStruct)}
+		const nNewObject = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer, vIsInterface)
+		nNewObject:init(nValueDict, vMetaEventDict)
+		return {self:_recordTypeUnionSign(nNewObject)}
 	end)
 	return nObjectRefer
 end
