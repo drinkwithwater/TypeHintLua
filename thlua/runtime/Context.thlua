@@ -125,7 +125,7 @@ function Context:EXPLIST_PACK(vNode:class.IAstNode, vLazy:Boolean, l:List(UPackE
 end
 
 -- unpack explist to vNum term | termtuple
-function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(class.RefineTerm, class.TermTuple))::nocheck()
+function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(class.RefineTerm, class.TermTuple))::pass()
 	const l:List(Union(class.RefineTerm, class.TermTuple)) = {...}
 	const re:List(class.RefineTerm) = {}
 	for i=1, vNum do
@@ -159,7 +159,7 @@ function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(cla
 end
 
 -- unpack in function's argument & for_in
-function Context:TUPLE_UNPACK(vNode:class.IAstNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)::nocheck()
+function Context:TUPLE_UNPACK(vNode:class.IAstNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)::pass()
 	const l:List(Union(class.RefineTerm, class.TermTuple)) = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(i)
@@ -461,6 +461,9 @@ end
 
 function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.UAllType)::Ret(class.RefineTerm)
 	-- TODO check cast valid
+	if not vType:containAll(vTerm:getType()) then
+		-- self:getRuntime():nodeError(vNode, "@ cast fail")
+	end
 	return self._manager:RefineTerm(vType)
 end
 

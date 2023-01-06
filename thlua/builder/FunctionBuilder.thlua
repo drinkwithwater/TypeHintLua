@@ -17,7 +17,7 @@ const FunctionBuilder = {}
 FunctionBuilder.__index=FunctionBuilder
 
 function FunctionBuilder.new(vContext:class.Context,
-	vNode:class.IAstNode, vAutoArgs:class.AutoArguments, vHasRet:Boolean, vRunFunc:class.GenFunc)::RetClass(class.FunctionBuilder)
+	vNode:class.IAstNode, vAutoArgs:class.AutoArguments, vHasRet:Boolean, vRunFunc:class.GenFunc)::RetClass(let.FunctionBuilder)
 	const nManager = vContext:getTypeManager()
 	const nLuaFunc = nManager:LuaFunction()
 	nLuaFunc:init(vContext, vNode, vAutoArgs, vRunFunc)
@@ -26,7 +26,7 @@ function FunctionBuilder.new(vContext:class.Context,
 		_context=vContext,
 		_manager=nManager,
 		_retTuples=false@Union(False, class.RetTuples),
-		_nocheck=false@Boolean,
+		_pass=false@Boolean,
 		_fnCom=false@Union(False, class.UFnCom),
 		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
@@ -34,7 +34,7 @@ function FunctionBuilder.new(vContext:class.Context,
 	}, FunctionBuilder)
 end
 
-function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(class.FnLongHint)
+function FunctionBuilder.makeLongHint(self:let.FunctionBuilder)::RetClass(class.FnLongHint)
 	return {::Self()
 		member=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
 			self._autoArgs:setSelf(self._context)
@@ -78,9 +78,9 @@ function FunctionBuilder.makeLongHint(self:class.FunctionBuilder)::RetClass(clas
 			self._retTuples = nRetTuples
 			return vLongHint
 		end,
-		nocheck=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
+		pass=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
-			self._nocheck=true
+			self._pass=true
 			return vLongHint
 		end,
 		open=function(vLongHint:class.FnLongHint)::Ret(class.FnLongHint)
@@ -108,7 +108,7 @@ function FunctionBuilder:build()::Ret(class.LuaFunction)
 		if not self._hasRet then
 			if not nRetTuples then
 				nRetTuples = self._manager:VoidRetTuples()
-			elseif not self._nocheck then
+			elseif not self._pass then
 				local hasVoid = false
 				local hasSome = false
 				nRetTuples:foreachWithFirst(function(vTypeTuple, _)
@@ -124,7 +124,7 @@ function FunctionBuilder:build()::Ret(class.LuaFunction)
 			end
 		end
 		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
-		nLateFnCom:init(nRetTuples, self._nocheck)
+		nLateFnCom:init(nRetTuples, self._pass)
 		self._context:recordLateLuaFunction(nLateFnCom)
 	end
 

@@ -4,6 +4,8 @@ const TermCase = require "thlua.term.TermCase"
 const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.runtime.LocalSymbol"
 
+const DoBuilder = require "thlua.builder.DoBuilder"
+
 (@let.class = import("thlua.type.TypeClass").class)
 (@let.node= import("thlua.code.Node").node)
 
@@ -129,6 +131,17 @@ function Region:WHILE(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunctio
 		self:pop_branch()
 	else
 		self._context:getRuntime():nodeWarn(vNode, "while loop is unreachable scope")
+	end
+end
+
+function Region:DO(vNode:class.IAstNode, vHinterHandler:Fn(class.DoLongHint), vDoFunc:Fn())
+	const nBuilder = DoBuilder.new(self._context)
+	local ok, err = pcall(vHinterHandler, nBuilder:makeLongHint())
+	if not ok then
+		error(Exception.new(tostring(err), vNode))
+	end
+	if not nBuilder.pass then
+		vDoFunc()
 	end
 end
 

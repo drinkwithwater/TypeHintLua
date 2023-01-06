@@ -353,7 +353,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		return true
 	end));
-	DoStat = tagC.Do(kw"do" * vv.Block * kwA"end");
+	DoStat = tagC.Do(kw"do" * lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA"end");
 	FuncBody = (function()
 		local IdentDefTList = vv.IdentDefT * (symb(",") * vv.IdentDefT)^0;
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)

@@ -16,7 +16,7 @@ function LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunctio
 		_once=false@Boolean,
 		_autoArgs=nil@class.AutoArguments,
 		_hintRetTuples=false@Union(False, class.RetTuples),
-		_nocheck=false@Boolean,
+		_pass=false@Boolean,
 	}, LateFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
@@ -25,11 +25,11 @@ end
 function LateFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
 	self._autoArgs = self._luaFunction._autoArgs
 	self._hintRetTuples = vRetTuples or false
-	self._nocheck = vNocheck
+	self._pass = vNocheck
 end
 
 function LateFnCom:checkLateRun()
-	if self._nocheck then
+	if self._pass then
 		return
 	end
 	if self._once then
@@ -118,7 +118,7 @@ function LateFnCom:_typeFnSpecialize(vContext:class.Context, vTypeFn:class.TypeF
 		if nRetTuples:containTuples(nHintRetTuples) then
 			nRetTuples = nHintRetTuples
 		else
-			if not self._nocheck then
+			if not self._pass then
 				vContext:getRuntime():nodeError(self._luaFunction:getNode(), "interface-fn ret and hint ret notmatch")
 			end
 		end
@@ -135,7 +135,7 @@ function LateFnCom:selfSpecialize(vContext:class.Context, vSelfType:class.LuaTab
 		const nArgTuple = self._autoArgs:checkByFirst(vContext, vSelfType)
 		local nRetTuples = self._hintRetTuples
 		if not nRetTuples then
-			if not self._nocheck then
+			if not self._pass then
 				vContext:getRuntime():nodeError(self._luaFunction:getNode(), "return something but no hint TODO")
 			end
 			nRetTuples = self._manager:VoidRetTuples()
