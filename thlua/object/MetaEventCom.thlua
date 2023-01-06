@@ -1,4 +1,5 @@
 
+const Reference = require "thlua.type.Reference"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 const TypeFunction = require "thlua.func.TypeFunction"
@@ -7,7 +8,7 @@ const LuaFunction = require "thlua.func.LuaFunction"
 (@do
 	let.class = import("thlua.type.TypeClass").class
 	let.MetaFnField = Struct {
-		sourceFn=OrFalse(class.LuaFunction, class.MemberFunction),
+		luaFn=OrFalse(class.LuaFunction),
 		typeFn=class.TypeFunction,
 	}
 end)
@@ -29,12 +30,26 @@ function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventC
 		_metatable=false,
 		_tostring=false@OrFalse(let.MetaFnField),
 		_pairs=false@OrFalse(let.MetaFnField),
-		_ipairs=false,
+		_ipairs=false@OrFalse(let.MetaFnField),
 		_gc=false,
 		_name=false,
 		_close=false,
 	}, MetaEventCom)
 	return self
+end
+
+function MetaEventCom:getBopFunc(vBopEvent:String)::Ret(OrNil(class.TypeFunction))
+	const nField = self._bopDict[vBopEvent]
+	return nField and nField.typeFn
+end
+
+function MetaEventCom:hasUopLen()::Ret(Boolean)
+	return self._uopLen and true
+end
+
+function MetaEventCom:getPairsFunc()::Ret(OrFalse(class.TypeFunction))
+	const nField = self._pairs
+	return nField and nField.typeFn
 end
 
 const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:class.UAtomUnion,
@@ -44,23 +59,23 @@ const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn
 		return nil
 	elseif TypeFunction.is(vMethodFn) then
 		return {
-			sourceFn=false,
+			luaFn=false,
 			typeFn=vMethodFn
 		}
 	elseif LuaFunction.is(vMethodFn) then
 		if TypeFunction.is(vSelfOrTypeFn) then
 			return {
-				sourceFn=vMethodFn,
+				luaFn=vMethodFn,
 				typeFn=vMethodFn:specialize(vContext, nil, vSelfOrTypeFn)
 			}
 		elseif vSelfOrTypeFn then
 			return {
-				sourceFn=vMethodFn,
+				luaFn=vMethodFn,
 				typeFn=vMethodFn:specialize(vContext, vSelfOrTypeFn, nil)
 			}
 		else
 			return {
-				sourceFn=vMethodFn,
+				luaFn=vMethodFn,
 				typeFn=vMethodFn:specialize(vContext, nil, nil)
 			}
 		end
@@ -68,16 +83,6 @@ const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn
 		vContext:error("meta method type must be function or nil, event:"..vEvent)
 	end
 	return nil
-end
-
-function MetaEventCom:getBopFunc(vBopEvent:String)::Ret(OrNil(class.TypeFunction))
-	const nField = self._bopDict[vBopEvent]
-	return nField and nField.typeFn
-end
-
-function MetaEventCom:getPairsFunc()::Ret(OrFalse(class.TypeFunction))
-	const nField = self._pairs
-	return nField and nField.typeFn
 end
 
 function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTable, vMetaTable:class.DefaultTableCom)
@@ -91,8 +96,7 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	-- 1. build bop
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
 		const nMethodType = vMetaTable:native_rawget(vContext, nManager:Literal(nEvent))
-		const nField = buildFieldFromFn(vContext, nEvent, nMethodType)
-		self._bopDict[nEvent] = nField
+		self._bopDict[nEvent] = buildFieldFromFn(vContext, nEvent, nMethodType)
 	end
 	const nEqFn = vMetaTable:native_rawget(vContext, nManager:Literal("__eq"))
 	if not Nil.is(nEqFn) then
@@ -112,7 +116,52 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, vSelf) or false
 end
 
-function MetaEventCom:initByMetaObjectAction()
+const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(class.IAtomType))::Ret(OrNil(let.MetaFnField))
+	if not vTypeFn then
+		return nil
+	end
+	if Reference.is(vTypeFn) then
+		vTypeFn = vTypeFn:getTypeAwait()
+	end
+	if not TypeFunction.is(vTypeFn) then
+		error("meta field "..vEvent.." must be single type-function")
+	else
+		return {
+			luaFn=false,
+			typeFn=vTypeFn
+		}
+	end
+end
+
+function MetaEventCom:initByEventDict(vObject:class.MetaObject, vActionDict:Dict(String, class.IAtomType))
+	if not self._selfType then
+		self._selfType = vObject
+	else
+		error("meta event com init more than once")
+		return
+	end
+	const nManager = self._manager
+	-- 1. build bop
+	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
+		self._bopDict[nEvent] = buildFieldFromAllType(nEvent, vActionDict[nEvent])
+	end
+	if vActionDict["__eq"] then
+		print("__eq in action table TODO")
+	end
+	-- 2. build uop
+	const nLenType = vActionDict["_len"]
+	if nLenType then
+		if not nManager.type.Integer:containAll(nLenType) then
+			error("len type must be subtype of Integer")
+		end
+		self._uopLen = buildFieldFromAllType("__len", nManager:checkedFn(vObject):Ret(nLenType)) or false
+	end
+	-- 3.
+	self._pairs = buildFieldFromAllType("__pairs", vActionDict["__pairs"]) or false
+	self._ipairs = buildFieldFromAllType("__ipairs", vActionDict["__ipairs"]) or false
+end
+
+function MetaEventCom:initByMerge(vLeft:class.MetaEventCom, vRight:class.MetaEventCom)
 end
 
 return MetaEventCom

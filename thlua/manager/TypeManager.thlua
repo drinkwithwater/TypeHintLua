@@ -169,6 +169,20 @@ function TypeManager:assertAllType(vData)::Ret(class.UAllType)
 	end
 end
 
+function TypeManager:_checkAllType(vData:Any)::Ret(OrFalse(class.UAllType)):pass()
+	local t = type(vData)
+	if t == "table" then
+		local meta = getmetatable(vData)
+		if AtomMetatableSet[meta] then
+			return vData
+		end
+	end
+	if Reference.is(vData) then
+		return vData
+	end
+	return false
+end
+
 function TypeManager:_toType(vData:Any)::Ret(class.IAtomType):pass()
 	local t = type(vData)
 	if t == "table" then
@@ -252,9 +266,9 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 	return nObjectRefer
 end
 
-function TypeManager:buildStructExtend(vNode:class.IAstNode, vFirst:Union(Dict(Truth, Truth), class.MetaObject),
+function TypeManager:buildStructExtend(vNode:class.IAstNode, vFirst:Union(Dict(Truth, Truth), class.UAllType),
 	...:Union(class.Reference, class.MetaObject))::Ret(class.Reference)
-	const nStruct = MetaObject.is(vFirst) and vFirst or self:buildStruct(vNode, vFirst)
+	const nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst @ Dict(Truth, Truth))
 	const l:List(class.UAllType) = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end
@@ -366,7 +380,7 @@ end
 
 function TypeManager:buildList(vNode:class.IAstNode, vValue)::Ret(class.Reference)
 	-- TODO struct use meta
-	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {})
+	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {_len=self.type.Integer})
 end
 
 function TypeManager:buildOrNil(vNode:class.IAstNode, ...:Truth)::Ret(class.Reference)
