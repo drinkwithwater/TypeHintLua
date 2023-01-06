@@ -7,7 +7,7 @@ const LuaFunction = require "thlua.func.LuaFunction"
 (@do
 	let.class = import("thlua.type.TypeClass").class
 	let.MetaFnField = Struct {
-		luaFn=OrFalse(class.LuaFunction),
+		sourceFn=OrFalse(class.LuaFunction, class.MemberFunction),
 		typeFn=class.TypeFunction,
 	}
 end)
@@ -44,23 +44,23 @@ const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn
 		return nil
 	elseif TypeFunction.is(vMethodFn) then
 		return {
-			luaFn=false,
+			sourceFn=false,
 			typeFn=vMethodFn
 		}
 	elseif LuaFunction.is(vMethodFn) then
 		if TypeFunction.is(vSelfOrTypeFn) then
 			return {
-				luaFn=false,
+				sourceFn=vMethodFn,
 				typeFn=vMethodFn:specialize(vContext, nil, vSelfOrTypeFn)
 			}
 		elseif vSelfOrTypeFn then
 			return {
-				luaFn=false,
+				sourceFn=vMethodFn,
 				typeFn=vMethodFn:specialize(vContext, vSelfOrTypeFn, nil)
 			}
 		else
 			return {
-				luaFn=false,
+				sourceFn=vMethodFn,
 				typeFn=vMethodFn:specialize(vContext, nil, nil)
 			}
 		end
@@ -112,7 +112,7 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, vSelf) or false
 end
 
-function MetaEventCom:initByObjectMeta(vContext:class.Context)
+function MetaEventCom:initByMetaObjectAction()
 end
 
 return MetaEventCom

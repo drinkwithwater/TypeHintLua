@@ -254,13 +254,11 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 			end
 		end
 		const _, nMoreKeyRefer = nFirstObject:getKeyTypes()
-		if nMoreKeyRefer then
-			const nValueDict = nFirstObject:getMemberDict()
-			for i, nType in ipairs(nMoreKeyRefer:getListAwait()) do
-				nAllValueDict[nType] = nValueDict[nType]
-			end
+		const nValueDict = nFirstObject:getMemberDict()
+		for i, nType in ipairs(nMoreKeyRefer:getListAwait()) do
+			nAllValueDict[nType] = nValueDict[nType]
 		end
-		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), nMoreKeyRefer)
+		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), nMoreKeyRefer, vIsInterface)
 		nNewStruct:init(nAllValueDict, nMetaEventDict)
 		nNewStruct:initIntersectSet(nIntersectSet)
 		return {self:_recordTypeUnionSign(nNewStruct)}
@@ -339,9 +337,6 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 				nKey = self:_toType(nKey)
 			end
 			nKey:foreachAwait(function(vAtomType)
-				if vIsInterface then
-					assert(vAtomType:isStrNumLiteral(), "interface must take string or number literal as key")
-				end
 				nKeyCount = nKeyCount + 1
 				if self:isBasicAtomType(vAtomType) then
 					nBasicCollection:put(vAtomType)
@@ -361,25 +356,18 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		nBasicKey:foreach(function(_)
 			nFinalCount = nFinalCount + 1
 		end)
-		local nNonBasicKeyRefer:OrFalse(class.Reference) = false
-		if not vIsInterface then
-			nNonBasicKeyRefer = self:Reference(false)
-			nNonBasicKeyRefer:setRawAsync(vNode, function()
-				return nNonBasicTypeList
-			end, function(vMoreKey)
-				vMoreKey:foreach(function(_)
-					nFinalCount = nFinalCount + 1
-				end)
-				if nFinalCount ~= nKeyCount then
-					error("Struct's key can not has intersect part")
-				end
+		const nNonBasicKeyRefer = self:Reference(false)
+		nNonBasicKeyRefer:setRawAsync(vNode, function()
+			return nNonBasicTypeList
+		end, function(vMoreKey)
+			vMoreKey:foreach(function(_)
+				nFinalCount = nFinalCount + 1
 			end)
-		else
 			if nFinalCount ~= nKeyCount then
-				error("Interface's key can not has intersect part")
+				error("Struct's key can not has intersect part")
 			end
-		end
-		const nNewStruct = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer)
+		end)
+		const nNewStruct = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer, vIsInterface)
 		nNewStruct:init(nValueDict, vMetaEventDict)
 		return {self:_recordTypeUnionSign(nNewStruct)}
 	end)

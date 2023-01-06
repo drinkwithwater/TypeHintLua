@@ -13,7 +13,7 @@ const MetaObject = AtomTypeClass()
 	let.UMemberField = Union(class.UAllType, class.MemberFunction)
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, vMoreKey:OrFalse(class.Reference))
+function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, vMoreKey:class.Reference, vIsInterface:Boolean)
 	::RetClass(class.MetaObject, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
@@ -29,6 +29,7 @@ function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, 
 		_unionSign=false,
 		_containCache={} @ Dict(class.MetaObject, Boolean),
 		_referName=false@Union(String, False),
+		_isInterface=vIsInterface,
 	}, MetaObject)
 	return self
 end
@@ -167,7 +168,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	if vRightObject._intersectSet[self] then
 		return true
 	end
-	const nRightBasicKey, _ = vRightObject:getKeyTypes()
+	const nRightBasicKey, nRightMoreRefer = vRightObject:getKeyTypes()
 	if not nRightBasicKey:containAll(self._basicKey) then
 		return false
 	end
@@ -336,8 +337,7 @@ function MetaObject:isSingleton()
 end
 
 function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(OrFalse(class.IAtomType))
-	const nMoreKey = self._moreKey
-	return self._basicKey:containAtom(vType) or (nMoreKey and nMoreKey:containAtom(vType))
+	return self._basicKey:containAtom(vType) or self._moreKey:containAtom(vType)
 end
 
 function MetaObject:meta_get(vContext, vType)
@@ -470,7 +470,7 @@ function MetaObject:getMetaEventDict()::Ret(Dict(String, class.IAtomType))
 	return self._metaEventDict
 end
 
-function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, OrFalse(class.Reference))
+function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, class.Reference)
 	return self._basicKey, self._moreKey
 end
 
@@ -479,7 +479,7 @@ function MetaObject:checkBaseObjectType()
 end
 
 function MetaObject:isInterface()::Ret(Boolean)
-	return not self._moreKey
+	return self._isInterface
 end
 
 function MetaObject:native_type()
