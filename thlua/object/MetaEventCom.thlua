@@ -16,10 +16,10 @@ end)
 const MetaEventCom = {}
 MetaEventCom.__index=MetaEventCom
 
-function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventCom)
+function MetaEventCom.new(vManager:class.TypeManager, vSelfType:Union(class.LuaTable, class.MetaObject))::RetClass(class.MetaEventCom)
 	const self = setmetatable({::Self()
 		_manager=vManager,
-		_selfType=false@OrFalse(class.LuaTable, class.MetaObject),
+		_selfType=vSelfType,
 		_bopEq=false,
 		_bopDict={}@Dict(String, let.MetaFnField),
 		_uopLen=false@OrFalse(class.UAtomUnion),
@@ -85,13 +85,8 @@ const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn
 	return nil
 end
 
-function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTable, vMetaTable:class.DefaultTableCom)
-	if not self._selfType then
-		self._selfType = vSelf
-	else
-		vContext:error("meta event com init more than once")
-		return
-	end
+function MetaEventCom:initByLuaTable(vContext:class.Context, vMetaTable:class.DefaultTableCom)
+	const nSelfType = self._selfType
 	const nManager = self._manager
 	-- 1. build bop
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
@@ -104,22 +99,22 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	end
 	-- 2. build uop
 	const nLenFn = vMetaTable:native_rawget(vContext, nManager:Literal("__len"))
-	const nLenTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.Integer)
+	const nLenTypeFn = nManager:checkedFn(nSelfType):Ret(nManager.type.Integer)
 	const nLenField = buildFieldFromFn(vContext, "__len", nLenFn, nLenTypeFn)
 	if nLenField then
 		self._uopLen = nLenField.typeFn:getRetTuples():getFirstType():checkAtomUnion()
 	end
 	-- 3. build other
 	-- 1) __tostring
-	const nStringTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.String)
+	const nStringTypeFn = nManager:checkedFn(nSelfType):Ret(nManager.type.String)
 	const nStringFn = vMetaTable:native_rawget(vContext, nManager:Literal("__tostring"))
 	self._tostring = buildFieldFromFn(vContext, "__tostring", nStringFn, nStringTypeFn) or false
 	-- 2) __pairs
 	const nPairsFn = vMetaTable:native_rawget(vContext, nManager:Literal("__pairs"))
-	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, vSelf) or false
+	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, nSelfType @ class.LuaTable) or false
 end
 
-const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(class.IAtomType))::Ret(OrNil(let.MetaFnField))
+const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(class.UAllType))::Ret(OrNil(let.MetaFnField))
 	if not vTypeFn then
 		return nil
 	end
@@ -136,13 +131,7 @@ const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(class.IAtomTyp
 	end
 end
 
-function MetaEventCom:initByEventDict(vObject:class.MetaObject, vActionDict:Dict(String, class.IAtomType))
-	if not self._selfType then
-		self._selfType = vObject
-	else
-		error("meta event com init more than once")
-		return
-	end
+function MetaEventCom:initByEventDict(vActionDict:Dict(String, class.UAllType))
 	const nManager = self._manager
 	-- 1. build bop
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
@@ -152,8 +141,9 @@ function MetaEventCom:initByEventDict(vObject:class.MetaObject, vActionDict:Dict
 		print("__eq in action table TODO")
 	end
 	-- 2. build uop
-	const nLenType = vActionDict["_len"]
+	local nLenType = vActionDict["__len"]
 	if nLenType then
+		nLenType = nLenType:checkAtomUnion()
 		if not nManager.type.Integer:containAll(nLenType) then
 			error("len type must be subtype of Integer")
 		end
@@ -182,13 +172,7 @@ function MetaEventCom:mergeField(
 	return nRetField
 end
 
-function MetaEventCom:initByMerge(vObject:class.MetaObject, vComList:List(class.MetaEventCom))
-	if not self._selfType then
-		self._selfType = vObject
-	else
-		error("meta event com init more than once")
-		return
-	end
+function MetaEventCom:initByMerge(vComList:List(class.MetaEventCom))
 	self._pairs = self:mergeField("__pairs", vComList, function(vCom)
 		return vCom._pairs
 	end)

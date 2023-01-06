@@ -23,11 +23,12 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		_metaTable=false@OrFalse(class.LuaTable),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
+		_metaEventCom=nil@class.MetaEventCom,
 		_defaultCom=nil@class.DefaultTableCom,
-		_metaEventCom=MetaEventCom.new(vManager),
 		_classCom=false@OrFalse(class.ClassFactory),
 		_castStruct=false@OrFalse(class.MetaObject),
 	}, LuaTable)
+	self._metaEventCom=MetaEventCom.new(vManager, self)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
 end
@@ -100,7 +101,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	end
 	self._metaTable = vMetaTableType
 	-- 1. copyout meta event items
-	self._metaEventCom:initByLuaTable(vContext, self, vMetaTableType:getDefaultCom())
+	self._metaEventCom:initByLuaTable(vContext, vMetaTableType:getDefaultCom())
 	local nManager = self._manager
 	const nMetaEventToType:Dict(String, class.IAtomType) = {}
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do

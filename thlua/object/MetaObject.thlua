@@ -13,34 +13,32 @@ const MetaObject = AtomTypeClass()
 	let.class = import("thlua.type.TypeClass").class
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, vMoreKey:class.Reference, vIsInterface:Boolean)
-	::RetClass(class.MetaObject, class.IAtomType)
+function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasicKey:class.UAtomUnion, vMoreKey:class.Reference, vMemberDict:class.MemberDict)::RetClass(class.MetaObject, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_basicKey=vBasicKey,
 		_moreKey=vMoreKey,
-		_memberDict=false@class.MemberDict,
+		_memberDict=vMemberDict,
 		_nextValue=false@Union(False, class.UAtomUnion),
-		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
+		_nextDict={}@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_intersectSet={}@Dict(class.MetaObject, True),
-		_metaEventCom=MetaEventCom.new(vManager),
-		bits=TYPE_BITS.OBJECT,
-		id=vManager:genTypeId(),
 		_unionSign=false,
-		_containCache={} @ Dict(class.MetaObject, Boolean),
 		_referName=false@Union(String, False),
 		_isInterface=vIsInterface,
+		bits=TYPE_BITS.OBJECT,
+		id=vManager:genTypeId(),
 	}, MetaObject)
+	self._metaEventCom=MetaEventCom.new(vManager, self)
 	return self
+end
+
+function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMetaEventCom:class.MetaEventCom)
+	self._metaEventCom = vMetaEventCom
+	self._intersectSet = vIntersectSet
 end
 
 function MetaObject:initIntersectSet(vIntersectSet:Dict(class.MetaObject, True))
 	self._intersectSet = vIntersectSet
-end
-
-function MetaObject:init(vMemberDict:class.MemberDict)
-	self._memberDict = vMemberDict
-	self._nextDict = {} @ Dict(class.IAtomType, class.UAtomUnion)
 end
 
 function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean))::Ret(Boolean)
