@@ -20,17 +20,17 @@ function MetaEventCom.new(vManager:class.TypeManager)::RetClass(class.MetaEventC
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_selfType=false@OrFalse(class.LuaTable, class.MetaObject),
-		_bopEq=false@OrFalse(let.MetaFnField),
+		_bopEq=false,
 		_bopDict={}@Dict(String, let.MetaFnField),
-		_uopLen=false@OrFalse(let.MetaFnField),
-		_uopDict={}@Dict(String, let.MetaFnField),
+		_uopLen=false@OrFalse(class.UAtomUnion),
+		_uopDict=false, -- TODO {}@Dict(String, let.MetaFnField),
 		-- special
-		_mode=false,
-		_call=false@OrFalse(let.MetaFnField),
-		_metatable=false,
-		_tostring=false@OrFalse(let.MetaFnField),
 		_pairs=false@OrFalse(let.MetaFnField),
 		_ipairs=false@OrFalse(let.MetaFnField),
+		_tostring=false@OrFalse(let.MetaFnField),
+		_mode=false,
+		_call=false, -- TODO @OrFalse(let.MetaFnField),
+		_metatable=false,
 		_gc=false,
 		_name=false,
 		_close=false,
@@ -43,8 +43,8 @@ function MetaEventCom:getBopFunc(vBopEvent:String)::Ret(OrNil(class.TypeFunction
 	return nField and nField.typeFn
 end
 
-function MetaEventCom:hasUopLen()::Ret(Boolean)
-	return self._uopLen and true
+function MetaEventCom:getLenType()::Ret(OrFalse(class.UAtomUnion))
+	return self._uopLen
 end
 
 function MetaEventCom:getPairsFunc()::Ret(OrFalse(class.TypeFunction))
@@ -105,7 +105,10 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vSelf:class.LuaTabl
 	-- 2. build uop
 	const nLenFn = vMetaTable:native_rawget(vContext, nManager:Literal("__len"))
 	const nLenTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.Integer)
-	self._uopLen = buildFieldFromFn(vContext, "__len", nLenFn, nLenTypeFn) or false
+	const nLenField = buildFieldFromFn(vContext, "__len", nLenFn, nLenTypeFn)
+	if nLenField then
+		self._uopLen = nLenField.typeFn:getRetTuples():getFirstType():checkAtomUnion()
+	end
 	-- 3. build other
 	-- 1) __tostring
 	const nStringTypeFn = nManager:checkedFn(vSelf):Ret(nManager.type.String)
@@ -154,14 +157,61 @@ function MetaEventCom:initByEventDict(vObject:class.MetaObject, vActionDict:Dict
 		if not nManager.type.Integer:containAll(nLenType) then
 			error("len type must be subtype of Integer")
 		end
-		self._uopLen = buildFieldFromAllType("__len", nManager:checkedFn(vObject):Ret(nLenType)) or false
+		self._uopLen = nLenType
 	end
 	-- 3.
 	self._pairs = buildFieldFromAllType("__pairs", vActionDict["__pairs"]) or false
 	self._ipairs = buildFieldFromAllType("__ipairs", vActionDict["__ipairs"]) or false
 end
 
-function MetaEventCom:initByMerge(vLeft:class.MetaEventCom, vRight:class.MetaEventCom)
+function MetaEventCom:mergeField(
+	vEvent:String,
+	vComList:List(class.MetaEventCom),
+	vFieldGetter:Fn(class.MetaEventCom):Ret(OrFalse(let.MetaFnField)))::Ret(OrFalse(let.MetaFnField))
+	local nRetField:OrFalse(let.MetaFnField) = false
+	for _, vCom in ipairs(vComList) do
+		const nField = vFieldGetter(vCom)
+		if nField then
+			if nRetField then
+				error("meta field conflict when merge, field:"..vEvent)
+			else
+				nRetField = nField
+			end
+		end
+	end
+	return nRetField
+end
+
+function MetaEventCom:initByMerge(vObject:class.MetaObject, vComList:List(class.MetaEventCom))
+	if not self._selfType then
+		self._selfType = vObject
+	else
+		error("meta event com init more than once")
+		return
+	end
+	self._pairs = self:mergeField("__pairs", vComList, function(vCom)
+		return vCom._pairs
+	end)
+	self._ipairs = self:mergeField("__ipairs", vComList, function(vCom)
+		return vCom._ipairs
+	end)
+	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
+		self._bopDict[nEvent] = self:mergeField(nEvent, vComList, function(vCom)
+			return vCom._bopDict[nEvent] or false
+		end) or nil
+	end
+	local nFinalUopLen:OrFalse(class.UAtomUnion) = false
+	for _, vCom in ipairs(vComList) do
+		const nUopLen = vCom._uopLen
+		if nUopLen then
+			if nFinalUopLen then
+				error("__len conflict in meta when merge")
+			else
+				nFinalUopLen = nUopLen
+			end
+		end
+	end
+	self._uopLen = nFinalUopLen
 end
 
 return MetaEventCom

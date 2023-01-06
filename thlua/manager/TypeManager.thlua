@@ -215,6 +215,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		const nCollection = self:TypeCollection()
 		const nAllValueDict:class.MemberDict = {}
 		const nIntersectSet:Dict(class.MetaObject, True) = {}
+		const nMetaEventComList:List(class.MetaEventCom) = {}
 		local nFirstObject:OrNil(class.MetaObject) = nil
 		for i=1,#vObjectList do
 			local nMetaObject = vObjectList[i]!
@@ -245,13 +246,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nCollection:put(vKeyType)
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
-			for k,v in pairs(nMetaObject:getMetaEventDict()) do
-				if nMetaEventDict[k] then
-					error("bop "..k.." conflict when intersect")
-				else
-					nMetaEventDict[k] = v
-				end
-			end
+			nMetaEventComList[i] = nMetaObject:getMetaEventCom()
 		end
 		const _, nMoreKeyRefer = nFirstObject:getKeyTypes()
 		const nValueDict = nFirstObject:getMemberDict()
@@ -259,8 +254,9 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 			nAllValueDict[nType] = nValueDict[nType]
 		end
 		const nNewStruct = MetaObject.new(self, nCollection:mergeToAtomUnion(), nMoreKeyRefer, vIsInterface)
-		nNewStruct:init(nAllValueDict, nMetaEventDict)
+		nNewStruct:init(nAllValueDict)
 		nNewStruct:initIntersectSet(nIntersectSet)
+		nNewStruct:getMetaEventCom():initByMerge(nNewStruct, nMetaEventComList)
 		return {self:_recordTypeUnionSign(nNewStruct)}
 	end)
 	return nObjectRefer
@@ -368,7 +364,10 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 			end
 		end)
 		const nNewObject = MetaObject.new(self, nBasicKey, nNonBasicKeyRefer, vIsInterface)
-		nNewObject:init(nValueDict, vMetaEventDict)
+		nNewObject:init(nValueDict)
+		if vMetaEventDict then
+			nNewObject:getMetaEventCom():initByEventDict(nNewObject, vMetaEventDict)
+		end
 		return {self:_recordTypeUnionSign(nNewObject)}
 	end)
 	return nObjectRefer

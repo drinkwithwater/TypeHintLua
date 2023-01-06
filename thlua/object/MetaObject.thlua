@@ -23,7 +23,6 @@ function MetaObject.new(vManager:class.TypeManager, vBasicKey:class.UAtomUnion, 
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
 		_intersectSet={}@Dict(class.MetaObject, True),
-		_metaEventDict={}@Dict(String, class.IAtomType),
 		_metaEventCom=MetaEventCom.new(vManager),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
@@ -39,15 +38,9 @@ function MetaObject:initIntersectSet(vIntersectSet:Dict(class.MetaObject, True))
 	self._intersectSet = vIntersectSet
 end
 
-function MetaObject:init(vMemberDict:class.MemberDict, vMetaEventDict:OrNil(Dict(String, class.IAtomType)))
+function MetaObject:init(vMemberDict:class.MemberDict)
 	self._memberDict = vMemberDict
 	self._nextDict = {} @ Dict(class.IAtomType, class.UAtomUnion)
-	if vMetaEventDict then
-		self._metaEventCom:initByEventDict(self, vMetaEventDict)
-		for k,v in pairs(vMetaEventDict) do
-			self._metaEventDict[k] = v
-		end
-	end
 end
 
 function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean))::Ret(Boolean)
@@ -316,10 +309,13 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 end
 
 function MetaObject:meta_len(vContext)
-	if not self._metaEventCom:hasUopLen() then
-		vContext:error("object take # oper, but _len action not setted")
+	const nType = self._metaEventCom:getLenType()
+	if not nType then
+		-- vContext:error("object take # oper, but _len action not setted")
+		return self._manager.type.Integer
+	else
+		return nType
 	end
-	return self._manager.type.Integer
 end
 
 function MetaObject:meta_uop_some(vContext, vOper)
@@ -426,7 +422,7 @@ end
 
 function MetaObject:meta_bop_func(vContext, vOper)
 	local nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
-	local nType = self._metaEventDict[nMethodEvent]
+	local nType = self._metaEventCom:getBopFunc(nMethodEvent)
 	if nType then
 		return true, nType
 	else
@@ -496,8 +492,8 @@ function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaOb
 	return nValueDict
 end
 
-function MetaObject:getMetaEventDict()::Ret(Dict(String, class.IAtomType))
-	return self._metaEventDict
+function MetaObject:getMetaEventCom()::Ret(class.MetaEventCom)
+	return self._metaEventCom
 end
 
 function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, class.Reference)
