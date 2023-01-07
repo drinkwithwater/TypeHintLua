@@ -36,6 +36,7 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 
+const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
 (@do
@@ -245,17 +246,22 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nCollection:put(vKeyType)
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
-			nMetaEventComList[i] = nMetaObject:getMetaEventCom()
+			nMetaEventComList[#nMetaEventComList + 1] = nMetaObject:getMetaEventCom() or nil
 		end
 		const _, nMoreKeyRefer = nFirstObject:getKeyTypes()
 		const nValueDict = nFirstObject:getMemberDict()
 		for i, nType in ipairs(nMoreKeyRefer:getListAwait()) do
 			nAllValueDict[nType] = nValueDict[nType]
 		end
-		const nNewStruct = MetaObject.new(self, vIsInterface, nCollection:mergeToAtomUnion(), nMoreKeyRefer, nAllValueDict)
-		nNewStruct:initIntersectSet(nIntersectSet)
-		nNewStruct:getMetaEventCom():initByMerge(nMetaEventComList)
-		return {self:_recordTypeUnionSign(nNewStruct)}
+		const nNewObject = MetaObject.new(self, vIsInterface, nCollection:mergeToAtomUnion(), nMoreKeyRefer, nAllValueDict)
+		if #nMetaEventComList > 0 then
+			const nNewEventCom = self:makeMetaEventCom(nNewObject)
+			nNewEventCom:initByMerge(nMetaEventComList)
+			nNewObject:lateInit(nIntersectSet, nNewEventCom)
+		else
+			nNewObject:lateInit(nIntersectSet)
+		end
+		return {self:_recordTypeUnionSign(nNewObject)}
 	end)
 	return nObjectRefer
 end
@@ -363,7 +369,11 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		end)
 		const nNewObject = MetaObject.new(self, vIsInterface, nBasicKey, nNonBasicKeyRefer, nValueDict)
 		if vMetaEventDict then
-			nNewObject:getMetaEventCom():initByEventDict(vMetaEventDict)
+			const nNewEventCom = self:makeMetaEventCom(nNewObject)
+			nNewEventCom:initByEventDict(vMetaEventDict)
+			nNewObject:lateInit({}, nNewEventCom)
+		else
+			nNewObject:lateInit({})
 		end
 		return {self:_recordTypeUnionSign(nNewObject)}
 	end)
@@ -555,6 +565,10 @@ function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil
 	else
 		return TermTuple.new(self, nTermList, nTypeTuple)
 	end
+end
+
+function TypeManager:makeMetaEventCom(vObject:Union(class.LuaTable, class.MetaObject))::Ret(class.MetaEventCom)
+	return MetaEventCom.new(self, vObject)
 end
 
 function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)

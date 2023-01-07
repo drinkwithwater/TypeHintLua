@@ -21,6 +21,7 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasic
 		_memberDict=vMemberDict,
 		_nextValue=false@Union(False, class.UAtomUnion),
 		_nextDict={}@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
+		_metaEventCom=false@OrFalse(class.MetaEventCom),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_unionSign=false,
 		_referName=false@Union(String, False),
@@ -28,13 +29,12 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasic
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 	}, MetaObject)
-	self._metaEventCom=MetaEventCom.new(vManager, self)
 	return self
 end
 
-function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMetaEventCom:class.MetaEventCom)
-	self._metaEventCom = vMetaEventCom
+function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMetaEventCom:OrNil(class.MetaEventCom))
 	self._intersectSet = vIntersectSet
+	self._metaEventCom = vMetaEventCom or false
 end
 
 function MetaObject:initIntersectSet(vIntersectSet:Dict(class.MetaObject, True))
@@ -307,13 +307,15 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 end
 
 function MetaObject:meta_len(vContext)
-	const nType = self._metaEventCom:getLenType()
-	if not nType then
-		-- vContext:error("object take # oper, but _len action not setted")
-		return self._manager.type.Integer
-	else
-		return nType
+	const nCom = self._metaEventCom
+	if nCom then
+		const nType = nCom:getLenType()
+		if nType then
+			return nType
+		end
 	end
+	-- vContext:error("object take # oper, but _len action not setted")
+	return self._manager.type.Integer
 end
 
 function MetaObject:meta_uop_some(vContext, vOper)
@@ -420,12 +422,14 @@ end
 
 function MetaObject:meta_bop_func(vContext, vOper)
 	local nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
-	local nType = self._metaEventCom:getBopFunc(nMethodEvent)
-	if nType then
-		return true, nType
-	else
-		return false, nil
+	const nCom = self._metaEventCom
+	if nCom then
+		const nFn = nCom:getBopFunc(nMethodEvent)
+		if nFn then
+			return true, nFn
+		end
 	end
+	return false, nil
 end
 
 function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
@@ -490,7 +494,7 @@ function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaOb
 	return nValueDict
 end
 
-function MetaObject:getMetaEventCom()::Ret(class.MetaEventCom)
+function MetaObject:getMetaEventCom()::Ret(OrFalse(class.MetaEventCom))
 	return self._metaEventCom
 end
 

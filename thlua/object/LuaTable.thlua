@@ -23,12 +23,11 @@ function LuaTable.new(vManager:class.TypeManager)::RetClass(class.LuaTable, clas
 		_metaTable=false@OrFalse(class.LuaTable),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		_metaEventCom=nil@class.MetaEventCom,
+		_metaEventCom=false@OrFalse(class.MetaEventCom),
 		_defaultCom=nil@class.DefaultTableCom,
 		_classCom=false@OrFalse(class.ClassFactory),
 		_castStruct=false@OrFalse(class.MetaObject),
 	}, LuaTable)
-	self._metaEventCom=MetaEventCom.new(vManager, self)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
 end
@@ -38,7 +37,7 @@ function LuaTable:initByClassCom(vFnCom:class.ClassFactory, vInterface:class.Met
 	self._defaultCom:setInterface(vInterface)
 end
 
-function LuaTable:getMetaEventCom()::Ret(class.MetaEventCom)
+function LuaTable:getMetaEventCom()::Ret(OrFalse(class.MetaEventCom))
 	return self._metaEventCom
 end
 
@@ -68,18 +67,21 @@ end
 
 function LuaTable:meta_pairs(vContext)
 	self:_lockOrWaitClass(vContext)
-	const nPairsFn = self._metaEventCom:getPairsFunc()
-	if nPairsFn then
-		const nManager = self._manager
-		const nRetTuples = nPairsFn:meta_call(vContext, nManager:Tuple(self))
-		local nRetOneTuple:OrFalse(class.TypeTuple) = false
-		nRetTuples:foreachWithFirst(function(vTuple, _)
-			nRetOneTuple = vTuple
-		end)
-		if nRetTuples:getTupleCount() ~= 1 then
-			vContext:error("__pairs must return only one tuple")
+	const nCom = self._metaEventCom
+	if nCom then
+		const nPairsFn = nCom:getPairsFunc()
+		if nPairsFn then
+			const nManager = self._manager
+			const nRetTuples = nPairsFn:meta_call(vContext, nManager:Tuple(self))
+			local nRetOneTuple:OrFalse(class.TypeTuple) = false
+			nRetTuples:foreachWithFirst(function(vTuple, _)
+				nRetOneTuple = vTuple
+			end)
+			if nRetTuples:getTupleCount() ~= 1 then
+				vContext:error("__pairs must return only one tuple")
+			end
+			return nRetOneTuple
 		end
-		return nRetOneTuple
 	else
 		return false
 	end
@@ -101,23 +103,12 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	end
 	self._metaTable = vMetaTableType
 	-- 1. copyout meta event items
-	self._metaEventCom:initByLuaTable(vContext, vMetaTableType:getDefaultCom())
-	local nManager = self._manager
-	const nMetaEventToType:Dict(String, class.IAtomType) = {}
-	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
-		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
-		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
-			nMetaEventToType[nEvent] = nMethodType
-		end
-	end
-	const nSomeEvents:List(String) = {"__len", "__tostring"}
-	for _, nEvent in pairs(nSomeEvents) do
-		const nMethodType = vMetaTableType:native_rawget(vContext, nManager:Literal(nEvent))
-		if TypeFunction.is(nMethodType) or LuaFunction.is(nMethodType) then
-			nMetaEventToType[nEvent] = nMethodType
-		end
-	end
+	assert(not self._metaEventCom, "meta event has been setted")
+	const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	nMetaEventCom:initByLuaTable(vContext, vMetaTableType:getDefaultCom())
+	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
+	local nManager = self._manager
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
 	local nAsIndex:OrFalse(class.MetaIndexField) = false
@@ -200,12 +191,14 @@ end
 function LuaTable:meta_bop_func(vContext, vOper)
 	self:_lockOrWaitClass(vContext)
 	const nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
-	const nMethodFn = self._metaEventCom:getBopFunc(nMethodEvent)
-	if not nMethodFn then
-		return false, nil
-	else
-		return true, nMethodFn
+	const nCom = self._metaEventCom
+	if nCom then
+		const nMethodFn = nCom:getBopFunc(nMethodEvent)
+		if nMethodFn then
+			return true, nMethodFn
+		end
 	end
+	return false, nil
 end
 
 function LuaTable:isSingleton()
