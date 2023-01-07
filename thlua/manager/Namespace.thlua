@@ -10,9 +10,10 @@ Namespace.__index=Namespace
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
-	class.SpaceDict = Struct {
+	class.SpaceTable = Interface {
 		[String]=class.Reference,
 	}
+	let.StringToRefer = Dict(String, class.Reference)
 end)
 
 const function throw(vMsg:String)
@@ -20,10 +21,10 @@ const function throw(vMsg:String)
 	error(Exception.new(vMsg, nNode))
 end
 
-function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexTable:OrNil(class.SpaceDict))::RetClass(class.Namespace)
+function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexTable:OrNil(let.StringToRefer))::RetClass(class.Namespace)
 	local self = setmetatable({::Self()
 		_manager=vManager,
-		_key2type=(vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@class.SpaceDict,
+		_key2type=(vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@let.StringToRefer,
 		_closed=false@Boolean,
 		_node=vNode,
 		_key=false@Union(False, String),
@@ -104,7 +105,7 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 			return tostring(self).."->localExport"
 		end,
 		__self=self,
-	})) @ class.SpaceDict
+	})) @ class.SpaceTable
 	self.globalExport=(setmetatable({}, {
 		__index=function(_,k:String)
 			local v = self._key2type[k]
@@ -119,7 +120,7 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 		__tostring=function(t)::Ret(String)
 			return tostring(self).."->globalExport"
 		end,
-	})) @ class.SpaceDict
+	})) @ class.SpaceTable
 	return self
 end
 
@@ -160,7 +161,7 @@ function Namespace:check()
 	end
 end
 
-function Namespace:getKeyToType()::Ret(class.SpaceDict)
+function Namespace:getKeyToType()::Ret(let.StringToRefer)
 	return self._key2type
 end
 

@@ -72,9 +72,18 @@ end
 
 function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	const nRightValueDict = vRightObject:copyValueDict()
-	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
-	assert(nRightMoreRefer, "only struct & struct can call this function")
+	const nRightBasic, nRightMoreRefer, nRightNextKey = vRightObject:getKeyTypes()
 	if not self._basicKey:containAll(nRightBasic) or not nRightBasic:containAll(self._basicKey) then
+		return false
+	end
+	const nLeftNextKey = self._nextKey
+	if nLeftNextKey and nRightNextKey then
+		const nLR = nLeftNextKey:assumeContainAll(vAssumeSet, nRightNextKey)
+		const nRL = nRightNextKey:assumeContainAll(vAssumeSet, nLeftNextKey)
+		if not (nLR and nRL) then
+			return false
+		end
+	elseif nLeftNextKey or nRightNextKey then
 		return false
 	end
 	const function isMatchedKeyValue(
@@ -147,7 +156,7 @@ end
 function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	assert(self:isInterface(), vRightObject:isInterface(), "here must be interface")
 	const nRightValueDict = vRightObject:getMemberDict()
-	const nRightBasic, nRightMoreRefer = vRightObject:getKeyTypes()
+	const nRightBasic, nRightMoreRefer, nRightNextKey = vRightObject:getKeyTypes()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
 		const nRightKey = nRightBasic:containAtom(vLeftKey)
 		if not nRightKey then
@@ -169,9 +178,18 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	if vRightObject._intersectSet[self] then
 		return true
 	end
-	const nRightBasicKey, nRightMoreRefer = vRightObject:getKeyTypes()
+	const nRightBasicKey, nRightMoreRefer, nRightNextKey = vRightObject:getKeyTypes()
 	if not nRightBasicKey:containAll(self._basicKey) then
 		return false
+	end
+	const nLeftNextKey = self._nextKey
+	if nLeftNextKey then
+		if not nRightNextKey then
+			return false
+		end
+		if not nLeftNextKey:assumeContainAll(vAssumeSet, nRightNextKey) then
+			return false
+		end
 	end
 	const function isMatchedValue(vLeftValue:class.UAllType, vRightValue:class.UMemberAllType, vLeftIsMfn:Boolean)::Ret(Boolean)
 		if MemberFunction.is(vRightValue) then
@@ -341,7 +359,7 @@ end
 
 function MetaObject:native_next(vContext, vInitType)
 	if not self._nextKey then
-		vContext:error("struct can't put by next")
+		vContext:error("this object can not take next")
 		return self._manager.type.Never, {}
 	end
 	const nNil = self._manager.type.Nil
@@ -352,7 +370,7 @@ function MetaObject:native_next(vContext, vInitType)
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneValue in pairs(self._memberDict) do
 			if MemberFunction.is(nOneValue) then
-				vContext:error("next can't has member function as value")
+				vContext:error("next can't take member function as value")
 			else
 				nOneValue = nOneValue:checkAtomUnion():notnilType()
 				nNextDict[nOneKey] = nOneValue
@@ -508,8 +526,8 @@ function MetaObject:getMetaEventCom()::Ret(OrFalse(class.MetaEventCom))
 	return self._metaEventCom
 end
 
-function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, class.Reference)
-	return self._basicKey, self._moreKey
+function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, class.Reference, OrFalse(class.UAllType))
+	return self._basicKey, self._moreKey, self._nextKey
 end
 
 function MetaObject:checkBaseObjectType()
