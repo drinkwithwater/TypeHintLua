@@ -17,10 +17,11 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasic
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_basicKey=vBasicKey,
-		_moreKey=vMoreKey,
+		_moreKey=vMoreKey@class.Reference,
 		_memberDict=vMemberDict,
-		_nextValue=false@Union(False, class.UAtomUnion),
-		_nextDict={}@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
+		_nextKey=false@OrFalse(class.UAllType),
+		_nextValue=false@OrFalse(class.UAtomUnion),
+		_nextDict={}@Dict(class.IAtomType, class.UAtomUnion),
 		_metaEventCom=false@OrFalse(class.MetaEventCom),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_unionSign=false,
@@ -32,13 +33,20 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasic
 	return self
 end
 
-function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMetaEventCom:OrNil(class.MetaEventCom))
+function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vNextKey:OrNil(class.UAllType), vMetaEventCom:OrNil(class.MetaEventCom))
 	self._intersectSet = vIntersectSet
 	self._metaEventCom = vMetaEventCom or false
-end
-
-function MetaObject:initIntersectSet(vIntersectSet:Dict(class.MetaObject, True))
-	self._intersectSet = vIntersectSet
+	if vNextKey then
+		self._nextKey = vNextKey
+		vNextKey:foreachAwait(function(vKeyAtom)
+			const nMember = self._memberDict[vKeyAtom]
+			if not nMember then
+				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
+			elseif MemberFunction.is(nMember) then
+				error("nextKey's value can't be member function"..tostring(vKeyAtom))
+			end
+		end)
+	end
 end
 
 function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean))::Ret(Boolean)
@@ -332,18 +340,19 @@ function MetaObject:meta_ipairs(vContext)
 end
 
 function MetaObject:native_next(vContext, vInitType)
-	local nNextDict = self._nextDict
-	if not nNextDict then
+	if not self._nextKey then
 		vContext:error("struct can't put by next")
 		return self._manager.type.Never, {}
 	end
-	local nValueType = self._nextValue
-	local nNil = self._manager.type.Nil
-	if not nValueType then
+	const nNil = self._manager.type.Nil
+	local nNextValue = self._nextValue
+	local nNextDict = self._nextDict
+	if not nNextValue then
+		nNextDict = {}
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneValue in pairs(self._memberDict) do
 			if MemberFunction.is(nOneValue) then
-				vContext:error("struct.native_next with member function TODO")
+				vContext:error("next can't has member function as value")
 			else
 				nOneValue = nOneValue:checkAtomUnion():notnilType()
 				nNextDict[nOneKey] = nOneValue
@@ -351,11 +360,12 @@ function MetaObject:native_next(vContext, vInitType)
 			end
 		end
 		nCollection:put(nNil)
-		nValueType = nCollection:mergeToAtomUnion()
-		self._nextValue = nValueType
+		nNextValue = nCollection:mergeToAtomUnion()
+		self._nextValue = nNextValue
+		self._nextDict = nNextDict
 		nNextDict[nNil] = nNil
 	end
-	return nValueType, nNextDict
+	return nNextValue, nNextDict
 end
 
 function MetaObject:isSingleton()

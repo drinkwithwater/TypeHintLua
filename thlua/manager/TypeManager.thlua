@@ -212,7 +212,8 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		else
 			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
-		const nCollection = self:TypeCollection()
+		const nBasicCollection = self:TypeCollection()
+		const nMoreKeyList:List(class.IAtomType) = {}
 		const nAllValueDict:class.MemberDict = {}
 		const nIntersectSet:Dict(class.MetaObject, True) = {}
 		const nMetaEventComList:List(class.MetaEventCom) = {}
@@ -241,26 +242,31 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nIntersectSet[nMetaObject] = true
 			end
 			local nValueDict = nMetaObject:getMemberDict()
-			const nBasicKey = nMetaObject:getKeyTypes()
+			const nBasicKey, nMoreKeyRefer = nMetaObject:getKeyTypes()
 			nBasicKey:foreach(function(vKeyType)
-				nCollection:put(vKeyType)
+				nBasicCollection:put(vKeyType)
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
+			for _, nKeyType in ipairs(nMoreKeyRefer:getListAwait()) do
+				nMoreKeyList[#nMoreKeyList + 1] = nKeyType
+				nAllValueDict[nKeyType] = nValueDict[nKeyType]
+			end
 			nMetaEventComList[#nMetaEventComList + 1] = nMetaObject:getMetaEventCom() or nil
 		end
-		const _, nMoreKeyRefer = nFirstObject:getKeyTypes()
-		const nValueDict = nFirstObject:getMemberDict()
-		for i, nType in ipairs(nMoreKeyRefer:getListAwait()) do
-			nAllValueDict[nType] = nValueDict[nType]
-		end
-		const nNewObject = MetaObject.new(self, vIsInterface, nCollection:mergeToAtomUnion(), nMoreKeyRefer, nAllValueDict)
+		const nMoreKeyRefer = self:Reference(false)
+		const nNewObject = MetaObject.new(self, vIsInterface, nBasicCollection:mergeToAtomUnion(), nMoreKeyRefer, nAllValueDict)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
-			nNewObject:lateInit(nIntersectSet, nNewEventCom)
+			nNewObject:lateInit(nIntersectSet, nil, nNewEventCom)
 		else
 			nNewObject:lateInit(nIntersectSet)
 		end
+		nMoreKeyRefer:setRawAsync(vNode, function()
+			return nMoreKeyList
+		end, function(_)
+			-- TODO check key's count and intersect valid
+		end)
 		return {self:_recordTypeUnionSign(nNewObject)}
 	end)
 	return nObjectRefer
@@ -321,7 +327,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setRawAsync(vNode, function()
 		const nBasicCollection = self:TypeCollection()
-		const nNonBasicTypeList:List(class.IAtomType) = {}
+		const nMoreKeyList:List(class.IAtomType) = {}
 		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
@@ -341,7 +347,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 				if not vAtomType:mayRecursive() then
 					nBasicCollection:put(vAtomType)
 				else
-					nNonBasicTypeList[#nNonBasicTypeList + 1] = vAtomType
+					nMoreKeyList[#nMoreKeyList + 1] = vAtomType
 				end
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
@@ -356,9 +362,17 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		nBasicKey:foreach(function(_)
 			nFinalCount = nFinalCount + 1
 		end)
-		const nNonBasicKeyRefer = self:Reference(false)
-		nNonBasicKeyRefer:setRawAsync(vNode, function()
-			return nNonBasicTypeList
+		const nMoreKeyRefer = self:Reference(false)
+		const nNewObject = MetaObject.new(self, vIsInterface, nBasicKey, nMoreKeyRefer, nValueDict)
+		if vMetaEventDict then
+			const nNewEventCom = self:makeMetaEventCom(nNewObject)
+			nNewEventCom:initByEventDict(vMetaEventDict)
+			nNewObject:lateInit({}, vMetaEventDict.__next, nNewEventCom)
+		else
+			nNewObject:lateInit({})
+		end
+		nMoreKeyRefer:setRawAsync(vNode, function()
+			return nMoreKeyList
 		end, function(vMoreKey)
 			vMoreKey:foreach(function(_)
 				nFinalCount = nFinalCount + 1
@@ -367,26 +381,18 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 				error("Object's key can not has intersect part")
 			end
 		end)
-		const nNewObject = MetaObject.new(self, vIsInterface, nBasicKey, nNonBasicKeyRefer, nValueDict)
-		if vMetaEventDict then
-			const nNewEventCom = self:makeMetaEventCom(nNewObject)
-			nNewEventCom:initByEventDict(vMetaEventDict)
-			nNewObject:lateInit({}, nNewEventCom)
-		else
-			nNewObject:lateInit({})
-		end
 		return {self:_recordTypeUnionSign(nNewObject)}
 	end)
 	return nObjectRefer
 end
 
 function TypeManager:buildDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
-	return self:buildStruct(vNode, {[vKey]=vValue}, {})
+	return self:buildStruct(vNode, {[vKey]=vValue}, {__next=vKey})
 end
 
 function TypeManager:buildList(vNode:class.IAstNode, vValue)::Ret(class.Reference)
 	-- TODO struct use meta
-	return self:buildStruct(vNode, {[self.type.Number]=vValue}, {__len=self.type.Integer})
+	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer,__next=self.type.Integer})
 end
 
 function TypeManager:buildOrNil(vNode:class.IAstNode, ...:Truth)::Ret(class.Reference)
