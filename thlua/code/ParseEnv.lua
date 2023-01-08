@@ -539,7 +539,8 @@ function ParseEnv:makeErrNode(vPos, vErr)
 end
 
 function ParseEnv:subScript(vStartPos, vFinishPos)
-	return self._subject:sub(vStartPos, vFinishPos)
+	local nScript = self._subject:sub(vStartPos, vFinishPos)
+	return {script=nScript}
 end
 
 function ParseEnv:markDel(vStartPos, vFinishPos)

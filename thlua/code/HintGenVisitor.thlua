@@ -50,7 +50,11 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Do=function(visitor, node)
 		visitor:fixLinePrint(node)
-		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
+		const nHintInfo = node.hintLong
+		const nLongHintPrint = " function(____longHint) return ____longHint" .. (nHintInfo and nHintInfo.script or "") .. " end "
+		if nHintInfo then
+			visitor:fixLongLine(nHintInfo)
+		end
 		visitor:print(visitor:codeRgn(node, "DO"), ",", nLongHintPrint, ",function()")
 		visitor:realVisit(node[1])
 		visitor:print("end)")
@@ -248,8 +252,9 @@ local TagToVisiting:RealTraverser = {
 		visitor:fixLinePrint(node)
 		visitor:indent()
 		-- visitor:print("local block = function(self) ", node[1], " end block(self)\n")
-		visitor:print(" ",node[1], " ")
-		visitor:fixLong(node[1])
+		visitor:print(" ",node[1].script, " ")
+		const nHintInfo = node[1]
+		visitor:fixLongLine(node[1])
 	end,
 	Nil=function(visitor, node)
 		visitor:fixLinePrint(node)
@@ -290,8 +295,11 @@ local TagToVisiting:RealTraverser = {
 		visitor:fixLinePrint(node)
 		const nParList = node[1]
 		const nParInHead = visitor:formatParListInFuncHead(nParList)
-		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-		visitor:fixLong(node.hintLong or "")
+		const nHintInfo = node.hintLong
+		const nLongHintPrint = " function(____longHint) return ____longHint" .. (nHintInfo and nHintInfo.script or "") .. " end "
+		if nHintInfo then
+			visitor:fixLongLine(nHintInfo)
+		end
 		visitor:print(" ____ctx:RefineTerm((function() local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParInHead, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 		visitor:print(" local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn,____uv) ")
 		if #nParList > 0 then
@@ -314,9 +322,12 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Table=function(visitor, node)
 		visitor:fixLinePrint(node)
-		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
+		const nHintInfo = node.hintLong
+		const nLongHintPrint = " function(____longHint) return ____longHint" .. (nHintInfo and nHintInfo.script or "") .. " end "
 		visitor:print("____ctx:RefineTerm(____ctx:TABLE_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ", function() return {")
-		visitor:fixLong(node.hintLong or "")
+		if nHintInfo then
+			visitor:fixLongLine(nHintInfo)
+		end
 		local count = 0
 		local tailDots:OrNil(node.UTupleExpr) = nil
 		for i=1, #node do
@@ -468,12 +479,15 @@ function HintGenVisitor:autoUnpack(vNode:node.UTupleExpr)::Ret(Boolean)
 	end
 end
 
-function HintGenVisitor:fixShort(vShortHint:String)::Ret(String)
-	return (vShortHint:gsub("\n", " "))
+function HintGenVisitor:fixShort(vHintInfo:node.IHintInfo)::Ret(String)
+	return (vHintInfo.script:gsub("\n", " "))
 end
 
-function HintGenVisitor:fixLong(vLongHint:String)
-	const _, count = vLongHint:gsub("\n", "\n")
+function HintGenVisitor:tranHint(vHintInfo:node.IHintInfo)
+end
+
+function HintGenVisitor:fixLongLine(vLongHint:node.IHintInfo)
+	const _, count = vLongHint.script:gsub("\n", "\n")
 	self.line = self.line + count
 end
 
@@ -513,12 +527,13 @@ end
 
 function HintGenVisitor:printSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String, node.Function), vNoHint:OrNil(True))
 	if type(vValue) == "string" then
+		const nHintInfo = vIdentNode.hintShort
 		self:print(
 		" local ", self:formatIdentDef(vIdentNode), "=____rgn:SYMBOL_NEW(",
 			self:codeNode(vIdentNode), ",",
 			string.format("%q,%q", vIdentNode.symbolKind, vIdentNode.symbolModify), ",",
 			vValue, ",",
-			vNoHint and "nil" or (vIdentNode.hintShort or "nil"),
+			vNoHint and "nil" or (nHintInfo and self:fixShort(nHintInfo) or "nil"),
 		")")
 	else
 		const nIdentFormat = self:formatIdentDef(vIdentNode)
