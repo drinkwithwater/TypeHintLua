@@ -282,9 +282,11 @@ function Context:META_CALL(vNode:class.IAstNode,
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
 	vFuncTerm:foreach(function(vFuncType, vTermCase)
-		nRegion:push_branch(vTermCase)
-		const nArgTermTuple = vLazyFunc()
-		nRegion:pop_branch()
+		local nArgTermTuple:OrNil(class.TermTuple) = nil
+		nRegion:withBranch(vTermCase, function()
+			nArgTermTuple = vLazyFunc()
+		end)
+		assert(nArgTermTuple, "must be true here")
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
 		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or NativeFunction.is(vFuncType) or LuaFunction.is(vFuncType) then

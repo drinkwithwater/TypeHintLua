@@ -30,32 +30,31 @@ function Region:getFnCom()::Ret(class.UFnCom)
 	return self._fnCom
 end
 
-function Region:push_branch(vTermCase:class.TermCase)
-	local nNewBranch = Branch.new(self._context, self._curBranch, vTermCase)
-	self._branchStack[#self._branchStack + 1] = nNewBranch
+function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn())::Ret(class.Branch)
+	const nStack = self._branchStack
+	const nNewLen = #nStack + 1
+	const nOldBranch = self._curBranch
+	const nNewBranch = Branch.new(self._context, nOldBranch, vTermCase)
+	nStack[nNewLen] = nNewBranch
 	self._curBranch = nNewBranch
+	vFunc()
+	nStack[nNewLen] = nil
+	self._curBranch = nOldBranch
+	return nNewBranch
 end
 
-function Region:pop_branch()::Ret(class.Branch)
-	local len = #self._branchStack
-	self._branchStack[len] = nil
-	local old_branch = self._curBranch
-	self._curBranch = self._branchStack[len - 1]!
-	return old_branch
-end
-
-function Region:top_branch()::Ret(class.Branch)
+function Region:topBranch()::Ret(class.Branch)
 	return self._curBranch
 end
 
 function Region:SYMBOL_SET(vNode:class.IAstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
 	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
 	const nAssignContext = self._context:newOpenContext(vNode)
-	self:top_branch():mutSet(nAssignContext, vSymbol, vTerm)
+	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
 function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
-	local nBranch = self:top_branch()
+	local nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
 	else
@@ -92,7 +91,7 @@ function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutKind:OrFalse(node.ImmutKi
 	if not vImmutKind then
 		local nLocalSymbol = LocalSymbol.new(nAssignContext, vNode, vTerm:getType(), vTerm)
 		nAssignContext:getRuntime():recordSymbol(nLocalSymbol)
-		self:top_branch():mutMark(nLocalSymbol, nImmutShot)
+		self:topBranch():mutMark(nLocalSymbol, nImmutShot)
 		return nLocalSymbol
 	else
 		return nImmutShot
@@ -102,23 +101,23 @@ end
 function Region:IF(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
-	const nBeforeBranch = self:top_branch()
+	const nBeforeBranch = self:topBranch()
 	if nTrueCase then
-		self:push_branch(nTrueCase)
-		vTrueFunction()
-		const nTrueBranch = self:pop_branch()
+		const nTrueBranch = self:withBranch(nTrueCase, function()
+			vTrueFunction()
+		end)
 		if nFalseCase and vFalseFunction then
-			self:push_branch(nFalseCase)
-			vFalseFunction()
-			const nFalseBranch = self:pop_branch()
+			const nFalseBranch = self:withBranch(nFalseCase, function()
+				vFalseFunction()
+			end)
 			nBeforeBranch:merge_from(self._context, nTrueBranch, nFalseBranch)
 		else
 			nBeforeBranch:mergeOneBranch(self._context, nTrueBranch, nFalseCase)
 		end
 	elseif nFalseCase and vFalseFunction then
-		self:push_branch(nFalseCase)
-		vFalseFunction()
-		const nFalseBranch = self:pop_branch()
+		const nFalseBranch = self:withBranch(nFalseCase, function()
+			vFalseFunction()
+		end)
 		nBeforeBranch:mergeOneBranch(self._context, nFalseBranch, nTrueCase)
 	end
 end
@@ -126,9 +125,9 @@ end
 function Region:WHILE(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:Fn())
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
-		self:push_branch(nTrueCase)
-		vTrueFunction()
-		self:pop_branch()
+		self:withBranch(nTrueCase, function()
+			vTrueFunction()
+		end)
 	else
 		self._context:getRuntime():nodeWarn(vNode, "while loop is unreachable scope")
 	end
@@ -189,9 +188,11 @@ function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRigh
 	if not nLeftFalseCase then
 		return nLeftTrueTerm
 	else
-		self:push_branch(nLeftFalseCase)
-		local nRightTerm = vRightFunction()
-		self:pop_branch()
+		local nRightTerm:OrNil(class.RefineTerm) = nil
+		self:withBranch(nLeftFalseCase, function()
+			nRightTerm = vRightFunction()
+		end)
+		assert(nRightTerm, "term must be true value here")
 		nRightTerm:and_case(nLeftFalseCase)
 		return nLeftTrueTerm | nRightTerm
 	end
@@ -203,9 +204,11 @@ function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRig
 	if not nLeftTrueCase then
 		return nLeftFalseTerm
 	else
-		self:push_branch(nLeftTrueCase)
-		local nRightTerm = vRightFunction()
-		self:pop_branch()
+		local nRightTerm:OrNil(class.RefineTerm) = nil
+		self:withBranch(nLeftTrueCase, function()
+			nRightTerm = vRightFunction()
+		end)
+		assert(nRightTerm, "term must be true value here")
 		nRightTerm:and_case(nLeftTrueCase)
 		return nLeftFalseTerm | nRightTerm
 	end
@@ -216,18 +219,18 @@ function Region:LOGIC_NOT(vNode:class.IAstNode, vData:class.RefineTerm)::Ret(cla
 end
 
 function Region:nativeError()
-	self:top_branch():setStop()
+	self:topBranch():setStop()
 end
 
 function Region:nativeAssert(vTerm:class.RefineTerm)
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
-		self:top_branch():assertCase(nTrueCase)
+		self:topBranch():assertCase(nTrueCase)
 	end
 end
 
 function Region:BREAK(vNode:class.IAstNode)
-	self:top_branch():setStop()
+	self:topBranch():setStop()
 end
 
 function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
@@ -248,7 +251,7 @@ function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 			self._fnCom:regionReturn(self._context, vNode, nTypeTuple)
 		end)
 	end
-	self:top_branch():setStop()
+	self:topBranch():setStop()
 end
 
 function Region:END(vNode:class.IAstNode)::Ret(class.TermTuple)
