@@ -217,7 +217,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		const nAllValueDict:class.MemberDict = {}
 		const nIntersectSet:Dict(class.MetaObject, True) = {}
 		const nMetaEventComList:List(class.MetaEventCom) = {}
-		local nFirstObject:OrNil(class.MetaObject) = nil
+		local nIntersectNextKey:OrFalse(class.UAllType) = self.type.Truth
 		for i=1,#vObjectList do
 			local nMetaObject = vObjectList[i]!
 			if Reference.is(nMetaObject) then
@@ -227,13 +227,12 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				error("Interface or Struct is expected here")
 				break
 			end
-			if not nFirstObject then
-				nFirstObject = nMetaObject
+			if i == 1 then
 				if vIsInterface then
-					assert(nFirstObject:isInterface(), "Intersect must take Interface")
+					assert(nMetaObject:isInterface(), "Intersect must take Interface")
 					nIntersectSet[nMetaObject] = true
 				else
-					assert(not nFirstObject:isInterface(), "StructExtend must take Struct as first argument")
+					assert(not nMetaObject:isInterface(), "StructExtend must take Struct as first argument")
 				end
 			else
 				assert(nMetaObject:isInterface(), vIsInterface
@@ -242,7 +241,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nIntersectSet[nMetaObject] = true
 			end
 			local nValueDict = nMetaObject:getMemberDict()
-			const nBasicKey, nMoreKeyRefer = nMetaObject:getKeyTypes()
+			const nBasicKey, nMoreKeyRefer, nNextKey = nMetaObject:getKeyTypes()
 			nBasicKey:foreach(function(vKeyType)
 				nBasicCollection:put(vKeyType)
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
@@ -252,15 +251,27 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nAllValueDict[nKeyType] = nValueDict[nKeyType]
 			end
 			nMetaEventComList[#nMetaEventComList + 1] = nMetaObject:getMetaEventCom() or nil
+			if nIntersectNextKey then
+				if nNextKey then
+					const nTypeOrFalse = nIntersectNextKey:safeIntersect(nNextKey)
+					if not nTypeOrFalse then
+						error("intersect error")
+					else
+						nIntersectNextKey = nTypeOrFalse
+					end
+				else
+					nIntersectNextKey = false
+				end
+			end
 		end
 		const nMoreKeyRefer = self:Reference(false)
 		const nNewObject = MetaObject.new(self, vIsInterface, nBasicCollection:mergeToAtomUnion(), nMoreKeyRefer, nAllValueDict)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
-			nNewObject:lateInit(nIntersectSet, nil, nNewEventCom)
+			nNewObject:lateInit(nIntersectSet, nIntersectNextKey, nNewEventCom)
 		else
-			nNewObject:lateInit(nIntersectSet)
+			nNewObject:lateInit(nIntersectSet, false, false)
 		end
 		nMoreKeyRefer:setRawAsync(vNode, function()
 			return nMoreKeyList
@@ -367,9 +378,9 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		if vMetaEventDict then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByEventDict(vMetaEventDict)
-			nNewObject:lateInit({}, vMetaEventDict.__next, nNewEventCom)
+			nNewObject:lateInit({}, vMetaEventDict.__next or false, nNewEventCom)
 		else
-			nNewObject:lateInit({})
+			nNewObject:lateInit({}, false, false)
 		end
 		nMoreKeyRefer:setRawAsync(vNode, function()
 			return nMoreKeyList

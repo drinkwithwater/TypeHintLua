@@ -33,9 +33,9 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasic
 	return self
 end
 
-function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vNextKey:OrNil(class.UAllType), vMetaEventCom:OrNil(class.MetaEventCom))
+function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vNextKey:OrFalse(class.UAllType), vMetaEventCom:OrFalse(class.MetaEventCom))
 	self._intersectSet = vIntersectSet
-	self._metaEventCom = vMetaEventCom or false
+	self._metaEventCom = vMetaEventCom
 	if vNextKey then
 		self._nextKey = vNextKey
 		vNextKey:foreachAwait(function(vKeyAtom)
@@ -358,30 +358,32 @@ function MetaObject:meta_ipairs(vContext)
 end
 
 function MetaObject:native_next(vContext, vInitType)
-	if not self._nextKey then
-		vContext:error("this object can not take next")
-		return self._manager.type.Never, {}
-	end
+	const nNextKey = self._nextKey
 	const nNil = self._manager.type.Nil
+	if not nNextKey then
+		vContext:error("this object can not take next")
+		return nNil, {[nNil]=nNil}
+	end
 	local nNextValue = self._nextValue
 	local nNextDict = self._nextDict
 	if not nNextValue then
 		nNextDict = {}
 		local nCollection = self._manager:TypeCollection()
-		for nOneKey, nOneValue in pairs(self._memberDict) do
-			if MemberFunction.is(nOneValue) then
+		nNextKey:foreachAwait(function(vKeyAtom)
+			const nValue = self._memberDict[vKeyAtom]!
+			if MemberFunction.is(nValue) then
 				vContext:error("next can't take member function as value")
 			else
-				nOneValue = nOneValue:checkAtomUnion():notnilType()
-				nNextDict[nOneKey] = nOneValue
-				nCollection:put(nOneValue)
+				const nNotnilValue = nValue:checkAtomUnion():notnilType()
+				nNextDict[vKeyAtom] = nNotnilValue
+				nCollection:put(nNotnilValue)
 			end
-		end
+		end)
 		nCollection:put(nNil)
 		nNextValue = nCollection:mergeToAtomUnion()
+		nNextDict[nNil] = nNil
 		self._nextValue = nNextValue
 		self._nextDict = nNextDict
-		nNextDict[nNil] = nNil
 	end
 	return nNextValue, nNextDict
 end
