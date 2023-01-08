@@ -13,6 +13,10 @@ local ParseEnv = {}
 
 ParseEnv.__index = ParseEnv
 
+local NOT_IN = 0
+local IN_HINT = 1
+local IN_EVAL = 2
+
 local Cenv = lpeg.Carg(1)
 local Cpos = lpeg.Cp()
 local cc = lpeg.Cc
@@ -153,32 +157,39 @@ local tagC=setmetatable({
 	end
 })
 
-local hintC={
-	short=function(pattBegin)
-		local exprPatt = vvA.SimpleExpr * vv.HintEnd / function(...) end
-		return Cenv * Cpos * pattBegin * vv.HintBegin *
-			Cpos * exprPatt * Cpos / function(env,p1,p2,p3)
-			env:markDel(p1, p3-1)
-			return env:subScript(p2, p3-1)
-		end
-	end,
-	long=function(startOffset, pattBegin, pattBody, pattEnd)
-		local pattScript = pattBegin * vv.HintBegin * pattBody / function(...) end
-		return Cenv * Cpos * pattScript * vv.HintEnd * Cpos * pattEnd * Cpos / function(env,p1,p2,p3)
-			env:markDel(p1, p3-1)
-			return env:subScript(p1+startOffset, p2-1)
-		end
-	end,
-	char=function(char)
-		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
-			if env.hinting then
-				return false
+local pHintOrEvalC={
+	string=function(startByOffset, intoHintOrEval, pattBegin, pattBody, pattEnd)
+		assert(intoHintOrEval == IN_HINT or intoHintOrEval == IN_EVAL, "second arg must be IN_HINT or IN_EVAL")
+		local triggerBegin = intoHintOrEval == IN_HINT and vv.HintBegin or vv.EvalBegin
+		local triggerEnd = intoHintOrEval == IN_HINT and vv.HintEnd or vv.EvalEnd
+		pattBegin = pattBegin / function(...) end
+		pattBody = pattBody / function(...) end
+		return Cenv *
+					Cpos * pattBegin * triggerBegin *
+					Cpos * pattBody * triggerEnd *
+					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,p2,p3,p4)
+			if intoHintOrEval == IN_HINT then
+				env:markDel(p1, p4-1)
+				if startByOffset then
+					return env:subScript(p1+startByOffset, p3-1)
+				else
+					return env:subScript(p2, p3-1)
+				end
 			else
+				return
+			end
+		end
+	end,
+	charHint=function(char)
+		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
+			if env.inHintOrEval == NOT_IN then
 				env:markDel(pos, pos)
 				return true
+			else
+				return false
 			end
 		end)
-	end
+	end,
 }
 
 local function chainOp (pat, kwOrSymb, op1, ...)
@@ -194,10 +205,10 @@ local G = lpeg.P { "TypeHintLua";
 	Shebang = lpeg.P("#") * (lpeg.P(1) - lpeg.P("\n"))^0 * lpeg.P("\n");
 	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
-  -- hint begin {{{
+  -- hint & eval begin {{{
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if not env.hinting then
-			env.hinting = true
+		if env.inHintOrEval == NOT_IN then
+			env.inHintOrEval = IN_HINT
 			return true
 		else
 			error(env:makeErrNode(i, "syntax error : hint-in-hint syntax not allow"))
@@ -206,36 +217,57 @@ local G = lpeg.P { "TypeHintLua";
 	end);
 
 	HintEnd = lpeg.Cmt(Cenv, function(_, _, env)
-		assert(env.hinting, "hinting state error when lpeg parsing when success case")
-		env.hinting = false
+		assert(env.inHintOrEval == IN_HINT, "hinting state error when lpeg parsing when success case")
+		env.inHintOrEval = NOT_IN
 		return true
 	end);
 
-	NotnilHint = hintC.char("!");
+	EvalBegin = lpeg.Cmt(Cenv, function(_, i, env)
+		if env.inHintOrEval == IN_HINT then
+			env.inHintOrEval = IN_EVAL
+			return true
+		else
+			error(env:makeErrNode(i, "syntax error : eval syntax can only be used in hint"))
+			return false
+		end
+	end);
 
-	OverrideHint = hintC.char("?");
+	EvalEnd = lpeg.Cmt(Cenv, function(_, i, env)
+		assert(env.inHintOrEval == IN_EVAL, "hinting state error when lpeg parsing when success case")
+		env.inHintOrEval = IN_HINT
+		return true
+	end);
 
-	AtHint = hintC.short(symb("@") + symb("@!!"));
+	NotnilHint = pHintOrEvalC.charHint("!");
 
-	ColonHint = hintC.short(symb(":"));
+	OverrideHint = pHintOrEvalC.charHint("?");
 
-	LongHint = hintC.long(1,
+	AtHint = pHintOrEvalC.string(false, IN_HINT,
+		symb("@") + symb("@!!"), vv.SimpleExpr);
+
+	ColonHint = pHintOrEvalC.string(false, IN_HINT,
+		symb(":"), vv.SimpleExpr);
+
+	LongHint = pHintOrEvalC.string(1, IN_HINT,
 		symb"::" * vv.Name * symb"(",
 		vv.ExprList^-1 * symbA ")" * (symb":" * vvA.Name * symbA"(" * vv.ExprList^-1 * symbA")")^0,
 		symb(";")^-1);
 
-	HintStat = tagC.HintStat(hintC.long(2,
+	HintStat = tagC.HintStat(pHintOrEvalC.string(false, IN_HINT,
 		symb("(@"),
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 		symbA(")")));
 
-	GenericParHint = hintC.long(2,
+	GenericParHint = pHintOrEvalC.string(false, IN_HINT,
 		symb("<@"), vvA.Name * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	GenericArgHint = hintC.long(2,
+	GenericArgHint = pHintOrEvalC.string(false, IN_HINT,
 		symb("<@"), vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-  -- hint end }}}
+	EvalExpr = pHintOrEvalC.string(false, IN_EVAL,
+		symb("$"), vvA.PrimaryExpr);
+
+  -- hint & eval end }}}
 
 
 	-- parser
@@ -285,7 +317,7 @@ local G = lpeg.P { "TypeHintLua";
 		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
 		local AndExpr = chainOp(RelExpr, kw, "and")
 		local OrExpr = chainOp(AndExpr, kw, "or")
-		return OrExpr
+		return vv.EvalExpr + OrExpr
 	end)();
 
 	SimpleExpr = Cpos * (vv.String +
@@ -297,18 +329,19 @@ local G = lpeg.P { "TypeHintLua";
               vv.Constructor) * (vv.AtHint + cc(nil)) * Cpos /exprF.hintExpr +
               vv.SuffixedExpr + tagC.Dots(symb"...");
 
+	PrimaryExpr = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
+			Cpos * symb"(" * (
+				vv.Expr * cc(nil) * symb")" +
+				vv.ApplyExpr * vv.AtHint * symb")" +
+				throw("invalid paren expression")
+			) * Cpos * (vv.AtHint + cc(nil)) * Cpos / function(pos, expr, innerHint, posMid, outerHint, posEnd)
+				if innerHint then
+					expr = exprF.paren(pos, expr, innerHint, posMid)
+				end
+				return exprF.paren(pos, expr, outerHint, posEnd)
+			end;
+
 	SuffixedExpr = (function()
-		local primary = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
-		Cpos * symb"(" * (
-			vv.Expr * cc(nil) * symb")" +
-			vv.ApplyExpr * vv.AtHint * symb")" +
-			throw("invalid paren expression")
-		) * Cpos * (vv.AtHint + cc(nil)) * Cpos / function(pos, inExpr, inHint, posMid, outHint, posEnd)
-			if inHint then
-				inExpr = exprF.paren(pos, inExpr, inHint, posMid)
-			end
-			return exprF.paren(pos, inExpr, outHint, posEnd)
-		end
 		local function addAtHint(patt)
 			return patt * (vv.AtHint + cc(nil)) / function(expr, hintShort)
 				expr.hintShort = hintShort
@@ -328,7 +361,7 @@ local G = lpeg.P { "TypeHintLua";
 		-- call
 		local call = tagC.Call(cc(false) * generic * vv.FuncArgs)
 		-- add completion case
-		local succPatt = lpeg.Cf(primary * (index1 + index2 + invoke + call)^0, exprF.suffixed);
+		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call)^0, exprF.suffixed);
 		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
 			if not predictPos then
 				return true, exp
@@ -351,7 +384,7 @@ local G = lpeg.P { "TypeHintLua";
 	VarExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Ident" or exp.tag == "Index", exp end);
 
 	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,_,env)
-		if not env.hinting then
+		if not env.inHintOrEval then
 			local len = #env.scopeTraceList
 			env.scopeTraceList[len + 1] = 0
 			if len > 0 then
@@ -360,7 +393,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		return true
 	end) * vv.Stat^0 * vv.RetStat^-1 * lpeg.Cmt(Cenv, function(_,_,env)
-		if not env.hinting then
+		if not env.inHintOrEval then
 			env.scopeTraceList[#env.scopeTraceList] = nil
 		end
 		return true
@@ -473,7 +506,7 @@ local G = lpeg.P { "TypeHintLua";
 
 function ParseEnv.new(vSubject, vChunkName)
 	local self = setmetatable({
-		hinting = false,
+		inHintOrEval = NOT_IN,
 		scopeTraceList = {},
 		_subject = vSubject,
 		_chunkName = vChunkName,
