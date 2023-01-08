@@ -61,6 +61,8 @@ local function symb(str)
 		return token(lpeg.P("@!")*-lpeg.P("!"))
 	elseif str == "(" then
 		return token(lpeg.P("(")*-lpeg.P("@"))
+	elseif str == "<" then
+		return token(lpeg.P("<")*-lpeg.P("@"))
 	else
 		return token(lpeg.P(str))
 	end
@@ -224,6 +226,9 @@ local G = lpeg.P { "TypeHintLua";
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 		symbA(")")));
 
+	GenericHint = hintC.long(2,
+		symb("<@"), vv.SimpleExpr^0, symbA(">"));
+
   -- hint end }}}
 
 
@@ -305,6 +310,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
+		local generic = lpeg.Cg(vv.GenericHint + cc(false), "hintGeneric")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		index1 = addAtHint(index1)
@@ -312,9 +318,9 @@ local G = lpeg.P { "TypeHintLua";
 		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
 		index2 = addAtHint(index2)
 		-- invoke
-		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * vvA.FuncArgs)
+		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * generic * vvA.FuncArgs)
 		-- call
-		local call = tagC.Call(cc(false) * vv.FuncArgs)
+		local call = tagC.Call(cc(false) * generic * vv.FuncArgs)
 		-- add completion case
 		local succPatt = lpeg.Cf(primary * (index1 + index2 + invoke + call)^0, exprF.suffixed);
 		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
@@ -359,7 +365,7 @@ local G = lpeg.P { "TypeHintLua";
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
-		return tagC.Function(symbA("(") * ParList * symbA(")") *
+		return tagC.Function(lpeg.Cg(vv.GenericHint, "hintGeneric")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA("end"))
 	end)();
 
