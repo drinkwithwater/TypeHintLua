@@ -62,7 +62,7 @@ function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol)::Ret(cla
 	end
 end
 
-function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutKind:OrFalse(node.ImmutKindEnum), vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:class.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
 		vTerm = nAssignContext:NilTerm()
@@ -78,7 +78,7 @@ function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutKind:OrFalse(node.ImmutKi
 	else
 		-- convert string literal to string, number literal to number, boolean literal to boolean
 		-- TODO , think symbol in more case, local , args, const, for, ...
-		if not vImmutKind then
+		if vModify and vKind == "local" then
 			const nFromType = vTerm:getType()
 			const nToType = nAssignContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
@@ -88,7 +88,7 @@ function Region:SYMBOL_NEW(vNode:class.IAstNode, vImmutKind:OrFalse(node.ImmutKi
 		nAssignContext:getTypeManager():basingByDefault(vTerm:getType())
 	end
 	const nImmutShot = vTerm:attachImmutShot()
-	if not vImmutKind then
+	if vModify then
 		local nLocalSymbol = LocalSymbol.new(nAssignContext, vNode, vTerm:getType(), vTerm)
 		nAssignContext:getRuntime():recordSymbol(nLocalSymbol)
 		self:topBranch():mutMark(nLocalSymbol, nImmutShot)

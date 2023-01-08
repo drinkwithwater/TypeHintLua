@@ -165,9 +165,10 @@ function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 	table.remove(self._scopeStack)
 end
 
-function SymbolVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.ImmutKindEnum)
+function SymbolVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.SymbolKindEnum)
 	local nScope = self._scopeStack[#self._scopeStack]!
-	vIdentNode.immutKind = vImmutKind
+	vIdentNode.symbolKind = vImmutKind
+	vIdentNode.symbolModify = false
 	local nName = vIdentNode[1]
 	local nLookupNode = nScope.symbolTable[nName]
 	nScope.symbolTable[nName] = vIdentNode
@@ -210,11 +211,11 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 		return
 	end
 	if vIsAssign then
-		if nDefineNode.immutKind == "const" then
+		if nDefineNode.symbolKind == "const" then
 			const nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
 			error(Exception.new(nErrNode[1], nErrNode))
 		else
-			nDefineNode.immutKind = false
+			nDefineNode.symbolModify = true
 		end
 		vIdentNode.isSet = true
 		vIdentNode.defineIdent = nDefineNode
