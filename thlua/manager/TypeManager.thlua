@@ -342,7 +342,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
-			local nValueType:Union(Nil, class.UAllType, class.MemberFunction)
+			local nValueType:OrNil(class.UAllType, class.MemberFunction)
 			if Reference.is(nValue) then
 				nValueType = nValue
 			elseif MemberFunction.is(nValue) then
@@ -350,10 +350,13 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 			else
 				nValueType = self:_toType(nValue)
 			end
-			if not Reference.is(nKey) then
-				nKey = self:_toType(nKey)
+			local nKeyType:OrNil(class.UAllType)
+			if Reference.is(nKey) then
+				nKeyType = nKey
+			else
+				nKeyType =	self:_toType(nKey)
 			end
-			nKey:foreachAwait(function(vAtomType)
+			nKeyType:foreachAwait(function(vAtomType)
 				nKeyCount = nKeyCount + 1
 				if not vAtomType:mayRecursive() then
 					nBasicCollection:put(vAtomType)

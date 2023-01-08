@@ -151,31 +151,35 @@ function Region:FOR_IN(vNode:class.IAstNode, vFunc:Fn(class.TermTuple), vNext:cl
 		return
 	end
 	local nFirstTerm = nTuple:get(1)
-	if not nFirstTerm:getType():isNilable() then
+	const nFirstType = nFirstTerm:getType()
+	if not nFirstType:isNilable() then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : still run logic?? ")
 		return
 	end
-	local nCase = nFirstTerm:caseNotnil()
-	if not nCase then
+	if nFirstType:notnilType():isNever() then
 		self._context:getRuntime():nodeWarn(vNode, "FOR_IN into a empty loop")
-		return
 	end
-	-- TODO, maybe symbolshot info is loss
-	const nTermList:List(class.RefineTerm) = {nFirstTerm:notnilTerm()}
-	for i=2, #nTuple do
-		local nTerm = nTuple:get(i)
-		const nType = nCase[nTerm:attachImmutShot()]
-		if nType then
-			nTerm = self._context:RefineTerm(nType)
+	nFirstTerm:foreach(function(vAtomType, vCase)
+		if vAtomType:isNilable() then
+			return
 		end
-		nTermList[i] = nTerm
-	end
-	--local nNewTuple = self._context:TermTuple({nFirstTerm:notnilTerm()}, nTuple:select(2))
-	local nNewTuple = self._context:TermTuple(nTermList)
-	-- TODO FOR_IN push branch
-	--self:push_branch(nCase)
-	vFunc(nNewTuple)
-	--self:pop_branch()
+		const nTermList:List(class.RefineTerm) = {self._context:RefineTerm(vAtomType)}
+		--[[for i=2, #nTuple do
+			nTermList[i] = nTuple:get(i)
+		end]]
+		for i=2, #nTuple do
+			local nTerm = nTuple:get(i)
+			const nType = vCase[nTerm:attachImmutShot()]
+			if nType then
+				nTerm = self._context:RefineTerm(nType)
+			end
+			nTermList[i] = nTerm
+		end
+		local nNewTuple = self._context:TermTuple(nTermList)
+		self:withBranch(vCase, function()
+			vFunc(nNewTuple)
+		end)
+	end)
 end
 
 function Region:FOR_NUM(vNode, vFunc, vStart, vStop, vStepOrNil)
