@@ -32,7 +32,10 @@ local vv=setmetatable({}, {
 	end
 })
 
-local vvA=setmetatable({}, {
+local vvA=setmetatable({
+	IdentDefT=lpeg.V("IdentDefT") + throw("expect a 'Name'"),
+	IdentDefN=lpeg.V("IdentDefN") + throw("expect a 'Name'"),
+}, {
 	__index=function(t,tag)
 		local patt = lpeg.V(tag) + throw("expect a '"..tag.."'")
 		t[tag] = patt
@@ -226,8 +229,11 @@ local G = lpeg.P { "TypeHintLua";
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 		symbA(")")));
 
-	GenericHint = hintC.long(2,
-		symb("<@"), vv.SimpleExpr^0, symbA(">"));
+	GenericParHint = hintC.long(2,
+		symb("<@"), vvA.Name * (symb"," * vv.SimpleExpr)^0, symbA(">"));
+
+	GenericArgHint = hintC.long(2,
+		symb("<@"), vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
   -- hint end }}}
 
@@ -251,8 +257,8 @@ local G = lpeg.P { "TypeHintLua";
 	IdentDefT = Cpos*vv.Name*(vv.ColonHint + cc(nil))*Cpos/parF.identDef;
 	IdentDefN = Cpos*vv.Name*cc(nil)*Cpos/parF.identDef;
 
-	LocalIdentList = tagC.IdentList(vv.IdentDefT * (symb(",") * vv.IdentDefT)^0);
-	ForinIdentList = tagC.IdentList(vv.IdentDefN * (symb(",") * vv.IdentDefN)^0);
+	LocalIdentList = tagC.IdentList(vvA.IdentDefT * (symb(",") * vv.IdentDefT)^0);
+	ForinIdentList = tagC.IdentList(vvA.IdentDefN * (symb(",") * vv.IdentDefN)^0);
 
 	ExprList = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0);
 
@@ -310,7 +316,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
-		local generic = lpeg.Cg(vv.GenericHint + cc(false), "hintGeneric")
+		local generic = lpeg.Cg(vv.GenericArgHint + cc(false), "hintGeneric")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		index1 = addAtHint(index1)
@@ -365,7 +371,7 @@ local G = lpeg.P { "TypeHintLua";
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
-		return tagC.Function(lpeg.Cg(vv.GenericHint, "hintGeneric")^-1*symbA("(") * ParList * symbA(")") *
+		return tagC.Function(lpeg.Cg(vv.GenericParHint, "hintGeneric")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA("end"))
 	end)();
 
