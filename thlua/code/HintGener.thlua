@@ -4,10 +4,10 @@
 let.node = import("thlua.code.Node").node
 let.class = import("thlua.type.TypeClass").class
 
-let.GenResult = Union(String, Struct {
+let.GenResult = Struct {
 	node = OrNil(node.IAstNode),
-	[Integer] = let.GenResult,
-})
+	[Integer] = Union(String, let.GenResult),
+}
 
 let.RealTraverser = Struct((function()
 	local t = {}
@@ -579,6 +579,17 @@ function HintGener:printFunc(vFunc:node.URegionNode, vParList:node.ParList,
 	)
 end
 
+function HintGener:forList(
+	vList:IList(node.IAstNode),
+	vFunc:Fn(Integer, node.IAstNode):Ret(Union(String, let.GenResult))
+	)::Ret(let.GenResult)
+	const nResult:let.GenResult = {}
+	for i, vNode in ipairs(vList) do
+		nResult[i] = vFunc(i, vNode)
+	end
+	return nResult
+end
+
 function HintGener:printn(c:String, n:Integer)
 	for i=1, n do
 		self:print(c..i)
@@ -599,7 +610,7 @@ end
 
 function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
 	const l:List(String) = {}
-	const function recurAppend(vResult:GenResult)
+	const function recurAppend(vResult:Union(String, GenResult))
 		if type(vResult) == "table" then
 			for _, v in ipairs(vResult) do
 				recurAppend(v)

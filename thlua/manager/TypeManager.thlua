@@ -400,13 +400,20 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 	return nObjectRefer
 end
 
+function TypeManager:buildIDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
+	return self:buildInterface(vNode, {[vKey]=vValue})
+end
+
 function TypeManager:buildDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
 	return self:buildStruct(vNode, {[vKey]=vValue}, {__next=vKey})
 end
 
-function TypeManager:buildList(vNode:class.IAstNode, vValue)::Ret(class.Reference)
-	-- TODO struct use meta
-	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer,__next=self.type.Integer})
+function TypeManager:buildIList(vNode:class.IAstNode, vValue:class.UAllType)::Ret(class.Reference)
+	return self:buildInterface(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+end
+
+function TypeManager:buildList(vNode:class.IAstNode, vValue:class.UAllType)::Ret(class.Reference)
+	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __next=self.type.Integer})
 end
 
 function TypeManager:buildOrNil(vNode:class.IAstNode, ...:Truth)::Ret(class.Reference)

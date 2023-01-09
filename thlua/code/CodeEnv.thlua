@@ -161,6 +161,25 @@ function CodeEnv:_init()
 	self._astOrErr = nParseEnv:get()
 end
 
+function CodeEnv:genTypingCode2()::Ret(String)
+	local nAstOrErr = self._astOrErr
+	if nAstOrErr.tag == "Error" then
+		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
+		nAstOrErr.path = self._chunkName
+		Node.bind(nAstOrErr)
+		error(Exception.new(nAstOrErr[1], nAstOrErr))
+	end
+	-- 2. prepare
+	self:prepare()
+	-- 1. refer visitor
+	const nSymbolVisitor = SymbolVisitor.new(self)
+	nSymbolVisitor:realVisit(self:getAstTree())
+	-- 3. hint gen visitor
+	const HintGener = require "thlua.code.HintGener"
+	const gener = HintGener.new()
+	return gener:genCode(nAstOrErr)
+end
+
 function CodeEnv:genTypingCode()::Ret(String)
 	local nAstOrErr = self._astOrErr
 	if nAstOrErr.tag == "Error" then
