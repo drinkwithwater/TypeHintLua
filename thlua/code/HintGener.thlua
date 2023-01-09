@@ -6,13 +6,15 @@ let.class = import("thlua.type.TypeClass").class
 
 let.GenResult = Struct {
 	node = OrNil(node.IAstNode),
-	[Integer] = Union(String, let.GenResult),
+	[Integer] = let.UGenResult,
 }
+
+let.UGenResult = Union(String, let.GenResult)
 
 let.RealTraverser = Struct((function()
 	local t = {}
 	foreachPair(node.TagToNodeType, function(vTag, vNodeType)
-		t[vTag] = OrNil(Fn(let.HintGener, vNodeType):Ret(let.GenResult))
+		t[vTag] = OrNil(Fn(let.HintGener, vNodeType):Ret(let.UGenResult))
 	end)
 	return t
 end)())
@@ -20,281 +22,272 @@ end)())
 end)
 
 local TagToVisiting:RealTraverser = {
-	Chunk=function(visitor, node)
+	Chunk=function(self, node)
+		-- region begin
+		-- chunk vDots
+		const nLongHintPrint = " function(____longHint) return ____longHint:open() end"
+		const nParPrint = self:formatParListInFuncHead(node[2])
 		return {
-			'local ____ctx, ____nodes=... ',
-			"local ____s__ENV"..node[1].index, "=____ctx:makeSymbol_ENV(", visitor:codeNode(node[1]),") "
+			"local ____ctx, ____nodes=... ",
+			"local ____s__ENV"..node[1].index, "=____ctx:makeSymbol_ENV(", self:codeNode(node[1]),") ",
+			"local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", self:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ",
+			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(node), ", ____fn,____uv) ",
+			"local vDOTS=____ctx:TUPLE_UNPACK(", self:codeNode(node),",vArgTuple,0,true)",
+			--self:visit(node[3]),
+			"end) return ____fn",
 		}
 	end,
-	Block=function(visitor, node)
-		const nParent = node.parent!
-		const nParentTag = nParent.tag
-		visitor:fixLinePrint(node)
-		for i=1, #node do
-			visitor:indent()
-			visitor:realVisit(node[i]!)
-			visitor:print(" ")
-		end
-		if nParentTag == "Function" or nParentTag == "Chunk" then
-			visitor:indent()
-			visitor:print("return ", visitor:codeRgn(node, "END"), ") ")
-		end
-	end,
-	Do=function(visitor, node)
+	Block=function(self, node)
+		const nParentTag = node.parent!.tag
+		const nAppendReturn = nParentTag == "Function" or nParentTag == "Chunk"
 		return {
-			node=node,
-			" do ", visitor:realVisit(node[1]), " end "
+			self:forList(node, function(i, vStatNode)
+				return self:visit(vStatNode)
+			end, " "),
+			nAppendReturn and "return "..self:codeRgn(node, "END")..") " or nil,
 		}
 	end,
-	Set=function(visitor, node)
+	Do=function(self, node)
 		return {
 			node=node,
-			" local ", visitor:forList(node[1], function(i,v)
+			" do ", self:visit(node[1]), " end "
+		}
+	end,
+	Set=function(self, node)
+		return {
+			node=node,
+			" local ", self:forList(node[1], function(i,v)
 				return "set_a"..i
 			end),
 		}
 	end,
-	While=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:indent()
-		visitor:print("local while_a=")
-		visitor:print(node[1])
-		visitor:print(" ")
-		visitor:indent()
-		visitor:print(visitor:codeRgn(node, "WHILE"), ",while_a, function() ")
-		visitor:print(node[2])
-		visitor:indent()
-		visitor:print("end) ")
+	While=function(self, node)
+		return {
+			"local while_a=", self:visit(node[1]), " ",
+			self:codeRgn(node, "WHILE"), ",while_a, function() ",
+			self:visit(node[2]),
+			"end) "
+		}
 	end,
-	Repeat=function(visitor, node)
-		print("TODO repeat not implement")
+	Repeat=function(self, node)
+		print("RepeatStat TODO")
+		return {}
 	end,
-	If=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("--[[ if begin ]]")
+	If=function(self, node)
+		self:fixLinePrint(node)
+		self:print("--[[ if begin ]]")
 		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer)
-			visitor:indent()
-			visitor:print("local if_a"..level.."=")
-			visitor:print(exprNode)
-			visitor:print(" ")
-			visitor:indent()
-			visitor:print(visitor:codeRgn(node, "IF"), ",if_a"..level..", function() ")
-			visitor:print(blockNode)
+			self:indent()
+			self:print("local if_a"..level.."=")
+			self:print(exprNode)
+			self:print(" ")
+			self:indent()
+			self:print(self:codeRgn(node, "IF"), ",if_a"..level..", function() ")
+			self:print(blockNode)
 			const nNext1Node, nNext2Node = node[nextIndex], node[nextIndex + 1]
 			if nNext1Node then
-				visitor:indent()
-				visitor:print("end,function() ")
+				self:indent()
+				self:print("end,function() ")
 				if nNext2Node then
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
-					visitor.indent_count = visitor.indent_count + 1
+					self.indent_count = self.indent_count + 1
 					put(nNext1Node, nNext2Node, nextIndex + 2, level + 1)
-					visitor.indent_count = visitor.indent_count - 1
+					self.indent_count = self.indent_count - 1
 				else
 					assert(nNext1Node.tag == "Block")
-					visitor:print(nNext1Node)
+					self:print(nNext1Node)
 				end
-				visitor:indent()
-				visitor:print("end) ")
+				self:indent()
+				self:print("end) ")
 			else
-				visitor:indent()
-				visitor:print("end) ")
+				self:indent()
+				self:print("end) ")
 			end
 		end
 		const nExpr, nBlock = node[1]!, node[2]!
 		assert(nExpr.tag ~= "Block" and nBlock.tag == "Block", "if statement error")
 		put(nExpr, nBlock, 3, 1)
-		visitor:indent()
-		visitor:print("--[[ if end ]]")
+		self:indent()
+		self:print("--[[ if end ]]")
 	end,
-	Fornum=function(visitor, node)
-		visitor:fixLinePrint(node)
+	Fornum=function(self, node)
+		self:fixLinePrint(node)
 		local nBlockNode = node[5]
-		visitor:print("local fornum_r1, fornum_r2, fornum_r3 = ")
+		self:print("local fornum_r1, fornum_r2, fornum_r3 = ")
 		if nBlockNode then
-			visitor:print(node[2], ", ", node[3], ", ", node[4], " ")
+			self:print(node[2], ", ", node[3], ", ", node[4], " ")
 		else
-			visitor:print(node[2], ", ", node[3], " ")
+			self:print(node[2], ", ", node[3], " ")
 			const nSubNode = node[4]
 			assert(nSubNode.tag == "Block", "node must be block here")
 			nBlockNode = nSubNode
 		end
-		visitor:print(visitor:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ")
-		visitor:printSymbolNew(node[1], "fornum_i")
-		visitor:print(nBlockNode)
-		visitor:indent()
-		visitor:print("end, fornum_r1, fornum_r2, fornum_r3) ")
+		self:print(self:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ")
+		self:printSymbolNew(node[1], "fornum_i")
+		self:print(nBlockNode)
+		self:indent()
+		self:print("end, fornum_r1, fornum_r2, fornum_r3) ")
 	end,
-	Forin=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:indent()
-		visitor:print("local forin_next, forin_self, forin_init = ", visitor:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ") ")
-		visitor:print(visitor:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ")
-		visitor:indent()
-		visitor:print("\tlocal ")
-		visitor:printn("forin_gen", #node[1])
-		visitor:print("=", visitor:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ")
-		visitor:indent()
+	Forin=function(self, node)
+		self:fixLinePrint(node)
+		self:indent()
+		self:print("local forin_next, forin_self, forin_init = ", self:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ") ")
+		self:print(self:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ")
+		self:indent()
+		self:print("\tlocal ")
+		self:printn("forin_gen", #node[1])
+		self:print("=", self:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ")
+		self:indent()
 		const nIdentList = node[1]
 		for i=1, #nIdentList do
-			visitor:printSymbolNew(nIdentList[i]!, "forin_gen"..i)
+			self:printSymbolNew(nIdentList[i]!, "forin_gen"..i)
 		end
-		visitor:print(node[3])
-		visitor:indent()
-		visitor:print("end, forin_next, forin_self, forin_init) ")
+		self:print(node[3])
+		self:indent()
+		self:print("end, forin_next, forin_self, forin_init) ")
 	end,
-	Local=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("local ")
-		visitor:printn("local_a", #node[1])
-		if #node[2]>0 then
-			visitor:print("=", visitor:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",")
-			visitor:print(node[2])
-			visitor:print(")")
-		end
-		visitor:print(" ")
-		local nIdentList = node[1]
-		for i=1, #nIdentList do
-			visitor:printSymbolNew(nIdentList[i]!, "local_a"..i)
-		end
+	Local=function(self, node)
+		return {
+			"local ", self:forList(node[1], function(i, vNode)
+				return "local_a"..i
+			end),
+			"=", self:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",",
+			#node[2] > 0 and self:visit(node[2]) or "nil",
+			") ",
+			self:forList(node[1], function(i, vNode)
+				const nIdent = vNode @ node.Ident_def
+				return self:visitSymbolNew(nIdent, "local_a"..i)
+			end)
+		}
 	end,
-	Localrec=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:printSymbolNew(node[1], node[2])
+	Localrec=function(self, node)
+		self:fixLinePrint(node)
+		return self:visitSymbolNew(node[1], node[2])
 	end,
 	Goto=function()
 		print("--goto TODO")
+		return {}
 	end,
 	Label=function()
 		print("--label TODO")
+		return {}
 	end,
-	Return=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print(visitor:codeRgn(node, "RETURN"), ",", visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {")
-		visitor:print(node[1])
-		visitor:print("}))")
+	Return=function(self, node)
+		return {
+			self:codeRgn(node, "RETURN"), ",", self:codeCtx(node, "EXPLIST_PACK"), ",false, {",
+				self:visit(node[1]),
+			"}))"
+		}
 	end,
-	Break=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print(" ", visitor:codeRgn(node, "BREAK"), ") ")
+	Break=function(self, node)
+		return {
+			" ", self:codeRgn(node, "BREAK"), ") "
+		}
 	end,
-	Call=function(visitor, node)
-		visitor:fixLinePrint(node)
-		if visitor:autoUnpack(node) then
-			visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
-		end
-		visitor:print(visitor:codeCtx(node, "META_CALL"), ",")
-		visitor:print(node[1], ",")
-		visitor:print(visitor:codeCtx(node, "EXPLIST_PACK"), ",true, {")
-		if #node[2] > 0 then
-			visitor:print(node[2])
-		end
-		visitor:print("}))")
-		if visitor:autoUnpack(node) then
-			visitor:print(")")
-		end
+	Call=function(self, node)
+		self:fixLinePrint(node)
+		const nAutoUnpack = self:autoUnpack(node)
+		return {
+			nAutoUnpack and self:codeCtx(node, "EXPLIST_UNPACK")..",1," or "",
+			self:codeCtx(node, "META_CALL"), ",",
+			self:visit(node[1]), ",",
+			self:codeCtx(node, "EXPLIST_PACK"), ",true, {",
+				#node[2] > 0 and self:visit(node[2]) or "",
+			"}))",
+			nAutoUnpack and ")" or "",
+		}
 	end,
-	Invoke=function(visitor, node)
-		visitor:fixLinePrint(node)
-		if visitor:autoUnpack(node) then
-			visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
+	Invoke=function(self, node)
+		if self:autoUnpack(node) then
+			self:print(self:codeCtx(node, "EXPLIST_UNPACK"), ",1,")
 		end
-		visitor:print(visitor:codeCtx(node, "META_INVOKE"), ",")
-		visitor:print(node[1])
-		visitor:print(",\"")
-		visitor:print(node[2][1])
-		visitor:print("\"")
+		self:print(self:codeCtx(node, "META_INVOKE"), ",")
+		self:print(node[1])
+		self:print(",\"")
+		self:print(node[2][1])
+		self:print("\"")
 		if #node[3] > 0 then
-			visitor:print(",")
-			visitor:print(visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {")
-			visitor:print(node[3])
-			visitor:print("})")
+			self:print(",")
+			self:print(self:codeCtx(node, "EXPLIST_PACK"), ",false, {")
+			self:print(node[3])
+			self:print("})")
 		else
-			visitor:print(",", visitor:codeCtx(node, "EXPLIST_PACK"), ",false, {})")
+			self:print(",", self:codeCtx(node, "EXPLIST_PACK"), ",false, {})")
 		end
-		visitor:print(")")
-		if visitor:autoUnpack(node) then
-			visitor:print(")")
-		end
-	end,
-	HintStat=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:indent()
-		-- visitor:print("local block = function(self) ", node[1], " end block(self)\n")
-		visitor:print(" ",node[1], " ")
-		visitor:fixLong(node[1])
-	end,
-	Nil=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("____ctx:NilTerm()")
-	end,
-	Dots=function(visitor, node)
-		visitor:fixLinePrint(node)
-		if not visitor:autoUnpack(node) then
-			visitor:print("vDOTS")
-		else
-			visitor:print(visitor:codeCtx(node, "EXPLIST_UNPACK"), ",1, vDOTS)")
+		self:print(")")
+		if self:autoUnpack(node) then
+			self:print(")")
 		end
 	end,
-	True=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("____ctx:BooleanTerm(true)")
+	HintStat=function(self, node)
+		-- self:print("local block = function(self) ", node[1], " end block(self)\n")
+		return {
+			" ", node[1].script, " "
+		}
 	end,
-	False=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("____ctx:BooleanTerm(false)")
+	Nil=function(self, node)
+		return "____ctx:NilTerm()"
 	end,
-	Number=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("____ctx:LiteralTerm")
-		visitor:print("("..tostring(node[1])..")")
+	Dots=function(self, node)
+		const nAutoUnpack = self:autoUnpack(node)
+		return nAutoUnpack and self:codeCtx(node, "EXPLIST_UNPACK")..",1, vDOTS)" or "vDOTS"
 	end,
-	String=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print("____ctx:LiteralTerm")
-		local s = node[1]
-		if node.isLong then
-			visitor:print('([[' .. s .. ']])')
-		else
-			visitor:print('(' .. string.format("%q", s) .. ')')
-		end
+	True=function(self, node)
+		return "____ctx:BooleanTerm(true)"
 	end,
-	Function=function(visitor, node)
-		visitor:fixLinePrint(node)
+	False=function(self, node)
+		return "____ctx:BooleanTerm(false)"
+	end,
+	Number=function(self, node)
+		return {
+			"____ctx:LiteralTerm(", tostring(node[1]), ")"
+		}
+	end,
+	String=function(self, node)
+		const s = node[1]
+		return {
+			"____ctx:LiteralTerm",
+			node.isLong and '([[' .. s .. ']])' or '(' .. string.format("%q", s),
+			')'
+		}
+	end,
+	Function=function(self, node)
+		self:fixLinePrint(node)
 		const nParList = node[1]
-		const nParInHead = visitor:formatParListInFuncHead(nParList)
+		const nParInHead = self:formatParListInFuncHead(nParList)
 		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-		visitor:fixLong(node.hintLong or "")
-		visitor:print(" ____ctx:RefineTerm((function() local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ",", nParInHead, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
-		visitor:print(" local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", visitor:codeNode(node), ",____fn,____uv) ")
+		self:fixLong(node.hintLong or "")
+		self:print(" ____ctx:RefineTerm((function() local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", self:codeNode(node), ",", nLongHintPrint, ",", nParInHead, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
+		self:print(" local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(node), ",____fn,____uv) ")
 		if #nParList > 0 then
-			visitor:print(" local ", node[1], "=", visitor:codeCtx(node, "TUPLE_UNPACK"))
+			self:print(" local ", node[1], "=", self:codeCtx(node, "TUPLE_UNPACK"))
 			if nParList[#nParList]!.tag == "Dots" then
-				visitor:print(", vArgTuple, ",tostring(#nParList-1),", true) ")
+				self:print(", vArgTuple, ",tostring(#nParList-1),", true) ")
 			else
-				visitor:print(", vArgTuple, ",tostring(#nParList),", false) ")
+				self:print(", vArgTuple, ",tostring(#nParList),", false) ")
 			end
 			for i=1, #nParList do
 				local par = nParList[i]!
 				if par.tag ~= "Dots" then
-					visitor:printSymbolNew(par, "v_"..par[1]..par.index, true)
+					self:printSymbolNew(par, "v_"..par[1]..par.index, true)
 				end
 			end
 		end
-		visitor:print(node[2])
-		visitor:indent()
-		visitor:print("end) return ____fn end)())")
+		self:print(node[2])
+		self:indent()
+		self:print("end) return ____fn end)())")
 	end,
-	Table=function(visitor, node)
-		visitor:fixLinePrint(node)
+	Table=function(self, node)
+		self:fixLinePrint(node)
 		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-		visitor:print("____ctx:RefineTerm(____ctx:TABLE_NEW(", visitor:codeNode(node), ",", nLongHintPrint, ", function() return {")
-		visitor:fixLong(node.hintLong or "")
+		self:print("____ctx:RefineTerm(____ctx:TABLE_NEW(", self:codeNode(node), ",", nLongHintPrint, ", function() return {")
+		self:fixLong(node.hintLong or "")
 		local count = 0
 		local tailDots:OrNil(node.UTupleExpr) = nil
 		for i=1, #node do
 			const nTableItem = node[i]!
 			if nTableItem.tag == "Pair" then
-				visitor:print("{", nTableItem[1], ",", nTableItem[2], "}")
+				self:print("{", nTableItem[1], ",", nTableItem[2], "}")
 			else
 				count = count + 1
 				const nExprTag = nTableItem.tag
@@ -302,131 +295,138 @@ local TagToVisiting:RealTraverser = {
 					tailDots = nTableItem
 				else
 					local key = "____ctx:LiteralTerm("..count..")"
-					visitor:print("{", key, ",", nTableItem, "}")
+					self:print("{", key, ",", nTableItem, "}")
 				end
 			end
-			visitor:print(i < #node and "," or "")
+			self:print(i < #node and "," or "")
 		end
 		if not tailDots then
-			visitor:print("}, 0, nil end)) ")
+			self:print("}, 0, nil end)) ")
 		else
-			visitor:print("}, ", count, ", ")
+			self:print("}, ", count, ", ")
 			tailDots.table_tail = true
-			visitor:print(tailDots, " end)) ")
+			self:print(tailDots, " end)) ")
 		end
 	end,
-	Op=function(visitor, node)
-		visitor:fixLinePrint(node)
+	Op=function(self, node)
+		self:fixLinePrint(node)
 		const nLogicOpSet:Dict(String, Integer) = {["or"]=1,["not"]=1,["and"]=1}
 		const nOper = node[1]
 		if nLogicOpSet[nOper] then
 			if nOper == "not" then
-				visitor:print(visitor:codeRgn(node, "LOGIC_NOT"), ",", node[2], ")")
+				return {
+					self:codeRgn(node, "LOGIC_NOT"), ",",
+					self:visit(node[2]), ")"
+				}
 			else
-				visitor:print(visitor:codeRgn(node, "LOGIC_"..node[1]:upper()),
-				",", node[2], ", function() return ", node[3]!, " end)")
+				return {
+					self:codeRgn(node, "LOGIC_"..node[1]:upper()), ",",
+					self:visit(node[2]), ",",
+					"function() return ", self:visit(node[3]!), " end)"
+				}
 			end
 		else
 			const nRight = node[3]
 			if not nRight then
-				visitor:print(visitor:codeCtx(node, "META_UOP"), ",\"", node[1], "\",", node[2], ")")
+				return {
+					self:codeCtx(node, "META_UOP"), ",\"", node[1], "\",",
+					self:visit(node[2]), ")"
+				}
 			elseif node[1] == "==" then
-				visitor:print(visitor:codeCtx(node, "META_EQ_NE"), ",true,", node[2], ",", nRight, ")")
+				return {
+					self:codeCtx(node, "META_EQ_NE"), ",true,",
+					self:visit(node[2]), ",",
+					self:visit(nRight), ")"
+				}
 			elseif node[1] == "~=" then
-				visitor:print(visitor:codeCtx(node, "META_EQ_NE"), ",false,", node[2], ",", nRight, ")")
+				return {
+					self:codeCtx(node, "META_EQ_NE"), ",false,",
+					self:visit(node[2]), ",",
+					self:visit(nRight), ")"
+				}
 			else
-				visitor:print(visitor:codeCtx(node, "META_BOP_SOME"), ",\"", node[1], "\",", node[2], ",", nRight, ")")
+				return {
+					self:codeCtx(node, "META_BOP_SOME"), ",\"", node[1], "\",",
+					self:visit(node[2]), ",",
+					self:visit(nRight), ")"
+				}
 			end
 		end
 	end,
-	Paren=function(visitor, node)
-		visitor:fixLinePrint(node)
+	Paren=function(self, node)
+		self:fixLinePrint(node)
 		local nHintShort = node.hintShort
 		if nHintShort then
-			visitor:print("____ctx:HINT(", visitor:codeNode(node), ",")
+			self:print("____ctx:HINT(", self:codeNode(node), ",")
 		end
-		visitor:print("(")
-		visitor:realVisit(node[1])
-		visitor:print(")")
+		self:print("(")
+		self:visit(node[1])
+		self:print(")")
 		if nHintShort then
-			visitor:print(",", visitor:fixShort(nHintShort), ")")
+			self:print(",", self:fixShort(nHintShort), ")")
 		end
 	end,
-	Ident=function(visitor, node)
-		visitor:fixLinePrint(node)
+	Ident=function(self, node)
 		assert(node.kind ~= "def")
 		const nDefineId = node.defineIdent
 		const symbol = "____s_"..nDefineId[1]..nDefineId.index
 		if node.isSet then
-			visitor:print(symbol)
+			return symbol
 		else
 			const nParent = node.parent!
 			const nParentTag = nParent.tag
 			const nParentParentTag = nParent.parent!.tag
-			if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
-				visitor:print(" function() return ")
-			end
-			visitor:print(visitor:codeRgn(node, "SYMBOL_GET"), ",", symbol,")")
-			if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
-				visitor:print(" end ")
-			end
+			const nLazyEval = nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call")
+			return {
+				nLazyEval and " function() return " or "",
+				self:codeRgn(node, "SYMBOL_GET"), ",", symbol, ")",
+				nLazyEval and " end " or "",
+			}
 		end
 	end,
-	Index=function(visitor, node)
-		visitor:fixLinePrint(node)
-		visitor:print(visitor:codeCtx(node, "META_GET"), ",")
-		visitor:realVisit(node[1])
-		visitor:print(",")
-		visitor:realVisit(node[2])
-		visitor:print(",", tostring(node.notnil or false), ")")
+	Index=function(self, node)
+		self:fixLinePrint(node)
+		return {
+			self:codeCtx(node, "META_GET"), ",",
+			self:visit(node[1]), ",",
+			self:visit(node[2]), ",",
+			tostring(node.notnil or false),
+			")"
+		}
 	end,
-	ExprList=function(visitor, node)
-		visitor:fixLinePrint(node)
-		for i=1, #node do
-			visitor:realVisit(node[i]!)
-			visitor:print(i < #node and "," or "")
-		end
+	ExprList=function(self, node)
+		return self:forList(node, function(i, expr)
+			return self:visit(expr)
+		end, ",")
 	end,
-	ParList=function(visitor, node)
-		visitor:fixLinePrint(node)
-		const l:List(String) = {}
-		for i=1, #node do
-			const nParNode = node[i]!
-			if nParNode.tag == "Ident" then
-				l[#l+1] = "v_"..nParNode[1]..nParNode.index
-			else
-				l[#l+1] = "vDOTS"
-			end
-			-- visitor:print(node[i])
-			-- visitor:print(i < #node and "," or "")
-		end
-		visitor:print(table.concat(l, ","))
+	ParList=function(self, node)
+		return self:forList(node, function(i, vNode)
+			const nParNode = vNode @ Union(node.Ident_use, node.Dots)
+			return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
+		end, ",")
 	end,
-	VarList=function(visitor, node)
-		visitor:fixLinePrint(node)
-		for i=1, #node do
-			visitor:realVisit(node[i]!)
-			visitor:print(i < #node and "," or "")
-		end
+	VarList=function(self, node)
+		return self:forList(node, function(i, varNode)
+			return self:visit(varNode)
+		end, ",")
 	end,
-	IdentList=function(visitor, node)
-		visitor:fixLinePrint(node)
-		for i=1, #node do
-			visitor:realVisit(node[i]!)
-			visitor:print(i < #node and "," or "")
-		end
-	end
+	IdentList=function(self, node)
+		return self:forList(node, function(i, identNode)
+			return self:visit(identNode)
+		end, ",")
+	end,
 }
 
 const HintGener = {}
 HintGener.__index = HintGener
 
-function HintGener:realVisit(vNode:node.UNodeType)::Ret(let.GenResult)
-	const fn = TagToVisiting[vNode.tag]
+function HintGener:visit(vNode:node.IAstNode)::Ret(let.UGenResult)
+	const nUnionNode = vNode @ node.UNodeType
+	const fn = TagToVisiting[nUnionNode.tag]
 	if fn then
-		return fn(self, vNode)
+		return fn(self, nUnionNode)
 	else
-		return {}
+		return ""
 	end
 end
 
@@ -471,7 +471,7 @@ function HintGener:print(...:Union(Integer, String, node.IAstNode))
 	for i=1, select("#", ...) do
 		local obj = select(i, ...)
 		if type(obj) == "table" then
-			self:realVisit(obj)
+			self:visit(obj)
 		else
 			table.insert(self.buffer_list, obj)
 		end
@@ -490,6 +490,29 @@ function HintGener:formatIdentDef(vIdentNode:node.Ident_def)::Ret(String)
 	return "____s_"..vIdentNode[1]..vIdentNode.index
 end
 
+function HintGener:visitSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String, node.Function), vNoHint:OrNil(True))::Ret(let.UGenResult)
+	if type(vValue) == "string" then
+		const nHintShort = vIdentNode.hintShort
+		return {
+			" local ", self:formatIdentDef(vIdentNode), "=____rgn:SYMBOL_NEW(",
+				self:codeNode(vIdentNode), ",",
+				string.format("%q", vIdentNode.symbolKind), ",",
+				vValue, ",",
+				vNoHint and "nil" or (nHintShort and nHintShort.script or "nil"),
+			")"
+		}
+	else
+		const nIdentFormat = self:formatIdentDef(vIdentNode)
+		return {
+			" local ", nIdentFormat, " ", nIdentFormat, "=____rgn:SYMBOL_NEW(",
+				self:codeNode(vIdentNode), ",",
+				string.format("%q", vIdentNode.symbolKind), ",",
+				self:visit(vValue),
+			")"
+		}
+	end
+end
+
 function HintGener:printSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String, node.Function), vNoHint:OrNil(True))
 	if type(vValue) == "string" then
 		self:print(
@@ -506,7 +529,7 @@ function HintGener:printSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String
 			self:codeNode(vIdentNode), ",",
 			string.format("%q", vIdentNode.symbolKind), ","
 		)
-		self:realVisit(vValue)
+		self:visit(vValue)
 		self:print(")")
 	end
 end
@@ -581,11 +604,14 @@ end
 
 function HintGener:forList(
 	vList:IList(node.IAstNode),
-	vFunc:Fn(Integer, node.IAstNode):Ret(Union(String, let.GenResult))
+	vFunc:Fn(Integer, node.IAstNode):Ret(let.UGenResult),
+	vSep:OrNil(String)
 	)::Ret(let.GenResult)
 	const nResult:let.GenResult = {}
-	for i, vNode in ipairs(vList) do
-		nResult[i] = vFunc(i, vNode)
+	const nLen = #vList
+	for i=1,nLen do
+		nResult[#nResult + 1] = vFunc(i, vList[i]!)
+		nResult[#nResult + 1] = i~=nLen and vSep or nil
 	end
 	return nResult
 end
@@ -610,7 +636,7 @@ end
 
 function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
 	const l:List(String) = {}
-	const function recurAppend(vResult:Union(String, GenResult))
+	const function recurAppend(vResult:let.UGenResult)
 		if type(vResult) == "table" then
 			for _, v in ipairs(vResult) do
 				recurAppend(v)
@@ -619,7 +645,7 @@ function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
 			l[#l+1] = vResult
 		end
 	end
-	recurAppend(self:realVisit(vNode@node.UNodeType))
+	recurAppend(self:visit(vNode))
 	return table.concat(l)
 end
 
