@@ -9,7 +9,7 @@ let.GenResult = Struct {
 	[Integer] = let.UGenResult,
 }
 
-let.UGenResult = Union(String, let.GenResult)
+let.UGenResult = Union(String, Integer, let.GenResult)
 
 let.RealTraverser = Struct((function()
 	local t = {}
@@ -25,15 +25,14 @@ local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
 		-- region begin
 		-- chunk vDots
-		const nLongHintPrint = " function(____longHint) return ____longHint:open() end"
 		const nParPrint = self:formatParListInFuncHead(node[2])
 		return {
 			"local ____ctx, ____nodes=... ",
 			"local ____s__ENV"..node[1].index, "=____ctx:makeSymbol_ENV(", self:codeNode(node[1]),") ",
-			"local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", self:codeNode(node), ",", nLongHintPrint, ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ",
+			"local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", self:codeNode(node), ",", self:visitLongHint(nil), ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ",
 			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(node), ", ____fn,____uv) ",
 			"local vDOTS=____ctx:TUPLE_UNPACK(", self:codeNode(node),",vArgTuple,0,true)",
-			--self:visit(node[3]),
+			self:visit(node[3]),
 			"end) return ____fn",
 		}
 	end,
@@ -74,77 +73,68 @@ local TagToVisiting:RealTraverser = {
 		return {}
 	end,
 	If=function(self, node)
-		self:fixLinePrint(node)
-		self:print("--[[ if begin ]]")
-		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer)
-			self:indent()
-			self:print("local if_a"..level.."=")
-			self:print(exprNode)
-			self:print(" ")
-			self:indent()
-			self:print(self:codeRgn(node, "IF"), ",if_a"..level..", function() ")
-			self:print(blockNode)
+		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer)::Ret(let.UGenResult)
+			const nCondition:let.GenResult = {
+				"local if_a"..level.."=",
+				self:visit(exprNode), " ",
+				self:codeRgn(node, "IF"), ",if_a"..level..", function() ",
+				self:visit(blockNode),
+				" end",
+			}
 			const nNext1Node, nNext2Node = node[nextIndex], node[nextIndex + 1]
 			if nNext1Node then
-				self:indent()
-				self:print("end,function() ")
 				if nNext2Node then
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
-					self.indent_count = self.indent_count + 1
-					put(nNext1Node, nNext2Node, nextIndex + 2, level + 1)
-					self.indent_count = self.indent_count - 1
+					return {
+						nCondition, ",function()",
+						put(nNext1Node, nNext2Node, nextIndex + 2, level + 1),
+						")"
+					}
 				else
 					assert(nNext1Node.tag == "Block")
-					self:print(nNext1Node)
+					return {
+						nCondition, ",function()",
+						self:visit(nNext1Node),
+						") "
+					}
 				end
-				self:indent()
-				self:print("end) ")
 			else
-				self:indent()
-				self:print("end) ")
+				return {nCondition, ")"}
 			end
 		end
 		const nExpr, nBlock = node[1]!, node[2]!
 		assert(nExpr.tag ~= "Block" and nBlock.tag == "Block", "if statement error")
-		put(nExpr, nBlock, 3, 1)
-		self:indent()
-		self:print("--[[ if end ]]")
+		return put(nExpr, nBlock, 3, 1)
 	end,
 	Fornum=function(self, node)
-		self:fixLinePrint(node)
-		local nBlockNode = node[5]
-		self:print("local fornum_r1, fornum_r2, fornum_r3 = ")
-		if nBlockNode then
-			self:print(node[2], ", ", node[3], ", ", node[4], " ")
-		else
-			self:print(node[2], ", ", node[3], " ")
-			const nSubNode = node[4]
-			assert(nSubNode.tag == "Block", "node must be block here")
-			nBlockNode = nSubNode
-		end
-		self:print(self:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ")
-		self:printSymbolNew(node[1], "fornum_i")
-		self:print(nBlockNode)
-		self:indent()
-		self:print("end, fornum_r1, fornum_r2, fornum_r3) ")
+		const nHasStep = node[5] and true or false
+		const nBlockNode = node[5] or node[4]
+		assert(nBlockNode.tag == "Block", "4th or 5th node must be block")
+		return {
+			"local fornum_r1, fornum_r2, fornum_r3 = ",
+			self:visit(node[2]), ",", self:visit(node[3]), ",", nHasStep and self:visit(node[4]) or "nil", " ",
+			self:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ",
+			self:visitSymbolNew(node[1], "fornum_i"),
+			self:visit(nBlockNode),
+			"end, fornum_r1, fornum_r2, fornum_r3) "
+		}
 	end,
 	Forin=function(self, node)
-		self:fixLinePrint(node)
-		self:indent()
-		self:print("local forin_next, forin_self, forin_init = ", self:codeCtx(node, "EXPLIST_UNPACK"), ",3,", node[2], ") ")
-		self:print(self:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ")
-		self:indent()
-		self:print("\tlocal ")
-		self:printn("forin_gen", #node[1])
-		self:print("=", self:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ")
-		self:indent()
-		const nIdentList = node[1]
-		for i=1, #nIdentList do
-			self:printSymbolNew(nIdentList[i]!, "forin_gen"..i)
-		end
-		self:print(node[3])
-		self:indent()
-		self:print("end, forin_next, forin_self, forin_init) ")
+		return {
+			"local forin_next, forin_self, forin_init = ",
+			self:codeCtx(node, "EXPLIST_UNPACK"), ",3,", self:visit(node[2]), ") ",
+			self:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ",
+			"\tlocal ", self:forList(node[1], function(i, vNode)
+				return "forin_gen"..i
+			end),
+			"=", self:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ",
+			self:forList(node[1], function(i, vNode)
+				const nIdent = vNode @ node.Ident_def
+				self:visitSymbolNew(nIdent, "forin_gen"..i)
+			end),
+			self:visit(node[3]),
+			"end, forin_next, forin_self, forin_init) "
+		}
 	end,
 	Local=function(self, node)
 		return {
@@ -256,7 +246,6 @@ local TagToVisiting:RealTraverser = {
 		const nParList = node[1]
 		const nParInHead = self:formatParListInFuncHead(nParList)
 		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-		self:fixLong(node.hintLong or "")
 		self:print(" ____ctx:RefineTerm((function() local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", self:codeNode(node), ",", nLongHintPrint, ",", nParInHead, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ")
 		self:print(" local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(node), ",____fn,____uv) ")
 		if #nParList > 0 then
@@ -279,34 +268,42 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Table=function(self, node)
 		self:fixLinePrint(node)
-		local nLongHintPrint = " function(____longHint) return ____longHint" .. (node.hintLong or "") .. " end "
-		self:print("____ctx:RefineTerm(____ctx:TABLE_NEW(", self:codeNode(node), ",", nLongHintPrint, ", function() return {")
-		self:fixLong(node.hintLong or "")
 		local count = 0
 		local tailDots:OrNil(node.UTupleExpr) = nil
-		for i=1, #node do
-			const nTableItem = node[i]!
-			if nTableItem.tag == "Pair" then
-				self:print("{", nTableItem[1], ",", nTableItem[2], "}")
-			else
+		for i, nItem in ipairs(node) do
+			if nItem.tag ~= "Pair" then
 				count = count + 1
-				const nExprTag = nTableItem.tag
+				const nExprTag = nItem.tag
 				if i==#node and (nExprTag == "Dots" or nExprTag == "Invoke" or nExprTag == "Call") then
-					tailDots = nTableItem
-				else
-					local key = "____ctx:LiteralTerm("..count..")"
-					self:print("{", key, ",", nTableItem, "}")
+					tailDots = nItem
 				end
 			end
-			self:print(i < #node and "," or "")
 		end
-		if not tailDots then
-			self:print("}, 0, nil end)) ")
-		else
-			self:print("}, ", count, ", ")
-			tailDots.table_tail = true
-			self:print(tailDots, " end)) ")
-		end
+		return {
+			"____ctx:RefineTerm(____ctx:TABLE_NEW(", self:codeNode(node), ",",
+			self:visitLongHint(node.hintLong), ", function() return {",
+			self:forList(node, function(i, vNode)
+				const nTableItem = vNode @ Union(node.Pair, node.Expr)
+				if nTableItem.tag == "Pair" then
+					return {
+						"{", self:visit(nTableItem[1]), ",", self:visit(nTableItem[2]), "}"
+					}
+				else
+					if i==#node and tailDots then
+						return "nil"
+					else
+						return {
+							"{",
+								"____ctx:LiteralTerm("..count..")",
+								",",
+								self:visit(nTableItem),
+							"}"
+						}
+					end
+				end
+			end, ","),
+			"},", count, ",", tailDots and self:visit(tailDots) or "nil", ", end)) "
+		}
 	end,
 	Op=function(self, node)
 		self:fixLinePrint(node)
@@ -440,9 +437,11 @@ function HintGener:autoUnpack(vNode:node.UTupleExpr)::Ret(Boolean)
 	if nParent.tag == "ExprList" or nParent.tag == "ParList" or nParent.tag == "Block" then
 		-- block is for function-Call-statement
 		return false
-	elseif vNode.table_tail then
-		return false
 	else
+		-- table tail not autoUnpack
+		if nParent.tag == "Table" and nParent[#nParent] == vNode then
+			return false
+		end
 		return true
 	end
 end
@@ -513,27 +512,6 @@ function HintGener:visitSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String
 	end
 end
 
-function HintGener:printSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String, node.Function), vNoHint:OrNil(True))
-	if type(vValue) == "string" then
-		self:print(
-		" local ", self:formatIdentDef(vIdentNode), "=____rgn:SYMBOL_NEW(",
-			self:codeNode(vIdentNode), ",",
-			string.format("%q", vIdentNode.symbolKind), ",",
-			vValue, ",",
-			vNoHint and "nil" or (vIdentNode.hintShort or "nil"),
-		")")
-	else
-		const nIdentFormat = self:formatIdentDef(vIdentNode)
-		self:print(
-		" local ", nIdentFormat, " ", nIdentFormat, "=____rgn:SYMBOL_NEW(",
-			self:codeNode(vIdentNode), ",",
-			string.format("%q", vIdentNode.symbolKind), ","
-		)
-		self:visit(vValue)
-		self:print(")")
-	end
-end
-
 function HintGener:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)
 	return "____ctx:"..vName.."("..self:codeNode(vNode)
 end
@@ -589,6 +567,14 @@ end
 function HintGener:formatParListInFuncBody(vParList:node.ParList)
 end
 
+function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.UGenResult)
+	return {
+		" function(____longHint) return ____longHint",
+			(vHintInfo and vHintInfo.script or "") ,
+		" end "
+	}
+end
+
 function HintGener:printFunc(vFunc:node.URegionNode, vParList:node.ParList,
 	vLongHint:String, vRetFlag:Boolean, vBlockNode:node.Block)
 	const nParPrint = ""
@@ -642,7 +628,7 @@ function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
 				recurAppend(v)
 			end
 		else
-			l[#l+1] = vResult
+			l[#l+1] = tostring(vResult)
 		end
 	end
 	recurAppend(self:visit(vNode))
