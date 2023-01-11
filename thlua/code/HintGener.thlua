@@ -29,7 +29,7 @@ local TagToVisiting:RealTraverser = {
 		return {
 			'local ____rt, ____ctx, ____nodes=... ',
 			"local ____s__ENV"..node[1].index.."=____rt:makeSymbol_ENV(",self:codeNode(node[1]),") ",
-			self:FUNC_NEW(node, nOpenHint, node[2], node.retFlag or false, node[3])
+			self:visitFunc(node)
 		}
 	end,
 	Block=function(self, node)
@@ -70,32 +70,28 @@ local TagToVisiting:RealTraverser = {
 	end,
 	If=function(self, node)
 		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer)::Ret(let.UGenResult)
-			const nCondition:let.GenResult = {
-				"local if_a"..level.."=",
-				self:visit(exprNode), " ",
-				self:codeRgn(node, "IF"), ",if_a"..level..", function() ",
-				self:visit(blockNode),
-				" end",
-			}
 			const nNext1Node, nNext2Node = node[nextIndex], node[nextIndex + 1]
 			if nNext1Node then
 				if nNext2Node then
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
-					return {
-						nCondition, ",function()",
-						put(nNext1Node, nNext2Node, nextIndex + 2, level + 1),
-						")"
-					}
+					return self:rgnWrap(node).IF(
+						self:visit(exprNode),
+						self:Fn()(self:visit(blockNode)),
+						self:Fn()(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
+					)
 				else
 					assert(nNext1Node.tag == "Block")
-					return {
-						nCondition, ",function()",
-						self:visit(nNext1Node),
-						") "
-					}
+					return self:rgnWrap(node).IF(
+						self:visit(exprNode),
+						self:Fn()(self:visit(blockNode)),
+						self:Fn()(self:visit(nNext1Node))
+					)
 				end
 			else
-				return {nCondition, ")"}
+				return self:rgnWrap(node).IF(
+					self:visit(exprNode),
+					self:Fn()(self:visit(blockNode))
+				)
 			end
 		end
 		const nExpr, nBlock = node[1]!, node[2]!
@@ -110,26 +106,26 @@ local TagToVisiting:RealTraverser = {
 			"local fornum_r1, fornum_r2, fornum_r3 = ",
 			self:visit(node[2]), ",", self:visit(node[3]), ",", nHasStep and self:visit(node[4]) or "nil", " ",
 			self:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ",
-			self:visitSymbolNew(node[1], "fornum_i"),
+			self:visitIdentDef(node[1], "fornum_i"),
 			self:visit(nBlockNode),
 			"end, fornum_r1, fornum_r2, fornum_r3) "
 		}
 	end,
 	Forin=function(self, node)
 		return {
-			"local forin_next, forin_self, forin_init = ",
-			self:codeCtx(node, "EXPLIST_UNPACK"), ",3,", self:visit(node[2]), ") ",
-			self:codeRgn(node, "FOR_IN"), ",function(vIterTuple) ",
-			"\tlocal ", self:forList(node[1], function(i, vNode)
+			"local forin_next,forin_self,forin_init=",
+			self:ctxWrap(node).EXPLIST_UNPACK(3, self:visit(node[2])),
+			self:rgnWrap(node).FOR_IN(self:Fn("vIterTuple")(
+			"local ", self:forList(node[1], function(i, vNode)
 				return "forin_gen"..i
-			end),
+			end, ","),
 			"=", self:ctxWrap(node).TUPLE_UNPACK("vIterTuple", #node[1], tostring(false)),
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
-				return self:visitSymbolNew(nIdent, "forin_gen"..i)
-			end),
-			self:visit(node[3]),
-			"end, forin_next, forin_self, forin_init) "
+				return self:visitIdentDef(nIdent, "forin_gen"..i)
+			end, " "),
+			self:visit(node[3])
+			), "forin_next", "forin_self", "forin_init\n\n\n")
 		}
 	end,
 	Local=function(self, node)
@@ -140,7 +136,7 @@ local TagToVisiting:RealTraverser = {
 			self:ctxWrap(node).EXPLIST_UNPACK(#node[1], #node[2] > 0 and self:visit(node[2]) or "nil"),
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
-				return self:visitSymbolNew(nIdent, "local_a"..i)
+				return self:visitIdentDef(nIdent, "local_a"..i)
 			end, "\n")
 		}
 	end,
@@ -227,7 +223,7 @@ local TagToVisiting:RealTraverser = {
 		-- TODO
 		return {
 			"____ctx:RefineTerm((function()",
-			self:FUNC_NEW(node, node.hintLong, node[1], node.retFlag or false, node[2]),
+			self:visitFunc(node),
 			" end)())",
 		}
 	end,
@@ -405,7 +401,7 @@ function HintGener:formatIdent(vIdentNode:node.Ident)::Ret(String)
 	end
 end
 
-function HintGener:visitSymbolNew(vIdentNode:node.Ident_def, vValue:String, vNoHint:OrNil(True))::Ret(let.UGenResult)
+function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHint:OrNil(True))::Ret(let.UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		" local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
@@ -477,6 +473,10 @@ end
 
 (@do
 	let.RgnNameEnum = Union(
+		"WHILE",
+		"FOR_IN",
+		"FOR_NUM",
+		"IF",
 		"BREAK",
 		"SYMBOL_NEW",
 		"SYMBOL_GET",
@@ -523,37 +523,27 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::
 		nAutoUnpack = false
 	end
 	if nAutoUnpack then
-		return {
-			self:codeCtx(vNode, "EXPLIST_UNPACK"), ",1,", vInner, ")"
-		}
+		return self:ctxWrap(vNode).EXPLIST_UNPACK(1, vInner)
 	else
 		return vInner
 	end
 end
 
 function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.GenResult)
-	return {
-		" function(____longHint) return ____longHint",
-			(vHintInfo and vHintInfo.script or "") ,
-		" end "
-	}
+	return self:Fn("____longHint")("return ____longHint"..(vHintInfo and vHintInfo.script or ""))
 end
 
-function HintGener:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
-	vLongHint:OrNil(node.IHintInfo), vParList:node.ParList, vRetFlag:Boolean,
-	vBlockNode:node.Block)::Ret(let.UGenResult)
-	const nLastDots = (function ()::Ret(OrNil(node.Dots))
-		const nLastNode = vParList[#vParList]
-		if nLastNode and nLastNode.tag == "Dots" then
-			return nLastNode
-		else
-			return nil
-		end
-	end)()
+function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UGenResult)
+	const nIsChunk = vNode.tag == "Chunk"
+	const nHintString = nIsChunk and self:Fn("h")("return h:open()") or self:visitLongHint(vNode.hintLong)
+	const nParList = nIsChunk and vNode[2] or vNode[1]
+	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
+	const nLastNode = nParList[#nParList]
+	const nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
 	const nDotsHint = nLastDots and nLastDots.hintShort
 	const nParInHead:let.GenResult = {
-		"____ctx:AutoArguments("..self:codeNode(vParList)..",{",
-		self:forList(vParList, function(i, vNode)
+		"____ctx:AutoArguments("..self:codeNode(nParList)..",{",
+		self:forList(nParList, function(i, vNode)
 			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 			const nHintShort = nParNode.hintShort
 			if nParNode.tag == "Dots" then
@@ -565,29 +555,29 @@ function HintGener:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 		end, ", "), "},", nDotsHint and self:fixShort(nDotsHint) or "____ctx:Variable(false)", ")",
 	}
 	const nParInBody:let.GenResult = {
-		#vParList > 0 and {
-			" local ", self:forList(vParList, function(i, vNode)
+		#nParList > 0 and {
+			" local ", self:forList(nParList, function(i, vNode)
 				const nParNode = vNode @ Union(node.Ident_use, node.Dots)
 				return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
-			end), "=" , self:ctxWrap(vParList).TUPLE_UNPACK("vArgTuple",
-				nLastDots and #vParList or #vParList-1, tostring(not nLastDots))
+			end), "=" , self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple",
+				nLastDots and #nParList or #nParList-1, tostring(not nLastDots))
 		} or "",
-		self:forList(vParList, function(i, vNode)
+		self:forList(nParList, function(i, vNode)
 			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 			if nParNode.tag ~= "Dots" then
-				return self:visitSymbolNew(nParNode, "v_"..nParNode[1]..nParNode.index, true)
+				return self:visitIdentDef(nParNode, "v_"..nParNode[1]..nParNode.index, true)
 			end
 		end)
 	}
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
-			self:visitLongHint(vLongHint), nParInHead,
-			tostring(vRetFlag), {
+			nHintString, nParInHead,
+			tostring(vNode.retFlag), {
 				"function(____newCtx, vArgTuple) ",
 					"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 					nParInBody,
-					self:visit(vBlockNode),
+					self:visit(nBlockNode),
 				"end"
 			}),
 		"return ____fn ",
