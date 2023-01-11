@@ -134,20 +134,20 @@ function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(cla
 			if TermTuple.is(last) then
 				local value = last:get(i - #l + 1)
 				if not value then
-					self._runtime:nodeError(vNode, "tuple_unpack but right tuple value not enough")
+					self._runtime:nodeError(vNode, "exprlist_unpack but right tuple value not enough")
 					re[i] = self:RefineTerm(self._manager.type.Nil)
 				else
 					re[i] = value
 				end
 			else
-				self._runtime:nodeError(vNode, "tuple_unpack but right value not enough")
+				self._runtime:nodeError(vNode, "exprlist_unpack but right value not enough")
 				re[i] = self:RefineTerm(self._manager.type.Nil)
 			end
 		else
 			local cur = l[i]
 			if TermTuple.is(cur) then
 				if (i < #l and #cur ~= 1) then
-					self._runtime:nodeWarn(vNode, "tuple_unpack except 1 value but has "..#cur)
+					self._runtime:nodeWarn(vNode, "exprlist_unpack except 1 value but has "..#cur)
 				end
 				re[i] = cur:get(1) or self:RefineTerm(self._manager.type.Nil)
 			else
@@ -469,14 +469,22 @@ function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.
 	return self._manager:RefineTerm(vType)
 end
 
-function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(OrFalse(class.IAtomType))
+function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(OrFalse(class.UAtomUnion))
 	if LuaFunction.is(vSrcType) then
 		const nFnPartType = vDstType:fnPartType()
 		if TypeFunction.is(nFnPartType) then
 			return vSrcType:cast(self, nFnPartType)
 		end
-	elseif LuaTable.is(vSrcType) then
-		return vSrcType:cast(self, vDstType:objectPartType())
+	else
+		const nSrcTable = vSrcType:objectPartType()
+		if LuaTable.is(nSrcTable) then
+			const nCastResult = nSrcTable:cast(self, vDstType:objectPartType())
+			if nCastResult then
+				return self._manager:checkedUnion(nSrcTable, nCastResult)
+			else
+				return false
+			end
+		end
 	end
 	return false
 end

@@ -44,8 +44,12 @@ function TypeTuple:castOrIn(vContext:class.Context, vDstTypeTuple:class.UTypeTup
 		for i=#vDstTypeTuple + 1, #self do
 			const nSelfi = self:get(i):checkAtomUnion()
 			const nDstRepeatType = vDstTypeTuple:getRepeatType()
-			if not Nil.is(nSelfi) and nDstRepeatType and not nDstRepeatType:containAll(nSelfi) then
-				return false
+			if not Nil.is(nSelfi) and nDstRepeatType then
+				if not vContext:castLuaType(nSelfi, nDstRepeatType) then
+					if not nDstRepeatType:containAll(nSelfi) then
+						return false
+					end
+				end
 			end
 		end
 	end

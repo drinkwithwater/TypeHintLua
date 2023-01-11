@@ -23,16 +23,11 @@ end)
 
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
-		const nParPrint = self:formatParListInFuncHead(node[2])
+		const nOpenHint = {script=":open()"} @ node.IHintInfo
 		return {
-			"local ____ctx, ____nodes=... ",
-			"local ____s__ENV"..node[1].index, "=____ctx:makeSymbol_ENV(", self:codeNode(node[1]),") ",
-
-			"local ____fn,____uv ____fn,____uv=____ctx:FUNC_NEW(", self:codeNode(node), ",", self:visitLongHint(nil), ",", nParPrint, ",", tostring(node.retFlag), ", function(____newCtx, vArgTuple) ",
-			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(node), ", ____fn,____uv) ",
-			"local vDOTS=____ctx:TUPLE_UNPACK(", self:codeNode(node),",vArgTuple,0,true)",
-			self:visit(node[3]),
-			"end) return ____fn",
+			'local ____rt, ____ctx, ____nodes=... ',
+			"local ____s__ENV"..node[1].index.."=____rt:makeSymbol_ENV(",self:codeNode(node[1]),") ",
+			self:FUNC_NEW(node, nOpenHint, node[2], node.retFlag or false, node[3])
 		}
 	end,
 	Block=function(self, node)
@@ -224,7 +219,11 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Function=function(self, node)
 		-- TODO
-		return {}
+		return {
+			"____ctx:RefineTerm((function()",
+			self:FUNC_NEW(node, node.hintLong, node[1], node.retFlag or false, node[2]),
+			" end)())",
+		}
 	end,
 	Table=function(self, node)
 		local count = 0
@@ -353,6 +352,7 @@ local TagToVisiting:RealTraverser = {
 		end, ",")
 	end,
 	ParList=function(self, node)
+		error("implement in other way")
 		return self:forList(node, function(i, vNode)
 			const nParNode = vNode @ Union(node.Ident_use, node.Dots)
 			return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
@@ -448,55 +448,7 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::
 	end
 end
 
-function HintGener:formatParListInFuncHead(vParList:node.ParList)::Ret(String)
-	const nParHintList:List(String) = {}
-	local nDotsHintScript:OrFalse(String) = false
-	for i=1, #vParList do
-		local nParNode = vParList[i]!
-		const nHintShort = nParNode.hintShort
-		if nParNode.tag == "Dots" then
-			if nHintShort then
-				nDotsHintScript = self:fixShort(nHintShort)
-			else
-				nDotsHintScript = "____ctx:Variable(false)"
-			end
-		else
-			if nHintShort then
-				nParHintList[#nParHintList + 1] = self:fixShort(nHintShort)
-			elseif nParNode.isSelf then
-				nParHintList[#nParHintList + 1] = "____ctx:Variable(true)"
-			else
-				nParHintList[#nParHintList + 1] = "____ctx:Variable(false)"
-			end
-		end
-	end
-	local nParPrint = "____ctx:AutoArguments("..self:codeNode(vParList)..",{" .. table.concat(nParHintList, ",")
-	if not nDotsHintScript then
-		nParPrint = nParPrint .. "})"
-	else
-		nParPrint = nParPrint .. "},"..nDotsHintScript..") "
-	end
-	--[[if #vParList > 0 then
-		const l:List(String) = {}
-		for i=1, #vParList do
-			const nParNode = vParList[i]!
-			if nParNode.tag == "Ident" then
-				l[#l+1] = "v_"..nParNode[1]..nParNode.index
-			else
-				l[#l+1] = "vDOTS"
-			end
-		end
-		const nHasDots = vParList[#vParList]!.tag == "Dots"
-		const l = {
-			" local ", table.concat(l), "=", self:codeCtx(vParList, "TUPLE_UNPACK"), ", vArgTuple, ",
-			nHasDots and tostring(#vParList-1) or tostring(#vParList),
-			nHasDots and ", true)" or ", false)",
-		}
-	end]]
-	return nParPrint
-end
-
-function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.UGenResult)
+function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.GenResult)
 	return {
 		" function(____longHint) return ____longHint",
 			(vHintInfo and vHintInfo.script or "") ,
@@ -504,43 +456,66 @@ function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.UGenR
 	}
 end
 
+function HintGener:TUPLE_UNPACK(vParList:node.ParList, vName:String, vLastDots:OrNil(node.Dots))::Ret(let.GenResult)
+	return {
+		self:codeCtx(vParList, "TUPLE_UNPACK"), ",", vName, ",",
+		vLastDots and tostring(#vParList)..",false" or tostring(#vParList-1)..",true",
+		")",
+	}
+end
+
 function HintGener:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 	vLongHint:OrNil(node.IHintInfo), vParList:node.ParList, vRetFlag:Boolean,
 	vBlockNode:node.Block)::Ret(let.UGenResult)
-	const nParList = vNode.tag == "Chunk" and vNode[2] or vNode[1]
-	local nDotsHintScript:OrFalse(String) = false
-	const nParInHead = self:forList(vParList, function(i, vNode)
-		const nParNode = vNode @ Union(node.Dots, node.Ident_def)
-		const nHintShort = nParNode.hintShort
-		if nParNode.tag == "Dots" then
-			nDotsHintScript = nHintShort and self:fixShort(nHintShort) or "____ctx:Variable(false)"
-			return "nil"
+	const nLastDots = (function ()::Ret(OrNil(node.Dots))
+		const nLastNode = vParList[#vParList]
+		if nLastNode and nLastNode.tag == "Dots" then
+			return nLastNode
 		else
-			return nHintShort and self:fixShort(nHintShort)
-				or (nParNode.isSelf and "____ctx:Variable(true)" or "____ctx:Variable(false)")
+			return nil
 		end
-	end, ", ")
-	const nParInBody = self:forList(vParList, function(i, vNode)
-		const nParNode = vNode @ Union(node.Dots, node.Ident_def)
-		if nParNode.tag ~= "Dots" then
-			return self:visitSymbolNew(nParNode, "v_"..nParNode[1]..nParNode.index, true)
-		end
-	end)
+	end)()
+	const nDotsHint = nLastDots and nLastDots.hintShort
+	const nParInHead:let.GenResult = {
+		"____ctx:AutoArguments("..self:codeNode(vParList)..",{",
+		self:forList(vParList, function(i, vNode)
+			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
+			const nHintShort = nParNode.hintShort
+			if nParNode.tag == "Dots" then
+				return "nil"
+			else
+				return nHintShort and self:fixShort(nHintShort)
+					or (nParNode.isSelf and "____ctx:Variable(true)" or "____ctx:Variable(false)")
+			end
+		end, ", "), "},", nDotsHint and self:fixShort(nDotsHint) or "____ctx:Variable(false)", ")",
+	}
+	const nParInBody:let.GenResult = {
+		#vParList > 0 and {
+			" local ", self:forList(vParList, function(i, vNode)
+				const nParNode = vNode @ Union(node.Ident_use, node.Dots)
+				return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
+			end), "=" , self:TUPLE_UNPACK(vParList, "vArgTuple", nLastDots) or "",
+		} or "",
+		self:forList(vParList, function(i, vNode)
+			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
+			if nParNode.tag ~= "Dots" then
+				return self:visitSymbolNew(nParNode, "v_"..nParNode[1]..nParNode.index, true)
+			end
+		end)
+	}
 	return {
 			"local ____fn,____uv ",
 			"____fn,____uv=____ctx:FUNC_NEW(",
 				self:codeNode(vNode), ",",
 				self:visitLongHint(vLongHint), ",",
-				"___ctx:AutoArguments("..self:codeNode(vParList)..",{",
-					nParInHead,
-				"},", tostring(nDotsHintScript), ")",
-				tostring(vRetFlag), ",
-				function(____newCtx, vArgTuple) ",
+				nParInHead, ",",
+				tostring(vRetFlag), ",",
+				"function(____newCtx, vArgTuple) ",
 					"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
-					"local vDOTS=____ctx:TUPLE_UNPACK(", self:codeNode(vNode),",vArgTuple,0,true)",
+					nParInBody,
 					self:visit(vBlockNode),
 				"end) ",
-			"return ____fn",
+			"return ____fn ",
 	}
 end
 
