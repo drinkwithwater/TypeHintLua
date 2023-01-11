@@ -4,10 +4,12 @@
 let.node = import("thlua.code.Node").node
 let.class = import("thlua.type.TypeClass").class
 
-let.GenResult = Struct {
+let.GenResult = Struct ({
 	node = OrNil(node.IAstNode),
 	[Integer] = let.UGenResult,
-}
+}, {
+	__len=Integer
+})
 
 let.UGenResult = Union(String, Integer, let.GenResult)
 
@@ -121,7 +123,7 @@ local TagToVisiting:RealTraverser = {
 			"\tlocal ", self:forList(node[1], function(i, vNode)
 				return "forin_gen"..i
 			end),
-			"=", self:codeCtx(node, "TUPLE_UNPACK"), ",vIterTuple,", #node[1], ",false) ",
+			"=", self:ctxWrap(node).TUPLE_UNPACK("vIterTuple", #node[1], tostring(false)),
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
 				return self:visitSymbolNew(nIdent, "forin_gen"..i)
@@ -134,18 +136,24 @@ local TagToVisiting:RealTraverser = {
 		return {
 			"local ", self:forList(node[1], function(i, vNode)
 				return "local_a"..i
-			end),
-			"=", self:codeCtx(node, "EXPLIST_UNPACK"), ","..#node[1]..",",
-			#node[2] > 0 and self:visit(node[2]) or "nil",
-			") ",
+			end), "=",
+			self:ctxWrap(node).EXPLIST_UNPACK(#node[1], #node[2] > 0 and self:visit(node[2]) or "nil"),
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
 				return self:visitSymbolNew(nIdent, "local_a"..i)
-			end)
+			end, "\n")
 		}
 	end,
 	Localrec=function(self, node)
-		return self:visitSymbolNew(node[1], node[2])
+		-- recursive function
+		const nIdentNode = node[1]
+		const nIdentFormat = self:formatIdent(nIdentNode)
+		return {
+			" local ", nIdentFormat, " ", nIdentFormat, "=", self:rgnWrap(nIdentNode).SYMBOL_NEW(
+				string.format("%q", nIdentNode.symbolKind), tostring(nIdentNode.symbolModify or false),
+				self:visit(node[2])
+			)
+		}
 	end,
 	Goto=function()
 		print("--goto TODO")
@@ -163,9 +171,7 @@ local TagToVisiting:RealTraverser = {
 		}
 	end,
 	Break=function(self, node)
-		return {
-			" ", self:codeRgn(node, "BREAK"), ") "
-		}
+		return self:rgnWrap(node).BREAK()
 	end,
 	Call=function(self, node)
 		return self:ctxAutoUnpack(node, {
@@ -238,29 +244,21 @@ local TagToVisiting:RealTraverser = {
 			end
 		end
 		return {
-			"____ctx:RefineTerm(____ctx:TABLE_NEW(", self:codeNode(node), ",",
-			self:visitLongHint(node.hintLong), ", function() return {",
-			self:forList(node, function(i, vNode)
-				const nTableItem = vNode @ Union(node.Pair, node.Expr)
-				if nTableItem.tag == "Pair" then
-					return {
-						"{", self:visit(nTableItem[1]), ",", self:visit(nTableItem[2]), "}"
-					}
-				else
-					if i==#node and tailDots then
-						return "nil"
+			"____ctx:RefineTerm(", self:ctxWrap(node).TABLE_NEW(
+				self:visitLongHint(node.hintLong),
+				self:FnRet(self:Table(self:forList(node, function(i, vNode)
+					const nTableItem = vNode @ Union(node.Pair, node.Expr)
+					if nTableItem.tag == "Pair" then
+						return self:Table(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
 					else
-						return {
-							"{",
-								"____ctx:LiteralTerm("..count..")",
-								",",
-								self:visit(nTableItem),
-							"}"
-						}
+						if i==#node and tailDots then
+							return "nil"
+						else
+							return self:Table("____ctx:LiteralTerm("..count..")", self:visit(nTableItem))
+						end
 					end
-				end
-			end, ","),
-			"},", count, ",", tailDots and self:visit(tailDots) or "nil", ", end)) "
+				end, ",")), count, tailDots and self:visit(tailDots) or "nil")
+			), ")"
 		}
 	end,
 	Op=function(self, node)
@@ -268,16 +266,19 @@ local TagToVisiting:RealTraverser = {
 		const nOper = node[1]
 		if nLogicOpSet[nOper] then
 			if nOper == "not" then
-				return {
-					self:codeRgn(node, "LOGIC_NOT"), ",",
-					self:visit(node[2]), ")"
-				}
+				return self:rgnWrap(node).LOGIC_NOT(
+					self:visit(node[2])
+				)
+			elseif nOper == "or" then
+				return self:rgnWrap(node).LOGIC_OR(
+					self:visit(node[2]), self:FnRet(self:visit(node[3]!))
+				)
+			elseif nOper == "and" then
+				return self:rgnWrap(node).LOGIC_AND(
+					self:visit(node[2]), self:FnRet(self:visit(node[3]!))
+				)
 			else
-				return {
-					self:codeRgn(node, "LOGIC_"..node[1]:upper()), ",",
-					self:visit(node[2]), ",",
-					"function() return ", self:visit(node[3]!), " end)"
-				}
+				error("invalid case branch")
 			end
 		else
 			const nRight = node[3]
@@ -321,8 +322,7 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Ident=function(self, node)
 		assert(node.kind ~= "def")
-		const nDefineId = node.defineIdent
-		const symbol = "____s_"..nDefineId[1]..nDefineId.index
+		const symbol = self:formatIdent(node)
 		if node.isSet then
 			return symbol
 		else
@@ -332,19 +332,16 @@ local TagToVisiting:RealTraverser = {
 			const nLazyEval = nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call")
 			return {
 				nLazyEval and " function() return " or "",
-				self:codeRgn(node, "SYMBOL_GET"), ",", symbol, ")",
+				self:rgnWrap(node).SYMBOL_GET(symbol),
 				nLazyEval and " end " or "",
 			}
 		end
 	end,
 	Index=function(self, node)
-		return {
-			self:codeCtx(node, "META_GET"), ",",
-			self:visit(node[1]), ",",
-			self:visit(node[2]), ",",
-			tostring(node.notnil or false),
-			")"
-		}
+		return self:ctxWrap(node).META_GET(
+			self:visit(node[1]), self:visit(node[2]),
+			tostring(node.notnil or false)
+		)
 	end,
 	ExprList=function(self, node)
 		return self:forList(node, function(i, expr)
@@ -399,31 +396,117 @@ function HintGener:codeRgn(vNode:node.IAstNode, vName:String)::Ret(String)
 	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
-function HintGener:formatIdentDef(vIdentNode:node.Ident_def)::Ret(String)
-	return "____s_"..vIdentNode[1]..vIdentNode.index
+function HintGener:formatIdent(vIdentNode:node.Ident)::Ret(String)
+	if vIdentNode.kind == "use" then
+		const nDefineId = vIdentNode.defineIdent
+		return "____s_"..nDefineId[1]..nDefineId.index
+	else
+		return "____s_"..vIdentNode[1]..vIdentNode.index
+	end
 end
 
-function HintGener:visitSymbolNew(vIdentNode:node.Ident_def, vValue:Union(String, node.Function), vNoHint:OrNil(True))::Ret(let.UGenResult)
-	if type(vValue) == "string" then
-		const nHintShort = vIdentNode.hintShort
-		return {
-			" local ", self:formatIdentDef(vIdentNode), "=____rgn:SYMBOL_NEW(",
-				self:codeNode(vIdentNode), ",",
-				string.format("%q", vIdentNode.symbolKind), ",",
-				vValue, ",",
-				vNoHint and "nil" or (nHintShort and nHintShort.script or "nil"),
-			")"
-		}
-	else
-		const nIdentFormat = self:formatIdentDef(vIdentNode)
-		return {
-			" local ", nIdentFormat, " ", nIdentFormat, "=____rgn:SYMBOL_NEW(",
-				self:codeNode(vIdentNode), ",",
-				string.format("%q", vIdentNode.symbolKind), ",",
-				self:visit(vValue),
-			")"
-		}
+function HintGener:visitSymbolNew(vIdentNode:node.Ident_def, vValue:String, vNoHint:OrNil(True))::Ret(let.UGenResult)
+	const nHintShort = vIdentNode.hintShort
+	return {
+		" local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
+			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
+			vValue, vNoHint and "nil" or (nHintShort and nHintShort.script or "nil")
+		)
+	}
+end
+
+function HintGener:Fn(...:String)::Ret(Fn():Dots(let.UGenResult):Ret(let.GenResult))
+	const nArgsString = table.concat({...}, ",")
+	return function(...)
+		const nList:let.GenResult = {...}
+		const nResult:let.GenResult = { " function(",nArgsString,") " }
+		for i=1, #nList do
+			nResult[#nResult+1] = select(i, ...)
+			nResult[#nResult+1] = " "
+		end
+		nResult[#nResult+1] = "end "
+		return nResult
 	end
+end
+
+function HintGener:FnRet(...:let.UGenResult)::Ret(let.GenResult)
+	const nList:let.GenResult = {...}
+	const nResult:let.GenResult = { " function() return " }
+	for i=1, #nList do
+		nResult[#nResult+1] = select(i, ...)
+		if i~=#nList then
+			nResult[#nResult+1] = ","
+		end
+	end
+	nResult[#nResult+1] = " end "
+	return nResult
+end
+
+function HintGener:Table(...:let.UGenResult)::Ret(let.GenResult)
+	const nList:let.GenResult = {...}
+	const nResult:let.GenResult = { "{" }
+	for i=1, #nList do
+		nResult[#nResult+1] = select(i, ...)
+		if i~=#nList then
+			nResult[#nResult+1] = ","
+		end
+	end
+	nResult[#nResult+1] = "}"
+	return nResult
+end
+
+(@do
+	let.CtxNameEnum = Union(
+		"FUNC_NEW",
+		"TABLE_NEW",
+		"TUPLE_UNPACK",
+		"EXPLIST_UNPACK",
+		"META_GET",
+		"META_SET"
+	)
+end)
+function HintGener:ctxWrap(vNode:node.IAstNode)::pass():Ret(Dict(let.CtxNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
+	return setmetatable({}, {
+		__index=function(t,vName)
+			return function(...)
+				return self:prefixInvoke("____ctx", vName, vNode, ...)
+			end
+		end,
+	})
+end
+
+(@do
+	let.RgnNameEnum = Union(
+		"BREAK",
+		"SYMBOL_NEW",
+		"SYMBOL_GET",
+		"SYMBOL_SET",
+		"LOGIC_NOT",
+		"LOGIC_OR",
+		"LOGIC_AND"
+	)
+end)
+function HintGener:rgnWrap(vNode:node.IAstNode)::pass():Ret(Dict(let.RgnNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
+	return setmetatable({}, {
+		__index=function(t,vName)
+			return function(...)
+				return self:prefixInvoke("____rgn", vName, vNode, ...)
+			end
+		end,
+	})
+end
+
+function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNode, ...:let.UGenResult)::Ret(let.GenResult)
+	const nList:let.GenResult = {...}
+	const nResult:let.GenResult = {
+		vPrefix, ":", vName, "(", self:codeNode(vNode),
+	}
+	for i=1, #nList do
+		nResult[#nResult+1] = ","
+		nResult[#nResult+1] = select(i, ...)
+	end
+	nResult[#nResult+1] = ")"
+	return nResult
 end
 
 function HintGener:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)
@@ -453,14 +536,6 @@ function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.GenRe
 		" function(____longHint) return ____longHint",
 			(vHintInfo and vHintInfo.script or "") ,
 		" end "
-	}
-end
-
-function HintGener:TUPLE_UNPACK(vParList:node.ParList, vName:String, vLastDots:OrNil(node.Dots))::Ret(let.GenResult)
-	return {
-		self:codeCtx(vParList, "TUPLE_UNPACK"), ",", vName, ",",
-		vLastDots and tostring(#vParList)..",false" or tostring(#vParList-1)..",true",
-		")",
 	}
 end
 
@@ -494,7 +569,8 @@ function HintGener:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 			" local ", self:forList(vParList, function(i, vNode)
 				const nParNode = vNode @ Union(node.Ident_use, node.Dots)
 				return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
-			end), "=" , self:TUPLE_UNPACK(vParList, "vArgTuple", nLastDots) or "",
+			end), "=" , self:ctxWrap(vParList).TUPLE_UNPACK("vArgTuple",
+				nLastDots and #vParList or #vParList-1, tostring(not nLastDots))
 		} or "",
 		self:forList(vParList, function(i, vNode)
 			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
@@ -504,18 +580,17 @@ function HintGener:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 		end)
 	}
 	return {
-			"local ____fn,____uv ",
-			"____fn,____uv=____ctx:FUNC_NEW(",
-				self:codeNode(vNode), ",",
-				self:visitLongHint(vLongHint), ",",
-				nParInHead, ",",
-				tostring(vRetFlag), ",",
+		"local ____fn,____uv ",
+		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
+			self:visitLongHint(vLongHint), nParInHead,
+			tostring(vRetFlag), {
 				"function(____newCtx, vArgTuple) ",
 					"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 					nParInBody,
 					self:visit(vBlockNode),
-				"end) ",
-			"return ____fn ",
+				"end"
+			}),
+		"return ____fn ",
 	}
 end
 
