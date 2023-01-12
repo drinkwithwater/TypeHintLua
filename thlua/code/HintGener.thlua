@@ -5,13 +5,13 @@ let.node = import("thlua.code.Node").node
 let.class = import("thlua.type.TypeClass").class
 
 let.GenResult = Struct ({
-	node = OrNil(node.IAstNode),
+	line = OrNil(True, Integer),
 	[Integer] = let.UGenResult,
 }, {
 	__len=Integer
 })
 
-let.UGenResult = Union(String, Integer, let.GenResult)
+let.UGenResult = Union(String, let.GenResult)
 
 let.RealTraverser = Struct((function()
 	local t = {}
@@ -33,31 +33,22 @@ local TagToVisiting:RealTraverser = {
 		}
 	end,
 	Block=function(self, node)
-		const nParentTag = node.parent!.tag
-		const nAppendReturn = nParentTag == "Function" or nParentTag == "Chunk"
-		return {
-			self:forList(node, function(i, vStatNode)
-				return self:visit(vStatNode)
-			end, " "),
-			nAppendReturn and {
-				"return ",
-				self:rgnWrap(node).END()
-			} or nil,
-		}
+		return self:forList(node, function(i, vStatNode)
+			return self:visit(vStatNode)
+		end, " ")
 	end,
 	Do=function(self, node)
-		return {
-			node=node,
-			" do ", self:visit(node[1]), " end "
-		}
+		return self:rgnWrap(node).DO(
+			self:visitLongHint(node.hintLong),
+			self:visit(node[1])
+		)
 	end,
 	Set=function(self, node)
 		return {
-			node=node,
 			" local ", self:forList(node[1], function(i,v)
 				return "set_a"..i
 			end, ","),
-			"=", self:ctxWrap(node).EXPLIST_UNPACK(#node[1], self:visit(node[2])),
+			"=", self:ctxWrap(node).EXPLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
 			self:forList(node[1], function(i, vNode)
 				const nVarNode = vNode @ node.Lhs
 				if nVarNode.tag == "Ident" then
@@ -134,12 +125,12 @@ local TagToVisiting:RealTraverser = {
 	Forin=function(self, node)
 		return {
 			"local forin_next,forin_self,forin_init=",
-			self:ctxWrap(node).EXPLIST_UNPACK(3, self:visit(node[2])),
+			self:ctxWrap(node).EXPLIST_UNPACK("3", self:visit(node[2])),
 			self:rgnWrap(node).FOR_IN(self:Fn("vIterTuple")(
 			"local ", self:forList(node[1], function(i, vNode)
 				return "forin_gen"..i
 			end, ","),
-			"=", self:ctxWrap(node).TUPLE_UNPACK("vIterTuple", #node[1], tostring(false)),
+			"=", self:ctxWrap(node).TUPLE_UNPACK("vIterTuple", tostring(#node[1]), tostring(false)),
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
 				return self:visitIdentDef(nIdent, "forin_gen"..i)
@@ -150,10 +141,11 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Local=function(self, node)
 		return {
+			line=node.l,
 			"local ", self:forList(node[1], function(i, vNode)
 				return "local_a"..i
 			end, ","), "=",
-			#node[2] > 0 and self:ctxWrap(node).EXPLIST_UNPACK(#node[1], self:visit(node[2])) or "nil ",
+			#node[2] > 0 and self:ctxWrap(node).EXPLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
 				return self:visitIdentDef(nIdent, "local_a"..i)
@@ -191,28 +183,33 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).BREAK()
 	end,
 	Call=function(self, node)
-		return self:ctxAutoUnpack(node, {
-			self:codeCtx(node, "META_CALL"), ",",
-			self:visit(node[1]), ",",
-			self:codeCtx(node, "EXPLIST_PACK"), ",true, {",
-				#node[2] > 0 and self:visit(node[2]) or "",
-			"}))",
-		})
+		return self:ctxAutoUnpack(node,
+			self:ctxWrap(node).META_CALL(
+				self:visit(node[1]),
+				self:ctxWrap(node).EXPLIST_PACK(
+					"true",
+					self:Table(#node[2] > 0 and self:visit(node[2]) or "")
+				)
+			)
+		)
 	end,
 	Invoke=function(self, node)
-		return self:ctxAutoUnpack(node, {
-			self:codeCtx(node, "META_INVOKE"), ",",
-			self:visit(node[1]), ",",
-			"\""..node[2][1].."\"", ",",
-			self:codeCtx(node, "EXPLIST_PACK"), ",false, {",
-				#node[3] > 0 and self:visit(node[3]) or "",
-			"}))",
-		})
+		return self:ctxAutoUnpack(node,
+			self:ctxWrap(node).META_INVOKE(
+				self:visit(node[1]),
+				"\""..node[2][1].."\"",
+				self:ctxWrap(node).EXPLIST_PACK(
+					"false",
+					self:Table(#node[3] > 0 and self:visit(node[3]) or "")
+				)
+			)
+		)
 	end,
 	HintStat=function(self, node)
 		-- self:print("local block = function(self) ", node[1], " end block(self)\n")
 		return {
-			" ", node[1].script, " "
+			line = node.l,
+			self:fixHintScript(node[1].script)
 		}
 	end,
 	Nil=function(self, node)
@@ -243,9 +240,9 @@ local TagToVisiting:RealTraverser = {
 	Function=function(self, node)
 		-- TODO
 		return {
-			"____ctx:RefineTerm((function()",
-			self:visitFunc(node),
-			" end)())",
+			"____ctx:RefineTerm((", self:Fn()(
+				self:visitFunc(node)
+			), ")())",
 		}
 	end,
 	Table=function(self, node)
@@ -276,7 +273,7 @@ local TagToVisiting:RealTraverser = {
 					else
 						return self:Table(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
 					end
-				end, ",")), count, tailDots and self:visit(tailDots) or "nil")
+				end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
 			), ")"
 		}
 	end,
@@ -302,39 +299,38 @@ local TagToVisiting:RealTraverser = {
 		else
 			const nRight = node[3]
 			if not nRight then
-				return {
-					self:codeCtx(node, "META_UOP"), ",\""..node[1].."\",",
-					self:visit(node[2]), ")"
-				}
+				return self:ctxWrap(node).META_UOP(
+					"\""..node[1].."\"",
+					self:visit(node[2])
+				)
 			elseif node[1] == "==" then
-				return {
-					self:codeCtx(node, "META_EQ_NE"), ",true,",
-					self:visit(node[2]), ",",
-					self:visit(nRight), ")"
-				}
+				return self:ctxWrap(node).META_EQ_NE(
+					"true",
+					self:visit(node[2]),
+					self:visit(nRight)
+				)
 			elseif node[1] == "~=" then
-				return {
-					self:codeCtx(node, "META_EQ_NE"), ",false,",
-					self:visit(node[2]), ",",
-					self:visit(nRight), ")"
-				}
+				return self:ctxWrap(node).META_EQ_NE(
+					"false",
+					self:visit(node[2]),
+					self:visit(nRight)
+				)
 			else
-				return {
-					self:codeCtx(node, "META_BOP_SOME"), ",\""..node[1].."\",",
-					self:visit(node[2]), ",",
-					self:visit(nRight), ")"
-				}
+				return self:ctxWrap(node).META_BOP_SOME(
+					"\""..node[1].."\"",
+					self:visit(node[2]),
+					self:visit(nRight)
+				)
 			end
 		end
 	end,
 	Paren=function(self, node)
 		local nHintShort = node.hintShort
 		if nHintShort then
-			return {
-				"____ctx:HINT(", self:codeNode(node), ",",
-				"(", self:visit(node[1]), ")",
-				",", self:fixShort(nHintShort), ")"
-			}
+			return self:ctxWrap(node).HINT(
+				{"(", self:visit(node[1]), ")"},
+				self:fixHintScript(nHintShort.script)
+			)
 		else
 			return {"(", self:visit(node[1]), ")"}
 		end
@@ -399,8 +395,15 @@ function HintGener:visit(vNode:node.IAstNode)::Ret(let.UGenResult)
 	end
 end
 
-function HintGener:fixShort(vHintInfo:node.IHintInfo)::Ret(String)
-	return (vHintInfo.script:gsub("\n", " "))
+function HintGener:fixHintScript(vScript:String)::Ret(let.GenResult)
+	const nResult:let.GenResult = {}
+	for s in string.gmatch(vScript, "[^\n]*") do
+		nResult[#nResult + 1] = {
+			line = true,
+			" ", s, " "
+		}
+	end
+	return nResult
 end
 
 (@do
@@ -409,10 +412,6 @@ end)
 
 function HintGener:codeNode(vNode:node.IAstNode)::Ret(String)
 	return "____nodes["..vNode.index.."]"
-end
-
-function HintGener:codeRgn(vNode:node.IAstNode, vName:String)::Ret(String)
-	return "____rgn:"..vName.."("..self:codeNode(vNode)
 end
 
 function HintGener:formatIdent(vIdentNode:node.Ident)::Ret(String)
@@ -440,10 +439,10 @@ function HintGener:Fn(...:String)::Ret(Fn():Dots(let.UGenResult):Ret(let.GenResu
 		const nList:let.GenResult = {...}
 		const nResult:let.GenResult = { " function(",nArgsString,") " }
 		for i=1, #nList do
-			nResult[#nResult+1] = select(i, ...)
+			nResult[#nResult+1] = nList[i]
 			nResult[#nResult+1] = " "
 		end
-		nResult[#nResult+1] = "end "
+		nResult[#nResult+1] = " end "
 		return nResult
 	end
 end
@@ -452,7 +451,7 @@ function HintGener:FnRet(...:let.UGenResult)::Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = { " function() return " }
 	for i=1, #nList do
-		nResult[#nResult+1] = select(i, ...)
+		nResult[#nResult+1] = nList[i]
 		if i~=#nList then
 			nResult[#nResult+1] = ","
 		end
@@ -465,7 +464,7 @@ function HintGener:Table(...:let.UGenResult)::Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = { "{" }
 	for i=1, #nList do
-		nResult[#nResult+1] = select(i, ...)
+		nResult[#nResult+1] = nList[i]
 		if i~=#nList then
 			nResult[#nResult+1] = ","
 		end
@@ -478,9 +477,21 @@ end
 	let.CtxNameEnum = Union(
 		"FUNC_NEW",
 		"TABLE_NEW",
+
+		"AutoArguments",
+
 		"TUPLE_UNPACK",
 		"EXPLIST_UNPACK",
 		"EXPLIST_PACK",
+
+		"HINT",
+
+		"META_EQ_NE",
+		"META_UOP",
+		"META_BOP_SOME",
+
+		"META_CALL",
+		"META_INVOKE",
 		"META_GET",
 		"META_SET"
 	)
@@ -500,6 +511,7 @@ end
 		"RETURN",
 		"END",
 		"WHILE",
+		"DO",
 		"FOR_IN",
 		"FOR_NUM",
 		"IF",
@@ -525,18 +537,15 @@ end
 function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNode, ...:let.UGenResult)::Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = {
+		line=vNode.l,
 		vPrefix, ":", vName, "(", self:codeNode(vNode),
 	}
 	for i=1, #nList do
 		nResult[#nResult+1] = ","
-		nResult[#nResult+1] = select(i, ...)
+		nResult[#nResult+1] = nList[i]
 	end
 	nResult[#nResult+1] = ")"
 	return nResult
-end
-
-function HintGener:codeCtx(vNode:node.IAstNode, vName:String)::Ret(String)
-	return "____ctx:"..vName.."("..self:codeNode(vNode)
 end
 
 function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::Ret(let.UGenResult)
@@ -549,14 +558,14 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::
 		nAutoUnpack = false
 	end
 	if nAutoUnpack then
-		return self:ctxWrap(vNode).EXPLIST_UNPACK(1, vInner)
+		return self:ctxWrap(vNode).EXPLIST_UNPACK("1", vInner)
 	else
 		return vInner
 	end
 end
 
 function HintGener:visitLongHint(vHintInfo:OrNil(node.IHintInfo))::Ret(let.GenResult)
-	return self:Fn("____longHint")("return ____longHint"..(vHintInfo and vHintInfo.script or ""))
+	return self:Fn("____longHint")("return ____longHint", (vHintInfo and self:fixHintScript(vHintInfo.script) or ""))
 end
 
 function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UGenResult)
@@ -566,24 +575,24 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
 	const nLastNode = nParList[#nParList]
 	const nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
-	local nDotsHint:OrFalse(String) = false
+	local nDotsHint:OrFalse(let.UGenResult) = false
 	if nLastDots then
 		const nHint = nLastDots.hintShort
-		nDotsHint = nHint and self:fixShort(nHint) or "____ctx:Variable(false)"
+		nDotsHint = nHint and self:fixHintScript(nHint.script) or "____ctx:Variable(false)"
 	end
-	const nParInHead:let.GenResult = {
-		"____ctx:AutoArguments("..self:codeNode(nParList)..",{",
-		self:forList(nParList, function(i, vNode)
+	const nParInHead = self:ctxWrap(nParList).AutoArguments(
+		self:Table(self:forList(nParList, function(i, vNode)
 			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 			const nHintShort = nParNode.hintShort
 			if nParNode.tag == "Dots" then
 				return "nil"
 			else
-				return nHintShort and self:fixShort(nHintShort)
+				return nHintShort and self:fixHintScript(nHintShort.script)
 					or (nParNode.isSelf and "____ctx:Variable(true)" or "____ctx:Variable(false)")
 			end
-		end, ", "), "},", tostring(nDotsHint), ")",
-	}
+		end, ", ")),
+		nDotsHint or "false"
+	)
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
 			" local ", self:forList(nParList, function(i, vNode)
@@ -592,7 +601,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 			end, ","),
 			"=" ,
 			self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple",
-				nLastDots and #nParList-1 or #nParList, tostring(nLastDots and true or false)),
+				tostring(nLastDots and #nParList-1 or #nParList), tostring(nLastDots and true or false)),
 			self:forList(nParList, function(i, vNode)
 				const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 				if nParNode.tag ~= "Dots" then
@@ -604,14 +613,17 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
-			nHintString, nParInHead,
-			tostring(vNode.retFlag or false), {
-				"function(____newCtx, vArgTuple) ",
-					"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
-					nParInBody,
-					self:visit(nBlockNode),
-				"end"
-			}),
+			nHintString,
+			nParInHead,
+			tostring(vNode.retFlag or false),
+			self:Fn("____newCtx", "vArgTuple")(
+				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
+				nParInBody,
+				self:visit(nBlockNode),
+				" return ",
+				self:rgnWrap(vNode).END()
+			)
+		),
 		"return ____fn ",
 	}
 end
@@ -632,26 +644,35 @@ end
 
 function HintGener.new()::RetClass(let.HintGener)
 	const self = setmetatable({::Self()
-		buffer_list = {} @List(String),
-		indent_count = 0 @Integer,
-		line = 1 @ Integer,
 	}, HintGener)
 	return self
 end
 
 function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
-	const l:List(String) = {}
+	const nBufferList:List(String) = {}
+	local nLineCount = 1
 	const function recurAppend(vResult:let.UGenResult, vDepth:Integer)
 		if type(vResult) == "table" then
+			const nLine = vResult.line
+			if type(nLine) == "number" then
+				while nLineCount < nLine do
+					nBufferList[#nBufferList+1] = "\n"
+					nLineCount = nLineCount + 1
+				end
+			end
 			for _, v in ipairs(vResult) do
 				recurAppend(v, vDepth+1)
 			end
+			if nLine == true then
+				nBufferList[#nBufferList+1] = "\n"
+				nLineCount = nLineCount + 1
+			end
 		else
-			l[#l+1] = tostring(vResult)
+			nBufferList[#nBufferList+1] = tostring(vResult)
 		end
 	end
 	recurAppend(self:visit(vNode), 0)
-	return table.concat(l)
+	return table.concat(nBufferList)
 end
 
 return HintGener

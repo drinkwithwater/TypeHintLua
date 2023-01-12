@@ -122,19 +122,43 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 			if nFirstType == nManager:Literal("#") then
 				return nManager:RefineTerm(nManager.type.Integer)
 			else
-				local nStart = 1
 				if NumberLiteral.is(nFirstType) then
-					nStart = nFirstType:getLiteral()
-				elseif not Number.is(nFirstType) then
-					vContext:error("select's first value must be number or number-literal")
-					return nManager:TermTuple({})
+					local nStart = nFirstType:getLiteral()
+					if nStart > 0 then
+						return vTermTuple:select(nStart + 1)
+					elseif nStart < 0 then
+						vContext:error("select first < 0 TODO")
+						return nManager:TermTuple({})
+					else
+						vContext:error("select's first arguments is zero")
+						return nManager:TermTuple({})
+					end
+				else
+					if Number.is(nFirstType) then
+						const nCollection = nManager:TypeCollection()
+						for i=2, #vTermTuple do
+							const nType = vTermTuple:get(i):getType()
+							nCollection:put(nType)
+						end
+						const nRepeatType = vTermTuple:getRepeatType()
+						if nRepeatType then
+							nCollection:put(nRepeatType)
+						end
+						const nFinalType = nCollection:mergeToAtomUnion()
+						if nRepeatType then
+							return nManager:Tuple():Dots(nRepeatType):makeTermTuple()
+						else
+							const nReList:List(class.UAtomUnion) = {}
+							for i=2, #vTermTuple do
+								nReList[#nReList + 1] = nFinalType
+							end
+							return nManager:Tuple(table.unpack(nReList)):makeTermTuple()
+						end
+					else
+						vContext:error("select's first value must be number or number-literal")
+						return nManager:TermTuple({})
+					end
 				end
-				const nCollection = nManager:TypeCollection()
-				for i=nStart, #vTermTuple do
-					const nType = vTermTuple:get(i):getType()
-					nCollection:put(nType)
-				end
-				return nManager:RefineTerm(nCollection:mergeToAtomUnion())
 			end
 		end),
 		print=nManager:NativeFunction(function(vContext, vTermTuple)
@@ -271,6 +295,9 @@ function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
 		rep=vManager:checkedFn(type.String, type.Integer, vManager:checkedUnion(type.String, type.Integer, type.Nil)):Ret(type.String),
 		upper=vManager:checkedFn(type.String):Ret(type.String),
 		format=vManager:checkedFn(type.String):Dots(type.Any):Ret(type.String),
+		gmatch=vManager:checkedFn(type.String, type.String):Ret(
+			vManager:checkedFn():Ret(vManager:checkedUnion(type.String, type.Nil))
+		),
 		gsub=vManager:checkedFn(type.String, type.String, type.String):Ret(type.String, type.Integer),
 		match=vManager:checkedFn(type.String, type.String):Ret():Ret(type.String),
 		find=vManager:checkedFn(type.String, type.String, type.Integer, vManager:checkedUnion(type.True, type.Nil)):Ret(type.Nil):Ret(type.Integer, type.Integer),
