@@ -39,7 +39,10 @@ local TagToVisiting:RealTraverser = {
 			self:forList(node, function(i, vStatNode)
 				return self:visit(vStatNode)
 			end, " "),
-			nAppendReturn and "return "..self:codeRgn(node, "END")..") " or nil,
+			nAppendReturn and {
+				"return ",
+				self:rgnWrap(node).END()
+			} or nil,
 		}
 	end,
 	Do=function(self, node)
@@ -53,16 +56,32 @@ local TagToVisiting:RealTraverser = {
 			node=node,
 			" local ", self:forList(node[1], function(i,v)
 				return "set_a"..i
-			end),
+			end, ","),
+			"=", self:ctxWrap(node).EXPLIST_UNPACK(#node[1], self:visit(node[2])),
+			self:forList(node[1], function(i, vNode)
+				const nVarNode = vNode @ node.Lhs
+				if nVarNode.tag == "Ident" then
+					return self:rgnWrap(nVarNode).SYMBOL_SET(
+						self:formatIdent(nVarNode),
+						"set_a"..i,
+						tostring(node.override or false)
+					)
+				else
+					return self:ctxWrap(node).META_SET(
+						self:visit(nVarNode[1]),
+						self:visit(nVarNode[2]),
+						"set_a"..i,
+						tostring(node.override or false)
+					)
+				end
+			end, " ")
 		}
 	end,
 	While=function(self, node)
-		return {
-			"local while_a=", self:visit(node[1]), " ",
-			self:codeRgn(node, "WHILE"), ",while_a, function() ",
-			self:visit(node[2]),
-			"end) "
-		}
+		return self:rgnWrap(node).WHILE(
+			self:visit(node[1]),
+			self:Fn()(self:visit(node[2]))
+		)
 	end,
 	Repeat=function(self, node)
 		print("RepeatStat TODO")
@@ -105,10 +124,11 @@ local TagToVisiting:RealTraverser = {
 		return {
 			"local fornum_r1, fornum_r2, fornum_r3 = ",
 			self:visit(node[2]), ",", self:visit(node[3]), ",", nHasStep and self:visit(node[4]) or "nil", " ",
-			self:codeRgn(node, "FOR_NUM"), ",function(fornum_i) ",
-			self:visitIdentDef(node[1], "fornum_i"),
-			self:visit(nBlockNode),
-			"end, fornum_r1, fornum_r2, fornum_r3) "
+			self:rgnWrap(node).FOR_NUM(
+				self:Fn("fornum_i")(
+					self:visitIdentDef(node[1], "fornum_i"),
+					self:visit(nBlockNode)
+				), "fornum_r1", "fornum_r2", "fornum_r3")
 		}
 	end,
 	Forin=function(self, node)
@@ -125,19 +145,19 @@ local TagToVisiting:RealTraverser = {
 				return self:visitIdentDef(nIdent, "forin_gen"..i)
 			end, " "),
 			self:visit(node[3])
-			), "forin_next", "forin_self", "forin_init\n\n\n")
+			), "forin_next", "forin_self", "forin_init")
 		}
 	end,
 	Local=function(self, node)
 		return {
 			"local ", self:forList(node[1], function(i, vNode)
 				return "local_a"..i
-			end), "=",
-			self:ctxWrap(node).EXPLIST_UNPACK(#node[1], #node[2] > 0 and self:visit(node[2]) or "nil"),
+			end, ","), "=",
+			#node[2] > 0 and self:ctxWrap(node).EXPLIST_UNPACK(#node[1], self:visit(node[2])) or "nil ",
 			self:forList(node[1], function(i, vNode)
 				const nIdent = vNode @ node.Ident_def
 				return self:visitIdentDef(nIdent, "local_a"..i)
-			end, "\n")
+			end, " ")
 		}
 	end,
 	Localrec=function(self, node)
@@ -160,11 +180,12 @@ local TagToVisiting:RealTraverser = {
 		return {}
 	end,
 	Return=function(self, node)
-		return {
-			self:codeRgn(node, "RETURN"), ",", self:codeCtx(node, "EXPLIST_PACK"), ",false, {",
-				self:visit(node[1]),
-			"}))"
-		}
+		return self:rgnWrap(node).RETURN(
+			self:ctxWrap(node).EXPLIST_PACK(
+				"false",
+				self:Table(self:visit(node[1]))
+			)
+		)
 	end,
 	Break=function(self, node)
 		return self:rgnWrap(node).BREAK()
@@ -229,10 +250,12 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Table=function(self, node)
 		local count = 0
+		const i2i:Dict(Integer, Integer) = {}
 		local tailDots:OrNil(node.UTupleExpr) = nil
 		for i, nItem in ipairs(node) do
 			if nItem.tag ~= "Pair" then
 				count = count + 1
+				i2i[i] = count
 				const nExprTag = nItem.tag
 				if i==#node and (nExprTag == "Dots" or nExprTag == "Invoke" or nExprTag == "Call") then
 					tailDots = nItem
@@ -244,14 +267,14 @@ local TagToVisiting:RealTraverser = {
 				self:visitLongHint(node.hintLong),
 				self:FnRet(self:Table(self:forList(node, function(i, vNode)
 					const nTableItem = vNode @ Union(node.Pair, node.Expr)
-					if nTableItem.tag == "Pair" then
-						return self:Table(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
-					else
+					if nTableItem.tag ~= "Pair" then
 						if i==#node and tailDots then
 							return "nil"
 						else
-							return self:Table("____ctx:LiteralTerm("..count..")", self:visit(nTableItem))
+							return self:Table("____ctx:LiteralTerm("..i2i[i]!..")", self:visit(nTableItem))
 						end
+					else
+						return self:Table(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
 					end
 				end, ",")), count, tailDots and self:visit(tailDots) or "nil")
 			), ")"
@@ -280,7 +303,7 @@ local TagToVisiting:RealTraverser = {
 			const nRight = node[3]
 			if not nRight then
 				return {
-					self:codeCtx(node, "META_UOP"), ",\"", node[1], "\",",
+					self:codeCtx(node, "META_UOP"), ",\""..node[1].."\",",
 					self:visit(node[2]), ")"
 				}
 			elseif node[1] == "==" then
@@ -297,7 +320,7 @@ local TagToVisiting:RealTraverser = {
 				}
 			else
 				return {
-					self:codeCtx(node, "META_BOP_SOME"), ",\"", node[1], "\",",
+					self:codeCtx(node, "META_BOP_SOME"), ",\""..node[1].."\",",
 					self:visit(node[2]), ",",
 					self:visit(nRight), ")"
 				}
@@ -457,6 +480,7 @@ end
 		"TABLE_NEW",
 		"TUPLE_UNPACK",
 		"EXPLIST_UNPACK",
+		"EXPLIST_PACK",
 		"META_GET",
 		"META_SET"
 	)
@@ -473,6 +497,8 @@ end
 
 (@do
 	let.RgnNameEnum = Union(
+		"RETURN",
+		"END",
 		"WHILE",
 		"FOR_IN",
 		"FOR_NUM",
@@ -540,7 +566,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
 	const nLastNode = nParList[#nParList]
 	const nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
-	const nDotsHint = nLastDots and nLastDots.hintShort
+	local nDotsHint:OrFalse(String) = false
+	if nLastDots then
+		const nHint = nLastDots.hintShort
+		nDotsHint = nHint and self:fixShort(nHint) or "____ctx:Variable(false)"
+	end
 	const nParInHead:let.GenResult = {
 		"____ctx:AutoArguments("..self:codeNode(nParList)..",{",
 		self:forList(nParList, function(i, vNode)
@@ -552,28 +582,30 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 				return nHintShort and self:fixShort(nHintShort)
 					or (nParNode.isSelf and "____ctx:Variable(true)" or "____ctx:Variable(false)")
 			end
-		end, ", "), "},", nDotsHint and self:fixShort(nDotsHint) or "____ctx:Variable(false)", ")",
+		end, ", "), "},", tostring(nDotsHint), ")",
 	}
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
 			" local ", self:forList(nParList, function(i, vNode)
 				const nParNode = vNode @ Union(node.Ident_use, node.Dots)
 				return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
-			end), "=" , self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple",
-				nLastDots and #nParList or #nParList-1, tostring(not nLastDots))
+			end, ","),
+			"=" ,
+			self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple",
+				nLastDots and #nParList-1 or #nParList, tostring(nLastDots and true or false)),
+			self:forList(nParList, function(i, vNode)
+				const nParNode = vNode @ Union(node.Dots, node.Ident_def)
+				if nParNode.tag ~= "Dots" then
+					return self:visitIdentDef(nParNode, "v_"..nParNode[1]..nParNode.index, true)
+				end
+			end, " ")
 		} or "",
-		self:forList(nParList, function(i, vNode)
-			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
-			if nParNode.tag ~= "Dots" then
-				return self:visitIdentDef(nParNode, "v_"..nParNode[1]..nParNode.index, true)
-			end
-		end)
 	}
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
 			nHintString, nParInHead,
-			tostring(vNode.retFlag), {
+			tostring(vNode.retFlag or false), {
 				"function(____newCtx, vArgTuple) ",
 					"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 					nParInBody,
@@ -587,7 +619,7 @@ end
 function HintGener:forList(
 	vList:IList(node.IAstNode),
 	vFunc:Fn(Integer, node.IAstNode):Ret(let.UGenResult),
-	vSep:OrNil(String)
+	vSep:String
 	)::Ret(let.GenResult)
 	const nResult:let.GenResult = {}
 	const nLen = #vList
@@ -609,16 +641,16 @@ end
 
 function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
 	const l:List(String) = {}
-	const function recurAppend(vResult:let.UGenResult)
+	const function recurAppend(vResult:let.UGenResult, vDepth:Integer)
 		if type(vResult) == "table" then
 			for _, v in ipairs(vResult) do
-				recurAppend(v)
+				recurAppend(v, vDepth+1)
 			end
 		else
 			l[#l+1] = tostring(vResult)
 		end
 	end
-	recurAppend(self:visit(vNode))
+	recurAppend(self:visit(vNode), 0)
 	return table.concat(l)
 end
 
