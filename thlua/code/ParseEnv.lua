@@ -157,30 +157,23 @@ local tagC=setmetatable({
 	end
 })
 
-local pHintOrEvalC={
-	string=function(startByOffset, intoHintOrEval, pattBegin, pattBody, pattEnd)
-		assert(intoHintOrEval == IN_HINT or intoHintOrEval == IN_EVAL, "second arg must be IN_HINT or IN_EVAL")
-		local triggerBegin = intoHintOrEval == IN_HINT and vv.HintBegin or vv.EvalBegin
-		local triggerEnd = intoHintOrEval == IN_HINT and vv.HintEnd or vv.EvalEnd
+local hintC={
+	string=function(startByOffset, pattBegin, pattBody, pattEnd)
 		pattBegin = pattBegin / function() end
 		pattBody = Cenv * pattBody / function(env, ...) return env:captureEvalByVisit({...}) end
 		return Cenv *
-					Cpos * pattBegin * triggerBegin *
-					Cpos * pattBody * triggerEnd *
+					Cpos * pattBegin * vv.HintBegin *
+					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,p2,evalList,p3,p4)
-			if intoHintOrEval == IN_HINT then
-				env:markDel(p1, p4-1)
-				if startByOffset then
-					return env:buildHintInfo(evalList, p1+startByOffset, p3-1)
-				else
-					return env:buildHintInfo(evalList, p2, p3-1, evalList)
-				end
+			env:markDel(p1, p4-1)
+			if startByOffset then
+				return env:buildHintInfo(evalList, p1+startByOffset, p3-1)
 			else
-				return
+				return env:buildHintInfo(evalList, p2, p3-1, evalList)
 			end
 		end
 	end,
-	charHint=function(char)
+	char=function(char)
 		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
 			if env.inHintOrEval == NOT_IN then
 				env:markDel(pos, pos)
@@ -238,36 +231,35 @@ local G = lpeg.P { "TypeHintLua";
 		return true
 	end);
 
-	NotnilHint = pHintOrEvalC.charHint("!");
+	NotnilHint = hintC.char("!");
 
-	OverrideHint = pHintOrEvalC.charHint("?");
+	OverrideHint = hintC.char("?");
 
 	HintExpr = vv.EvalExpr + vv.SimpleExpr;
 
-	AtHint = pHintOrEvalC.string(false, IN_HINT,
+	AtHint = hintC.string(false,
 		symb("@") + symb("@!!"), vv.HintExpr);
 
-	ColonHint = pHintOrEvalC.string(false, IN_HINT,
+	ColonHint = hintC.string(false,
 		symb(":"), vv.HintExpr);
 
-	LongHint = pHintOrEvalC.string(1, IN_HINT,
+	LongHint = hintC.string(1,
 		symb"::" * vv.Name * symb"(",
 		vv.ExprList^-1 * symbA ")" * (symb":" * vvA.Name * symbA"(" * vv.ExprList^-1 * symbA")")^0,
 		symb(";")^-1);
 
-	HintStat = pHintOrEvalC.string(false, IN_HINT,
+	HintStat = hintC.string(false,
 		symb("(@"),
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 		symbA(")"));
 
-	GenericParHint = pHintOrEvalC.string(false, IN_HINT,
+	GenericParHint = hintC.string(false,
 		symb("<@"), vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
 
-	GenericArgHint = pHintOrEvalC.string(false, IN_HINT,
+	GenericArgHint = hintC.string(false,
 		symb("<@"), vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(pHintOrEvalC.string(false, IN_EVAL,
-		symb("$"), vvA.PrimaryExpr));
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.PrimaryExpr * vv.EvalEnd);
 
   -- hint & eval end }}}
 

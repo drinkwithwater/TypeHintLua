@@ -470,6 +470,15 @@ function Context:TABLE_NEW(vNode:class.IAstNode, vHinterHandler:Fn(class.TableLo
 	return nTableType
 end
 
+function Context:EVAL(vNode:class.IAstNode, vTerm:Truth)::Ret(class.UAtomUnion)
+	if RefineTerm.is(vTerm) then
+		return vTerm:getType()
+	else
+		self:getRuntime():nodeError(vNode, "hint eval fail")
+		error("hint eval fail")
+	end
+end
+
 function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.UAllType)::Ret(class.RefineTerm)
 	-- TODO check cast valid
 	if not vType:containAll(vTerm:getType()) then
