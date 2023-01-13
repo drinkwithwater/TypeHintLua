@@ -242,30 +242,32 @@ local G = lpeg.P { "TypeHintLua";
 
 	OverrideHint = pHintOrEvalC.charHint("?");
 
+	HintExpr = vv.EvalExpr + vv.SimpleExpr;
+
 	AtHint = pHintOrEvalC.string(false, IN_HINT,
-		symb("@") + symb("@!!"), vv.SimpleExpr);
+		symb("@") + symb("@!!"), vv.HintExpr);
 
 	ColonHint = pHintOrEvalC.string(false, IN_HINT,
-		symb(":"), vv.SimpleExpr);
+		symb(":"), vv.HintExpr);
 
 	LongHint = pHintOrEvalC.string(1, IN_HINT,
 		symb"::" * vv.Name * symb"(",
 		vv.ExprList^-1 * symbA ")" * (symb":" * vvA.Name * symbA"(" * vv.ExprList^-1 * symbA")")^0,
 		symb(";")^-1);
 
-	HintStat = tagC.HintStat(pHintOrEvalC.string(false, IN_HINT,
+	HintStat = pHintOrEvalC.string(false, IN_HINT,
 		symb("(@"),
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
-		symbA(")")));
+		symbA(")"));
 
 	GenericParHint = pHintOrEvalC.string(false, IN_HINT,
-		symb("<@"), vvA.Name * (symb"," * vv.SimpleExpr)^0, symbA(">"));
+		symb("<@"), vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
 
 	GenericArgHint = pHintOrEvalC.string(false, IN_HINT,
-		symb("<@"), vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
+		symb("<@"), vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
-	EvalExpr = pHintOrEvalC.string(false, IN_EVAL,
-		symb("$"), vvA.PrimaryExpr);
+	EvalExpr = tagC.HintEval(pHintOrEvalC.string(false, IN_EVAL,
+		symb("$"), vvA.PrimaryExpr));
 
   -- hint & eval end }}}
 
@@ -539,11 +541,31 @@ function ParseEnv:makeErrNode(vPos, vErr)
 end
 
 function ParseEnv:buildHintInfo(vEvalList, vStartPos, vFinishPos)
-	vEvalList.tag = "HintInfo"
-	vEvalList.pos = vStartPos
-	vEvalList.posEnd = vFinishPos
-	vEvalList.script = self._subject:sub(vStartPos, vFinishPos)
-	return vEvalList
+	local nHintInfo = {
+		tag = "HintInfo",
+		pos = vStartPos,
+		posEnd = vFinishPos + 1,
+	}
+	local nSubject = self._subject
+	for _, nHintEval in ipairs(vEvalList) do
+		nHintInfo[#nHintInfo + 1] = {
+			tag = "HintScript",
+			pos=vStartPos,
+			posEnd=nHintEval.pos,
+			[1] = nSubject:sub(vStartPos, nHintEval.pos-1)
+		}
+		nHintInfo[#nHintInfo + 1] = nHintEval
+		vStartPos = nHintEval.posEnd
+	end
+	if vStartPos <= vFinishPos then
+		nHintInfo[#nHintInfo + 1] = {
+			tag="HintScript",
+			pos=vStartPos,
+			posEnd=vFinishPos+1,
+			[1]=nSubject:sub(vStartPos, vFinishPos)
+		}
+	end
+	return nHintInfo
 end
 
 function ParseEnv:markDel(vStartPos, vFinishPos)
@@ -568,7 +590,7 @@ function ParseEnv:captureEvalByVisit(vNode, vList)
 	for i=1, #vNode do
 		local nChildNode = vNode[i]
 		if type(nChildNode) == "table" then
-			if nChildNode.tag == "Eval" then
+			if nChildNode.tag == "HintEval" then
 				vList[#vList + 1] = nChildNode
 			else
 				self:captureEvalByVisit(nChildNode, vList)

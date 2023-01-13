@@ -25,7 +25,6 @@ end)
 
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
-		const nOpenHint = {script=":open()"} @ node.HintInfo
 		return {
 			'local ____rt, ____ctx, ____nodes=... ',
 			"local ____s__ENV"..node[1].index.."=____rt:makeSymbol_ENV(",self:codeNode(node[1]),") ",
@@ -204,11 +203,11 @@ local TagToVisiting:RealTraverser = {
 			)
 		)
 	end,
-	HintStat=function(self, node)
+	HintInfo=function(self, node)
 		-- self:print("local block = function(self) ", node[1], " end block(self)\n")
 		return {
 			line = node.l,
-			self:fixHintScript(node[1].script)
+			self:fixHintInfo(node)
 		}
 	end,
 	Nil=function(self, node)
@@ -328,7 +327,7 @@ local TagToVisiting:RealTraverser = {
 		if nHintShort then
 			return self:ctxWrap(node).HINT(
 				{"(", self:visit(node[1]), ")"},
-				self:fixHintScript(nHintShort.script)
+				self:fixHintInfo(nHintShort)
 			)
 		else
 			return {"(", self:visit(node[1]), ")"}
@@ -394,9 +393,11 @@ function HintGener:visit(vNode:node.IAstNode)::Ret(let.UGenResult)
 	end
 end
 
-function HintGener:fixHintScript(vScript:String)::Ret(let.GenResult)
+function HintGener:fixHintInfo(vHintInfo:node.HintInfo)::Ret(let.GenResult)
+	--[[
+	const nScript = vHintInfo.script
 	const nResult:let.GenResult = {}
-	for s in string.gmatch(vScript, "[^\n]*") do
+	for s in string.gmatch(nScript, "[^\n]*") do
 		nResult[#nResult + 1] = {
 			line = true,
 			" ", s, " "
@@ -405,6 +406,25 @@ function HintGener:fixHintScript(vScript:String)::Ret(let.GenResult)
 	const nLast = nResult[#nResult]
 	if type(nLast) == "table" then
 		nLast.line = nil
+	end
+	return nResult]]
+	const nResult:let.GenResult = {}
+	for k,v in ipairs(vHintInfo) do
+		if v.tag == "HintScript" then
+			local nLast:OrNil(let.GenResult) = nil
+			for s in string.gmatch(v[1], "[^\n]*") do
+				nLast = {
+					line = true,
+					" ", s, " "
+				}
+				nResult[#nResult + 1] = nLast
+			end
+			if nLast then
+				nLast.line = nil
+			end
+		else
+			print("TODO")
+		end
 	end
 	return nResult
 end
@@ -432,7 +452,7 @@ function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHi
 		line=vIdentNode.l,
 		" local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
-			vValue, vNoHint and "nil" or (nHintShort and nHintShort.script or "nil")
+			vValue, vNoHint and "nil" or (nHintShort and self:fixHintInfo(nHintShort) or "nil")
 		)
 	}
 end
@@ -569,7 +589,7 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::
 end
 
 function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo))::Ret(let.GenResult)
-	return self:fnWrap("____longHint")("return ____longHint", (vHintInfo and self:fixHintScript(vHintInfo.script) or ""))
+	return self:fnWrap("____longHint")("return ____longHint", (vHintInfo and self:fixHintInfo(vHintInfo) or ""))
 end
 
 function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UGenResult)
@@ -582,7 +602,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 	local nDotsHint:OrFalse(let.UGenResult) = false
 	if nLastDots then
 		const nHint = nLastDots.hintShort
-		nDotsHint = nHint and self:fixHintScript(nHint.script) or "____ctx:Variable(false)"
+		nDotsHint = nHint and self:fixHintInfo(nHint) or "____ctx:Variable(false)"
 	end
 	const nParInHead = self:ctxWrap(nParList).AutoArguments(
 		self:tableWrap(self:forList(nParList, function(i, vNode)
@@ -591,7 +611,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UG
 			if nParNode.tag == "Dots" then
 				return "nil"
 			else
-				return nHintShort and self:fixHintScript(nHintShort.script)
+				return nHintShort and self:fixHintInfo(nHintShort)
 					or (nParNode.isSelf and "____ctx:Variable(true)" or "____ctx:Variable(false)")
 			end
 		end, ", ")),
