@@ -162,18 +162,18 @@ local pHintOrEvalC={
 		assert(intoHintOrEval == IN_HINT or intoHintOrEval == IN_EVAL, "second arg must be IN_HINT or IN_EVAL")
 		local triggerBegin = intoHintOrEval == IN_HINT and vv.HintBegin or vv.EvalBegin
 		local triggerEnd = intoHintOrEval == IN_HINT and vv.HintEnd or vv.EvalEnd
-		pattBegin = pattBegin / function(...) end
-		pattBody = pattBody / function(...) end
+		pattBegin = pattBegin / function() end
+		pattBody = Cenv * pattBody / function(env, ...) return env:captureEvalByVisit({...}) end
 		return Cenv *
 					Cpos * pattBegin * triggerBegin *
 					Cpos * pattBody * triggerEnd *
-					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,p2,p3,p4)
+					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,p2,evalList,p3,p4)
 			if intoHintOrEval == IN_HINT then
 				env:markDel(p1, p4-1)
 				if startByOffset then
-					return env:subScript(p1+startByOffset, p3-1)
+					return env:buildHintInfo(evalList, p1+startByOffset, p3-1)
 				else
-					return env:subScript(p2, p3-1)
+					return env:buildHintInfo(evalList, p2, p3-1, evalList)
 				end
 			else
 				return
@@ -538,9 +538,12 @@ function ParseEnv:makeErrNode(vPos, vErr)
 	}
 end
 
-function ParseEnv:subScript(vStartPos, vFinishPos)
-	local nScript = self._subject:sub(vStartPos, vFinishPos)
-	return {script=nScript}
+function ParseEnv:buildHintInfo(vEvalList, vStartPos, vFinishPos)
+	vEvalList.tag = "HintInfo"
+	vEvalList.pos = vStartPos
+	vEvalList.posEnd = vFinishPos
+	vEvalList.script = self._subject:sub(vStartPos, vFinishPos)
+	return vEvalList
 end
 
 function ParseEnv:markDel(vStartPos, vFinishPos)
@@ -558,6 +561,21 @@ function ParseEnv:assertWithLineNum()
 		local nMsg = self._chunkName..":".. nLineNum .." ".. nNode[1]
 		error(nMsg)
 	end
+end
+
+function ParseEnv:captureEvalByVisit(vNode, vList)
+	vList = vList or {}
+	for i=1, #vNode do
+		local nChildNode = vNode[i]
+		if type(nChildNode) == "table" then
+			if nChildNode.tag == "Eval" then
+				vList[#vList + 1] = nChildNode
+			else
+				self:captureEvalByVisit(nChildNode, vList)
+			end
+		end
+	end
+	return vList
 end
 
 function ParseEnv:genLuaCode()
