@@ -7,12 +7,94 @@ TypeReferCom.__index=TypeReferCom
 function TypeReferCom.new(vManager:class.TypeManager,
 	vRefer:class.Reference)::RetClass(class.TypeReferCom)
 	const self = setmetatable({::Self()
+		_manager=vManager,
 		_refer=vRefer,
 		_mayRecursive=false@Boolean,
 		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
+		_waitListCoToSid={} @ Dict(Thread, Integer),
+		_waitResultCoToSid={} @ Dict(Thread, Integer),
 	}, TypeReferCom)
 	return self
+end
+
+function TypeReferCom:getResultType()::Ret(OrFalse(class.UAtomUnion))
+	return self._resultType
+end
+
+function TypeReferCom:getTypeAwait()::Ret(class.UAtomUnion)
+	local nReturn = self._resultType
+	if not nReturn then
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitResultCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	end
+	return (assert(self._resultType, "result type not setted"))
+end
+
+function TypeReferCom:getMayRecursive()::Ret(Boolean)
+	return self._mayRecursive
+end
+
+function TypeReferCom:getListAwait()::Ret(List(class.IAtomType))
+	local nReturn = self._typeList
+	if not nReturn then
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitListCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	end
+	return (assert(self._typeList, "type list not setted"))
+end
+
+function TypeReferCom:build(
+		vNode:class.IAstNode,
+		vGetList:Fn():Ret(List(class.IAtomType)),
+		vLaterCall:OrNil(Fn(class.UAtomUnion))
+	)::Ret()
+	-- step 1. get list
+	const nListOrRefer = vGetList()
+	self._typeList = nListOrRefer
+	for k, v in ipairs(nListOrRefer) do
+		if v:mayRecursive() then
+			self._mayRecursive = true
+		end
+	end
+	for co, sid in pairs(self._waitListCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
+	-- step 2. merge to result
+	local nResultType:OrNil(class.UAtomUnion) = nil
+	if #nListOrRefer == 0 then
+		nResultType = self._manager.type.Never
+	elseif #nListOrRefer == 1 then
+		nResultType = nListOrRefer[1]!
+	else
+		local nCollection = self._manager:TypeCollection()
+		for _, v in ipairs(nListOrRefer) do
+			nCollection:put(v)
+		end
+		nResultType = nCollection:mergeToAtomUnion()
+	end
+	self._resultType = nResultType
+	if not nResultType:isUnion() then
+		const nKey = self._refer:getKey()
+		if nKey then
+			nResultType:addNamedReference(self._refer, nKey)
+		end
+	end
+	for co, sid in pairs(self._waitResultCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
+	-- step 3. later call
+	if vLaterCall then
+		vLaterCall(nResultType)
+	end
+end
+
+function TypeReferCom.is(self)::isguard(class.TypeReferCom)
+	return getmetatable(self) == TypeReferCom
 end
 
 return TypeReferCom

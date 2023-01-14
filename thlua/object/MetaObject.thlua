@@ -112,7 +112,8 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 			end
 			nRightValueDict[nRightBasicKey] = nil
 		else -- key is non-basic type
-			const nMoreType = nRightMoreRefer:getResultType()
+			const nRightTypeCom = nRightMoreRefer:checkTypeCom()
+			const nMoreType = nRightTypeCom:getResultType()
 			if nMoreType then -- key is merged, just get one matched
 				const nRightMoreKey = nMoreType:assumeContainAtom(vAssumeSet, nLeftKey)
 				if not nRightMoreKey then
@@ -128,7 +129,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 				nRightValueDict[nRightMoreKey] = nil
 			else -- key is not merged, iter for one matched
 				local nMatchedKey:OrNil(class.IAtomType) = nil
-				for _, nRightMoreKey in ipairs(nRightMoreRefer:getListAwait()) do
+				for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
 					if nRightMoreKey:assumeContainAtom(vAssumeSet, nLeftKey) then
 						const nRightValue = nRightValueDict[nRightMoreKey]
 						if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightMoreKey, nRightValue) then
@@ -214,7 +215,8 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 			local nRightValue = nRightValueDict[nRightBasicKey]!
 			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
 		else -- more key
-			const nMoreType = nRightMoreRefer:getResultType()
+			const nRightTypeCom = nRightMoreRefer:checkTypeCom()
+			const nMoreType = nRightTypeCom:getResultType()
 			if nMoreType then -- key is merged, just get one matched
 				const nRightMoreKey = nMoreType:assumeContainAtom(vAssumeSet, vLeftKey)
 				if not nRightMoreKey then
@@ -226,7 +228,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 				end
 				return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
 			else -- key is not merged, iter for one matched
-				for _, nRightMoreKey in ipairs(nRightMoreRefer:getListAwait()) do
+				for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
 					if nRightMoreKey:assumeContainAtom(vAssumeSet, vLeftKey) then
 						const nRightValue = nRightValueDict[nRightMoreKey]
 						if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
