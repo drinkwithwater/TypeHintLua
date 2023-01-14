@@ -5,7 +5,7 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const TermCase = require "thlua.term.TermCase"
 const ContextClass = require "thlua.runtime.ContextClass"
 const Exception = require "thlua.Exception"
-const Reference = require "thlua.type.Reference"
+const Reference = require "thlua.refer.Reference"
 const Node = require "thlua.code.Node"
 
 const LuaFunction = require "thlua.func.LuaFunction"
@@ -495,7 +495,8 @@ function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType)::
 		end
 	else
 		const nSrcTable = vSrcType:objectPartType()
-		if LuaTable.is(nSrcTable) then
+		const nDstObjectPart = vDstType:objectPartType()
+		if LuaTable.is(nSrcTable) and not nDstObjectPart:isNever() then
 			const nCastResult = nSrcTable:cast(self, vDstType:objectPartType())
 			if nCastResult then
 				return self._manager:checkedUnion(nSrcTable, nCastResult)
