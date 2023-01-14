@@ -19,9 +19,22 @@ end)
 
 local TagToVisiting:let.RealTraverser = {
 	Do=function(self, stm)
+		const nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:withScope(stm[1], nil, function()
 			self:rawVisit(stm)
 		end)
+	end,
+	Table=function(self, node)
+		const nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
+		for i=1, #node do
+			self:realVisit(node[i]!)
+		end
 	end,
 	While=function(self, stm)
 		self:withScope(stm[2], nil, function()
@@ -63,6 +76,10 @@ local TagToVisiting:let.RealTraverser = {
 		end)
 	end,
 	Function=function(self, func)
+		const nHintLong = func.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		const nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
 			for i, par in ipairs(func[1]) do

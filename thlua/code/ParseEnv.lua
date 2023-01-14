@@ -13,10 +13,6 @@ local ParseEnv = {}
 
 ParseEnv.__index = ParseEnv
 
-local NOT_IN = 0
-local IN_HINT = 1
-local IN_EVAL = 2
-
 local Cenv = lpeg.Carg(1)
 local Cpos = lpeg.Cp()
 local cc = lpeg.Cc
@@ -63,13 +59,11 @@ local function symb(str)
 	elseif str == "~" then
 		return token(lpeg.P("~")*-lpeg.P("="))
 	elseif str == "@" then
-		return token(lpeg.P("@")*-lpeg.P("!"))
+		return token(lpeg.P("@")*-lpeg.S("!<>"))
 	elseif str == "@!" then
 		return token(lpeg.P("@!")*-lpeg.P("!"))
 	elseif str == "(" then
 		return token(lpeg.P("(")*-lpeg.P("@"))
-	elseif str == "<" then
-		return token(lpeg.P("<")*-lpeg.P("@"))
 	else
 		return token(lpeg.P(str))
 	end
@@ -175,7 +169,7 @@ local hintC={
 	end,
 	char=function(char)
 		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
-			if env.inHintOrEval == NOT_IN then
+			if not env.hinting then
 				env:markDel(pos, pos)
 				return true
 			else
@@ -200,8 +194,8 @@ local G = lpeg.P { "TypeHintLua";
 
   -- hint & eval begin {{{
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if env.inHintOrEval == NOT_IN then
-			env.inHintOrEval = IN_HINT
+		if not env.hinting then
+			env.hinting = true
 			return true
 		else
 			error(env:makeErrNode(i, "syntax error : hint-in-hint syntax not allow"))
@@ -210,14 +204,14 @@ local G = lpeg.P { "TypeHintLua";
 	end);
 
 	HintEnd = lpeg.Cmt(Cenv, function(_, _, env)
-		assert(env.inHintOrEval == IN_HINT, "hinting state error when lpeg parsing when success case")
-		env.inHintOrEval = NOT_IN
+		assert(env.hinting, "hinting state error when lpeg parsing when success case")
+		env.hinting = false
 		return true
 	end);
 
 	EvalBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if env.inHintOrEval == IN_HINT then
-			env.inHintOrEval = IN_EVAL
+		if env.hinting then
+			env.hinting = false
 			return true
 		else
 			error(env:makeErrNode(i, "syntax error : eval syntax can only be used in hint"))
@@ -226,8 +220,8 @@ local G = lpeg.P { "TypeHintLua";
 	end);
 
 	EvalEnd = lpeg.Cmt(Cenv, function(_, i, env)
-		assert(env.inHintOrEval == IN_EVAL, "hinting state error when lpeg parsing when success case")
-		env.inHintOrEval = IN_HINT
+		assert(not env.hinting, "hinting state error when lpeg parsing when success case")
+		env.hinting = true
 		return true
 	end);
 
@@ -254,12 +248,12 @@ local G = lpeg.P { "TypeHintLua";
 		symbA(")"));
 
 	GenericParHint = hintC.string(false,
-		symb("<@"), vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
+		symb("@<"), vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
 
 	GenericArgHint = hintC.string(false,
-		symb("<@"), vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
+		symb("@<"), vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.PrimaryExpr * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
 
   -- hint & eval end }}}
 
@@ -378,7 +372,7 @@ local G = lpeg.P { "TypeHintLua";
 	VarExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Ident" or exp.tag == "Index", exp end);
 
 	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,_,env)
-		if not env.inHintOrEval then
+		if not env.hinting then
 			local len = #env.scopeTraceList
 			env.scopeTraceList[len + 1] = 0
 			if len > 0 then
@@ -387,7 +381,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		return true
 	end) * vv.Stat^0 * vv.RetStat^-1 * lpeg.Cmt(Cenv, function(_,_,env)
-		if not env.inHintOrEval then
+		if not env.hinting then
 			env.scopeTraceList[#env.scopeTraceList] = nil
 		end
 		return true
@@ -500,7 +494,7 @@ local G = lpeg.P { "TypeHintLua";
 
 function ParseEnv.new(vSubject, vChunkName)
 	local self = setmetatable({
-		inHintOrEval = NOT_IN,
+		hinting = false,
 		scopeTraceList = {},
 		_subject = vSubject,
 		_chunkName = vChunkName,

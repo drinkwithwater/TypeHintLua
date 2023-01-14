@@ -35,6 +35,10 @@ const TagToTraverse:let.RawTraverser = {
 
 	-- expr
 	Do=function(self, node)
+		const nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:realVisit(node[1])
 	end,
 	Set=function(self, node)
@@ -109,20 +113,20 @@ const TagToTraverse:let.RawTraverser = {
 	String=function(self, node)
 	end,
 	Function=function(self, node)
+		const nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:realVisit(node[1])
 		self:realVisit(node[2])
-		const nHintLong = node.hintLong
-		if nHintLong then
-			self:realVisit(nHintLong)
-		end
 	end,
 	Table=function(self, node)
-		for i=1, #node do
-			self:realVisit(node[i]!)
-		end
 		const nHintLong = node.hintLong
 		if nHintLong then
 			self:realVisit(nHintLong)
+		end
+		for i=1, #node do
+			self:realVisit(node[i]!)
 		end
 	end,
 	Op=function(self, node)

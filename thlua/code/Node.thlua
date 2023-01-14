@@ -14,7 +14,7 @@ let.IAstNode = Interface {
 }
 
 let.ILen = Interface({}, {
-	_len=Integer,
+	__len=Integer,
 })
 
 local __node = {}
@@ -33,7 +33,7 @@ __node.Block = StructExtend({
 	symbolTable = Dict(String, node.Ident_def),
 	scope_children = List(node.Block),
 	[Number] = node.Stat,
-}, let.IAstNode)
+}, let.IAstNode, let.ILen)
 
 node.Stat = Union (
 	node.Do,
@@ -96,7 +96,7 @@ __node.Repeat = StructExtend({
 __node.If = StructExtend({
 	tag = "If",
 	[Number] = Union(node.Block, node.Expr),
-}, let.IAstNode)
+}, let.IAstNode, let.ILen)
 
 __node.Fornum = StructExtend({
 	tag = "Fornum",
@@ -154,12 +154,14 @@ node.Apply = Union (
 
 __node.Call = StructExtend({
 	tag = "Call",
+	hintGeneric = OrNil(node.HintInfo),
 	[1] = node.Expr,
 	[2] = node.ExprList,
 }, let.IAstNode)
 
 __node.Invoke = StructExtend({
 	tag = "Invoke",
+	hintGeneric = OrNil(node.HintInfo),
 	[1] = node.Expr,
 	[2] = node.String,
 	[3] = node.ExprList,
@@ -250,7 +252,7 @@ __node.Table = StructExtend({
 	tag = "Table",
 	hintLong = OrNil(node.HintInfo),
 	[Number] = Union(node.Pair, node.Expr)
-},let.IAstNode)
+},let.IAstNode, let.ILen)
 
 __node.Pair = StructExtend({
 	tag = "Pair",
@@ -279,22 +281,22 @@ __node.Paren = StructExtend({
 __node.ParList = StructExtend({
 	tag = "ParList",
 	[Number] = Union(node.Ident_def, node.Dots),
-},let.IAstNode)
+},let.IAstNode, let.ILen)
 
 __node.ExprList = StructExtend({
 	tag = "ExprList",
 	[Number] = node.Expr,
-},let.IAstNode)
+},let.IAstNode, let.ILen)
 
 __node.VarList = StructExtend({
 	tag = "VarList",
 	[Number] = node.Lhs,
-},let.IAstNode)
+},let.IAstNode, let.ILen)
 
 __node.IdentList = StructExtend({
 	tag = "IdentList",
 	[Number] = node.Ident_def,
-},let.IAstNode)
+},let.IAstNode, let.ILen)
 
 local nodeTypeList = {}
 for k,v in pairs(__node) do
