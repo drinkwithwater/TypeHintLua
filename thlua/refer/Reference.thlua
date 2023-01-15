@@ -35,16 +35,15 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_generic=false@OrFalse(Fn():Dots(class.UAllType):Ret(class.Reference)),
 		_genericDict={}@Dict(String, class.Reference),
 		_com=false@OrFalse(class.TypeReferCom),
+		_waitComCoToSid={} @ Dict(Thread, Integer),
 		id=vManager:genTypeId(),
 		bits=false,
 		_selfCo=nil@Thread,
-		_mayRecursive=false@Boolean,
-		_typeList=false@OrFalse(List(class.IAtomType)),
-		_resultType=false@OrFalse(class.UAtomUnion),
-		_waitListCoToSid={} @ Dict(Thread, Integer),
-		_waitResultCoToSid={} @ Dict(Thread, Integer),
 	}, Reference)
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
+		for co, sid in pairs(self._waitComCoToSid) do
+			self._manager:coWakeup(co, sid)
+		end
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
 			if Exception.is(nExc) then
@@ -55,8 +54,6 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 			end
 		end
 	end)
-	const nCom = TypeReferCom.new(self._manager, self)
-	self._com = nCom
 	return self
 end
 
@@ -72,19 +69,27 @@ function Reference:detailString(v, vVerbose)
 	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
-function Reference:checkTypeCom()::Ret(class.TypeReferCom)
-	const nCom = self._com
-	assert(TypeReferCom.is(nCom))
+function Reference:waitTypeCom()::Ret(class.TypeReferCom)
+	if not self._com then
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitComCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._selfCo)
+	end
+	const nCom = assert(self._com, "com not setted after wait finish")
+	assert(TypeReferCom.is(nCom), "type reference expected, but get some other reference")
 	return nCom
 end
 
 function Reference:setRawAsync(vNode:class.IAstNode,
 	vGetList:Fn():Ret(List(class.IAtomType)),
-	vLaterCall:OrNil(Fn(class.UAtomUnion)))::pass()
+	vLaterCall:OrNil(Fn(class.UAtomUnion)))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
+	const nCom = TypeReferCom.new(self._manager, self)
+	self._com = nCom
 	self._manager:coStart(self._selfCo, function()
-		self:checkTypeCom():build(vNode, vGetList, vLaterCall)
+		nCom:build(vGetList, vLaterCall)
 	end)
 end
 
@@ -102,7 +107,7 @@ function Reference:pushReferNode(vNode:class.IAstNode)
 end
 
 function Reference:checkAtomUnion()::Ret(class.UAtomUnion)
-	return self:checkTypeCom():getTypeAwait()
+	return self:waitTypeCom():getTypeAwait()
 end
 
 function Reference:isNilable()
@@ -118,7 +123,7 @@ function Reference:isReference()::Ret(True)
 end
 
 function Reference:foreachAwait(vFunc)
-	const nTypeCom = self:checkTypeCom()
+	const nTypeCom = self:waitTypeCom()
 	const nResultType = nTypeCom:getResultType()
 	if nResultType then
 		nResultType:foreach(vFunc)
@@ -131,7 +136,7 @@ function Reference:foreachAwait(vFunc)
 end
 
 function Reference:foreach(vFunc)
-	const nTypeCom = self:checkTypeCom()
+	const nTypeCom = self:waitTypeCom()
 	const nResultType = nTypeCom:getResultType()
 	if nResultType then
 		nResultType:foreach(vFunc)
@@ -145,17 +150,17 @@ function Reference:foreach(vFunc)
 end
 
 function Reference:intersectAtom(vRightType)
-	const nType = self:checkTypeCom():getTypeAwait()
+	const nType = self:waitTypeCom():getTypeAwait()
 	return nType:intersectAtom(vRightType)
 end
 
 function Reference:containAtom(vRightType)
-	const nType = self:checkTypeCom():getTypeAwait()
+	const nType = self:waitTypeCom():getTypeAwait()
 	return nType:containAtom(vRightType)
 end
 
 function Reference:assumeIntersectAny(vAssumeSet, vRight)
-	const nTypeCom = self:checkTypeCom()
+	const nTypeCom = self:waitTypeCom()
 	const nResultType = nTypeCom:getResultType()
 	if nResultType then
 		return nResultType:assumeIntersectAny(vAssumeSet, vRight)
@@ -182,7 +187,7 @@ function Reference:assumeIntersectAny(vAssumeSet, vRight)
 end
 
 function Reference:assumeContainAll(vAssumeSet, vRight)
-	const nTypeCom = self:checkTypeCom()
+	const nTypeCom = self:waitTypeCom()
 	const nResultType = nTypeCom:getResultType()
 	if nResultType then
 		return nResultType:assumeContainAll(vAssumeSet, vRight)
@@ -209,7 +214,7 @@ function Reference:assumeContainAll(vAssumeSet, vRight)
 end
 
 function Reference:mayRecursive()
-	const nTypeCom = self:checkTypeCom()
+	const nTypeCom = self:waitTypeCom()
 	nTypeCom:getListAwait()
 	return nTypeCom:getMayRecursive()
 end
@@ -232,10 +237,6 @@ end
 
 function Reference.is(v)::isguard(class.Reference)
 	return getmetatable(v) == Reference
-end
-
-function Reference.isType(v)::isguard(class.Reference)
-	return getmetatable(v) == Reference and TypeReferCom.is(v._com)
 end
 
 return Reference

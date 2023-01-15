@@ -1,11 +1,13 @@
 
+const Exception = require "thlua.Exception"
+
 (@let.class = import("thlua.type.TypeClass").class)
 
 const TypeReferCom = {}
 TypeReferCom.__index=TypeReferCom
 
 function TypeReferCom.new(vManager:class.TypeManager,
-	vRefer:class.Reference)::RetClass(class.TypeReferCom)
+		vRefer:class.Reference)::RetClass(class.TypeReferCom)
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_refer=vRefer,
@@ -21,6 +23,20 @@ end
 function TypeReferCom:getResultType()::Ret(OrFalse(class.UAtomUnion))
 	return self._resultType
 end
+
+--[[
+function TypeReferCom:setListAsync(
+		vNode:class.IAstNode,
+		vGetList:Fn():Ret(List(class.IAtomType)),
+		vLaterCall:OrNil(Fn(class.UAtomUnion))
+	)
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self._refer), vNode))
+	self._assignNode = vNode
+	self._manager:coStart(self._refer:getSelfCo(), function()
+		self:build(vNode, vGetList, vLaterCall)
+	end)
+end
+]]
 
 function TypeReferCom:getTypeAwait()::Ret(class.UAtomUnion)
 	local nReturn = self._resultType
@@ -49,7 +65,6 @@ function TypeReferCom:getListAwait()::Ret(List(class.IAtomType))
 end
 
 function TypeReferCom:build(
-		vNode:class.IAstNode,
 		vGetList:Fn():Ret(List(class.IAtomType)),
 		vLaterCall:OrNil(Fn(class.UAtomUnion))
 	)::Ret()

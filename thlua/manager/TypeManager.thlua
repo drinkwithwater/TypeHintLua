@@ -220,8 +220,8 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		local nIntersectNextKey:OrFalse(class.UAllType) = self.type.Truth
 		for i=1,#vObjectList do
 			local nMetaObject = vObjectList[i]!
-			if Reference.isType(nMetaObject) then
-				nMetaObject = nMetaObject:checkTypeCom():getTypeAwait()
+			if Reference.is(nMetaObject) then
+				nMetaObject = nMetaObject:waitTypeCom():getTypeAwait()
 			end
 			if not MetaObject.is(nMetaObject) then
 				error("Interface or Struct is expected here")
@@ -246,7 +246,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nBasicCollection:put(vKeyType)
 				nAllValueDict[vKeyType] = nValueDict[vKeyType]
 			end)
-			for _, nKeyType in ipairs(nMoreKeyRefer:checkTypeCom():getListAwait()) do
+			for _, nKeyType in ipairs(nMoreKeyRefer:waitTypeCom():getListAwait()) do
 				nMoreKeyList[#nMoreKeyList + 1] = nKeyType
 				nAllValueDict[nKeyType] = nValueDict[nKeyType]
 			end
@@ -314,8 +314,8 @@ function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth)::Ret(class.Refe
 		local nTypeList:List(class.IAtomType) = {}
 		for i=1, nLen do
 			local nItem = l[i]
-			if Reference.isType(nItem) then
-				local nList = nItem:checkTypeCom():getListAwait()
+			if Reference.is(nItem) then
+				local nList = nItem:waitTypeCom():getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
 				nTypeList[#nTypeList + 1] = self:_toType(nItem)
@@ -788,10 +788,10 @@ function TypeManager:attachPairContain(vLeft:class.MetaObject, vRight:class.Meta
 				end
 			end)
 		end
-		nResultType = nContainRefer:checkTypeCom():getTypeAwait()
+		nResultType = nContainRefer:waitTypeCom():getTypeAwait()
 	else
 		if nContainRefer then
-			nResultType = nContainRefer:checkTypeCom():getResultType()
+			nResultType = nContainRefer:waitTypeCom():getResultType()
 		end
 	end
 	if not nResultType then
