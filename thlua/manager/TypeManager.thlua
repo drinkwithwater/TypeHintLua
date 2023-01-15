@@ -212,8 +212,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		else
 			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
-		const nBasicCollection = self:TypeCollection()
-		const nMoreKeyList:List(class.IAtomType) = {}
+		const nKeyList:List(class.IAtomType) = {}
 		const nAllValueDict:class.MemberDict = {}
 		const nIntersectSet:Dict(class.MetaObject, True) = {}
 		const nMetaEventComList:List(class.MetaEventCom) = {}
@@ -241,13 +240,9 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				nIntersectSet[nMetaObject] = true
 			end
 			local nValueDict = nMetaObject:getMemberDict()
-			const nBasicKey, nMoreKeyRefer, nNextKey = nMetaObject:getKeyTypes()
-			nBasicKey:foreach(function(vKeyType)
-				nBasicCollection:put(vKeyType)
-				nAllValueDict[vKeyType] = nValueDict[vKeyType]
-			end)
-			for _, nKeyType in ipairs(nMoreKeyRefer:waitTypeCom():getListAwait()) do
-				nMoreKeyList[#nMoreKeyList + 1] = nKeyType
+			const nKeyRefer, nNextKey = nMetaObject:getKeyTypes()
+			for _, nKeyType in ipairs(nKeyRefer:waitTypeCom():getListAwait()) do
+				nKeyList[#nKeyList + 1] = nKeyType
 				nAllValueDict[nKeyType] = nValueDict[nKeyType]
 			end
 			nMetaEventComList[#nMetaEventComList + 1] = nMetaObject:getMetaEventCom() or nil
@@ -264,8 +259,8 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 				end
 			end
 		end
-		const nMoreKeyRefer = self:Reference(false)
-		const nNewObject = MetaObject.new(self, vIsInterface, nBasicCollection:mergeToAtomUnion(), nMoreKeyRefer, nAllValueDict)
+		const nKeyRefer = self:Reference(false)
+		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nAllValueDict)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
@@ -273,8 +268,8 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		else
 			nNewObject:lateInit(nIntersectSet, false, false)
 		end
-		nMoreKeyRefer:setRawAsync(vNode, function()
-			return nMoreKeyList
+		nKeyRefer:setRawAsync(vNode, function()
+			return nKeyList
 		end, function(_)
 			-- TODO check key's count and intersect valid
 		end)
@@ -337,8 +332,7 @@ end
 function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)), vIsInterface:Boolean)::Ret(class.Reference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setRawAsync(vNode, function()
-		const nBasicCollection = self:TypeCollection()
-		const nMoreKeyList:List(class.IAtomType) = {}
+		const nKeyList:List(class.IAtomType) = {}
 		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
@@ -358,11 +352,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 			end
 			nKeyType:foreachAwait(function(vAtomType)
 				nKeyCount = nKeyCount + 1
-				if not vAtomType:mayRecursive() then
-					nBasicCollection:put(vAtomType)
-				else
-					nMoreKeyList[#nMoreKeyList + 1] = vAtomType
-				end
+				nKeyList[#nKeyList + 1] = vAtomType
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
 				else
@@ -371,13 +361,8 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 				end
 			end)
 		end
-		local nFinalCount = 0
-		const nBasicKey = nBasicCollection:mergeToAtomUnion()
-		nBasicKey:foreach(function(_)
-			nFinalCount = nFinalCount + 1
-		end)
-		const nMoreKeyRefer = self:Reference(false)
-		const nNewObject = MetaObject.new(self, vIsInterface, nBasicKey, nMoreKeyRefer, nValueDict)
+		const nKeyRefer = self:Reference(false)
+		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nValueDict)
 		if vMetaEventDict then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByEventDict(vMetaEventDict)
@@ -385,10 +370,11 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		else
 			nNewObject:lateInit({}, false, false)
 		end
-		nMoreKeyRefer:setRawAsync(vNode, function()
-			return nMoreKeyList
-		end, function(vMoreKey)
-			vMoreKey:foreach(function(_)
+		nKeyRefer:setRawAsync(vNode, function()
+			return nKeyList
+		end, function(vKeyAtomUnion)
+			local nFinalCount = 0
+			vKeyAtomUnion:foreach(function(_)
 				nFinalCount = nFinalCount + 1
 			end)
 			if nFinalCount ~= nKeyCount then

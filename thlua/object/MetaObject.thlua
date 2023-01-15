@@ -13,11 +13,10 @@ const MetaObject = AtomTypeClass()
 	let.class = import("thlua.type.TypeClass").class
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vBasicKey:class.UAtomUnion, vMoreKey:class.Reference, vMemberDict:class.MemberDict)::RetClass(class.MetaObject, class.IAtomType)
+function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRefer:class.Reference, vMemberDict:class.MemberDict)::RetClass(class.MetaObject, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
-		_basicKey=vBasicKey,
-		_moreKey=vMoreKey@class.Reference,
+		_keyRefer=vKeyRefer@class.Reference,
 		_memberDict=vMemberDict,
 		_nextKey=false@OrFalse(class.UAllType),
 		_nextValue=false@OrFalse(class.UAtomUnion),
@@ -72,10 +71,7 @@ end
 
 function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	const nRightValueDict = vRightObject:copyValueDict()
-	const nRightBasic, nRightMoreRefer, nRightNextKey = vRightObject:getKeyTypes()
-	if not self._basicKey:containAll(nRightBasic) or not nRightBasic:containAll(self._basicKey) then
-		return false
-	end
+	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	const nLeftNextKey = self._nextKey
 	if nLeftNextKey and nRightNextKey then
 		const nLR = nLeftNextKey:assumeContainAll(vAssumeSet, nRightNextKey)
@@ -100,49 +96,37 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		end
 		return true
 	end
+	const nRightTypeCom = nRightKeyRefer:waitTypeCom()
+	const nRightResultType = nRightTypeCom:getResultType()
 	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue, _)
-		const nRightBasicKey = nRightBasic:containAtom(nLeftKey)
-		if nRightBasicKey then --  key is basic type
-			const nRightValue = nRightValueDict[nRightBasicKey]
+		if nRightResultType then -- key is merged, just get one matched
+			const nRightKey = nRightResultType:assumeContainAtom(vAssumeSet, nLeftKey)
+			if not nRightKey then
+				return false
+			end
+			const nRightValue = nRightValueDict[nRightKey]
 			if not nRightValue then
 				return false
 			end
-			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightBasicKey, nRightValue) then
+			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
 				return false
 			end
-			nRightValueDict[nRightBasicKey] = nil
-		else -- key is non-basic type
-			const nRightTypeCom = nRightMoreRefer:waitTypeCom()
-			const nMoreType = nRightTypeCom:getResultType()
-			if nMoreType then -- key is merged, just get one matched
-				const nRightMoreKey = nMoreType:assumeContainAtom(vAssumeSet, nLeftKey)
-				if not nRightMoreKey then
-					return false
-				end
-				const nRightValue = nRightValueDict[nRightMoreKey]
-				if not nRightValue then
-					return false
-				end
-				if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightMoreKey, nRightValue) then
-					return false
-				end
-				nRightValueDict[nRightMoreKey] = nil
-			else -- key is not merged, iter for one matched
-				local nMatchedKey:OrNil(class.IAtomType) = nil
-				for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
-					if nRightMoreKey:assumeContainAtom(vAssumeSet, nLeftKey) then
-						const nRightValue = nRightValueDict[nRightMoreKey]
-						if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightMoreKey, nRightValue) then
-							nMatchedKey = nRightMoreKey
-							break
-						end
+			nRightValueDict[nRightKey] = nil
+		else -- key is not merged, iter for one matched
+			local nMatchedKey:OrNil(class.IAtomType) = nil
+			for _, nRightKey in ipairs(nRightTypeCom:getListAwait()) do
+				if nRightKey:assumeContainAtom(vAssumeSet, nLeftKey) then
+					const nRightValue = nRightValueDict[nRightKey]
+					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
+						nMatchedKey = nRightKey
+						break
 					end
 				end
-				if not nMatchedKey then
-					return false
-				end
-				nRightValueDict[nMatchedKey] = nil
 			end
+			if not nMatchedKey then
+				return false
+			end
+			nRightValueDict[nMatchedKey] = nil
 		end
 		return true
 	end) then
@@ -179,10 +163,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	if vRightObject._intersectSet[self] then
 		return true
 	end
-	const nRightBasicKey, nRightMoreRefer, nRightNextKey = vRightObject:getKeyTypes()
-	if not nRightBasicKey:containAll(self._basicKey) then
-		return false
-	end
+	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	const nLeftNextKey = self._nextKey
 	if nLeftNextKey then
 		if not nRightNextKey then
@@ -197,7 +178,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 			if not vLeftIsMfn then
 				return false
 			end
-			const nRightTypeFn = nRightValue:indexTypeFn(vRightObject)
+			const nRightTypeFn = vRightValue:indexTypeFn(vRightObject)
 			if not vLeftValue:assumeContainAtom(vAssumeSet, nRightTypeFn) then
 				return false
 			end
@@ -209,35 +190,29 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 		return true
 	end
 	const nRightValueDict = vRightObject:getMemberDict()
+	const nRightTypeCom = nRightKeyRefer:waitTypeCom()
+	const nRightResultType = nRightTypeCom:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
-		const nRightBasicKey = nRightBasicKey:containAtom(vLeftKey)
-		if nRightBasicKey then -- basic key
-			local nRightValue = nRightValueDict[nRightBasicKey]!
-			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
-		else -- more key
-			const nRightTypeCom = nRightMoreRefer:waitTypeCom()
-			const nMoreType = nRightTypeCom:getResultType()
-			if nMoreType then -- key is merged, just get one matched
-				const nRightMoreKey = nMoreType:assumeContainAtom(vAssumeSet, vLeftKey)
-				if not nRightMoreKey then
-					return false
-				end
-				const nRightValue = nRightValueDict[nRightMoreKey]
-				if not nRightValue then
-					return false
-				end
-				return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
-			else -- key is not merged, iter for one matched
-				for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
-					if nRightMoreKey:assumeContainAtom(vAssumeSet, vLeftKey) then
-						const nRightValue = nRightValueDict[nRightMoreKey]
-						if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
-							return true
-						end
-					end
-				end
+		if nRightResultType then -- key is merged, just get one matched
+			const nRightMoreKey = nRightResultType:assumeContainAtom(vAssumeSet, vLeftKey)
+			if not nRightMoreKey then
 				return false
 			end
+			const nRightValue = nRightValueDict[nRightMoreKey]
+			if not nRightValue then
+				return false
+			end
+			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
+		else -- key is not merged, iter for one matched
+			for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
+				if nRightMoreKey:assumeContainAtom(vAssumeSet, vLeftKey) then
+					const nRightValue = nRightValueDict[nRightMoreKey]
+					if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
+						return true
+					end
+				end
+			end
+			return false
 		end
 	end)
 end
@@ -395,7 +370,7 @@ function MetaObject:isSingleton()
 end
 
 function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(OrFalse(class.IAtomType))
-	return self._basicKey:containAtom(vType) or self._moreKey:containAtom(vType)
+	return self._keyRefer:containAtom(vType)
 end
 
 function MetaObject:meta_get(vContext, vType)
@@ -530,8 +505,8 @@ function MetaObject:getMetaEventCom()::Ret(OrFalse(class.MetaEventCom))
 	return self._metaEventCom
 end
 
-function MetaObject:getKeyTypes()::Ret(class.UAtomUnion, class.Reference, OrFalse(class.UAllType))
-	return self._basicKey, self._moreKey, self._nextKey
+function MetaObject:getKeyTypes()::Ret(class.Reference, OrFalse(class.UAllType))
+	return self._keyRefer, self._nextKey
 end
 
 function MetaObject:checkBaseObjectType()
@@ -556,7 +531,7 @@ end
 
 function MetaObject:getCompletion()::Ret(class.LspCompletion)
 	local nDict:Dict(String, True) = {}
-	self._basicKey:foreach(function(vType)
+	self._keyRefer:foreachAwait(function(vType)
 		if StringLiteral.is(vType) then
 			nDict[vType:getLiteral()] = true
 		end
