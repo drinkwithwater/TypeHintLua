@@ -11,6 +11,7 @@ function TypeReferCom.new(vManager:class.TypeManager,
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_refer=vRefer,
+		_firstKey=false@OrFalse(String),
 		_mayRecursive=false@Boolean,
 		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
@@ -18,6 +19,18 @@ function TypeReferCom.new(vManager:class.TypeManager,
 		_waitResultCoToSid={} @ Dict(Thread, Integer),
 	}, TypeReferCom)
 	return self
+end
+
+function TypeReferCom:addAlterReference(vRefer:class.Reference)
+	if not self._firstKey then
+		const nAlterKey = vRefer:getKey()
+		if nAlterKey then
+			self._firstKey = nAlterKey
+			const nResultType = self._resultType
+			if nResultType then
+			end
+		end
+	end
 end
 
 function TypeReferCom:getResultType()::Ret(OrFalse(class.UAtomUnion))
@@ -69,9 +82,9 @@ function TypeReferCom:build(
 		vLaterCall:OrNil(Fn(class.UAtomUnion))
 	)::Ret()
 	-- step 1. get list
-	const nListOrRefer = vGetList()
-	self._typeList = nListOrRefer
-	for k, v in ipairs(nListOrRefer) do
+	const nAtomList = vGetList()
+	self._typeList = nAtomList
+	for k, v in ipairs(nAtomList) do
 		if v:mayRecursive() then
 			self._mayRecursive = true
 		end
@@ -81,13 +94,13 @@ function TypeReferCom:build(
 	end
 	-- step 2. merge to result
 	local nResultType:OrNil(class.UAtomUnion) = nil
-	if #nListOrRefer == 0 then
+	if #nAtomList == 0 then
 		nResultType = self._manager.type.Never
-	elseif #nListOrRefer == 1 then
-		nResultType = nListOrRefer[1]!
+	elseif #nAtomList == 1 then
+		nResultType = nAtomList[1]!
 	else
 		local nCollection = self._manager:TypeCollection()
-		for _, v in ipairs(nListOrRefer) do
+		for _, v in ipairs(nAtomList) do
 			nCollection:put(v)
 		end
 		nResultType = nCollection:mergeToAtomUnion()

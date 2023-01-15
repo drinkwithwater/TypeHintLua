@@ -67,13 +67,16 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 					throw("namespace assign a non-type value, key="..tostring(k))
 				else
 					if Reference.is(rawgetV) then
-						rawgetV:setRawAsync(Node.getDebugNode(3), function()
-							if Reference.is(nAtomOrRefer) then
-								return nAtomOrRefer:waitTypeCom():getListAwait()
-							else
+						if Reference.is(nAtomOrRefer) then
+							rawgetV:setComAsync(Node.getDebugNode(3), function()
+								return nAtomOrRefer:getComAwait()
+							end)
+						else
+							rawgetV:setRawAsync(Node.getDebugNode(3), function()
+								assert(not nAtomOrRefer:isUnion(), "TODO assign Union to reference")
 								return {nAtomOrRefer}
-							end
-						end)
+							end)
+						end
 					else
 						throw("conflict assign : key="..tostring(k))
 					end
@@ -88,14 +91,17 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 					if not nOkay then
 						throw("namespace assign a non-type value, key="..tostring(k))
 					else
-						local refer = self._manager:Reference(k)
-						refer:setRawAsync(Node.getDebugNode(3), function()
-							if Reference.is(nAtomOrRefer) then
-								return nAtomOrRefer:waitTypeCom():getListAwait()
-							else
+						const refer = self._manager:Reference(k)
+						if Reference.is(nAtomOrRefer) then
+							refer:setComAsync(Node.getDebugNode(3), function()
+								return nAtomOrRefer:getComAwait()
+							end)
+						else
+							refer:setRawAsync(Node.getDebugNode(3), function()
+								assert(not nAtomOrRefer:isUnion(), "TODO assign Union to reference")
 								return {nAtomOrRefer}
-							end
-						end)
+							end)
+						end
 						self._key2type[k] = refer
 					end
 				end

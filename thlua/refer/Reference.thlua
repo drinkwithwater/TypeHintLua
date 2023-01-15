@@ -18,10 +18,10 @@ Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.R
 	const nKey = table.concat(nIdList, "-")
 	const nRefer = self._genericDict[nKey]
 	if not nRefer then
-		const nRefer = self._manager:Reference(false)
+		--[[const nRefer = self._manager:Reference(false)
 		nRefer:setRawAsync(self._manager:getRuntime():getNode(), function()
 			return nGeneric(table.unpack(nTypeList))
-		end)
+		end)]]
 	end
 	return nRefer
 end
@@ -41,9 +41,6 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_selfCo=nil@Thread,
 	}, Reference)
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
-		for co, sid in pairs(self._waitComCoToSid) do
-			self._manager:coWakeup(co, sid)
-		end
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
 			if Exception.is(nExc) then
@@ -69,7 +66,7 @@ function Reference:detailString(v, vVerbose)
 	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
-function Reference:waitTypeCom()::Ret(class.TypeReferCom)
+function Reference:getComAwait()::Ret(class.TypeReferCom)
 	if not self._com then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
@@ -77,8 +74,30 @@ function Reference:waitTypeCom()::Ret(class.TypeReferCom)
 		self._manager:coWait(nCurCo, nSessionId, self._selfCo)
 	end
 	const nCom = assert(self._com, "com not setted after wait finish")
+	return nCom
+end
+
+function Reference:waitTypeCom()::Ret(class.TypeReferCom)
+	const nCom = self:getComAwait()
 	assert(TypeReferCom.is(nCom), "type reference expected, but get some other reference")
 	return nCom
+end
+
+function Reference:_setComAndWakeup(vCom:class.TypeReferCom)
+	self._com = vCom
+	for co, sid in pairs(self._waitComCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
+end
+
+function Reference:setComAsync(vNode:class.IAstNode, vFunc:Fn():Ret(class.TypeReferCom))
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
+	self._manager:coStart(self._selfCo, function()
+		const nCom = vFunc()
+		nCom:addAlterReference(self)
+		self:_setComAndWakeup(nCom)
+	end)
 end
 
 function Reference:setRawAsync(vNode:class.IAstNode,
@@ -87,7 +106,7 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = TypeReferCom.new(self._manager, self)
-	self._com = nCom
+	self:_setComAndWakeup(nCom)
 	self._manager:coStart(self._selfCo, function()
 		nCom:build(vGetList, vLaterCall)
 	end)
