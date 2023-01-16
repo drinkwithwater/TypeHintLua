@@ -17,7 +17,7 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRe
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_keyRefer=vKeyRefer@class.Reference,
-		_memberDict=nil@class.MemberDict,
+		_memberDict=false@OrFalse(class.MemberDict),
 		_nextKey=vNextKey,
 		_nextValue=false@OrFalse(class.UAtomUnion),
 		_nextDict={}@Dict(class.IAtomType, class.UAtomUnion),
@@ -45,7 +45,7 @@ function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMemberD
 	const nNextKey = self._nextKey
 	if nNextKey then
 		nNextKey:foreachAwait(function(vKeyAtom)
-			const nMember = self._memberDict[vKeyAtom]
+			const nMember = vMemberDict[vKeyAtom]
 			if not nMember then
 				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
 			elseif MemberFunction.is(nMember) then
@@ -56,12 +56,13 @@ function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMemberD
 end
 
 function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean))::Ret(Boolean)
-	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+	const nMemberDict = self:getMemberDict()
+	for nLeftKey, nLeftValue in pairs(nMemberDict) do
 		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue, false) then
 			return false
 		end
 	end
-	for nLeftKey, nLeftValue in pairs(self._memberDict) do
+	for nLeftKey, nLeftValue in pairs(nMemberDict) do
 		if nLeftValue:mayRecursive() then
 			local nLeftIsMfn = false
 			if MemberFunction.is(nLeftValue) then
@@ -361,6 +362,7 @@ function MetaObject:meta_ipairs(vContext)
 end
 
 function MetaObject:native_next(vContext, vInitType)
+	const nMemberDict = self:getMemberDict()
 	const nNextKey = self._nextKey
 	const nNil = self._manager.type.Nil
 	if not nNextKey then
@@ -373,7 +375,7 @@ function MetaObject:native_next(vContext, vInitType)
 		nNextDict = {}
 		local nCollection = self._manager:TypeCollection()
 		nNextKey:foreachAwait(function(vKeyAtom)
-			const nValue = self._memberDict[vKeyAtom]!
+			const nValue = nMemberDict[vKeyAtom]!
 			if MemberFunction.is(nValue) then
 				vContext:error("next can't take member function as value")
 			else
@@ -395,8 +397,13 @@ function MetaObject:isSingleton()
 	return false
 end
 
-function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(OrFalse(class.IAtomType))
-	return self._keyRefer:containAtom(vType)
+function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(class.IAtomType, class.UMemberAllType):Ret(False)
+	const nKey = self._keyRefer:containAtom(vType)
+	if nKey then
+		return nKey, assert(self._memberDict)[nKey]!
+	else
+		return false
+	end
 end
 
 function MetaObject:meta_get(vContext, vType)
@@ -408,21 +415,18 @@ function MetaObject:meta_get_invoke(vContext, vType)
 end
 
 function MetaObject:_meta_get(vContext:class.Context, vType:class.IAtomType, vIsInvoke:Boolean)::Ret(class.UAtomUnion)
-	const nKey = self:_keyContainAtom(vType)
+	const nKey, nGetValue = self:_keyContainAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
 	else
-		local nGetValue = self._memberDict[nKey]
-		if nGetValue then
-			if MemberFunction.is(nGetValue) then
-				if not vIsInvoke then
-					vContext:warn("index a member function but using as invoke")
-				end
-				return nGetValue:indexTypeFn(self)
-			else
-				return nGetValue:checkAtomUnion()
+		if MemberFunction.is(nGetValue) then
+			if not vIsInvoke then
+				vContext:warn("index a member function but using as invoke")
 			end
+			return nGetValue:indexTypeFn(self)
+		else
+			return nGetValue:checkAtomUnion()
 		end
 	end
 end
@@ -432,22 +436,19 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 		vContext:error("interface's field is readonly")
 		return
 	end
-	const nKey = self:_keyContainAtom(vKeyType)
+	const nKey, nSetValue = self:_keyContainAtom(vKeyType)
 	if nKey then
-		local nSetValue = self._memberDict[nKey]
-		if nSetValue then
-			if MemberFunction.is(nSetValue) then
-				vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
-				return
-			end
-			local nSetType = nSetValue:checkAtomUnion()
-			if vContext:castLuaType(vValueType, nSetType) then
-				return
-			elseif nSetType:containAll(vValueType) then
-				return
-			else
-				vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
-			end
+		if MemberFunction.is(nSetValue) then
+			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
+			return
+		end
+		local nSetType = nSetValue:checkAtomUnion()
+		if vContext:castLuaType(vValueType, nSetType) then
+			return
+		elseif nSetType:containAll(vValueType) then
+			return
+		else
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
 		end
 	end
 	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
@@ -466,13 +467,12 @@ function MetaObject:meta_bop_func(vContext, vOper)
 end
 
 function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
-	const nKey = self:_keyContainAtom(vKeyType)
+	const nKey, nValue = self:_keyContainAtom(vKeyType)
 	if nKey then
-		local nValue = self._memberDict[nKey]!
-		if not MemberFunction.is(nValue) then
-			return nKey, nValue
-		else
+		if MemberFunction.is(nValue) then
 			return false
+		else
+			return nKey, nValue
 		end
 	else
 		return false
@@ -482,15 +482,19 @@ end
 function MetaObject:detailString(vToStringCache, vVerbose)
 	local nRefer = self._firstRefer
 	if nRefer then
-		return "Struct ("..(nRefer:getKey() or tostring(nRefer))..")"
+		return "Object ("..(nRefer:getKey() or tostring(nRefer))..")"
 	end
 	local nCache = vToStringCache[self]
 	if nCache then
 		return nCache
 	end
-	vToStringCache[self] = "Struct {...}"
+	const nMemberDict = self._memberDict
+	if not nMemberDict then
+		return "Object (constructing...)"
+	end
+	vToStringCache[self] = "Object {...}"
 	local l:List(String) = {}
-	for k,v in pairs(self._memberDict) do
+	for k,v in pairs(nMemberDict) do
 		local nKeyString:String = ""
 		if StringLiteral.is(k) and not vVerbose then
 			nKeyString = k:getLiteral()
@@ -499,20 +503,19 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 		end
 		l[#l+1] = nKeyString.."="..v:detailString(vToStringCache, vVerbose)
 	end
-	local nResult = "Interface {"..table.concat(l, ",").."}"
+	local nResult = "Object {"..table.concat(l, ",").."}"
 	vToStringCache[self] = nResult
 	return nResult
 end
 
 function MetaObject:getMemberDict()::Ret(class.MemberDict)
 	self._keyRefer:waitTypeCom():getListAwait()
-	return self._memberDict
+	return (assert(self._memberDict, "member list is not setted after waiting"))
 end
 
 function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaObject))::Ret(Dict(class.IAtomType, class.UAllType))
-	self._keyRefer:waitTypeCom():getListAwait()
 	const nValueDict:Dict(class.IAtomType, class.UAllType) = {}
-	for k,v in pairs(self._memberDict) do
+	for k,v in pairs(self:getMemberDict()) do
 		if not MemberFunction.is(v) then
 			nValueDict[k] = v
 		else

@@ -133,10 +133,12 @@ for k, v in pairs(AtomMetatableSet) do
 	AtomUnionMetatableSet[k] = v
 end
 
-function TypeManager:pcheckAtomOrReference(vData)::Ret(True, Union(class.Reference, class.IAtomType)):Ret(False, String)
+function TypeManager:pcheckNamespaceAssigValue(vData)::Ret(True, Union(class.Reference, class.GenericFunction, class.IAtomType)):Ret(False, String)
 	local meta = getmetatable(vData)
 	if meta and (AtomMetatableSet[meta] or meta == Reference) then
 		return true, vData @!! Union(class.Reference, class.IAtomType)
+	elseif type(vData) == "function" then
+		return true, vData @!! class.GenericFunction
 	else
 		return false, "not atom or reference"
 	end

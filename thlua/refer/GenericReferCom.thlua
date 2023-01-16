@@ -9,8 +9,45 @@ function GenericReferCom.new(vManager:class.TypeManager,
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_refer=vRefer,
+		_nparams=0,
+		_func=false@OrFalse(class.GenericFunction),
+		_cache={}@Dict(String, class.Reference),
 	}, GenericReferCom)
 	return self
+end
+
+function GenericReferCom:build(vFunc:class.GenericFunction)::pass()
+	const nInfo = debug.getinfo(vFunc)
+	self._nparams = nInfo.nparams
+	self._func = vFunc
+end
+
+function GenericReferCom:call(...:class.UAllType)::Ret(class.Reference)
+	const nArgList:List(class.UAllType) = {...}
+	const nIdList:List(Integer) = {}
+	for i=1,#nArgList do
+		nIdList[i] = nArgList[i]!.id
+	end
+	const nFn = assert(self._func)
+	const nKey = table.concat(nIdList, "-")
+	local nRefer = self._cache[nKey]
+	if not nRefer then
+		nRefer = self._manager:Reference(false)
+		nRefer:setRawAsync(self._manager:getRuntime():getNode(), function()
+			const nType = nFn(table.unpack(nArgList))
+			const nRetList:List(class.IAtomType) = {}
+			nType:foreachAwait(function(vAtomType)
+				nRetList[#nRetList + 1] = vAtomType
+			end)
+			return nRetList
+		end)
+		self._cache[nKey] = nRefer
+	end
+	return nRefer
+end
+
+function GenericReferCom.is(self)::isguard(class.GenericReferCom)
+	return getmetatable(self) == GenericReferCom
 end
 
 return GenericReferCom

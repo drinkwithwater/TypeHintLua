@@ -2,28 +2,19 @@
 const TypeClass = require "thlua.type.TypeClass"
 const Exception = require "thlua.Exception"
 const TypeReferCom = require "thlua.refer.TypeReferCom"
+const GenericReferCom = require "thlua.refer.GenericReferCom"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.UReferCom = Union(class.TypeReferCom, class.GenericReferCom)
+end)
 
 const Reference = TypeClass()
 
 Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.Reference)
-	const nTypeList:List(class.UAllType) = {...}
-	const nIdList = {}
-	for i=1,#nTypeList do
-		nIdList[i] = nTypeList[i]!.id
-	end
-	const nGeneric = assert(self._generic)
-	const nKey = table.concat(nIdList, "-")
-	const nRefer = self._genericDict[nKey]
-	if not nRefer then
-		--[[const nRefer = self._manager:Reference(false)
-		nRefer:setRawAsync(self._manager:getRuntime():getNode(), function()
-			return nGeneric(table.unpack(nTypeList))
-		end)]]
-	end
-	return nRefer
+	const nCom = self:waitGenericCom()
+	return nCom:call(...)
 end
 
 function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String))::RetClass(class.Reference, class.IType)
@@ -34,7 +25,7 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 		_referNodes={}@List(class.IAstNode),
 		_generic=false@OrFalse(Fn():Dots(class.UAllType):Ret(class.Reference)),
 		_genericDict={}@Dict(String, class.Reference),
-		_com=false@OrFalse(class.TypeReferCom),
+		_com=false@OrFalse(let.UReferCom),
 		_waitComCoToSid={} @ Dict(Thread, Integer),
 		id=vManager:genTypeId(),
 		bits=false,
@@ -66,7 +57,7 @@ function Reference:detailString(v, vVerbose)
 	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
-function Reference:getComAwait()::Ret(class.TypeReferCom)
+function Reference:getComAwait()::Ret(let.UReferCom)
 	if not self._com then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
@@ -83,14 +74,30 @@ function Reference:waitTypeCom()::Ret(class.TypeReferCom)
 	return nCom
 end
 
-function Reference:_setComAndWakeup(vCom:class.TypeReferCom)
+function Reference:waitGenericCom()::Ret(class.GenericReferCom)
+	const nCom = self:getComAwait()
+	assert(GenericReferCom.is(nCom), "generic reference expected, but get some other reference")
+	return nCom
+end
+
+function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	self._com = vCom
 	for co, sid in pairs(self._waitComCoToSid) do
 		self._manager:coWakeup(co, sid)
 	end
 end
 
-function Reference:setComAsync(vNode:class.IAstNode, vFunc:Fn():Ret(class.TypeReferCom))
+function Reference:setGenericAsync(vNode:class.IAstNode, vFunc:class.GenericFunction)
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
+	self._manager:coStart(self._selfCo, function()
+		const nCom = GenericReferCom.new(self._manager, self)
+		nCom:build(vFunc)
+		self:_setComAndWakeup(nCom)
+	end)
+end
+
+function Reference:setComAsync(vNode:class.IAstNode, vFunc:Fn():Ret(let.UReferCom))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	self._manager:coStart(self._selfCo, function()
@@ -104,9 +111,9 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 	vLaterCall:OrNil(Fn(class.UAtomUnion)))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	const nCom = TypeReferCom.new(self._manager, self)
-	self:_setComAndWakeup(nCom)
 	self._manager:coStart(self._selfCo, function()
+		const nCom = TypeReferCom.new(self._manager, self)
+		self:_setComAndWakeup(nCom)
 		nCom:build(vGetList, vLaterCall)
 	end)
 end

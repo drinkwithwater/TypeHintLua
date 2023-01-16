@@ -62,20 +62,22 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
-				const nOkay, nAtomOrRefer = self._manager:pcheckAtomOrReference(newV)
+				const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(newV)
 				if not nOkay then
 					throw("namespace assign a non-type value, key="..tostring(k))
 				else
 					if Reference.is(rawgetV) then
-						if Reference.is(nAtomOrRefer) then
+						if Reference.is(nAssignValue) then
 							rawgetV:setComAsync(Node.getDebugNode(3), function()
-								return nAtomOrRefer:getComAwait()
+								return nAssignValue:getComAwait()
 							end)
+						elseif type(nAssignValue) == "function" then
+							rawgetV:setGenericAsync(Node.getDebugNode(3), nAssignValue)
 						else
 							rawgetV:setRawAsync(Node.getDebugNode(3), function()
-								assert(not nAtomOrRefer:isUnion(), "TODO assign Union to reference")
-								nAtomOrRefer:linkNamedReference(rawgetV)
-								return {nAtomOrRefer}
+								assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
+								nAssignValue:linkNamedReference(rawgetV)
+								return {nAssignValue}
 							end)
 						end
 					else
@@ -88,20 +90,22 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 					namespace:trySetKey(k)
 					self._key2type[k] = newV
 				else
-					const nOkay, nAtomOrRefer = self._manager:pcheckAtomOrReference(newV)
+					const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(newV)
 					if not nOkay then
 						throw("namespace assign a non-type value, key="..tostring(k))
 					else
 						const refer = self._manager:Reference(k)
-						if Reference.is(nAtomOrRefer) then
+						if Reference.is(nAssignValue) then
 							refer:setComAsync(Node.getDebugNode(3), function()
-								return nAtomOrRefer:getComAwait()
+								return nAssignValue:getComAwait()
 							end)
+						elseif type(nAssignValue) == "function" then
+							refer:setGenericAsync(Node.getDebugNode(3), nAssignValue)
 						else
 							refer:setRawAsync(Node.getDebugNode(3), function()
-								assert(not nAtomOrRefer:isUnion(), "TODO assign Union to reference")
-								nAtomOrRefer:linkNamedReference(refer)
-								return {nAtomOrRefer}
+								assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
+								nAssignValue:linkNamedReference(refer)
+								return {nAssignValue}
 							end)
 						end
 						self._key2type[k] = refer
