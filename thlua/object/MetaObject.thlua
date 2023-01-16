@@ -13,18 +13,18 @@ const MetaObject = AtomTypeClass()
 	let.class = import("thlua.type.TypeClass").class
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRefer:class.Reference, vMemberDict:class.MemberDict)::RetClass(class.MetaObject, class.IAtomType)
+function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRefer:class.Reference, vNextKey:OrFalse(class.UAllType))::RetClass(class.MetaObject, class.IAtomType)
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_keyRefer=vKeyRefer@class.Reference,
-		_memberDict=vMemberDict,
-		_nextKey=false@OrFalse(class.UAllType),
+		_memberDict=nil@class.MemberDict,
+		_nextKey=vNextKey,
 		_nextValue=false@OrFalse(class.UAtomUnion),
 		_nextDict={}@Dict(class.IAtomType, class.UAtomUnion),
 		_metaEventCom=false@OrFalse(class.MetaEventCom),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_unionSign=false,
-		_referName=false@Union(String, False),
+		_firstRefer=false@Union(class.Reference, False),
 		_isInterface=vIsInterface,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
@@ -32,12 +32,19 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRe
 	return self
 end
 
-function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vNextKey:OrFalse(class.UAllType), vMetaEventCom:OrFalse(class.MetaEventCom))
+function MetaObject:linkNamedReference(vRefer:class.Reference)
+	if not self._firstRefer then
+		self._firstRefer = vRefer
+	end
+end
+
+function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMemberDict:class.MemberDict, vMetaEventCom:OrFalse(class.MetaEventCom))
 	self._intersectSet = vIntersectSet
 	self._metaEventCom = vMetaEventCom
-	if vNextKey then
-		self._nextKey = vNextKey
-		vNextKey:foreachAwait(function(vKeyAtom)
+	self._memberDict = vMemberDict
+	const nNextKey = self._nextKey
+	if nNextKey then
+		nNextKey:foreachAwait(function(vKeyAtom)
 			const nMember = self._memberDict[vKeyAtom]
 			if not nMember then
 				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
@@ -141,19 +148,36 @@ end
 function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
 	assert(self:isInterface(), vRightObject:isInterface(), "here must be interface")
 	const nRightValueDict = vRightObject:getMemberDict()
-	const nRightBasic, nRightMoreRefer, nRightNextKey = vRightObject:getKeyTypes()
+	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
+	const nRightTypeCom = nRightKeyRefer:waitTypeCom()
+	const nRightResultType = nRightTypeCom:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
-		const nRightKey = nRightBasic:containAtom(vLeftKey)
-		if not nRightKey then
-			return true
-		end
-		local nRightValue = nRightValueDict[nRightKey]!
-		if MemberFunction.is(nRightValue) then
-			nRightValue = nRightValue:indexTypeFn(vRightObject)
-		end
-		if vLeftValue:assumeIntersectAny(vAssumeSet, nRightValue) then
-			return true
+		if nRightResultType then -- key is merged, just get one matched
+			const nRightKey = nRightResultType:assumeContainAtom(vAssumeSet, vLeftKey)
+			if not nRightKey then
+				return true
+			end
+			local nRightValue = nRightValueDict[nRightKey]!
+			if MemberFunction.is(nRightValue) then
+				nRightValue = nRightValue:indexTypeFn(vRightObject)
+			end
+			if vLeftValue:assumeIntersectAny(vAssumeSet, nRightValue) then
+				return true
+			else
+				return false
+			end
 		else
+			for _, nRightKey in ipairs(nRightTypeCom:getListAwait()) do
+				if nRightKey:assumeContainAtom(vAssumeSet, vLeftKey) then
+					local nRightValue = nRightValueDict[nRightKey]!
+					if MemberFunction.is(nRightValue) then
+						nRightValue = nRightValue:indexTypeFn(vRightObject)
+					end
+					if vLeftValue:assumeIntersectAny(vAssumeSet, nRightValue) then
+						return true
+					end
+				end
+			end
 			return false
 		end
 	end)
@@ -194,11 +218,11 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	const nRightResultType = nRightTypeCom:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
 		if nRightResultType then -- key is merged, just get one matched
-			const nRightMoreKey = nRightResultType:assumeContainAtom(vAssumeSet, vLeftKey)
-			if not nRightMoreKey then
+			const nRightKey = nRightResultType:assumeContainAtom(vAssumeSet, vLeftKey)
+			if not nRightKey then
 				return false
 			end
-			const nRightValue = nRightValueDict[nRightMoreKey]
+			const nRightValue = nRightValueDict[nRightKey]
 			if not nRightValue then
 				return false
 			end
@@ -300,9 +324,11 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 		return nAssumeResult and self
 	end
 	vAssumeSet[nLRPair] = true
+	vAssumeSet[nRLPair] = true
 	local nAssumeIntersect = self:assumeIntersectInterface(vAssumeSet, nRightStruct)
 	if not nAssumeIntersect then
 		vAssumeSet[nLRPair] = false
+		vAssumeSet[nRLPair] = false
 		return false
 	else
 		return true
@@ -310,7 +336,7 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 end
 
 function MetaObject:meta_len(vContext)
-	const nCom = self._metaEventCom
+	const nCom = self:getMetaEventCom()
 	if nCom then
 		const nType = nCom:getLenType()
 		if nType then
@@ -429,7 +455,7 @@ end
 
 function MetaObject:meta_bop_func(vContext, vOper)
 	local nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
-	const nCom = self._metaEventCom
+	const nCom = self:getMetaEventCom()
 	if nCom then
 		const nFn = nCom:getBopFunc(nMethodEvent)
 		if nFn then
@@ -453,16 +479,10 @@ function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(clas
 	end
 end
 
-function MetaObject:addNamedReference(vRefer, vName)
-	if not self._referName then
-		self._referName = vName
-	end
-end
-
 function MetaObject:detailString(vToStringCache, vVerbose)
-	local nReferName = self._referName
-	if nReferName then
-		return nReferName
+	local nRefer = self._firstRefer
+	if nRefer then
+		return "Struct ("..(nRefer:getKey() or tostring(nRefer))..")"
 	end
 	local nCache = vToStringCache[self]
 	if nCache then
@@ -485,10 +505,12 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 end
 
 function MetaObject:getMemberDict()::Ret(class.MemberDict)
+	self._keyRefer:waitTypeCom():getListAwait()
 	return self._memberDict
 end
 
 function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaObject))::Ret(Dict(class.IAtomType, class.UAllType))
+	self._keyRefer:waitTypeCom():getListAwait()
 	const nValueDict:Dict(class.IAtomType, class.UAllType) = {}
 	for k,v in pairs(self._memberDict) do
 		if not MemberFunction.is(v) then
@@ -502,6 +524,7 @@ function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaOb
 end
 
 function MetaObject:getMetaEventCom()::Ret(OrFalse(class.MetaEventCom))
+	self._keyRefer:waitTypeCom():getListAwait()
 	return self._metaEventCom
 end
 

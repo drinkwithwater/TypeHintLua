@@ -21,35 +21,9 @@ function TypeReferCom.new(vManager:class.TypeManager,
 	return self
 end
 
-function TypeReferCom:addAlterReference(vRefer:class.Reference)
-	if not self._firstKey then
-		const nAlterKey = vRefer:getKey()
-		if nAlterKey then
-			self._firstKey = nAlterKey
-			const nResultType = self._resultType
-			if nResultType then
-			end
-		end
-	end
-end
-
 function TypeReferCom:getResultType()::Ret(OrFalse(class.UAtomUnion))
 	return self._resultType
 end
-
---[[
-function TypeReferCom:setListAsync(
-		vNode:class.IAstNode,
-		vGetList:Fn():Ret(List(class.IAtomType)),
-		vLaterCall:OrNil(Fn(class.UAtomUnion))
-	)
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self._refer), vNode))
-	self._assignNode = vNode
-	self._manager:coStart(self._refer:getSelfCo(), function()
-		self:build(vNode, vGetList, vLaterCall)
-	end)
-end
-]]
 
 function TypeReferCom:getTypeAwait()::Ret(class.UAtomUnion)
 	local nReturn = self._resultType
@@ -106,12 +80,6 @@ function TypeReferCom:build(
 		nResultType = nCollection:mergeToAtomUnion()
 	end
 	self._resultType = nResultType
-	if not nResultType:isUnion() then
-		const nKey = self._refer:getKey()
-		if nKey then
-			nResultType:addNamedReference(self._refer, nKey)
-		end
-	end
 	for co, sid in pairs(self._waitResultCoToSid) do
 		self._manager:coWakeup(co, sid)
 	end

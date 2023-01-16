@@ -88,7 +88,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	end
 	self.type.Boolean = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.Nil, self.type.Truth)
-	self.type.Object = (self:buildInterface(self._runtime:getNode(), {}, nil, false):checkAtomUnion()) @!! class.MetaObject
+	self.type.Object = self:buildInterface(self._runtime:getNode(), {}, nil, false)
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -260,13 +260,13 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 			end
 		end
 		const nKeyRefer = self:Reference(false)
-		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nAllValueDict)
+		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nIntersectNextKey)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
-			nNewObject:lateInit(nIntersectSet, nIntersectNextKey, nNewEventCom)
+			nNewObject:lateInit(nIntersectSet, nAllValueDict, nNewEventCom)
 		else
-			nNewObject:lateInit(nIntersectSet, false, false)
+			nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
 		end
 		nKeyRefer:setRawAsync(vNode, function()
 			return nKeyList
@@ -321,17 +321,18 @@ function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth)::Ret(class.Refe
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)))::Ret(class.Reference)
+function TypeManager:buildInterface(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)))::Ret(class.MetaObject)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, true)
 end
 
-function TypeManager:buildStruct(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)))::Ret(class.Reference)
+function TypeManager:buildStruct(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)))::Ret(class.MetaObject)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, false)
 end
 
-function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)), vIsInterface:Boolean)::Ret(class.Reference)
-	const nObjectRefer = self:Reference(false)
-	nObjectRefer:setRawAsync(vNode, function()
+function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)), vIsInterface:Boolean)::Ret(class.MetaObject)
+	const nKeyRefer = self:Reference(false)
+	const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
+	nKeyRefer:setRawAsync(vNode, function()
 		const nKeyList:List(class.IAtomType) = {}
 		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		local nKeyCount = 0
@@ -361,44 +362,40 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 				end
 			end)
 		end
-		const nKeyRefer = self:Reference(false)
-		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nValueDict)
 		if vMetaEventDict then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByEventDict(vMetaEventDict)
-			nNewObject:lateInit({}, vMetaEventDict.__next or false, nNewEventCom)
+			nNewObject:lateInit({}, nValueDict, nNewEventCom)
 		else
-			nNewObject:lateInit({}, false, false)
+			nNewObject:lateInit({}, nValueDict, false)
 		end
-		nKeyRefer:setRawAsync(vNode, function()
-			return nKeyList
-		end, function(vKeyAtomUnion)
-			local nFinalCount = 0
-			vKeyAtomUnion:foreach(function(_)
-				nFinalCount = nFinalCount + 1
-			end)
-			if nFinalCount ~= nKeyCount then
-				error("Object's key can not has intersect part")
-			end
+		return nKeyList
+	end, function(vKeyAtomUnion)
+		const nList = nKeyRefer:waitTypeCom():getListAwait()
+		local nFinalCount = 0
+		vKeyAtomUnion:foreach(function(_)
+			nFinalCount = nFinalCount + 1
 		end)
-		return {self:_recordTypeUnionSign(nNewObject)}
+		if nFinalCount ~= #nList then
+			error("Object's key can not has intersect part")
+		end
 	end)
-	return nObjectRefer
+	return self:_recordTypeUnionSign(nNewObject)
 end
 
-function TypeManager:buildIDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
+function TypeManager:buildIDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(class.MetaObject)
 	return self:buildInterface(vNode, {[vKey]=vValue})
 end
 
-function TypeManager:buildDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(Union(class.MetaObject, class.Reference))
+function TypeManager:buildDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType)::Ret(class.MetaObject)
 	return self:buildStruct(vNode, {[vKey]=vValue}, {__next=vKey})
 end
 
-function TypeManager:buildIList(vNode:class.IAstNode, vValue:class.UAllType)::Ret(class.Reference)
+function TypeManager:buildIList(vNode:class.IAstNode, vValue:class.UAllType)::Ret(class.MetaObject)
 	return self:buildInterface(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 end
 
-function TypeManager:buildList(vNode:class.IAstNode, vValue:class.UAllType)::Ret(class.Reference)
+function TypeManager:buildList(vNode:class.IAstNode, vValue:class.UAllType)::Ret(class.MetaObject)
 	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __next=self.type.Integer})
 end
 
@@ -670,7 +667,7 @@ function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Th
 			end
 		end
 		if nCurCo then
-			error(Exception.new("recursive build type"))
+			error(Exception.new("recursive build type:"..tostring(self._coToRefer[nCurCo])))
 		end
 	else
 		vDependCo = self._selfCo
@@ -765,7 +762,7 @@ function TypeManager:attachPairContain(vLeft:class.MetaObject, vRight:class.Meta
 					return {self:Literal("<")}
 				else
 					if vLeft:isInterface() and vRight:isInterface() then
-						const nIntersect = vLeft:assumeIntersectInterface({[nLRPair]=true}, vRight)
+						const nIntersect = vLeft:assumeIntersectInterface({[nLRPair]=true,[nRLPair]=true}, vRight)
 						if nIntersect then
 							return {self:Literal("&")}
 						end
