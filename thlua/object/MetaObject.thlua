@@ -24,7 +24,7 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRe
 		_metaEventCom=false@OrFalse(class.MetaEventCom),
 		_intersectSet={}@Dict(class.MetaObject, True),
 		_unionSign=false,
-		_firstRefer=false@Union(class.Reference, False),
+		_referCom=false@OrFalse(class.TypeReferCom),
 		_isInterface=vIsInterface,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
@@ -32,9 +32,9 @@ function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRe
 	return self
 end
 
-function MetaObject:linkNamedReference(vRefer:class.Reference)
-	if not self._firstRefer then
-		self._firstRefer = vRefer
+function MetaObject:linkNamedReference(vRefer:class.TypeReferCom)
+	if not self._referCom then
+		self._referCom = vRefer
 	end
 end
 
@@ -480,9 +480,9 @@ function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(clas
 end
 
 function MetaObject:detailString(vToStringCache, vVerbose)
-	local nRefer = self._firstRefer
+	local nRefer = self._referCom
 	if nRefer then
-		return "Object ("..(nRefer:getKey() or tostring(nRefer))..")"
+		return "Object ("..nRefer:getToString()..")"
 	end
 	local nCache = vToStringCache[self]
 	if nCache then

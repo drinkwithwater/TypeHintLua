@@ -11,7 +11,7 @@ function TypeReferCom.new(vManager:class.TypeManager,
 	const self = setmetatable({::Self()
 		_manager=vManager,
 		_refer=vRefer,
-		_firstKey=false@OrFalse(String),
+		_namedRefer=vRefer,
 		_mayRecursive=false@Boolean,
 		_typeList=false@OrFalse(List(class.IAtomType)),
 		_resultType=false@OrFalse(class.UAtomUnion),
@@ -19,6 +19,16 @@ function TypeReferCom.new(vManager:class.TypeManager,
 		_waitResultCoToSid={} @ Dict(Thread, Integer),
 	}, TypeReferCom)
 	return self
+end
+
+function TypeReferCom:addReference(vRefer:class.Reference)
+	if vRefer:getKey() and not self._namedRefer:getKey() then
+		self._namedRefer = vRefer
+	end
+end
+
+function TypeReferCom:getToString()::Ret(String)
+	return tostring(self._refer)
 end
 
 function TypeReferCom:getResultType()::Ret(OrFalse(class.UAtomUnion))
@@ -80,6 +90,9 @@ function TypeReferCom:build(
 		nResultType = nCollection:mergeToAtomUnion()
 	end
 	self._resultType = nResultType
+	if not nResultType:isUnion() then
+			nResultType:linkNamedReference(self)
+	end
 	for co, sid in pairs(self._waitResultCoToSid) do
 		self._manager:coWakeup(co, sid)
 	end

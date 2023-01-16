@@ -248,8 +248,12 @@ function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 			const nTypeList:List(class.UAtomUnion) = {vAtomType}
 			for i=2, #vTermTuple do
 				local nTerm = vTermTuple:get(i)
-				const nType = vCase[nTerm:attachImmutShot()] or nTerm:getType()
-				nTypeList[i] = nType
+				const nType = vCase[nTerm:attachImmutShot()]
+				if not nType then
+					nTypeList[i] = nTerm:getType()
+				else
+					nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
+				end
 			end
 			const nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
 			self._fnCom:regionReturn(self._context, vNode, nTypeTuple)
