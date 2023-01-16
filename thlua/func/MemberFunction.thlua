@@ -26,8 +26,17 @@ function MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
 	return self
 end
 
-function MemberFunction:detailString(vCache:Dict(class.IAtomType, String), vVerbose:Boolean)::Ret(String)
-	return "mfn-"..tostring(self._argTuple).."->"..tostring(self._retTuples)
+function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean)::Ret(String)
+	const nRetTuples = self:_buildRetTuples()
+	local nCache = vToStringCache[self]
+	if nCache then
+		return nCache
+	end
+	vToStringCache[self] = "Mfn-..."
+	const nResult = "Mfn-" .. self._argTuple:detailString(vToStringCache, vVerbose)..
+									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
+	vToStringCache[self] = nResult
+	return nResult
 end
 
 function MemberFunction:Dots(vType:class.UAllType)::Ret(class.MemberFunction)

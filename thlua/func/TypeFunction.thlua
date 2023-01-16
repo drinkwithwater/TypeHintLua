@@ -63,8 +63,17 @@ function TypeFunction:isNative()::Ret(False)
 	return false
 end
 
-function TypeFunction:detailString(v, vVerbose)
-	return "fn-" .. tostring(self._argTuple).."->"..tostring(self._retTuples)
+function TypeFunction:detailString(vToStringCache, vVerbose)
+	const nRetTuples = self:_buildRetTuples()
+	local nCache = vToStringCache[self]
+	if nCache then
+		return nCache
+	end
+	vToStringCache[self] = "fn-..."
+	const nResult = "fn-" .. self._argTuple:detailString(vToStringCache, vVerbose)..
+									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
+	vToStringCache[self] = nResult
+	return nResult
 end
 
 function TypeFunction:meta_call(vContext, vTypeTuple)
