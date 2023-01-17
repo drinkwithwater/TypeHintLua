@@ -61,6 +61,7 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 		type={
 			Object=nil @ class.MetaObject,
 		},
+		generic={},
 		builtin={},
 		_pairToContain={} @ Dict(Integer, class.Reference),
 		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
@@ -89,6 +90,22 @@ function TypeManager.new(vRuntime:class.Runtime)::RetClass(class.TypeManager)
 	self.type.Boolean = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.Nil, self.type.Truth)
 	self.type.Object = self:buildInterface(self._runtime:getNode(), {}, nil, false)
+	self.generic.Dict = self:GenericReference(function(vKey,vValue)
+		assert(vKey and vValue, "key or value can't be nil when build Dict")
+		return self:buildStruct(self._runtime:getNode(), {[vKey]=vValue}, {__next=vKey})
+	end)
+	self.generic.IDict = self:GenericReference(function(vKey,vValue)
+		assert(vKey and vValue, "key or value can't be nil when build IDict")
+		return self:buildInterface(self._runtime:getNode(), {[vKey]=vValue}, {__next=vKey})
+	end)
+	self.generic.List = self:GenericReference(function(vValue)
+		assert(vValue, "value can't be nil when build List")
+		return self:buildStruct(self._runtime:getNode(), {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
+	end)
+	self.generic.IList = self:GenericReference(function(vValue)
+		assert(vValue, "value can't be nil when build IList")
+		return self:buildInterface(self._runtime:getNode(), {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+	end)
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -582,6 +599,14 @@ end
 
 function TypeManager:makeMetaEventCom(vObject:Union(class.LuaTable, class.MetaObject))::Ret(class.MetaEventCom)
 	return MetaEventCom.new(self, vObject)
+end
+
+function TypeManager:GenericReference(vFunc:class.GenericFunction)::Ret(class.Reference)
+	const nRefer = self:Reference(false)
+	nRefer:setAssignAsync(self._runtime:getNode(), function()
+		return vFunc
+	end)
+	return nRefer
 end
 
 function TypeManager:Reference(vName:Union(String, False))::Ret(class.Reference)

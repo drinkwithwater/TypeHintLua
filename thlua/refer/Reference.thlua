@@ -14,6 +14,7 @@ end)
 const Reference = TypeClass()
 
 Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.Reference)
+	-- TODO, cast
 	const nNode = Node.getDebugNode(3)
 	const nArgList:List(class.UAllType) = {...}
 	const nIdList:List(Integer) = {}
@@ -21,13 +22,19 @@ Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.R
 		nIdList[i] = nArgList[i]!.id
 	end
 	const nKey = table.concat(nIdList, "-")
+	const nCom = self._com
+	if GenericReferCom.is(nCom) then
+		return nCom:call(nNode, nKey, nArgList)
+	elseif nCom then
+		error(Exception.new("generic reference expected here", nNode))
+	end
 	const nDict = self._callDict
 	local nRefer = nDict[nKey]
 	if not nRefer then
 		nRefer = self._manager:Reference(false)
-		nRefer:setComAsync(nNode, function()
+		nRefer:setAssignAsync(nNode, function()
 			const nCom = self:waitGenericCom()
-			return nCom:call(nNode, nKey, nArgList):getComAwait()
+			return nCom:call(nNode, nKey, nArgList)
 		end)
 		nDict[nKey] = nRefer
 	end
@@ -103,41 +110,29 @@ function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	end
 end
 
-function Reference:setAssignAsync(vNode:class.IAstNode, vValue:Any)
-	const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(vValue)
-	if not nOkay then
-		error(Exception.new("namespace assign a non-type value", vNode))
-	end
-	if Reference.is(nAssignValue) then
-		self:setComAsync(vNode, function()
-			return nAssignValue:getComAwait()
-		end)
-	elseif type(nAssignValue) == "function" then
-		self:setGenericAsync(vNode, nAssignValue)
-	else
-		self:setRawAsync(vNode, function()
+function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
+	self._manager:coStart(self._selfCo, function()
+		const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(vGetFunc())
+		if not nOkay then
+			error("namespace assign a non-type value")
+		end
+		if Reference.is(nAssignValue) then
+			const nCom = nAssignValue:getComAwait()
+			self:_setComAndWakeup(nCom)
+		elseif type(nAssignValue) == "function" then
+			const nCom = GenericReferCom.new(self._manager, self)
+			nCom:build(nAssignValue)
+			self:_setComAndWakeup(nCom)
+		else
 			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
-			return {nAssignValue}
-		end)
-	end
-end
-
-function Reference:setGenericAsync(vNode:class.IAstNode, vFunc:class.GenericFunction)
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._assignNode = vNode
-	self._manager:coStart(self._selfCo, function()
-		const nCom = GenericReferCom.new(self._manager, self)
-		nCom:build(vFunc)
-		self:_setComAndWakeup(nCom)
-	end)
-end
-
-function Reference:setComAsync(vNode:class.IAstNode, vFunc:Fn():Ret(let.UReferCom))
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._assignNode = vNode
-	self._manager:coStart(self._selfCo, function()
-		const nCom = vFunc()
-		self:_setComAndWakeup(nCom)
+			const nCom = TypeReferCom.new(self._manager, self)
+			self:_setComAndWakeup(nCom)
+			nCom:build(function()
+				return {nAssignValue}
+			end)
+		end
 	end)
 end
 

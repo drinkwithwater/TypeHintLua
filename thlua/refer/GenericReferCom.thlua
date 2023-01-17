@@ -27,13 +27,8 @@ function GenericReferCom:call(vNode:class.IAstNode, vKey:String, vArgList:List(c
 	local nRefer = self._cache[vKey]
 	if not nRefer then
 		nRefer = self._manager:Reference(false)
-		nRefer:setRawAsync(vNode, function()
-			const nType = nFn(table.unpack(vArgList))
-			const nRetList:List(class.IAtomType) = {}
-			nType:foreachAwait(function(vAtomType)
-				nRetList[#nRetList + 1] = vAtomType
-			end)
-			return nRetList
+		nRefer:setAssignAsync(vNode, function()
+			return nFn(table.unpack(vArgList))
 		end)
 		self._cache[vKey] = nRefer
 	end
