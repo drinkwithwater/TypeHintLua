@@ -167,6 +167,41 @@ local hintC={
 			end
 		end
 	end,
+	long=function(pattBegin, pattBody)
+		return Cenv * pattBegin * vv.HintBegin * pattBody * vv.HintEnd * Cpos / function(env, ...)
+			local l = {...}
+			local posEnd = l[#l]
+			l[#l] = nil
+			local middle = nil
+			for i=1,#l do
+				if l[i].tag == "ExprList" then
+					middle = i-1
+					break
+				end
+			end
+			local nEvalList = env:captureEvalByVisit(l)
+			local nAttrList = {}
+			if middle then
+				local nHintInfo = env:buildHintInfo(nEvalList, l[middle].pos, posEnd)
+				for i=1, middle-1 do
+					nAttrList[i] = l[i][1]
+				end
+				nHintInfo.attrList = nAttrList
+				return nHintInfo
+			else
+				for i=1, #l do
+					nAttrList[i] = l[i][1]
+				end
+				local nHintInfo = {
+					tag = "HintInfo",
+					pos = posEnd,
+					posEnd = posEnd,
+					attrList = nAttrList,
+				}
+				return nHintInfo
+			end
+		end
+	end,
 	char=function(char)
 		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
 			if not env.hinting then
@@ -225,6 +260,8 @@ local G = lpeg.P { "TypeHintLua";
 		return true
 	end);
 
+	Attr = tagC.Attr(vv.Name);
+
 	NotnilHint = hintC.char("!");
 
 	OverrideHint = hintC.char("?");
@@ -238,9 +275,20 @@ local G = lpeg.P { "TypeHintLua";
 		symb(":"), vv.HintExpr);
 
 	LongHint = hintC.string(1,
-		symb"::" * vv.Name * symb"(",
-		vv.ExprList^-1 * symbA ")" * (symb":" * vvA.Name * symbA"(" * vv.ExprList^-1 * symbA")")^0,
-		symb(";")^-1);
+		symb"::" * vv.Attr * symb"(",
+		vv.ExprListOrEmpty * symbA ")" * (symb":" * vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")")^0);
+
+	TableLongHint = hintC.string(false,
+		lpeg.P":",
+		(symb":" * vv.Attr)^1 * (
+			symb"(" * vv.ExprListOrEmpty * symbA ")" *
+			(symb":" * vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")")^0
+		)^-1
+	);
+
+	FuncLongHint = hintC.string(false,
+		lpeg.P":",
+		(symb":" * vv.Attr)^1);
 
 	HintStat = hintC.string(false,
 		symb("(@"),
@@ -270,7 +318,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
 		local FieldList = (Field * (fieldsep * Field)^0 * fieldsep^-1)^-1
-		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
+		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint*(symb(",") + symb(";"))^-1, "hintLong")^-1 * FieldList * symbA("}"))
 	end)();
 
 	IdentUse = Cpos*vv.Name*Cpos/parF.identUse;
@@ -279,6 +327,8 @@ local G = lpeg.P { "TypeHintLua";
 
 	LocalIdentList = tagC.IdentList(vvA.IdentDefT * (symb(",") * vv.IdentDefT)^0);
 	ForinIdentList = tagC.IdentList(vvA.IdentDefN * (symb(",") * vv.IdentDefN)^0);
+
+	ExprListOrEmpty = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0) + tagC.ExprList();
 
 	ExprList = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0);
 
@@ -402,7 +452,7 @@ local G = lpeg.P { "TypeHintLua";
 		return tagC.Set(VarList * OverrideHint * vv.ExprList)
 	end)();
 
-	RetStat = tagC.Return(kw("return") * (vv.ExprList + tagC.ExprList()) * symb(";")^-1);
+	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
 
 	Stat = (function()
 		local LocalFunc = tagC.Localrec(kw"function" * vvA.IdentDefN * vv.FuncBody)

@@ -39,7 +39,7 @@ local TagToVisiting:RealTraverser = {
 	Do=function(self, node)
 		return self:rgnWrap(node).DO(
 			self:visitLongHint(node.hintLong),
-			self:visit(node[1])
+			self:fnWrap()(self:visit(node[1]))
 		)
 	end,
 	Set=function(self, node)
@@ -385,9 +385,9 @@ HintGener.__index = HintGener
 
 function HintGener:visit(vNode:node.IAstNode)::Ret(let.UGenResult)
 	const nUnionNode = vNode @ node.UNodeType
-	const fn = TagToVisiting[nUnionNode.tag]
-	if fn then
-		return fn(self, nUnionNode)
+	const nFunc = TagToVisiting[nUnionNode.tag]
+	if nFunc then
+		return nFunc(self, nUnionNode)
 	else
 		return ""
 	end
