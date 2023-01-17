@@ -152,7 +152,7 @@ local tagC=setmetatable({
 })
 
 local hintC={
-	string=function(startByOffset, pattBegin, pattBody, pattEnd)
+	string=function(pattBegin, pattBody, pattEnd)
 		pattBegin = pattBegin / function() end
 		pattBody = Cenv * pattBody / function(env, ...) return env:captureEvalByVisit({...}) end
 		return Cenv *
@@ -160,17 +160,14 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,p2,evalList,p3,p4)
 			env:markDel(p1, p4-1)
-			if startByOffset then
-				return env:buildHintInfo(evalList, p1+startByOffset, p3-1)
-			else
-				return env:buildHintInfo(evalList, p2, p3-1, evalList)
-			end
+			return env:buildHintInfo(evalList, p1, p2, p3-1)
 		end
 	end,
 	long=function(pattBegin, pattBody)
-		return Cenv * pattBegin * vv.HintBegin * pattBody * vv.HintEnd * Cpos / function(env, ...)
+		return Cenv * Cpos * pattBegin * vv.HintBegin * pattBody * vv.HintEnd * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
+			env:markDel(p1, posEnd-1)
 			l[#l] = nil
 			local middle = nil
 			for i=1,#l do
@@ -182,7 +179,7 @@ local hintC={
 			local nEvalList = env:captureEvalByVisit(l)
 			local nAttrList = {}
 			if middle then
-				local nHintInfo = env:buildHintInfo(nEvalList, l[middle].pos, posEnd)
+				local nHintInfo = env:buildHintInfo(nEvalList, p1, l[middle].pos, posEnd-1)
 				for i=1, middle-1 do
 					nAttrList[i] = l[i][1]
 				end
@@ -194,7 +191,7 @@ local hintC={
 				end
 				local nHintInfo = {
 					tag = "HintInfo",
-					pos = posEnd,
+					pos = p1,
 					posEnd = posEnd,
 					attrList = nAttrList,
 				}
@@ -268,17 +265,15 @@ local G = lpeg.P { "TypeHintLua";
 
 	HintExpr = vv.EvalExpr + vv.SimpleExpr;
 
-	AtHint = hintC.string(false,
-		symb("@") + symb("@!!"), vv.HintExpr);
+	AtHint = hintC.string(symb("@") + symb("@!!"), vv.HintExpr);
 
-	ColonHint = hintC.string(false,
-		symb(":"), vv.HintExpr);
+	ColonHint = hintC.string(symb(":"), vv.HintExpr);
 
-	LongHint = hintC.string(1,
+	LongHint = hintC.long(
 		symb"::" * vv.Attr * symb"(",
 		vv.ExprListOrEmpty * symbA ")" * (symb":" * vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")")^0);
 
-	TableLongHint = hintC.string(false,
+	TableLongHint = hintC.string(
 		lpeg.P":",
 		(symb":" * vv.Attr)^1 * (
 			symb"(" * vv.ExprListOrEmpty * symbA ")" *
@@ -286,20 +281,17 @@ local G = lpeg.P { "TypeHintLua";
 		)^-1
 	);
 
-	FuncLongHint = hintC.string(false,
-		lpeg.P":",
-		(symb":" * vv.Attr)^1);
+	FuncLongHint = hintC.string(lpeg.P":", (symb":" * vv.Attr)^1);
 
-	HintStat = hintC.string(false,
-		symb("(@"),
+	HintStat = hintC.string(symb("(@"),
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
-		symbA(")"));
+	symbA(")"));
 
-	GenericParHint = hintC.string(false,
-		symb("@<"), vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
+	GenericParHint = hintC.string(symb("@<"),
+		vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
 
-	GenericArgHint = hintC.string(false,
-		symb("@<"), vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
+	GenericArgHint = hintC.string(symb("@<"),
+		vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
 	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
 
@@ -576,10 +568,10 @@ function ParseEnv:makeErrNode(vPos, vErr)
 	}
 end
 
-function ParseEnv:buildHintInfo(vEvalList, vStartPos, vFinishPos)
+function ParseEnv:buildHintInfo(vEvalList, vRealStartPos, vStartPos, vFinishPos)
 	local nHintInfo = {
 		tag = "HintInfo",
-		pos = vStartPos,
+		pos = vRealStartPos,
 		posEnd = vFinishPos + 1,
 	}
 	local nSubject = self._subject
