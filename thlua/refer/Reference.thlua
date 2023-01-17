@@ -4,6 +4,7 @@ const Exception = require "thlua.Exception"
 const TypeReferCom = require "thlua.refer.TypeReferCom"
 const GenericReferCom = require "thlua.refer.GenericReferCom"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const Node = require "thlua.code.Node"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
@@ -13,14 +14,31 @@ end)
 const Reference = TypeClass()
 
 Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.Reference)
-	const nCom = self:waitGenericCom()
-	return nCom:call(...)
+	const nNode = Node.getDebugNode(3)
+	const nArgList:List(class.UAllType) = {...}
+	const nIdList:List(Integer) = {}
+	for i=1,#nArgList do
+		nIdList[i] = nArgList[i]!.id
+	end
+	const nKey = table.concat(nIdList, "-")
+	const nDict = self._callDict
+	local nRefer = nDict[nKey]
+	if not nRefer then
+		nRefer = self._manager:Reference(false)
+		nRefer:setComAsync(nNode, function()
+			const nCom = self:waitGenericCom()
+			return nCom:call(nNode, nKey, nArgList):getComAwait()
+		end)
+		nDict[nKey] = nRefer
+	end
+	return nRefer
 end
 
 function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String))::RetClass(class.Reference, class.IType)
 	local self = setmetatable({::Self()
 		_manager=vManager,
 		_key=vKeyOrFalse,
+		_callDict={}@Dict(String, class.Reference),
 		_assignNode=false@OrFalse(class.IAstNode),
 		_referNodes={}@List(class.IAstNode),
 		_com=false@OrFalse(let.UReferCom),
@@ -82,6 +100,25 @@ function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	self._com = vCom
 	for co, sid in pairs(self._waitComCoToSid) do
 		self._manager:coWakeup(co, sid)
+	end
+end
+
+function Reference:setAssignAsync(vNode:class.IAstNode, vValue:Any)
+	const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(vValue)
+	if not nOkay then
+		error(Exception.new("namespace assign a non-type value", vNode))
+	end
+	if Reference.is(nAssignValue) then
+		self:setComAsync(vNode, function()
+			return nAssignValue:getComAwait()
+		end)
+	elseif type(nAssignValue) == "function" then
+		self:setGenericAsync(vNode, nAssignValue)
+	else
+		self:setRawAsync(vNode, function()
+			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
+			return {nAssignValue}
+		end)
 	end
 end
 

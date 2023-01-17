@@ -22,26 +22,20 @@ function GenericReferCom:build(vFunc:class.GenericFunction)::pass()
 	self._func = vFunc
 end
 
-function GenericReferCom:call(...:class.UAllType)::Ret(class.Reference)
-	const nArgList:List(class.UAllType) = {...}
-	const nIdList:List(Integer) = {}
-	for i=1,#nArgList do
-		nIdList[i] = nArgList[i]!.id
-	end
+function GenericReferCom:call(vNode:class.IAstNode, vKey:String, vArgList:List(class.UAllType))::Ret(class.Reference)
 	const nFn = assert(self._func)
-	const nKey = table.concat(nIdList, "-")
-	local nRefer = self._cache[nKey]
+	local nRefer = self._cache[vKey]
 	if not nRefer then
 		nRefer = self._manager:Reference(false)
-		nRefer:setRawAsync(self._manager:getRuntime():getNode(), function()
-			const nType = nFn(table.unpack(nArgList))
+		nRefer:setRawAsync(vNode, function()
+			const nType = nFn(table.unpack(vArgList))
 			const nRetList:List(class.IAtomType) = {}
 			nType:foreachAwait(function(vAtomType)
 				nRetList[#nRetList + 1] = vAtomType
 			end)
 			return nRetList
 		end)
-		self._cache[nKey] = nRefer
+		self._cache[vKey] = nRefer
 	end
 	return nRefer
 end

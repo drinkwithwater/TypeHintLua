@@ -62,26 +62,10 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
-				const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(newV)
-				if not nOkay then
-					throw("namespace assign a non-type value, key="..tostring(k))
+				if Reference.is(rawgetV) then
+					rawgetV:setAssignAsync(Node.getDebugNode(3), newV)
 				else
-					if Reference.is(rawgetV) then
-						if Reference.is(nAssignValue) then
-							rawgetV:setComAsync(Node.getDebugNode(3), function()
-								return nAssignValue:getComAwait()
-							end)
-						elseif type(nAssignValue) == "function" then
-							rawgetV:setGenericAsync(Node.getDebugNode(3), nAssignValue)
-						else
-							rawgetV:setRawAsync(Node.getDebugNode(3), function()
-								assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
-								return {nAssignValue}
-							end)
-						end
-					else
-						throw("conflict assign : key="..tostring(k))
-					end
+					throw("assign conflict: key="..tostring(k))
 				end
 			else
 				local namespace = Namespace.fromLocalExport(newV)
@@ -89,25 +73,9 @@ function Namespace.new(vManager:class.TypeManager, vNode:class.IAstNode, vIndexT
 					namespace:trySetKey(k)
 					self._key2type[k] = newV
 				else
-					const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(newV)
-					if not nOkay then
-						throw("namespace assign a non-type value, key="..tostring(k))
-					else
-						const refer = self._manager:Reference(k)
-						if Reference.is(nAssignValue) then
-							refer:setComAsync(Node.getDebugNode(3), function()
-								return nAssignValue:getComAwait()
-							end)
-						elseif type(nAssignValue) == "function" then
-							refer:setGenericAsync(Node.getDebugNode(3), nAssignValue)
-						else
-							refer:setRawAsync(Node.getDebugNode(3), function()
-								assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
-								return {nAssignValue}
-							end)
-						end
-						self._key2type[k] = refer
-					end
+					const refer = self._manager:Reference(k)
+					refer:setAssignAsync(Node.getDebugNode(3), newV)
+					self._key2type[k] = refer
 				end
 			end
 		end,
