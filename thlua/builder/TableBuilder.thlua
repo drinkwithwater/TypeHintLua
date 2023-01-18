@@ -16,10 +16,14 @@ end)
 TableBuilder.__index=TableBuilder
 
 function TableBuilder.new(vContext:class.Context,
-	vNode:class.IAstNode, vPairMaker:PairMaker):RetClass(let.TableBuilder)
-	return setmetatable({:Self()
+	vNode:class.IAstNode,
+	vHintInfo:class.TLongHintInfo(class.TableLongHint),
+	vPairMaker:PairMaker
+):RetClass(let.TableBuilder)
+	return setmetatable({.class
 		_context=vContext,
 		_node=vNode,
+		_hintInfo=vHintInfo,
 		_pairMaker=vPairMaker,
 		_selfClassFactory=false@Union(False, class.ClassFactory),
 		_selfInitDict=false@Union(False, Dict(class.UAllType, class.UAllType)),
@@ -27,13 +31,14 @@ function TableBuilder.new(vContext:class.Context,
 end
 
 function TableBuilder._makeLongHint(self:let.TableBuilder):RetClass(class.TableLongHint)
-	return {:Self()
-		Self=function(vLongHint:class.TableLongHint, vInitDict:OrNil(Dict(class.UAllType, class.UAllType))):Ret(class.TableLongHint)
-			const nFnCom = assert(self._context:getRegion(), "region must existed when table:Self()"):getFnCom()
+	return {.class
+		Init=function(vLongHint:class.TableLongHint, vInitDict:Dict(class.UAllType, class.UAllType)):Ret(class.TableLongHint)
+			self._selfInitDict = vInitDict
+			return vLongHint
+		end,
+		Self=function(vLongHint:class.TableLongHint):Ret(class.TableLongHint)
+			const nFnCom = assert(self._context:getRegion(), "region must existed when table.class"):getFnCom()
 			self._selfClassFactory = nFnCom
-			if vInitDict then
-				self._selfInitDict = vInitDict
-			end
 			return vLongHint
 		end,
 	}
@@ -82,16 +87,16 @@ function TableBuilder:_build(vNewTable:class.LuaTable)
 	vNewTable:getDefaultCom():initByKeyValue(nKeyUnion, nTypeDict)
 end
 
-function TableBuilder:build(vHintHandler:class.TLongHintInfo(class.TableLongHint)):Ret(class.LuaTable)
+function TableBuilder:build():Ret(class.LuaTable)
 	local nLongHint = self:_makeLongHint()
-	local ok, err = pcall(vHintHandler.caller, nLongHint)
+	local ok, err = pcall(self._hintInfo.caller, nLongHint)
 	if not ok then
 		error(Exception.new(tostring(result), self._node))
 	end
 	const nContext = self._context
 	const nManager = nContext:getTypeManager()
-	const nClassFactory = self._selfClassFactory
-	if nClassFactory then
+	if self._hintInfo.attrSet.pass then
+		const nClassFactory = assert(self._context:getRegion(), "region must existed when table hint with {.class"):getFnCom()
 		return nClassFactory:regionTableSelf(self._context, self._node, function(vNewTable)
 			self:_build(vNewTable)
 		end)
