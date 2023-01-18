@@ -293,7 +293,11 @@ local G = lpeg.P { "TypeHintLua";
 	-- parser
 	Chunk = tagC.Chunk(Cpos/parF.identDefENV * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
 
-	FuncDef = kw("function") * vv.FuncBody;
+	FuncPrefix = kw("function") * (vv.LongHint + cc(nil));
+	FuncDef = vv.FuncPrefix * vv.FuncBody / function(vHint, vFuncExpr)
+		vFuncExpr.hintPrefix = vHint
+		return vFuncExpr
+	end;
 
 	Constructor = (function()
 		local Pair = tagC.Pair(
@@ -427,7 +431,7 @@ local G = lpeg.P { "TypeHintLua";
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
 		return tagC.Function(lpeg.Cg(vv.GenericParHint, "hintGeneric")^-1*symbA("(") * ParList * symbA(")") *
-			lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA("end"))
+			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
 	AssignStat = (function()
@@ -439,7 +443,10 @@ local G = lpeg.P { "TypeHintLua";
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
 
 	Stat = (function()
-		local LocalFunc = tagC.Localrec(kw"function" * vvA.IdentDefN * vv.FuncBody)
+		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
+			vLocalrec[2].hintPrefix = vHint
+			return vLocalrec
+		end
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
 				Cenv * Cpos * kw"const" * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
@@ -453,14 +460,15 @@ local G = lpeg.P { "TypeHintLua";
 			end
 			local FuncName = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
-			return Cpos * kw("function") * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, prefix, methodName, override, posMid, funcExpr, posEnd)
+			return Cpos * vv.FuncPrefix * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, override, posMid, funcExpr, posEnd)
 				if methodName then
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
-					prefix = makeNameIndex(prefix, methodName)
+					varPrefix = makeNameIndex(varPrefix, methodName)
 				end
+				funcExpr.hintPrefix = hintPrefix
 				return {
 					tag = "Set", pos=pos, override=override, posEnd=posEnd,
-					{ tag="VarList", pos=pos, posEnd=posMid, prefix},
+					{ tag="VarList", pos=pos, posEnd=posMid, varPrefix},
 					{ tag="ExprList", pos=posMid, posEnd=posEnd, funcExpr },
 				}
 			end
