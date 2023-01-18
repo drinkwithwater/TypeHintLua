@@ -34,7 +34,7 @@ function CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer):RetCl
 	return self
 end
 
-function CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error):pass()
+function.pass CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error)
 	local nLine, nColumn = self:fixupPos(vPos)
 	return setmetatable({
 		tag="Error",
@@ -47,7 +47,7 @@ function CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error):pass()
 	}, Node)
 end
 
-function CodeEnv:prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode)):pass()
+function.pass CodeEnv:prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
 	const nNodeList = self._nodeList
 	const nIndex = #nNodeList + 1
 	nNodeList[nIndex] = vNode
@@ -63,7 +63,7 @@ function CodeEnv:prepare()
 
 	-- 1. set line & column, parent
 	local nStack = {}
-	self:visit(function(visitor, vNode):pass()
+	self:visit(function.pass(visitor, vNode)
 		-- 1. prepare
 		self:prepareNode(vNode, nStack[#nStack])
 		nStack[#nStack + 1] = vNode
@@ -89,7 +89,7 @@ function CodeEnv:prepare()
 	end)]]
 end
 
-function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode)):pass()
+function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
 	local visitor = VisitorExtend(vFunc)
 	visitor:realVisit(self._astOrErr)
 end
@@ -161,7 +161,7 @@ function CodeEnv:_init()
 	self._astOrErr = nParseEnv:get()
 end
 
-function CodeEnv:genTypingCode():Ret(String):pass()
+function.pass CodeEnv:genTypingCode():Ret(String)
 	local nAstOrErr = self._astOrErr
 	if nAstOrErr.tag == "Error" then
 		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
@@ -179,7 +179,7 @@ function CodeEnv:genTypingCode():Ret(String):pass()
 	return gener:genCode(nAstOrErr)
 end
 
-function CodeEnv:_buildTypingFn():pass()
+function.pass CodeEnv:_buildTypingFn()
 	local ok, fnOrErr = pcall(function ()
 		local nTypingCode = self:genTypingCode()
 		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
@@ -209,7 +209,7 @@ function CodeEnv:_buildTypingFn():pass()
 	end
 end
 
-function CodeEnv:checkOkay():pass()
+function.pass CodeEnv:checkOkay()
 	if self._astOrErr.tag == "Error" then
 		return false, Exception.new(self._astOrErr[1], self._astOrErr)
 	elseif type(self._typingFn) == "string" then
@@ -229,7 +229,7 @@ function CodeEnv:getAstTree():Ret(node.IAstNode)
 	return self._astOrErr
 end
 
-function CodeEnv:getTypingFn():Ret(Fn(class.Runtime, class.Context, List(class.IAstNode)):Ret(class.LuaFunction)):pass()
+function.pass CodeEnv:getTypingFn():Ret(Fn(class.Runtime, class.Context, List(class.IAstNode)):Ret(class.LuaFunction))
 	return self._typingFn
 end
 
@@ -269,7 +269,7 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident))
 	return nIdent
 end
 
-function CodeEnv:searchName(vPos:Integer):Ret(OrNil(node.Ident)):pass()
+function.pass CodeEnv:searchName(vPos:Integer):Ret(OrNil(node.Ident))
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
 	if not nIndex then
 		return nil

@@ -85,11 +85,6 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):RetClass(class.F
 			self._retTuples = nRetTuples
 			return vLongHint
 		end,
-		pass=function(vLongHint:class.FnLongHint):Ret(class.FnLongHint)
-			assert(not self._fnCom, Exception.new("function builder case conflict"))
-			self._pass=true
-			return vLongHint
-		end,
 		open=function(vLongHint:class.FnLongHint):Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			assert(not self._retTuples, Exception.new("function builder case conflict"))
@@ -113,6 +108,10 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 	local ok, err = pcall(self._suffixHint.caller, nLongHint)
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
+	end
+	const nAttrSet = self._prefixHint.attrSet
+	if nAttrSet.pass then
+		self._pass = true
 	end
 	local nFnCom = self._fnCom
 	if not nFnCom then
