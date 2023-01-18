@@ -468,10 +468,16 @@ function Context:AutoArguments(vNode:class.IAstNode, vArgList:List(VariableOrTyp
 	return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
 end
 
-function Context:FUNC_NEW(vNode:class.IAstNode, vAutoArgs:class.AutoArguments,
-	vHintInfo:class.TLongHintInfo(class.FnLongHint), vHasRet:Boolean, vFunc:class.GenFunc):Ret(class.LuaFunction)
-	const nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
-	const nLuaFunc = nBuilder:build(vHintInfo)
+function Context:FUNC_NEW(
+	vNode:class.IAstNode,
+	vPrefixHint:class.TLongHintInfo(Nil),
+	vAutoArgs:class.AutoArguments,
+	vSuffixHint:class.TLongHintInfo(class.FnLongHint),
+	vHasRet:Boolean,
+	vFunc:class.GenFunc
+):Ret(class.LuaFunction)
+	const nBuilder = FunctionBuilder.new(self, vNode, vPrefixHint, vAutoArgs, vSuffixHint, vHasRet, vFunc)
+	const nLuaFunc = nBuilder:build()
 	const nRegion = self._region
 	return nLuaFunc, nRegion and nRegion:topBranch():getCase()
 end

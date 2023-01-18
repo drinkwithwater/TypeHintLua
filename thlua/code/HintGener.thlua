@@ -614,7 +614,8 @@ end
 
 function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGenResult)
 	const nIsChunk = vNode.tag == "Chunk"
-	const nHintString = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintSuffix)
+	const nHintPrefix = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintPrefix)
+	const nHintSuffix = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintSuffix)
 	const nParList = nIsChunk and vNode[2] or vNode[1]
 	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
 	const nLastNode = nParList[#nParList]
@@ -657,8 +658,9 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
+			nHintPrefix,
 			nParInHead,
-			nHintString,
+			nHintSuffix,
 			tostring(vNode.retFlag or false),
 			self:fnWrap("____newCtx", "vArgTuple")(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
