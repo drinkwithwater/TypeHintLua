@@ -19,8 +19,8 @@ const DefaultTableCom = {}
 DefaultTableCom.__index = DefaultTableCom
 
 function DefaultTableCom.new(vManager:class.TypeManager,
-	vLuaTable:class.LuaTable)::RetClass(class.DefaultTableCom, class.IMetaNative)
-	const self = setmetatable({::Self()
+	vLuaTable:class.LuaTable):RetClass(class.DefaultTableCom, class.IMetaNative)
+	const self = setmetatable({:Self()
 		_manager=vManager,
 		_keyType=vManager.type.Never @class.UAtomUnion,
 		_fieldDict={}@Dict(class.IAtomType, let.TableField),
@@ -33,7 +33,7 @@ function DefaultTableCom.new(vManager:class.TypeManager,
 	return self
 end
 
-function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Dict(class.IAtomType, class.UAtomUnion))::Ret()
+function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Dict(class.IAtomType, class.UAtomUnion)):Ret()
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
@@ -123,7 +123,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride
 	end
 end
 
-function DefaultTableCom:native_rawget(vContext, vKeyType)::Ret(class.UAtomUnion)
+function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(class.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		const nField = self._fieldDict[nKeyContainType]!
@@ -242,7 +242,7 @@ function DefaultTableCom:native_next(vContext, vInitType)
 	return nValueType, nNextDict
 end
 
-function DefaultTableCom:lockAsMetaIndex()::Ret(class.MetaIndexField)
+function DefaultTableCom:lockAsMetaIndex():Ret(class.MetaIndexField)
 	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.castValueType or nField.rawValueType
@@ -254,7 +254,7 @@ function DefaultTableCom:lockAsMetaIndex()::Ret(class.MetaIndexField)
 	}
 end
 
-function DefaultTableCom:lockAsMetaNewIndex()::Ret(class.MetaIndexField)
+function DefaultTableCom:lockAsMetaNewIndex():Ret(class.MetaIndexField)
 	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.castValueType or nField.rawValueType
@@ -275,7 +275,7 @@ function DefaultTableCom:basingByDefault()
 	end
 end
 
-function DefaultTableCom:getCompletion()::Ret(class.LspCompletion)
+function DefaultTableCom:getCompletion():Ret(class.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then
@@ -321,7 +321,7 @@ function DefaultTableCom:implInterface(vContext:class.Context, vInterface:class.
 	end
 end
 
-function DefaultTableCom:castStruct(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion)::Ret(OrFalse(class.MetaObject))
+function DefaultTableCom:castStruct(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion):Ret(OrFalse(class.MetaObject))
 	if self._isBasingDefault then
 		return false
 	end

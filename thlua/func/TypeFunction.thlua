@@ -9,8 +9,8 @@ const TypeFunction = AtomTypeClass()
 (@let.class = import("thlua.type.TypeClass").class)
 
 function TypeFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples))::RetClass(class.TypeFunction, class.IAtomType)
-	const self = setmetatable({::Self()
+	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.TypeFunction, class.IAtomType)
+	const self = setmetatable({:Self()
 		_manager=vManager,
 		_node=vNode,
 		_buildingRetTuples=vRetTuples,
@@ -22,7 +22,7 @@ function TypeFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
 	return self
 end
 
-function TypeFunction:Dots(vType:class.UAllType)::Ret(class.TypeFunction)
+function TypeFunction:Dots(vType:class.UAllType):Ret(class.TypeFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Dots")
 	local nArgTuple = self._argTuple
 	if TypeTupleDots.is(nArgTuple) then
@@ -32,7 +32,7 @@ function TypeFunction:Dots(vType:class.UAllType)::Ret(class.TypeFunction)
 	return self
 end
 
-function TypeFunction:Ret(...:Truth)::Ret(class.TypeFunction)
+function TypeFunction:Ret(...:Truth):Ret(class.TypeFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Ret")
 	local nTypeTuple = self._manager:Tuple(...)
 	local nPreRetTuples = self._buildingRetTuples
@@ -45,12 +45,12 @@ function TypeFunction:Ret(...:Truth)::Ret(class.TypeFunction)
 	return self
 end
 
-function TypeFunction:finish()::Ret(class.TypeFunction)
+function TypeFunction:finish():Ret(class.TypeFunction)
 	self:_buildRetTuples()
 	return self
 end
 
-function TypeFunction:_buildRetTuples()::Ret(class.RetTuples)
+function TypeFunction:_buildRetTuples():Ret(class.RetTuples)
 	local nRetTuples = self._retTuples
 	if not nRetTuples then
 		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
@@ -59,7 +59,7 @@ function TypeFunction:_buildRetTuples()::Ret(class.RetTuples)
 	return nRetTuples
 end
 
-function TypeFunction:isNative()::Ret(False)
+function TypeFunction:isNative():Ret(False)
 	return false
 end
 
@@ -101,7 +101,7 @@ function TypeFunction:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:class.TypeFunction)::Ret(Boolean)
+function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:class.TypeFunction):Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
 	if not vRight:getArgTuple():assumeContainTuple(vAssumeSet, self._argTuple) then
@@ -139,12 +139,12 @@ function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
 	end
 end
 
-function TypeFunction:getArgTuple()::Ret(class.UTypeTuple)
+function TypeFunction:getArgTuple():Ret(class.UTypeTuple)
 	self:_buildRetTuples()
 	return self._argTuple
 end
 
-function TypeFunction:getRetTuples()::Ret(class.RetTuples)
+function TypeFunction:getRetTuples():Ret(class.RetTuples)
 	return self:_buildRetTuples()
 end
 
@@ -160,7 +160,7 @@ function TypeFunction:isSingleton()
 	return false
 end
 
-function TypeFunction.is(vType)::isguard(class.TypeFunction)
+function TypeFunction.is(vType):isguard(class.TypeFunction)
 	return getmetatable(vType) == TypeFunction
 end
 

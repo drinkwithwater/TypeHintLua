@@ -3,6 +3,7 @@ const Region = {}
 const TermCase = require "thlua.term.TermCase"
 const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.runtime.LocalSymbol"
+const Exception = require "thlua.Exception"
 
 const DoBuilder = require "thlua.builder.DoBuilder"
 
@@ -10,13 +11,13 @@ const DoBuilder = require "thlua.builder.DoBuilder"
 (@let.node= import("thlua.code.Node").node)
 
 Region.__index = Region
-Region.__tostring = function(self)::Ret(String)
+Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._context:getNode())
 end
 
-function Region.new(vContext:class.Context, vFnCom:class.UFnCom, vUpCase:class.TermCase)::RetClass(class.Region)
+function Region.new(vContext:class.Context, vFnCom:class.UFnCom, vUpCase:class.TermCase):RetClass(class.Region)
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
-	const self = setmetatable({::Self()
+	const self = setmetatable({:Self()
 		_context=vContext,
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(class.Branch),
@@ -26,11 +27,11 @@ function Region.new(vContext:class.Context, vFnCom:class.UFnCom, vUpCase:class.T
 	return self
 end
 
-function Region:getFnCom()::Ret(class.UFnCom)
+function Region:getFnCom():Ret(class.UFnCom)
 	return self._fnCom
 end
 
-function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn())::Ret(class.Branch)
+function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn()):Ret(class.Branch)
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
@@ -43,7 +44,7 @@ function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn())::Ret(class.Bran
 	return nNewBranch
 end
 
-function Region:topBranch()::Ret(class.Branch)
+function Region:topBranch():Ret(class.Branch)
 	return self._curBranch
 end
 
@@ -53,7 +54,7 @@ function Region:SYMBOL_SET(vNode:class.IAstNode, vSymbol:class.LocalSymbol, vTer
 	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol)::Ret(class.RefineTerm)
+function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol):Ret(class.RefineTerm)
 	local nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
@@ -62,7 +63,7 @@ function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol)::Ret(cla
 	end
 end
 
-function Region:SYMBOL_NEW(vNode:class.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType))::Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:class.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType)):Ret(class.USymbol)
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
 		vTerm = nAssignContext:NilTerm()
@@ -186,7 +187,7 @@ function Region:FOR_NUM(vNode, vStart, vStop, vStepOrNil, vFunc)
 	vFunc(self._context:NumberTerm())
 end
 
-function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm))::Ret(class.RefineTerm)
+function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm)):Ret(class.RefineTerm)
 	local nLeftTrueTerm = vLeftTerm:trueTerm()
 	local nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
@@ -202,7 +203,7 @@ function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRigh
 	end
 end
 
-function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm))::Ret(class.RefineTerm)
+function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm)):Ret(class.RefineTerm)
 	local nLeftFalseTerm = vLeftTerm:falseTerm()
 	local nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
@@ -218,7 +219,7 @@ function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRig
 	end
 end
 
-function Region:LOGIC_NOT(vNode:class.IAstNode, vData:class.RefineTerm)::Ret(class.RefineTerm)
+function Region:LOGIC_NOT(vNode:class.IAstNode, vData:class.RefineTerm):Ret(class.RefineTerm)
 	return vData:notTerm()
 end
 
@@ -262,7 +263,7 @@ function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 	self:topBranch():setStop()
 end
 
-function Region:END(vNode:class.IAstNode)::Ret(class.TermTuple)
+function Region:END(vNode:class.IAstNode):Ret(class.TermTuple)
 	local re = self._fnCom:regionEnd(self._context, vNode, self._retList)
 	self._context:getNamespace():close()
 	self._context:seal()

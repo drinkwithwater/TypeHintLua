@@ -16,8 +16,8 @@ end)
 const MetaEventCom = {}
 MetaEventCom.__index=MetaEventCom
 
-function MetaEventCom.new(vManager:class.TypeManager, vSelfType:Union(class.LuaTable, class.MetaObject))::RetClass(class.MetaEventCom)
-	const self = setmetatable({::Self()
+function MetaEventCom.new(vManager:class.TypeManager, vSelfType:Union(class.LuaTable, class.MetaObject)):RetClass(class.MetaEventCom)
+	const self = setmetatable({:Self()
 		_manager=vManager,
 		_selfType=vSelfType,
 		_bopEq=false,
@@ -38,22 +38,22 @@ function MetaEventCom.new(vManager:class.TypeManager, vSelfType:Union(class.LuaT
 	return self
 end
 
-function MetaEventCom:getBopFunc(vBopEvent:String)::Ret(OrNil(class.TypeFunction))
+function MetaEventCom:getBopFunc(vBopEvent:String):Ret(OrNil(class.TypeFunction))
 	const nField = self._bopDict[vBopEvent]
 	return nField and nField.typeFn
 end
 
-function MetaEventCom:getLenType()::Ret(OrFalse(class.UAtomUnion))
+function MetaEventCom:getLenType():Ret(OrFalse(class.UAtomUnion))
 	return self._uopLen
 end
 
-function MetaEventCom:getPairsFunc()::Ret(OrFalse(class.TypeFunction))
+function MetaEventCom:getPairsFunc():Ret(OrFalse(class.TypeFunction))
 	const nField = self._pairs
 	return nField and nField.typeFn
 end
 
 const function buildFieldFromFn(vContext:class.Context, vEvent:String, vMethodFn:class.UAtomUnion,
-	vSelfOrTypeFn:OrNil(class.TypeFunction, class.LuaTable))::Ret(OrNil(let.MetaFnField))
+	vSelfOrTypeFn:OrNil(class.TypeFunction, class.LuaTable)):Ret(OrNil(let.MetaFnField))
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
 		return nil
@@ -114,7 +114,7 @@ function MetaEventCom:initByLuaTable(vContext:class.Context, vMetaTable:class.De
 	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, nSelfType @ class.LuaTable) or false
 end
 
-const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(class.UAllType))::Ret(OrNil(let.MetaFnField))
+const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(class.UAllType)):Ret(OrNil(let.MetaFnField))
 	if not vTypeFn then
 		return nil
 	end
@@ -157,7 +157,7 @@ end
 function MetaEventCom:mergeField(
 	vEvent:String,
 	vComList:List(class.MetaEventCom),
-	vFieldGetter:Fn(class.MetaEventCom):Ret(OrFalse(let.MetaFnField)))::Ret(OrFalse(let.MetaFnField))
+	vFieldGetter:Fn(class.MetaEventCom):Ret(OrFalse(let.MetaFnField))):Ret(OrFalse(let.MetaFnField))
 	local nRetField:OrFalse(let.MetaFnField) = false
 	for _, vCom in ipairs(vComList) do
 		const nField = vFieldGetter(vCom)

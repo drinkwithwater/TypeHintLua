@@ -22,8 +22,8 @@ const Context = ContextClass()
 (@let.class = import("thlua.type.TypeClass").class)
 
 function Context.new(vRuntime:class.Runtime,
-	vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context))::RetClass(class.Context)
-	const self = setmetatable({::Self()
+	vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context)):RetClass(class.Context)
+	const self = setmetatable({:Self()
 		_runtime=vRuntime,
 		_manager=vRuntime:getTypeManager(),
 		_node=vApplyNode,
@@ -39,7 +39,7 @@ function Context.new(vRuntime:class.Runtime,
 end
 
 --[[
-function Context:testLine(vNode:class.IAstNode, vName:String)::Ret(class.IAstNode):pass()
+function Context:testLine(vNode:class.IAstNode, vName:String):Ret(class.IAstNode):pass()
 	local nInfo = debug.getinfo(2)
 	if nInfo.currentline ~= vNode.l then
 		print(nInfo.currentline, vNode.l, vName, vNode.tag, vNode.kind)
@@ -51,7 +51,7 @@ function Context:setTypeFn(vTypeFn:class.TypeFunction)
 	self._typeFn = vTypeFn
 end
 
-function Context:getTypeFn()::Ret(OrFalse(class.TypeFunction))
+function Context:getTypeFn():Ret(OrFalse(class.TypeFunction))
 	return self._typeFn
 end
 
@@ -61,7 +61,7 @@ function Context:rootSetNamespace(vRootSpace:class.Namespace)
 end
 
 function Context:BEGIN(vLexContext:class.Context, vRegionNode:class.IAstNode,
-	vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase))::Ret(class.Region, class.SpaceTable, class.SpaceTable)
+	vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase)):Ret(class.Region, class.SpaceTable, class.SpaceTable)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vLuaFunc:getFnCom(), vUpCase or TermCase.new())
 	self._region = nRegion
@@ -72,7 +72,7 @@ end
 
 -- pack explist to termtuple or lazyfunc
 (@let.UPackExpr = Union(class.TermTuple, class.RefineTerm, Fn():Ret(class.RefineTerm)))
-function Context:EXPLIST_PACK(vNode:class.IAstNode, vLazy:Boolean, l:List(UPackExpr))::Ret(class.TermTuple):Ret(Fn():Ret(class.TermTuple))
+function Context:EXPLIST_PACK(vNode:class.IAstNode, vLazy:Boolean, l:List(UPackExpr)):Ret(class.TermTuple):Ret(Fn():Ret(class.TermTuple))
 	const nTermFalseList:List(Union(class.RefineTerm, False)) = {}
 	const nIndexToFunc:Dict(Integer, Fn():Ret(class.RefineTerm)) = {}
 	for i=1, #l-1 do
@@ -134,7 +134,7 @@ function Context:EXPLIST_PACK(vNode:class.IAstNode, vLazy:Boolean, l:List(UPackE
 end
 
 -- unpack explist to vNum term | termtuple
-function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(class.RefineTerm, class.TermTuple))::pass()
+function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(class.RefineTerm, class.TermTuple)):pass()
 	const l:List(Union(class.RefineTerm, class.TermTuple)) = {...}
 	const re:List(class.RefineTerm) = {}
 	for i=1, vNum do
@@ -168,7 +168,7 @@ function Context:EXPLIST_UNPACK(vNode:class.IAstNode, vNum:Number, ...:Union(cla
 end
 
 -- unpack in function's argument & for_in
-function Context:TUPLE_UNPACK(vNode:class.IAstNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean)::pass()
+function Context:TUPLE_UNPACK(vNode:class.IAstNode, vTuple:class.TermTuple, vNum:Number, vUseDots:Boolean):pass()
 	const l:List(Union(class.RefineTerm, class.TermTuple)) = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(i)
@@ -180,7 +180,7 @@ function Context:TUPLE_UNPACK(vNode:class.IAstNode, vTuple:class.TermTuple, vNum
 end
 
 -- meta items
-function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil:Boolean)::Ret(class.RefineTerm)
+function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil:Boolean):Ret(class.RefineTerm)
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList:List(class.TypeCasePair) = {}
 	local nOkay = self:nodePcall(vNode, function()
@@ -219,8 +219,8 @@ end
 
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
 (@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
-function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList)::Ret(class.TermTuple)
-	const ok, err = self:nodePcall(vNode, function()::Ret(class.TermTuple)
+function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList):Ret(class.TermTuple)
+	const ok, err = self:nodePcall(vNode, function():Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nNativePair = vNativePair
 		if nNativePair then
@@ -285,7 +285,7 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFu
 end
 
 function Context:META_CALL(vNode:class.IAstNode,
-	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple))::Ret(class.TermTuple)
+	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple)):Ret(class.TermTuple)
 	local nNativePair:OrNil(NativePair) = nil
 	const nFuncArgCaseList:FuncArgCaseList ={}
 	const nNil = self._manager.type.Nil
@@ -318,7 +318,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 end
 
 function Context:META_INVOKE(vNode:class.IAstNode,
-	vTerm:class.RefineTerm, vName:String, vArgTuple:class.TermTuple)::Ret(class.TermTuple)
+	vTerm:class.RefineTerm, vName:String, vArgTuple:class.TermTuple):Ret(class.TermTuple)
 	const nGetContext = self:newSealContext(vNode)
 	local nNativePair:OrNil(NativePair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
@@ -354,7 +354,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 end
 
 function Context:META_EQ_NE(vNode:class.IAstNode,
-	vIsEq:Boolean, vLeftTerm:class.RefineTerm, vRightTerm:class.RefineTerm)::Ret(class.RefineTerm)
+	vIsEq:Boolean, vLeftTerm:class.RefineTerm, vRightTerm:class.RefineTerm):Ret(class.RefineTerm)
 	const nTypeCaseList:List(class.TypeCasePair) = {}
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		vRightTerm:foreach(function(vRightType, vRightTermCase)
@@ -382,7 +382,7 @@ function Context:META_EQ_NE(vNode:class.IAstNode,
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function Context:META_BOP_SOME(vNode:class.IAstNode, vOper:String, vLeftTerm:class.RefineTerm, vRightTerm:class.RefineTerm)::Ret(class.RefineTerm)
+function Context:META_BOP_SOME(vNode:class.IAstNode, vOper:String, vLeftTerm:class.RefineTerm, vRightTerm:class.RefineTerm):Ret(class.RefineTerm)
 	const nBopContext = self:newSealContext(vNode)
 	const nCollection = self._manager:TypeCollection()
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
@@ -413,7 +413,7 @@ function Context:META_BOP_SOME(vNode:class.IAstNode, vOper:String, vLeftTerm:cla
 	return self._manager:RefineTerm(nCollection:mergeToAtomUnion())
 end
 
-function Context:META_UOP(vNode:class.IAstNode, vOper:String, vData:class.RefineTerm)::Ret(class.RefineTerm)
+function Context:META_UOP(vNode:class.IAstNode, vOper:String, vData:class.RefineTerm):Ret(class.RefineTerm)
 	const nUopContext = self:newSealContext(vNode)
 	const nTypeCaseList:List(class.TypeCasePair) = {}
 	if vOper == "#" then
@@ -434,8 +434,8 @@ function Context:META_UOP(vNode:class.IAstNode, vOper:String, vData:class.Refine
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function Context:nodePcall(vNode:class.IAstNode, vFunc:Fn(), ...)::open()
-	const ok, err = xpcall(vFunc, function(exc)::Ret(class.Exception)
+function Context:nodePcall(vNode:class.IAstNode, vFunc:Fn(), ...):open()
+	const ok, err = xpcall(vFunc, function(exc):Ret(class.Exception)
 		if Exception.is(exc) then
 			return exc
 		else
@@ -450,16 +450,16 @@ function Context:nodePcall(vNode:class.IAstNode, vFunc:Fn(), ...)::open()
 	return ok, err
 end
 
-function Context:getRegion()::Ret(class.Region)
+function Context:getRegion():Ret(class.Region)
 	return (assert(self._region, "region not create when context getRegion"))
 end
 
-function Context:getParentContext()::Ret(OrFalse(class.Context))
+function Context:getParentContext():Ret(OrFalse(class.Context))
 	return self._parentContext
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function Context:TABLE_NEW(vNode:class.IAstNode, vHinterHandler:Fn(class.TableLongHint), vPairMaker:PairMaker)::Ret(class.LuaTable)
+function Context:TABLE_NEW(vNode:class.IAstNode, vHinterHandler:Fn(class.TableLongHint), vPairMaker:PairMaker):Ret(class.LuaTable)
 	local nBuilder = TableBuilder.new(self, vNode, vPairMaker)
 	local nLongHint = nBuilder:makeLongHint()
 	local ok, err = pcall(vHinterHandler, nLongHint)
@@ -470,7 +470,7 @@ function Context:TABLE_NEW(vNode:class.IAstNode, vHinterHandler:Fn(class.TableLo
 	return nTableType
 end
 
-function Context:EVAL(vNode:class.IAstNode, vTerm:Truth)::Ret(class.UAtomUnion)
+function Context:EVAL(vNode:class.IAstNode, vTerm:Truth):Ret(class.UAtomUnion)
 	if RefineTerm.is(vTerm) then
 		return vTerm:getType()
 	else
@@ -479,7 +479,7 @@ function Context:EVAL(vNode:class.IAstNode, vTerm:Truth)::Ret(class.UAtomUnion)
 	end
 end
 
-function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.UAllType)::Ret(class.RefineTerm)
+function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.UAllType):Ret(class.RefineTerm)
 	-- TODO check cast valid
 	if not vType:containAll(vTerm:getType()) then
 		-- self:getRuntime():nodeError(vNode, "@ cast fail")
@@ -487,7 +487,7 @@ function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.
 	return self._manager:RefineTerm(vType)
 end
 
-function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType)::Ret(OrFalse(class.UAtomUnion))
+function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType):Ret(OrFalse(class.UAtomUnion))
 	if LuaFunction.is(vSrcType) then
 		const nFnPartType = vDstType:fnPartType()
 		if TypeFunction.is(nFnPartType) then

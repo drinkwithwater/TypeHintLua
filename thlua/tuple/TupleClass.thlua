@@ -4,16 +4,16 @@
 	class.UTypeTuple = Union(class.TypeTuple, class.TypeTupleDots)
 end)
 
-const function TupleClass()::open()
+const function TupleClass():open()
 	const t = {}
 	t.__index=t
 	t.__tostring=function(self)
 		return self:detailString({}, false)
 	end
-	function t.__len(self)::Ret(Number)
+	function t.__len(self):Ret(Number)
 		return #self._list
 	end
-	function t:detailString(vCache:Dict(Truth, String), vVerbose:Boolean)::Ret(String)
+	function t:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 		const re:List(String) = {}
 		for i=1, #self do
 			re[i] = self._list[i]!:detailString(vCache, vVerbose)
@@ -24,7 +24,7 @@ const function TupleClass()::open()
 		end
 		return "Tuple("..table.concat(re, ",")..")"
 	end
-	function t:makeTermTuple()::Ret(class.TermTuple)
+	function t:makeTermTuple():Ret(class.TermTuple)
 		const nTermList:List(class.RefineTerm) = {}
 		for i=1, #self do
 			nTermList[i] = self._manager:RefineTerm(self._list[i]!)
@@ -33,7 +33,7 @@ const function TupleClass()::open()
 		nTermTuple._typeTuple = self
 		return nTermTuple
 	end
-	function t:assumeContainTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:class.UTypeTuple)::Ret(Boolean)
+	function t:assumeContainTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:class.UTypeTuple):Ret(Boolean)
 		const nLeftRepeatType = self:getRepeatType()
 		const nRightRepeatType = vRightTypeTuple:getRepeatType()
 		if (not nLeftRepeatType) and nRightRepeatType then
@@ -67,7 +67,7 @@ const function TupleClass()::open()
 		end
 		return true
 	end
-	function t:containTuple(vRightTypeTuple:class.UTypeTuple)::Ret(Boolean)
+	function t:containTuple(vRightTypeTuple:class.UTypeTuple):Ret(Boolean)
 		return self:assumeContainTuple(nil, vRightTypeTuple)
 	end
 	return t

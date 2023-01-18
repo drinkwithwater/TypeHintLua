@@ -20,8 +20,8 @@ local Client = {}
 
 Client.__index = Client
 
-function Client.new()::RetClass(lsp.Client)
-	local self = setmetatable({::Self()
+function Client.new():RetClass(lsp.Client)
+	local self = setmetatable({:Self()
 		initialize=false@Boolean,
 		shutdown=false,
 		root="",
@@ -46,7 +46,7 @@ function Client:searchDefine(vFileName, vLine, vColumn)
 	return nil
 end
 
-function Client:syncFile(vContent, vFileName, vVersion)::Ret(True):Ret(False, class.IAstNode):Ret(True)
+function Client:syncFile(vContent, vFileName, vVersion):Ret(True):Ret(False, class.IAstNode):Ret(True)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
@@ -110,7 +110,7 @@ function Client:thluaParseFile(vFileName)
 	return nCodeEnv
 end
 
-function Client:getSuccCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
+function Client:getSuccCodeEnv(vFileName):Ret(Nil):Ret(class.CodeEnv)
 	local nState = self.fileStateDict[vFileName]
 	if nState then
 		return nState.succCodeEnv
@@ -119,7 +119,7 @@ function Client:getSuccCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
 	end
 end
 
-function Client:getDirtyCodeEnv(vFileName)::Ret(Nil):Ret(class.CodeEnv)
+function Client:getDirtyCodeEnv(vFileName):Ret(Nil):Ret(class.CodeEnv)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
 		self:error(vFileName, "has no file state")
@@ -133,11 +133,11 @@ function Client:mainLoop()
 	end
 end
 
-local function reqToStr(vRequest)::Ret(String)
+local function reqToStr(vRequest):Ret(String)
 	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
 end
 
-function Client:rpc()::Ret()
+function Client:rpc():Ret()
 	local request = self:readRequest()
 	local methodName = request.method
 	local nId = request.id
@@ -173,7 +173,7 @@ function Client:rpc()::Ret()
 	end
 end
 
-function Client:readRequest()::Ret(lsp.RequestMessage)
+function Client:readRequest():Ret(lsp.RequestMessage)
 	-- 1 get header
 	local length:Number = -1
 	while true do
@@ -218,7 +218,7 @@ function Client:readRequest()::Ret(lsp.RequestMessage)
 	return obj
 end
 
-function Client:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:String, vData:String)::Ret()
+function Client:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:String, vData:String):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -230,7 +230,7 @@ function Client:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:St
 	})
 end
 
-function Client:writeResult(vId:Union(Number, String, Nil), vResult:Truth)::Ret()
+function Client:writeResult(vId:Union(Number, String, Nil), vResult:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -238,7 +238,7 @@ function Client:writeResult(vId:Union(Number, String, Nil), vResult:Truth)::Ret(
 	})
 end
 
-function Client:notify(vMethod:String, vParams:Truth)::Ret()
+function Client:notify(vMethod:String, vParams:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		method = vMethod,
@@ -329,7 +329,7 @@ MessageType.WARNING = 2
 MessageType.INFO = 3
 MessageType.DEBUG = 4
 
-function Client:packToString(vDepth, ...:Truth)::Ret(String)
+function Client:packToString(vDepth, ...:Truth):Ret(String)
 	local nInfo = debug.getinfo(vDepth)
 	local nPrefix = nInfo.source..":"..nInfo.currentline
 	local l = {nPrefix} @ List(String)
@@ -339,21 +339,21 @@ function Client:packToString(vDepth, ...:Truth)::Ret(String)
 	return table.concat(l, " ")
 end
 
-function Client:error(...:Truth)::Ret()
+function Client:error(...:Truth):Ret()
 	self:notify("window/logMessage", {
 		message = self:packToString(3, ...),
 		type = MessageType.ERROR,
 	})
 end
 
-function Client:warn(...:Truth)::Ret()
+function Client:warn(...:Truth):Ret()
 	self:notify("window/logMessage", {
 		message = self:packToString(3, ...),
 		type = MessageType.WARNING,
 	})
 end
 
-function Client:info(...:Truth)::Ret()
+function Client:info(...:Truth):Ret()
 	self:notify("window/logMessage", {
 		message = self:packToString(3, ...),
 		type = MessageType.INFO,

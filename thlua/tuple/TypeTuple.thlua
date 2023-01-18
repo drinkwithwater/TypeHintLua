@@ -7,8 +7,8 @@ const TypeTuple = TupleClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function TypeTuple.new(vManager:class.TypeManager, vList:List(class.UAllType))::RetClass(class.TypeTuple)
-	const self = setmetatable({::Self()
+function TypeTuple.new(vManager:class.TypeManager, vList:List(class.UAllType)):RetClass(class.TypeTuple)
+	const self = setmetatable({:Self()
 		_manager=vManager,
 		_list=vList,
 		_repeatType=false,
@@ -16,24 +16,24 @@ function TypeTuple.new(vManager:class.TypeManager, vList:List(class.UAllType))::
 	return self
 end
 
-function TypeTuple:getRepeatType()::Ret(False)
+function TypeTuple:getRepeatType():Ret(False)
 	return false
 end
 
-function TypeTuple:Dots(vType:class.UAllType)::Ret(class.TypeTupleDots)
+function TypeTuple:Dots(vType:class.UAllType):Ret(class.TypeTupleDots)
 	return TypeTupleDots.new(self._manager, self._list, vType)
 end
 
-function TypeTuple:replaceFirst(vType:class.UAtomUnion)::Ret(class.TypeTuple)
+function TypeTuple:replaceFirst(vType:class.UAtomUnion):Ret(class.TypeTuple)
 	const nTuple = self._manager:Tuple(vType, table.unpack(self._list, 2))
 	return nTuple
 end
 
-function TypeTuple:get(i:Number)::Ret(class.UAllType)
+function TypeTuple:get(i:Number):Ret(class.UAllType)
 	return self._list[i] or self._manager.type.Nil
 end
 
-function TypeTuple:castOrIn(vContext:class.Context, vDstTypeTuple:class.UTypeTuple)::Ret(Boolean)
+function TypeTuple:castOrIn(vContext:class.Context, vDstTypeTuple:class.UTypeTuple):Ret(Boolean)
 	if #self < #vDstTypeTuple then
 		for i=#self + 1, #vDstTypeTuple do
 			if not vDstTypeTuple:get(i):isNilable() then
@@ -64,11 +64,11 @@ function TypeTuple:castOrIn(vContext:class.Context, vDstTypeTuple:class.UTypeTup
 	return true
 end
 
-function TypeTuple:select(i)::Ret(class.TypeTuple)
+function TypeTuple:select(i):Ret(class.TypeTuple)
 	return self._manager:Tuple(table.unpack(self._list, i))
 end
 
-function TypeTuple.is(t)::isguard(class.TypeTuple)
+function TypeTuple.is(t):isguard(class.TypeTuple)
 	return getmetatable(t) == TypeTuple
 end
 

@@ -11,8 +11,8 @@ const LuaFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function LuaFunction.new(vManager:class.TypeManager)::RetClass(class.LuaFunction, class.IAtomType)
-	local self = setmetatable({::Self()
+function LuaFunction.new(vManager:class.TypeManager):RetClass(class.LuaFunction, class.IAtomType)
+	local self = setmetatable({:Self()
 		_manager=vManager,
 		_context=false@class.Context,
 		_node=false@class.IAstNode,
@@ -38,15 +38,15 @@ function LuaFunction:init(vContext:class.Context, vNode:class.IAstNode, vAutoArg
 	self.name = tostring(vNode)
 end
 
-function LuaFunction:newInplaceSealContext()::Ret(class.Context)
+function LuaFunction:newInplaceSealContext():Ret(class.Context)
 	return self._context:newSealContext(self._node)
 end
 
-function LuaFunction:newInplaceOpenContext()::Ret(class.Context)
+function LuaFunction:newInplaceOpenContext():Ret(class.Context)
 	return self._context:newOpenContext(self._node)
 end
 
-function LuaFunction:isNative()::Ret(Boolean)
+function LuaFunction:isNative():Ret(Boolean)
 	return OpenFnCom.is(self._unionFnCom)
 end
 
@@ -54,11 +54,11 @@ function LuaFunction:detailString(v, vVerbose)
 	return "LuaFunction-"..self.name
 end
 
-function LuaFunction:getFnCom()::Ret(class.UFnCom)
+function LuaFunction:getFnCom():Ret(class.UFnCom)
 	return self._unionFnCom
 end
 
-function LuaFunction:meta_native_call(vContext:class.Context, vTermTuple:class.TermTuple)::Ret(class.TermTuple)
+function LuaFunction:meta_native_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
 	local nFnCom = self._unionFnCom
 	if OpenFnCom.is(nFnCom) then
 		return nFnCom:meta_native_call(vContext, vTermTuple)
@@ -103,7 +103,7 @@ function LuaFunction:native_type()
 	return self._manager:Literal("function")
 end
 
-function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction)::Ret(OrFalse(class.TypeFunction))
+function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(OrFalse(class.TypeFunction))
 	local nUnionFnCom = self._unionFnCom
 	if LateFnCom.is(nUnionFnCom) then
 		return nUnionFnCom:castSpecialize(vContext, vTypeFn)
@@ -112,7 +112,7 @@ function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction)::R
 	end
 end
 
-function LuaFunction:specialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable), vTypeFn:OrNil(class.TypeFunction))::Ret(class.TypeFunction)
+function LuaFunction:specialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable), vTypeFn:OrNil(class.TypeFunction)):Ret(class.TypeFunction)
 	local nUnionCom = self._unionFnCom
 	assert(LateFnCom.is(nUnionCom), "only LateFnCom can specificate")
 	if not vSelfType then
@@ -126,7 +126,7 @@ function LuaFunction:specialize(vContext:class.Context, vSelfType:OrNil(class.Lu
 	end
 end
 
-function LuaFunction:isMember()::Ret(Boolean)
+function LuaFunction:isMember():Ret(Boolean)
 	return self._autoArgs:hasSelf() and LateFnCom.is(self._unionFnCom)
 end
 
@@ -138,11 +138,11 @@ function LuaFunction:mayRecursive()
 	return true
 end
 
-function LuaFunction:getNode()::Ret(class.IAstNode)
+function LuaFunction:getNode():Ret(class.IAstNode)
 	return self._node
 end
 
-function LuaFunction.is(vType)::isguard(class.LuaFunction)
+function LuaFunction.is(vType):isguard(class.LuaFunction)
 	return getmetatable(vType) == LuaFunction
 end
 

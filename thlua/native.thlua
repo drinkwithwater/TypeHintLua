@@ -16,7 +16,7 @@ local native = {}
 	let.StringToAtomUnion = Dict(String, class.UAtomUnion)
 end)
 
-function native._toTable(vManager:class.TypeManager, vTable:let.StringToAtomUnion)::Ret(class.LuaTable)
+function native._toTable(vManager:class.TypeManager, vTable:let.StringToAtomUnion):Ret(class.LuaTable)
 	local nPairList:List(Struct{class.UAtomUnion, class.UAtomUnion}) = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
@@ -29,7 +29,7 @@ function native._toTable(vManager:class.TypeManager, vTable:let.StringToAtomUnio
 	return nTable
 end
 
-function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
+function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 	const nManager = vRuntime:getTypeManager()
 	const global:StringToAtomUnion = {
 		--- meta_native
@@ -233,7 +233,7 @@ function native.make(vRuntime:class.Runtime)::Ret(class.LuaTable)
 	return nGlobalTable
 end
 
-function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
+function native.make_math(vManager:class.TypeManager):Ret(class.LuaTable)
 	const type = vManager.type
 	const math:StringToAtomUnion = {
 		random=vManager:checkedFn():Dots(type.Number):Ret(type.Number),
@@ -246,7 +246,7 @@ function native.make_math(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_debug(vManager:class.TypeManager)::Ret(class.LuaTable)
+function native.make_debug(vManager:class.TypeManager):Ret(class.LuaTable)
 	-- debug.traceback's arguments TODO
 	const type = vManager.type
 	const debug:StringToAtomUnion = {
@@ -257,7 +257,7 @@ function native.make_debug(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_io(vManager:class.TypeManager)::Ret(class.LuaTable)
+function native.make_io(vManager:class.TypeManager):Ret(class.LuaTable)
 	const type = vManager.type
 	const io:StringToAtomUnion = {
 		read=vManager:checkedFn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
@@ -269,7 +269,7 @@ function native.make_io(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_coroutine(vManager:class.TypeManager)::Ret(class.LuaTable)
+function native.make_coroutine(vManager:class.TypeManager):Ret(class.LuaTable)
 	const type = vManager.type
 	const nStatusUnion = vManager:checkedUnion(
 		vManager:Literal("running"),
@@ -289,7 +289,7 @@ function native.make_coroutine(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
+function native.make_string(vManager:class.TypeManager):Ret(class.LuaTable)
 	const type = vManager.type
 	const string:StringToAtomUnion = {
 		rep=vManager:checkedFn(type.String, type.Integer, vManager:checkedUnion(type.String, type.Integer, type.Nil)):Ret(type.String),
@@ -307,8 +307,8 @@ function native.make_string(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
-	const function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String)::Ret(class.UAtomUnion)
+function native.make_table(vManager:class.TypeManager):Ret(class.LuaTable)
+	const function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String):Ret(class.UAtomUnion)
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
 		vType:foreach(function(vSubType)
@@ -374,7 +374,7 @@ function native.make_table(vManager:class.TypeManager)::Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_inext(vManager:class.TypeManager)::Ret(class.IAtomType)
+function native.make_inext(vManager:class.TypeManager):Ret(class.IAtomType)
 	local nNumber = vManager.type.Number
 	local nNil = vManager.type.Nil
 	return vManager:NativeFunction(function(vContext, vTermTuple)
@@ -403,7 +403,7 @@ function native.make_inext(vManager:class.TypeManager)::Ret(class.IAtomType)
 	end)
 end
 
-function native.make_next(vManager:class.TypeManager)::Ret(class.IAtomType)
+function native.make_next(vManager:class.TypeManager):Ret(class.IAtomType)
 	return vManager:NativeFunction(function(vContext, vTermTuple)
 		local nType1 = vTermTuple:get(1):getType()
 		nType1 = nType1:trueType()
@@ -427,12 +427,12 @@ function native.make_next(vManager:class.TypeManager)::Ret(class.IAtomType)
 	end)
 end
 
-function native.make_mathematic(vManager:class.TypeManager)::Ret(class.IAtomType)
+function native.make_mathematic(vManager:class.TypeManager):Ret(class.IAtomType)
 	local nNumber = vManager.type.Number
 	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 end
 
-function native.make_comparison(vManager:class.TypeManager)::Ret(class.IAtomType)
+function native.make_comparison(vManager:class.TypeManager):Ret(class.IAtomType)
 	local nNumber = vManager.type.Number
 	return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
 end

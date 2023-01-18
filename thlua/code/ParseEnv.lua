@@ -163,8 +163,12 @@ local hintC={
 			return env:buildHintInfo(evalList, p1, p2, p3-1)
 		end
 	end,
-	long=function(pattBegin, pattBody)
-		return Cenv * Cpos * pattBegin * vv.HintBegin * pattBody * vv.HintEnd * Cpos / function(env, p1, ...)
+	long=function()
+		local colonInvoke = vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")";
+		local pattBody = (
+			(symb"."*vv.HintBegin*vvA.Attr)^1+symb":"*vv.HintBegin*colonInvoke
+		)*(symb":"*colonInvoke)^0*vv.HintEnd
+		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
 			env:markDel(p1, posEnd-1)
@@ -269,19 +273,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	ColonHint = hintC.string(symb(":"), vv.HintExpr);
 
-	LongHint = hintC.long(
-		symb"::" * vv.Attr * symb"(",
-		vv.ExprListOrEmpty * symbA ")" * (symb":" * vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")")^0);
-
-	TableLongHint = hintC.string(
-		lpeg.P":",
-		(symb":" * vv.Attr)^1 * (
-			symb"(" * vv.ExprListOrEmpty * symbA ")" *
-			(symb":" * vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")")^0
-		)^-1
-	);
-
-	FuncLongHint = hintC.string(lpeg.P":", (symb":" * vv.Attr)^1);
+	LongHint = hintC.long();
 
 	HintStat = hintC.string(symb("(@"),
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),

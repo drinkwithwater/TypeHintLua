@@ -8,12 +8,12 @@ end
 (@let.class = import("thlua.type.TypeClass").class)
 
 function RetTuples.new(vManager:class.TypeManager,
-	vFirstType:class.UAllType, vFirstToTuple:Dict(class.UAllType, class.TypeTuple))::RetClass(class.RetTuples)
+	vFirstType:class.UAllType, vFirstToTuple:Dict(class.UAllType, class.TypeTuple)):RetClass(class.RetTuples)
 	local nTupleCount = 0
 	for k,v in pairs(vFirstToTuple) do
 		nTupleCount = nTupleCount + 1
 	end
-	const self = setmetatable({::Self()
+	const self = setmetatable({:Self()
 		_manager=vManager,
 		_firstType=vFirstType,
 		_firstToTuple=vFirstToTuple,
@@ -22,11 +22,11 @@ function RetTuples.new(vManager:class.TypeManager,
 	return self
 end
 
-function RetTuples:getTupleCount()::Ret(Number)
+function RetTuples:getTupleCount():Ret(Number)
 	return self._tupleCount
 end
 
-function RetTuples:detailString(vCache:Dict(Truth, String), vVerbose:Boolean)::Ret(String)
+function RetTuples:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	local re:List(String) = {}
 	for _, t in pairs(self._firstToTuple) do
 		re[#re+1] = t:detailString(vCache, vVerbose)
@@ -34,7 +34,7 @@ function RetTuples:detailString(vCache:Dict(Truth, String), vVerbose:Boolean)::R
 	return "("..table.concat(re, "|")..")"
 end
 
-function RetTuples:assumeContainTuples(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRetTuples:class.RetTuples)::Ret(Boolean)
+function RetTuples:assumeContainTuples(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRetTuples:class.RetTuples):Ret(Boolean)
 	for _, t in pairs(vRetTuples._firstToTuple) do
 		if not self:assumeContainTuple(vAssumeSet, t) then
 			return false
@@ -43,11 +43,11 @@ function RetTuples:assumeContainTuples(vAssumeSet:OrNil(Dict(Integer, Boolean)),
 	return true
 end
 
-function RetTuples:containTuples(vRetTuples:class.RetTuples)::Ret(Boolean)
+function RetTuples:containTuples(vRetTuples:class.RetTuples):Ret(Boolean)
 	return self:assumeContainTuples(nil, vRetTuples)
 end
 
-function RetTuples:assumeContainTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
+function RetTuples:assumeContainTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:class.TypeTuple):Ret(Boolean)
 	for _, t in pairs(self._firstToTuple) do
 		if t:assumeContainTuple(vAssumeSet, vRightTypeTuple) then
 			return true
@@ -56,7 +56,7 @@ function RetTuples:assumeContainTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), 
 	return false
 end
 
-function RetTuples:containTuple(vRightTypeTuple:class.TypeTuple)::Ret(Boolean)
+function RetTuples:containTuple(vRightTypeTuple:class.TypeTuple):Ret(Boolean)
 	return self:assumeContainTuple(nil, vRightTypeTuple)
 end
 
@@ -66,11 +66,11 @@ function RetTuples:foreachWithFirst(vFunc:Fn(class.TypeTuple, class.UAllType):Re
 	end
 end
 
-function RetTuples:getFirstType()::Ret(class.UAllType)
+function RetTuples:getFirstType():Ret(class.UAllType)
 	return self._firstType
 end
 
-function RetTuples.is(t)::isguard(class.RetTuples)
+function RetTuples.is(t):isguard(class.RetTuples)
 	return getmetatable(t) == RetTuples
 end
 

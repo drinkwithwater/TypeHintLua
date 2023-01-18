@@ -14,8 +14,8 @@ end)
 local CodeEnv = {}
 CodeEnv.__index=CodeEnv
 
-function CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer)::RetClass(class.CodeEnv)
-	local self = setmetatable({::Self()
+function CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer):RetClass(class.CodeEnv)
+	local self = setmetatable({:Self()
 		_linePosList = {}@List(Struct{pos=Integer, posEnd=Integer}),
 		_subject = vSubject,
 		_chunkName = vChunkName,
@@ -34,7 +34,7 @@ function CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer)::RetC
 	return self
 end
 
-function CodeEnv:makeErrNode(vPos:Integer, vErr:String)::Ret(node.Error):pass()
+function CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error):pass()
 	local nLine, nColumn = self:fixupPos(vPos)
 	return setmetatable({
 		tag="Error",
@@ -47,7 +47,7 @@ function CodeEnv:makeErrNode(vPos:Integer, vErr:String)::Ret(node.Error):pass()
 	}, Node)
 end
 
-function CodeEnv:prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))::pass()
+function CodeEnv:prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode)):pass()
 	const nNodeList = self._nodeList
 	const nIndex = #nNodeList + 1
 	nNodeList[nIndex] = vNode
@@ -63,7 +63,7 @@ function CodeEnv:prepare()
 
 	-- 1. set line & column, parent
 	local nStack = {}
-	self:visit(function(visitor, vNode)::pass()
+	self:visit(function(visitor, vNode):pass()
 		-- 1. prepare
 		self:prepareNode(vNode, nStack[#nStack])
 		nStack[#nStack + 1] = vNode
@@ -89,12 +89,12 @@ function CodeEnv:prepare()
 	end)]]
 end
 
-function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))::pass()
+function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode)):pass()
 	local visitor = VisitorExtend(vFunc)
 	visitor:realVisit(self._astOrErr)
 end
 
-function CodeEnv:binSearch(vList, vPos)::open()
+function CodeEnv:binSearch(vList, vPos):open()
 	if #vList <= 0 then
 		return false
 	end
@@ -121,7 +121,7 @@ function CodeEnv:binSearch(vList, vPos)::open()
 end
 
 -- pos to line & column
-function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode))::Ret(Integer, Integer)
+function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
 	local line, lineInfo = self:binSearch(self._linePosList, vPos)
 	if not line or not lineInfo then
 		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
@@ -161,7 +161,7 @@ function CodeEnv:_init()
 	self._astOrErr = nParseEnv:get()
 end
 
-function CodeEnv:genTypingCode()::Ret(String):pass()
+function CodeEnv:genTypingCode():Ret(String):pass()
 	local nAstOrErr = self._astOrErr
 	if nAstOrErr.tag == "Error" then
 		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
@@ -179,7 +179,7 @@ function CodeEnv:genTypingCode()::Ret(String):pass()
 	return gener:genCode(nAstOrErr)
 end
 
-function CodeEnv:_buildTypingFn()::pass()
+function CodeEnv:_buildTypingFn():pass()
 	local ok, fnOrErr = pcall(function ()
 		local nTypingCode = self:genTypingCode()
 		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
@@ -209,7 +209,7 @@ function CodeEnv:_buildTypingFn()::pass()
 	end
 end
 
-function CodeEnv:checkOkay()::pass()
+function CodeEnv:checkOkay():pass()
 	if self._astOrErr.tag == "Error" then
 		return false, Exception.new(self._astOrErr[1], self._astOrErr)
 	elseif type(self._typingFn) == "string" then
@@ -221,19 +221,19 @@ function CodeEnv:checkOkay()::pass()
 	end
 end
 
-function CodeEnv:getNodeList()::Ret(List(class.IAstNode))
+function CodeEnv:getNodeList():Ret(List(class.IAstNode))
 	return self._nodeList
 end
 
-function CodeEnv:getAstTree()::Ret(node.IAstNode)
+function CodeEnv:getAstTree():Ret(node.IAstNode)
 	return self._astOrErr
 end
 
-function CodeEnv:getTypingFn()::Ret(Fn(class.Runtime, class.Context, List(class.IAstNode)):Ret(class.LuaFunction)):pass()
+function CodeEnv:getTypingFn():Ret(Fn(class.Runtime, class.Context, List(class.IAstNode)):Ret(class.LuaFunction)):pass()
 	return self._typingFn
 end
 
-function CodeEnv:lcToPos(l:Integer, c:Integer)::Ret(Integer)
+function CodeEnv:lcToPos(l:Integer, c:Integer):Ret(Integer)
 	local nLineInfo = self._linePosList[l]
 	if nLineInfo then
 		return nLineInfo.pos + c - 1
@@ -242,7 +242,7 @@ function CodeEnv:lcToPos(l:Integer, c:Integer)::Ret(Integer)
 	end
 end
 
-function CodeEnv:searchScopeByTrace(vList:List(Integer))::Ret(node.Block)
+function CodeEnv:searchScopeByTrace(vList:List(Integer)):Ret(node.Block)
 	local nScope = self._rootScope
 	assert(nScope, "scope not setted")
 	for i=1,#vList-1 do
@@ -252,7 +252,7 @@ function CodeEnv:searchScopeByTrace(vList:List(Integer))::Ret(node.Block)
 	return nScope
 end
 
-function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Ident))
+function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident))
 	local nErrExpr = vErrorNode[2]
 	if not nErrExpr or nErrExpr.tag ~= "Ident" then
 		-- other typp TODO
@@ -269,7 +269,7 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error)::Ret(OrNil(node.Ident)
 	return nIdent
 end
 
-function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Ident)):pass()
+function CodeEnv:searchName(vPos:Integer):Ret(OrNil(node.Ident)):pass()
 	local nIndex, nNode = self:binSearch(self._nameList, vPos)
 	if not nIndex then
 		return nil
@@ -280,15 +280,15 @@ function CodeEnv:searchName(vPos:Integer)::Ret(OrNil(node.Ident)):pass()
 	return nNode
 end
 
-function CodeEnv:getContent()::Ret(String)
+function CodeEnv:getContent():Ret(String)
 	return self._subject
 end
 
-function CodeEnv:getVersion()::Ret(Integer)
+function CodeEnv:getVersion():Ret(Integer)
 	return self._version
 end
 
-function CodeEnv:getChunkName()::Ret(String)
+function CodeEnv:getChunkName():Ret(String)
 	return self._chunkName
 end
 

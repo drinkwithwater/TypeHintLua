@@ -13,7 +13,7 @@ end)
 
 const Reference = TypeClass()
 
-Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.Reference)
+Reference.__call=function(self:class.Reference, ...:class.UAllType):Ret(class.Reference)
 	-- TODO, cast
 	const nNode = Node.getDebugNode(3)
 	const nArgList:List(class.UAllType) = {...}
@@ -41,8 +41,8 @@ Reference.__call=function(self:class.Reference, ...:class.UAllType)::Ret(class.R
 	return nRefer
 end
 
-function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String))::RetClass(class.Reference, class.IType)
-	local self = setmetatable({::Self()
+function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):RetClass(class.Reference, class.IType)
+	local self = setmetatable({:Self()
 		_manager=vManager,
 		_key=vKeyOrFalse,
 		_callDict={}@Dict(String, class.Reference),
@@ -68,11 +68,11 @@ function Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):
 	return self
 end
 
-function Reference:getKey()::Ret(OrFalse(String))
+function Reference:getKey():Ret(OrFalse(String))
 	return self._key
 end
 
-function Reference:getSelfCo()::Ret(Thread)
+function Reference:getSelfCo():Ret(Thread)
 	return self._selfCo
 end
 
@@ -80,7 +80,7 @@ function Reference:detailString(v, vVerbose)
 	return "Reference("..(self._key or tostring(self._assignNode))..")"
 end
 
-function Reference:getComAwait()::Ret(let.UReferCom)
+function Reference:getComAwait():Ret(let.UReferCom)
 	if not self._com then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
@@ -91,13 +91,13 @@ function Reference:getComAwait()::Ret(let.UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom()::Ret(class.TypeReferCom)
+function Reference:waitTypeCom():Ret(class.TypeReferCom)
 	const nCom = self:getComAwait()
 	assert(TypeReferCom.is(nCom), "type reference expected, but get some other reference")
 	return nCom
 end
 
-function Reference:waitGenericCom()::Ret(class.GenericReferCom)
+function Reference:waitGenericCom():Ret(class.GenericReferCom)
 	const nCom = self:getComAwait()
 	assert(GenericReferCom.is(nCom), "generic reference expected, but get some other reference")
 	return nCom
@@ -148,11 +148,11 @@ function Reference:setRawAsync(vNode:class.IAstNode,
 	end)
 end
 
-function Reference:getAssignNode()::Ret(OrFalse(class.IAstNode))
+function Reference:getAssignNode():Ret(OrFalse(class.IAstNode))
 	return self._assignNode
 end
 
-function Reference:getReferNode()::Ret(List(class.IAstNode))
+function Reference:getReferNode():Ret(List(class.IAstNode))
 	return self._referNodes
 end
 
@@ -161,7 +161,7 @@ function Reference:pushReferNode(vNode:class.IAstNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:checkAtomUnion()::Ret(class.UAtomUnion)
+function Reference:checkAtomUnion():Ret(class.UAtomUnion)
 	return self:waitTypeCom():getTypeAwait()
 end
 
@@ -169,11 +169,11 @@ function Reference:isNilable()
 	return self:checkAtomUnion():isNilable()
 end
 
-function Reference:isUnion()::Ret(Boolean)
+function Reference:isUnion():Ret(Boolean)
 	return self:checkAtomUnion():isUnion()
 end
 
-function Reference:isReference()::Ret(True)
+function Reference:isReference():Ret(True)
 	return true
 end
 
@@ -290,7 +290,7 @@ function Reference:falseType()
 	return self:checkAtomUnion():falseType()
 end
 
-function Reference.is(v)::isguard(class.Reference)
+function Reference.is(v):isguard(class.Reference)
 	return getmetatable(v) == Reference
 end
 

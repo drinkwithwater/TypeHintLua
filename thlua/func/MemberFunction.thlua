@@ -9,13 +9,13 @@ MemberFunction.__index=MemberFunction
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function MemberFunction.__tostring(self:class.MemberFunction)::Ret(String)
+function MemberFunction.__tostring(self:class.MemberFunction):Ret(String)
 	return self:detailString({}, true)
 end
 
 function MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples))::RetClass(class.MemberFunction)
-	local self = setmetatable({::Self()
+	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.MemberFunction)
+	local self = setmetatable({:Self()
 		_manager=vManager,
 		_node=vNode,
 		_buildingRetTuples=vRetTuples,
@@ -26,7 +26,7 @@ function MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
 	return self
 end
 
-function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean)::Ret(String)
+function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	const nRetTuples = self:_buildRetTuples()
 	local nCache = vToStringCache[self]
 	if nCache then
@@ -39,7 +39,7 @@ function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbos
 	return nResult
 end
 
-function MemberFunction:Dots(vType:class.UAllType)::Ret(class.MemberFunction)
+function MemberFunction:Dots(vType:class.UAllType):Ret(class.MemberFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Dots")
 	local nArgTuple = self._argTuple
 	if TypeTupleDots.is(nArgTuple) then
@@ -49,7 +49,7 @@ function MemberFunction:Dots(vType:class.UAllType)::Ret(class.MemberFunction)
 	return self
 end
 
-function MemberFunction:Ret(...:Truth)::Ret(class.MemberFunction)
+function MemberFunction:Ret(...:Truth):Ret(class.MemberFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Ret")
 	local nTypeTuple = self._manager:Tuple(...)
 	local nPreRetTuples = self._buildingRetTuples
@@ -62,12 +62,12 @@ function MemberFunction:Ret(...:Truth)::Ret(class.MemberFunction)
 	return self
 end
 
-function MemberFunction:finish()::Ret(class.MemberFunction)
+function MemberFunction:finish():Ret(class.MemberFunction)
 	self:_buildRetTuples()
 	return self
 end
 
-function MemberFunction:_buildRetTuples()::Ret(class.RetTuples)
+function MemberFunction:_buildRetTuples():Ret(class.RetTuples)
 	local nRetTuples = self._retTuples
 	if not nRetTuples then
 		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
@@ -76,7 +76,7 @@ function MemberFunction:_buildRetTuples()::Ret(class.RetTuples)
 	return nRetTuples
 end
 
-function MemberFunction:indexTypeFn(vType:class.IAtomType)::Ret(class.TypeFunction)
+function MemberFunction:indexTypeFn(vType:class.IAtomType):Ret(class.TypeFunction)
 	local nTypeFn = self._typeFnDict[vType]
 	if not nTypeFn then
 		local nRetTuple = self:_buildRetTuples()
@@ -87,20 +87,20 @@ function MemberFunction:indexTypeFn(vType:class.IAtomType)::Ret(class.TypeFuncti
 	return nTypeFn
 end
 
-function MemberFunction:getArgTuple()::Ret(class.UTypeTuple)
+function MemberFunction:getArgTuple():Ret(class.UTypeTuple)
 	self:_buildRetTuples()
 	return self._argTuple
 end
 
-function MemberFunction:getRetTuples()::Ret(class.RetTuples)
+function MemberFunction:getRetTuples():Ret(class.RetTuples)
 	return self:_buildRetTuples()
 end
 
-function MemberFunction:mayRecursive()::Ret(True)
+function MemberFunction:mayRecursive():Ret(True)
 	return true
 end
 
-function MemberFunction.is(vType)::isguard(class.MemberFunction)
+function MemberFunction.is(vType):isguard(class.MemberFunction)
 	return getmetatable(vType) == MemberFunction
 end
 

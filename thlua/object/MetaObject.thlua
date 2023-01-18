@@ -13,8 +13,8 @@ const MetaObject = AtomTypeClass()
 	let.class = import("thlua.type.TypeClass").class
 end)
 
-function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRefer:class.Reference, vNextKey:OrFalse(class.UAllType))::RetClass(class.MetaObject, class.IAtomType)
-	const self = setmetatable({::Self()
+function MetaObject.new(vManager:class.TypeManager, vIsInterface:Boolean, vKeyRefer:class.Reference, vNextKey:OrFalse(class.UAllType)):RetClass(class.MetaObject, class.IAtomType)
+	const self = setmetatable({:Self()
 		_manager=vManager,
 		_keyRefer=vKeyRefer@class.Reference,
 		_memberDict=false@OrFalse(class.MemberDict),
@@ -55,7 +55,7 @@ function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMemberD
 	end
 end
 
-function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean))::Ret(Boolean)
+function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAtomType, class.UAllType, Boolean):Ret(Boolean)):Ret(Boolean)
 	const nMemberDict = self:getMemberDict()
 	for nLeftKey, nLeftValue in pairs(nMemberDict) do
 		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue, false) then
@@ -77,7 +77,7 @@ function MetaObject:_everyWith(vRightObject:class.MetaObject, vFunc:Fn(class.IAt
 	return true
 end
 
-function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject):Ret(Boolean)
 	const nRightValueDict = vRightObject:copyValueDict()
 	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	const nLeftNextKey = self._nextKey
@@ -92,7 +92,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 	end
 	const function isMatchedKeyValue(
 		vLeftKey:class.IAtomType, vLeftValue:class.UAllType,
-		vRightKey:class.IAtomType, vRightValue:class.UAllType)::Ret(Boolean)
+		vRightKey:class.IAtomType, vRightValue:class.UAllType):Ret(Boolean)
 		if not vRightValue:assumeContainAll(vAssumeSet, vLeftValue) then
 			return false
 		end
@@ -146,7 +146,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 	return true
 end
 
-function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject):Ret(Boolean)
 	assert(self:isInterface(), vRightObject:isInterface(), "here must be interface")
 	const nRightValueDict = vRightObject:getMemberDict()
 	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
@@ -184,7 +184,7 @@ function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), 
 	end)
 end
 
-function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject):Ret(Boolean)
 	if vRightObject._intersectSet[self] then
 		return true
 	end
@@ -198,7 +198,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 			return false
 		end
 	end
-	const function isMatchedValue(vLeftValue:class.UAllType, vRightValue:class.UMemberAllType, vLeftIsMfn:Boolean)::Ret(Boolean)
+	const function isMatchedValue(vLeftValue:class.UAllType, vRightValue:class.UMemberAllType, vLeftIsMfn:Boolean):Ret(Boolean)
 		if MemberFunction.is(vRightValue) then
 			if not vLeftIsMfn then
 				return false
@@ -242,7 +242,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	end)
 end
 
-function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject)::Ret(Boolean)
+function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:class.MetaObject):Ret(Boolean)
 	local nAssumeContain:Boolean = false
 	if self:isInterface() then
 		return self:_interfaceContainWithAssume(vAssumeSet, vRightObject)
@@ -397,7 +397,7 @@ function MetaObject:isSingleton()
 	return false
 end
 
-function MetaObject:_keyContainAtom(vType:class.IAtomType)::Ret(class.IAtomType, class.UMemberAllType):Ret(False)
+function MetaObject:_keyContainAtom(vType:class.IAtomType):Ret(class.IAtomType, class.UMemberAllType):Ret(False)
 	const nKey = self._keyRefer:containAtom(vType)
 	if nKey then
 		return nKey, assert(self._memberDict)[nKey]!
@@ -414,7 +414,7 @@ function MetaObject:meta_get_invoke(vContext, vType)
 	return self:_meta_get(vContext, vType, true)
 end
 
-function MetaObject:_meta_get(vContext:class.Context, vType:class.IAtomType, vIsInvoke:Boolean)::Ret(class.UAtomUnion)
+function MetaObject:_meta_get(vContext:class.Context, vType:class.IAtomType, vIsInvoke:Boolean):Ret(class.UAtomUnion)
 	const nKey, nGetValue = self:_keyContainAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
@@ -466,7 +466,7 @@ function MetaObject:meta_bop_func(vContext, vOper)
 	return false, nil
 end
 
-function MetaObject:indexKeyValue(vKeyType:class.IAtomType)::Ret(False):Ret(class.IAtomType, class.UAllType)
+function MetaObject:indexKeyValue(vKeyType:class.IAtomType):Ret(False):Ret(class.IAtomType, class.UAllType)
 	const nKey, nValue = self:_keyContainAtom(vKeyType)
 	if nKey then
 		if MemberFunction.is(nValue) then
@@ -508,12 +508,12 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	return nResult
 end
 
-function MetaObject:getMemberDict()::Ret(class.MemberDict)
+function MetaObject:getMemberDict():Ret(class.MemberDict)
 	self._keyRefer:waitTypeCom():getListAwait()
 	return (assert(self._memberDict, "member list is not setted after waiting"))
 end
 
-function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaObject))::Ret(Dict(class.IAtomType, class.UAllType))
+function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaObject)):Ret(Dict(class.IAtomType, class.UAllType))
 	const nValueDict:Dict(class.IAtomType, class.UAllType) = {}
 	for k,v in pairs(self:getMemberDict()) do
 		if not MemberFunction.is(v) then
@@ -526,12 +526,12 @@ function MetaObject:copyValueDict(vSelfObject:OrNil(class.LuaTable, class.MetaOb
 	return nValueDict
 end
 
-function MetaObject:getMetaEventCom()::Ret(OrFalse(class.MetaEventCom))
+function MetaObject:getMetaEventCom():Ret(OrFalse(class.MetaEventCom))
 	self._keyRefer:waitTypeCom():getListAwait()
 	return self._metaEventCom
 end
 
-function MetaObject:getKeyTypes()::Ret(class.Reference, OrFalse(class.UAllType))
+function MetaObject:getKeyTypes():Ret(class.Reference, OrFalse(class.UAllType))
 	return self._keyRefer, self._nextKey
 end
 
@@ -539,7 +539,7 @@ function MetaObject:checkBaseObjectType()
 	return self
 end
 
-function MetaObject:isInterface()::Ret(Boolean)
+function MetaObject:isInterface():Ret(Boolean)
 	return self._isInterface
 end
 
@@ -555,7 +555,7 @@ function MetaObject:mayRecursive()
 	return true
 end
 
-function MetaObject:getCompletion()::Ret(class.LspCompletion)
+function MetaObject:getCompletion():Ret(class.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyRefer:foreachAwait(function(vType)
 		if StringLiteral.is(vType) then
@@ -565,7 +565,7 @@ function MetaObject:getCompletion()::Ret(class.LspCompletion)
 	return nDict
 end
 
-function MetaObject.is(v)::isguard(class.MetaObject)
+function MetaObject.is(v):isguard(class.MetaObject)
 	return getmetatable(v) == MetaObject
 end
 

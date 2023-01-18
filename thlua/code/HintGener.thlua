@@ -78,7 +78,7 @@ local TagToVisiting:RealTraverser = {
 		return {}
 	end,
 	If=function(self, node)
-		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer)::Ret(let.UGenResult)
+		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer):Ret(let.UGenResult)
 			const nNext1Node, nNext2Node = node[nextIndex], node[nextIndex + 1]
 			if nNext1Node then
 				if nNext2Node then
@@ -383,7 +383,7 @@ local TagToVisiting:RealTraverser = {
 const HintGener = {}
 HintGener.__index = HintGener
 
-function HintGener:visit(vNode:node.IAstNode)::Ret(let.UGenResult)
+function HintGener:visit(vNode:node.IAstNode):Ret(let.UGenResult)
 	const nUnionNode = vNode @ node.UNodeType
 	const nFunc = TagToVisiting[nUnionNode.tag]
 	if nFunc then
@@ -393,7 +393,7 @@ function HintGener:visit(vNode:node.IAstNode)::Ret(let.UGenResult)
 	end
 end
 
-function HintGener:fixHintInfo(vHintInfo:node.HintInfo)::Ret(let.GenResult)
+function HintGener:fixHintInfo(vHintInfo:node.HintInfo):Ret(let.GenResult)
 	--[[
 	const nScript = vHintInfo.script
 	const nResult:let.GenResult = {}
@@ -433,11 +433,11 @@ end
 	let.UFormatList = List(Union(Integer, String, node.IAstNode, Fn():Ret(let.UFormatList)))
 end)
 
-function HintGener:codeNode(vNode:node.IAstNode)::Ret(String)
+function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 	return "____nodes["..vNode.index.."]"
 end
 
-function HintGener:formatIdent(vIdentNode:node.Ident)::Ret(String)
+function HintGener:formatIdent(vIdentNode:node.Ident):Ret(String)
 	if vIdentNode.kind == "use" then
 		const nDefineId = vIdentNode.defineIdent
 		return "____s_"..nDefineId[1]..nDefineId.index
@@ -446,7 +446,7 @@ function HintGener:formatIdent(vIdentNode:node.Ident)::Ret(String)
 	end
 end
 
-function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHint:OrNil(True))::Ret(let.UGenResult)
+function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHint:OrNil(True)):Ret(let.UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
@@ -457,7 +457,7 @@ function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHi
 	}
 end
 
-function HintGener:fnWrap(...:String)::Ret(Fn():Dots(let.UGenResult):Ret(let.GenResult))
+function HintGener:fnWrap(...:String):Ret(Fn():Dots(let.UGenResult):Ret(let.GenResult))
 	const nArgsString = table.concat({...}, ",")
 	return function(...)
 		const nList:let.GenResult = {...}
@@ -471,7 +471,7 @@ function HintGener:fnWrap(...:String)::Ret(Fn():Dots(let.UGenResult):Ret(let.Gen
 	end
 end
 
-function HintGener:fnRetWrap(...:let.UGenResult)::Ret(let.GenResult)
+function HintGener:fnRetWrap(...:let.UGenResult):Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = { " function() return " }
 	for i=1, #nList do
@@ -484,7 +484,7 @@ function HintGener:fnRetWrap(...:let.UGenResult)::Ret(let.GenResult)
 	return nResult
 end
 
-function HintGener:tableWrap(...:let.UGenResult)::Ret(let.GenResult)
+function HintGener:tableWrap(...:let.UGenResult):Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = { "{" }
 	for i=1, #nList do
@@ -521,7 +521,7 @@ end
 		"META_SET"
 	)
 end)
-function HintGener:ctxWrap(vNode:node.IAstNode)::pass():Ret(Dict(let.CtxNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
+function HintGener:ctxWrap(vNode:node.IAstNode):pass():Ret(Dict(let.CtxNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
 	return setmetatable({}, {
 		__index=function(t,vName)
 			return function(...)
@@ -549,7 +549,7 @@ end
 		"LOGIC_AND"
 	)
 end)
-function HintGener:rgnWrap(vNode:node.IAstNode)::pass():Ret(Dict(let.RgnNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
+function HintGener:rgnWrap(vNode:node.IAstNode):pass():Ret(Dict(let.RgnNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
 	return setmetatable({}, {
 		__index=function(t,vName)
 			return function(...)
@@ -559,7 +559,7 @@ function HintGener:rgnWrap(vNode:node.IAstNode)::pass():Ret(Dict(let.RgnNameEnum
 	})
 end
 
-function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNode, ...:let.UGenResult)::Ret(let.GenResult)
+function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNode, ...:let.UGenResult):Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = {
 		line=vNode.l,
@@ -573,7 +573,7 @@ function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNod
 	return nResult
 end
 
-function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::Ret(let.UGenResult)
+function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult):Ret(let.UGenResult)
 	const nParent = vNode.parent!
 	local nAutoUnpack = true
 	if nParent.tag == "ExprList" or nParent.tag == "ParList" or nParent.tag == "Block" then
@@ -589,11 +589,11 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult)::
 	end
 end
 
-function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo))::Ret(let.GenResult)
+function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo)):Ret(let.GenResult)
 	return self:fnWrap("____longHint")("return ____longHint", (vHintInfo and {":", self:fixHintInfo(vHintInfo)} or ""))
 end
 
-function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk))::Ret(let.UGenResult)
+function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGenResult)
 	const nIsChunk = vNode.tag == "Chunk"
 	const nHintString = nIsChunk and self:fnWrap("h")("return h:open()") or self:visitLongHint(vNode.hintLong)
 	const nParList = nIsChunk and vNode[2] or vNode[1]
@@ -657,7 +657,7 @@ function HintGener:forList(
 	vList:IList(node.IAstNode),
 	vFunc:Fn(Integer, node.IAstNode):Ret(let.UGenResult),
 	vSep:String
-	)::Ret(let.GenResult)
+	):Ret(let.GenResult)
 	const nResult:let.GenResult = {}
 	const nLen = #vList
 	for i=1,nLen do
@@ -667,13 +667,13 @@ function HintGener:forList(
 	return nResult
 end
 
-function HintGener.new()::RetClass(let.HintGener)
-	const self = setmetatable({::Self()
+function HintGener.new():RetClass(let.HintGener)
+	const self = setmetatable({:Self()
 	}, HintGener)
 	return self
 end
 
-function HintGener:genCode(vNode:node.IAstNode)::Ret(String)
+function HintGener:genCode(vNode:node.IAstNode):Ret(String)
 	const nBufferList:List(String) = {}
 	local nLineCount = 1
 	const function recurAppend(vResult:let.UGenResult, vDepth:Integer)

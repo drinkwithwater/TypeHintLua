@@ -44,8 +44,8 @@ end)
 local Runtime = {}
 Runtime.__index=Runtime
 
-function Runtime.new(vLoader:ILoader, vMainFileName:String)::RetClass(class.Runtime)
-	local self = setmetatable({::Self()
+function Runtime.new(vLoader:ILoader, vMainFileName:String):RetClass(class.Runtime)
+	local self = setmetatable({:Self()
 	}, Runtime)
 	self._loader = vLoader
 	self._mainFileName = vMainFileName
@@ -71,7 +71,7 @@ function Runtime:recordSymbol(vLocalSymbol:class.LocalSymbol)
 	nLocalSymbolSet[vLocalSymbol] = true
 end
 
-function Runtime:getNodeLocalSymbolSet(vNode:class.IAstNode)::Ret(Dict(class.LocalSymbol, True))
+function Runtime:getNodeLocalSymbolSet(vNode:class.IAstNode):Ret(Dict(class.LocalSymbol, True))
 	local nLocalSymbolSet = self._nodeToSymbolSet[vNode]
 	if not nLocalSymbolSet then
 		nLocalSymbolSet = {} @ Dict(class.LocalSymbol, True)
@@ -86,7 +86,7 @@ function Runtime:checkAtomUnionFinish()
 	end
 end
 
-function Runtime:import(vPath:String)::Ret(class.SpaceTable)
+function Runtime:import(vPath:String):Ret(class.SpaceTable)
 	-- TODO better style
 	self:require(vPath)
 	local nContext = self._loadedDict[vPath]!.context
@@ -94,7 +94,7 @@ function Runtime:import(vPath:String)::Ret(class.SpaceTable)
 	return nSpace.localExport
 end
 
-function Runtime:main()::Ret(Boolean, Nil)
+function Runtime:main():Ret(Boolean, Nil)
 	return pcall(function()
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._manager:TermTuple({})
@@ -104,11 +104,11 @@ function Runtime:main()::Ret(Boolean, Nil)
 	end)
 end
 
-function Runtime:newContext(vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context))::Ret(class.Context)
+function Runtime:newContext(vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context)):Ret(class.Context)
 	return Context.new(self, vApplyNode, vSealContext, vParentContext)
 end
 
-function Runtime:cacheLoadFile(vFileName:String)::Ret(class.LuaFunction)
+function Runtime:cacheLoadFile(vFileName:String):Ret(class.LuaFunction)
 	local nFileState = self._fileStateDict[vFileName]
 	local nCodeEnv:OrNil(class.CodeEnv)
 	if not nFileState then
@@ -124,7 +124,7 @@ function Runtime:cacheLoadFile(vFileName:String)::Ret(class.LuaFunction)
 	return nCodeEnv:getTypingFn()(self, self._rootContext, nCodeEnv:getNodeList())
 end
 
-function Runtime:require(vPath:String)::Ret(class.RefineTerm)
+function Runtime:require(vPath:String):Ret(class.RefineTerm)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
 		local nOkay, nFileName = self._loader:thluaSearch(vPath)
@@ -151,13 +151,13 @@ function Runtime:require(vPath:String)::Ret(class.RefineTerm)
 	return nTerm
 end
 
-function Runtime:TreeNamespace()::Ret(class.Namespace)
+function Runtime:TreeNamespace():Ret(class.Namespace)
 	local nSpace = Namespace.new(self._manager, Node.getDebugNode(4))
 	self._spaceList[#self._spaceList + 1] = nSpace
 	return nSpace
 end
 
-function Runtime:buildSimpleGlobal()::pass()
+function Runtime:buildSimpleGlobal():pass()
 	local nGlobal = {}
 	for k,v in pairs(self._manager.type) do
 		nGlobal[k] = v
@@ -211,7 +211,7 @@ function Runtime:buildSimpleGlobal()::pass()
 	return nGlobal
 end
 
-function Runtime:RootNamespace()::Ret(class.Namespace)
+function Runtime:RootNamespace():Ret(class.Namespace)
 	local nSpace = Namespace.new(self._manager, self._node, self:buildSimpleGlobal())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
@@ -219,14 +219,14 @@ function Runtime:RootNamespace()::Ret(class.Namespace)
 	return nSpace
 end
 
-function Runtime:LetNamespace(vParentLet:class.Namespace, vRegionNode:class.IAstNode)::Ret(class.Namespace)
+function Runtime:LetNamespace(vParentLet:class.Namespace, vRegionNode:class.IAstNode):Ret(class.Namespace)
 	local nSpace = Namespace.new(self._manager, vRegionNode, vParentLet:getKeyToType())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
 end
 
-function Runtime:makeSymbol_ENV(vNode:class.IAstNode)::Ret(class.LocalSymbol)
+function Runtime:makeSymbol_ENV(vNode:class.IAstNode):Ret(class.LocalSymbol)
 	local nTerm = self._rootContext:RefineTerm(self._globalTable)
 	return LocalSymbol.new(self._rootContext, vNode, self._globalTable, nTerm)
 end
@@ -260,7 +260,7 @@ function Runtime:nodeInfo(vNode:class.IAstNode, ...:Truth)
 	self:_save(3, vNode, ...)
 end
 
-function Runtime:getAllDiagnostic()::Ret(Dict(String, List(Diagnostic)))
+function Runtime:getAllDiagnostic():Ret(Dict(String, List(Diagnostic)))
 	local nFileToDiaList:Dict(String, List(Diagnostic)) = {}
 	for nFileName, nState in pairs(self._fileStateDict) do
 		nFileToDiaList[nFileName] = nState.diaList
@@ -268,11 +268,11 @@ function Runtime:getAllDiagnostic()::Ret(Dict(String, List(Diagnostic)))
 	return nFileToDiaList
 end
 
-function Runtime:getNode()::Ret(class.IAstNode)
+function Runtime:getNode():Ret(class.IAstNode)
 	return self._node
 end
 
-function Runtime:getTypeManager()::Ret(class.TypeManager)
+function Runtime:getTypeManager():Ret(class.TypeManager)
 	return self._manager
 end
 

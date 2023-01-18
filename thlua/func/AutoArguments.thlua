@@ -11,12 +11,12 @@ AutoArguments.__index=AutoArguments
 
 
 function AutoArguments.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vArgList:List(VariableOrType), vArgDots:OrFalse(VariableOrType))::RetClass(class.AutoArguments)
+	vArgList:List(VariableOrType), vArgDots:OrFalse(VariableOrType)):RetClass(class.AutoArguments)
 	if Variable.is(vArgDots) then
 		-- auto TODO
 		vArgDots = vManager.type.Truth
 	end
-	return setmetatable({::Self()
+	return setmetatable({:Self()
 		_manager=vManager,
 		_node=vNode,
 		_argList=vArgList,
@@ -34,7 +34,7 @@ function AutoArguments:setSelf(vContext)
 	end
 end
 
-function AutoArguments:hasSelf()::Ret(Boolean)
+function AutoArguments:hasSelf():Ret(Boolean)
 	local nArgList = self._argList
 	if #nArgList <= 0 then
 		return false
@@ -46,7 +46,7 @@ function AutoArguments:hasSelf()::Ret(Boolean)
 	return false
 end
 
-function AutoArguments:hasVariable()::Ret(Boolean)
+function AutoArguments:hasVariable():Ret(Boolean)
 	for k,v in pairs(self._argList) do
 		if Variable.is(v) then
 			return true
@@ -55,7 +55,7 @@ function AutoArguments:hasVariable()::Ret(Boolean)
 	return false
 end
 
-function AutoArguments:checkByFirst(vContext:class.Context, vFirst:class.UAllType)::Ret(class.UTypeTuple)
+function AutoArguments:checkByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
 	const l:List(class.UAllType) = {}
 	const nArgList = self._argList
 	const nFirstArg = nArgList[1]
@@ -89,7 +89,7 @@ function AutoArguments:checkByFirst(vContext:class.Context, vFirst:class.UAllTyp
 	end
 end
 
-function AutoArguments:checkByDefault()::Ret(class.UTypeTuple)
+function AutoArguments:checkByDefault():Ret(class.UTypeTuple)
 	local l:List(class.UAllType) = {}
 	for i, nArg in ipairs(self._argList) do
 		if Variable.is(nArg) then
@@ -107,7 +107,7 @@ function AutoArguments:checkByDefault()::Ret(class.UTypeTuple)
 	end
 end
 
-function AutoArguments:checkWhenLate(vContext)::Ret(class.UTypeTuple)
+function AutoArguments:checkWhenLate(vContext):Ret(class.UTypeTuple)
 	for i, nArg in ipairs(self._argList) do
 		if Variable.is(nArg) then
 			error("define-fn must hint args type,"..tostring(nArg))
@@ -122,7 +122,7 @@ function AutoArguments:checkWhenLate(vContext)::Ret(class.UTypeTuple)
 	end
 end
 
-function AutoArguments:checkWhenApply(vContext:class.Context, vTypeTuple:class.UTypeTuple)::Ret(class.UTypeTuple)
+function AutoArguments:checkWhenApply(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
 	local l:List(class.UAllType) = {}
 	if #vTypeTuple ~= #self._argList then
 		vContext:getRuntime():nodeError(self._node, "arguments num not match when specification")
