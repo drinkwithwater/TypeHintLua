@@ -589,16 +589,32 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult):R
 	end
 end
 
+function HintGener:chunkLongHint():Ret(let.GenResult)
+	return self:tableWrap(
+		"attrSet={}",
+		{ "caller=", self:fnWrap("h")("return h:open()") }
+	)
+end
+
 function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo)):Ret(let.GenResult)
 	const nCallGen:let.UGenResult = (vHintInfo and #vHintInfo > 0) and {
 		":", self:fixHintInfo(vHintInfo)
 	} or ""
-	return self:fnWrap("____longHint")("return ____longHint", nCallGen)
+	const nAttrList = vHintInfo and vHintInfo.attrList or ({} @ List(String))
+	const l:List(String) = {}
+	for i=1, #nAttrList do
+		l[#l + 1] = nAttrList[i]! .. "=1"
+	end
+	const attrSet = self:tableWrap(table.unpack(l))
+	return self:tableWrap(
+		{ "attrSet=", self:tableWrap(table.unpack(l)) },
+		{ "caller=", self:fnWrap("____longHint")("return ____longHint", nCallGen) }
+	)
 end
 
 function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGenResult)
 	const nIsChunk = vNode.tag == "Chunk"
-	const nHintString = nIsChunk and self:fnWrap("h")("return h:open()") or self:visitLongHint(vNode.hintSuffix)
+	const nHintString = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintSuffix)
 	const nParList = nIsChunk and vNode[2] or vNode[1]
 	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
 	const nLastNode = nParList[#nParList]

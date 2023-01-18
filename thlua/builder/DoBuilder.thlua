@@ -11,20 +11,9 @@ function DoBuilder.new(vContext:class.Context, vNode:class.IAstNode):RetClass(le
 	}, DoBuilder)
 end
 
-function DoBuilder.makeLongHint(self:let.DoBuilder):RetClass(class.DoLongHint)
-	return {:Self()
-		pass=function(vLongHint:class.DoLongHint):Ret(class.DoLongHint)
-			self.pass=true
-			return vLongHint
-		end
-	}
-end
-
-function DoBuilder:build(vHintHandler:Fn(class.DoLongHint)):Ret()
-	local nLongHint = self:makeLongHint()
-	local ok, err = pcall(vHintHandler, nLongHint)
-	if not ok then
-		error(Exception.new(tostring(err), self._node))
+function DoBuilder:build(vHintInfo:class.TLongHintInfo(Nil)):Ret()
+	if vHintInfo.attrSet.pass then
+		self.pass = true
 	end
 end
 

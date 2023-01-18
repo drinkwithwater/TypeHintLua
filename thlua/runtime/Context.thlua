@@ -23,12 +23,6 @@ const Context = ContextClass()
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
-	let.TLongHint = function(vHandler)
-		return Struct {
-			attr=Dict(String, True),
-			handler=Fn(vHandler),
-		}
-	end
 end)
 
 function Context.new(vRuntime:class.Runtime,
@@ -475,17 +469,17 @@ function Context:AutoArguments(vNode:class.IAstNode, vArgList:List(VariableOrTyp
 end
 
 function Context:FUNC_NEW(vNode:class.IAstNode, vAutoArgs:class.AutoArguments,
-	vHintCallback:Fn(class.FnLongHint), vHasRet:Boolean, vFunc:class.GenFunc):Ret(class.LuaFunction)
+	vHintInfo:class.TLongHintInfo(class.FnLongHint), vHasRet:Boolean, vFunc:class.GenFunc):Ret(class.LuaFunction)
 	const nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
-	const nLuaFunc = nBuilder:build(vHintCallback)
+	const nLuaFunc = nBuilder:build(vHintInfo)
 	const nRegion = self._region
 	return nLuaFunc, nRegion and nRegion:topBranch():getCase()
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function Context:TABLE_NEW(vNode:class.IAstNode, vHinterHandler:Fn(class.TableLongHint), vPairMaker:PairMaker):Ret(class.LuaTable)
+function Context:TABLE_NEW(vNode:class.IAstNode, vHintInfo:class.TLongHintInfo(class.TableLongHint), vPairMaker:PairMaker):Ret(class.LuaTable)
 	local nBuilder = TableBuilder.new(self, vNode, vPairMaker)
-	return nBuilder:build(vHinterHandler)
+	return nBuilder:build(vHintInfo)
 end
 
 function Context:EVAL(vNode:class.IAstNode, vTerm:Truth):Ret(class.UAtomUnion)

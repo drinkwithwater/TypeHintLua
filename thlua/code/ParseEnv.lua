@@ -166,8 +166,9 @@ local hintC={
 	long=function()
 		local colonInvoke = vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")";
 		local pattBody = (
-			(symb"."*vv.HintBegin*vvA.Attr)^1+symb":"*vv.HintBegin*colonInvoke
-		)*(symb":"*colonInvoke)^0*vv.HintEnd
+			(symb"." * vv.HintBegin * vvA.Attr)*(symb"." * vvA.Attr)^0+
+			symb":" * vv.HintBegin * colonInvoke
+		) * (symb":" * colonInvoke)^0 * vv.HintEnd
 		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
