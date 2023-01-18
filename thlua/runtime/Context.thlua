@@ -15,11 +15,21 @@ const LuaTable = require "thlua.object.LuaTable"
 const MetaObject = require "thlua.object.MetaObject"
 const Truth = require "thlua.type.Truth"
 
+const FunctionBuilder = require "thlua.builder.FunctionBuilder"
 const TableBuilder = require "thlua.builder.TableBuilder"
+const AutoArguments = require "thlua.func.AutoArguments"
 
 const Context = ContextClass()
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@do
+	let.class = import("thlua.type.TypeClass").class
+	let.TLongHint = function(vHandler)
+		return Struct {
+			attr=Dict(String, True),
+			handler=Fn(vHandler),
+		}
+	end
+end)
 
 function Context.new(vRuntime:class.Runtime,
 	vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context)):RetClass(class.Context)
@@ -458,16 +468,24 @@ function Context:getParentContext():Ret(OrFalse(class.Context))
 	return self._parentContext
 end
 
+(@let.VariableOrType = import("thlua.func.AutoArguments").VariableOrType)
+function Context:AutoArguments(vNode:class.IAstNode, vArgList:List(VariableOrType), vArgDots:OrFalse(VariableOrType))
+	:Ret(class.AutoArguments)
+	return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
+end
+
+function Context:FUNC_NEW(vNode:class.IAstNode, vAutoArgs:class.AutoArguments,
+	vHintCallback:Fn(class.FnLongHint), vHasRet:Boolean, vFunc:class.GenFunc):Ret(class.LuaFunction)
+	const nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
+	const nLuaFunc = nBuilder:build(vHintCallback)
+	const nRegion = self._region
+	return nLuaFunc, nRegion and nRegion:topBranch():getCase()
+end
+
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
 function Context:TABLE_NEW(vNode:class.IAstNode, vHinterHandler:Fn(class.TableLongHint), vPairMaker:PairMaker):Ret(class.LuaTable)
 	local nBuilder = TableBuilder.new(self, vNode, vPairMaker)
-	local nLongHint = nBuilder:makeLongHint()
-	local ok, err = pcall(vHinterHandler, nLongHint)
-	if not ok then
-		error(Exception.new(tostring(err), vNode))
-	end
-	local nTableType = nBuilder:build()
-	return nTableType
+	return nBuilder:build(vHinterHandler)
 end
 
 function Context:EVAL(vNode:class.IAstNode, vTerm:Truth):Ret(class.UAtomUnion)

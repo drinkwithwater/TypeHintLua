@@ -1,10 +1,11 @@
 
+const Exception = require "thlua.Exception"
 (@let.class = import("thlua.type.TypeClass").class)
 
 const DoBuilder = {}
 DoBuilder.__index=DoBuilder
 
-function DoBuilder.new(vContext:class.Context):RetClass(let.DoBuilder)
+function DoBuilder.new(vContext:class.Context, vNode:class.IAstNode):RetClass(let.DoBuilder)
 	return setmetatable({:Self()
 		pass=false@Boolean,
 	}, DoBuilder)
@@ -17,6 +18,14 @@ function DoBuilder.makeLongHint(self:let.DoBuilder):RetClass(class.DoLongHint)
 			return vLongHint
 		end
 	}
+end
+
+function DoBuilder:build(vHintHandler:Fn(class.DoLongHint)):Ret()
+	local nLongHint = self:makeLongHint()
+	local ok, err = pcall(vHintHandler, nLongHint)
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
 end
 
 return DoBuilder

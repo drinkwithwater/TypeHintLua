@@ -100,7 +100,12 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):RetClass(class.F
 	}
 end
 
-function FunctionBuilder:build():Ret(class.LuaFunction)
+function FunctionBuilder:build(vHintHandler:Fn(class.FnLongHint)):Ret(class.LuaFunction)
+	local nLongHint = self:makeLongHint()
+	local ok, err = pcall(vHintHandler, nLongHint)
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
 	local nFnCom = self._fnCom
 	if not nFnCom then
 		local nRetTuples = self._retTuples

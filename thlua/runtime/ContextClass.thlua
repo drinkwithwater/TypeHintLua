@@ -2,7 +2,6 @@
 const FunctionBuilder = require "thlua.builder.FunctionBuilder"
 const RefineTerm = require "thlua.term.RefineTerm"
 const Variable = require "thlua.func.Variable"
-const AutoArguments = require "thlua.func.AutoArguments"
 const Exception = require "thlua.Exception"
 
 (@let.class = import("thlua.type.TypeClass").class)
@@ -12,25 +11,6 @@ const function ContextClass():open()
 	Context.__index=Context
 	function Context:__tostring():Ret(String)
 		return "context:"..tostring(self:getNode())
-	end
-
-	function Context:FUNC_NEW(vNode:class.IAstNode, vAutoArgs:class.AutoArguments,
-		vHintCallback:Fn(class.FnLongHint), vHasRet:Boolean, vFunc:class.GenFunc):Ret(class.LuaFunction)
-		local nBuilder = FunctionBuilder.new(self, vNode, vAutoArgs, vHasRet, vFunc)
-		local nLongHint = nBuilder:makeLongHint()
-		local ok, err = pcall(vHintCallback, nLongHint)
-		if not ok then
-			error(Exception.new(tostring(err), vNode))
-		end
-		local nLuaFunc = nBuilder:build()
-		const nRegion = self._region
-		return nLuaFunc, nRegion and nRegion:topBranch():getCase()
-	end
-
-	(@let.VariableOrType = import("thlua.func.AutoArguments").VariableOrType)
-	function Context:AutoArguments(vNode:class.IAstNode, vArgList:List(VariableOrType), vArgDots:OrFalse(VariableOrType))
-		:Ret(class.AutoArguments)
-		return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
 	end
 
 	function Context:TermTuple(a:List(class.RefineTerm),b:OrNil(class.TermTuple)):Ret(class.TermTuple)

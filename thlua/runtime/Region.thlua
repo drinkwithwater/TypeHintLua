@@ -135,11 +135,8 @@ function Region:WHILE(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunctio
 end
 
 function Region:DO(vNode:class.IAstNode, vHinterHandler:Fn(class.DoLongHint), vDoFunc:Fn())
-	const nBuilder = DoBuilder.new(self._context)
-	local ok, err = pcall(vHinterHandler, nBuilder:makeLongHint())
-	if not ok then
-		error(Exception.new(tostring(err), vNode))
-	end
+	const nBuilder = DoBuilder.new(self._context, vNode)
+	nBuilder:build(vHinterHandler)
 	if not nBuilder.pass then
 		vDoFunc()
 	end

@@ -1,5 +1,6 @@
 
 const RefineTerm = require "thlua.term.RefineTerm"
+const Exception = require "thlua.Exception"
 const TableBuilder = {}
 
 (@let.class = import("thlua.type.TypeClass").class)
@@ -24,7 +25,7 @@ function TableBuilder.new(vContext:class.Context, vNode:class.IAstNode, vPairMak
 	}, TableBuilder)
 end
 
-function TableBuilder.makeLongHint(self:let.TableBuilder):RetClass(class.TableLongHint)
+function TableBuilder._makeLongHint(self:let.TableBuilder):RetClass(class.TableLongHint)
 	return {:Self()
 		Self=function(vLongHint:class.TableLongHint, vInitDict:OrNil(Dict(class.UAllType, class.UAllType))):Ret(class.TableLongHint)
 			const nFnCom = assert(self._context:getRegion(), "region must existed when table:Self()"):getFnCom()
@@ -80,7 +81,12 @@ function TableBuilder:_build(vNewTable:class.LuaTable)
 	vNewTable:getDefaultCom():initByKeyValue(nKeyUnion, nTypeDict)
 end
 
-function TableBuilder:build():Ret(class.LuaTable)
+function TableBuilder:build(vHintHandler:Fn(class.TableLongHint)):Ret(class.LuaTable)
+	local nLongHint = self:_makeLongHint()
+	local ok, err = pcall(vHintHandler, nLongHint)
+	if not ok then
+		error(Exception.new(tostring(result), self._node))
+	end
 	const nContext = self._context
 	const nManager = nContext:getTypeManager()
 	const nClassFactory = self._selfClassFactory
