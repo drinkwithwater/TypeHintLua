@@ -14,9 +14,19 @@ const FunctionBuilder = {}
 
 (@let.class = import("thlua.type.TypeClass").class)
 
+(@do
+
+class.FnLongHint = Struct {
+	RetClass=Fn(class.FnLongHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnLongHint),
+	Ret=Fn(class.FnLongHint):Dots(class.UAllType):Ret(class.FnLongHint),
+	isguard=Fn(class.FnLongHint, class.UAllType):Ret(class.FnLongHint),
+}
+
+end)
+
 FunctionBuilder.__index=FunctionBuilder
 
-function FunctionBuilder.new(vContext:class.Context,
+function.class FunctionBuilder.new(vContext:class.Context,
 	vNode:class.IAstNode,
 	vPrefixHint:class.TLongHintInfo(Nil),
 	vAutoArgs:class.AutoArguments,
@@ -42,20 +52,21 @@ function FunctionBuilder.new(vContext:class.Context,
 	}, FunctionBuilder)
 end
 
-function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):RetClass(class.FnLongHint)
-	return {.class
-		member=function(vLongHint:class.FnLongHint):Ret(class.FnLongHint)
+function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLongHint)
+	return {
+		--[[member=function(vLongHint:class.FnLongHint):Ret(class.FnLongHint)
 			self._autoArgs:setSelf(self._context)
 			return vLongHint
-		end,
+		end,]]
 		RetClass=function(vLongHint:class.FnLongHint, vRefer:class.Reference, vStruct:OrNil(class.UAllType)):Ret(class.FnLongHint)
+			error("TODO")
 			if not self._hasRet then
 				self._context:getRuntime():nodeError(self._node, "hint return class but block has no RetStat")
 			end
 			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			assert(not self._retTuples, Exception.new("function builder case conflict"))
-			const nFnCom = ClassFactory.new(self._manager, self._luaFunc, vRefer)
+			const nFnCom = ClassFactory.new(self._manager, self._luaFunc)
 			vRefer:setRawAsync(self._node, function()
 				local nImplType = vStruct
 				if Reference.is(nImplType) then
@@ -63,10 +74,12 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):RetClass(class.F
 					assert(not nImplType:isUnion(), "interface can't be union")
 				end
 				self._context:recordDefineLuaFunction(nFnCom)
+				local nInterface = self._manager.type.Object
 				if nImplType then
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
+					nInterface = nImplType
 				end
-				const nTable = nFnCom:createLuaTable(self._context, nImplType or self._manager.type.Object)
+				const nTable = nFnCom:createLuaTable(self._context, vRefer, nInterface)
 				return {nTable}
 			end, function(vLuaTable)
 				nFnCom:runBuild()
@@ -95,24 +108,80 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):RetClass(class.F
 	}
 end
 
+function FunctionBuilder:buildOpen():Ret(class.LuaFunction)
+	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
+	nOpenCom:initByOpen()
+	self._fnCom = nOpenCom
+	const ok, err = pcall(self._suffixHint.caller, {
+		RetClass=function(vHint, _, _)
+			return vHint
+		end,
+		Ret=function(vHint)
+			return vHint
+		end,
+		isguard=function(vHint, vType)
+			return vHint
+		end,
+	})
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
+	return self._luaFunc
+end
+
+function FunctionBuilder:buildClass():Ret(class.LuaFunction)
+	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
+	const ok, err = pcall(self._suffixHint.caller, {
+		RetClass=function(vHint, vRefer, vStruct)
+			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
+			vRefer:setRawAsync(self._node, function()
+				local nImplType = vStruct
+				if Reference.is(nImplType) then
+					nImplType = nImplType:waitTypeCom():getTypeAwait()
+					assert(not nImplType:isUnion(), "interface can't be union")
+				end
+				self._context:recordDefineLuaFunction(nFactoryCom)
+				local nInterface = self._manager.type.Object
+				if nImplType then
+					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
+					nInterface = nImplType
+				end
+				const nTable = nFactoryCom:createLuaTable(self._context, vRefer, nInterface)
+				return {nTable}
+			end, function(vLuaTable)
+				nFactoryCom:runBuild()
+			end)
+			nRefer = vRefer
+			return vHint
+		end,
+		Ret=function(vHint)
+			return vHint
+		end,
+		isguard=function(vHint, vType)
+			return vHint
+		end,
+	})
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
+	return self._luaFunc
+end
+
 function FunctionBuilder:build():Ret(class.LuaFunction)
+	const nAttrSet = self._prefixHint.attrSet
+	if nAttrSet.open then
+		return self:buildOpen()
+	end
+	if nAttrSet.class then
+		return self:buildClass()
+	end
 	local nLongHint = self:makeLongHint()
 	local ok, err = pcall(self._suffixHint.caller, nLongHint)
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.pass then
 		self._pass = true
-	end
-	if nAttrSet.open then
-		assert(not self._fnCom, Exception.new("function builder case conflict"))
-		assert(not self._retTuples, Exception.new("function builder case conflict"))
-		const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
-		nOpenCom:initByOpen()
-		self._fnCom = nOpenCom
-	end
-	if nAttrSet.class then
 	end
 	local nFnCom = self._fnCom
 	if not nFnCom then
