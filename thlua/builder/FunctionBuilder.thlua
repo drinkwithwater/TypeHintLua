@@ -19,7 +19,7 @@ const FunctionBuilder = {}
 class.FnLongHint = Struct {
 	RetClass=Fn(class.FnLongHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnLongHint),
 	Ret=Fn(class.FnLongHint):Dots(class.UAllType):Ret(class.FnLongHint),
-	isguard=Fn(class.FnLongHint, class.UAllType):Ret(class.FnLongHint),
+	RetIs=Fn(class.FnLongHint, class.UAllType):Ret(class.FnLongHint),
 }
 
 end)
@@ -59,32 +59,7 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLong
 			return vLongHint
 		end,]]
 		RetClass=function(vLongHint:class.FnLongHint, vRefer:class.Reference, vStruct:OrNil(class.UAllType)):Ret(class.FnLongHint)
-			error("TODO")
-			if not self._hasRet then
-				self._context:getRuntime():nodeError(self._node, "hint return class but block has no RetStat")
-			end
-			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
-			assert(not self._fnCom, Exception.new("function builder case conflict"))
-			assert(not self._retTuples, Exception.new("function builder case conflict"))
-			const nFnCom = ClassFactory.new(self._manager, self._luaFunc)
-			vRefer:setRawAsync(self._node, function()
-				local nImplType = vStruct
-				if Reference.is(nImplType) then
-					nImplType = nImplType:waitTypeCom():getTypeAwait()
-					assert(not nImplType:isUnion(), "interface can't be union")
-				end
-				self._context:recordDefineLuaFunction(nFnCom)
-				local nInterface = self._manager.type.Object
-				if nImplType then
-					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
-					nInterface = nImplType
-				end
-				const nTable = nFnCom:createLuaTable(self._context, vRefer, nInterface)
-				return {nTable}
-			end, function(vLuaTable)
-				nFnCom:runBuild()
-			end)
-			self._fnCom = nFnCom
+			error("RetClass can not be used here")
 			return vLongHint
 		end,
 		Ret=function(vLongHint:class.FnLongHint, ...:class.UAllType):Ret(class.FnLongHint)
@@ -98,7 +73,7 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLong
 			self._retTuples = nRetTuples
 			return vLongHint
 		end,
-		isguard=function(vLongHint:class.FnLongHint, vType:class.UAllType):Ret(class.FnLongHint)
+		RetIs=function(vLongHint:class.FnLongHint, vType:class.UAllType):Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 			nOpenCom:initByGuard(self._context, vType)
@@ -119,7 +94,7 @@ function FunctionBuilder:buildOpen():Ret(class.LuaFunction)
 		Ret=function(vHint)
 			return vHint
 		end,
-		isguard=function(vHint, vType)
+		RetIs=function(vHint, vType)
 			return vHint
 		end,
 	})
@@ -157,7 +132,7 @@ function FunctionBuilder:buildClass():Ret(class.LuaFunction)
 		Ret=function(vHint)
 			return vHint
 		end,
-		isguard=function(vHint, vType)
+		RetIs=function(vHint, vType)
 			return vHint
 		end,
 	})
