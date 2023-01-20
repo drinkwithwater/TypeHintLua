@@ -85,14 +85,6 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):RetClass(class.F
 			self._retTuples = nRetTuples
 			return vLongHint
 		end,
-		open=function(vLongHint:class.FnLongHint):Ret(class.FnLongHint)
-			assert(not self._fnCom, Exception.new("function builder case conflict"))
-			assert(not self._retTuples, Exception.new("function builder case conflict"))
-			const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
-			nOpenCom:initByOpen()
-			self._fnCom = nOpenCom
-			return vLongHint
-		end,
 		isguard=function(vLongHint:class.FnLongHint, vType:class.UAllType):Ret(class.FnLongHint)
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
@@ -112,6 +104,15 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.pass then
 		self._pass = true
+	end
+	if nAttrSet.open then
+		assert(not self._fnCom, Exception.new("function builder case conflict"))
+		assert(not self._retTuples, Exception.new("function builder case conflict"))
+		const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
+		nOpenCom:initByOpen()
+		self._fnCom = nOpenCom
+	end
+	if nAttrSet.class then
 	end
 	local nFnCom = self._fnCom
 	if not nFnCom then
