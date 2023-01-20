@@ -54,10 +54,6 @@ end
 
 function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLongHint)
 	return {
-		--[[member=function(vLongHint:class.FnLongHint):Ret(class.FnLongHint)
-			self._autoArgs:setSelf(self._context)
-			return vLongHint
-		end,]]
 		RetClass=function(vLongHint:class.FnLongHint, vRefer:class.Reference, vStruct:OrNil(class.UAllType)):Ret(class.FnLongHint)
 			error("RetClass can not be used here")
 			return vLongHint
@@ -74,6 +70,7 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLong
 			return vLongHint
 		end,
 		RetIs=function(vLongHint:class.FnLongHint, vType:class.UAllType):Ret(class.FnLongHint)
+			error("ret cannot used here")
 			assert(not self._fnCom, Exception.new("function builder case conflict"))
 			const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 			nOpenCom:initByGuard(self._context, vType)
@@ -83,10 +80,9 @@ function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLong
 	}
 end
 
-function FunctionBuilder:buildOpen():Ret(class.LuaFunction)
+function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	nOpenCom:initByOpen()
-	self._fnCom = nOpenCom
 	const ok, err = pcall(self._suffixHint.caller, {
 		RetClass=function(vHint, _, _)
 			return vHint
@@ -104,7 +100,7 @@ function FunctionBuilder:buildOpen():Ret(class.LuaFunction)
 	return self._luaFunc
 end
 
-function FunctionBuilder:buildClass():Ret(class.LuaFunction)
+function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(self._suffixHint.caller, {
 		RetClass=function(vHint, vRefer, vStruct)
@@ -142,13 +138,42 @@ function FunctionBuilder:buildClass():Ret(class.LuaFunction)
 	return self._luaFunc
 end
 
+function FunctionBuilder:_buildGuard():Ret(class.LuaFunction)
+	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
+	local nSetReturn = false
+	const ok, err = pcall(self._suffixHint.caller, {
+		RetClass=function(vHint, _, _)
+			return vHint
+		end,
+		Ret=function(vHint)
+			return vHint
+		end,
+		RetIs=function(vHint, vType)
+			assert(not nSetReturn, "RetIs can only use once here")
+			nOpenCom:initByGuard(self._context, vType)
+			nSetReturn = true
+			return vHint
+		end,
+	})
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
+	if not nSetReturn then
+		error(Exception.new("guard function need hint with RetIs(vType)", self._node))
+	end
+	return self._luaFunc
+end
+
 function FunctionBuilder:build():Ret(class.LuaFunction)
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		return self:buildOpen()
+		return self:_buildOpen()
 	end
 	if nAttrSet.class then
-		return self:buildClass()
+		return self:_buildClass()
+	end
+	if nAttrSet.guard then
+		return self:_buildGuard()
 	end
 	local nLongHint = self:makeLongHint()
 	local ok, err = pcall(self._suffixHint.caller, nLongHint)
@@ -157,6 +182,9 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 	end
 	if nAttrSet.pass then
 		self._pass = true
+	end
+	if nAttrSet.member then
+		self._autoArgs:setSelf(self._context)
 	end
 	local nFnCom = self._fnCom
 	if not nFnCom then
