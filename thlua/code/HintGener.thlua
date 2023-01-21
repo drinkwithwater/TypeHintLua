@@ -181,9 +181,11 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).BREAK()
 	end,
 	Call=function(self, node)
+		const nHintGeneric = node.hintGeneric
 		return self:ctxAutoUnpack(node,
 			self:ctxWrap(node).META_CALL(
 				self:visit(node[1]),
+				self:tableWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
 				self:ctxWrap(node).EXPLIST_PACK(
 					"true",
 					self:tableWrap(#node[2] > 0 and self:visit(node[2]) or "")
@@ -192,10 +194,12 @@ local TagToVisiting:RealTraverser = {
 		)
 	end,
 	Invoke=function(self, node)
+		const nHintGeneric = node.hintGeneric
 		return self:ctxAutoUnpack(node,
 			self:ctxWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
+				self:tableWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
 				self:ctxWrap(node).EXPLIST_PACK(
 					"false",
 					self:tableWrap(#node[3] > 0 and self:visit(node[3]) or "")
