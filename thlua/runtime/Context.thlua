@@ -223,7 +223,7 @@ end
 
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
 (@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
-function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList):Ret(class.TermTuple)
+function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vGenericArgs:List(class.UAllType), vFuncArgCaseList:FuncArgCaseList):Ret(class.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nNativePair = vNativePair
@@ -232,14 +232,14 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFu
 				self._runtime:nodeError(vNode, "can't mix call native function & not-native function")
 				return self:TermTuple({})
 			end
-			return nNativePair[1]:meta_native_call(self:newOpenContext(vNode), nNativePair[2])
+			return nNativePair[1]:meta_open_call(self:newOpenContext(vNode), nNativePair[2])
 		elseif nListLen >= 1 then
 			const nType1TupleCaseList:List(Struct {class.UAtomUnion, class.TypeTuple, class.TermCase}) = {}
 			const nNil = self._manager.type.Nil
 			local nMaxLength = 0
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
-				const nRetTuples = f:meta_call(self:newSealContext(vNode), a)
+				const nRetTuples = f:meta_poly_call(self:newSealContext(vNode), vGenericArgs, a)
 				nRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
 					local nLength = #vTypeTuple
 					if nLength > nMaxLength then
@@ -277,7 +277,7 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFu
 			nTermList[1] = self._manager:mergeToRefineTerm(nTypeCaseList)
 			return self:TermTuple(nTermList)
 		else
-			self._runtime:nodeError(vNode, "meta_call function can't be Never")
+			self._runtime:nodeError(vNode, "meta_poly_call function can't be Never")
 			return self:TermTuple({})
 		end
 	end)
@@ -318,7 +318,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 			self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vFuncType))
 		end
 	end)
-	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
+	return self:_apply(vNode, nNativePair, vGenericArgs, nFuncArgCaseList)
 end
 
 function Context:META_INVOKE(vNode:class.IAstNode,
@@ -354,7 +354,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 			end)
 		end
 	end)
-	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
+	return self:_apply(vNode, nNativePair, vGenericArgs, nFuncArgCaseList)
 end
 
 function Context:META_EQ_NE(vNode:class.IAstNode,
@@ -392,20 +392,21 @@ function Context:META_BOP_SOME(vNode:class.IAstNode, vOper:String, vLeftTerm:cla
 	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
 		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
+			const nRightType = vRightTerm:getType()
 			const nTypeTuple = self._manager:Tuple(vLeftType, vRightTerm:getType())
-			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+			const nRetTuples = nLeftFunc:meta_poly_call(self:newSealContext(vNode), {vLeftType, nRightType}, nTypeTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightTermCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+					const nRetTuples = nRightFunc:meta_poly_call(self:newSealContext(vNode), {vLeftType, vRightType}, nTypeTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-						const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+						const nRetTuples = nLeftFunc:meta_poly_call(self:newSealContext(vNode), {vLeftType, vRightType}, nTypeTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)

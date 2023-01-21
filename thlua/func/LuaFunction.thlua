@@ -58,22 +58,22 @@ function LuaFunction:getFnCom():Ret(class.UFnCom)
 	return self._unionFnCom
 end
 
-function LuaFunction:meta_native_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
+function LuaFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
 	local nFnCom = self._unionFnCom
 	if OpenFnCom.is(nFnCom) then
-		return nFnCom:meta_native_call(vContext, vTermTuple)
+		return nFnCom:meta_open_call(vContext, vTermTuple)
 	else
-		error("only open or native fn can call meta_native_call")
+		error("only open or native fn can call meta_open_call")
 	end
 end
 
-function LuaFunction:meta_call(vContext, vTypeTuple)
+function LuaFunction:meta_poly_call(vContext, vTypeArgs, vTypeTuple)
 	local nFnCom = self._unionFnCom
 	if not OpenFnCom.is(nFnCom) then
 		const nTypeFn = nFnCom:matchTypeFn(vContext, vTypeTuple)
-		return nTypeFn:meta_call(vContext, vTypeTuple)
+		return nTypeFn:meta_poly_call(vContext, vTypeArgs, vTypeTuple)
 	else
-		error("open fn can't call meta_call")
+		error("open fn can't call meta_poly_call")
 	end
 end
 

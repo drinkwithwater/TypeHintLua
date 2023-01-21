@@ -41,7 +41,7 @@ function AutoRetFnCom:checkLateRun()
 	end
 end
 
-function AutoRetFnCom:meta_call(vContext, vTypeTuple)
+function AutoRetFnCom:meta_poly_call(vContext, vTypeTuple)
 	local nTypeFn = self._typeFunction
 	if not nTypeFn then
 		local nArgTuple = self._argTuple
@@ -63,7 +63,7 @@ function AutoRetFnCom:meta_call(vContext, vTypeTuple)
 		nTypeFn = self._manager:Function(nArgTuple, self._retTuples)
 		self._typeFunction = nTypeFn
 	end
-	return nTypeFn:meta_call(vContext, vTypeTuple)
+	return nTypeFn:meta_poly_call(vContext, vTypeTuple)
 end
 
 function AutoRetFnCom:regionReturn(vContext, vNode, vTypeTuple)
@@ -114,7 +114,7 @@ function AutoRetFnCom:cast(vContext, vDstTypeFn):Ret(Boolean)
 			vContext:error("auto function's args not match when casting")
 		end
 		self._retTuples = vDstTypeFn:getRetTuples()
-		-- self:meta_call(vContext, vDstTypeFn:getArgTuple())
+		-- self:meta_poly_call(vContext, vDstTypeFn:getArgTuple())
 		self._typeFunction = self._manager:Function(nArgTuple, self._retTuples)
 	end
 	return vDstTypeFn:containAll(self._typeFunction) and true
