@@ -45,44 +45,15 @@ function.class FunctionBuilder.new(vContext:class.Context,
 		_manager=nManager,
 		_retTuples=false@Union(False, class.RetTuples),
 		_pass=false@Boolean,
-		_fnCom=false@Union(False, class.UFnCom),
 		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
 		_autoArgs=vAutoArgs,
 	}, FunctionBuilder)
 end
 
-function FunctionBuilder.makeLongHint(self:let.FunctionBuilder):Ret(class.FnLongHint)
-	return {
-		RetClass=function(vLongHint:class.FnLongHint, vRefer:class.Reference, vStruct:OrNil(class.UAllType)):Ret(class.FnLongHint)
-			error("RetClass can not be used here")
-			return vLongHint
-		end,
-		Ret=function(vLongHint:class.FnLongHint, ...:class.UAllType):Ret(class.FnLongHint)
-			assert(not self._fnCom, Exception.new("function builder case conflict"))
-			local nRetTuples = self._retTuples
-			if not nRetTuples then
-				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
-			else
-				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:Tuple(...))
-			end
-			self._retTuples = nRetTuples
-			return vLongHint
-		end,
-		RetIs=function(vLongHint:class.FnLongHint, vType:class.UAllType):Ret(class.FnLongHint)
-			error("ret cannot used here")
-			assert(not self._fnCom, Exception.new("function builder case conflict"))
-			const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
-			nOpenCom:initByGuard(self._context, vType)
-			self._fnCom = nOpenCom
-			return vLongHint
-		end,
-	}
-end
-
 function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
-	nOpenCom:initByOpen()
+	local nSetReturn = false
 	const ok, err = pcall(self._suffixHint.caller, {
 		RetClass=function(vHint, _, _)
 			return vHint
@@ -91,9 +62,15 @@ function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
 			return vHint
 		end,
 		RetIs=function(vHint, vType)
+			assert(not nSetReturn, "RetIs can only use once here")
+			nOpenCom:initByGuard(self._context, vType)
+			nSetReturn = true
 			return vHint
 		end,
 	})
+	if not nSetReturn then
+		nOpenCom:initByOpen()
+	end
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
@@ -138,29 +115,56 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 	return self._luaFunc
 end
 
-function FunctionBuilder:_buildGuard():Ret(class.LuaFunction)
-	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
-	local nSetReturn = false
+function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class.LuaFunction)
+	self._pass = vPass
+	if vMember then
+		self._autoArgs:setSelf(self._context)
+	end
 	const ok, err = pcall(self._suffixHint.caller, {
 		RetClass=function(vHint, _, _)
+			error("RetClass can not be used here")
 			return vHint
 		end,
-		Ret=function(vHint)
+		Ret=function(vHint, ...:class.UAllType)
+			local nRetTuples = self._retTuples
+			if not nRetTuples then
+				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
+			else
+				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:Tuple(...))
+			end
+			self._retTuples = nRetTuples
 			return vHint
 		end,
 		RetIs=function(vHint, vType)
-			assert(not nSetReturn, "RetIs can only use once here")
-			nOpenCom:initByGuard(self._context, vType)
-			nSetReturn = true
+			error("ret cannot used here")
 			return vHint
 		end,
 	})
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	if not nSetReturn then
-		error(Exception.new("guard function need hint with RetIs(vType)", self._node))
+	local nRetTuples = self._retTuples
+	if not self._hasRet then
+		if not nRetTuples then
+			nRetTuples = self._manager:VoidRetTuples()
+		elseif not self._pass then
+			local hasVoid = false
+			local hasSome = false
+			nRetTuples:foreachWithFirst(function(vTypeTuple, _)
+				if #vTypeTuple > 0 then
+					hasSome = true
+				else
+					hasVoid = true
+				end
+			end)
+			if hasSome and not hasVoid then
+				self._context:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
+			end
+		end
 	end
+	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
+	nLateFnCom:init(nRetTuples, self._pass)
+	self._context:recordLateLuaFunction(nLateFnCom)
 	return self._luaFunc
 end
 
@@ -172,47 +176,7 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 	if nAttrSet.class then
 		return self:_buildClass()
 	end
-	if nAttrSet.guard then
-		return self:_buildGuard()
-	end
-	local nLongHint = self:makeLongHint()
-	local ok, err = pcall(self._suffixHint.caller, nLongHint)
-	if not ok then
-		error(Exception.new(tostring(err), self._node))
-	end
-	if nAttrSet.pass then
-		self._pass = true
-	end
-	if nAttrSet.member then
-		self._autoArgs:setSelf(self._context)
-	end
-	local nFnCom = self._fnCom
-	if not nFnCom then
-		local nRetTuples = self._retTuples
-		if not self._hasRet then
-			if not nRetTuples then
-				nRetTuples = self._manager:VoidRetTuples()
-			elseif not self._pass then
-				local hasVoid = false
-				local hasSome = false
-				nRetTuples:foreachWithFirst(function(vTypeTuple, _)
-					if #vTypeTuple > 0 then
-						hasSome = true
-					else
-						hasVoid = true
-					end
-				end)
-				if hasSome and not hasVoid then
-					self._context:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
-				end
-			end
-		end
-		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
-		nLateFnCom:init(nRetTuples, self._pass)
-		self._context:recordLateLuaFunction(nLateFnCom)
-	end
-
-	return self._luaFunc
+	return self:_buildDefault(nAttrSet.pass and true or false, nAttrSet.member and true or false)
 end
 
 return FunctionBuilder
