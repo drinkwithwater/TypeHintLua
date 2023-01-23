@@ -29,25 +29,25 @@ FunctionBuilder.__index=FunctionBuilder
 function.class FunctionBuilder.new(vContext:class.Context,
 	vNode:class.IAstNode,
 	vPrefixHint:class.TLongHintInfo(Nil),
-	vAutoArgs:class.AutoArguments,
-	vSuffixHint:class.TLongHintInfo(class.FnLongHint),
 	vHasRet:Boolean,
+	vTypeFnGen:Fn(List(class.UAllType)):Ret(class.AutoArguments, class.TLongHintInfo(class.FnLongHint)),
 	vRunFunc:class.GenFunc
 ):RetClass(let.FunctionBuilder)
 	const nManager = vContext:getTypeManager()
 	const nLuaFunc = nManager:LuaFunction()
-	nLuaFunc:init(vContext, vNode, vAutoArgs, vRunFunc)
+	const nAutoArgs, nSuffixHint = vTypeFnGen({})
+	nLuaFunc:init(vContext, vNode, nAutoArgs, vRunFunc)
 	return setmetatable({.class
 		_node=vNode,
 		_context=vContext,
 		_prefixHint=vPrefixHint,
-		_suffixHint=vSuffixHint,
+		_suffixHint=nSuffixHint,
 		_manager=nManager,
 		_retTuples=false@Union(False, class.RetTuples),
 		_pass=false@Boolean,
 		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
-		_autoArgs=vAutoArgs,
+		_autoArgs=nAutoArgs,
 	}, FunctionBuilder)
 end
 

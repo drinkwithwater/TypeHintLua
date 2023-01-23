@@ -280,10 +280,11 @@ local G = lpeg.P { "TypeHintLua";
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
-	GenericParHint = hintC.string(symb("@<"),
-		vvA.Name * (symb"," * vv.Name)^0, symbA(">"));
+	HintGenericParList = symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") / function(...)
+		return {...}
+	end;
 
-	GenericArgHint = hintC.string(symb("@<"),
+	HintGenericArgs = hintC.string(symb("@<"),
 		vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
 	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
@@ -376,7 +377,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
-		local generic = lpeg.Cg(vv.GenericArgHint + cc(false), "hintGeneric")
+		local generic = lpeg.Cg(vv.HintGenericArgs + cc(false), "hintGenericArgs")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		index1 = addAtHint(index1)
@@ -431,7 +432,7 @@ local G = lpeg.P { "TypeHintLua";
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
-		return tagC.Function(lpeg.Cg(vv.GenericParHint, "hintGenericParList")^-1*symbA("(") * ParList * symbA(")") *
+		return tagC.Function(lpeg.Cg(vv.HintGenericParList, "hintGenericParList")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
@@ -462,11 +463,11 @@ local G = lpeg.P { "TypeHintLua";
 			local FuncName = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
 			return Cpos * vv.FuncPrefix * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, override, posMid, funcExpr, posEnd)
+				funcExpr.hintPrefix = hintPrefix
 				if methodName then
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
 					varPrefix = makeNameIndex(varPrefix, methodName)
 				end
-				funcExpr.hintPrefix = hintPrefix
 				return {
 					tag = "Set", pos=pos, override=override, posEnd=posEnd,
 					{ tag="VarList", pos=pos, posEnd=posMid, varPrefix},

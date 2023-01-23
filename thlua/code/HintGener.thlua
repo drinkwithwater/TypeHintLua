@@ -181,7 +181,7 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).BREAK()
 	end,
 	Call=function(self, node)
-		const nHintGeneric = node.hintGeneric
+		const nHintGeneric = node.hintGenericArgs
 		return self:ctxAutoUnpack(node,
 			self:ctxWrap(node).META_CALL(
 				self:visit(node[1]),
@@ -194,7 +194,7 @@ local TagToVisiting:RealTraverser = {
 		)
 	end,
 	Invoke=function(self, node)
-		const nHintGeneric = node.hintGeneric
+		const nHintGeneric = node.hintGenericArgs
 		return self:ctxAutoUnpack(node,
 			self:ctxWrap(node).META_INVOKE(
 				self:visit(node[1]),
@@ -398,20 +398,6 @@ function HintGener:visit(vNode:node.IAstNode):Ret(let.UGenResult)
 end
 
 function HintGener:fixHintInfo(vHintInfo:node.HintInfo):Ret(let.GenResult)
-	--[[
-	const nScript = vHintInfo.script
-	const nResult:let.GenResult = {}
-	for s in string.gmatch(nScript, "[^\n]*") do
-		nResult[#nResult + 1] = {
-			line = true,
-			" ", s, " "
-		}
-	end
-	const nLast = nResult[#nResult]
-	if type(nLast) == "table" then
-		nLast.line = nil
-	end
-	return nResult]]
 	const nResult:let.GenResult = {}
 	for k,v in ipairs(vHintInfo) do
 		if v.tag == "HintScript" then
@@ -663,9 +649,12 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
 			nHintPrefix,
-			nParInHead,
-			nHintSuffix,
 			tostring(vNode.retFlag or false),
+			self:fnWrap("____typeList")(
+				"return ",
+				nParInHead, ",",
+				nHintSuffix
+			),
 			self:fnWrap("____newCtx", "____typeList", "vArgTuple")(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 				nParInBody,
