@@ -431,7 +431,7 @@ local G = lpeg.P { "TypeHintLua";
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
-		return tagC.Function(lpeg.Cg(vv.GenericParHint, "hintGeneric")^-1*symbA("(") * ParList * symbA(")") *
+		return tagC.Function(lpeg.Cg(vv.GenericParHint, "hintGenericParList")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
