@@ -35,26 +35,25 @@ function.class FunctionBuilder.new(vContext:class.Context,
 ):RetClass(let.FunctionBuilder)
 	const nManager = vContext:getTypeManager()
 	const nLuaFunc = nManager:LuaFunction()
-	const nAutoArgs, nSuffixHint = vTypeFnGen({})
-	nLuaFunc:init(vContext, vNode, nAutoArgs, vRunFunc)
+	nLuaFunc:init(vContext, vNode, vRunFunc)
 	return setmetatable({.class
 		_node=vNode,
 		_context=vContext,
 		_prefixHint=vPrefixHint,
-		_suffixHint=nSuffixHint,
 		_manager=nManager,
 		_retTuples=false@Union(False, class.RetTuples),
 		_pass=false@Boolean,
 		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
-		_autoArgs=nAutoArgs,
+		_typeFnGen=vTypeFnGen,
 	}, FunctionBuilder)
 end
 
 function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
+	const nAutoArgs, nSuffixHint = self._typeFnGen({})
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
-	const ok, err = pcall(self._suffixHint.caller, {
+	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, _, _)
 			return vHint
 		end,
@@ -78,8 +77,9 @@ function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
+	const nAutoArgs, nSuffixHint = self._typeFnGen({})
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
-	const ok, err = pcall(self._suffixHint.caller, {
+	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, vRefer, vStruct)
 			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
 			vRefer:setRawAsync(self._node, function()
@@ -94,7 +94,7 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
 					nInterface = nImplType
 				end
-				const nTable = nFactoryCom:createLuaTable(self._context, vRefer, nInterface)
+				const nTable = nFactoryCom:createLuaTable(self._context, nAutoArgs, vRefer, nInterface)
 				return {nTable}
 			end, function(vLuaTable)
 				nFactoryCom:runBuild()
@@ -116,11 +116,12 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class.LuaFunction)
+	const nAutoArgs, nSuffixHint = self._typeFnGen({})
 	self._pass = vPass
 	if vMember then
-		self._autoArgs:setSelf(self._context)
+		self._luaFunc:setMember()
 	end
-	const ok, err = pcall(self._suffixHint.caller, {
+	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, _, _)
 			error("RetClass can not be used here")
 			return vHint
@@ -163,7 +164,7 @@ function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class
 		end
 	end
 	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
-	nLateFnCom:init(nRetTuples, self._pass)
+	nLateFnCom:init(nAutoArgs, nRetTuples, self._pass)
 	self._context:recordLateLuaFunction(nLateFnCom)
 	return self._luaFunc
 end

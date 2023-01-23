@@ -465,6 +465,15 @@ local G = lpeg.P { "TypeHintLua";
 			return Cpos * vv.FuncPrefix * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, override, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
+					if not hintPrefix then
+						funcExpr.hintPrefix = {
+							attrList={"member"}
+						}
+					elseif not hintPrefix.attrList then
+						hintPrefix.attrList = {"member"}
+					else
+						table.insert(hintPrefix.attrList, "member")
+					end
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
 					varPrefix = makeNameIndex(varPrefix, methodName)
 				end

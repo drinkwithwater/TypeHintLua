@@ -22,8 +22,8 @@ function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaF
 	return self
 end
 
-function LateFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
-	self._autoArgs = self._luaFunction._autoArgs
+function LateFnCom:init(vAutoArgs:class.AutoArguments, vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
+	self._autoArgs = vAutoArgs
 	self._hintRetTuples = vRetTuples or false
 	self._pass = vNocheck
 end
@@ -132,6 +132,9 @@ function LateFnCom:selfSpecialize(vContext:class.Context, vSelfType:class.LuaTab
 		self._selfSpecDict[vSelfType] = nNewTypeFn
 		return nNewTypeFn
 	else
+		if not self._luaFunction:isMember() then
+			vContext:error("only function with member attribute can take self specialize")
+		end
 		const nArgTuple = self._autoArgs:checkByFirst(vContext, vSelfType)
 		local nRetTuples = self._hintRetTuples
 		if not nRetTuples then

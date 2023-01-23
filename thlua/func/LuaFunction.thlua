@@ -17,7 +17,7 @@ function.class LuaFunction.new(vManager:class.TypeManager):RetClass(class.LuaFun
 		_context=false@class.Context,
 		_node=false@class.IAstNode,
 		_genFunc=false@class.GenFunc,
-		_autoArgs=false@class.AutoArguments,
+		_member=false@Boolean,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown"@String,
 		id=vManager:genTypeId(),
@@ -30,11 +30,14 @@ function LuaFunction:setFnCom(vUnionTagFn:class.UFnCom)
 	self._unionFnCom = vUnionTagFn
 end
 
-function LuaFunction:init(vContext:class.Context, vNode:class.IAstNode, vAutoArgs:class.AutoArguments, vRunFunc:class.GenFunc)
+function LuaFunction:setMember()
+	self._member = true
+end
+
+function LuaFunction:init(vContext:class.Context, vNode:class.IAstNode, vRunFunc:class.GenFunc)
 	self._context = vContext
 	self._node = vNode
 	self._genFunc = vRunFunc
-	self._autoArgs = vAutoArgs
 	self.name = tostring(vNode)
 end
 
@@ -127,7 +130,7 @@ function LuaFunction:specialize(vContext:class.Context, vSelfType:OrNil(class.Lu
 end
 
 function LuaFunction:isMember():Ret(Boolean)
-	return self._autoArgs:hasSelf() and LateFnCom.is(self._unionFnCom)
+	return self._member and LateFnCom.is(self._unionFnCom)
 end
 
 function LuaFunction:fnPartType()
