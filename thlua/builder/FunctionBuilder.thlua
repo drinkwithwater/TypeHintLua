@@ -42,7 +42,6 @@ function.class FunctionBuilder.new(vContext:class.Context,
 		_prefixHint=vPrefixHint,
 		_manager=nManager,
 		_retTuples=false@Union(False, class.RetTuples),
-		_pass=false@Boolean,
 		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
 		_typeFnGen=vTypeFnGen,
@@ -117,7 +116,6 @@ end
 
 function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class.LuaFunction)
 	const nAutoArgs, nSuffixHint = self._typeFnGen({})
-	self._pass = vPass
 	if vMember then
 		self._luaFunc:setMember()
 	end
@@ -148,7 +146,7 @@ function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class
 	if not self._hasRet then
 		if not nRetTuples then
 			nRetTuples = self._manager:VoidRetTuples()
-		elseif not self._pass then
+		elseif not vPass then
 			local hasVoid = false
 			local hasSome = false
 			nRetTuples:foreachWithFirst(function(vTypeTuple, _)
@@ -164,7 +162,7 @@ function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class
 		end
 	end
 	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
-	nLateFnCom:init(nAutoArgs, nRetTuples, self._pass)
+	nLateFnCom:init(nAutoArgs, nRetTuples, vPass)
 	self._context:recordLateLuaFunction(nLateFnCom)
 	return self._luaFunc
 end
