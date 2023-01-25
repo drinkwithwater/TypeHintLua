@@ -7,6 +7,7 @@ const TermCase = require "thlua.term.TermCase"
 const Exception = require "thlua.Exception"
 const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
+const FnHintCom = require "thlua.func.FnHintCom"
 const ClassFactory = require "thlua.func.ClassFactory"
 const MetaObject = require "thlua.object.MetaObject"
 
@@ -30,11 +31,12 @@ function.class FunctionBuilder.new(vContext:class.Context,
 	vNode:class.IAstNode,
 	vPrefixHint:class.TLongHintInfo(Nil),
 	vHasRet:Boolean,
-	vTypeFnGen:Fn(List(class.UAllType)):Ret(class.AutoArguments, class.TLongHintInfo(class.FnLongHint)),
+	vFnHintCaller:Fn(List(class.UAllType)):Ret(class.AutoArguments, class.TLongHintInfo(class.FnLongHint)),
 	vRunFunc:class.GenFunc
 ):RetClass(let.FunctionBuilder)
 	const nManager = vContext:getTypeManager()
 	const nLuaFunc = nManager:LuaFunction()
+	const nHintCom = FnHintCom.new(nManager, nLuaFunc, vFnHintCaller)
 	nLuaFunc:init(vContext, vNode, vRunFunc)
 	return setmetatable({.class
 		_node=vNode,
@@ -44,12 +46,12 @@ function.class FunctionBuilder.new(vContext:class.Context,
 		_retTuples=false@Union(False, class.RetTuples),
 		_hasRet=vHasRet,
 		_luaFunc=nLuaFunc,
-		_typeFnGen=vTypeFnGen,
+		_fnHintCaller=vFnHintCaller,
 	}, FunctionBuilder)
 end
 
 function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
-	const nAutoArgs, nSuffixHint = self._typeFnGen({})
+	const nAutoArgs, nSuffixHint = self._fnHintCaller({})
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
 	const ok, err = pcall(nSuffixHint.caller, {
@@ -76,7 +78,7 @@ function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
-	const nAutoArgs, nSuffixHint = self._typeFnGen({})
+	const nAutoArgs, nSuffixHint = self._fnHintCaller({})
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, vRefer, vStruct)
@@ -115,7 +117,7 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class.LuaFunction)
-	const nAutoArgs, nSuffixHint = self._typeFnGen({})
+	const nAutoArgs, nSuffixHint = self._fnHintCaller({})
 	if vMember then
 		self._luaFunc:setMember()
 	end
