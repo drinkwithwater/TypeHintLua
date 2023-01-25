@@ -469,14 +469,18 @@ function Context:AutoArguments(vNode:class.IAstNode, vArgList:List(VariableOrTyp
 	return AutoArguments.new(self._manager, vNode, vArgList, vArgDots)
 end
 
-function Context:FUNC_NEW(
-	vNode:class.IAstNode,
-	vPrefixHint:class.TLongHintInfo(Nil),
-	vHasRet:Boolean,
-	vFnHintCaller:Fn(List(class.UAllType)):Ret(class.AutoArguments, class.TLongHintInfo(class.FnLongHint)),
-	vFunc:class.GenFunc
-):Ret(class.LuaFunction)
-	const nBuilder = FunctionBuilder.new(self, vNode, vPrefixHint, vHasRet, vFnHintCaller, vFunc)
+(@class.FuncNewInfo = Struct {
+	prefixHint=class.TLongHintInfo(Nil),
+	nparams=Integer,
+	isvararg=Boolean,
+	hasRet=Boolean,
+	parMaker=Fn(List(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
+	retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
+	fnHintCaller=Fn(List(class.UAllType)):Ret(class.AutoArguments, class.TLongHintInfo(class.FnLongHint)),
+	runFunc=class.GenFunc,
+})
+function Context:FUNC_NEW(vNode:class.IAstNode, vInfo:class.FuncNewInfo):Ret(class.LuaFunction)
+	const nBuilder = FunctionBuilder.new(self, vNode, vInfo)
 	const nLuaFunc = nBuilder:build()
 	const nRegion = self._region
 	return nLuaFunc, nRegion and nRegion:topBranch():getCase()

@@ -173,7 +173,7 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).RETURN(
 			self:ctxWrap(node).EXPLIST_PACK(
 				"false",
-				self:tableWrap(self:visit(node[1]))
+				self:listWrap(self:visit(node[1]))
 			)
 		)
 	end,
@@ -185,10 +185,10 @@ local TagToVisiting:RealTraverser = {
 		return self:ctxAutoUnpack(node,
 			self:ctxWrap(node).META_CALL(
 				self:visit(node[1]),
-				self:tableWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
+				self:listWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
 				self:ctxWrap(node).EXPLIST_PACK(
 					"true",
-					self:tableWrap(#node[2] > 0 and self:visit(node[2]) or "")
+					self:listWrap(#node[2] > 0 and self:visit(node[2]) or "")
 				)
 			)
 		)
@@ -199,10 +199,10 @@ local TagToVisiting:RealTraverser = {
 			self:ctxWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
-				self:tableWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
+				self:listWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
 				self:ctxWrap(node).EXPLIST_PACK(
 					"false",
-					self:tableWrap(#node[3] > 0 and self:visit(node[3]) or "")
+					self:listWrap(#node[3] > 0 and self:visit(node[3]) or "")
 				)
 			)
 		)
@@ -264,16 +264,16 @@ local TagToVisiting:RealTraverser = {
 		return {
 			"____ctx:RefineTerm(", self:ctxWrap(node).TABLE_NEW(
 				self:visitLongHint(node.hintLong),
-				self:fnRetWrap(self:tableWrap(self:forList(node, function(i, vNode)
+				self:fnRetWrap(self:listWrap(self:forList(node, function(i, vNode)
 					const nTableItem = vNode @ Union(node.Pair, node.Expr)
 					if nTableItem.tag ~= "Pair" then
 						if i==#node and tailDots then
 							return "nil"
 						else
-							return self:tableWrap("____ctx:LiteralTerm("..i2i[i]!..")", self:visit(nTableItem))
+							return self:listWrap("____ctx:LiteralTerm("..i2i[i]!..")", self:visit(nTableItem))
 						end
 					else
-						return self:tableWrap(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
+						return self:listWrap(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
 					end
 				end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
 			), ")"
@@ -474,7 +474,20 @@ function HintGener:fnRetWrap(...:let.UGenResult):Ret(let.GenResult)
 	return nResult
 end
 
-function HintGener:tableWrap(...:let.UGenResult):Ret(let.GenResult)
+function HintGener:dictWrap(vDict:Dict(String, let.UGenResult)):Ret(let.GenResult)
+	const nList:let.GenResult = {}
+	nList[#nList + 1] = "{"
+	for k,v in pairs(vDict) do
+		nList[#nList + 1] = k
+		nList[#nList + 1] = "="
+		nList[#nList + 1] = v
+		nList[#nList + 1] = ","
+	end
+	nList[#nList + 1] = "}"
+	return nList
+end
+
+function HintGener:listWrap(...:let.UGenResult):Ret(let.GenResult)
 	const nList:let.GenResult = {...}
 	const nResult:let.GenResult = { "{" }
 	for i=1, #nList do
@@ -580,10 +593,10 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult):R
 end
 
 function HintGener:chunkLongHint():Ret(let.GenResult)
-	return self:tableWrap(
-		"attrSet={open=1}",
-		"caller=function (_) return _ end"
-	)
+	return self:dictWrap({
+		attrSet="{open=1}",
+		caller="function(_) return _ end"
+	})
 end
 
 function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo)):Ret(let.GenResult)
@@ -595,11 +608,10 @@ function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo)):Ret(let.GenResu
 	for i=1, #nAttrList do
 		l[#l + 1] = nAttrList[i]! .. "=1"
 	end
-	const attrSet = self:tableWrap(table.unpack(l))
-	return self:tableWrap(
-		{ "attrSet=", self:tableWrap(table.unpack(l)) },
-		{ "caller=", self:fnWrap("____longHint")("return ____longHint", nCallGen) }
-	)
+	return self:dictWrap({
+		attrSet=self:listWrap(table.unpack(l)),
+		caller=self:fnWrap("____longHint")("return ____longHint", nCallGen)
+	})
 end
 
 function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGenResult)
@@ -615,8 +627,10 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		const nHint = nLastDots.hintShort
 		nDotsHint = nHint and self:fixHintInfo(nHint) or "____ctx:Variable(false)"
 	end
-	const nParInHead = self:ctxWrap(nParList).AutoArguments(
-		self:tableWrap(self:forList(nParList, function(i, vNode)
+	const nParamNum = nLastDots and #nParList-1 or #nParList
+	const nIsVararg = nLastDots and true or false
+	const nParAsAutoArgs = self:ctxWrap(nParList).AutoArguments(
+		self:listWrap(self:forList(nParList, function(i, vNode)
 			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 			const nHintShort = nParNode.hintShort
 			if nParNode.tag == "Dots" then
@@ -635,8 +649,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
 			end, ","),
 			"=" ,
-			self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple",
-				tostring(nLastDots and #nParList-1 or #nParList), tostring(nLastDots and true or false)),
+			self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple", tostring(nParamNum), tostring(nIsVararg)),
 			self:forList(nParList, function(i, vNode)
 				const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 				if nParNode.tag ~= "Dots" then
@@ -647,22 +660,40 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	}
 	return {
 		"local ____fn,____uv ",
-		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(
-			nHintPrefix,
-			tostring(vNode.retFlag or false),
-			self:fnWrap("____typeList")(
+		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
+			prefixHint=nHintPrefix,
+			hasRet=tostring(vNode.retFlag or false),
+			nparams=tostring(nParamNum),
+			isvararg=tostring(nIsVararg),
+			parMaker=self:fnWrap("____typeList")(
 				"return ",
-				nParInHead, ",",
+				self:listWrap(self:forList(nParList, function(i, vNode)
+					const nParNode = vNode @ Union(node.Dots, node.Ident_def)
+					const nHintShort = nParNode.hintShort
+					if nParNode.tag == "Dots" then
+						return "nil"
+					else
+						return nHintShort and self:fixHintInfo(nHintShort) or "false"
+					end
+				end, ", ")), ",",
+				nDotsHint or "false"
+			),
+			retMaker=self:fnWrap("____typeList")(
+				"return ", nHintSuffix
+			),
+			fnHintCaller=self:fnWrap("____typeList")(
+				"return ",
+				nParAsAutoArgs, ",",
 				nHintSuffix
 			),
-			self:fnWrap("____newCtx", "____typeList", "vArgTuple")(
+			runFunc=self:fnWrap("____newCtx", "____typeList", "vArgTuple")(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 				nParInBody,
 				self:visit(nBlockNode),
 				" return ",
 				self:rgnWrap(vNode).END()
 			)
-		),
+		})),
 		"return ____fn ",
 	}
 end
