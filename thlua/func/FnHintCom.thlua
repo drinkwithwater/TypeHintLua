@@ -12,12 +12,104 @@ function.class FnHintCom.new(
 	vInfo:class.FuncNewInfo
 ):RetClass(class.FnHintCom)
 	const self = setmetatable({.class
+		_manager=vManager,
 		_info=vInfo
 	}, FnHintCom)
 	return self
 end
 
-function FnHintCom:checkByDefault()
+function FnHintCom:checkWhenApply(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
+	const nParList, nDotsType = self._info.parMaker({})
+	local nNewList:List(class.UAllType) = {}
+	if #vTypeTuple ~= self._info.nparams then
+		vContext:error("arguments num not match when specification")
+	end
+	for i, nPar in ipairs(nParList) do
+		local nInputType = vTypeTuple:get(i)
+		if not nPar then
+			nNewList[i] = nInputType
+		else
+			nNewList[i] = nPar
+			if not nPar:containAll(nInputType) then
+				vContext:error("arguments type not match when checkout")
+			end
+		end
+	end
+	local nTuple = self._manager:Tuple(table.unpack(nNewList))
+	const nRepeatType = vTypeTuple:getRepeatType()
+	if self._info.isvararg then
+		if not nRepeatType then
+			vContext:error("arguments type not match for not dots")
+		end
+		if not nDotsType then
+			return nTuple:Dots(nRepeatType or self._manager.type.Truth)
+		else
+			if nRepeatType and not nDotsType:containAll(nRepeatType) then
+				vContext:error("arguments type not match for wrong dots")
+			end
+			return nTuple:Dots(nDotsType)
+		end
+	else
+		if nRepeatType then
+			vContext:error("arguments type not match for dots")
+		end
+		return nTuple
+	end
+end
+
+function FnHintCom:checkByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
+	const nParList, nDotsType = self._info.parMaker({})
+	const nNewList:List(class.UAllType) = {}
+	const nFirstPar = nParList[1]
+	if self._info.nparams == 0 then
+		vContext:error("one argument maybe required here?")
+		nNewList[1] = vFirst
+	else
+		if not nFirstPar then
+			nNewList[1] = vFirst
+		else
+			nNewList[1] = nFirstPar
+			if not nFirstPar:containAll(vFirst) then
+				vContext:error("first argument not match when cast")
+			end
+		end
+	end
+	for i=2,#nParList do
+		const nPar = nParList[i]!
+		if not nPar then
+			nNewList[i] = self._manager.type.Truth
+		else
+			nNewList[i] = nPar
+		end
+	end
+	const nTuple = self._manager:Tuple(table.unpack(nNewList))
+	if self._info.isvararg then
+		if not nDotsType then
+			return nTuple:Dots(self._manager.type.Truth)
+		else
+			return nTuple:Dots(nDotsType)
+		end
+	else
+		return nTuple
+	end
+end
+
+function FnHintCom:checkByDefault():Ret(class.UTypeTuple)
+	const nParList, nDotsType = self._info.parMaker({})
+	for i, nParType in ipairs(nParList) do
+		if not nParType then
+			error("param type is required here, order="..tostring(i))
+		end
+	end
+	local nTuple = self._manager:Tuple(table.unpack(nParList @ List(class.UAllType)))
+	if self._info.isvararg then
+		if not nDotsType then
+			error("dots type is required here")
+		end
+		return nTuple:Dots(nDotsType)
+	else
+		return nTuple
+	end
 end
 
 return FnHintCom

@@ -14,7 +14,6 @@ function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaF
 		_selfSpecDict={}@Dict(class.LuaTable, class.TypeFunction),
 		_castSpecList={}@List(class.TypeFunction),
 		_once=false@Boolean,
-		_autoArgs=nil@class.AutoArguments,
 		_hintRetTuples=false@Union(False, class.RetTuples),
 		_pass=false@Boolean,
 	}, LateFnCom)
@@ -22,8 +21,7 @@ function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaF
 	return self
 end
 
-function LateFnCom:init(vAutoArgs:class.AutoArguments, vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
-	self._autoArgs = vAutoArgs
+function LateFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
 	self._hintRetTuples = vRetTuples or false
 	self._pass = vNocheck
 end
@@ -101,7 +99,7 @@ end
 function LateFnCom:typeDefault():Ret(class.TypeFunction)
 	local nTypeFn = self._typeFunction
 	if not nTypeFn then
-		const nArgTuple = self._autoArgs:checkByDefault()
+		const nArgTuple = self._luaFunction:getHintCom():checkByDefault()
 		const nRetTuples = self._hintRetTuples or self._manager:VoidRetTuples()
 		self._hintRetTuples = nRetTuples
 		nTypeFn = self._manager:Function(nArgTuple, nRetTuples)
@@ -111,7 +109,7 @@ function LateFnCom:typeDefault():Ret(class.TypeFunction)
 end
 
 function LateFnCom:_typeFnSpecialize(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(class.TypeFunction)
-	const nArgTuple = self._autoArgs:checkWhenApply(vContext, vTypeFn:getArgTuple())
+	const nArgTuple = self._luaFunction:getHintCom():checkWhenApply(vContext, vTypeFn:getArgTuple())
 	local nRetTuples = vTypeFn:getRetTuples()
 	const nHintRetTuples = self._hintRetTuples
 	if nHintRetTuples then
@@ -135,7 +133,7 @@ function LateFnCom:selfSpecialize(vContext:class.Context, vSelfType:class.LuaTab
 		if not self._luaFunction:isMember() then
 			vContext:error("only function with member attribute can take self specialize")
 		end
-		const nArgTuple = self._autoArgs:checkByFirst(vContext, vSelfType)
+		const nArgTuple = self._luaFunction:getHintCom():checkByFirst(vContext, vSelfType)
 		local nRetTuples = self._hintRetTuples
 		if not nRetTuples then
 			if not self._pass then

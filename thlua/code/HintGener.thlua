@@ -505,8 +505,6 @@ end
 		"FUNC_NEW",
 		"TABLE_NEW",
 
-		"AutoArguments",
-
 		"TUPLE_UNPACK",
 		"EXPLIST_UNPACK",
 		"EXPLIST_PACK",
@@ -625,23 +623,10 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	local nDotsHint:OrFalse(let.UGenResult) = false
 	if nLastDots then
 		const nHint = nLastDots.hintShort
-		nDotsHint = nHint and self:fixHintInfo(nHint) or "____ctx:Variable(false)"
+		nDotsHint = nHint and self:fixHintInfo(nHint) or false
 	end
 	const nParamNum = nLastDots and #nParList-1 or #nParList
 	const nIsVararg = nLastDots and true or false
-	const nParAsAutoArgs = self:ctxWrap(nParList).AutoArguments(
-		self:listWrap(self:forList(nParList, function(i, vNode)
-			const nParNode = vNode @ Union(node.Dots, node.Ident_def)
-			const nHintShort = nParNode.hintShort
-			if nParNode.tag == "Dots" then
-				return "nil"
-			else
-				return nHintShort and self:fixHintInfo(nHintShort)
-					or (nParNode.isSelf and "____ctx:Variable(true)" or "____ctx:Variable(false)")
-			end
-		end, ", ")),
-		nDotsHint or "false"
-	)
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
 			" local ", self:forList(nParList, function(i, vNode)
@@ -681,12 +666,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			retMaker=self:fnWrap("____typeList")(
 				"return ", nHintSuffix
 			),
-			fnHintCaller=self:fnWrap("____typeList")(
-				"return ",
-				nParAsAutoArgs, ",",
-				nHintSuffix
-			),
-			runFunc=self:fnWrap("____newCtx", "____typeList", "vArgTuple")(
+			genFunc=self:fnWrap("____newCtx", "____typeList", "vArgTuple")(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 				nParInBody,
 				self:visit(nBlockNode),

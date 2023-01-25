@@ -29,7 +29,7 @@ function.class ClassFactory.new(vManager:class.TypeManager, vLuaFunction:class.L
 	return self
 end
 
-function ClassFactory:createLuaTable(vContext:class.Context, vAutoArgs:class.AutoArguments, vRefer:class.Reference, vInterface:class.MetaObject):Ret(class.LuaTable)
+function ClassFactory:createLuaTable(vContext:class.Context, vRefer:class.Reference, vInterface:class.MetaObject):Ret(class.LuaTable)
 	assert(not self._interface, "interface has beed setted")
 	assert(not self._luaTable, "lua table has beed setted")
 	-- 1. create lua table
@@ -39,7 +39,7 @@ function ClassFactory:createLuaTable(vContext:class.Context, vAutoArgs:class.Aut
 	nNewTable:initByClassCom(self, vInterface)
 	self._luaTable = nNewTable
 	-- 2. create type function
-	const nArgTuple = vAutoArgs:checkByDefault()
+	const nArgTuple = self._luaFunction:getHintCom():checkByDefault()
 	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
 	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
 	return nNewTable

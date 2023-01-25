@@ -1,7 +1,6 @@
 
 const Reference = require "thlua.refer.Reference"
 const LuaFunction = require "thlua.func.LuaFunction"
-const Variable = require "thlua.func.Variable"
 const TermCase = require "thlua.term.TermCase"
 
 const Exception = require "thlua.Exception"
@@ -34,7 +33,7 @@ function.class FunctionBuilder.new(vContext:class.Context,
 	const nManager = vContext:getTypeManager()
 	const nLuaFunc = nManager:LuaFunction()
 	const nHintCom = FnHintCom.new(nManager, nLuaFunc, vFnNewInfo)
-	nLuaFunc:init(vContext, vNode, vFnNewInfo.runFunc)
+	nLuaFunc:init(vContext, vNode, nHintCom, vFnNewInfo.genFunc)
 	return setmetatable({.class
 		_node=vNode,
 		_context=vContext,
@@ -44,7 +43,6 @@ function.class FunctionBuilder.new(vContext:class.Context,
 		_hasRet=vFnNewInfo.hasRet,
 		_luaFunc=nLuaFunc,
 		_retMaker=vFnNewInfo.retMaker,
-		_fnHintCaller=vFnNewInfo.fnHintCaller,
 	}, FunctionBuilder)
 end
 
@@ -76,7 +74,7 @@ function FunctionBuilder:_buildOpen():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
-	const nAutoArgs, nSuffixHint = self._fnHintCaller({})
+	const nSuffixHint = self._retMaker({})
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, vRefer, vStruct)
@@ -93,7 +91,7 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
 					nInterface = nImplType
 				end
-				const nTable = nFactoryCom:createLuaTable(self._context, nAutoArgs, vRefer, nInterface)
+				const nTable = nFactoryCom:createLuaTable(self._context, vRefer, nInterface)
 				return {nTable}
 			end, function(vLuaTable)
 				nFactoryCom:runBuild()
@@ -115,7 +113,7 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class.LuaFunction)
-	const nAutoArgs, nSuffixHint = self._fnHintCaller({})
+	const nSuffixHint = self._retMaker({})
 	if vMember then
 		self._luaFunc:setMember()
 	end
@@ -162,7 +160,7 @@ function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class
 		end
 	end
 	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
-	nLateFnCom:init(nAutoArgs, nRetTuples, vPass)
+	nLateFnCom:init(nRetTuples, vPass)
 	self._context:recordLateLuaFunction(nLateFnCom)
 	return self._luaFunc
 end
