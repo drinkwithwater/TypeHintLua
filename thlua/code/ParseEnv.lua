@@ -387,7 +387,7 @@ local G = lpeg.P { "TypeHintLua";
 		-- invoke
 		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * generic * vvA.FuncArgs)
 		-- call
-		local call = tagC.Call(cc(false) * generic * vv.FuncArgs)
+		local call = tagC.Call(cc(false) * vv.FuncArgs)
 		-- add completion case
 		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call)^0, exprF.suffixed);
 		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
