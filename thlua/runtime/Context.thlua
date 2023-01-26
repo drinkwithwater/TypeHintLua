@@ -315,7 +315,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 				}
 			end
 		else
-			self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vFuncType))
+			self._runtime:nodeError(vNode, "TODO call by a not-function value"..tostring(vFuncType))
 		end
 	end)
 	return self:_apply(vNode, nNativePair, {}, nFuncArgCaseList)
@@ -500,7 +500,12 @@ function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:no
 	if not nType:containAll(vTerm:getType()) then
 		-- self:getRuntime():nodeError(vNode, "@ cast fail")
 	end
-	return self._manager:RefineTerm(nType)
+	if vCastKind == "generic" then
+		self:getRuntime():nodeError(vNode, "generic cast TODO")
+		return vTerm
+	else
+		return self._manager:RefineTerm(nType)
+	end
 end
 
 function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType):Ret(OrFalse(class.UAtomUnion))
