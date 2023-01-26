@@ -22,6 +22,7 @@ const Context = ContextClass()
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
+	let.node = import("thlua.code.Node").node
 end)
 
 function.class Context.new(vRuntime:class.Runtime,
@@ -493,12 +494,13 @@ function Context:EVAL(vNode:class.IAstNode, vTerm:Truth):Ret(class.UAtomUnion)
 	end
 end
 
-function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vType:class.UAllType):Ret(class.RefineTerm)
+function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, vTypeList:List(class.UAllType)):Ret(class.RefineTerm)
 	-- TODO check cast valid
-	if not vType:containAll(vTerm:getType()) then
+	const nType = vTypeList[1]!
+	if not nType:containAll(vTerm:getType()) then
 		-- self:getRuntime():nodeError(vNode, "@ cast fail")
 	end
-	return self._manager:RefineTerm(vType)
+	return self._manager:RefineTerm(nType)
 end
 
 function Context:castLuaType(vSrcType:class.UAllType, vDstType:class.UAllType):Ret(OrFalse(class.UAtomUnion))

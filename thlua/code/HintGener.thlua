@@ -197,7 +197,7 @@ local TagToVisiting:RealTraverser = {
 			self:ctxWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
-				self:listWrap(nHintGeneric and self:fixHintInfo(nHintGeneric) or ""),
+				self:listWrap(nHintGeneric and self:fixIHintInfo(nHintGeneric) or ""),
 				self:ctxWrap(node).EXPLIST_PACK(
 					"false",
 					self:listWrap(#node[3] > 0 and self:visit(node[3]) or "")
@@ -209,7 +209,7 @@ local TagToVisiting:RealTraverser = {
 		-- self:print("local block = function(self) ", node[1], " end block(self)\n")
 		return {
 			line = node.l,
-			self:fixHintInfo(node)
+			self:fixIHintInfo(node)
 		}
 	end,
 	Nil=function(self, node)
@@ -329,7 +329,8 @@ local TagToVisiting:RealTraverser = {
 		if nHintShort then
 			return self:ctxWrap(node).HINT(
 				{"(", self:visit(node[1]), ")"},
-				self:fixHintInfo(nHintShort)
+				string.format("%q", nHintShort.castKind),
+				self:listWrap(self:fixIHintInfo(nHintShort))
 			)
 		else
 			return {"(", self:visit(node[1]), ")"}
@@ -395,7 +396,7 @@ function HintGener:visit(vNode:node.IAstNode):Ret(let.UGenResult)
 	end
 end
 
-function HintGener:fixHintInfo(vHintInfo:node.HintInfo):Ret(let.GenResult)
+function HintGener:fixIHintInfo(vHintInfo:node.IHintInfo):Ret(let.GenResult)
 	const nResult:let.GenResult = {}
 	for k,v in ipairs(vHintInfo) do
 		if v.tag == "HintScript" then
@@ -440,7 +441,7 @@ function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHi
 		line=vIdentNode.l,
 		" local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
-			vValue, vNoHint and "nil" or (nHintShort and self:fixHintInfo(nHintShort) or "nil")
+			vValue, vNoHint and "nil" or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
 		)
 	}
 end
@@ -595,9 +596,9 @@ function HintGener:chunkLongHint():Ret(let.GenResult)
 	})
 end
 
-function HintGener:visitLongHint(vHintInfo:OrNil(node.HintInfo)):Ret(let.GenResult)
+function HintGener:visitLongHint(vHintInfo:OrNil(node.LongHintInfo)):Ret(let.GenResult)
 	const nCallGen:let.UGenResult = (vHintInfo and #vHintInfo > 0) and {
-		":", self:fixHintInfo(vHintInfo)
+		":", self:fixIHintInfo(vHintInfo)
 	} or ""
 	const nAttrList = vHintInfo and vHintInfo.attrList or ({} @ List(String))
 	const l:List(String) = {}
@@ -621,7 +622,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	local nDotsHint:OrFalse(let.UGenResult) = false
 	if nLastDots then
 		const nHint = nLastDots.hintShort
-		nDotsHint = nHint and self:fixHintInfo(nHint) or false
+		nDotsHint = nHint and self:fixIHintInfo(nHint) or false
 	end
 	const nParamNum = nLastDots and #nParList-1 or #nParList
 	const nIsVararg = nLastDots and true or false
@@ -656,7 +657,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 					if nParNode.tag == "Dots" then
 						return "nil"
 					else
-						return nHintShort and self:fixHintInfo(nHintShort) or "false"
+						return nHintShort and self:fixIHintInfo(nHintShort) or "false"
 					end
 				end, ", ")), ",",
 				nDotsHint or "false"
