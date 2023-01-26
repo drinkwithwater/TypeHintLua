@@ -115,23 +115,29 @@ end
 function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(OrFalse(class.TypeFunction))
 	local nUnionFnCom = self._unionFnCom
 	if LateFnCom.is(nUnionFnCom) then
-		return nUnionFnCom:castSpecialize(vContext, vTypeFn)
+		const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
+		nUnionFnCom:addCastSpecFn(nAfterTypeFn)
+		return nAfterTypeFn
 	else
 		return false
 	end
 end
 
-function LuaFunction:specialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable), vTypeFn:OrNil(class.TypeFunction)):Ret(class.TypeFunction)
-	local nUnionCom = self._unionFnCom
-	assert(LateFnCom.is(nUnionCom), "only LateFnCom can specificate")
+function LuaFunction:castSpecialize(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(class.TypeFunction)
+	const nLateCom = self._unionFnCom
+	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
+	const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
+	nLateCom:addCastSpecFn(nAfterTypeFn)
+	return nAfterTypeFn
+end
+
+function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable)):Ret(class.TypeFunction)
+	local nLateCom = self._unionFnCom
+	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	if not vSelfType then
-		if not vTypeFn then
-			return nUnionCom:typeDefault()
-		else
-			return nUnionCom:castSpecialize(vContext, vTypeFn)
-		end
+		return nLateCom:typeDefault()
 	else
-		return nUnionCom:selfSpecialize(vContext, vSelfType, vTypeFn)
+		return nLateCom:selfSpecialize(vContext, vSelfType)
 	end
 end
 

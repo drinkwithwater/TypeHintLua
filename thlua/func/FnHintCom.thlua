@@ -1,4 +1,6 @@
 
+const Reference = require "thlua.refer.Reference"
+
 (@do
 	let.class = import("thlua.type.TypeClass").class
 end)
@@ -13,12 +15,75 @@ function.class FnHintCom.new(
 ):RetClass(class.FnHintCom)
 	const self = setmetatable({.class
 		_manager=vManager,
+		_luaFunc=vLuaFunc,
+		_pass=vInfo.prefixHint.attrSet.pass and true or false,
 		_info=vInfo
 	}, FnHintCom)
 	return self
 end
 
-function FnHintCom:checkWhenApply(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
+function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeFunction):Ret(class.TypeFunction)
+	-- 1. check par
+	const nArgTuple = self:_checkWhenApply(vContext, vCastTypeFn:getArgTuple())
+	-- 2. check ret
+	const nHintRetTuples = self:_checkRetTuples(vContext)
+	const nCastRetTuples = vCastTypeFn:getRetTuples()
+	if nHintRetTuples then
+		if not nCastRetTuples:containTuples(nHintRetTuples) then
+			if not self._pass then
+				vContext:error("interface-fn ret and hint ret notmatch")
+			end
+		end
+		return self._manager:Function(nArgTuple, nHintRetTuples)
+	else
+		return self._manager:Function(nArgTuple, nCastRetTuples)
+	end
+end
+
+function FnHintCom:_checkRetTuples(vContext:class.Context):Ret(OrFalse(class.RetTuples))
+	const nSuffixHint = self._info.retMaker({})
+	local nRetTuples:OrFalse(class.RetTuples) = false
+	const ok, err = pcall(nSuffixHint.caller, {
+		RetClass=function(vHint, _, _)
+			error("RetClass can not be used here")
+			return vHint
+		end,
+		Ret=function(vHint, ...:class.UAllType)
+			if not nRetTuples then
+				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
+			else
+				nRetTuples = self._manager:retConcat(self._luaFunc:getNode(), nRetTuples, self._manager:Tuple(...))
+			end
+			return vHint
+		end,
+		RetIs=function(vHint, vType)
+			error("ret cannot used here")
+			return vHint
+		end,
+	})
+	if not ok then
+		error(Exception.new(tostring(err), self._luaFunc:getNode()))
+	end
+	if not self._info.hasRet then
+		if nRetTuples and not self._pass then
+			local hasVoid = false
+			local hasSome = false
+			nRetTuples:foreachWithFirst(function(vTypeTuple, _)
+				if #vTypeTuple > 0 then
+					hasSome = true
+				else
+					hasVoid = true
+				end
+			end)
+			if hasSome and not hasVoid then
+				vContext:error("hint return something but block has no RetStat")
+			end
+		end
+	end
+	return nRetTuples
+end
+
+function FnHintCom:_checkWhenApply(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._info.parMaker({})
 	local nNewList:List(class.UAllType) = {}
 	if #vTypeTuple ~= self._info.nparams then
