@@ -223,7 +223,7 @@ end
 
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
 (@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
-function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vGenericArgs:List(class.UAllType), vFuncArgCaseList:FuncArgCaseList):Ret(class.TermTuple)
+function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList):Ret(class.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nNativePair = vNativePair
@@ -239,7 +239,7 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vGe
 			local nMaxLength = 0
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
-				const nRetTuples = f:meta_poly_call(self:newSealContext(vNode), vGenericArgs, a)
+				const nRetTuples = f:meta_call(self:newSealContext(vNode), a)
 				nRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
 					local nLength = #vTypeTuple
 					if nLength > nMaxLength then
@@ -277,7 +277,7 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vGe
 			nTermList[1] = self._manager:mergeToRefineTerm(nTypeCaseList)
 			return self:TermTuple(nTermList)
 		else
-			self._runtime:nodeError(vNode, "meta_poly_call function can't be Never")
+			self._runtime:nodeError(vNode, "meta_call function can't be Never")
 			return self:TermTuple({})
 		end
 	end)
@@ -318,7 +318,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 			self._runtime:nodeError(vNode, "TODO call by a not-function value"..tostring(vFuncType))
 		end
 	end)
-	return self:_apply(vNode, nNativePair, {}, nFuncArgCaseList)
+	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
 
 function Context:META_INVOKE(vNode:class.IAstNode,
@@ -354,7 +354,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 			end)
 		end
 	end)
-	return self:_apply(vNode, nNativePair, vGenericArgs, nFuncArgCaseList)
+	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
 end
 
 function Context:META_EQ_NE(vNode:class.IAstNode,
@@ -394,19 +394,19 @@ function Context:META_BOP_SOME(vNode:class.IAstNode, vOper:String, vLeftTerm:cla
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
 			const nTypeTuple = self._manager:Tuple(vLeftType, vRightTerm:getType())
-			const nRetTuples = nLeftFunc:meta_poly_call(self:newSealContext(vNode), {vLeftType, nRightType}, nTypeTuple)
+			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightTermCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-					const nRetTuples = nRightFunc:meta_poly_call(self:newSealContext(vNode), {vLeftType, vRightType}, nTypeTuple)
+					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
-						const nRetTuples = nLeftFunc:meta_poly_call(self:newSealContext(vNode), {vLeftType, vRightType}, nTypeTuple)
+						const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
@@ -495,19 +495,20 @@ function Context:EVAL(vNode:class.IAstNode, vTerm:Truth):Ret(class.UAtomUnion)
 	end
 end
 
-function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, vTypeList:List(class.UAllType)):Ret(class.RefineTerm)
+function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, ...:class.UAllType):Ret(class.RefineTerm)
 	-- TODO check cast valid
 	if vCastKind == "generic" then
 		const nType = vTerm:getType()
 		if LuaFunction.is(nType) then
-			const nAfterType = nType:castGeneric(self, vTypeList)
+			const nAfterType = nType:castGeneric(self, {...})
 			return self._manager:RefineTerm(nAfterType)
 		else
 			self:getRuntime():nodeError(vNode, "generic cast other case TODO")
 			return vTerm
 		end
 	else
-		const nDstType = vTypeList[1]!
+		const nDstType = ...
+		assert(nDstType, "hint type can't be nil")
 		if not nDstType:containAll(vTerm:getType()) then
 			-- self:getRuntime():nodeError(vNode, "@ cast fail")
 		end

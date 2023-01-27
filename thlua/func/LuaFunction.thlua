@@ -76,13 +76,13 @@ function LuaFunction:meta_open_call(vContext:class.Context, vTermTuple:class.Ter
 	end
 end
 
-function LuaFunction:meta_poly_call(vContext, vTypeArgs, vTypeTuple)
+function LuaFunction:meta_call(vContext, vTypeTuple)
 	local nFnCom = self._unionFnCom
 	if not OpenFnCom.is(nFnCom) then
 		const nTypeFn = nFnCom:matchTypeFn(vContext, vTypeTuple)
-		return nTypeFn:meta_poly_call(vContext, vTypeArgs, vTypeTuple)
+		return nTypeFn:meta_call(vContext, vTypeTuple)
 	else
-		error("open fn can't call meta_poly_call")
+		error("open fn can't call meta_call")
 	end
 end
 
@@ -115,7 +115,7 @@ end
 function LuaFunction:castGeneric(vContext:class.Context, vTypeArgsList:List(class.UAllType)):Ret(class.TypeFunction)
 	const nLateCom = self._unionFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can cast generic")
-	return nLateCom:typeDefault()
+	return self._hintCom:checkWhenGeneric(vContext, vTypeArgsList)
 end
 
 function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(OrFalse(class.TypeFunction))

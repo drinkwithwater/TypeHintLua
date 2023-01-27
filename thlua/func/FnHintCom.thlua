@@ -28,7 +28,7 @@ function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeF
 	-- 1. check par
 	const nParTuple = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
-	const nHintRetTuples = self:_makeRetTuples(vContext)
+	const nHintRetTuples = self:_makeRetTuples(vContext, {})
 	const nCastRetTuples = vCastTypeFn:getRetTuples()
 	if nHintRetTuples then
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
@@ -42,8 +42,11 @@ function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeF
 	end
 end
 
-function FnHintCom:_makeRetTuples(vContext:class.Context):Ret(OrFalse(class.RetTuples))
-	const nSuffixHint = self._info.retMaker({})
+function FnHintCom:_makeRetTuples(
+	vContext:class.Context,
+	vTypeList:List(class.UAllType)
+):Ret(OrFalse(class.RetTuples))
+	const nSuffixHint = self._info.retMaker(vTypeList)
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, _, _)
@@ -134,7 +137,7 @@ end
 
 function FnHintCom:checkWhenMember(vContext:class.Context, vFirst:class.UAllType):Ret(class.TypeFunction)
 	const nParTuple = self:_makeParTupleByFirst(vContext, vFirst)
-	const nRetTuples = self:_makeRetTuples(vContext) or self._manager:VoidRetTuples()
+	const nRetTuples = self:_makeRetTuples(vContext, {}) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
@@ -193,9 +196,33 @@ function FnHintCom:checkParTupleByDefault():Ret(class.UTypeTuple)
 	end
 end
 
+function FnHintCom:_makeParTuple(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.UTypeTuple)
+	const nParList, nDotsType = self._info.parMaker(vTypeList)
+	for i, nParType in ipairs(nParList) do
+		if not nParType then
+			error("param type is required here, order="..tostring(i))
+		end
+	end
+	local nTuple = self._manager:Tuple(table.unpack(nParList @ List(class.UAllType)))
+	if self._info.isvararg then
+		if not nDotsType then
+			error("dots type is required here")
+		end
+		return nTuple:Dots(nDotsType)
+	else
+		return nTuple
+	end
+end
+
+function FnHintCom:checkWhenGeneric(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.TypeFunction)
+	const nParTuple = self:_makeParTuple(vContext, vTypeList)
+	const nRetTuples = self:_makeRetTuples(vContext, vTypeList) or self._manager:VoidRetTuples()
+	return self._manager:Function(nParTuple, nRetTuples)
+end
+
 function FnHintCom:checkWhenDefault():Ret(class.TypeFunction)
 	const nParTuple = self:checkParTupleByDefault()
-	const nRetTuples = self:_makeRetTuples(self._context) or self._manager:VoidRetTuples()
+	const nRetTuples = self:_makeRetTuples(self._context, {}) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
