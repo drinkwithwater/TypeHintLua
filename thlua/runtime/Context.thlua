@@ -468,6 +468,7 @@ end
 	nparams=Integer,
 	isvararg=Boolean,
 	hasRet=Boolean,
+	genericParNum=Integer,
 	parMaker=Fn(List(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
 	retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
 	genFunc=class.GenFunc,
@@ -496,15 +497,21 @@ end
 
 function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, vTypeList:List(class.UAllType)):Ret(class.RefineTerm)
 	-- TODO check cast valid
-	const nType = vTypeList[1]!
-	if not nType:containAll(vTerm:getType()) then
-		-- self:getRuntime():nodeError(vNode, "@ cast fail")
-	end
 	if vCastKind == "generic" then
-		self:getRuntime():nodeError(vNode, "generic cast TODO")
-		return vTerm
+		const nType = vTerm:getType()
+		if LuaFunction.is(nType) then
+			const nAfterType = nType:castGeneric(self, vTypeList)
+			return self._manager:RefineTerm(nAfterType)
+		else
+			self:getRuntime():nodeError(vNode, "generic cast other case TODO")
+			return vTerm
+		end
 	else
-		return self._manager:RefineTerm(nType)
+		const nDstType = vTypeList[1]!
+		if not nDstType:containAll(vTerm:getType()) then
+			-- self:getRuntime():nodeError(vNode, "@ cast fail")
+		end
+		return self._manager:RefineTerm(nDstType)
 	end
 end
 

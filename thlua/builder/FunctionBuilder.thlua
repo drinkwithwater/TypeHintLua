@@ -39,7 +39,6 @@ function.class FunctionBuilder.new(vContext:class.Context,
 		_context=vContext,
 		_prefixHint=vFnNewInfo.prefixHint,
 		_manager=nManager,
-		_retTuples=false@Union(False, class.RetTuples),
 		_hasRet=vFnNewInfo.hasRet,
 		_luaFunc=nLuaFunc,
 		_retMaker=vFnNewInfo.retMaker,
@@ -113,51 +112,8 @@ function FunctionBuilder:_buildClass():Ret(class.LuaFunction)
 end
 
 function FunctionBuilder:_buildDefault(vPass:Boolean, vMember:Boolean):Ret(class.LuaFunction)
-	const nSuffixHint = self._retMaker({})
 	if vMember then
 		self._luaFunc:setMember()
-	end
-	const ok, err = pcall(nSuffixHint.caller, {
-		RetClass=function(vHint, _, _)
-			error("RetClass can not be used here")
-			return vHint
-		end,
-		Ret=function(vHint, ...:class.UAllType)
-			local nRetTuples = self._retTuples
-			if not nRetTuples then
-				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
-			else
-				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:Tuple(...))
-			end
-			self._retTuples = nRetTuples
-			return vHint
-		end,
-		RetIs=function(vHint, vType)
-			error("ret cannot used here")
-			return vHint
-		end,
-	})
-	if not ok then
-		error(Exception.new(tostring(err), self._node))
-	end
-	local nRetTuples = self._retTuples
-	if not self._hasRet then
-		if not nRetTuples then
-			nRetTuples = self._manager:VoidRetTuples()
-		elseif not vPass then
-			local hasVoid = false
-			local hasSome = false
-			nRetTuples:foreachWithFirst(function(vTypeTuple, _)
-				if #vTypeTuple > 0 then
-					hasSome = true
-				else
-					hasVoid = true
-				end
-			end)
-			if hasSome and not hasVoid then
-				self._context:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
-			end
-		end
 	end
 	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
 	nLateFnCom:init(vPass)

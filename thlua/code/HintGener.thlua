@@ -642,6 +642,26 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			end, " ")
 		} or "",
 	}
+	const nGenericParList = vNode.hintGenericParList or {} @ List(String)
+	const nGenericUnpack:let.GenResult = {}
+	const nGenericParNum = #nGenericParList
+	if nGenericParNum > 0 then
+		nGenericUnpack[#nGenericUnpack + 1] = " local "
+		for i=1,nGenericParNum do
+			nGenericUnpack[#nGenericUnpack + 1] = nGenericParList[i]
+			if i ~= nGenericParNum then
+				nGenericUnpack[#nGenericUnpack + 1] = ","
+			end
+		end
+		nGenericUnpack[#nGenericUnpack + 1] = "="
+		for i=1,nGenericParNum do
+			nGenericUnpack[#nGenericUnpack + 1] = "____typeList["..tostring(i).."]"
+			if i ~= nGenericParNum then
+				nGenericUnpack[#nGenericUnpack + 1] = ","
+			end
+		end
+		print(table.concat(nGenericUnpack))
+	end
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
@@ -649,7 +669,9 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			hasRet=tostring(vNode.retFlag or false),
 			nparams=tostring(nParamNum),
 			isvararg=tostring(nIsVararg),
+			genericParNum=tostring(nGenericParNum),
 			parMaker=self:fnWrap("____typeList")(
+				nGenericUnpack,
 				"return ",
 				self:listWrap(self:forList(nParList, function(i, vNode)
 					const nParNode = vNode @ Union(node.Dots, node.Ident_def)
@@ -663,9 +685,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				nDotsHint or "false"
 			),
 			retMaker=self:fnWrap("____typeList")(
+				nGenericUnpack,
 				"return ", nHintSuffix
 			),
 			genFunc=self:fnWrap("____newCtx", "____typeList", "vArgTuple")(
+				nGenericUnpack,
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ", ____fn,____uv) ",
 				nParInBody,
 				self:visit(nBlockNode),
