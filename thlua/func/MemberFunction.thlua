@@ -14,13 +14,13 @@ function MemberFunction.__tostring(self:class.MemberFunction):Ret(String)
 end
 
 function.class MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.MemberFunction)
+	vParTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.MemberFunction)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_node=vNode,
 		_buildingRetTuples=vRetTuples,
 		_retTuples=vRetTuples,
-		_argTuple=vArgTuple,
+		_parTuple=vParTuple,
 		_typeFnDict={} @ Dict(class.IAtomType, class.TypeFunction),
 	}, MemberFunction)
 	return self
@@ -33,7 +33,7 @@ function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbos
 		return nCache
 	end
 	vToStringCache[self] = "Mfn-..."
-	const nResult = "Mfn-" .. self._argTuple:detailString(vToStringCache, vVerbose)..
+	const nResult = "Mfn-" .. self._parTuple:detailString(vToStringCache, vVerbose)..
 									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
 	vToStringCache[self] = nResult
 	return nResult
@@ -41,11 +41,11 @@ end
 
 function MemberFunction:Dots(vType:class.UAllType):Ret(class.MemberFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Dots")
-	local nArgTuple = self._argTuple
-	if TypeTupleDots.is(nArgTuple) then
+	local nParTuple = self._parTuple
+	if TypeTupleDots.is(nParTuple) then
 		error("use Dots but tuple has dots")
 	end
-	self._argTuple = nArgTuple:Dots(vType)
+	self._parTuple = nParTuple:Dots(vType)
 	return self
 end
 
@@ -80,16 +80,16 @@ function MemberFunction:indexTypeFn(vType:class.IAtomType):Ret(class.TypeFunctio
 	local nTypeFn = self._typeFnDict[vType]
 	if not nTypeFn then
 		local nRetTuple = self:_buildRetTuples()
-		local nArgTuple = self._argTuple:replaceFirst(vType)
-		nTypeFn = self._manager:Function(nArgTuple, nRetTuple)
+		local nParTuple = self._parTuple:replaceFirst(vType)
+		nTypeFn = self._manager:Function(nParTuple, nRetTuple)
 		self._typeFnDict[vType] = nTypeFn
 	end
 	return nTypeFn
 end
 
-function MemberFunction:getArgTuple():Ret(class.UTypeTuple)
+function MemberFunction:getParTuple():Ret(class.UTypeTuple)
 	self:_buildRetTuples()
-	return self._argTuple
+	return self._parTuple
 end
 
 function MemberFunction:getRetTuples():Ret(class.RetTuples)

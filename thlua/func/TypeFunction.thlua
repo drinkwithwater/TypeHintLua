@@ -9,13 +9,13 @@ const TypeFunction = AtomTypeClass()
 (@let.class = import("thlua.type.TypeClass").class)
 
 function.class TypeFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vArgTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.TypeFunction, class.IAtomType)
+	vParTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.TypeFunction, class.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_node=vNode,
 		_buildingRetTuples=vRetTuples,
 		_retTuples=vRetTuples,
-		_argTuple=vArgTuple,
+		_parTuple=vParTuple,
 		id=vManager:genTypeId(),
 		bits=TYPE_BITS.FUNCTION,
 	}, TypeFunction)
@@ -24,11 +24,11 @@ end
 
 function TypeFunction:Dots(vType:class.UAllType):Ret(class.TypeFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Dots")
-	local nArgTuple = self._argTuple
-	if TypeTupleDots.is(nArgTuple) then
+	local nParTuple = self._parTuple
+	if TypeTupleDots.is(nParTuple) then
 		error("use Dots but tuple has dots")
 	end
-	self._argTuple = nArgTuple:Dots(vType)
+	self._parTuple = nParTuple:Dots(vType)
 	return self
 end
 
@@ -74,7 +74,7 @@ function TypeFunction:detailString(vToStringCache, vVerbose)
 		return nCache
 	end
 	vToStringCache[self] = "fn-..."
-	const nResult = "fn-" .. self._argTuple:detailString(vToStringCache, vVerbose)..
+	const nResult = "fn-" .. self._parTuple:detailString(vToStringCache, vVerbose)..
 									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
 	vToStringCache[self] = nResult
 	return nResult
@@ -82,8 +82,8 @@ end
 
 function TypeFunction:meta_poly_call(vContext, vTypeArgs, vTypeTuple)
 	local nRetTuples = self:_buildRetTuples()
-	if not vTypeTuple:castOrIn(vContext, self._argTuple) then
-		vContext:error("args error when call", self._argTuple, vTypeTuple)
+	if not vTypeTuple:castOrIn(vContext, self._parTuple) then
+		vContext:error("args error when call", self._parTuple, vTypeTuple)
 	end
 	return nRetTuples
 end
@@ -104,7 +104,7 @@ end
 function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:class.TypeFunction):Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
-	if not vRight:getArgTuple():assumeContainTuple(vAssumeSet, self._argTuple) then
+	if not vRight:getParTuple():assumeContainTuple(vAssumeSet, self._parTuple) then
 		return false
 	end
 	if not nLeftRetTuples:assumeContainTuples(vAssumeSet, nRightRetTuples) then
@@ -139,9 +139,9 @@ function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
 	end
 end
 
-function TypeFunction:getArgTuple():Ret(class.UTypeTuple)
+function TypeFunction:getParTuple():Ret(class.UTypeTuple)
 	self:_buildRetTuples()
-	return self._argTuple
+	return self._parTuple
 end
 
 function TypeFunction:getRetTuples():Ret(class.RetTuples)

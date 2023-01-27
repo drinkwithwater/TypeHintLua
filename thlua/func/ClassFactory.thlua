@@ -39,9 +39,9 @@ function ClassFactory:createLuaTable(vContext:class.Context, vRefer:class.Refere
 	nNewTable:initByClassCom(self, vInterface)
 	self._luaTable = nNewTable
 	-- 2. create type function
-	const nArgTuple = self._luaFunction:getHintCom():checkParTupleByDefault()
+	const nParTuple = self._luaFunction:getHintCom():checkParTupleByDefault()
 	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
-	self._typeFunction = self._manager:Function(nArgTuple, nRetTuples)
+	self._typeFunction = self._manager:Function(nParTuple, nRetTuples)
 	return nNewTable
 end
 
@@ -65,7 +65,7 @@ function ClassFactory:runBuild()
 	const co = coroutine.running()
 	self._manager:coWait(co, self._startSid)
 	local nContext = self._luaFunction:newInplaceOpenContext()
-	local nTypeTuple = self._typeFunction:getArgTuple()
+	local nTypeTuple = self._typeFunction:getParTuple()
 	self:tranStep(ClassFactory.STEP_PRE_SELF)
 	self._luaFunction:getGenFunc()(nContext, {}, nTypeTuple:makeTermTuple())
 	self:_wakeupBuild()
