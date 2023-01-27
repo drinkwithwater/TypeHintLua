@@ -10,11 +10,13 @@ FnHintCom.__index=FnHintCom
 
 function.class FnHintCom.new(
 	vManager:class.TypeManager,
+	vContext:class.Context,
 	vLuaFunc:class.LuaFunction,
 	vInfo:class.FuncNewInfo
 ):RetClass(class.FnHintCom)
 	const self = setmetatable({.class
 		_manager=vManager,
+		_context=vContext,
 		_luaFunc=vLuaFunc,
 		_pass=vInfo.prefixHint.attrSet.pass and true or false,
 		_info=vInfo
@@ -24,9 +26,9 @@ end
 
 function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeFunction):Ret(class.TypeFunction)
 	-- 1. check par
-	const nArgTuple = self:_checkWhenApply(vContext, vCastTypeFn:getArgTuple())
+	const nArgTuple = self:_makeParTupleByCast(vContext, vCastTypeFn:getArgTuple())
 	-- 2. check ret
-	const nHintRetTuples = self:_checkRetTuples(vContext)
+	const nHintRetTuples = self:_makeRetTuples(vContext)
 	const nCastRetTuples = vCastTypeFn:getRetTuples()
 	if nHintRetTuples then
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
@@ -40,7 +42,7 @@ function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeF
 	end
 end
 
-function FnHintCom:_checkRetTuples(vContext:class.Context):Ret(OrFalse(class.RetTuples))
+function FnHintCom:_makeRetTuples(vContext:class.Context):Ret(OrFalse(class.RetTuples))
 	const nSuffixHint = self._info.retMaker({})
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
@@ -83,11 +85,13 @@ function FnHintCom:_checkRetTuples(vContext:class.Context):Ret(OrFalse(class.Ret
 	return nRetTuples
 end
 
-function FnHintCom:_checkWhenApply(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
+function FnHintCom:_makeParTupleByCast(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._info.parMaker({})
 	local nNewList:List(class.UAllType) = {}
 	if #vTypeTuple ~= self._info.nparams then
-		vContext:error("arguments num not match when specification")
+		if not self._pass then
+			vContext:error("arguments num not match when specification")
+		end
 	end
 	for i, nPar in ipairs(nParList) do
 		local nInputType = vTypeTuple:get(i)
@@ -104,25 +108,37 @@ function FnHintCom:_checkWhenApply(vContext:class.Context, vTypeTuple:class.UTyp
 	const nRepeatType = vTypeTuple:getRepeatType()
 	if self._info.isvararg then
 		if not nRepeatType then
-			vContext:error("arguments type not match for not dots")
+			if not self._pass then
+				vContext:error("arguments type not match for not dots")
+			end
 		end
 		if not nDotsType then
 			return nTuple:Dots(nRepeatType or self._manager.type.Truth)
 		else
 			if nRepeatType and not nDotsType:containAll(nRepeatType) then
-				vContext:error("arguments type not match for wrong dots")
+				if not self._pass then
+					vContext:error("arguments type not match for wrong dots")
+				end
 			end
 			return nTuple:Dots(nDotsType)
 		end
 	else
 		if nRepeatType then
-			vContext:error("arguments type not match for dots")
+			if not self._pass then
+				vContext:error("arguments type not match for dots")
+			end
 		end
 		return nTuple
 	end
 end
 
-function FnHintCom:checkByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
+function FnHintCom:checkWhenMember(vContext:class.Context, vFirst:class.UAllType):Ret(class.TypeFunction)
+	const nParTuple = self:_makeParTupleByFirst(vContext, vFirst)
+	const nRetTuples = self:_makeRetTuples(vContext) or self._manager:VoidRetTuples()
+	return self._manager:Function(nParTuple, nRetTuples)
+end
+
+function FnHintCom:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._info.parMaker({})
 	const nNewList:List(class.UAllType) = {}
 	const nFirstPar = nParList[1]
@@ -159,7 +175,7 @@ function FnHintCom:checkByFirst(vContext:class.Context, vFirst:class.UAllType):R
 	end
 end
 
-function FnHintCom:checkByDefault():Ret(class.UTypeTuple)
+function FnHintCom:checkParTupleByDefault():Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._info.parMaker({})
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
@@ -175,6 +191,12 @@ function FnHintCom:checkByDefault():Ret(class.UTypeTuple)
 	else
 		return nTuple
 	end
+end
+
+function FnHintCom:checkWhenDefault():Ret(class.TypeFunction)
+	const nParTuple = self:checkParTupleByDefault()
+	const nRetTuples = self:_makeRetTuples(self._context) or self._manager:VoidRetTuples()
+	return self._manager:Function(nParTuple, nRetTuples)
 end
 
 return FnHintCom

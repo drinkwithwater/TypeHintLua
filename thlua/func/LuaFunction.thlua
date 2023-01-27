@@ -116,7 +116,7 @@ function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Re
 	local nUnionFnCom = self._unionFnCom
 	if LateFnCom.is(nUnionFnCom) then
 		const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
-		nUnionFnCom:addCastSpecFn(nAfterTypeFn)
+		nUnionFnCom:addSpecFn(nAfterTypeFn)
 		return nAfterTypeFn
 	else
 		return false
@@ -127,7 +127,7 @@ function LuaFunction:castSpecialize(vContext:class.Context, vTypeFn:class.TypeFu
 	const nLateCom = self._unionFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
-	nLateCom:addCastSpecFn(nAfterTypeFn)
+	nLateCom:addSpecFn(nAfterTypeFn)
 	return nAfterTypeFn
 end
 
@@ -137,7 +137,9 @@ function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(clas
 	if not vSelfType then
 		return nLateCom:typeDefault()
 	else
-		return nLateCom:selfSpecialize(vContext, vSelfType)
+		const nAfterTypeFn = self._hintCom:checkWhenMember(vContext, vSelfType)
+		nLateCom:addSpecFn(nAfterTypeFn, vSelfType)
+		return nAfterTypeFn
 	end
 end
 

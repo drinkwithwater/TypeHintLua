@@ -14,15 +14,13 @@ function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaF
 		_selfSpecDict={}@Dict(class.LuaTable, class.TypeFunction),
 		_castSpecList={}@List(class.TypeFunction),
 		_once=false@Boolean,
-		_hintRetTuples=false@Union(False, class.RetTuples),
 		_pass=false@Boolean,
 	}, LateFnCom)
 	vLuaFunction:setFnCom(self)
 	return self
 end
 
-function LateFnCom:init(vRetTuples:Union(False, class.RetTuples), vNocheck:Boolean)
-	self._hintRetTuples = vRetTuples or false
+function LateFnCom:init(vNocheck:Boolean)
 	self._pass = vNocheck
 end
 
@@ -99,35 +97,19 @@ end
 function LateFnCom:typeDefault():Ret(class.TypeFunction)
 	local nTypeFn = self._typeFunction
 	if not nTypeFn then
-		const nArgTuple = self._luaFunction:getHintCom():checkByDefault()
-		const nRetTuples = self._hintRetTuples or self._manager:VoidRetTuples()
-		self._hintRetTuples = nRetTuples
-		nTypeFn = self._manager:Function(nArgTuple, nRetTuples)
+		nTypeFn = self._luaFunction:getHintCom():checkWhenDefault()
 		self._typeFunction = nTypeFn
 	end
 	return nTypeFn
 end
 
-function LateFnCom:addCastSpecFn(vCastTypeFn:class.TypeFunction)
-	const nList = self._castSpecList
-	nList[#nList + 1] = vCastTypeFn
-end
-
-function LateFnCom:selfSpecialize(vContext:class.Context, vSelfType:class.LuaTable):Ret(class.TypeFunction)
-	if not self._luaFunction:isMember() then
-		vContext:error("only function with member attribute can take self specialize")
+function LateFnCom:addSpecFn(vTypeFn:class.TypeFunction, vSelfType:OrNil(class.LuaTable))
+	if vSelfType then
+		self._selfSpecDict[vSelfType] = vTypeFn
+	else
+		const nList = self._castSpecList
+		nList[#nList + 1] = vTypeFn
 	end
-	const nArgTuple = self._luaFunction:getHintCom():checkByFirst(vContext, vSelfType)
-	local nRetTuples = self._hintRetTuples
-	if not nRetTuples then
-		if not self._pass then
-			vContext:getRuntime():nodeError(self._luaFunction:getNode(), "return something but no hint TODO")
-		end
-		nRetTuples = self._manager:VoidRetTuples()
-	end
-	const nNewTypeFn = self._manager:Function(nArgTuple, nRetTuples)
-	self._selfSpecDict[vSelfType] = nNewTypeFn
-	return nNewTypeFn
 end
 
 function.open LateFnCom.is(v):RetIs(class.LateFnCom)
