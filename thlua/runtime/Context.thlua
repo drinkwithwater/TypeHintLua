@@ -15,7 +15,7 @@ const LuaTable = require "thlua.object.LuaTable"
 const MetaObject = require "thlua.object.MetaObject"
 const Truth = require "thlua.type.Truth"
 
-const FunctionBuilder = require "thlua.builder.FunctionBuilder"
+const FnHintCom = require "thlua.func.FnHintCom"
 const TableBuilder = require "thlua.builder.TableBuilder"
 
 const Context = ContextClass()
@@ -463,21 +463,10 @@ function Context:getParentContext():Ret(OrFalse(class.Context))
 	return self._parentContext
 end
 
-(@class.FuncNewInfo = Struct {
-	prefixHint=class.TLongHintInfo(Nil),
-	nparams=Integer,
-	isvararg=Boolean,
-	hasRet=Boolean,
-	genericParNum=OrFalse(Integer),
-	parMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
-	retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
-	genFunc=class.GenFunc,
-})
-function Context:FUNC_NEW(vNode:class.IAstNode, vInfo:class.FuncNewInfo):Ret(class.LuaFunction)
-	const nBuilder = FunctionBuilder.new(self, vNode, vInfo)
-	const nLuaFunc = nBuilder:build()
+function Context:FUNC_NEW(vNode:class.IAstNode, vFnNewInfo:class.FuncNewInfo):Ret(class.LuaFunction)
+	const nHintCom = FnHintCom.new(self._manager, self, vNode, vFnNewInfo)
 	const nRegion = self._region
-	return nLuaFunc, nRegion and nRegion:topBranch():getCase()
+	return nHintCom:build(), nRegion and nRegion:topBranch():getCase()
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
