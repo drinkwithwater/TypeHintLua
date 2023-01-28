@@ -95,7 +95,7 @@ function Context:EXPLIST_PACK(vNode:class.IAstNode, vLazy:Boolean, l:List(UPackE
 			error("unexcept branch")
 		end
 	end
-	const lazyEvalFunc = function()
+	const lazyEvalFunc = function():Ret()
 		for i, nFunc in pairs(nIndexToFunc) do
 			nTermFalseList[i] = nFunc()
 		end
@@ -187,7 +187,7 @@ end
 function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil:Boolean):Ret(class.RefineTerm)
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList:List(class.TypeCasePair) = {}
-	local nOkay = self:nodePcall(vNode, function()
+	local nOkay = self:nodePcall(vNode, function():Ret()
 		vTerm:foreach(function(vType, vTermCase)
 			vKeyTerm:foreach(function(vKeyType, vKeyTermCase)
 				local nReType = vType:meta_get(nGetContext, vKeyType)
@@ -207,7 +207,7 @@ end
 
 function Context:META_SET(vNode:class.IAstNode, vTerm, vKeyTerm, vValueTerm, vOverride)
 	local nSetContext = self:newSealContext(vNode)
-	self:nodePcall(vNode, function()
+	self:nodePcall(vNode, function():Ret()
 		local nNil = self._manager.type.Nil
 		vTerm:foreach(function(vType, _)
 			vKeyTerm:foreach(function(vKeyType)
@@ -440,7 +440,7 @@ function Context:META_UOP(vNode:class.IAstNode, vOper:String, vData:class.Refine
 end
 
 function.open Context:nodePcall(vNode:class.IAstNode, vFunc:Fn(), ...)
-	const ok, err = xpcall(vFunc, function(exc):Ret(class.Exception)
+	const ok, err = xpcall(vFunc, function(exc:Union(String, class.Exception)):Ret(class.Exception)
 		if Exception.is(exc) then
 			return exc
 		else
@@ -468,7 +468,7 @@ end
 	nparams=Integer,
 	isvararg=Boolean,
 	hasRet=Boolean,
-	genericParNum=Integer,
+	genericParNum=OrFalse(Integer),
 	parMaker=Fn(List(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
 	retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
 	genFunc=class.GenFunc,

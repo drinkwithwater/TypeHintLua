@@ -638,14 +638,16 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				const nParNode = vNode @ Union(node.Dots, node.Ident_def)
 				if nParNode.tag ~= "Dots" then
 					return self:visitIdentDef(nParNode, "v_"..nParNode[1]..nParNode.index, true)
+				else
+					return ""
 				end
 			end, " ")
 		} or "",
 	}
-	const nGenericParList = vNode.hintGenericParList or {} @ List(String)
+	const nGenericParList = vNode.hintGenericParList
 	const nGenericUnpack:let.GenResult = {}
-	const nGenericParNum = #nGenericParList
-	if nGenericParNum > 0 then
+	const nGenericParNum = nGenericParList and #nGenericParList or false
+	if nGenericParNum and nGenericParNum > 0 then
 		nGenericUnpack[#nGenericUnpack + 1] = " local "
 		for i=1,nGenericParNum do
 			nGenericUnpack[#nGenericUnpack + 1] = nGenericParList[i]
@@ -723,7 +725,7 @@ end
 function HintGener:genCode(vNode:node.IAstNode):Ret(String)
 	const nBufferList:List(String) = {}
 	local nLineCount = 1
-	const function recurAppend(vResult:let.UGenResult, vDepth:Integer)
+	const function recurAppend(vResult:let.UGenResult, vDepth:Integer):Ret()
 		if type(vResult) == "table" then
 			const nLine = vResult.line
 			if type(nLine) == "number" then

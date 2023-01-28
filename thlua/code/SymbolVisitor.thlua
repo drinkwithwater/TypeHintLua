@@ -82,11 +82,32 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		const nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
+			local nFullHint = true
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
 					self:symbolDefine(par, "param")
+					if not par.isSelf and not par.hintShort then
+						nFullHint = false
+					end
 				else
 					self:dotsDefine(par)
+					if not par.hintShort then
+						nFullHint = false
+					end
+				end
+			end
+			if not func.hintSuffix then
+				nFullHint = false
+			end
+			const nGenericParList = func.hintGenericParList
+			if not nFullHint then
+				if nGenericParList and #nGenericParList > 0 then
+					const nErrNode = self._env:makeErrNode(func[1].pos, "generic function must be full-hint")
+					error(Exception.new(nErrNode[1], nErrNode))
+				end
+			else
+				if not nGenericParList then
+					func.hintGenericParList = {}
 				end
 			end
 			-- self:realVisit(func[1])
