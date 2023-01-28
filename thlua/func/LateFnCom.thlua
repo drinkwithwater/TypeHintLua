@@ -6,11 +6,11 @@ const LateFnCom = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction):RetClass(class.LateFnCom, class.IFnCom)
+function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction, vDefaultTypeFn:OrFalse(class.TypeFunction)):RetClass(class.LateFnCom, class.IFnCom)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_typeFunction=false@Union(False, class.TypeFunction),
+		_defaultTypeFn=vDefaultTypeFn,
 		_selfSpecDict={}@Dict(class.LuaTable, class.TypeFunction),
 		_castSpecList={}@List(class.TypeFunction),
 		_once=false@Boolean,
@@ -48,7 +48,7 @@ function LateFnCom:checkLateRun()
 			end
 		end
 	end
-	const nDefaultFn = self._typeFunction
+	const nDefaultFn = self._defaultTypeFn
 	if not self._luaFunction:isMember() and #nSpecFnList == 0 and nDefaultFn then
 		nSpecFnList[#nSpecFnList + 1] = nDefaultFn
 	end
@@ -63,13 +63,13 @@ function LateFnCom:checkLateRun()
 			nInplaceContext:error(tostring(err))
 		end
 	end
-	if nCastFn and self._typeFunction then
+	if nCastFn and self._defaultTypeFn then
 		-- self._manager:getRuntime():nodeWarn(self._luaFunction:getNode(), "both castFn and typeFunc ???")
 	end
 end
 
 function LateFnCom:matchTypeFn(vContext, vTypeTuple)
-	return self:typeDefault()
+	return self:getDefaultTypeFn()
 end
 
 function LateFnCom:regionReturn(vContext, vNode, vRetTypeTuple)
@@ -93,13 +93,13 @@ function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function LateFnCom:typeDefault():Ret(class.TypeFunction)
-	local nTypeFn = self._typeFunction
-	if not nTypeFn then
-		nTypeFn = self._luaFunction:getBuilder():checkWhenDefault()
-		self._typeFunction = nTypeFn
+function LateFnCom:getDefaultTypeFn():Ret(class.TypeFunction)
+	const nFn = self._defaultTypeFn
+	if not nFn then
+		error("not-full-hint function specialize TODO")
+	else
+		return nFn
 	end
-	return nTypeFn
 end
 
 function LateFnCom:addSpecFn(vTypeFn:class.TypeFunction, vSelfType:OrNil(class.LuaTable))

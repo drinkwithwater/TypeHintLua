@@ -248,7 +248,7 @@ function FunctionBuilder:checkWhenGeneric(vContext:class.Context, vTypeList:List
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
-function FunctionBuilder:checkWhenDefault():Ret(class.TypeFunction)
+function FunctionBuilder:_checkWhenDefault():Ret(class.TypeFunction)
 	const nParTuple = self:checkParTupleByDefault()
 	const nRetTuples = self:_makeRetTuples(self._context, {}) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
@@ -335,11 +335,12 @@ function FunctionBuilder:createFnCom():Ret(class.UFnCom)
 	if nAttrSet.member then
 		self._luaFunc:setMember()
 	end
-	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc)
-	nLateFnCom:init(nAttrSet.pass and true or false)
+	local nDefaultTypeFn:OrFalse(class.TypeFunction) = false
 	if self:isFullHint() then
-		nLateFnCom:typeDefault()
+		nDefaultTypeFn = self:_checkWhenDefault()
 	end
+	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultTypeFn)
+	nLateFnCom:init(nAttrSet.pass and true or false)
 	self._context:recordLateLuaFunction(nLateFnCom)
 	return nLateFnCom
 end

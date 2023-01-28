@@ -75,6 +75,17 @@ local TagToVisiting:let.RealTraverser = {
 			self:realVisit(nBlockNode)
 		end)
 	end,
+	Return=function(self, stm)
+		local nFuncOrChunk = stm.parent
+		while nFuncOrChunk and not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
+			nFuncOrChunk = nFuncOrChunk.parent
+		end
+		if #stm[1] > 0 then
+			assert (nFuncOrChunk and (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk"), "function or chunk must be here")
+			nFuncOrChunk.retFlag = true
+		end
+		self:rawVisit(stm)
+	end,
 	Function=function(self, func)
 		const nHintLong = func.hintSuffix
 		if nHintLong then
@@ -96,7 +107,9 @@ local TagToVisiting:let.RealTraverser = {
 					end
 				end
 			end
-			if not func.hintSuffix then
+			-- self:realVisit(func[1])
+			self:realVisit(nBlockNode)
+			if not func.hintSuffix and func.retFlag then
 				nFullHint = false
 			end
 			const nGenericParList = func.hintGenericParList
@@ -110,8 +123,6 @@ local TagToVisiting:let.RealTraverser = {
 					func.hintGenericParList = {}
 				end
 			end
-			-- self:realVisit(func[1])
-			self:realVisit(nBlockNode)
 		end)
 	end,
 	If=function(self, node)
