@@ -42,10 +42,14 @@ function MetaObject:lateInit(vIntersectSet:Dict(class.MetaObject,True), vMemberD
 	self._intersectSet = vIntersectSet
 	self._metaEventCom = vMetaEventCom
 	self._memberDict = vMemberDict
+end
+
+function MetaObject:lateCheck()
 	const nNextKey = self._nextKey
+	const nMemberDict = assert(self._memberDict, "member dict must existed here")
 	if nNextKey then
 		nNextKey:foreachAwait(function(vKeyAtom)
-			const nMember = vMemberDict[vKeyAtom]
+			const nMember = nMemberDict[vKeyAtom]
 			if not nMember then
 				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
 			elseif MemberFunction.is(nMember) then

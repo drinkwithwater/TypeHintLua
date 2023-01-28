@@ -106,6 +106,17 @@ function.class TypeManager.new(vRuntime:class.Runtime):RetClass(class.TypeManage
 		assert(vValue, "value can't be nil when build IList")
 		return self:buildInterface(self._runtime:getNode(), {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
+	self.generic.KeyOf = self:GenericReference(function.pass(vOneType)
+		local nObject = vOneType
+		if Reference.is(vOneType) then
+			nObject = vOneType:waitTypeCom():getTypeAwait()
+		end
+		if not MetaObject.is(nObject) then
+			error("key of can only worked on object function")
+		end
+		const nKeyRefer, _ = nObject:getKeyTypes()
+		return nKeyRefer
+	end)
 	self.builtin.string=native.make_string(self)
 	self.builtin.next=native.make_next(self)
 	self.builtin.inext=native.make_inext(self)
@@ -291,6 +302,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		nKeyRefer:setRawAsync(vNode, function()
 			return nKeyList
 		end, function(_)
+			nNewObject:lateCheck()
 			-- TODO check key's count and intersect valid
 		end)
 		return {self:_recordTypeUnionSign(nNewObject)}
@@ -391,6 +403,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 		end
 		return nKeyList
 	end, function(vKeyAtomUnion)
+		nNewObject:lateCheck()
 		const nList = nKeyRefer:waitTypeCom():getListAwait()
 		local nFinalCount = 0
 		vKeyAtomUnion:foreach(function(_)
