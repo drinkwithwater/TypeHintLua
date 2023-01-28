@@ -29,15 +29,15 @@ const ClassFactory = require "thlua.func.ClassFactory"
 	})
 end)
 
-const FnHintCom = {}
-FnHintCom.__index=FnHintCom
+const FunctionBuilder = {}
+FunctionBuilder.__index=FunctionBuilder
 
-function.class FnHintCom.new(
+function.class FunctionBuilder.new(
 	vManager:class.TypeManager,
 	vContext:class.Context,
 	vNode:class.IAstNode,
 	vInfo:class.FuncNewInfo
-):RetClass(class.FnHintCom)
+):RetClass(class.FunctionBuilder)
 	const self = {.class
 		_manager=vManager,
 		_context=vContext,
@@ -48,11 +48,11 @@ function.class FnHintCom.new(
 	for k,v in pairs(vInfo) do
 		self[k] = v
 	end
-	setmetatable(self, FnHintCom)
+	setmetatable(self, FunctionBuilder)
 	return self
 end
 
-function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeFunction):Ret(class.TypeFunction)
+function FunctionBuilder:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeFunction):Ret(class.TypeFunction)
 	-- 1. check par
 	const nParTuple = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
@@ -70,7 +70,7 @@ function FnHintCom:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeF
 	end
 end
 
-function FnHintCom:_makeRetTuples(
+function FunctionBuilder:_makeRetTuples(
 	vContext:class.Context,
 	vTypeList:List(class.UAllType)
 ):Ret(OrFalse(class.RetTuples))
@@ -116,7 +116,7 @@ function FnHintCom:_makeRetTuples(
 	return nRetTuples
 end
 
-function FnHintCom:_makeParTupleByCast(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
+function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker({}, false)
 	local nNewList:List(class.UAllType) = {}
 	if #vTypeTuple ~= self._nparams then
@@ -163,13 +163,13 @@ function FnHintCom:_makeParTupleByCast(vContext:class.Context, vTypeTuple:class.
 	end
 end
 
-function FnHintCom:checkWhenMember(vContext:class.Context, vFirst:class.UAllType):Ret(class.TypeFunction)
+function FunctionBuilder:checkWhenMember(vContext:class.Context, vFirst:class.UAllType):Ret(class.TypeFunction)
 	const nParTuple = self:_makeParTupleByFirst(vContext, vFirst)
 	const nRetTuples = self:_makeRetTuples(vContext, {}) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
-function FnHintCom:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
+function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker({}, vFirst)
 	const nNewList:List(class.UAllType) = {}
 	const nFirstPar = nParList[1]
@@ -206,7 +206,7 @@ function FnHintCom:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAl
 	end
 end
 
-function FnHintCom:checkParTupleByDefault():Ret(class.UTypeTuple)
+function FunctionBuilder:checkParTupleByDefault():Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker({}, self._manager.type.Truth)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
@@ -224,7 +224,7 @@ function FnHintCom:checkParTupleByDefault():Ret(class.UTypeTuple)
 	end
 end
 
-function FnHintCom:_makeParTuple(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.UTypeTuple)
+function FunctionBuilder:_makeParTuple(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker(vTypeList, false)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
@@ -242,23 +242,23 @@ function FnHintCom:_makeParTuple(vContext:class.Context, vTypeList:List(class.UA
 	end
 end
 
-function FnHintCom:checkWhenGeneric(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.TypeFunction)
+function FunctionBuilder:checkWhenGeneric(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.TypeFunction)
 	const nParTuple = self:_makeParTuple(vContext, vTypeList)
 	const nRetTuples = self:_makeRetTuples(vContext, vTypeList) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
-function FnHintCom:checkWhenDefault():Ret(class.TypeFunction)
+function FunctionBuilder:checkWhenDefault():Ret(class.TypeFunction)
 	const nParTuple = self:checkParTupleByDefault()
 	const nRetTuples = self:_makeRetTuples(self._context, {}) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
-function FnHintCom:isFullHint():Ret(Boolean)
+function FunctionBuilder:isFullHint():Ret(Boolean)
 	return self._genericParNum and true
 end
 
-function FnHintCom:_buildOpen():Ret(class.OpenFnCom)
+function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 	const nSuffixHint = self._retMaker({})
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
@@ -285,7 +285,7 @@ function FnHintCom:_buildOpen():Ret(class.OpenFnCom)
 	return nOpenCom
 end
 
-function FnHintCom:_buildClass():Ret(class.ClassFactory)
+function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	const MetaObject = require "thlua.object.MetaObject"
 	const nSuffixHint = self._retMaker({})
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
@@ -325,7 +325,7 @@ function FnHintCom:_buildClass():Ret(class.ClassFactory)
 	return nFactoryCom
 end
 
-function FnHintCom:createFnCom():Ret(class.UFnCom)
+function FunctionBuilder:createFnCom():Ret(class.UFnCom)
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
 		return self:_buildOpen()
@@ -344,13 +344,13 @@ function FnHintCom:createFnCom():Ret(class.UFnCom)
 	return nLateFnCom
 end
 
-function FnHintCom:build():Ret(class.LuaFunction)
+function FunctionBuilder:build():Ret(class.LuaFunction)
 	self._luaFunc:lateInit(self._context, self._node, self)
 	return self._luaFunc
 end
 
-function FnHintCom:getGenFunc():Ret(class.GenFunc)
+function FunctionBuilder:getGenFunc():Ret(class.GenFunc)
 	return self._genFunc
 end
 
-return FnHintCom
+return FunctionBuilder
