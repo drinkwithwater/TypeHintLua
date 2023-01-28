@@ -663,6 +663,8 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			end
 		end
 	end
+	const nFirstPar = nParList[1]
+	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
@@ -671,7 +673,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			nparams=tostring(nParamNum),
 			isvararg=tostring(nIsVararg),
 			genericParNum=tostring(nGenericParNum),
-			parMaker=self:fnWrap("____typeList")(
+			parMaker=self:fnWrap("____typeList", nIsMember and "Self" or "____self")(
 				nGenericUnpack,
 				"return ",
 				self:listWrap(self:forList(nParList, function(i, vNode)
@@ -680,12 +682,16 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 					if nParNode.tag == "Dots" then
 						return "nil"
 					else
-						return nHintShort and self:fixIHintInfo(nHintShort) or "false"
+						if nParNode.isSelf then
+							return "Self"
+						else
+							return nHintShort and self:fixIHintInfo(nHintShort) or "false"
+						end
 					end
 				end, ", ")), ",",
 				nDotsHint or "false"
 			),
-			retMaker=self:fnWrap("____typeList")(
+			retMaker=self:fnWrap("____typeList", nIsMember and "Self" or "____self")(
 				nGenericUnpack,
 				"return ", nHintSuffix
 			),
