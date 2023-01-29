@@ -501,7 +501,7 @@ function TypeManager:Tuple(...:Truth):Ret(class.TypeTuple)
 	local nTypeList:List(class.UAllType) = {}
 	for i=1, select("#", ...) do
 		local nArg = select(i, ...)
-		assert(nArg, "make thlua happy")
+		assert(nArg, "tuple can't take false or nil value")
 		if Reference.is(nArg) then
 			nTypeList[i] = nArg
 		else
@@ -551,6 +551,10 @@ end
 function TypeManager:buildMfn(vNode:class.IAstNode, ...:Truth):Ret(class.MemberFunction)
 	local nParTuple = self:Tuple(self.type.Truth, ...)
 	return MemberFunction.new(self, vNode, nParTuple, false)
+end
+
+function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:Truth):Ret(class.PolyFunction)
+	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc))
 end
 
 function TypeManager:buildFn(vNode:class.IAstNode, ...:Truth):Ret(class.TypeFunction)

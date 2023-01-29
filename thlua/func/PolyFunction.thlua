@@ -7,7 +7,7 @@ const PolyFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function.class PolyFunction.new(vManager:class.TypeManager, vFunc:class.Truth):RetClass(class.PolyFunction, class.IAtomType)
+function.class PolyFunction.new(vManager:class.TypeManager, vNode:class.IAstNode, vFunc:Truth):RetClass(class.PolyFunction, class.IAtomType)
 	const nInfo = debug.getinfo(vFunc)
 	local self = setmetatable({.class
 		_manager=vManager,
@@ -23,10 +23,37 @@ function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:
 	return "PolyFunction"
 end
 
+function PolyFunction:isNative():Ret(False)
+	return false
+end
+
+function PolyFunction:native_type()
+	return self._manager:Literal("function")
+end
+
+function PolyFunction:meta_call(vContext, vTypeTuple)
+	error("poly function meta_call TODO")
+	-- TODO
+end
+
 function PolyFunction:assumeContainAtom(vAssumeSet, vRight)
+	return self == vRight and self
 end
 
 function PolyFunction:assumeIntersectAtom(vAssumeSet, vRight)
+	return self == vRight and self
+end
+
+function PolyFunction:fnPartType()
+	return self
+end
+
+function PolyFunction:mayRecursive()
+	return false
+end
+
+function PolyFunction:isSingleton()
+	return false
 end
 
 function.open PolyFunction.is(vType):RetIs(class.PolyFunction)

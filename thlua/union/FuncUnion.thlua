@@ -3,6 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
 const Truth = require "thlua.type.Truth"
 const NativeFunction = require "thlua.func.NativeFunction"
+const PolyFunction = require "thlua.func.PolyFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 
@@ -15,6 +16,7 @@ function.class FuncUnion.new(vManager:class.TypeManager):RetClass(class.FuncUnio
 		_manager=vManager,
 		_nativeFnDict={} @Dict(class.NativeFunction, True),
 		_typeFnDict={} @Dict(class.TypeFunction, True),
+		_polyFnDict={} @Dict(class.PolyFunction, True),
 		_luaFnDict={} @Dict(class.LuaFunction, True),
 		bits=TYPE_BITS.FUNCTION,
 		id=0@Integer,
@@ -29,6 +31,9 @@ function FuncUnion:foreach(vFunc)
 	for nType, _ in pairs(self._typeFnDict) do
 		vFunc(nType)
 	end
+	for nType, _ in pairs(self._polyFnDict) do
+		vFunc(nType)
+	end
 	for nType, _ in pairs(self._luaFnDict) do
 		vFunc(nType)
 	end
@@ -40,6 +45,8 @@ function FuncUnion:putAwait(vType)
 	end
 	if NativeFunction.is(vType) then
 		self._nativeFnDict[vType] = true
+	elseif PolyFunction.is(vType) then
+		self._polyFnDict[vType] = true
 	elseif LuaFunction.is(vType) then
 		for nTypeFn, _ in pairs(self._typeFnDict) do
 			if nTypeFn:containAtom(vType) then
@@ -91,6 +98,12 @@ end
 function FuncUnion:assumeContainAtom(vAssumeSet, vType)
 	if NativeFunction.is(vType) then
 		if self._nativeFnDict[vType] then
+			return vType
+		else
+			return false
+		end
+	elseif PolyFunction.is(vType) then
+		if self._polyFnDict[vType] then
 			return vType
 		else
 			return false

@@ -11,6 +11,7 @@ const Node = require "thlua.code.Node"
 const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const NativeFunction = require "thlua.func.NativeFunction"
+const PolyFunction = require "thlua.func.PolyFunction"
 const LuaTable = require "thlua.object.LuaTable"
 const MetaObject = require "thlua.object.MetaObject"
 const Truth = require "thlua.type.Truth"
@@ -95,7 +96,7 @@ function Context:EXPLIST_PACK(vNode:class.IAstNode, vLazy:Boolean, l:List(UPackE
 			error("unexcept branch")
 		end
 	end
-	const lazyEvalFunc = function():Ret()
+	const lazyEvalFunc = function()
 		for i, nFunc in pairs(nIndexToFunc) do
 			nTermFalseList[i] = nFunc()
 		end
@@ -187,7 +188,7 @@ end
 function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm:class.RefineTerm, vNotnil:Boolean):Ret(class.RefineTerm)
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList:List(class.TypeCasePair) = {}
-	local nOkay = self:nodePcall(vNode, function():Ret()
+	local nOkay = self:nodePcall(vNode, function()
 		vTerm:foreach(function(vType, vTermCase)
 			vKeyTerm:foreach(function(vKeyType, vKeyTermCase)
 				local nReType = vType:meta_get(nGetContext, vKeyType)
@@ -207,7 +208,7 @@ end
 
 function Context:META_SET(vNode:class.IAstNode, vTerm, vKeyTerm, vValueTerm, vOverride)
 	local nSetContext = self:newSealContext(vNode)
-	self:nodePcall(vNode, function():Ret()
+	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
 		vTerm:foreach(function(vType, _)
 			vKeyTerm:foreach(function(vKeyType)
@@ -302,7 +303,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 		assert(nArgTermTuple, "must be true here")
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
-		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or NativeFunction.is(vFuncType) or LuaFunction.is(vFuncType) then
+		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or NativeFunction.is(vFuncType) or LuaFunction.is(vFuncType) or PolyFunction.is(vFuncType) then
 			if vFuncType:isNative() then
 				if not nNativePair then
 					nNativePair = {vFuncType, nArgTermTuple}
@@ -315,7 +316,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 				}
 			end
 		else
-			self._runtime:nodeError(vNode, "TODO call by a not-function value"..tostring(vFuncType))
+			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end
 	end)
 	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
@@ -484,17 +485,20 @@ function Context:EVAL(vNode:class.IAstNode, vTerm:Truth):Ret(class.UAtomUnion)
 	end
 end
 
-function Context:HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, ...:class.UAllType):Ret(class.RefineTerm)
+function Context:CAST_HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, ...:class.UAllType):Ret(class.RefineTerm)
 	-- TODO check cast valid
 	if vCastKind == "generic" then
-		const nType = vTerm:getType()
-		if LuaFunction.is(nType) then
-			const nAfterType = nType:castGeneric(self, {...})
-			return self._manager:RefineTerm(nAfterType)
-		else
-			self:getRuntime():nodeError(vNode, "generic cast other case TODO")
-			return vTerm
-		end
+		const nTypeCaseList:List(class.TypeCasePair) = {}
+		const nGenericList:List(class.UAllType) = {...}
+		vTerm:foreach(function(vType, vTermCase)
+			const nAfterType = vType:castGeneric(self, nGenericList)
+			if nAfterType then
+				nTypeCaseList[#nTypeCaseList + 1] = {nAfterType, vTermCase}
+			else
+				nTypeCaseList[#nTypeCaseList + 1] = {vType, vTermCase}
+			end
+		end)
+		return self._manager:mergeToRefineTerm(nTypeCaseList)
 	else
 		const nDstType = ...
 		assert(nDstType, "hint type can't be nil")
