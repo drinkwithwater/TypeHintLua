@@ -20,9 +20,9 @@ const ClassFactory = require "thlua.func.ClassFactory"
 		_nparams=Integer,
 		_isvararg=Boolean,
 		_hasRet=Boolean,
-		_genericParNum=OrFalse(Integer),
+		_genericParNum=OrFalse(Integer), -- if not full typed, _genericParNum is false
 		_parMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
-		_retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
+		_retMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
 		_genFunc=class.GenFunc,
 	}, {
 		__next=KeyOf(class.FuncNewInfo)
@@ -74,7 +74,7 @@ function FunctionBuilder:_makeRetTuples(
 	vContext:class.Context,
 	vTypeList:List(class.UAllType)
 ):Ret(OrFalse(class.RetTuples))
-	const nSuffixHint = self._retMaker(vTypeList)
+	const nSuffixHint = self._retMaker(vTypeList, false)
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, _, _)
@@ -206,7 +206,7 @@ function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:cla
 	end
 end
 
-function FunctionBuilder:checkParTupleByDefault():Ret(class.UTypeTuple)
+function FunctionBuilder:_checkParTupleByDefault():Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker({}, self._manager.type.Truth)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
@@ -249,7 +249,7 @@ function FunctionBuilder:checkWhenGeneric(vContext:class.Context, vTypeList:List
 end
 
 function FunctionBuilder:_checkWhenDefault():Ret(class.TypeFunction)
-	const nParTuple = self:checkParTupleByDefault()
+	const nParTuple = self:_checkParTupleByDefault()
 	const nRetTuples = self:_makeRetTuples(self._context, {}) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
@@ -259,7 +259,7 @@ function FunctionBuilder:isFullHint():Ret(Boolean)
 end
 
 function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
-	const nSuffixHint = self._retMaker({})
+	const nSuffixHint = self._retMaker({}, false)
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
 	const ok, err = pcall(nSuffixHint.caller, {
@@ -287,7 +287,7 @@ end
 
 function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	const MetaObject = require "thlua.object.MetaObject"
-	const nSuffixHint = self._retMaker({})
+	const nSuffixHint = self._retMaker({}, false)
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, vRefer, vStruct)
@@ -304,7 +304,8 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
 					nInterface = nImplType
 				end
-				const nTable = nFactoryCom:createLuaTable(self._context, vRefer, nInterface)
+				const nParTuple = self:_checkParTupleByDefault()
+				const nTable = nFactoryCom:createLuaTable(self._context, nParTuple, vRefer, nInterface)
 				return {nTable}
 			end, function(vLuaTable)
 				nFactoryCom:runBuild()
@@ -313,6 +314,7 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 			return vHint
 		end,
 		Ret=function(vHint, ...)
+			error("TODO : class use Ret not RetClass")
 			return vHint
 		end,
 		RetIs=function(vHint, vType)
@@ -325,28 +327,26 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	return nFactoryCom
 end
 
-function FunctionBuilder:createFnCom():Ret(class.UFnCom)
+function FunctionBuilder:build():Ret(class.LuaFunction)
+	local nFnCom:OrNil(class.UFnCom) = nil
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		return self:_buildOpen()
+		nFnCom = self:_buildOpen()
 	elseif nAttrSet.class then
-		return self:_buildClass()
+		nFnCom = self:_buildClass()
+	else
+		if nAttrSet.member then
+			self._luaFunc:setMember()
+		end
+		local nDefaultTypeFn:OrFalse(class.TypeFunction) = false
+		if self:isFullHint() then
+			nDefaultTypeFn = self:_checkWhenDefault()
+		end
+		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultTypeFn, nAttrSet.pass and true or false)
+		self._context:recordLateLuaFunction(nLateFnCom)
+		nFnCom = nLateFnCom
 	end
-	if nAttrSet.member then
-		self._luaFunc:setMember()
-	end
-	local nDefaultTypeFn:OrFalse(class.TypeFunction) = false
-	if self:isFullHint() then
-		nDefaultTypeFn = self:_checkWhenDefault()
-	end
-	const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultTypeFn)
-	nLateFnCom:init(nAttrSet.pass and true or false)
-	self._context:recordLateLuaFunction(nLateFnCom)
-	return nLateFnCom
-end
-
-function FunctionBuilder:build():Ret(class.LuaFunction)
-	self._luaFunc:lateInit(self._context, self._node, self)
+	self._luaFunc:lateInit(self._context, self._node, self, nFnCom)
 	return self._luaFunc
 end
 
