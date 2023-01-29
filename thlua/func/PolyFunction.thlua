@@ -2,6 +2,7 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
+const TypeFunction = require "thlua.func.TypeFunction"
 
 const PolyFunction = AtomTypeClass()
 
@@ -13,6 +14,7 @@ function.class PolyFunction.new(vManager:class.TypeManager, vNode:class.IAstNode
 		_manager=vManager,
 		_nparams = nInfo.nparams,
 		_func = vFunc,
+		_typeFnDict = {} @ Dict(String, class.TypeFunction),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
 	}, PolyFunction)
@@ -25,6 +27,25 @@ end
 
 function PolyFunction:isNative():Ret(False)
 	return false
+end
+
+function PolyFunction:castGeneric(vContext, vTypeList)
+	assert(#vTypeList == self._nparams, "PolyFunction's type args num not match")
+	const nAtomUnionList:List(class.UAtomUnion) = {}
+	for i=1, #vTypeList do
+		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()
+	end
+	const nKey = self._manager:signGenericArgs(nAtomUnionList)
+	local nTypeFn = self._typeFnDict[nKey]
+	if not nTypeFn then
+		const nResult = (self._func(table.unpack(vTypeList)) @ Any)
+		if not TypeFunction.is(nResult) then
+			error("poly function must return Fn type but got:"..tostring(nResult))
+		end
+		nTypeFn = nResult
+		self._typeFnDict[nKey] = nTypeFn
+	end
+	return nTypeFn
 end
 
 function PolyFunction:native_type()

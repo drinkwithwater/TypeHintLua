@@ -549,8 +549,8 @@ function TypeManager:retConcat(vNode:class.IAstNode, vRetTuples:class.RetTuples,
 end
 
 function TypeManager:buildMemberFn(vNode:class.IAstNode, ...:Truth):Ret(class.MemberFunction)
-	local nParTuple = self:Tuple(...)
-	return MemberFunction.new(self, vNode, nParTuple, false)
+	const nTypeFn = self:buildFn(vNode, ...)
+	return MemberFunction.new(self, vNode, nTypeFn)
 end
 
 function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:Truth):Ret(class.PolyFunction)
@@ -851,6 +851,14 @@ function TypeManager:literal2Primitive(vType:class.UAtomUnion):Ret(class.UAtomUn
 	else
 		return vType
 	end
+end
+
+function TypeManager:signGenericArgs(vTypeList:IList(class.UAllType)):Ret(String)
+	const nIdList:List(Integer) = {}
+	for i=1,#vTypeList do
+		nIdList[i] = vTypeList[i]!.id
+	end
+	return table.concat(nIdList, "-")
 end
 
 function TypeManager:genTypeId():Ret(Integer)

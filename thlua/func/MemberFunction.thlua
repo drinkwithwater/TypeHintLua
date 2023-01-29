@@ -3,6 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const Exception = require "thlua.Exception"
+const TypeFunction = require "thlua.func.TypeFunction"
 
 const MemberFunction = {}
 MemberFunction.__index=MemberFunction
@@ -14,86 +15,39 @@ function MemberFunction.__tostring(self:class.MemberFunction):Ret(String)
 end
 
 function.class MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vParTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)):RetClass(class.MemberFunction)
+	vTypeFn:class.TypeFunction):RetClass(class.MemberFunction)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_node=vNode,
-		_buildingRetTuples=vRetTuples,
-		_retTuples=vRetTuples,
-		_parTuple=vParTuple,
+		_innerFn=vTypeFn,
 		_typeFnDict={} @ Dict(class.IAtomType, class.TypeFunction),
 	}, MemberFunction)
 	return self
 end
 
 function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
-	const nRetTuples = self:_buildRetTuples()
-	local nCache = vToStringCache[self]
-	if nCache then
-		return nCache
-	end
-	vToStringCache[self] = "Mfn-..."
-	const nResult = "Mfn-" .. self._parTuple:detailString(vToStringCache, vVerbose)..
-									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
-	vToStringCache[self] = nResult
-	return nResult
+	return "member:"..self._innerFn:detailString(vToStringCache, vVerbose)
 end
 
 function MemberFunction:Dots(vType:class.UAllType):Ret(class.MemberFunction)
-	assert(not self._retTuples, "fn building is finish, can't call Dots")
-	local nParTuple = self._parTuple
-	if TypeTupleDots.is(nParTuple) then
-		error("use Dots but tuple has dots")
-	end
-	self._parTuple = nParTuple:Dots(vType)
+	self._innerFn:Dots(vType)
 	return self
 end
 
 function MemberFunction:Ret(...:Truth):Ret(class.MemberFunction)
-	assert(not self._retTuples, "fn building is finish, can't call Ret")
-	local nTypeTuple = self._manager:Tuple(...)
-	local nPreRetTuples = self._buildingRetTuples
-	if not nPreRetTuples then
-		nPreRetTuples = self._manager:SingleRetTuples(nTypeTuple)
-	else
-		nPreRetTuples = self._manager:retConcat(self._node, nPreRetTuples, nTypeTuple)
-	end
-	self._buildingRetTuples = nPreRetTuples
+	self._innerFn:Ret(...)
 	return self
-end
-
-function MemberFunction:finish():Ret(class.MemberFunction)
-	self:_buildRetTuples()
-	return self
-end
-
-function MemberFunction:_buildRetTuples():Ret(class.RetTuples)
-	local nRetTuples = self._retTuples
-	if not nRetTuples then
-		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
-		self._retTuples = nRetTuples
-	end
-	return nRetTuples
 end
 
 function MemberFunction:indexTypeFn(vType:class.IAtomType):Ret(class.TypeFunction)
 	local nTypeFn = self._typeFnDict[vType]
 	if not nTypeFn then
-		const nRetTuple = self:_buildRetTuples()
-		const nParTuple = self._parTuple:concatFirst(vType)
-		nTypeFn = self._manager:Function(nParTuple, nRetTuple)
+		const nRetTuples = self._innerFn:getRetTuples()
+		const nParTuple = self._innerFn:getParTuple():concatFirst(vType)
+		nTypeFn = self._manager:Function(nParTuple, nRetTuples)
 		self._typeFnDict[vType] = nTypeFn
 	end
 	return nTypeFn
-end
-
-function MemberFunction:getParTuple():Ret(class.UTypeTuple)
-	self:_buildRetTuples()
-	return self._parTuple
-end
-
-function MemberFunction:getRetTuples():Ret(class.RetTuples)
-	return self:_buildRetTuples()
 end
 
 function MemberFunction:mayRecursive():Ret(True)
