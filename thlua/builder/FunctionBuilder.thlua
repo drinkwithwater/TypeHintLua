@@ -52,6 +52,12 @@ function.class FunctionBuilder.new(
 	return self
 end
 
+function FunctionBuilder:error(...:Truth)
+	if not self._pass then
+		self._context:getRuntime():nodeError(self._node, ...)
+	end
+end
+
 function FunctionBuilder:checkWhenCast(vContext:class.Context, vCastTypeFn:class.TypeFunction):Ret(class.TypeFunction)
 	-- 1. check par
 	const nParTuple = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
@@ -60,9 +66,7 @@ function FunctionBuilder:checkWhenCast(vContext:class.Context, vCastTypeFn:class
 	const nCastRetTuples = vCastTypeFn:getRetTuples()
 	if nHintRetTuples then
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
-			if not self._pass then
-				vContext:error("interface-fn ret and hint ret notmatch")
-			end
+			self:error("interface-fn ret and hint ret notmatch")
 		end
 		return self._manager:Function(nParTuple, nHintRetTuples)
 	else
@@ -109,7 +113,7 @@ function FunctionBuilder:_makeRetTuples(
 				end
 			end)
 			if hasSome and not hasVoid then
-				vContext:error("hint return something but block has no RetStat")
+				self:error("hint return something but block has no RetStat")
 			end
 		end
 	end
@@ -120,9 +124,7 @@ function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:
 	const nParList, nDotsType = self._parMaker({}, false)
 	local nNewList:List(class.UAllType) = {}
 	if #vTypeTuple ~= self._nparams then
-		if not self._pass then
-			vContext:error("arguments num not match when specification")
-		end
+		self:error("arguments num not match when specification")
 	end
 	for i, nPar in ipairs(nParList) do
 		local nInputType = vTypeTuple:get(i)
@@ -131,7 +133,7 @@ function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:
 		else
 			nNewList[i] = nPar
 			if not nPar:containAll(nInputType) then
-				vContext:error("arguments type not match when checkout")
+				self:error("arguments type not match when checkout")
 			end
 		end
 	end
@@ -139,25 +141,19 @@ function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:
 	const nRepeatType = vTypeTuple:getRepeatType()
 	if self._isvararg then
 		if not nRepeatType then
-			if not self._pass then
-				vContext:error("arguments type not match for not dots")
-			end
+			self:error("arguments type not match for not dots")
 		end
 		if not nDotsType then
 			return nTuple:Dots(nRepeatType or self._manager.type.Truth)
 		else
 			if nRepeatType and not nDotsType:containAll(nRepeatType) then
-				if not self._pass then
-					vContext:error("arguments type not match for wrong dots")
-				end
+				self:error("arguments type not match for wrong dots")
 			end
 			return nTuple:Dots(nDotsType)
 		end
 	else
 		if nRepeatType then
-			if not self._pass then
-				vContext:error("arguments type not match for dots")
-			end
+			self:error("arguments type not match for dots")
 		end
 		return nTuple
 	end
@@ -174,7 +170,7 @@ function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:cla
 	const nNewList:List(class.UAllType) = {}
 	const nFirstPar = nParList[1]
 	if self._nparams == 0 then
-		vContext:error("one argument maybe required here?")
+		self:error("one argument maybe required here?")
 		nNewList[1] = vFirst
 	else
 		if not nFirstPar then
@@ -182,7 +178,7 @@ function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:cla
 		else
 			nNewList[1] = nFirstPar
 			if not nFirstPar:containAll(vFirst) then
-				vContext:error("first argument not match when cast")
+				self:error("first argument not match when cast")
 			end
 		end
 	end
@@ -299,7 +295,7 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 					assert(not nImplType:isUnion(), "interface can't be union")
 				end
 				self._context:recordDefineLuaFunction(nFactoryCom)
-				local nInterface = self._manager.type.Object
+				local nInterface = self._manager.type.AnyObject
 				if nImplType then
 					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
 					nInterface = nImplType

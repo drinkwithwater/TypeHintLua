@@ -1,25 +1,32 @@
 
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
+const AtomTypeClass = require "thlua.type.AtomTypeClass"
 
-const PolyFunction = {}
-PolyFunction.__index=PolyFunction
+const PolyFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function PolyFunction.__tostring(self:class.PolyFunction):Ret(String)
-	return self:detailString({}, true)
-end
-
-function.class PolyFunction.new(vManager:class.TypeManager, vFunc:class.Truth):RetClass(class.PolyFunction)
+function.class PolyFunction.new(vManager:class.TypeManager, vFunc:class.Truth):RetClass(class.PolyFunction, class.IAtomType)
+	const nInfo = debug.getinfo(vFunc)
 	local self = setmetatable({.class
 		_manager=vManager,
+		_nparams = nInfo.nparams,
+		_func = vFunc,
+		bits=TYPE_BITS.FUNCTION,
+		id=vManager:genTypeId(),
 	}, PolyFunction)
 	return self
 end
 
 function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
-	return "TODO"
+	return "PolyFunction"
+end
+
+function PolyFunction:assumeContainAtom(vAssumeSet, vRight)
+end
+
+function PolyFunction:assumeIntersectAtom(vAssumeSet, vRight)
 end
 
 function.open PolyFunction.is(vType):RetIs(class.PolyFunction)
