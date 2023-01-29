@@ -53,9 +53,9 @@ class.IType = Interface ({
 
 	detailString=Mfn(Dict(Truth, String), Boolean):Ret(String),
 
-	intersectAny=Mfn(class.UAllType):Ret(Boolean),
+	intersectSome=Mfn(class.UAllType):Ret(Boolean),
 	safeIntersect=Mfn(class.UAllType):Ret(OrFalse(class.UAtomUnion)),
-	assumeIntersectAny=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
+	assumeIntersectSome=Mfn(OrNil(Dict(Integer, Boolean)), class.UAllType):Ret(Boolean),
 	intersectAtom=Mfn(class.IAtomType):Ret(Union(Boolean, class.UAtomUnion)),
 
 	containAll=Mfn(class.UAllType):Ret(Boolean),
@@ -166,14 +166,14 @@ const function.open TypeClass()
 	function t:assumeIntersectAtom?(vAssumeSet, vRight)
 		error(tostring(self).."assumeIntersectAtom TODO")
 	end
-	function t:assumeIntersectAny?(vAssumeSet, vRight)
-		local nAnyIntersect:Boolean = false
+	function t:assumeIntersectSome?(vAssumeSet, vRight)
+		local nSomeIntersect:Boolean = false
 		vRight:foreachAwait(function(vSubType)
-			if not nAnyIntersect and self:assumeIntersectAtom(vAssumeSet, vSubType) then
-				nAnyIntersect = true
+			if not nSomeIntersect and self:assumeIntersectAtom(vAssumeSet, vSubType) then
+				nSomeIntersect = true
 			end
 		end)
-		return nAnyIntersect
+		return nSomeIntersect
 	end
 	function t:assumeContainAll?(vAssumeSet, vRight)
 		local nAllContain:Boolean = true
@@ -184,8 +184,8 @@ const function.open TypeClass()
 		end)
 		return nAllContain
 	end
-	function t:intersectAny(vRight)
-		return self:assumeIntersectAny(nil, vRight)
+	function t:intersectSome(vRight)
+		return self:assumeIntersectSome(nil, vRight)
 	end
 	function t:containAll(vRight)
 		return self:assumeContainAll(nil, vRight)
