@@ -18,8 +18,8 @@ const TermCase = require "thlua.term.TermCase"
 	let.class = import("thlua.type.TypeClass").class
 
 	let.ILoader = Interface {
-		thluaSearch=Mfn(String):Ret(Boolean, String),
-		thluaParseFile=Mfn(String):Ret(class.CodeEnv),
+		thluaSearch=member:Fn(String):Ret(Boolean, String),
+		thluaParseFile=member:Fn(String):Ret(class.CodeEnv),
 	}
 
 	let.LoadedState = Struct {
@@ -178,7 +178,6 @@ function.pass Runtime:buildSimpleGlobal()
 		OrNil="buildOrNil",
 		OrFalse="buildOrFalse",
 		Fn="buildFn",
-		Mfn="buildMfn",
 		Pfn="buildPfn",
 	}
 	local nManager = self._manager
@@ -196,6 +195,11 @@ function.pass Runtime:buildSimpleGlobal()
 	nGlobal.import=function(vPath)
 		return self:import(vPath)
 	end
+	nGlobal.member={
+		Fn=function(self, ...)
+			return nManager:buildMemberFn(Node.getDebugNode(3), ...)
+		end,
+	}
 	nGlobal.foreachPair=function(vObject, vFunc)
 		const vObject = vObject:checkAtomUnion()
 		const d = vObject:copyValueDict()
