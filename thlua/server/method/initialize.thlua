@@ -7,8 +7,9 @@ return function(vClient:lsp.Client, vParams:lsp.InitializeParams):Ret(lsp.Initia
 	else
 		vClient.initialize = true
 	end
-	local root  = vParams.rootPath or vParams.rootUri
-	vClient:info("Config.root = ", root)
+	const rootUri = vParams.rootUri
+	local root  = vParams.rootPath or (rootUri and vClient:uriToFileName(rootUri):gsub("/$", ""))
+	vClient:info("Config.root = ", root, vParams.rootPath, vParams.rootUri)
 	if root then
 		vClient:setRoot(root)
 	end
