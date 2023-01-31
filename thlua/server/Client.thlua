@@ -20,13 +20,14 @@ local Client = {}
 
 Client.__index = Client
 
-function.class Client.new():RetClass(lsp.Client)
+function.class Client.new(vLogFile):RetClass(lsp.Client)
 	local self = setmetatable({.class
 		initialize=false@Boolean,
 		shutdown=false,
 		root="",
 		runtime=false,
 		fileStateDict={},
+		logFile=vLogFile,
 	}, Client)
 	return self
 end
@@ -162,6 +163,7 @@ function Client:rpc():Ret()
 	if result then
 		if nId then
 			self:writeResult(nId, result)
+			self:info("write response:$"..tostring(nId))
 		else
 			self:warn(reqToStr(request), "request without id ")
 		end
@@ -173,12 +175,22 @@ function Client:rpc():Ret()
 	end
 end
 
+function Client:debugPrint(vStr:String):Ret()
+	const nLogFile = self.logFile
+	if nLogFile then
+		nLogFile:write(vStr)
+		nLogFile:write("\n")
+		nLogFile:flush()
+	end
+end
+
 function Client:readRequest():Ret(lsp.RequestMessage)
 	-- 1 get header
 	local length:Number = -1
 	while true do
 		local line = io.read("*l")
 		if not line then
+			self:debugPrint("io read fail")
 			error("io.read fail")
 			return
 		end
@@ -186,8 +198,10 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 		if line == "" then
 			break
 		end
+		self:debugPrint("read line:"..line)
 		local key, val = line:match("([^:]+): (.+)")
 		if not key or not val then
+			self:debugPrint("header format error")
 			error("header format error:"..line)
 		end
 		if key == "Content-Length" then
@@ -196,8 +210,10 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 	end
 
 	if length < 0 then
+		self:debugPrint("Context-Length failed in rpc"..length)
 		error("Content-Length failed in rpc")
 	end
+	self:debugPrint("read length ="..tostring(length))
 
 	-- 2 get body
 	local data = io.read(length)
@@ -205,6 +221,7 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 		error("read nothing")
 		return
 	end
+	self:debugPrint("read packet:"..data)
 	data = data:gsub("\13", "")
 	local obj, err = json.decode(data)
 	if type(obj) ~= "table" then
@@ -340,17 +357,33 @@ function Client:packToString(vDepth, ...:Truth):Ret(String)
 end
 
 function Client:error(...:Truth):Ret()
+	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
-		message = self:packToString(3, ...),
+		message = str,
 		type = MessageType.ERROR,
 	})
+	const nLogFile = self.logFile
+	if nLogFile then
+		nLogFile:write("[ERROR]")
+		nLogFile:write(str)
+		nLogFile:write("\n")
+		nLogFile:flush()
+	end
 end
 
 function Client:warn(...:Truth):Ret()
+	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
-		message = self:packToString(3, ...),
+		message = str,
 		type = MessageType.WARNING,
 	})
+	const nLogFile = self.logFile
+	if nLogFile then
+		nLogFile:write("[WARN]")
+		nLogFile:write(str)
+		nLogFile:write("\n")
+		nLogFile:flush()
+	end
 end
 
 function Client:info(...:Truth):Ret()
@@ -359,13 +392,28 @@ function Client:info(...:Truth):Ret()
 		message = str,
 		type = MessageType.INFO,
 	})
+	const nLogFile = self.logFile
+	if nLogFile then
+		nLogFile:write("[INFO]")
+		nLogFile:write(str)
+		nLogFile:write("\n")
+		nLogFile:flush()
+	end
 end
 
 function Client:debug(...)
+	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
-		message = self:packToString(3, ...),
+		message = str,
 		type = MessageType.DEBUG,
 	})
+	const nLogFile = self.logFile
+	if nLogFile then
+		nLogFile:write("[DEBUG]")
+		nLogFile:write(str)
+		nLogFile:write("\n")
+		nLogFile:flush()
+	end
 end
 
 function Client:setRoot(vRoot:String)

@@ -45,9 +45,9 @@ function boot.runCheck(vMainFileName)
 	assert(nRuntime:main())
 end
 
-function boot.runServer()
+function boot.runServer(vFileOpen)
 	local Client = require "thlua.server.Client"
-	local client = Client.new()
+	local client = Client.new(vFileOpen)
 
 	print=function(...)
 		--[[client:notify("window/logMessage", {
