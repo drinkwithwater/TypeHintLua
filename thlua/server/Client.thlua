@@ -129,6 +129,10 @@ function Client:getDirtyCodeEnv(vFileName):Ret(Nil):Ret(class.CodeEnv)
 end
 
 function Client:mainLoop()
+	self:notify("$/status/report", {
+		text="hello",
+		tooltip="hello",
+	})
 	while not self.shutdown do
 		self:rpc()
 	end
@@ -293,7 +297,7 @@ function Client:publishNormal()
 			params = {
 				uri="file://"..nFileName,
 				version=nVersion,
-				diagnostics=nDiaList,
+				diagnostics=json.array(nDiaList),
 			},
 		})
 	end
@@ -333,9 +337,22 @@ function Client:publishException(vException:Union(class.Exception, String))
 	})
 end
 
+function Client:getPlatform():Ret(String)
+	if package.config:sub(1,1) == "\\" then
+		return "win"
+	else
+		return "not-win"
+	end
+end
+
 function Client:_write(vPacket:Truth)
-	local data = json.encode(vPacket)
-	io.write("Content-Length: "..#data.."\r\n\r\n"..data)
+	local data:String = json.encode(vPacket)
+	if self:getPlatform() == "win" then
+		data = ("Content-Length: %d\n\n%s"):format(#data, data)
+	else
+		data = ("Content-Length: %d\r\n\r\n%s"):format(#data, data)
+	end
+	io.write(data)
 	io.flush()
 end
 

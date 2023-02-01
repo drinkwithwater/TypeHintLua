@@ -1,8 +1,8 @@
-local json = require('rapidjson')
-local decode = json.decode
+local rapidjson = require('rapidjson')
+local decode = rapidjson.decode
 local function recursiveCast(t)
 	local nType = type(t)
-	if nType == "userdata" and t == json.null then
+	if nType == "userdata" and t == rapidjson.null then
 		return nil
 	elseif nType == "table" then
 		local re = {}
@@ -14,8 +14,13 @@ local function recursiveCast(t)
 		return t
 	end
 end
+local json = {}
 json.decode = function(data)
 	local a,b = decode(data)
 	return recursiveCast(a), b
+end
+json.encode = rapidjson.encode
+json.array = function(data)
+	return rapidjson.array(data)
 end
 return json
