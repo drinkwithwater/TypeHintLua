@@ -108,31 +108,27 @@ local Exception = require "thlua.Exception"
 
 end)
 
-local function uriToFileName(vUri)
-	return vUri:gsub("^file://", "")
-end
-
 return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
 		local nContent = vParams.contentChanges[1].text
-		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
 		--vClient:rerun(nFileName)
 	end,
 	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
 		local nContent = vParams.textDocument.text
-		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
 		vClient:rerun(nFileName)
 	end,
 	didSave=function(vClient:lsp.Client, vParams)
-		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		vClient:rerun(nFileName)
 	end,
 	didClose=function(vClient:lsp.Client, vParams)
 	end,
 	definition=function(vClient:lsp.Client, vParams:DefinitionParams):Ret(Location)
-		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		local nDefineNode = vClient:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
 		if nDefineNode then
 			return {
@@ -145,7 +141,7 @@ return {
 		end
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams):Ret(List(CompletionItem))
-		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		local nSuccEnv = vClient:getSuccCodeEnv(nFileName)
 		if not nSuccEnv then
 			return
@@ -185,7 +181,7 @@ return {
 		end
 	end,
 	hover=function(vClient:lsp.Client, vParams:HoverParams)
-		local nFileName = uriToFileName(vParams.textDocument.uri)
+		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		local nDefineNode = vClient:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
 		if nDefineNode then
 			local nLocalSymbolSet = vClient.runtime:getNodeLocalSymbolSet(nDefineNode)

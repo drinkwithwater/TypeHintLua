@@ -67,6 +67,9 @@ function Client:rerun(vFileName)
 	local ok, mainFileName = self:thluaSearch("main")
 	if not ok then
 		mainFileName = vFileName
+		self:info("main.thlua not found, run single file:", mainFileName)
+	else
+		self:info("main.thlua found:", mainFileName)
 	end
 	local nRuntime=Runtime.new(self, mainFileName)
 	local ok, exc = nRuntime:main()
@@ -295,7 +298,7 @@ function Client:publishNormal()
 			jsonrpc = "2.0",
 			method = "textDocument/publishDiagnostics",
 			params = {
-				uri="file://"..nFileName,
+				uri=self:pathToUri(nFileName),
 				version=nVersion,
 				diagnostics=json.array(nDiaList),
 			},
@@ -318,7 +321,7 @@ function Client:publishException(vException:Union(class.Exception, String))
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
 		params = {
-			uri="file://"..nCodeEnv:getChunkName(),
+			uri=self:pathToUri(nCodeEnv:getChunkName()),
 			version=nCodeEnv:getVersion(),
 			diagnostics={ {
 				range={
@@ -439,8 +442,26 @@ function Client:setRoot(vRoot:String)
 	self.root = vRoot
 end
 
-function Client:uriToFileName(vUri:String):Ret(String)
-	return vUri:gsub("^file://", "")
+function Client:uriToPath(vUri:String):Ret(String)
+	const nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
+		return string.char(tonumber(c, 16))
+	end)
+	if self:getPlatform() == "win" then
+		return (nPath:gsub("^file:///", ""):gsub("/$", ""))
+	else
+		return (nPath:gsub("^file://", ""):gsub("/$", ""))
+	end
+end
+
+function Client:pathToUri(vPath:String):Ret(String)
+	if self:getPlatform() == "win" then
+		const nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
+			return driver.."%3A"
+		end)
+		return "file:///"..nUri
+	else
+		return "file://"..vPath
+	end
 end
 
 return Client
