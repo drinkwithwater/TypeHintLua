@@ -6,6 +6,7 @@ Some code modify from
 https://github.com/andremm/typedlua and https://github.com/Alloyed/lua-lsp
 ]]
 local lpeg = require "lpeg"
+local Enum = require "thlua.Enum"
 lpeg.setmaxstack(1000)
 lpeg.locale(lpeg)
 
@@ -276,10 +277,10 @@ local G = lpeg.P { "TypeHintLua";
 
 	AtHint = hintC.wrap(
 		false,
-		symb("@") * cc("covar") +
-		symb("@!") * cc("conil") +
-		symb("@>") * cc("contra") +
-		symb("@!!") * cc("force"),
+		symb("@") * cc(Enum.CastKind_COVAR) +
+		symb("@!") * cc(Enum.CastKind_CONIL) +
+		symb("@>") * cc(Enum.CastKind_CONTRA) +
+		symb("@!!") * cc(Enum.CastKind_FORCE),
 		vv.HintExpr) + vv.HintPolyArgs;
 
 	ColonHint = hintC.wrap(false, symb(":") * cc(false), vv.HintExpr);
@@ -294,7 +295,7 @@ local G = lpeg.P { "TypeHintLua";
 		return {...}
 	end;
 
-	HintPolyArgs = hintC.wrap(false, symb("@<") * cc("poly"),
+	HintPolyArgs = hintC.wrap(false, symb("@<") * cc(Enum.CastKind_POLY),
 		vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
 	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);

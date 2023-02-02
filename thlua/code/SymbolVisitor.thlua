@@ -1,6 +1,7 @@
 
 const VisitorExtend = require "thlua.code.VisitorExtend"
 const Exception = require "thlua.Exception"
+const Enum = require "thlua.Enum"
 
 (@do
 
@@ -93,14 +94,14 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		const nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
-			local nHintFullKind:OrFalse(node.HintFullKindEnum) = "full"
+			local nHintFullKind:OrFalse(node.HintFullKindEnum) = Enum.HintFullKind_FULL
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
 					self:symbolDefine(par, "param")
 					if not par.hintShort then
 						if par.isSelf then
 							if nHintFullKind then
-								nHintFullKind = "self"
+								nHintFullKind = Enum.HintFullKind_SELF
 							end
 						else
 							nHintFullKind = false
@@ -147,7 +148,7 @@ local TagToVisiting:let.RealTraverser = {
 		self:realVisit(stm[2])
 		-- self:realVisit(nIdentList)
 		for i, name in ipairs(nIdentList) do
-			self:symbolDefine(name, stm.isConst and "const" or "local")
+			self:symbolDefine(name, stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
 		end
 	end,
 	Set=function(self, stm)
@@ -161,7 +162,7 @@ local TagToVisiting:let.RealTraverser = {
 		self:rawVisit(stm)
 	end,
 	Localrec=function(self, stm)
-		self:symbolDefine(stm[1], stm.isConst and "const" or "local")
+		self:symbolDefine(stm[1], stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
 		self:realVisit(stm[2])
 	end,
 	Dots=function(self, node)
@@ -267,7 +268,7 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 		return
 	end
 	if vIsAssign then
-		if nDefineNode.symbolKind == "const" then
+		if nDefineNode.symbolKind == Enum.SymbolKind_CONST then
 			const nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
 			error(Exception.new(nErrNode[1], nErrNode))
 		else

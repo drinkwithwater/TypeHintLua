@@ -7,6 +7,7 @@ const ContextClass = require "thlua.runtime.ContextClass"
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
 const Node = require "thlua.code.Node"
+const Enum = require "thlua.Enum"
 
 const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
@@ -493,7 +494,7 @@ end
 
 function Context:CAST_HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKind:node.CastKindEnum, ...:class.UAllType):Ret(class.RefineTerm)
 	-- TODO check cast valid
-	if vCastKind == "poly" then
+	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(class.TypeCasePair) = {}
 		const nGenericList:List(class.UAllType) = {...}
 		vTerm:foreach(function(vType, vTermCase)
@@ -506,6 +507,9 @@ function Context:CAST_HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKi
 		end)
 		return self._manager:mergeToRefineTerm(nTypeCaseList)
 	else
+		if not vCastKind then
+			vContext:error("unexcepted castkind:"..tostring(vCastKind))
+		end
 		const nDstType = ...
 		assert(nDstType, "hint type can't be nil")
 		if not nDstType:containAll(vTerm:getType()) then

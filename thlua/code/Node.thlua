@@ -1,5 +1,7 @@
 
 
+const Enum = require "thlua.Enum"
+
 (@do
 
 let.node = namespace()
@@ -338,12 +340,6 @@ node.TagToNodeType = Struct(__node)
 
 node.URegionNode = Union(node.Chunk, node.Function)
 
-node.SymbolKindEnum = Union("const", "local", "param")
-
-node.CastKindEnum = Union("covar", "contra", "conil", "poly", "force", "declare")
-
-node.HintFullKindEnum = Union("self", "full")
-
 node.Error = StructExtend({
 	tag = "Error",
 	[1] = String,
@@ -353,7 +349,23 @@ node.Error = StructExtend({
 
 end)
 
-local Node = {}
+const Node = {}
+
+(@do
+
+--node.SymbolKindEnum = Union("const", "local", "param")
+node.SymbolKindEnum = Union($Enum.SymbolKind_CONST, $Enum.SymbolKind_LOCAL, $Enum.SymbolKind_PARAM)
+
+node.CastKindEnum = Union(
+	$Enum.CastKind_COVAR,
+	$Enum.CastKind_CONTRA,
+	$Enum.CastKind_CONIL,
+	$Enum.CastKind_POLY,
+	$Enum.CastKind_FORCE)
+
+node.HintFullKindEnum = Union($Enum.HintFullKind_SELF, $Enum.HintFullKind_FULL)
+
+end)
 
 Node.__index=Node
 
