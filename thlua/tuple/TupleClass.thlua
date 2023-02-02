@@ -13,16 +13,20 @@ const function.open TupleClass()
 	function t.__len(self):Ret(Number)
 		return #self._list
 	end
-	function t:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	function t:detailStringIfFirst(vCache:Dict(Truth, String), vVerbose:Boolean, vHasFirst:Boolean):Ret(String)
 		const re:List(String) = {}
-		for i=1, #self do
-			re[i] = self._list[i]!:detailString(vCache, vVerbose)
+		const nStartIndex = vHasFirst and 1 or 2
+		for i=nStartIndex, #self do
+			re[#re + 1] = self._list[i]!:detailString(vCache, vVerbose)
 		end
 		const nRepeatType = self:getRepeatType()
 		if nRepeatType then
 			re[#re + 1] = nRepeatType:detailString(vCache, vVerbose) .."*"
 		end
 		return "Tuple("..table.concat(re, ",")..")"
+	end
+	function t:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+		return self:detailStringIfFirst(vCache, vVerbose, true)
 	end
 	function t:makeTermTuple():Ret(class.TermTuple)
 		const nTermList:List(class.RefineTerm) = {}

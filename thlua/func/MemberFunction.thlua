@@ -15,7 +15,7 @@ function MemberFunction.__tostring(self:class.MemberFunction):Ret(String)
 end
 
 function.class MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vTypeFn:class.TypeFunction):RetClass(class.MemberFunction)
+	vTypeFn:class.TypeFunction, vFirstHintType:OrNil(class.UAllType)):RetClass(class.MemberFunction)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_node=vNode,
@@ -26,7 +26,17 @@ function.class MemberFunction.new(vManager:class.TypeManager, vNode:class.IAstNo
 end
 
 function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
-	return "member:"..self._innerFn:detailString(vToStringCache, vVerbose)
+	local nCache = vToStringCache[self]
+	if nCache then
+		return nCache
+	end
+	const nParTuple = self._innerFn:getParTuple()
+	const nRetTuples = self._innerFn:getRetTuples()
+	vToStringCache[self] = "member:fn-..."
+	const nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
+									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
+	vToStringCache[self] = nResult
+	return nResult
 end
 
 function MemberFunction:Dots(vType:class.UAllType):Ret(class.MemberFunction)
@@ -43,7 +53,7 @@ function MemberFunction:indexTypeFn(vType:class.IAtomType):Ret(class.TypeFunctio
 	local nTypeFn = self._typeFnDict[vType]
 	if not nTypeFn then
 		const nRetTuples = self._innerFn:getRetTuples()
-		const nParTuple = self._innerFn:getParTuple():concatFirst(vType)
+		const nParTuple = self._innerFn:getParTuple():replaceFirst(vType)
 		nTypeFn = self._manager:Function(nParTuple, nRetTuples)
 		self._typeFnDict[vType] = nTypeFn
 	end
