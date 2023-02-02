@@ -8,6 +8,9 @@ const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
 const ClassFactory = require "thlua.func.ClassFactory"
 
+const MemberFunction = require "thlua.func.MemberFunction"
+const TypeFunction = require "thlua.func.TypeFunction"
+
 const LuaFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
@@ -141,10 +144,13 @@ end
 function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable)):Ret(class.TypeFunction)
 	local nLateCom = self._unionFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
+	const nDefaultFn = nLateCom:getDefaultFn()
 	if not vSelfType then
-		return nLateCom:getDefaultTypeFn()
+		assert(TypeFunction.is(nDefaultFn))
+		return nDefaultFn
 	else
-		return nLateCom:getMemberFn():indexTypeFn(vSelfType)
+		assert(MemberFunction.is(nDefaultFn))
+		return nDefaultFn:indexTypeFn(vSelfType)
 	end
 end
 

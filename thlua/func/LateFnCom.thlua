@@ -2,21 +2,22 @@
 const TermCase = require "thlua.term.TermCase"
 const FnComClass = require "thlua.func.FnComClass"
 
+const MemberFunction = require "thlua.func.MemberFunction"
+const TypeFunction = require "thlua.func.TypeFunction"
+
 const LateFnCom = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
 function.class LateFnCom.new(vManager:class.TypeManager,
 	vLuaFunction:class.LuaFunction,
-	vDefaultTypeFn:OrFalse(class.TypeFunction),
-	vMemberFn:OrFalse(class.MemberFunction),
+	vDefaultFn:OrFalse(class.UDefaultFunction),
 	vPass:Boolean
 ):RetClass(class.LateFnCom, class.IFnCom)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_defaultTypeFn=vDefaultTypeFn,
-		_memberFn=vMemberFn,
+		_defaultFn=vDefaultFn,
 		_selfSpecDict={}@Dict(class.LuaTable, class.TypeFunction),
 		_castSpecList={}@List(class.TypeFunction),
 		_once=false@Boolean,
@@ -35,13 +36,7 @@ function LateFnCom:checkLateRun()
 	end
 	self._once = true
 	const nSpecFnList:List(class.TypeFunction) = {}
-	const nMemberFn = self._memberFn
-	if nMemberFn then
-		const nTypeFnDict = nMemberFn:getTypeFnDict()
-		for _, nTypeFn in pairs(nTypeFnDict) do
-			nSpecFnList[#nSpecFnList + 1] = nTypeFn
-		end
-	end
+	-- 1. cast fn
 	const nCastFn = self._castSpecList[1]
 	if nCastFn then
 		nSpecFnList[#nSpecFnList + 1] = nCastFn
@@ -54,8 +49,14 @@ function LateFnCom:checkLateRun()
 			end
 		end
 	end
-	const nDefaultFn = self._defaultTypeFn
-	if not self._luaFunction:isMethod() and #nSpecFnList == 0 and nDefaultFn then
+	-- 2. default fn
+	const nDefaultFn = self._defaultFn
+	if MemberFunction.is(nDefaultFn) then
+		const nTypeFnDict = nDefaultFn:getTypeFnDict()
+		for _, nTypeFn in pairs(nTypeFnDict) do
+			nSpecFnList[#nSpecFnList + 1] = nTypeFn
+		end
+	elseif TypeFunction.is(nDefaultFn) then
 		nSpecFnList[#nSpecFnList + 1] = nDefaultFn
 	end
 	for _, nTypeFn in ipairs(nSpecFnList) do
@@ -69,13 +70,12 @@ function LateFnCom:checkLateRun()
 			nInplaceContext:error(tostring(err))
 		end
 	end
-	if nCastFn and self._defaultTypeFn then
-		-- self._manager:getRuntime():nodeWarn(self._luaFunction:getNode(), "both castFn and typeFunc ???")
-	end
 end
 
 function LateFnCom:matchTypeFn(vContext, vTypeTuple)
-	return self:getDefaultTypeFn()
+	const nFn = self._defaultFn
+	assert(TypeFunction.is(nFn), "only default type function can be called")
+	return nFn
 end
 
 function LateFnCom:regionReturn(vContext, vNode, vRetTypeTuple)
@@ -99,17 +99,8 @@ function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
 end
 
-function LateFnCom:getMemberFn():Ret(class.MemberFunction)
-	return assert(self._memberFn)
-end
-
-function LateFnCom:getDefaultTypeFn():Ret(class.TypeFunction)
-	const nFn = self._defaultTypeFn
-	if not nFn then
-		error("not-full-hint function specialize TODO")
-	else
-		return nFn
-	end
+function LateFnCom:getDefaultFn():Ret(OrFalse(class.UDefaultFunction))
+	return self._defaultFn
 end
 
 function LateFnCom:addSpecFn(vTypeFn:class.TypeFunction, vSelfType:OrNil(class.LuaTable))

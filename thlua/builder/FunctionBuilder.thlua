@@ -12,6 +12,8 @@ const ClassFactory = require "thlua.func.ClassFactory"
 	let.class = import("thlua.type.TypeClass").class
 	let.node = import("thlua.code.Node").node
 
+	class.UDefaultFunction = Union(class.TypeFunction, class.MemberFunction)
+
 	class.FnLongHint = Struct {
 		RetClass=Fn(class.FnLongHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnLongHint),
 		Ret=Fn(class.FnLongHint):Dots(class.UAllType):Ret(class.FnLongHint),
@@ -163,50 +165,6 @@ function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:
 	end
 end
 
-function FunctionBuilder:_checkWhenMember(vContext:class.Context):Ret(class.MemberFunction)
-	const nParTuple = self:_makeParTupleByFirst(vContext, self._manager.type.Truth)
-	const nRetTuples = self:_makeRetTuples(vContext, {}) or self._manager:VoidRetTuples()
-	const nFn = self._manager:Function(nParTuple, nRetTuples)
-	return self._manager:MemberFunction(self._node, nFn)
-end
-
-function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
-	const nParList, nDotsType = self._parMaker({})
-	const nNewList:List(class.UAllType) = {}
-	const nFirstPar = nParList[1]
-	if self._parNum == 0 then
-		self:error("one argument maybe required here?")
-		nNewList[1] = vFirst
-	else
-		if not nFirstPar then
-			nNewList[1] = vFirst
-		else
-			nNewList[1] = nFirstPar
-			if not nFirstPar:containAll(vFirst) then
-				self:error("first argument not match when cast")
-			end
-		end
-	end
-	for i=2,#nParList do
-		const nPar = nParList[i]!
-		if not nPar then
-			nNewList[i] = self._manager.type.Truth
-		else
-			nNewList[i] = nPar
-		end
-	end
-	const nTuple = self._manager:Tuple(table.unpack(nNewList))
-	if self._isvararg then
-		if not nDotsType then
-			return nTuple:Dots(self._manager.type.Truth)
-		else
-			return nTuple:Dots(nDotsType)
-		end
-	else
-		return nTuple
-	end
-end
-
 function FunctionBuilder:_checkParTupleByDefault():Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker({})
 	for i, nParType in ipairs(nParList) do
@@ -249,10 +207,36 @@ function FunctionBuilder:checkWhenGeneric(vContext:class.Context, vTypeList:List
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
-function FunctionBuilder:_checkWhenDefault():Ret(class.TypeFunction)
-	const nParTuple = self:_checkParTupleByDefault()
+function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction))
+	const nHintFullKind = self._hintFullKind
+	if not nHintFullKind then
+		return false
+	end
+	const nNewParList:List(class.UAllType) = {}
+	const nParList, nDotsType = self._parMaker({})
 	const nRetTuples = self:_makeRetTuples(self._context, {}) or self._manager:VoidRetTuples()
-	return self._manager:Function(nParTuple, nRetTuples)
+	for i, nParType in ipairs(nParList) do
+		if not nParType then
+			if i == 1 then
+				nNewParList[1] = self._manager.type.Truth
+				assert(self._hintFullKind == Enum.HintFullKind_SELF)
+			else
+				error("check default but hint type is not true value, order="..tostring(i))
+			end
+		else
+			nNewParList[i] = nParType
+		end
+	end
+	const nRawTuple = self._manager:Tuple(table.unpack(nNewParList))
+	local nParTuple:class.UTypeTuple = nRawTuple
+	if self._isvararg then
+		if not nDotsType then
+			error("dots type is required here")
+		end
+		nParTuple = nRawTuple:Dots(nDotsType)
+	end
+	const nFn = self._manager:Function(nParTuple, nRetTuples)
+	return nHintFullKind == Enum.HintFullKind_FULL and nFn or self._manager:MemberFunction(self._node, nFn)
 end
 
 function FunctionBuilder:getHintFullKind():Ret(OrFalse(node.HintFullKindEnum))
@@ -338,15 +322,8 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 		if nAttrSet.self then
 			self._luaFunc:setMethod()
 		end
-		local nDefaultTypeFn:OrFalse(class.TypeFunction) = false
-		if self:getHintFullKind() == Enum.HintFullKind_FULL then
-			nDefaultTypeFn = self:_checkWhenDefault()
-		end
-		local nMemberFn:OrFalse(class.MemberFunction) = false
-		if self:getHintFullKind() == Enum.HintFullKind_SELF then
-			nMemberFn = self:_checkWhenMember(self._context)
-		end
-		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultTypeFn, nMemberFn, nAttrSet.pass and true or false)
+		local nDefaultFn:OrFalse(class.UDefaultFunction) = self:_checkWhenDefault()
+		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultFn, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
 		nFnCom = nLateFnCom
 	end
