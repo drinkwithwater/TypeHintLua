@@ -18,10 +18,10 @@ const ClassFactory = require "thlua.func.ClassFactory"
 
 	class.FuncNewInfo = Struct ({
 		_prefixHint=class.TLongHintInfo(Nil),
-		_nparams=Integer,
+		_parNum=Integer,
 		_isvararg=Boolean,
 		_hasRet=Boolean,
-		_genericParNum=OrFalse(Integer), -- if not full typed, _genericParNum is false
+		_polyParNum=OrFalse(Integer), -- if not full typed, _polyParNum is false
 		_hintFullKind=OrFalse(node.HintFullKindEnum),
 		_parMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
 		_retMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
@@ -125,7 +125,7 @@ end
 function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
 	const nParList, nDotsType = self._parMaker({}, false)
 	local nNewList:List(class.UAllType) = {}
-	if #vTypeTuple ~= self._nparams then
+	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
 	end
 	for i, nPar in ipairs(nParList) do
@@ -171,7 +171,7 @@ function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:cla
 	const nParList, nDotsType = self._parMaker({}, false)
 	const nNewList:List(class.UAllType) = {}
 	const nFirstPar = nParList[1]
-	if self._nparams == 0 then
+	if self._parNum == 0 then
 		self:error("one argument maybe required here?")
 		nNewList[1] = vFirst
 	else

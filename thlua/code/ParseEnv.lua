@@ -280,7 +280,7 @@ local G = lpeg.P { "TypeHintLua";
 		symb("@!") * cc("conil") +
 		symb("@>") * cc("contra") +
 		symb("@!!") * cc("force"),
-		vv.HintExpr) + vv.HintGenericArgs;
+		vv.HintExpr) + vv.HintPolyArgs;
 
 	ColonHint = hintC.wrap(false, symb(":") * cc(false), vv.HintExpr);
 
@@ -290,11 +290,11 @@ local G = lpeg.P { "TypeHintLua";
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
-	HintGenericParList = symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") / function(...)
+	HintPolyParList = symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") / function(...)
 		return {...}
 	end;
 
-	HintGenericArgs = hintC.wrap(false, symb("@<") * cc("generic"),
+	HintPolyArgs = hintC.wrap(false, symb("@<") * cc("poly"),
 		vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
 	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
@@ -387,7 +387,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
-		local generic = lpeg.Cg(vv.HintGenericArgs + cc(false), "hintGenericArgs")
+		local generic = lpeg.Cg(vv.HintPolyArgs + cc(false), "hintPolyArgs")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		index1 = addAtHint(index1)
@@ -442,7 +442,7 @@ local G = lpeg.P { "TypeHintLua";
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
 									tagC.ParList(DotsHintable^-1);
-		return tagC.Function(lpeg.Cg(vv.HintGenericParList, "hintGenericParList")^-1*symbA("(") * ParList * symbA(")") *
+		return tagC.Function(lpeg.Cg(vv.HintPolyParList, "hintPolyParList")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
