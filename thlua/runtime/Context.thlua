@@ -206,12 +206,18 @@ function Context:META_GET(vNode:class.IAstNode, vTerm:class.RefineTerm, vKeyTerm
 	end
 end
 
-function Context:META_SET(vNode:class.IAstNode, vTerm, vKeyTerm, vValueTerm, vOverride)
+function Context:META_SET(
+	vNode:class.IAstNode,
+	vTerm:class.RefineTerm,
+	vKeyTerm:class.RefineTerm,
+	vValueTerm:class.RefineTerm,
+	vOverride:Boolean
+)
 	local nSetContext = self:newSealContext(vNode)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
 		vTerm:foreach(function(vType, _)
-			vKeyTerm:foreach(function(vKeyType)
+			vKeyTerm:foreach(function(vKeyType, _)
 				if vOverride then
 					vType:meta_set_override(nSetContext, vKeyType, vValueTerm:getType())
 				else
