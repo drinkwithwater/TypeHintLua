@@ -2,6 +2,7 @@
 const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
+const MetaObject = require "thlua.object.MetaObject"
 
 const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
@@ -162,10 +163,11 @@ function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:
 	end
 end
 
-function FunctionBuilder:checkWhenMember(vContext:class.Context, vFirst:class.UAllType):Ret(class.TypeFunction)
-	const nParTuple = self:_makeParTupleByFirst(vContext, vFirst)
+function FunctionBuilder:_checkWhenMember(vContext:class.Context):Ret(class.MemberFunction)
+	const nParTuple = self:_makeParTupleByFirst(vContext, self._manager.type.Truth)
 	const nRetTuples = self:_makeRetTuples(vContext, {}) or self._manager:VoidRetTuples()
-	return self._manager:Function(nParTuple, nRetTuples)
+	const nFn = self._manager:Function(nParTuple, nRetTuples)
+	return self._manager:MemberFunction(self._node, nFn)
 end
 
 function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
@@ -285,7 +287,6 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 end
 
 function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
-	const MetaObject = require "thlua.object.MetaObject"
 	const nSuffixHint = self._retMaker({})
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(nSuffixHint.caller, {
@@ -341,7 +342,11 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 		if self:getHintFullKind() == Enum.HintFullKind_FULL then
 			nDefaultTypeFn = self:_checkWhenDefault()
 		end
-		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultTypeFn, nAttrSet.pass and true or false)
+		local nMemberFn:OrFalse(class.MemberFunction) = false
+		if self:getHintFullKind() == Enum.HintFullKind_SELF then
+			nMemberFn = self:_checkWhenMember(self._context)
+		end
+		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultTypeFn, nMemberFn, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
 		nFnCom = nLateFnCom
 	end

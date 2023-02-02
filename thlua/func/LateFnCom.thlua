@@ -6,11 +6,17 @@ const LateFnCom = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function.class LateFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction, vDefaultTypeFn:OrFalse(class.TypeFunction), vPass:Boolean):RetClass(class.LateFnCom, class.IFnCom)
+function.class LateFnCom.new(vManager:class.TypeManager,
+	vLuaFunction:class.LuaFunction,
+	vDefaultTypeFn:OrFalse(class.TypeFunction),
+	vMemberFn:OrFalse(class.MemberFunction),
+	vPass:Boolean
+):RetClass(class.LateFnCom, class.IFnCom)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_defaultTypeFn=vDefaultTypeFn,
+		_memberFn=vMemberFn,
 		_selfSpecDict={}@Dict(class.LuaTable, class.TypeFunction),
 		_castSpecList={}@List(class.TypeFunction),
 		_once=false@Boolean,
@@ -29,8 +35,12 @@ function LateFnCom:checkLateRun()
 	end
 	self._once = true
 	const nSpecFnList:List(class.TypeFunction) = {}
-	for _, nTypeFn in pairs(self._selfSpecDict) do
-		nSpecFnList[#nSpecFnList + 1] = nTypeFn
+	const nMemberFn = self._memberFn
+	if nMemberFn then
+		const nTypeFnDict = nMemberFn:getTypeFnDict()
+		for _, nTypeFn in pairs(nTypeFnDict) do
+			nSpecFnList[#nSpecFnList + 1] = nTypeFn
+		end
 	end
 	const nCastFn = self._castSpecList[1]
 	if nCastFn then
@@ -87,6 +97,10 @@ end
 
 function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
 	-- do nothing
+end
+
+function LateFnCom:getMemberFn():Ret(class.MemberFunction)
+	return assert(self._memberFn)
 end
 
 function LateFnCom:getDefaultTypeFn():Ret(class.TypeFunction)
