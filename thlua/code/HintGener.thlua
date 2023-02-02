@@ -664,7 +664,6 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		end
 	end
 	const nFirstPar = nParList[1]
-	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
 	return {
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
@@ -674,7 +673,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			_isvararg=tostring(nIsVararg),
 			_polyParNum=tostring(nPolyParNum),
 			_hintFullKind=string.format("%q", vNode.tag == "Function" and vNode.hintFullKind or false),
-			_parMaker=self:fnWrap("____typeList", nIsMember and "Self" or "____self")(
+			_parMaker=self:fnWrap("____typeList")(
 				nPolyUnpack,
 				"return ",
 				self:listWrap(self:forList(nParList, function(i, vNode)
@@ -683,16 +682,12 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 					if nParNode.tag == "Dots" then
 						return "nil"
 					else
-						if nParNode.isSelf then
-							return "Self"
-						else
-							return nHintShort and self:fixIHintInfo(nHintShort) or "false"
-						end
+						return nHintShort and self:fixIHintInfo(nHintShort) or "false"
 					end
 				end, ", ")), ",",
 				nDotsHint or "false"
 			),
-			_retMaker=self:fnWrap("____typeList", nIsMember and "Self" or "____self")(
+			_retMaker=self:fnWrap("____typeList")(
 				nPolyUnpack,
 				"return ", nHintSuffix
 			),
