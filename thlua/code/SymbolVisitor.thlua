@@ -93,34 +93,37 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		const nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
-			local nFullHint = true
+			local nHintFullKind:OrFalse(node.HintFullKindEnum) = "full"
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
 					self:symbolDefine(par, "param")
-					if not par.isSelf and not par.hintShort then
-						nFullHint = false
+					if not par.hintShort then
+						if par.isSelf then
+							if nHintFullKind then
+								nHintFullKind = "self"
+							end
+						else
+							nHintFullKind = false
+						end
 					end
 				else
 					self:dotsDefine(par)
 					if not par.hintShort then
-						nFullHint = false
+						nHintFullKind = false
 					end
 				end
 			end
 			-- self:realVisit(func[1])
 			self:realVisit(nBlockNode)
 			if not func.hintSuffix and func.retFlag then
-				nFullHint = false
+				nHintFullKind = false
 			end
+			func.hintFullKind = nHintFullKind
 			const nGenericParList = func.hintGenericParList
-			if not nFullHint then
+			if not nHintFullKind then
 				if nGenericParList and #nGenericParList > 0 then
-					const nErrNode = self._env:makeErrNode(func[1].pos, "generic function must be full-hint")
+					const nErrNode = self._env:makeErrNode(func[1].pos, "generic function must be full-hint or self:full-hint")
 					error(Exception.new(nErrNode[1], nErrNode))
-				end
-			else
-				if not nGenericParList then
-					func.hintGenericParList = {}
 				end
 			end
 		end)

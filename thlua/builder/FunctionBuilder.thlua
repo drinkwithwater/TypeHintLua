@@ -8,6 +8,7 @@ const ClassFactory = require "thlua.func.ClassFactory"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
+	let.node = import("thlua.code.Node").node
 
 	class.FnLongHint = Struct {
 		RetClass=Fn(class.FnLongHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnLongHint),
@@ -21,6 +22,7 @@ const ClassFactory = require "thlua.func.ClassFactory"
 		_isvararg=Boolean,
 		_hasRet=Boolean,
 		_genericParNum=OrFalse(Integer), -- if not full typed, _genericParNum is false
+		_hintFullKind=OrFalse(node.HintFullKindEnum),
 		_parMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
 		_retMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
 		_genFunc=class.GenFunc,
@@ -166,7 +168,7 @@ function FunctionBuilder:checkWhenMember(vContext:class.Context, vFirst:class.UA
 end
 
 function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:class.UAllType):Ret(class.UTypeTuple)
-	const nParList, nDotsType = self._parMaker({}, vFirst)
+	const nParList, nDotsType = self._parMaker({}, false)
 	const nNewList:List(class.UAllType) = {}
 	const nFirstPar = nParList[1]
 	if self._nparams == 0 then
@@ -185,7 +187,6 @@ function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:cla
 	for i=2,#nParList do
 		const nPar = nParList[i]!
 		if not nPar then
-			self._context:getRuntime():nodeError(self._node, "here")
 			nNewList[i] = self._manager.type.Truth
 		else
 			nNewList[i] = nPar
@@ -194,7 +195,6 @@ function FunctionBuilder:_makeParTupleByFirst(vContext:class.Context, vFirst:cla
 	const nTuple = self._manager:Tuple(table.unpack(nNewList))
 	if self._isvararg then
 		if not nDotsType then
-			self._context:getRuntime():nodeError(self._node, "here dots")
 			return nTuple:Dots(self._manager.type.Truth)
 		else
 			return nTuple:Dots(nDotsType)
@@ -253,7 +253,7 @@ function FunctionBuilder:_checkWhenDefault():Ret(class.TypeFunction)
 end
 
 function FunctionBuilder:isFullHint():Ret(Boolean)
-	return self._genericParNum and true
+	return self._hintFullKind and true
 end
 
 function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
