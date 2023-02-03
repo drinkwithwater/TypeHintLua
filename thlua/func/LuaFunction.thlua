@@ -77,6 +77,26 @@ function LuaFunction:meta_open_call(vContext:class.Context, vTermTuple:class.Ter
 	end
 end
 
+function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
+	local nLateCom = self._unionFnCom
+	if LateFnCom.is(nLateCom) then
+		const nDefaultFn = nLateCom:getDefaultFn()
+		if TypeFunction.is(nDefaultFn) then
+			if #vPolyArgs > 0 then
+				vContext:error("non-poly function can't take poly cast here")
+			end
+			return nDefaultFn:meta_call(vContext, vTypeTuple)
+		elseif MemberFunction.is(nDefaultFn) then
+			return nDefaultFn:indexTypeFn(vSelfType):meta_call(vContext, vTypeTuple)
+		else
+			error("default type is empty, TODO")
+		end
+	else
+		vContext:error("TODO, not-late fn com meta_invoke")
+		return self:meta_call(vContext, vTypeTuple)
+	end
+end
+
 function LuaFunction:meta_call(vContext, vTypeTuple)
 	if self._hintCom:getHintFullKind() ~= Enum.HintFullKind_FULL then
 		vContext:error("TODO can only call full-hint function", tostring(self))
@@ -116,7 +136,7 @@ function LuaFunction:native_type()
 	return self._manager:Literal("function")
 end
 
-function LuaFunction:castGeneric(vContext, vTypeArgsList)
+function LuaFunction:castPoly(vContext, vTypeArgsList)
 	const nLateCom = self._unionFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can cast generic")
 	return self._hintCom:checkWhenGeneric(vContext, vTypeArgsList)
@@ -146,10 +166,10 @@ function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(clas
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nDefaultFn = nLateCom:getDefaultFn()
 	if not vSelfType then
-		assert(TypeFunction.is(nDefaultFn))
+		assert(TypeFunction.is(nDefaultFn), "only type function can be auto specialize")
 		return nDefaultFn
 	else
-		assert(MemberFunction.is(nDefaultFn))
+		assert(MemberFunction.is(nDefaultFn), "only member function can be auto specialize with self")
 		return nDefaultFn:indexTypeFn(vSelfType)
 	end
 end

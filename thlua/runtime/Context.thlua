@@ -229,9 +229,9 @@ function Context:META_SET(
 	end)
 end
 
-(@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase}))
+(@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase, self=OrNil(class.IAtomType)}))
 (@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
-function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList):Ret(class.TermTuple)
+function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(class.UAllType))):Ret(class.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nNativePair = vNativePair
@@ -246,15 +246,18 @@ function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFu
 			const nNil = self._manager.type.Nil
 			local nMaxLength = 0
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
-				local f,a,c = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3]
-				const nRetTuples = f:meta_call(self:newSealContext(vNode), a)
+				local f,nArgs,nCase,nSelf = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3], nFuncArgCase.self
+				const nNewContext = self:newSealContext(vNode)
+				const nRetTuples = vPolyArgs
+					and f:meta_invoke(nNewContext, assert(nSelf, "self must exist here"), vPolyArgs, nArgs)
+					or f:meta_call(nNewContext, nArgs)
 				nRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
 					local nLength = #vTypeTuple
 					if nLength > nMaxLength then
 						nMaxLength = nLength
 					end
 					nType1TupleCaseList[#nType1TupleCaseList + 1] = {
-						vFirst:checkAtomUnion(), vTypeTuple, TermCase.new() & c
+						vFirst:checkAtomUnion(), vTypeTuple, TermCase.new() & nCase
 					}
 				end)
 			end
@@ -299,7 +302,7 @@ end
 function Context:META_CALL(vNode:class.IAstNode,
 	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple)):Ret(class.TermTuple)
 	local nNativePair:OrNil(NativePair) = nil
-	const nFuncArgCaseList:FuncArgCaseList ={}
+	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
 	vFuncTerm:foreach(function(vFuncType, vTermCase)
@@ -330,17 +333,18 @@ function Context:META_CALL(vNode:class.IAstNode,
 end
 
 function Context:META_INVOKE(vNode:class.IAstNode,
-	vTerm:class.RefineTerm, vName:String, vGenericArgs:List(class.UAllType), vArgTuple:class.TermTuple):Ret(class.TermTuple)
+	vSelfTerm:class.RefineTerm, vName:String, vPolyArgs:List(class.UAllType), vArgTuple:class.TermTuple):Ret(class.TermTuple)
+	assert(vPolyArgs, "poly args can't be nil here")
 	const nGetContext = self:newSealContext(vNode)
 	local nNativePair:OrNil(NativePair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
-	vTerm:foreach(function(vType, vTermCase)
-		if vType == nNil then
+	vSelfTerm:foreach(function(vSelfType, vTermCase)
+		if vSelfType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
-			const nNewArgTuple = self:TermTuple({self:RefineTerm(vType)}, vArgTuple)
-			const nFuncType = vType:meta_get_invoke(nGetContext, self:Literal(vName))
+			const nNewArgTuple = self:TermTuple({self:RefineTerm(vSelfType)}, vArgTuple)
+			const nFuncType = vSelfType:meta_get_invoke(nGetContext, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
@@ -353,7 +357,8 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 						end
 					else
 						nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-							vSingleFuncType, nNewArgTuple:getTypeTuple(), vTermCase
+							vSingleFuncType, nNewArgTuple:getTypeTuple(), vTermCase,
+							self=vSelfType,
 						}
 					end
 				else
@@ -362,7 +367,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 			end)
 		end
 	end)
-	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
+	return self:_apply(vNode, nNativePair, nFuncArgCaseList, vPolyArgs)
 end
 
 function Context:META_EQ_NE(vNode:class.IAstNode,
@@ -498,7 +503,7 @@ function Context:CAST_HINT(vNode:class.IAstNode, vTerm:class.RefineTerm, vCastKi
 		const nTypeCaseList:List(class.TypeCasePair) = {}
 		const nGenericList:List(class.UAllType) = {...}
 		vTerm:foreach(function(vType, vTermCase)
-			const nAfterType = vType:castGeneric(self, nGenericList)
+			const nAfterType = vType:castPoly(self, nGenericList)
 			if nAfterType then
 				nTypeCaseList[#nTypeCaseList + 1] = {nAfterType, vTermCase}
 			else

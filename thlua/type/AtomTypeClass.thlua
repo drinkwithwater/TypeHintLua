@@ -41,6 +41,14 @@ const function.open AtomTypeClass()
 		vContext:error(tostring(self).." can't take call")
 		return self._manager:VoidRetTuples()
 	end
+	function t:meta_invoke?(vContext, vSelfType, vPolyArgs, vTypeTuple):Ret(class.RetTuples)
+		if #vPolyArgs > 0 then
+			const nCast = self:castPoly(vContext, vPolyArgs) or self
+			return nCast:meta_call(vContext, vTypeTuple)
+		else
+			return self:meta_call(vContext, vTypeTuple)
+		end
+	end
 	function t:meta_bop_func?(vContext, vOper)
 		if OPER_ENUM.mathematic[vOper] then
 			return false, self._manager.builtin.bop.mathematic
@@ -76,7 +84,7 @@ const function.open AtomTypeClass()
 	function t:native_rawset?(vContext, vKeyType, vValueType, vOverride)
 		vContext:error(tostring(self).." rawset not implement")
 	end
-	function t:castGeneric?(vContext, vTypeArgsList)
+	function t:castPoly?(vContext, vTypeArgsList)
 		vContext:error("generic cast can't work on this type:"..tostring(self))
 		return false
 	end
