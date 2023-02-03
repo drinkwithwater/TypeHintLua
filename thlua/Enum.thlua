@@ -11,7 +11,4 @@ Enum.CastKind_CONIL = "conil"
 Enum.CastKind_FORCE = "force"
 Enum.CastKind_POLY = "poly"
 
-Enum.HintFullKind_SELF = "self"
-Enum.HintFullKind_FULL = "full"
-
 return Enum

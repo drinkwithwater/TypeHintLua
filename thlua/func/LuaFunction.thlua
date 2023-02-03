@@ -22,7 +22,7 @@ function.class LuaFunction.new(vManager:class.TypeManager):RetClass(class.LuaFun
 		_context=false@class.Context,
 		_node=false@class.IAstNode,
 		_genFunc=false@class.GenFunc,
-		_isTrait=false@Boolean,
+		_isMember=false@Boolean,
 		_unionFnCom=nil@class.UFnCom,
 		_hintCom=nil@class.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
@@ -32,8 +32,8 @@ function.class LuaFunction.new(vManager:class.TypeManager):RetClass(class.LuaFun
 	return self
 end
 
-function LuaFunction:setTrait()
-	self._isTrait = true
+function LuaFunction:setMember()
+	self._isMember = true
 end
 
 function LuaFunction:getBuilder():Ret(class.FunctionBuilder)
@@ -96,7 +96,7 @@ function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
-	if self._hintCom:getHintFullKind() ~= Enum.HintFullKind_FULL then
+	if not self._hintCom:isFullHint() then
 		vContext:error("TODO can only call full-hint function", tostring(self))
 	end
 	local nFnCom = self._unionFnCom
@@ -172,8 +172,8 @@ function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(clas
 	end
 end
 
-function LuaFunction:isTrait():Ret(Boolean)
-	return self._isTrait and LateFnCom.is(self._unionFnCom)
+function LuaFunction:isMember():Ret(Boolean)
+	return self._isMember and LateFnCom.is(self._unionFnCom)
 end
 
 function LuaFunction:fnPartType()

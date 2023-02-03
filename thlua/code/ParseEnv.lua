@@ -478,12 +478,12 @@ local G = lpeg.P { "TypeHintLua";
 				if methodName then
 					if not hintPrefix then
 						funcExpr.hintPrefix = {
-							attrList={"trait"}
+							attrList={"member"}
 						}
 					elseif not hintPrefix.attrList then
-						hintPrefix.attrList = {"trait"}
+						hintPrefix.attrList = {"member"}
 					else
-						table.insert(hintPrefix.attrList, "trait")
+						table.insert(hintPrefix.attrList, "member")
 					end
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
 					varPrefix = makeNameIndex(varPrefix, methodName)

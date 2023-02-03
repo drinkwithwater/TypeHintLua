@@ -26,7 +26,6 @@ const ClassFactory = require "thlua.func.ClassFactory"
 		_isvararg=Boolean,
 		_hasRet=Boolean,
 		_polyParNum=OrFalse(Integer), -- if not full typed, _polyParNum is false
-		_hintFullKind=OrFalse(node.HintFullKindEnum),
 		_parMaker=Fn(List(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
 		_retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
 		_genFunc=class.GenFunc,
@@ -48,6 +47,7 @@ function.class FunctionBuilder.new(
 		_manager=vManager,
 		_context=vContext,
 		_node=vNode,
+		_member=false@Boolean,
 		_luaFunc=vManager:LuaFunction(),
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
 	}
@@ -208,8 +208,8 @@ function FunctionBuilder:checkWhenGeneric(vContext:class.Context, vTypeList:List
 end
 
 function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction))
-	const nHintFullKind = self._hintFullKind
-	if not nHintFullKind then
+	const nPolyParNum = self._polyParNum
+	if not nPolyParNum then
 		return false
 	end
 	const nNewParList:List(class.UAllType) = {}
@@ -220,7 +220,7 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction)
 			if not nParType then
 				if i == 1 then
 					nNewParList[1] = self._manager.type.Truth
-					assert(self._hintFullKind == Enum.HintFullKind_SELF)
+					assert(self._member, "only trait function's self can be default to Truth")
 				else
 					error("check default but hint type is not true value, order="..tostring(i))
 				end
@@ -239,12 +239,11 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction)
 		const nRetTuples = self:_makeRetTuples(self._context, nPolyParList) or self._manager:VoidRetTuples()
 		return self._manager:Function(nParTuple, nRetTuples)
 	end
-	const nPolyParNum = self._polyParNum
-	if not nPolyParNum then
+	if nPolyParNum <= 0 then
 		const nFn = nPolyInner()
-		return nHintFullKind == Enum.HintFullKind_FULL and nFn or self._manager:MemberFunction(self._node, nFn)
+		return self._member and nFn or self._manager:MemberFunction(self._node, nFn)
 	else
-		if nHintFullKind == Enum.HintFullKind_FULL then
+		if not self._member then
 			return self._manager:PolyFunction(self._node, nPolyInner, nPolyParNum)
 		else
 			error("TODO: member poly function")
@@ -252,8 +251,8 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction)
 	end
 end
 
-function FunctionBuilder:getHintFullKind():Ret(OrFalse(node.HintFullKindEnum))
-	return self._hintFullKind
+function FunctionBuilder:isFullHint():Ret(Boolean)
+	return self._polyParNum and true
 end
 
 function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
@@ -332,8 +331,9 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 	elseif nAttrSet.class then
 		nFnCom = self:_buildClass()
 	else
-		if nAttrSet.trait then
-			self._luaFunc:setTrait()
+		if nAttrSet.member then
+			self._luaFunc:setMember()
+			self._member = true
 		end
 		local nDefaultFn:OrFalse(class.UDefaultFunction) = self:_checkWhenDefault()
 		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultFn, nAttrSet.pass and true or false)
