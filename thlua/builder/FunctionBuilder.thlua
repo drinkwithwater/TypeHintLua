@@ -12,7 +12,7 @@ const ClassFactory = require "thlua.func.ClassFactory"
 	let.class = import("thlua.type.TypeClass").class
 	let.node = import("thlua.code.Node").node
 
-	class.UDefaultFunction = Union(class.TypeFunction, class.MemberFunction)
+	class.UDefaultFunction = Union(class.TypeFunction, class.PolyFunction, class.MemberFunction)
 
 	class.FnLongHint = Struct {
 		RetClass=Fn(class.FnLongHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnLongHint),
@@ -88,24 +88,24 @@ function FunctionBuilder:_makeRetTuples(
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, _, _)
-			error("RetClass can not be used here")
+			error("RetClass can only be used with function.class")
 			return vHint
 		end,
 		Ret=function(vHint, ...:class.UAllType)
 			if not nRetTuples then
 				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
 			else
-				nRetTuples = self._manager:retConcat(self._luaFunc:getNode(), nRetTuples, self._manager:Tuple(...))
+				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:Tuple(...))
 			end
 			return vHint
 		end,
 		RetIs=function(vHint, vType)
-			error("ret cannot used here")
+			error("RetIs can only be used with function.open")
 			return vHint
 		end,
 	})
 	if not ok then
-		error(Exception.new(tostring(err), self._luaFunc:getNode()))
+		error(Exception.new(tostring(err), self._node))
 	end
 	if not self._hasRet then
 		if nRetTuples and not self._pass then
@@ -213,30 +213,43 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction)
 		return false
 	end
 	const nNewParList:List(class.UAllType) = {}
-	const nParList, nDotsType = self._parMaker({})
-	const nRetTuples = self:_makeRetTuples(self._context, {}) or self._manager:VoidRetTuples()
-	for i, nParType in ipairs(nParList) do
-		if not nParType then
-			if i == 1 then
-				nNewParList[1] = self._manager.type.Truth
-				assert(self._hintFullKind == Enum.HintFullKind_SELF)
+	const nPolyInner = function(...:class.UAllType):Ret(class.TypeFunction)
+		const nPolyParList:List(class.UAllType) = {...}
+		const nParList, nDotsType = self._parMaker(nPolyParList)
+		for i, nParType in ipairs(nParList) do
+			if not nParType then
+				if i == 1 then
+					nNewParList[1] = self._manager.type.Truth
+					assert(self._hintFullKind == Enum.HintFullKind_SELF)
+				else
+					error("check default but hint type is not true value, order="..tostring(i))
+				end
 			else
-				error("check default but hint type is not true value, order="..tostring(i))
+				nNewParList[i] = nParType
 			end
+		end
+		const nRawTuple = self._manager:Tuple(table.unpack(nNewParList))
+		local nParTuple:class.UTypeTuple = nRawTuple
+		if self._isvararg then
+			if not nDotsType then
+				error("dots type is required here")
+			end
+			nParTuple = nRawTuple:Dots(nDotsType)
+		end
+		const nRetTuples = self:_makeRetTuples(self._context, nPolyParList) or self._manager:VoidRetTuples()
+		return self._manager:Function(nParTuple, nRetTuples)
+	end
+	const nPolyParNum = self._polyParNum
+	if not nPolyParNum then
+		const nFn = nPolyInner()
+		return nHintFullKind == Enum.HintFullKind_FULL and nFn or self._manager:MemberFunction(self._node, nFn)
+	else
+		if nHintFullKind == Enum.HintFullKind_FULL then
+			return self._manager:PolyFunction(self._node, nPolyInner, nPolyParNum)
 		else
-			nNewParList[i] = nParType
+			error("TODO: member poly function")
 		end
 	end
-	const nRawTuple = self._manager:Tuple(table.unpack(nNewParList))
-	local nParTuple:class.UTypeTuple = nRawTuple
-	if self._isvararg then
-		if not nDotsType then
-			error("dots type is required here")
-		end
-		nParTuple = nRawTuple:Dots(nDotsType)
-	end
-	const nFn = self._manager:Function(nParTuple, nRetTuples)
-	return nHintFullKind == Enum.HintFullKind_FULL and nFn or self._manager:MemberFunction(self._node, nFn)
 end
 
 function FunctionBuilder:getHintFullKind():Ret(OrFalse(node.HintFullKindEnum))

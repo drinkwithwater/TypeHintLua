@@ -8,12 +8,11 @@ const PolyFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function.class PolyFunction.new(vManager:class.TypeManager, vNode:class.IAstNode, vFunc:Truth):RetClass(class.PolyFunction, class.IAtomType)
-	const nInfo = debug.getinfo(vFunc)
+function.class PolyFunction.new(vManager:class.TypeManager, vNode:class.IAstNode, vFunc:Truth, vPolyParNum:Integer):RetClass(class.PolyFunction, class.IAtomType)
 	local self = setmetatable({.class
 		_manager=vManager,
-		_nparams = nInfo.nparams,
-		_func = vFunc,
+		_polyParNum=vPolyParNum,
+		_func=vFunc,
 		_typeFnDict = {} @ Dict(String, class.TypeFunction),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
@@ -30,7 +29,7 @@ function PolyFunction:isNative():Ret(False)
 end
 
 function PolyFunction:castPoly(vContext, vTypeList)
-	assert(#vTypeList == self._nparams, "PolyFunction's type args num not match")
+	assert(#vTypeList == self._polyParNum, "PolyFunction's type args num not match")
 	const nAtomUnionList:List(class.UAtomUnion) = {}
 	for i=1, #vTypeList do
 		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()

@@ -554,7 +554,12 @@ function TypeManager:buildMemberFn(vNode:class.IAstNode, ...:Truth):Ret(class.Me
 end
 
 function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:Truth):Ret(class.PolyFunction)
-	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc))
+	const nInfo = debug.getinfo(vFunc)
+	const nPolyParNum=nInfo.nparams
+	if nInfo.isvararg then
+		error("poly function can't be vararg")
+	end
+	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, nPolyParNum))
 end
 
 function TypeManager:buildFn(vNode:class.IAstNode, ...:Truth):Ret(class.TypeFunction)
@@ -565,6 +570,10 @@ end
 function TypeManager:checkedFn(...:Truth):Ret(class.TypeFunction)
 	local nParTuple = self:Tuple(...)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, self._runtime:getNode(), nParTuple, false))
+end
+
+function TypeManager:PolyFunction(vNode:class.IAstNode, vFunc:Truth, vPolyParNum:Integer):Ret(class.PolyFunction)
+	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, vPolyParNum))
 end
 
 function TypeManager:MemberFunction(vNode:class.IAstNode, vTypeFn:class.TypeFunction):Ret(class.MemberFunction)

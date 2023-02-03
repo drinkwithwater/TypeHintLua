@@ -10,6 +10,7 @@ const ClassFactory = require "thlua.func.ClassFactory"
 
 const MemberFunction = require "thlua.func.MemberFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
+const PolyFunction = require "thlua.func.PolyFunction"
 
 const LuaFunction = AtomTypeClass()
 
@@ -81,13 +82,10 @@ function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 	local nLateCom = self._unionFnCom
 	if LateFnCom.is(nLateCom) then
 		const nDefaultFn = nLateCom:getDefaultFn()
-		if TypeFunction.is(nDefaultFn) then
-			if #vPolyArgs > 0 then
-				vContext:error("non-poly function can't take poly cast here")
-			end
-			return nDefaultFn:meta_call(vContext, vTypeTuple)
-		elseif MemberFunction.is(nDefaultFn) then
+		if MemberFunction.is(nDefaultFn) then
 			return nDefaultFn:indexTypeFn(vSelfType):meta_call(vContext, vTypeTuple)
+		elseif nDefaultFn then
+			return nDefaultFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 		else
 			error("default type is empty, TODO")
 		end
