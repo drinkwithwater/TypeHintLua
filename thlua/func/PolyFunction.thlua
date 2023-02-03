@@ -12,7 +12,7 @@ function.class PolyFunction.new(vManager:class.TypeManager, vNode:class.IAstNode
 	local self = setmetatable({.class
 		_manager=vManager,
 		_polyParNum=vPolyParNum,
-		_func=vFunc,
+		_innerFunc=vFunc,
 		_typeFnDict = {} @ Dict(String, class.TypeFunction),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
@@ -28,7 +28,19 @@ function PolyFunction:isNative():Ret(False)
 	return false
 end
 
-function PolyFunction:castPoly(vContext, vTypeList)
+function PolyFunction:getTypeFnDict():Ret(Dict(String, class.TypeFunction))
+	return self._typeFnDict
+end
+
+function PolyFunction:getPolyParNum():Ret(Integer)
+	return self._polyParNum
+end
+
+function PolyFunction:getInnerFunc():Ret(Truth)
+	return self._innerFunc
+end
+
+function PolyFunction:noCtxCastPoly(vTypeList:List(class.UAllType)):Ret(class.TypeFunction)
 	assert(#vTypeList == self._polyParNum, "PolyFunction's type args num not match")
 	const nAtomUnionList:List(class.UAtomUnion) = {}
 	for i=1, #vTypeList do
@@ -37,7 +49,7 @@ function PolyFunction:castPoly(vContext, vTypeList)
 	const nKey = self._manager:signGenericArgs(nAtomUnionList)
 	local nTypeFn = self._typeFnDict[nKey]
 	if not nTypeFn then
-		const nResult = (self._func(table.unpack(vTypeList)) @ Any)
+		const nResult = (self._innerFunc(table.unpack(vTypeList)) @ Any)
 		if not TypeFunction.is(nResult) then
 			error("poly function must return Fn type but got:"..tostring(nResult))
 		end
@@ -45,6 +57,10 @@ function PolyFunction:castPoly(vContext, vTypeList)
 		self._typeFnDict[nKey] = nTypeFn
 	end
 	return nTypeFn
+end
+
+function PolyFunction:castPoly(vContext, vTypeList)
+	return self:noCtxCastPoly(vTypeList)
 end
 
 function PolyFunction:native_type()

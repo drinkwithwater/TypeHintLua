@@ -549,8 +549,13 @@ function TypeManager:retConcat(vNode:class.IAstNode, vRetTuples:class.RetTuples,
 end
 
 function TypeManager:buildMemberFn(vNode:class.IAstNode, ...:Truth):Ret(class.MemberFunction)
-	const nTypeFn = self:buildFn(vNode, self.type.Truth, ...)
-	return MemberFunction.new(self, vNode, nTypeFn)
+	const nWildFn = self:buildFn(vNode, self.type.Truth, ...)
+	const nPolyFn = self:buildPfn(vNode, function(vSelfType:class.UAllType):Ret(class.TypeFunction)
+		const nRetTuples = nWildFn:getRetTuples()
+		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
+		return self:Function(nParTuple, nRetTuples)
+	end)
+	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
 end
 
 function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:Truth):Ret(class.PolyFunction)
@@ -577,8 +582,13 @@ function TypeManager:PolyFunction(vNode:class.IAstNode, vFunc:Truth, vPolyParNum
 end
 
 function TypeManager:MemberFunction(vNode:class.IAstNode, vTypeFn:class.TypeFunction):Ret(class.MemberFunction)
-	assert(TypeFunction.is(vTypeFn))
-	return MemberFunction.new(self, vNode, vTypeFn)
+	const nWildFn = vTypeFn
+	const nPolyFn = self:buildPfn(vNode, function(vSelfType:class.UAllType):Ret(class.TypeFunction)
+		const nRetTuples = nWildFn:getRetTuples()
+		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
+		return self:Function(nParTuple, nRetTuples)
+	end)
+	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
 end
 
 function TypeManager:Function(vParTuple:class.UTypeTuple, vRetTuples:class.RetTuples):Ret(class.TypeFunction)
