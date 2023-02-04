@@ -15,30 +15,12 @@ function.class OpenFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaF
 	return self
 end
 
-function OpenFnCom:initByOpen()
-	self._openFunction = self._manager:OpenFunction(function(vContext, vTermTuple)
-		return self._luaFunction:getGenFunc()(vContext, {}, vTermTuple)
-	end)
+function OpenFnCom:initByOpen(vGenFunc:class.GenFunc)
+	self._openFunction = self._manager:OpenFunction():lateInitFromGenFunc(vGenFunc)
 end
 
 function OpenFnCom:initByGuard(vContext:class.Context, vType:class.UAllType)
-	local nTrue = self._manager.type.True
-	local nFalse = self._manager.type.False
-	self._openFunction=self._manager:OpenFunction(function(vContext, vTermTuple)
-		const nIsLuaTable, nTableType = self._manager:tryLuaTable(vType)
-		assert(nIsLuaTable, "assert lua table failed")
-		local nTerm = vTermTuple:get(1)
-		local caseTrue = nTerm:caseIsType(nTableType)
-		local caseFalse = nTerm:caseIsNotType(nTableType)
-		local nTypeCaseList:List(class.TypeCasePair) = {}
-		if caseTrue then
-			nTypeCaseList[#nTypeCaseList + 1] = {nTrue, caseTrue}
-		end
-		if caseFalse then
-			nTypeCaseList[#nTypeCaseList + 1] = {nFalse, caseFalse}
-		end
-		return self._manager:TermTuple({self._manager:mergeToRefineTerm(nTypeCaseList)})
-	end)
+	self._openFunction=self._manager:OpenFunction():lateInitFromGuard(vType)
 end
 
 function OpenFnCom:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)

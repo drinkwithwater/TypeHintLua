@@ -7,14 +7,45 @@ const OpenFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function.class OpenFunction.new(vManager:class.TypeManager, vFunc:class.GenOpenFunc):RetClass(class.OpenFunction, class.IAtomType)
-	return setmetatable({.class
+function.class OpenFunction.new(vManager:class.TypeManager, vFunc:OrNil(class.OpenCaller)):RetClass(class.OpenFunction, class.IAtomType)
+	const self = setmetatable({.class
 		_manager=vManager,
-		func=vFunc,
+		_func=vFunc,
 		name="unknown"@String,
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
 	}, OpenFunction)
+	return self
+end
+
+function OpenFunction:lateInitFromGenFunc(vGenFunc:class.GenFunc):Ret(class.OpenFunction)
+	const nFn:class.OpenCaller = function(vContext, vTermTuple)
+		return vGenFunc(vContext, vTermTuple, {}, false)
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:lateInitFromGuard(vType:class.UAllType):Ret(class.OpenFunction)
+	const nTrue = self._manager.type.True
+	const nFalse = self._manager.type.False
+	const nFn:class.OpenCaller = function(vContext, vTermTuple)
+		const nIsLuaTable, nTableType = self._manager:tryLuaTable(vType)
+		assert(nIsLuaTable, "assert lua table failed")
+		local nTerm = vTermTuple:get(1)
+		local caseTrue = nTerm:caseIsType(nTableType)
+		local caseFalse = nTerm:caseIsNotType(nTableType)
+		local nTypeCaseList:List(class.TypeCasePair) = {}
+		if caseTrue then
+			nTypeCaseList[#nTypeCaseList + 1] = {nTrue, caseTrue}
+		end
+		if caseFalse then
+			nTypeCaseList[#nTypeCaseList + 1] = {nFalse, caseFalse}
+		end
+		return self._manager:TermTuple({self._manager:mergeToRefineTerm(nTypeCaseList)})
+	end
+	self._func = nFn
+	return self
 end
 
 function OpenFunction:isOpen():Ret(True)
@@ -30,7 +61,7 @@ function OpenFunction:set_name(name:String)
 end
 
 function OpenFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
-	local re = self.func(vContext, vTermTuple)
+	local re = self._func!(vContext, vTermTuple)
 	if TermTuple.is(re) then
 		return re
 	else
