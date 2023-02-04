@@ -36,11 +36,6 @@ function.class TableBuilder._makeLongHint(self:let.TableBuilder):RetClass(class.
 			self._selfInitDict = vInitDict
 			return vLongHint
 		end,
-		Self=function(vLongHint:class.TableLongHint):Ret(class.TableLongHint)
-			const nFnCom = assert(self._context:getRegion(), "region must existed when table.class"):getFnCom()
-			self._selfClassFactory = nFnCom @ class.ClassFactory
-			return vLongHint
-		end,
 	}
 end
 
@@ -97,7 +92,7 @@ function TableBuilder:build():Ret(class.LuaTable)
 	const nManager = nContext:getTypeManager()
 	const nAttrSet = self._hintInfo.attrSet
 	if nAttrSet.class then
-		const nClassFactory = assert(self._context:getRegion(), "region must existed when table hint with {.class"):getFnCom()
+		const nClassFactory = assert(self._context:getClassFactory(), "only function.class can build table hint with {.class")
 		return nClassFactory:regionTableSelf(self._context, self._node, function(vNewTable)
 			self:_build(vNewTable)
 		end)

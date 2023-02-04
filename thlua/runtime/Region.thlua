@@ -8,6 +8,9 @@ const Exception = require "thlua.Exception"
 
 const DoBuilder = require "thlua.builder.DoBuilder"
 
+const OpenFunction = require "thlua.func.OpenFunction"
+const TypeFunction = require "thlua.func.TypeFunction"
+
 (@let.class = import("thlua.type.TypeClass").class)
 (@let.node= import("thlua.code.Node").node)
 
@@ -16,20 +19,16 @@ Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._context:getNode())
 end
 
-function.class Region.new(vContext:class.Context, vFnCom:class.UFnCom, vUpCase:class.TermCase):RetClass(class.Region)
+function.class Region.new(vContext:class.Context, vBodyFn:class.URegionFunction, vUpCase:class.TermCase):RetClass(class.Region)
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
 	const self = setmetatable({.class
 		_context=vContext,
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(class.Branch),
-		_fnCom=vFnCom,
+		_bodyFn=vBodyFn,
 		_retList={} @ List(class.TermTuple),
 	}, Region)
 	return self
-end
-
-function Region:getFnCom():Ret(class.UFnCom)
-	return self._fnCom
 end
 
 function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn()):Ret(class.Branch)
@@ -241,10 +240,49 @@ function Region:BREAK(vNode:class.IAstNode)
 	self:topBranch():setStop()
 end
 
+function Region:_bodyReturn(vNode:class.IAstNode, vTypeTuple:class.UTypeTuple)
+	const nBodyFn = self._bodyFn
+	if TypeFunction.is(nBodyFn) then
+		const nContext = self._context
+		if vTypeTuple:getRepeatType() then
+			nContext:getRuntime():nodeError(vNode, "return dots type is invalid")
+		end
+		local nOneOkay = false
+		local nRetTuples = nBodyFn:getRetTuples()
+		nRetTuples:foreachWithFirst(function(vDstTuple, _)
+			if vTypeTuple:castOrIn(nContext, vDstTuple) then
+				nOneOkay = true
+			end
+		end)
+		if not nOneOkay then
+			nContext:getRuntime():nodeError(vNode, "return check failed")
+		end
+	end
+end
+
+function Region:_bodyEnd(vNode:class.IAstNode, vTermTupleList:List(class.TermTuple)):Ret(class.TermTuple)
+	const nBodyFn = self._bodyFn
+	if OpenFunction.is(nBodyFn) then
+		local nLen = #vTermTupleList
+		if nLen == 0 then
+			return self._context:TermTuple({})
+		elseif nLen == 1 then
+			return vTermTupleList[1]!
+		else
+			local retTermTuple = vTermTupleList[1]!
+			for i=2,nLen do
+				retTermTuple = retTermTuple | vTermTupleList[i]!
+			end
+			return retTermTuple
+		end
+	end
+	return self._context:TermTuple({})
+end
+
 function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getRepeatType() then
-		self._fnCom:regionReturn(self._context, vNode, vTermTuple:getTypeTuple())
+		self:_bodyReturn(vNode, vTermTuple:getTypeTuple())
 	else
 		const nManager = self._context:getTypeManager()
 		const nFirstTerm = vTermTuple:get(1)
@@ -260,17 +298,17 @@ function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 				end
 			end
 			const nTypeTuple = nManager:Tuple(table.unpack(nTypeList))
-			self._fnCom:regionReturn(self._context, vNode, nTypeTuple)
+			self:_bodyReturn(vNode, nTypeTuple)
 		end)
 	end
 	self:topBranch():setStop()
 end
 
 function Region:END(vNode:class.IAstNode):Ret(class.TermTuple)
-	local re = self._fnCom:regionEnd(self._context, vNode, self._retList)
+	local re = self:_bodyEnd(vNode, self._retList)
 	self._context:getNamespace():close()
 	self._context:seal()
-	return re or self._context:TermTuple({})
+	return re
 end
 
 return Region

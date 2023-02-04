@@ -62,10 +62,11 @@ end
 function ClassFactory:runBuild()
 	const co = coroutine.running()
 	self._manager:coWait(co, self._startSid)
-	local nContext = self._luaFunction:newInplaceOpenContext()
+	const nContext = self._luaFunction:newInplaceSealContext()
+	nContext:setClassFactory(self)
 	local nTypeTuple = self._typeFunction:getParTuple()
 	self:tranStep(ClassFactory.STEP_PRE_SELF)
-	self._luaFunction:getGenFunc()(nContext, nTypeTuple:makeTermTuple(), {}, false)
+	self._luaFunction:getGenFunc()(self._typeFunction, nContext, nTypeTuple:makeTermTuple(), {}, false)
 	self:_wakeupBuild()
 	self:tranStep(ClassFactory.STEP_RETURN)
 end

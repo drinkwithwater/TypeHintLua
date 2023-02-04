@@ -38,6 +38,7 @@ function.class Context.new(vRuntime:class.Runtime,
 		_classFnSet={} @ Dict(class.ClassFactory, True),
 		_lateFnSet={} @ Dict(class.LateFnCom, True),
 		_typeFn=false @ OrFalse(class.TypeFunction),
+		_classFactory=false @ OrFalse(class.ClassFactory),
 	}, Context)
 	self._parentContext = vParentContext
 	self._sealContext = vSealContext or self
@@ -53,6 +54,14 @@ function.pass Context:testLine(vNode:class.IAstNode, vName:String):Ret(class.IAs
 	return vNode
 end]]
 
+function Context:setClassFactory(vFactory:class.ClassFactory)
+	self._classFactory = vFactory
+end
+
+function Context:getClassFactory():Ret(OrFalse(class.ClassFactory))
+	return self._classFactory
+end
+
 function Context:setTypeFn(vTypeFn:class.TypeFunction)
 	self._typeFn = vTypeFn
 end
@@ -67,9 +76,10 @@ function Context:rootSetNamespace(vRootSpace:class.Namespace)
 end
 
 function Context:BEGIN(vLexContext:class.Context, vRegionNode:class.IAstNode,
-	vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase)):Ret(class.Region, class.SpaceTable, class.SpaceTable)
+	vBodyFn:class.URegionFunction, vLuaFunc:class.LuaFunction, vUpCase:OrFalse(class.TermCase)
+):Ret(class.Region, class.SpaceTable, class.SpaceTable)
 	assert(not self._region, "context can only begin once")
-	const nRegion = Region.new(self, vLuaFunc:getFnCom(), vUpCase or TermCase.new())
+	const nRegion = Region.new(self, vBodyFn, vUpCase or TermCase.new())
 	self._region = nRegion
 	const nSpace = self._runtime:LetNamespace(vLexContext:getNamespace(), vRegionNode)
 	self._namespace = nSpace
