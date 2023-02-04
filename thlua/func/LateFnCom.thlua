@@ -69,7 +69,6 @@ function LateFnCom:checkLateRun()
 	for _, nTypeFn in ipairs(nSpecFnList) do
 		const nParTuple = nTypeFn:getParTuple()
 		const nInplaceContext = self._luaFunction:newInplaceSealContext()
-		nInplaceContext:setTypeFn(nTypeFn)
 		const ok, err = pcall(function():Ret()
 			self._luaFunction:getGenFunc()(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(), {}, false)
 		end)
@@ -83,27 +82,6 @@ function LateFnCom:matchTypeFn(vContext, vTypeTuple)
 	const nFn = self._defaultFn
 	assert(TypeFunction.is(nFn), "only default type function can be called")
 	return nFn
-end
-
-function LateFnCom:regionReturn(vContext, vNode, vRetTypeTuple)
-	if vRetTypeTuple:getRepeatType() then
-		vContext:getRuntime():nodeError(vNode, "return dots type is invalid")
-	end
-	local nOneOkay = false
-	local nRetTuples = assert(vContext:getTypeFn(), "LateFnCom's context must set TypeFn"):getRetTuples()
-	assert(nRetTuples, "ret tuples not setted when return")
-	nRetTuples:foreachWithFirst(function(vDstTuple, _)
-		if vRetTypeTuple:castOrIn(vContext, vDstTuple) then
-			nOneOkay = true
-		end
-	end)
-	if not nOneOkay then
-		vContext:getRuntime():nodeError(vNode, "return check failed")
-	end
-end
-
-function LateFnCom:regionEnd(vContext, vNode, vTermTupleList)
-	-- do nothing
 end
 
 function LateFnCom:getDefaultFn():Ret(OrFalse(class.UDefaultFunction))

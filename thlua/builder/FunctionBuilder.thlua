@@ -328,12 +328,13 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 end
 
 function FunctionBuilder:build():Ret(class.LuaFunction)
-	local nFnCom:OrNil(class.UFnCom) = nil
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		nFnCom = self:_buildOpen()
+		const nFnCom = self:_buildOpen()
+		self._luaFunc:lateInit(self._context, self._node, self, nFnCom, nFnCom._openFunction)
 	elseif nAttrSet.class then
-		nFnCom = self:_buildClass()
+		const nFnCom = self:_buildClass()
+		self._luaFunc:lateInit(self._context, self._node, self, nFnCom, false)
 	else
 		if nAttrSet.member then
 			self._luaFunc:setMember()
@@ -342,9 +343,8 @@ function FunctionBuilder:build():Ret(class.LuaFunction)
 		local nDefaultFn:OrFalse(class.UDefaultFunction) = self:_checkWhenDefault()
 		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultFn, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
-		nFnCom = nLateFnCom
+		self._luaFunc:lateInit(self._context, self._node, self, nLateFnCom, nDefaultFn)
 	end
-	self._luaFunc:lateInit(self._context, self._node, self, nFnCom)
 	return self._luaFunc
 end
 

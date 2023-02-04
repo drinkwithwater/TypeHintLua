@@ -8,6 +8,7 @@ const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
 const ClassFactory = require "thlua.func.ClassFactory"
 
+const OpenFunction = require "thlua.func.OpenFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
@@ -23,6 +24,7 @@ function.class LuaFunction.new(vManager:class.TypeManager):RetClass(class.LuaFun
 		_node=false@class.IAstNode,
 		_genFunc=false@class.GenFunc,
 		_isMember=false@Boolean,
+		_innerFn=false@OrFalse(class.OpenFunction, class.UDefaultFunction),
 		_unionFnCom=nil@class.UFnCom,
 		_hintCom=nil@class.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
@@ -40,7 +42,7 @@ function LuaFunction:getBuilder():Ret(class.FunctionBuilder)
 	return self._hintCom
 end
 
-function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHintCom:class.FunctionBuilder, vFnCom:class.UFnCom)
+function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHintCom:class.FunctionBuilder, vFnCom:class.UFnCom, vInnerFn:OrFalse(class.OpenFunction, class.UDefaultFunction))
 	self._context = vContext
 	self._node = vNode
 	self._genFunc = vHintCom:getGenFunc()
@@ -63,10 +65,6 @@ end
 
 function LuaFunction:detailString(v, vVerbose)
 	return "LuaFunction-"..self.name
-end
-
-function LuaFunction:getFnCom():Ret(class.UFnCom)
-	return self._unionFnCom
 end
 
 function LuaFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)

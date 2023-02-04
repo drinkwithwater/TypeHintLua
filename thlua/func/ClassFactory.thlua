@@ -114,7 +114,11 @@ function ClassFactory:matchTypeFn(vContext, vTypeTuple)
 	return self._typeFunction
 end
 
-function ClassFactory:regionTableSelf(vContext, vNode, vCallback)
+function ClassFactory:regionTableSelf(
+	vContext:class.Context,
+	vNode:class.IAstNode,
+	vCallback:Fn(class.LuaTable)
+):Ret(class.LuaTable)
 	const nLuaTable = self:getLuaTable()
 	self:tranStep(ClassFactory.STEP_IN_SELF)
 	vCallback(nLuaTable)
@@ -128,24 +132,6 @@ end
 
 function ClassFactory:getInterface():Ret(class.MetaObject)
 	return (assert(self._interface, "lua table's interface not setted"))
-end
-
-function ClassFactory:regionReturn(vContext, vNode, vTypeTuple)
-	if vTypeTuple:getRepeatType() or #vTypeTuple~=1 then
-		vContext:getRuntime():nodeError(vNode, "return tuple not match")
-	else
-		local aType = vTypeTuple:get(1):checkAtomUnion()
-		local bType = self:getLuaTable()
-		if aType ~= bType then
-			vContext:getRuntime():nodeError(vNode, "return type not match")
-		end
-	end
-end
-
-function ClassFactory:regionEnd(vContext, vNode, vTermTupleList:List(class.TermTuple))
-	if #vTermTupleList <= 0 then
-		vContext:getRuntime():nodeError(vNode, "return statement not found")
-	end
 end
 
 function.open ClassFactory.is(v):RetIs(class.ClassFactory)
