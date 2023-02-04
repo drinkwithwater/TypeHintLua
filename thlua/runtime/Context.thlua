@@ -230,17 +230,17 @@ function Context:META_SET(
 end
 
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase, self=OrNil(class.IAtomType)}))
-(@let.NativePair = Struct {Union(class.OpenFunction, class.LuaFunction), class.TermTuple})
-function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(class.UAllType))):Ret(class.TermTuple)
+(@let.OpenPair = Struct {Union(class.OpenFunction, class.LuaFunction), class.TermTuple})
+function Context:_apply(vNode:class.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(class.UAllType))):Ret(class.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
-		const nNativePair = vNativePair
-		if nNativePair then
+		const nOpenPair = vOpenPair
+		if nOpenPair then
 			if nListLen ~= 0 then
 				self._runtime:nodeError(vNode, "can't mix call native function & not-native function")
 				return self:TermTuple({})
 			end
-			return nNativePair[1]:meta_open_call(self:newOpenContext(vNode), nNativePair[2])
+			return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
 		elseif nListLen >= 1 then
 			const nType1TupleCaseList:List(Struct {class.UAtomUnion, class.TypeTuple, class.TermCase}) = {}
 			const nNil = self._manager.type.Nil
@@ -301,7 +301,7 @@ end
 
 function Context:META_CALL(vNode:class.IAstNode,
 	vFuncTerm:class.RefineTerm, vLazyFunc:Fn():Ret(class.TermTuple)):Ret(class.TermTuple)
-	local nNativePair:OrNil(NativePair) = nil
+	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
@@ -314,9 +314,9 @@ function Context:META_CALL(vNode:class.IAstNode,
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
 		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or OpenFunction.is(vFuncType) or LuaFunction.is(vFuncType) or PolyFunction.is(vFuncType) then
-			if vFuncType:isNative() then
-				if not nNativePair then
-					nNativePair = {vFuncType, nArgTermTuple}
+			if vFuncType:isOpen() then
+				if not nOpenPair then
+					nOpenPair = {vFuncType, nArgTermTuple}
 				else
 					error("can't mix use native function")
 				end
@@ -329,14 +329,14 @@ function Context:META_CALL(vNode:class.IAstNode,
 			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end
 	end)
-	return self:_apply(vNode, nNativePair, nFuncArgCaseList)
+	return self:_apply(vNode, nOpenPair, nFuncArgCaseList)
 end
 
 function Context:META_INVOKE(vNode:class.IAstNode,
 	vSelfTerm:class.RefineTerm, vName:String, vPolyArgs:List(class.UAllType), vArgTuple:class.TermTuple):Ret(class.TermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
 	const nGetContext = self:newSealContext(vNode)
-	local nNativePair:OrNil(NativePair) = nil
+	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	vSelfTerm:foreach(function(vSelfType, vTermCase)
@@ -349,9 +349,9 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or TypeFunction.is(vSingleFuncType) or OpenFunction.is(vSingleFuncType) or LuaFunction.is(vSingleFuncType) or PolyFunction.is(vSingleFuncType) then
-					if vSingleFuncType:isNative() then
-						if not nNativePair then
-							nNativePair = {vSingleFuncType, nNewArgTuple}
+					if vSingleFuncType:isOpen() then
+						if not nOpenPair then
+							nOpenPair = {vSingleFuncType, nNewArgTuple}
 						else
 							error("can't mix use native function")
 						end
@@ -367,7 +367,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 			end)
 		end
 	end)
-	return self:_apply(vNode, nNativePair, nFuncArgCaseList, vPolyArgs)
+	return self:_apply(vNode, nOpenPair, nFuncArgCaseList, vPolyArgs)
 end
 
 function Context:META_EQ_NE(vNode:class.IAstNode,
