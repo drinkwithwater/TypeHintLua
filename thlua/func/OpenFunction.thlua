@@ -1,0 +1,73 @@
+
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const AtomTypeClass = require "thlua.type.AtomTypeClass"
+const TermTuple = require "thlua.tuple.TermTuple"
+
+const OpenFunction = AtomTypeClass()
+
+(@let.class = import("thlua.type.TypeClass").class)
+
+function.class OpenFunction.new(vManager:class.TypeManager, vFunc:class.GenNativeFunc):RetClass(class.OpenFunction, class.IAtomType)
+	return setmetatable({.class
+		_manager=vManager,
+		func=vFunc,
+		name="unknown"@String,
+		bits=TYPE_BITS.FUNCTION,
+		id=vManager:genTypeId(),
+	}, OpenFunction)
+end
+
+function OpenFunction:isNative():Ret(True)
+	return true
+end
+
+function OpenFunction:detailString(v, vVerbose)
+	return "OpenFunction-"..self.name
+end
+
+function OpenFunction:set_name(name:String)
+	self.name = name
+end
+
+function OpenFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
+	local re = self.func(vContext, vTermTuple)
+	if TermTuple.is(re) then
+		return re
+	else
+		return self._manager:TermTuple({re})
+	end
+end
+
+function OpenFunction:assumeIntersectAtom(vAssumeSet, vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function OpenFunction:assumeContainAtom(vAssumeSet, vType)
+	if vType == self then
+		return self
+	else
+		return false
+	end
+end
+
+function OpenFunction:fnPartType()
+	return self
+end
+
+function OpenFunction:isSingleton()
+	return true
+end
+
+function OpenFunction:mayRecursive()
+	return true
+end
+
+function.open OpenFunction.is(vType):RetIs(class.OpenFunction)
+	return getmetatable(vType) == OpenFunction
+end
+
+return OpenFunction

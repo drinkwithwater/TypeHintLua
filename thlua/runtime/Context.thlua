@@ -11,7 +11,7 @@ const Enum = require "thlua.Enum"
 
 const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
-const NativeFunction = require "thlua.func.NativeFunction"
+const OpenFunction = require "thlua.func.OpenFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const LuaTable = require "thlua.object.LuaTable"
 const MetaObject = require "thlua.object.MetaObject"
@@ -230,7 +230,7 @@ function Context:META_SET(
 end
 
 (@let.FuncArgCaseList = List(Struct {class.IAtomType, class.UTypeTuple, class.TermCase, self=OrNil(class.IAtomType)}))
-(@let.NativePair = Struct {Union(class.NativeFunction, class.LuaFunction), class.TermTuple})
+(@let.NativePair = Struct {Union(class.OpenFunction, class.LuaFunction), class.TermTuple})
 function Context:_apply(vNode:class.IAstNode, vNativePair:OrNil(NativePair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(class.UAllType))):Ret(class.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(class.TermTuple)
 		const nListLen = #vFuncArgCaseList
@@ -313,7 +313,7 @@ function Context:META_CALL(vNode:class.IAstNode,
 		assert(nArgTermTuple, "must be true here")
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
-		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or NativeFunction.is(vFuncType) or LuaFunction.is(vFuncType) or PolyFunction.is(vFuncType) then
+		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or OpenFunction.is(vFuncType) or LuaFunction.is(vFuncType) or PolyFunction.is(vFuncType) then
 			if vFuncType:isNative() then
 				if not nNativePair then
 					nNativePair = {vFuncType, nArgTermTuple}
@@ -348,7 +348,7 @@ function Context:META_INVOKE(vNode:class.IAstNode,
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
-				elseif Truth.is(vSingleFuncType) or TypeFunction.is(vSingleFuncType) or NativeFunction.is(vSingleFuncType) or LuaFunction.is(vSingleFuncType) or PolyFunction.is(vSingleFuncType) then
+				elseif Truth.is(vSingleFuncType) or TypeFunction.is(vSingleFuncType) or OpenFunction.is(vSingleFuncType) or LuaFunction.is(vSingleFuncType) or PolyFunction.is(vSingleFuncType) then
 					if vSingleFuncType:isNative() then
 						if not nNativePair then
 							nNativePair = {vSingleFuncType, nNewArgTuple}

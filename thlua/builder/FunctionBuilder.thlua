@@ -25,9 +25,9 @@ const ClassFactory = require "thlua.func.ClassFactory"
 		_parNum=Integer,
 		_isvararg=Boolean,
 		_hasRet=Boolean,
-		_polyParNum=OrFalse(Integer), -- if not full typed, _polyParNum is false
-		_parMaker=Fn(List(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
-		_retMaker=Fn(List(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
+		_polyParNum=OrFalse(Integer), -- if not full hint, _polyParNum is false
+		_parMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
+		_retMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
 		_genFunc=class.GenFunc,
 	}, {
 		__next=KeyOf(class.FuncNewInfo)
@@ -68,7 +68,7 @@ function FunctionBuilder:checkWhenCast(vContext:class.Context, vCastTypeFn:class
 	-- 1. check par
 	const nParTuple = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
-	const nHintRetTuples = self:_makeRetTuples(vContext, {})
+	const nHintRetTuples = self:_makeRetTuples(vContext, {}, false)
 	const nCastRetTuples = vCastTypeFn:getRetTuples()
 	if nHintRetTuples then
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
@@ -82,9 +82,10 @@ end
 
 function FunctionBuilder:_makeRetTuples(
 	vContext:class.Context,
-	vTypeList:List(class.UAllType)
+	vTypeList:List(class.UAllType),
+	vSelfType:OrFalse(class.UAllType)
 ):Ret(OrFalse(class.RetTuples))
-	const nSuffixHint = self._retMaker(vTypeList)
+	const nSuffixHint = self._retMaker(vTypeList, vSelfType)
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, _, _)
@@ -127,7 +128,7 @@ function FunctionBuilder:_makeRetTuples(
 end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:class.UTypeTuple):Ret(class.UTypeTuple)
-	const nParList, nDotsType = self._parMaker({})
+	const nParList, nDotsType = self._parMaker({}, false)
 	local nNewList:List(class.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
@@ -166,7 +167,7 @@ function FunctionBuilder:_makeParTupleByCast(vContext:class.Context, vTypeTuple:
 end
 
 function FunctionBuilder:_checkParTupleByDefault():Ret(class.UTypeTuple)
-	const nParList, nDotsType = self._parMaker({})
+	const nParList, nDotsType = self._parMaker({}, false)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
 			error("param type is required here, order="..tostring(i))
@@ -184,7 +185,7 @@ function FunctionBuilder:_checkParTupleByDefault():Ret(class.UTypeTuple)
 end
 
 function FunctionBuilder:_makeParTuple(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.UTypeTuple)
-	const nParList, nDotsType = self._parMaker(vTypeList)
+	const nParList, nDotsType = self._parMaker(vTypeList, false)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
 			error("param type is required here, order="..tostring(i))
@@ -203,7 +204,7 @@ end
 
 function FunctionBuilder:checkWhenGeneric(vContext:class.Context, vTypeList:List(class.UAllType)):Ret(class.TypeFunction)
 	const nParTuple = self:_makeParTuple(vContext, vTypeList)
-	const nRetTuples = self:_makeRetTuples(vContext, vTypeList) or self._manager:VoidRetTuples()
+	const nRetTuples = self:_makeRetTuples(vContext, vTypeList, false) or self._manager:VoidRetTuples()
 	return self._manager:Function(nParTuple, nRetTuples)
 end
 
@@ -213,9 +214,8 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction)
 		return false
 	end
 	const nNewParList:List(class.UAllType) = {}
-	const nPolyInner = function(...:class.UAllType):Ret(class.TypeFunction)
-		const nPolyParList:List(class.UAllType) = {...}
-		const nParList, nDotsType = self._parMaker(nPolyParList)
+	const nFnMaker = function(vPolyParList:List(class.UAllType), vSelfType:OrFalse(class.UAllType)):Ret(class.TypeFunction)
+		const nParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
 		for i, nParType in ipairs(nParList) do
 			if not nParType then
 				if i == 1 then
@@ -236,18 +236,22 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(class.UDefaultFunction)
 			end
 			nParTuple = nRawTuple:Dots(nDotsType)
 		end
-		const nRetTuples = self:_makeRetTuples(self._context, nPolyParList) or self._manager:VoidRetTuples()
+		const nRetTuples = self:_makeRetTuples(self._context, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
 		return self._manager:Function(nParTuple, nRetTuples)
 	end
-	if nPolyParNum <= 0 then
-		const nFn = nPolyInner()
-		return self._member and nFn or self._manager:MemberFunction(self._node, nFn)
-	else
-		if not self._member then
-			return self._manager:PolyFunction(self._node, nPolyInner, nPolyParNum)
+	if not self._member then
+		if nPolyParNum <= 0 then
+			return nFnMaker({}, false)
 		else
-			error("TODO: member poly function")
+			return self._manager:PolyFunction(self._node, function(...)
+				return nFnMaker({...}, false)
+			end, nPolyParNum)
 		end
+	else
+		const nPolyFn = self._manager:PolyFunction(self._node, function(self, ...)
+			return nFnMaker({...}, self)
+		end, nPolyParNum + 1)
+		return self._manager:MemberFunction(self._node, nPolyFn)
 	end
 end
 
@@ -256,7 +260,7 @@ function FunctionBuilder:isFullHint():Ret(Boolean)
 end
 
 function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
-	const nSuffixHint = self._retMaker({})
+	const nSuffixHint = self._retMaker({}, false)
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
 	const ok, err = pcall(nSuffixHint.caller, {
@@ -283,7 +287,7 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 end
 
 function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
-	const nSuffixHint = self._retMaker({})
+	const nSuffixHint = self._retMaker({}, false)
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(nSuffixHint.caller, {
 		RetClass=function(vHint, vRefer, vStruct)

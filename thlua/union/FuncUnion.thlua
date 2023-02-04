@@ -2,7 +2,7 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
 const Truth = require "thlua.type.Truth"
-const NativeFunction = require "thlua.func.NativeFunction"
+const OpenFunction = require "thlua.func.OpenFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
@@ -14,7 +14,7 @@ const FuncUnion = UnionClass()
 function.class FuncUnion.new(vManager:class.TypeManager):RetClass(class.FuncUnion, class.IUnionType)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_nativeFnDict={} @Dict(class.NativeFunction, True),
+		_nativeFnDict={} @Dict(class.OpenFunction, True),
 		_typeFnDict={} @Dict(class.TypeFunction, True),
 		_polyFnDict={} @Dict(class.PolyFunction, True),
 		_luaFnDict={} @Dict(class.LuaFunction, True),
@@ -43,7 +43,7 @@ function FuncUnion:putAwait(vType)
 	if self:containAtom(vType) then
 		return
 	end
-	if NativeFunction.is(vType) then
+	if OpenFunction.is(vType) then
 		self._nativeFnDict[vType] = true
 	elseif PolyFunction.is(vType) then
 		self._polyFnDict[vType] = true
@@ -96,7 +96,7 @@ function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
 end
 
 function FuncUnion:assumeContainAtom(vAssumeSet, vType)
-	if NativeFunction.is(vType) then
+	if OpenFunction.is(vType) then
 		if self._nativeFnDict[vType] then
 			return vType
 		else

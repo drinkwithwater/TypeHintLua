@@ -10,13 +10,13 @@ function.class OpenFnCom.new(vManager:class.TypeManager, vLuaFunction:class.LuaF
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_nativeFunction=false@class.NativeFunction,
+		_nativeFunction=false@class.OpenFunction,
 	}, OpenFnCom)
 	return self
 end
 
 function OpenFnCom:initByOpen()
-	self._nativeFunction = self._manager:NativeFunction(function(vContext, vTermTuple)
+	self._nativeFunction = self._manager:OpenFunction(function(vContext, vTermTuple)
 		return self._luaFunction:getGenFunc()(vContext, {}, vTermTuple)
 	end)
 end
@@ -24,7 +24,7 @@ end
 function OpenFnCom:initByGuard(vContext:class.Context, vType:class.UAllType)
 	local nTrue = self._manager.type.True
 	local nFalse = self._manager.type.False
-	self._nativeFunction=self._manager:NativeFunction(function(vContext, vTermTuple)
+	self._nativeFunction=self._manager:OpenFunction(function(vContext, vTermTuple)
 		const nIsLuaTable, nTableType = self._manager:tryLuaTable(vType)
 		assert(nIsLuaTable, "assert lua table failed")
 		local nTerm = vTermTuple:get(1)

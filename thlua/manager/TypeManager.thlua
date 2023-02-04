@@ -16,7 +16,7 @@ const Truth = require "thlua.type.Truth"
 const MetaObject = require "thlua.object.MetaObject"
 const LuaTable = require "thlua.object.LuaTable"
 const LuaFunction = require "thlua.func.LuaFunction"
-const NativeFunction = require "thlua.func.NativeFunction"
+const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const Reference = require "thlua.refer.Reference"
@@ -145,7 +145,7 @@ const AtomMetatableSet:Dict(Truth, String) = {
 	[TypeFunction]="TypeFunction",
 	[PolyFunction]="PolyFunction",
 	[LuaFunction]="LuaFunction",
-	[NativeFunction]="NativeFunction",
+	[OpenFunction]="OpenFunction",
 }
 
 const AtomUnionMetatableSet:Dict(Truth, String) = {
@@ -458,8 +458,8 @@ function.open TypeManager:_recordTypeUnionSign(vType)
 	return vType
 end
 
-function TypeManager:NativeFunction(vFunc:class.GenNativeFunc):Ret(class.NativeFunction)
-	return self:_recordTypeUnionSign(NativeFunction.new(self, vFunc))
+function TypeManager:OpenFunction(vFunc:class.GenNativeFunc):Ret(class.OpenFunction)
+	return self:_recordTypeUnionSign(OpenFunction.new(self, vFunc))
 end
 
 function TypeManager:LuaFunction():Ret(class.LuaFunction)
@@ -581,14 +581,8 @@ function TypeManager:PolyFunction(vNode:class.IAstNode, vFunc:Truth, vPolyParNum
 	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, vPolyParNum))
 end
 
-function TypeManager:MemberFunction(vNode:class.IAstNode, vTypeFn:class.TypeFunction):Ret(class.MemberFunction)
-	const nWildFn = vTypeFn
-	const nPolyFn = self:buildPfn(vNode, function(vSelfType:class.UAllType):Ret(class.TypeFunction)
-		const nRetTuples = nWildFn:getRetTuples()
-		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
-		return self:Function(nParTuple, nRetTuples)
-	end)
-	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
+function TypeManager:MemberFunction(vNode:class.IAstNode, vPolyFn:class.PolyFunction):Ret(class.MemberFunction)
+	return MemberFunction.new(self, vNode, vPolyFn, false)
 end
 
 function TypeManager:Function(vParTuple:class.UTypeTuple, vRetTuples:class.RetTuples):Ret(class.TypeFunction)
