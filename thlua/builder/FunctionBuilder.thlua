@@ -19,9 +19,9 @@ const ClassFactory = require "thlua.func.ClassFactory"
 	}
 
 	class.FnSuffixHint = Struct {
-		RetClass=Fn(class.FnSuffixHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnSuffixHint),
+		impl=Fn(class.FnSuffixHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnSuffixHint),
 		Ret=Fn(class.FnSuffixHint):Dots(class.UAllType):Ret(class.FnSuffixHint),
-		RetIs=Fn(class.FnSuffixHint, class.UAllType):Ret(class.FnSuffixHint),
+		isguard=Fn(class.FnSuffixHint, class.UAllType):Ret(class.FnSuffixHint),
 	}
 
 	class.FuncNewInfo = Struct ({
@@ -41,12 +41,12 @@ end)
 const FunctionBuilder = {}
 FunctionBuilder.__index=FunctionBuilder
 
-function.class FunctionBuilder.new(
+function:class(class.FunctionBuilder) FunctionBuilder.new(
 	vManager:class.TypeManager,
 	vContext:class.Context,
 	vNode:class.IAstNode,
 	vInfo:class.FuncNewInfo
-):RetClass(class.FunctionBuilder)
+)
 	const self = {.class
 		_manager=vManager,
 		_context=vContext,
@@ -92,8 +92,8 @@ function FunctionBuilder:_makeRetTuples(
 	const nSuffixHint = self._retMaker(vTypeList, vSelfType)
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
-		RetClass=function(vHint, _, _)
-			error("RetClass can only be used with function.class")
+		impl=function(vHint, _, _)
+			error("impl can only be used with function:class")
 			return vHint
 		end,
 		Ret=function(vHint, ...:class.UAllType)
@@ -104,8 +104,8 @@ function FunctionBuilder:_makeRetTuples(
 			end
 			return vHint
 		end,
-		RetIs=function(vHint, vType)
-			error("RetIs can only be used with function.open")
+		isguard=function(vHint, vType)
+			error("isguard can only be used with function.open")
 			return vHint
 		end,
 	})
@@ -268,14 +268,14 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
 	const ok, err = pcall(nSuffixHint.caller, {
-		RetClass=function(vHint, _, _)
+		impl=function(vHint, _, _)
 			return vHint
 		end,
 		Ret=function(vHint, ...)
 			return vHint
 		end,
-		RetIs=function(vHint, vType)
-			assert(not nSetReturn, "RetIs can only use once here")
+		isguard=function(vHint, vType)
+			assert(not nSetReturn, "isguard can only use once here")
 			nOpenCom:initByGuard(self._context, vType)
 			nSetReturn = true
 			return vHint
@@ -292,50 +292,55 @@ end
 
 function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	const nPrefixHint = self._prefixHint
-	local nRefer:OrNil(class.Reference) = nil
+	local nReferOrNil:OrNil(class.Reference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
 		class=function(vHint, vRefer)
-			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
-			nRefer = vRefer
-			return vHint
-		end,
-	})
-	const nSuffixHint = self._retMaker({}, false)
-	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
-	const ok, err = pcall(nSuffixHint.caller, {
-		RetClass=function(vHint, _, vStruct)
-			const nRefer = assert(nRefer)
-			nRefer:setRawAsync(self._node, function()
-				local nImplType = vStruct
-				if Reference.is(nImplType) then
-					nImplType = nImplType:waitTypeCom():getTypeAwait()
-					assert(not nImplType:isUnion(), "interface can't be union")
-				end
-				self._context:recordDefineLuaFunction(nFactoryCom)
-				local nInterface = self._manager.type.AnyObject
-				if nImplType then
-					assert(MetaObject.is(nImplType), "implement type must be MetaObject")
-					nInterface = nImplType
-				end
-				const nParTuple = self:_checkParTupleByDefault()
-				const nTable = nFactoryCom:createLuaTable(self._context, nParTuple, nRefer, nInterface)
-				return {nTable}
-			end, function(vLuaTable)
-				nFactoryCom:runBuild()
-			end)
-			return vHint
-		end,
-		Ret=function(vHint, ...)
-			error("TODO : class use Ret not RetClass")
-			return vHint
-		end,
-		RetIs=function(vHint, vType)
+			assert(vRefer and Reference.is(vRefer), Exception.new("impl's first arg must be a Reference"))
+			nReferOrNil = vRefer
 			return vHint
 		end,
 	})
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
+	const nSuffixHint = self._retMaker({}, false)
+	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
+	local nStruct:OrNil(class.UAllType) = nil
+	const ok, err = pcall(nSuffixHint.caller, {
+		impl=function(vHint, _, vStruct)
+			nStruct = vStruct
+			return vHint
+		end,
+		Ret=function(vHint, ...)
+			error("TODO : class use Ret not impl")
+			return vHint
+		end,
+		isguard=function(vHint, vType)
+			return vHint
+		end,
+	})
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
+	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
+	nRefer:setRawAsync(self._node, function()
+		local nImplType = nStruct
+		if Reference.is(nImplType) then
+			nImplType = nImplType:waitTypeCom():getTypeAwait()
+			assert(not nImplType:isUnion(), "interface can't be union")
+		end
+		self._context:recordDefineLuaFunction(nFactoryCom)
+		local nInterface = self._manager.type.AnyObject
+		if nImplType then
+			assert(MetaObject.is(nImplType), "implement type must be MetaObject")
+			nInterface = nImplType
+		end
+		const nParTuple = self:_checkParTupleByDefault()
+		const nTable = nFactoryCom:createLuaTable(self._context, nParTuple, nRefer, nInterface)
+		return {nTable}
+	end, function(vLuaTable)
+		nFactoryCom:runBuild()
+	end)
 	return nFactoryCom
 end
 

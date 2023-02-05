@@ -17,7 +17,7 @@ const LuaFunction = AtomTypeClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-function.class LuaFunction.new(vManager:class.TypeManager):RetClass(class.LuaFunction, class.IAtomType)
+function:class(class.LuaFunction) LuaFunction.new(vManager:class.TypeManager):impl(class.LuaFunction, class.IAtomType)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_context=false@class.Context,
@@ -94,7 +94,7 @@ function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
-	if not self._hintCom:isFullHint() then
+	if LateFnCom.is(self._unionFnCom) and not self._hintCom:isFullHint() then
 		vContext:error("TODO can only call full-hint function", tostring(self))
 	end
 	local nFnCom = self._unionFnCom
@@ -190,7 +190,7 @@ function LuaFunction:getGenFunc():Ret(class.GenFunc)
 	return self._genFunc
 end
 
-function.open LuaFunction.is(vType):RetIs(class.LuaFunction)
+function.open LuaFunction.is(vType):isguard(class.LuaFunction)
 	return getmetatable(vType) == LuaFunction
 end
 
