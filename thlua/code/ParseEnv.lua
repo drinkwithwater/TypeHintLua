@@ -178,26 +178,25 @@ local hintC={
 			env:markDel(p1, posEnd-1)
 			l[#l] = nil
 			local middle = nil
-			for i=1,#l do
-				if l[i].tag == "ExprList" then
-					middle = i-1
-					break
+			local nAttrList = {}
+			for i, attrOrExprList in ipairs(l) do
+				local nTag = attrOrExprList.tag
+				if nTag == "ExprList" then
+					if not middle then
+						middle = i-1
+					end
+				else
+					assert(nTag == "Attr")
+					nAttrList[#nAttrList + 1] = attrOrExprList[1]
 				end
 			end
 			local nEvalList = env:captureEvalByVisit(l)
-			local nAttrList = {}
 			if middle then
 				local nHintInfo = env:buildIHintInfo(nEvalList, p1, l[middle].pos, posEnd-1)
-				for i=1, middle-1 do
-					nAttrList[i] = l[i][1]
-				end
 				nHintInfo.attrList = nAttrList
 				nHintInfo.kind = "long"
 				return nHintInfo
 			else
-				for i=1, #l do
-					nAttrList[i] = l[i][1]
-				end
 				local nHintInfo = {
 					tag = "HintInfo",
 					kind = "long",

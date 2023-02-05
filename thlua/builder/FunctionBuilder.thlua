@@ -14,20 +14,24 @@ const ClassFactory = require "thlua.func.ClassFactory"
 
 	class.UDefaultFunction = Union(class.TypeFunction, class.PolyFunction, class.MemberFunction)
 
-	class.FnLongHint = Struct {
-		RetClass=Fn(class.FnLongHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnLongHint),
-		Ret=Fn(class.FnLongHint):Dots(class.UAllType):Ret(class.FnLongHint),
-		RetIs=Fn(class.FnLongHint, class.UAllType):Ret(class.FnLongHint),
+	class.FnPrefixHint = Struct {
+		class=Fn(class.FnPrefixHint, Any):Ret(class.FnPrefixHint),
+	}
+
+	class.FnSuffixHint = Struct {
+		RetClass=Fn(class.FnSuffixHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnSuffixHint),
+		Ret=Fn(class.FnSuffixHint):Dots(class.UAllType):Ret(class.FnSuffixHint),
+		RetIs=Fn(class.FnSuffixHint, class.UAllType):Ret(class.FnSuffixHint),
 	}
 
 	class.FuncNewInfo = Struct ({
-		_prefixHint=class.TLongHintInfo(Nil),
+		_prefixHint=class.TLongHintInfo(class.FnPrefixHint),
 		_parNum=Integer,
 		_isvararg=Boolean,
 		_hasRet=Boolean,
 		_polyParNum=OrFalse(Integer), -- if not full hint, _polyParNum is false
 		_parMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(List(OrFalse(class.UAllType)), OrFalse(class.UAllType)),
-		_retMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(class.TLongHintInfo(class.FnLongHint)),
+		_retMaker=Fn(List(class.UAllType), OrFalse(class.UAllType)):Ret(class.TLongHintInfo(class.FnSuffixHint)),
 		_genFunc=class.GenFunc,
 	}, {
 		__next=KeyOf(class.FuncNewInfo)
@@ -287,12 +291,21 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 end
 
 function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
+	const nPrefixHint = self._prefixHint
+	local nRefer:OrNil(class.Reference) = nil
+	const ok, err = pcall(nPrefixHint.caller, {
+		class=function(vHint, vRefer)
+			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
+			nRefer = vRefer
+			return vHint
+		end,
+	})
 	const nSuffixHint = self._retMaker({}, false)
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const ok, err = pcall(nSuffixHint.caller, {
-		RetClass=function(vHint, vRefer, vStruct)
-			assert(vRefer and Reference.is(vRefer), Exception.new("RetClass's first arg must be a Reference"))
-			vRefer:setRawAsync(self._node, function()
+		RetClass=function(vHint, _, vStruct)
+			const nRefer = assert(nRefer)
+			nRefer:setRawAsync(self._node, function()
 				local nImplType = vStruct
 				if Reference.is(nImplType) then
 					nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -305,12 +318,11 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 					nInterface = nImplType
 				end
 				const nParTuple = self:_checkParTupleByDefault()
-				const nTable = nFactoryCom:createLuaTable(self._context, nParTuple, vRefer, nInterface)
+				const nTable = nFactoryCom:createLuaTable(self._context, nParTuple, nRefer, nInterface)
 				return {nTable}
 			end, function(vLuaTable)
 				nFactoryCom:runBuild()
 			end)
-			nRefer = vRefer
 			return vHint
 		end,
 		Ret=function(vHint, ...)
