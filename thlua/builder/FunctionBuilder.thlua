@@ -19,7 +19,7 @@ const ClassFactory = require "thlua.func.ClassFactory"
 	}
 
 	class.FnSuffixHint = Struct {
-		impl=Fn(class.FnSuffixHint, class.Reference, OrNil(class.UAllType)):Ret(class.FnSuffixHint),
+		impl=Fn(class.FnSuffixHint, class.UAllType):Ret(class.FnSuffixHint),
 		Ret=Fn(class.FnSuffixHint):Dots(class.UAllType):Ret(class.FnSuffixHint),
 		isguard=Fn(class.FnSuffixHint, class.UAllType):Ret(class.FnSuffixHint),
 	}
@@ -92,7 +92,7 @@ function FunctionBuilder:_makeRetTuples(
 	const nSuffixHint = self._retMaker(vTypeList, vSelfType)
 	local nRetTuples:OrFalse(class.RetTuples) = false
 	const ok, err = pcall(nSuffixHint.caller, {
-		impl=function(vHint, _, _)
+		impl=function(vHint, _)
 			error("impl can only be used with function:class")
 			return vHint
 		end,
@@ -268,7 +268,7 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 	const nOpenCom = OpenFnCom.new(self._manager, self._luaFunc)
 	local nSetReturn = false
 	const ok, err = pcall(nSuffixHint.caller, {
-		impl=function(vHint, _, _)
+		impl=function(vHint, _)
 			return vHint
 		end,
 		Ret=function(vHint, ...)
@@ -307,7 +307,7 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	local nStruct:OrNil(class.UAllType) = nil
 	const ok, err = pcall(nSuffixHint.caller, {
-		impl=function(vHint, _, vStruct)
+		impl=function(vHint, vStruct)
 			nStruct = vStruct
 			return vHint
 		end,
