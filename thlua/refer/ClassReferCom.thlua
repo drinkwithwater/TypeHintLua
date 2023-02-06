@@ -1,0 +1,74 @@
+
+const Exception = require "thlua.Exception"
+
+(@let.class = import("thlua.type.TypeClass").class)
+
+const ClassReferCom = {}
+ClassReferCom.__index=ClassReferCom
+
+function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager, vRefer:class.Reference)
+	const self = setmetatable({.class
+		_manager=vManager,
+		_refer=vRefer,
+		_namedRefer=vRefer,
+		_mayRecursive=false@Boolean,
+		_classType=false@OrFalse(class.LuaTable),
+		_waitClassCoToSid={} @ Dict(Thread, Integer),
+	}, ClassReferCom)
+	return self
+end
+
+function ClassReferCom:addReference(vRefer:class.Reference)
+	if vRefer:getKey() and not self._namedRefer:getKey() then
+		self._namedRefer = vRefer
+	end
+end
+
+function ClassReferCom:getToString():Ret(String)
+	return tostring(self._refer)
+end
+
+function ClassReferCom:getResultType():Ret(OrFalse(class.UAtomUnion))
+	return self._classType
+end
+
+function ClassReferCom:getTypeAwait():Ret(class.UAtomUnion)
+	if not self._classType then
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitClassCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	end
+	return (assert(self._classType, "result type not setted"))
+end
+
+function ClassReferCom:getMayRecursive():Ret(Boolean)
+	return self._mayRecursive
+end
+
+function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
+	if not self._classType then
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitClassCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	end
+	const nClassType = assert(self._classType, "class type is not setted")
+	return {nClassType}
+end
+
+function ClassReferCom:build(vGetter:Fn():Ret(class.LuaTable), vFactory:class.ClassFactory)
+	-- step 1. get list
+	const nClassType = vGetter()
+	self._classType = nClassType
+	-- nClassType:linkNamedReference(self)
+	for co, sid in pairs(self._waitClassCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
+end
+
+function.open ClassReferCom.is(self):isguard(class.ClassReferCom)
+	return getmetatable(self) == ClassReferCom
+end
+
+return ClassReferCom
