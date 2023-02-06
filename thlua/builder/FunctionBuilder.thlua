@@ -304,7 +304,6 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 		error(Exception.new(tostring(err), self._node))
 	end
 	const nSuffixHint = self._retMaker({}, false)
-	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	local nStruct:OrNil(class.UAllType) = nil
 	const ok, err = pcall(nSuffixHint.caller, {
 		impl=function(vHint, vStruct)
@@ -322,8 +321,9 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
+	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
-	nRefer:setRawAsync(self._node, function()
+	nRefer:setClassAsync(self._node, function()
 		local nImplType = nStruct
 		if Reference.is(nImplType) then
 			nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -336,11 +336,8 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 			nInterface = nImplType
 		end
 		const nParTuple = self:_checkParTupleByDefault()
-		const nTable = nFactoryCom:createLuaTable(self._context, nParTuple, nRefer, nInterface)
-		return {nTable}
-	end, function(vLuaTable)
-		nFactoryCom:runBuild()
-	end)
+		return nParTuple, nInterface
+	end, nFactoryCom)
 	return nFactoryCom
 end
 
