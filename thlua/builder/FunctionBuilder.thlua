@@ -6,7 +6,6 @@ const MetaObject = require "thlua.object.MetaObject"
 
 const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
-const ClassFactory = require "thlua.func.ClassFactory"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
@@ -290,7 +289,7 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFnCom)
 	return nOpenCom
 end
 
-function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
+function FunctionBuilder:_buildClass():Ret(class.ClassReferCom)
 	const nPrefixHint = self._prefixHint
 	local nReferOrNil:OrNil(class.Reference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
@@ -321,9 +320,8 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	const nFactoryCom = ClassFactory.new(self._manager, self._luaFunc)
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
-	nRefer:setClassAsync(self._node, function()
+	return nRefer:setClassAsync(self._node, function()
 		local nImplType = nStruct
 		if Reference.is(nImplType) then
 			nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -336,8 +334,7 @@ function FunctionBuilder:_buildClass():Ret(class.ClassFactory)
 		end
 		const nParTuple = self:_checkParTupleByDefault()
 		return nParTuple, nInterface
-	end, nFactoryCom, self._context, self._luaFunc)
-	return nFactoryCom
+	end, self._context, self._luaFunc)
 end
 
 function FunctionBuilder:build():Ret(class.LuaFunction)

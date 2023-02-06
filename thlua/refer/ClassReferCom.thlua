@@ -6,7 +6,7 @@ const Exception = require "thlua.Exception"
 const ClassReferCom = {}
 ClassReferCom.__index=ClassReferCom
 
-function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager, vRefer:class.Reference)
+function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager, vRefer:class.Reference):impl(class.IFnCom)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
@@ -26,6 +26,10 @@ function ClassReferCom:addReference(vRefer:class.Reference)
 	if vRefer:getKey() and not self._namedRefer:getKey() then
 		self._namedRefer = vRefer
 	end
+end
+
+function ClassReferCom:matchTypeFn(vContext, vTypeTuple)
+	return assert(self:getTypeFn())
 end
 
 function ClassReferCom:getToString():Ret(String)
@@ -69,14 +73,13 @@ function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vFactory:class.ClassFactory, vContext:class.Context, vLuaFunction:class.LuaFunction)
+function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vContext:class.Context, vLuaFunction:class.LuaFunction)
 	-- step 1. get inteface
 	const nParTuple, nInterface = vGetter()
 	vContext:recordDefineLuaFunction(self)
-	vFactory:bindReferCom(self, self._refer)
 	-- step 2. create table & type function
 	const nNewTable = self._manager:LuaTable()
-	nNewTable:initByClassCom(vFactory, nInterface)
+	nNewTable:initByClassCom(self, nInterface)
 	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
 	const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
 	self._typeFunction = nTypeFn
@@ -92,7 +95,7 @@ function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject
 	self._manager:coWait(co, nStartSid)
 	-- step 3. run build
 	const nContext = vLuaFunction:newInplaceSealContext()
-	nContext:setClassFactory(vFactory)
+	nContext:setClassCom(self)
 	vLuaFunction:getGenFunc()(nTypeFn, nContext, nParTuple:makeTermTuple(), {}, false)
 	self:_wakeupBuild()
 end
@@ -104,6 +107,20 @@ function ClassReferCom:startBuild()
 		const co = self._refer:getSelfCo()
 		self._manager:coWakeup(co, nStartSid)
 	end
+end
+
+function ClassReferCom:regionTableSelf(
+	vContext:class.Context,
+	vNode:class.IAstNode,
+	vCallback:Fn(class.LuaTable)
+):Ret(class.LuaTable)
+	const nLuaTable = assert(self._classType, "type not created when call Self")
+	vCallback(nLuaTable)
+	return nLuaTable
+end
+
+function ClassReferCom:onSetMetaTable()
+	self:_wakeupBuild()
 end
 
 function ClassReferCom:waitBuild()
