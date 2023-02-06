@@ -6,73 +6,23 @@ const ClassFactory = FnComClass()
 
 (@let.class = import("thlua.type.TypeClass").class)
 
-ClassFactory.STEP_IDLE = 1
-ClassFactory.STEP_START = 2
-ClassFactory.STEP_PRE_SELF = 3
-ClassFactory.STEP_IN_SELF = 4
-ClassFactory.STEP_POST_SELF = 5
-ClassFactory.STEP_RETURN = 6
-
 function:class(class.ClassFactory) ClassFactory.new(vManager:class.TypeManager, vLuaFunction:class.LuaFunction):impl(class.IFnCom)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
 		_refer=nil@class.Reference,
 		_referCom=nil@class.ClassReferCom,
-		_typeFunction=false@class.TypeFunction,
-		_buildStep=ClassFactory.STEP_IDLE@Integer,
 	}, ClassFactory)
 	return self
 end
 
-function ClassFactory:createLuaTable(vReferCom:class.ClassReferCom, vParTuple:class.UTypeTuple, vRefer:class.Reference, vInterface:class.MetaObject):Ret(class.LuaTable)
-	self._referCom=vReferCom
-	-- 1. create lua table
+function ClassFactory:bindReferCom(vReferCom:class.ClassReferCom, vRefer:class.Reference)
+	self._referCom = vReferCom
 	self._refer = vRefer
-	const nNewTable = self._manager:LuaTable()
-	nNewTable:initByClassCom(self, vInterface)
-	-- 2. create type function
-	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
-	self._typeFunction = self._manager:Function(vParTuple, nRetTuples)
-	return nNewTable
-end
-
-function ClassFactory:tranStep(vNextStep:Integer)
-	const nCurStep = self._buildStep
-	if vNextStep == ClassFactory.STEP_START then
-		assert(nCurStep == ClassFactory.STEP_IDLE, "class build step must be IDLE->PRE_SELF")
-	elseif vNextStep == ClassFactory.STEP_PRE_SELF then
-		assert(nCurStep == ClassFactory.STEP_START, "class build step must be IDLE->PRE_SELF")
-	elseif vNextStep == ClassFactory.STEP_IN_SELF then
-		assert(nCurStep == ClassFactory.STEP_PRE_SELF, "class build step must be PRE_SELF->IN_SELF")
-	elseif vNextStep == ClassFactory.STEP_POST_SELF then
-		assert(nCurStep == ClassFactory.STEP_IN_SELF, "class build step must be IN_SELF->POST_SELF")
-	elseif vNextStep == ClassFactory.STEP_RETURN then
-		assert(nCurStep == ClassFactory.STEP_POST_SELF, "class build step must be POST_SELF->RETURN or SELF->RETURN")
-	end
-	self._buildStep = vNextStep
-end
-
-function ClassFactory:runBuild()
-	const nContext = self._luaFunction:newInplaceSealContext()
-	nContext:setClassFactory(self)
-	local nTypeTuple = self._typeFunction:getParTuple()
-	self:tranStep(ClassFactory.STEP_PRE_SELF)
-	self._luaFunction:getGenFunc()(self._typeFunction, nContext, nTypeTuple:makeTermTuple(), {}, false)
-	self:_wakeupBuild()
-	self:tranStep(ClassFactory.STEP_RETURN)
 end
 
 function ClassFactory:waitBuild()
-	self:startBuild()
 	self._referCom:waitBuild()
-end
-
-function ClassFactory:startBuild()
-	if self._buildStep == ClassFactory.STEP_IDLE then
-		self:tranStep(ClassFactory.STEP_START)
-		self._referCom:startBuild()
-	end
 end
 
 function ClassFactory:onSetMetaTable()
@@ -84,7 +34,7 @@ function ClassFactory:_wakeupBuild()
 end
 
 function ClassFactory:matchTypeFn(vContext, vTypeTuple)
-	return self._typeFunction
+	return assert(self._referCom:getTypeFn())
 end
 
 function ClassFactory:regionTableSelf(
@@ -93,9 +43,7 @@ function ClassFactory:regionTableSelf(
 	vCallback:Fn(class.LuaTable)
 ):Ret(class.LuaTable)
 	const nLuaTable = self:getLuaTable()
-	self:tranStep(ClassFactory.STEP_IN_SELF)
 	vCallback(nLuaTable)
-	self:tranStep(ClassFactory.STEP_POST_SELF)
 	return nLuaTable
 end
 

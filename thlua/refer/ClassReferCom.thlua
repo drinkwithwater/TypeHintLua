@@ -10,7 +10,7 @@ function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
-		_startSid=vManager:genSessionId(),
+		_startSid=(vManager:genSessionId()@OrFalse(Integer)),
 		_namedRefer=vRefer,
 		_mayRecursive=false@Boolean,
 		_classType=false@OrFalse(class.LuaTable),
@@ -69,27 +69,45 @@ function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vFactory:class.ClassFactory)
-	-- step 1. get list
+function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vFactory:class.ClassFactory, vContext:class.Context, vLuaFunction:class.LuaFunction)
+	-- step 1. get inteface
 	const nParTuple, nInterface = vGetter()
-	const nTable = vFactory:createLuaTable(self, nParTuple, self._refer, nInterface)
+	vContext:recordDefineLuaFunction(self)
+	vFactory:bindReferCom(self, self._refer)
+	-- step 2. create table & type function
+	const nNewTable = self._manager:LuaTable()
+	nNewTable:initByClassCom(vFactory, nInterface)
+	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
+	const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
+	self._typeFunction = nTypeFn
 	self._interface = nInterface
-	self._classType = nTable
+	self._classType = nNewTable
 	-- nClassType:linkNamedReference(self)
 	for co, sid in pairs(self._waitClassCoToSid) do
 		self._manager:coWakeup(co, sid)
 	end
+	const nStartSid = self._startSid
+	assert(nStartSid, "ClassReferCom error state... building startSid is not true value")
 	const co = coroutine.running()
-	self._manager:coWait(co, self._startSid)
-	vFactory:runBuild()
+	self._manager:coWait(co, nStartSid)
+	-- step 3. run build
+	const nContext = vLuaFunction:newInplaceSealContext()
+	nContext:setClassFactory(vFactory)
+	vLuaFunction:getGenFunc()(nTypeFn, nContext, nParTuple:makeTermTuple(), {}, false)
+	self:_wakeupBuild()
 end
 
 function ClassReferCom:startBuild()
-	const co = self._refer:getSelfCo()
-	self._manager:coWakeup(co, self._startSid)
+	const nStartSid = self._startSid
+	if nStartSid then
+		self._startSid = false
+		const co = self._refer:getSelfCo()
+		self._manager:coWakeup(co, nStartSid)
+	end
 end
 
 function ClassReferCom:waitBuild()
+	self:startBuild()
 	const nCurCo = coroutine.running()
 	const nSelfCo = self._refer:getSelfCo()
 	if nCurCo ~= nSelfCo then
@@ -108,10 +126,10 @@ function ClassReferCom:_wakeupBuild()
 	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
 	const nWaitCoToSid = self._waitBuildCoToSid
 	if nWaitCoToSid then
+		self._waitBuildCoToSid = false
 		for co, sid in pairs(nWaitCoToSid) do
 			self._manager:coWakeup(co, sid)
 		end
-		self._waitBuildCoToSid = false
 	end
 end
 
