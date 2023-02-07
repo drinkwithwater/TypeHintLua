@@ -134,11 +134,11 @@ function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
 	end)
 end
 
-function Reference:setClassAsync(vNode:class.IAstNode, vImplGetter:Fn():Ret(class.MetaObject), vContext:class.Context, vClassBuilder:Fn(class.ClassReferCom))
+function Reference:setClassAsync(vNode:class.IAstNode, vImplGetter:Fn():Ret(class.MetaObject), vContext:class.Context, vClassBuilder:Fn(class.LuaTable))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	const nCom = ClassReferCom.new(self._manager, self)
 	self._manager:coStart(self._selfCo, function()
+		const nCom = ClassReferCom.new(self._manager, self)
 		self:_setComAndWakeup(nCom)
 		nCom:build(vImplGetter, vContext, vClassBuilder)
 	end)

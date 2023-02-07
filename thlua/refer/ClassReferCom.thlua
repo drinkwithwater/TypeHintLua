@@ -58,7 +58,7 @@ function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vImplGetter:Fn():Ret(class.MetaObject), vContext:class.Context, vClassBuilder:Fn(class.ClassReferCom))
+function ClassReferCom:build(vImplGetter:Fn():Ret(class.MetaObject), vContext:class.Context, vClassBuilder:Fn(class.LuaTable))
 	-- step 1. wait inteface
 	const nInterface = vImplGetter()
 	vContext:recordDefineLuaFunction(self)
@@ -75,7 +75,7 @@ function ClassReferCom:build(vImplGetter:Fn():Ret(class.MetaObject), vContext:cl
 	const co = coroutine.running()
 	self._manager:coWait(co, nStartSid)
 	-- step 3. run build
-	vClassBuilder(self)
+	vClassBuilder(nNewTable)
 	self:_wakeupBuild()
 end
 
@@ -86,16 +86,6 @@ function ClassReferCom:startBuild()
 		const co = self._refer:getSelfCo()
 		self._manager:coWakeup(co, nStartSid)
 	end
-end
-
-function ClassReferCom:regionTableSelf(
-	vContext:class.Context,
-	vNode:class.IAstNode,
-	vCallback:Fn(class.LuaTable)
-):Ret(class.LuaTable)
-	const nLuaTable = assert(self._classType, "type not created when call Self")
-	vCallback(nLuaTable)
-	return nLuaTable
 end
 
 function ClassReferCom:onSetMetaTable()

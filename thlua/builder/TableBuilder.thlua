@@ -82,8 +82,8 @@ function TableBuilder:_build(vNewTable:class.LuaTable)
 end
 
 function TableBuilder:build():Ret(class.LuaTable)
-	local nLongHint = self:_makeLongHint()
-	local ok, err = pcall(self._hintInfo.caller, nLongHint)
+	const nLongHint = self:_makeLongHint()
+	const ok, err = pcall(self._hintInfo.caller, nLongHint)
 	if not ok then
 		error(Exception.new(tostring(result), self._node))
 	end
@@ -91,10 +91,9 @@ function TableBuilder:build():Ret(class.LuaTable)
 	const nManager = nContext:getTypeManager()
 	const nAttrSet = self._hintInfo.attrSet
 	if nAttrSet.class then
-		const nClassCom = assert(self._context:getClassCom(), "only function:class(class.) can build table hint with {.class")
-		return nClassCom:regionTableSelf(self._context, self._node, function(vNewTable)
-			self:_build(vNewTable)
-		end)
+		const nNewTable = assert(nContext:getClassTable(), "only function:class(class.) can build table hint with {.class")
+		self:_build(nNewTable)
+		return nNewTable
 	else
 		const nNewTable = nManager:LuaTable()
 		self:_build(nNewTable)
