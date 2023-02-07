@@ -1,11 +1,11 @@
 
 const TermCase = require "thlua.term.TermCase"
-const FnComClass = require "thlua.func.FnComClass"
 
 const MemberFunction = require "thlua.func.MemberFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 
-const LateFnCom = FnComClass()
+const LateFnCom = {}
+LateFnCom.__index=LateFnCom
 
 (@let.class = import("thlua.type.TypeClass").class)
 
@@ -13,7 +13,7 @@ function:class(class.LateFnCom) LateFnCom.new(vManager:class.TypeManager,
 	vLuaFunction:class.LuaFunction,
 	vDefaultFn:OrFalse(class.UDefaultFunction),
 	vPass:Boolean
-):impl(class.IFnCom)
+)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
@@ -76,12 +76,6 @@ function LateFnCom:checkLateRun()
 			nInplaceContext:error(tostring(err))
 		end
 	end
-end
-
-function LateFnCom:matchTypeFn(vContext, vTypeTuple)
-	const nFn = self._defaultFn
-	assert(TypeFunction.is(nFn), "only default type function can be called")
-	return nFn
 end
 
 function LateFnCom:getDefaultFn():Ret(OrFalse(class.UDefaultFunction))

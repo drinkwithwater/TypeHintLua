@@ -6,14 +6,13 @@ const Exception = require "thlua.Exception"
 const ClassReferCom = {}
 ClassReferCom.__index=ClassReferCom
 
-function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager, vRefer:class.Reference):impl(class.IFnCom)
+function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager, vRefer:class.Reference)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
 		_startSid=(vManager:genSessionId()@OrFalse(Integer)),
 		_namedRefer=vRefer,
 		_classType=false@OrFalse(class.LuaTable),
-		_interface=false@OrFalse(class.MetaObject),
 		_typeFunction=false@OrFalse(class.TypeFunction),
 		_waitClassCoToSid={} @ Dict(Thread, Integer),
 		_waitBuildCoToSid={}@OrFalse(Dict(Thread, Integer)),
@@ -27,20 +26,12 @@ function ClassReferCom:addReference(vRefer:class.Reference)
 	end
 end
 
-function ClassReferCom:matchTypeFn(vContext, vTypeTuple)
-	return assert(self:getTypeFn())
-end
-
 function ClassReferCom:getToString():Ret(String)
 	return tostring(self._refer)
 end
 
 function ClassReferCom:getTypeFn():Ret(OrFalse(class.TypeFunction))
 	return self._typeFunction
-end
-
-function ClassReferCom:getInterface():Ret(OrFalse(class.MetaObject))
-	return self._interface
 end
 
 function ClassReferCom:getResultType():Ret(OrFalse(class.LuaTable))
@@ -82,7 +73,6 @@ function ClassReferCom:build(vNode:class.IAstNode, vGetter:Fn():Ret(class.UTypeT
 	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
 	const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
 	self._typeFunction = nTypeFn
-	self._interface = nInterface
 	self._classType = nNewTable
 	-- nClassType:linkNamedReference(self)
 	for co, sid in pairs(self._waitClassCoToSid) do

@@ -21,7 +21,6 @@ function:class(class.LuaFunction) LuaFunction.new(vManager:class.TypeManager):im
 		_manager=vManager,
 		_context=false@class.Context,
 		_node=false@class.IAstNode,
-		_genFunc=false@class.GenFunc,
 		_isMember=false@Boolean,
 		_innerFn=false@OrFalse(class.OpenFunction, class.UDefaultFunction, class.ClassReferCom),
 		_lateFnCom=false@OrFalse(class.LateFnCom),
@@ -44,7 +43,6 @@ end
 function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHintCom:class.FunctionBuilder, vLateFnCom:OrFalse(class.LateFnCom), vInnerFn:OrFalse(class.OpenFunction, class.UDefaultFunction, class.ClassReferCom))
 	self._context = vContext
 	self._node = vNode
-	self._genFunc = vHintCom:getGenFunc()
 	self._hintCom = vHintCom
 	self._lateFnCom = vLateFnCom
 	self._innerFn = vInnerFn
@@ -96,7 +94,7 @@ end
 function LuaFunction:meta_call(vContext, vTypeTuple)
 	local nInnerFn = self._innerFn
 	if ClassReferCom.is(nInnerFn) then
-		nInnerFn = nInnerFn:matchTypeFn(vContext, vTypeTuple)
+		nInnerFn = assert(nInnerFn:getTypeFn(), "class refer com's typefn not setted")
 	end
 	if PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
 		return nInnerFn:meta_call(vContext, vTypeTuple)
@@ -186,7 +184,7 @@ function LuaFunction:getNode():Ret(class.IAstNode)
 end
 
 function LuaFunction:getGenFunc():Ret(class.GenFunc)
-	return self._genFunc
+	return self._hintCom:getGenFunc()
 end
 
 function.open LuaFunction.is(vType):isguard(class.LuaFunction)
