@@ -4,8 +4,8 @@ const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
 
-const OpenFnCom = require "thlua.func.OpenFnCom"
 const LateFnCom = require "thlua.func.LateFnCom"
+const ClassReferCom = require "thlua.refer.ClassReferCom"
 
 const OpenFunction = require "thlua.func.OpenFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
@@ -23,8 +23,8 @@ function:class(class.LuaFunction) LuaFunction.new(vManager:class.TypeManager):im
 		_node=false@class.IAstNode,
 		_genFunc=false@class.GenFunc,
 		_isMember=false@Boolean,
-		_innerFn=false@OrFalse(class.OpenFunction, class.UDefaultFunction),
-		_unionFnCom=nil@class.UFnCom,
+		_innerFn=false@OrFalse(class.OpenFunction, class.UDefaultFunction, class.ClassReferCom),
+		_lateFnCom=false@OrFalse(class.LateFnCom),
 		_hintCom=nil@class.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown"@String,
@@ -41,12 +41,13 @@ function LuaFunction:getBuilder():Ret(class.FunctionBuilder)
 	return self._hintCom
 end
 
-function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHintCom:class.FunctionBuilder, vFnCom:class.UFnCom, vInnerFn:OrFalse(class.OpenFunction, class.UDefaultFunction))
+function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHintCom:class.FunctionBuilder, vLateFnCom:OrFalse(class.LateFnCom), vInnerFn:OrFalse(class.OpenFunction, class.UDefaultFunction, class.ClassReferCom))
 	self._context = vContext
 	self._node = vNode
 	self._genFunc = vHintCom:getGenFunc()
 	self._hintCom = vHintCom
-	self._unionFnCom = vFnCom
+	self._lateFnCom = vLateFnCom
+	self._innerFn = vInnerFn
 	self.name = tostring(vNode)
 end
 
@@ -59,7 +60,7 @@ function LuaFunction:newInplaceOpenContext():Ret(class.Context)
 end
 
 function LuaFunction:isOpen():Ret(Boolean)
-	return OpenFnCom.is(self._unionFnCom)
+	return OpenFunction.is(self._innerFn)
 end
 
 function LuaFunction:detailString(v, vVerbose)
@@ -67,41 +68,40 @@ function LuaFunction:detailString(v, vVerbose)
 end
 
 function LuaFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
-	local nFnCom = self._unionFnCom
-	if OpenFnCom.is(nFnCom) then
-		return nFnCom:meta_open_call(vContext, vTermTuple)
+	const nInnerFn = self._innerFn
+	if OpenFunction.is(nInnerFn) then
+		return nInnerFn:meta_open_call(vContext, vTermTuple)
 	else
-		error("only open or native fn can call meta_open_call")
+		error("only open or native fn can call meta_open_call"..tostring(nInnerFn))
 	end
 end
 
 function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	local nLateCom = self._unionFnCom
-	if LateFnCom.is(nLateCom) then
-		const nDefaultFn = nLateCom:getDefaultFn()
-		if MemberFunction.is(nDefaultFn) then
-			return nDefaultFn:indexTypeFn(vSelfType):meta_call(vContext, vTypeTuple)
-		elseif nDefaultFn then
-			return nDefaultFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-		else
-			error("default type is empty, TODO")
-		end
-	else
+	local nInnerFn = self._innerFn
+	if ClassReferCom.is(nInnerFn) then
+		nInnerFn = assert(nInnerFn:getTypeFn(), "class refer com's typefn not setted")
+	end
+	if MemberFunction.is(nInnerFn) then
+		return nInnerFn:indexTypeFn(vSelfType):meta_call(vContext, vTypeTuple)
+	elseif PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
+		return nInnerFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
+	elseif nInnerFn then
 		print("TODO, not-late fn com meta_invoke")
 		return self:meta_call(vContext, vTypeTuple)
+	else
+		error("innerFn is empty, TODO")
 	end
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
-	if LateFnCom.is(self._unionFnCom) and not self._hintCom:isFullHint() then
-		vContext:error("TODO can only call full-hint function", tostring(self))
+	local nInnerFn = self._innerFn
+	if ClassReferCom.is(nInnerFn) then
+		nInnerFn = nInnerFn:matchTypeFn(vContext, vTypeTuple)
 	end
-	local nFnCom = self._unionFnCom
-	if not OpenFnCom.is(nFnCom) then
-		const nTypeFn = nFnCom:matchTypeFn(vContext, vTypeTuple)
-		return nTypeFn:meta_call(vContext, vTypeTuple)
+	if PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
+		return nInnerFn:meta_call(vContext, vTypeTuple)
 	else
-		error("open fn can't call meta_call")
+		error("innerFn can't be called, TODO")
 	end
 end
 
@@ -132,13 +132,13 @@ function LuaFunction:native_type()
 end
 
 function LuaFunction:castPoly(vContext, vTypeArgsList)
-	const nLateCom = self._unionFnCom
-	assert(LateFnCom.is(nLateCom), "only LateFnCom can cast generic")
+	-- TODO
+	print("cast poly TODO")
 	return self._hintCom:checkWhenGeneric(vContext, vTypeArgsList)
 end
 
 function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(OrFalse(class.TypeFunction))
-	local nUnionFnCom = self._unionFnCom
+	const nUnionFnCom = self._lateFnCom
 	if LateFnCom.is(nUnionFnCom) then
 		const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
 		nUnionFnCom:addSpecFn(nAfterTypeFn)
@@ -149,7 +149,7 @@ function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Re
 end
 
 function LuaFunction:castSpecialize(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(class.TypeFunction)
-	const nLateCom = self._unionFnCom
+	const nLateCom = self._lateFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
 	nLateCom:addSpecFn(nAfterTypeFn)
@@ -157,7 +157,7 @@ function LuaFunction:castSpecialize(vContext:class.Context, vTypeFn:class.TypeFu
 end
 
 function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable)):Ret(class.TypeFunction)
-	local nLateCom = self._unionFnCom
+	local nLateCom = self._lateFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nDefaultFn = nLateCom:getDefaultFn()
 	if not vSelfType then
@@ -170,7 +170,7 @@ function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(clas
 end
 
 function LuaFunction:isMember():Ret(Boolean)
-	return self._isMember and LateFnCom.is(self._unionFnCom)
+	return self._isMember
 end
 
 function LuaFunction:fnPartType()

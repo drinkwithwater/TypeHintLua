@@ -12,7 +12,6 @@ function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager
 		_refer=vRefer,
 		_startSid=(vManager:genSessionId()@OrFalse(Integer)),
 		_namedRefer=vRefer,
-		_mayRecursive=false@Boolean,
 		_classType=false@OrFalse(class.LuaTable),
 		_interface=false@OrFalse(class.MetaObject),
 		_typeFunction=false@OrFalse(class.TypeFunction),
@@ -59,7 +58,7 @@ function ClassReferCom:getTypeAwait():Ret(class.UAtomUnion)
 end
 
 function ClassReferCom:getMayRecursive():Ret(Boolean)
-	return self._mayRecursive
+	return true
 end
 
 function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
@@ -73,7 +72,7 @@ function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vContext:class.Context, vLuaFunction:class.LuaFunction)
+function ClassReferCom:build(vNode:class.IAstNode, vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vContext:class.Context, vLuaFunction:class.LuaFunction)
 	-- step 1. get inteface
 	const nParTuple, nInterface = vGetter()
 	vContext:recordDefineLuaFunction(self)
@@ -94,7 +93,7 @@ function ClassReferCom:build(vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject
 	const co = coroutine.running()
 	self._manager:coWait(co, nStartSid)
 	-- step 3. run build
-	const nContext = vLuaFunction:newInplaceSealContext()
+	const nContext = vContext:newSealContext(vNode)
 	nContext:setClassCom(self)
 	vLuaFunction:getGenFunc()(nTypeFn, nContext, nParTuple:makeTermTuple(), {}, false)
 	self:_wakeupBuild()
@@ -134,8 +133,6 @@ function ClassReferCom:waitBuild()
 			nWaitCoToSid[nCurCo] = nSessionId
 			self._manager:coWait(nCurCo, nSessionId, nSelfCo)
 		end
-	else
-		-- assert(self._buildStep >= ClassFactory.STEP_POST_SELF)
 	end
 end
 
