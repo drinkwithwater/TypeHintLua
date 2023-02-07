@@ -19,6 +19,7 @@ const LuaFunction = require "thlua.func.LuaFunction"
 const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
+const AnyFunction = require "thlua.func.AnyFunction"
 const Reference = require "thlua.refer.Reference"
 
 const MemberFunction = require "thlua.func.MemberFunction"
@@ -84,29 +85,31 @@ function:class(class.TypeManager) TypeManager.new(vRuntime:class.Runtime)
 	self.type.Integer = self.type.Number
 	self.type.String = String.new(self)
 	self.type.Truth = Truth.new(self)
+	self.type.AnyFunction = AnyFunction.new(self)
 	for k, nType in pairs(self.type @!! Dict(String, class.UAtomUnion)) do
 		self:_recordTypeUnionSign(nType)
 	end
-	self.type.Boolean = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.True)
-	self.type.Any = self:buildUnion(vRuntime:getNode(), self.type.False, self.type.Nil, self.type.Truth)
-	self.type.AnyObject = self:buildInterface(self._runtime:getNode(), {}, nil, false)
-	self.generic.Dict = self:GenericReference(function.pass(vKey,vValue)
+	const nRootNode = vRuntime:getNode()
+	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
+	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
+	self.type.AnyObject = self:buildInterface(nRootNode, {}, nil, false)
+	self.generic.Dict = self:buildGeneric(nRootNode, function.pass(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
-		return self:buildStruct(self._runtime:getNode(), {[vKey]=vValue}, {__next=vKey})
+		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.IDict = self:GenericReference(function.pass(vKey,vValue)
+	self.generic.IDict = self:buildGeneric(nRootNode, function.pass(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
-		return self:buildInterface(self._runtime:getNode(), {[vKey]=vValue}, {__next=vKey})
+		return self:buildInterface(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.List = self:GenericReference(function.pass(vValue)
+	self.generic.List = self:buildGeneric(nRootNode, function.pass(vValue)
 		assert(vValue, "value can't be nil when build List")
-		return self:buildStruct(self._runtime:getNode(), {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
+		return self:buildStruct(nRootNode, {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
 	end)
-	self.generic.IList = self:GenericReference(function.pass(vValue)
+	self.generic.IList = self:buildGeneric(nRootNode, function.pass(vValue)
 		assert(vValue, "value can't be nil when build IList")
-		return self:buildInterface(self._runtime:getNode(), {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+		return self:buildInterface(nRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:GenericReference(function.pass(vOneType)
+	self.generic.KeyOf = self:buildGeneric(nRootNode, function.pass(vOneType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
 			nObject = vOneType:waitTypeCom():getTypeAwait()
@@ -139,12 +142,12 @@ const AtomMetatableSet:Dict(Truth, String) = {
 	[BooleanLiteral]="BooleanLiteral",
 	[Thread]="Thread",
 	[Truth]="Truth",
-	-- may recursive
-	[MetaObject]="MetaObject",
 	[LuaTable]="LuaTable",
+	[MetaObject]="MetaObject",
+	[LuaFunction]="LuaFunction",
 	[TypeFunction]="TypeFunction",
 	[PolyFunction]="PolyFunction",
-	[LuaFunction]="LuaFunction",
+	[AnyFunction]="AnyFunction",
 	[OpenFunction]="OpenFunction",
 }
 
@@ -558,7 +561,7 @@ function TypeManager:buildMemberFn(vNode:class.IAstNode, ...:Truth):Ret(class.Me
 	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
 end
 
-function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:Truth):Ret(class.PolyFunction)
+function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class.PolyFunction)
 	const nInfo = debug.getinfo(vFunc)
 	const nPolyParNum=nInfo.nparams
 	if nInfo.isvararg then
@@ -577,7 +580,7 @@ function TypeManager:checkedFn(...:Truth):Ret(class.TypeFunction)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, self._runtime:getNode(), nParTuple, false))
 end
 
-function TypeManager:PolyFunction(vNode:class.IAstNode, vFunc:Truth, vPolyParNum:Integer):Ret(class.PolyFunction)
+function TypeManager:PolyFunction(vNode:class.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer):Ret(class.PolyFunction)
 	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, vPolyParNum))
 end
 
@@ -633,9 +636,9 @@ function TypeManager:makeMetaEventCom(vObject:Union(class.LuaTable, class.MetaOb
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:GenericReference(vFunc:class.GenericFunction):Ret(class.Reference)
+function TypeManager:buildGeneric(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class.Reference)
 	const nRefer = self:Reference(false)
-	nRefer:setAssignAsync(self._runtime:getNode(), function()
+	nRefer:setAssignAsync(vNode, function()
 		return vFunc
 	end)
 	return nRefer

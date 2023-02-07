@@ -2,6 +2,7 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
 const Truth = require "thlua.type.Truth"
+const AnyFunction = require "thlua.func.AnyFunction"
 const OpenFunction = require "thlua.func.OpenFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
@@ -18,6 +19,7 @@ function:class(class.FuncUnion) FuncUnion.new(vManager:class.TypeManager):impl(c
 		_typeFnDict={} @Dict(class.TypeFunction, True),
 		_polyFnDict={} @Dict(class.PolyFunction, True),
 		_luaFnDict={} @Dict(class.LuaFunction, True),
+		_anyFn=false@OrFalse(class.AnyFunction),
 		bits=TYPE_BITS.FUNCTION,
 		id=0@Integer,
 	}, FuncUnion)
@@ -28,14 +30,19 @@ function FuncUnion:foreach(vFunc)
 	for nType, _ in pairs(self._openFnDict) do
 		vFunc(nType)
 	end
-	for nType, _ in pairs(self._typeFnDict) do
-		vFunc(nType)
-	end
-	for nType, _ in pairs(self._polyFnDict) do
-		vFunc(nType)
-	end
-	for nType, _ in pairs(self._luaFnDict) do
-		vFunc(nType)
+	const nAnyFn = self._anyFn
+	if not nAnyFn then
+		for nType, _ in pairs(self._typeFnDict) do
+			vFunc(nType)
+		end
+		for nType, _ in pairs(self._polyFnDict) do
+			vFunc(nType)
+		end
+		for nType, _ in pairs(self._luaFnDict) do
+			vFunc(nType)
+		end
+	else
+		vFunc(nAnyFn)
 	end
 end
 
@@ -45,6 +52,14 @@ function FuncUnion:putAwait(vType)
 	end
 	if OpenFunction.is(vType) then
 		self._openFnDict[vType] = true
+	elseif AnyFunction.is(vType) then
+		self._anyFn = vType
+		do.pass
+			self._polyFnDict = {}
+			self._luaFnDict = {}
+			self._typeFnDict = {}
+		end
+	-- TODO lua fn may be typefn or polyfn or openfn, deal by case TODO
 	elseif PolyFunction.is(vType) then
 		self._polyFnDict[vType] = true
 	elseif LuaFunction.is(vType) then

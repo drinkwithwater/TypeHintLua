@@ -8,16 +8,23 @@ function:class(class.GenericReferCom) GenericReferCom.new(vManager:class.TypeMan
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
-		_nparams=0@Integer,
+		_parNum=0@Integer,
 		_func=false@OrFalse(class.GenericFunction),
 		_cache={}@Dict(String, class.Reference),
 	}, GenericReferCom)
 	return self
 end
 
-function GenericReferCom:build(vFunc:class.GenericFunction)
-	const nInfo = debug.getinfo(vFunc)
-	self._nparams = nInfo.nparams
+function GenericReferCom:build(vFunc:class.GenericFunction, vParNum:OrNil(Integer))
+	if vParNum then
+		self._parNum = vParNum
+	else
+		const nInfo = debug.getinfo(vFunc)
+		self._parNum = nInfo.nparams
+		if nInfo.isvararg then
+			error("generic's parameter number is undetermined")
+		end
+	end
 	self._func = vFunc
 end
 
