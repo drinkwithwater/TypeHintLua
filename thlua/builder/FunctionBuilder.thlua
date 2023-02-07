@@ -283,7 +283,7 @@ function FunctionBuilder:_buildOpen():Ret(class.OpenFunction)
 	return nOpenFn or self._manager:OpenFunction():lateInitFromGenFunc(self._genFunc)
 end
 
-function FunctionBuilder:_buildClass():Ret(class.ClassReferCom)
+function FunctionBuilder:_buildClass():Ret(class.TypeFunction)
 	const nPrefixHint = self._prefixHint
 	local nReferOrNil:OrNil(class.Reference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
@@ -315,7 +315,10 @@ function FunctionBuilder:_buildClass():Ret(class.ClassReferCom)
 		error(Exception.new(tostring(err), self._node))
 	end
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
-	return nRefer:setClassAsync(self._node, function()
+	const nParTuple = self:_checkParTupleByDefault()
+	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nRefer))
+	const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
+	nRefer:setClassAsync(self._node, function()
 		local nImplType = nStruct
 		if Reference.is(nImplType) then
 			nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -326,9 +329,13 @@ function FunctionBuilder:_buildClass():Ret(class.ClassReferCom)
 			assert(MetaObject.is(nImplType), "implement type must be MetaObject")
 			nInterface = nImplType
 		end
-		const nParTuple = self:_checkParTupleByDefault()
-		return nParTuple, nInterface
-	end, self._context, self._luaFunc)
+		return nInterface
+	end, self._context, function(vCom)
+		const nContext = self._context:newSealContext(self._node)
+		nContext:setClassCom(vCom)
+		self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(), {}, false)
+	end)
+	return nTypeFn
 end
 
 function FunctionBuilder:build():Ret(class.LuaFunction)

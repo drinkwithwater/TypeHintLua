@@ -134,15 +134,14 @@ function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
 	end)
 end
 
-function Reference:setClassAsync(vNode:class.IAstNode, vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vContext:class.Context, vLuaFunc:class.LuaFunction):Ret(class.ClassReferCom)
+function Reference:setClassAsync(vNode:class.IAstNode, vImplGetter:Fn():Ret(class.MetaObject), vContext:class.Context, vClassBuilder:Fn(class.ClassReferCom))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = ClassReferCom.new(self._manager, self)
 	self._manager:coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
-		nCom:build(vNode, vGetter, vContext, vLuaFunc)
+		nCom:build(vImplGetter, vContext, vClassBuilder)
 	end)
-	return nCom
 end
 
 function Reference:setRawAsync(vNode:class.IAstNode,

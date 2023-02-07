@@ -13,7 +13,6 @@ function:class(class.ClassReferCom) ClassReferCom.new(vManager:class.TypeManager
 		_startSid=(vManager:genSessionId()@OrFalse(Integer)),
 		_namedRefer=vRefer,
 		_classType=false@OrFalse(class.LuaTable),
-		_typeFunction=false@OrFalse(class.TypeFunction),
 		_waitClassCoToSid={} @ Dict(Thread, Integer),
 		_waitBuildCoToSid={}@OrFalse(Dict(Thread, Integer)),
 	}, ClassReferCom)
@@ -28,10 +27,6 @@ end
 
 function ClassReferCom:getToString():Ret(String)
 	return tostring(self._refer)
-end
-
-function ClassReferCom:getTypeFn():Ret(OrFalse(class.TypeFunction))
-	return self._typeFunction
 end
 
 function ClassReferCom:getResultType():Ret(OrFalse(class.LuaTable))
@@ -63,16 +58,13 @@ function ClassReferCom:getListAwait():Ret(List(class.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vNode:class.IAstNode, vGetter:Fn():Ret(class.UTypeTuple, class.MetaObject), vContext:class.Context, vLuaFunction:class.LuaFunction)
-	-- step 1. get inteface
-	const nParTuple, nInterface = vGetter()
+function ClassReferCom:build(vImplGetter:Fn():Ret(class.MetaObject), vContext:class.Context, vClassBuilder:Fn(class.ClassReferCom))
+	-- step 1. wait inteface
+	const nInterface = vImplGetter()
 	vContext:recordDefineLuaFunction(self)
-	-- step 2. create table & type function
+	-- step 2. create table
 	const nNewTable = self._manager:LuaTable()
 	nNewTable:initByClassCom(self, nInterface)
-	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nNewTable))
-	const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
-	self._typeFunction = nTypeFn
 	self._classType = nNewTable
 	-- nClassType:linkNamedReference(self)
 	for co, sid in pairs(self._waitClassCoToSid) do
@@ -83,9 +75,7 @@ function ClassReferCom:build(vNode:class.IAstNode, vGetter:Fn():Ret(class.UTypeT
 	const co = coroutine.running()
 	self._manager:coWait(co, nStartSid)
 	-- step 3. run build
-	const nContext = vContext:newSealContext(vNode)
-	nContext:setClassCom(self)
-	vLuaFunction:getGenFunc()(nTypeFn, nContext, nParTuple:makeTermTuple(), {}, false)
+	vClassBuilder(self)
 	self:_wakeupBuild()
 end
 
