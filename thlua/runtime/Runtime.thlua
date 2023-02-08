@@ -15,27 +15,27 @@ const TermCase = require "thlua.term.TermCase"
 
 (@do
 	import("thlua.code.CodeEnv")
-	let.class = import("thlua.type.TypeClass").class
+	let.clazz = import("thlua.type.TypeClass").clazz
 
 	let.ILoader = Interface {
 		thluaSearch=member:Fn(String):Ret(Boolean, String),
-		thluaParseFile=member:Fn(String):Ret(class.CodeEnv),
+		thluaParseFile=member:Fn(String):Ret(clazz.CodeEnv),
 	}
 
 	let.LoadedState = Struct {
-		fn=class.LuaFunction,
-		term=Union(False, class.RefineTerm),
-		context=class.Context,
+		fn=clazz.LuaFunction,
+		term=Union(False, clazz.RefineTerm),
+		context=clazz.Context,
 	}
 
 	let.Diagnostic = Struct {
-		node=class.IAstNode,
+		node=clazz.IAstNode,
 		msg=String,
 		severity=Union(1,2,3,4),
 	}
 
 	let.FileState = Struct {
-		codeEnv=class.CodeEnv,
+		codeEnv=clazz.CodeEnv,
 		diaList=List(Diagnostic),
 	}
 end)
@@ -44,37 +44,37 @@ end)
 local Runtime = {}
 Runtime.__index=Runtime
 
-function:class(class.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
+function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 	local self = setmetatable({.class
 	}, Runtime)
 	self._loader = vLoader
 	self._mainFileName = vMainFileName
 	self._node = Node.newRootNode(vMainFileName)
-	self._spaceList = {} @ List(class.Namespace)
+	self._spaceList = {} @ List(clazz.Namespace)
 	self._manager = TypeManager.new(self)
 	self._globalTable = native.make(self)
 	self._loadedDict = {} @ Dict(String, LoadedState)
-	self._nodeToSymbolSet = {} @ Dict(class.IAstNode, Dict(class.LocalSymbol, True))
+	self._nodeToSymbolSet = {} @ Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True))
 	self._fileStateDict = {} @Dict(String, FileState)
 	self._rootContext = self:newContext(self._node, false, false)
 	self._rootContext:rootSetNamespace(self:RootNamespace())
 	return self
 end
 
-function Runtime:recordSymbol(vLocalSymbol:class.LocalSymbol)
+function Runtime:recordSymbol(vLocalSymbol:clazz.LocalSymbol)
 	local nNode = vLocalSymbol:getNode()
 	local nLocalSymbolSet = self._nodeToSymbolSet[nNode]
 	if not nLocalSymbolSet then
-		nLocalSymbolSet = {} @ Dict(class.LocalSymbol, True)
+		nLocalSymbolSet = {} @ Dict(clazz.LocalSymbol, True)
 		self._nodeToSymbolSet[nNode] = nLocalSymbolSet
 	end
 	nLocalSymbolSet[vLocalSymbol] = true
 end
 
-function Runtime:getNodeLocalSymbolSet(vNode:class.IAstNode):Ret(Dict(class.LocalSymbol, True))
+function Runtime:getNodeLocalSymbolSet(vNode:clazz.IAstNode):Ret(Dict(clazz.LocalSymbol, True))
 	local nLocalSymbolSet = self._nodeToSymbolSet[vNode]
 	if not nLocalSymbolSet then
-		nLocalSymbolSet = {} @ Dict(class.LocalSymbol, True)
+		nLocalSymbolSet = {} @ Dict(clazz.LocalSymbol, True)
 		self._nodeToSymbolSet[vNode] = nLocalSymbolSet
 	end
 	return nLocalSymbolSet
@@ -86,7 +86,7 @@ function Runtime:checkAtomUnionFinish()
 	end
 end
 
-function Runtime:import(vPath:String):Ret(class.SpaceTable)
+function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 	-- TODO better style
 	self:require(vPath)
 	local nContext = self._loadedDict[vPath]!.context
@@ -104,13 +104,13 @@ function Runtime:main():Ret(Boolean, Nil)
 	end)
 end
 
-function Runtime:newContext(vApplyNode:class.IAstNode, vSealContext:OrFalse(class.Context), vParentContext:OrFalse(class.Context)):Ret(class.Context)
+function Runtime:newContext(vApplyNode:clazz.IAstNode, vSealContext:OrFalse(clazz.Context), vParentContext:OrFalse(clazz.Context)):Ret(clazz.Context)
 	return Context.new(self, vApplyNode, vSealContext, vParentContext)
 end
 
-function Runtime:cacheLoadFile(vFileName:String):Ret(class.LuaFunction)
+function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.LuaFunction)
 	local nFileState = self._fileStateDict[vFileName]
-	local nCodeEnv:OrNil(class.CodeEnv)
+	local nCodeEnv:OrNil(clazz.CodeEnv)
 	if not nFileState then
 		nCodeEnv = self._loader:thluaParseFile(vFileName)
 		nFileState = {
@@ -124,7 +124,7 @@ function Runtime:cacheLoadFile(vFileName:String):Ret(class.LuaFunction)
 	return nCodeEnv:getTypingFn()(self, self._rootContext, nCodeEnv:getNodeList())
 end
 
-function Runtime:require(vPath:String):Ret(class.RefineTerm)
+function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
 		local nOkay, nFileName = self._loader:thluaSearch(vPath)
@@ -151,7 +151,7 @@ function Runtime:require(vPath:String):Ret(class.RefineTerm)
 	return nTerm
 end
 
-function Runtime:TreeNamespace():Ret(class.Namespace)
+function Runtime:TreeNamespace():Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, Node.getDebugNode(4))
 	self._spaceList[#self._spaceList + 1] = nSpace
 	return nSpace
@@ -217,7 +217,7 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	return nGlobal
 end
 
-function Runtime:RootNamespace():Ret(class.Namespace)
+function Runtime:RootNamespace():Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, self._node, self:buildSimpleGlobal())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
@@ -225,19 +225,19 @@ function Runtime:RootNamespace():Ret(class.Namespace)
 	return nSpace
 end
 
-function Runtime:LetNamespace(vParentLet:class.Namespace, vRegionNode:class.IAstNode):Ret(class.Namespace)
+function Runtime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, vRegionNode, vParentLet:getKeyToType())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
 end
 
-function Runtime:makeSymbol_ENV(vNode:class.IAstNode):Ret(class.LocalSymbol)
+function Runtime:makeSymbol_ENV(vNode:clazz.IAstNode):Ret(clazz.LocalSymbol)
 	local nTerm = self._rootContext:RefineTerm(self._globalTable)
 	return LocalSymbol.new(self._rootContext, vNode, self._globalTable, nTerm)
 end
 
-function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.IAstNode, ...:Truth)
+function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
 	local l:List(String) = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
@@ -251,17 +251,17 @@ function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:class.IAstNode, ...:Truth
 	}
 end
 
-function Runtime:nodeError(vNode:class.IAstNode, ...:Truth)
+function Runtime:nodeError(vNode:clazz.IAstNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
-function Runtime:nodeWarn(vNode:class.IAstNode, ...:Truth)
+function Runtime:nodeWarn(vNode:clazz.IAstNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
-function Runtime:nodeInfo(vNode:class.IAstNode, ...:Truth)
+function Runtime:nodeInfo(vNode:clazz.IAstNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end
@@ -274,11 +274,11 @@ function Runtime:getAllDiagnostic():Ret(Dict(String, List(Diagnostic)))
 	return nFileToDiaList
 end
 
-function Runtime:getNode():Ret(class.IAstNode)
+function Runtime:getNode():Ret(clazz.IAstNode)
 	return self._node
 end
 
-function Runtime:getTypeManager():Ret(class.TypeManager)
+function Runtime:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
 end
 

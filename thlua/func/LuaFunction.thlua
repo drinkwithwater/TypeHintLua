@@ -13,17 +13,17 @@ const PolyFunction = require "thlua.func.PolyFunction"
 
 const LuaFunction = AtomTypeClass()
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(class.LuaFunction) LuaFunction.new(vManager:class.TypeManager):impl(class.IAtomType)
+function:class(clazz.LuaFunction) LuaFunction.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
 	local self = setmetatable({.class
 		_manager=vManager,
-		_context=false@class.Context,
-		_node=false@class.IAstNode,
+		_context=false@clazz.Context,
+		_node=false@clazz.IAstNode,
 		_isMember=false@Boolean,
-		_innerFn=false@OrFalse(class.OpenFunction, class.UDefaultFunction),
-		_lateFnCom=false@OrFalse(class.LateFnCom),
-		_hintCom=nil@class.FunctionBuilder,
+		_innerFn=false@OrFalse(clazz.OpenFunction, clazz.UDefaultFunction),
+		_lateFnCom=false@OrFalse(clazz.LateFnCom),
+		_hintCom=nil@clazz.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown"@String,
 		id=vManager:genTypeId(),
@@ -35,11 +35,11 @@ function LuaFunction:setMember()
 	self._isMember = true
 end
 
-function LuaFunction:getBuilder():Ret(class.FunctionBuilder)
+function LuaFunction:getBuilder():Ret(clazz.FunctionBuilder)
 	return self._hintCom
 end
 
-function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHintCom:class.FunctionBuilder, vLateFnCom:OrFalse(class.LateFnCom), vInnerFn:OrFalse(class.OpenFunction, class.UDefaultFunction))
+function LuaFunction:lateInit(vContext:clazz.Context, vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vLateFnCom:OrFalse(clazz.LateFnCom), vInnerFn:OrFalse(clazz.OpenFunction, clazz.UDefaultFunction))
 	self._context = vContext
 	self._node = vNode
 	self._hintCom = vHintCom
@@ -48,11 +48,11 @@ function LuaFunction:lateInit(vContext:class.Context, vNode:class.IAstNode, vHin
 	self.name = tostring(vNode)
 end
 
-function LuaFunction:newInplaceSealContext():Ret(class.Context)
+function LuaFunction:newInplaceSealContext():Ret(clazz.Context)
 	return self._context:newSealContext(self._node)
 end
 
-function LuaFunction:newInplaceOpenContext():Ret(class.Context)
+function LuaFunction:newInplaceOpenContext():Ret(clazz.Context)
 	return self._context:newOpenContext(self._node)
 end
 
@@ -64,7 +64,7 @@ function LuaFunction:detailString(v, vVerbose)
 	return "LuaFunction-"..self.name
 end
 
-function LuaFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
+function LuaFunction:meta_open_call(vContext:clazz.Context, vTermTuple:clazz.TermTuple):Ret(clazz.TermTuple)
 	const nInnerFn = self._innerFn
 	if OpenFunction.is(nInnerFn) then
 		return nInnerFn:meta_open_call(vContext, vTermTuple)
@@ -128,7 +128,7 @@ function LuaFunction:castPoly(vContext, vTypeArgsList)
 	return self._hintCom:checkWhenTemplate(vContext, vTypeArgsList)
 end
 
-function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(OrFalse(class.TypeFunction))
+function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(OrFalse(clazz.TypeFunction))
 	const nUnionFnCom = self._lateFnCom
 	if LateFnCom.is(nUnionFnCom) then
 		const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
@@ -139,7 +139,7 @@ function LuaFunction:cast(vContext:class.Context, vTypeFn:class.TypeFunction):Re
 	end
 end
 
-function LuaFunction:castSpecialize(vContext:class.Context, vTypeFn:class.TypeFunction):Ret(class.TypeFunction)
+function LuaFunction:castSpecialize(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction)
 	const nLateCom = self._lateFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nAfterTypeFn = self._hintCom:checkWhenCast(vContext, vTypeFn)
@@ -147,7 +147,7 @@ function LuaFunction:castSpecialize(vContext:class.Context, vTypeFn:class.TypeFu
 	return nAfterTypeFn
 end
 
-function LuaFunction:autoSpecialize(vContext:class.Context, vSelfType:OrNil(class.LuaTable)):Ret(class.TypeFunction)
+function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.TypeFunction)
 	local nLateCom = self._lateFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nDefaultFn = nLateCom:getDefaultFn()
@@ -172,15 +172,15 @@ function LuaFunction:mayRecursive()
 	return true
 end
 
-function LuaFunction:getNode():Ret(class.IAstNode)
+function LuaFunction:getNode():Ret(clazz.IAstNode)
 	return self._node
 end
 
-function LuaFunction:getGenFunc():Ret(class.GenFunc)
+function LuaFunction:getGenFunc():Ret(clazz.GenFunc)
 	return self._hintCom:getGenFunc()
 end
 
-function.open LuaFunction.is(vType):isguard(class.LuaFunction)
+function.open LuaFunction.is(vType):isguard(clazz.LuaFunction)
 	return getmetatable(vType) == LuaFunction
 end
 

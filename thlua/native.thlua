@@ -12,12 +12,12 @@ local TermCase = require "thlua.term.TermCase"
 local native = {}
 
 (@do
-	let.class = import("thlua.type.TypeClass").class
-	let.StringToAtomUnion = Dict(String, class.UAtomUnion)
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.StringToAtomUnion = Dict(String, clazz.UAtomUnion)
 end)
 
-function native._toTable(vManager:class.TypeManager, vTable:let.StringToAtomUnion):Ret(class.LuaTable)
-	local nPairList:List(Struct{class.UAtomUnion, class.UAtomUnion}) = {}
+function native._toTable(vManager:clazz.TypeManager, vTable:let.StringToAtomUnion):Ret(clazz.LuaTable)
+	local nPairList:List(Struct{clazz.UAtomUnion, clazz.UAtomUnion}) = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
 			vManager:Literal(k), v
@@ -29,7 +29,7 @@ function native._toTable(vManager:class.TypeManager, vTable:let.StringToAtomUnio
 	return nTable
 end
 
-function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
+function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 	const nManager = vRuntime:getTypeManager()
 	const global:StringToAtomUnion = {
 		--- meta_native
@@ -53,7 +53,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 		end),
 		getmetatable=nManager:OpenFunction(function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(1)
-			local nTypeCaseList:List(class.TypeCasePair) = {}
+			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			nTerm1:foreach(function(vType1, vTermCase)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					vType1:native_getmetatable(vContext),
@@ -99,7 +99,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 		end),
 		type=nManager:OpenFunction(function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(1)
-			local nTypeCaseList:List(class.TypeCasePair) = {}
+			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			nTerm:foreach(function(vType, vTermCase)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					vType:native_type(), vTermCase
@@ -148,7 +148,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 						if nRepeatType then
 							return nManager:Tuple():Dots(nRepeatType):makeTermTuple()
 						else
-							const nReList:List(class.UAtomUnion) = {}
+							const nReList:List(clazz.UAtomUnion) = {}
 							for i=2, #vTermTuple do
 								nReList[#nReList + 1] = nFinalType
 							end
@@ -190,7 +190,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 		pcall=nManager:OpenFunction(function(vContext, vTermTuple)
 			const nFunc = vTermTuple:get(1)
 			const nArgs = vTermTuple:select(2)
-			const nParentContext = (vContext:getParentContext()) @!!class.Context
+			const nParentContext = (vContext:getParentContext()) @!!clazz.Context
 			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nManager:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
@@ -199,7 +199,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 		xpcall=nManager:OpenFunction(function(vContext, vTermTuple)
 			const nFunc = vTermTuple:get(1)
 			const nArgs = vTermTuple:select(3)
-			const nParentContext = (vContext:getParentContext()) @!!class.Context
+			const nParentContext = (vContext:getParentContext()) @!!clazz.Context
 			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nManager:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
@@ -214,7 +214,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 			return vContext._manager:TermTuple({})
 		end),
 	}
-	for k,v in pairs(global @ Dict(String, class.OpenFunction)) do
+	for k,v in pairs(global @ Dict(String, clazz.OpenFunction)) do
 		v:set_name(k)
 	end
 
@@ -233,7 +233,7 @@ function native.make(vRuntime:class.Runtime):Ret(class.LuaTable)
 	return nGlobalTable
 end
 
-function native.make_math(vManager:class.TypeManager):Ret(class.LuaTable)
+function native.make_math(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	const type = vManager.type
 	const math:StringToAtomUnion = {
 		random=vManager:checkedFn():Dots(type.Number):Ret(type.Number),
@@ -246,7 +246,7 @@ function native.make_math(vManager:class.TypeManager):Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_debug(vManager:class.TypeManager):Ret(class.LuaTable)
+function native.make_debug(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	-- debug.traceback's arguments TODO
 	const type = vManager.type
 	const nInfo = vManager:buildStruct(vManager:getRuntime():getNode(), {
@@ -274,7 +274,7 @@ function native.make_debug(vManager:class.TypeManager):Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_io(vManager:class.TypeManager):Ret(class.LuaTable)
+function native.make_io(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	const type = vManager.type
 	const io:StringToAtomUnion = {
 		read=vManager:checkedFn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
@@ -286,7 +286,7 @@ function native.make_io(vManager:class.TypeManager):Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_coroutine(vManager:class.TypeManager):Ret(class.LuaTable)
+function native.make_coroutine(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	const type = vManager.type
 	const nStatusUnion = vManager:checkedUnion(
 		vManager:Literal("running"),
@@ -306,7 +306,7 @@ function native.make_coroutine(vManager:class.TypeManager):Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_string(vManager:class.TypeManager):Ret(class.LuaTable)
+function native.make_string(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	const type = vManager.type
 	const string:StringToAtomUnion = {
 		rep=vManager:checkedFn(type.String, type.Integer, vManager:checkedUnion(type.String, type.Integer, type.Nil)):Ret(type.String),
@@ -324,8 +324,8 @@ function native.make_string(vManager:class.TypeManager):Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_table(vManager:class.TypeManager):Ret(class.LuaTable)
-	const function checkList(vContext:class.Context, vType:class.UAtomUnion, vKey:String):Ret(class.UAtomUnion)
+function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+	const function checkList(vContext:clazz.Context, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
 		vType:foreach(function(vSubType)
@@ -391,7 +391,7 @@ function native.make_table(vManager:class.TypeManager):Ret(class.LuaTable)
 	return nTable
 end
 
-function native.make_inext(vManager:class.TypeManager):Ret(class.IAtomType)
+function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	local nNumber = vManager.type.Number
 	local nNil = vManager.type.Nil
 	return vManager:OpenFunction(function(vContext, vTermTuple)
@@ -402,11 +402,11 @@ function native.make_inext(vManager:class.TypeManager):Ret(class.IAtomType)
 		else
 			local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
 			local nValueTerm = vManager:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
-			local nKeyValue:Dict(class.IAtomType, class.UAtomUnion) = {
+			local nKeyValue:Dict(clazz.IAtomType, clazz.UAtomUnion) = {
 				[nNumber]=nNotNilValue,
 				[nNil]=nNil,
 			}
-			local nTypeCaseList:List(class.TypeCasePair) = {}
+			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
 				local nCase = TermCase.new()
 				nCase:put_and(nValueTerm:attachImmutShot(), nOneValue)
@@ -420,7 +420,7 @@ function native.make_inext(vManager:class.TypeManager):Ret(class.IAtomType)
 	end)
 end
 
-function native.make_next(vManager:class.TypeManager):Ret(class.IAtomType)
+function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	return vManager:OpenFunction(function(vContext, vTermTuple)
 		local nType1 = vTermTuple:get(1):getType()
 		nType1 = nType1:trueType()
@@ -430,7 +430,7 @@ function native.make_next(vManager:class.TypeManager):Ret(class.IAtomType)
 		else
 			local nValueType, nKeyValue = nType1:native_next(vContext, nType2)
 			local nValueTerm = vManager:RefineTerm(nValueType)
-			local nTypeCaseList:List(class.TypeCasePair) = {}
+			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
 				local nCase = TermCase.new()
 				nCase:put_and(nValueTerm:attachImmutShot(), nOneValue)
@@ -444,22 +444,22 @@ function native.make_next(vManager:class.TypeManager):Ret(class.IAtomType)
 	end)
 end
 
-function native.make_mathematic(vManager:class.TypeManager):Ret(class.IAtomType)
+function native.make_mathematic(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	local nNumber = vManager.type.Number
 	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 end
 
-function native.make_comparison(vManager:class.TypeManager):Ret(class.IAtomType)
+function native.make_comparison(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	local nNumber = vManager.type.Number
 	return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
 end
 
-function native.make_bitwise(vManager:class.TypeManager):Ret(class.TypeFunction)
+function native.make_bitwise(vManager:clazz.TypeManager):Ret(clazz.TypeFunction)
 	local nNumber = vManager.type.Number
 	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 end
 
-function native.make_concat(vManager:class.TypeManager):Ret(class.TypeFunction)
+function native.make_concat(vManager:clazz.TypeManager):Ret(clazz.TypeFunction)
 	local nType = vManager:checkedUnion(vManager.type.String, vManager.type.Number)
 	return vManager:checkedFn(nType, nType):Ret(vManager.type.String)
 end

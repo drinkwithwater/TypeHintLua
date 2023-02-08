@@ -3,12 +3,12 @@ const ImmutShot = require "thlua.term.ImmutShot"
 const TermCase = require "thlua.term.TermCase"
 const Nil = require "thlua.type.Nil"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const RefineTerm = {}
 RefineTerm.__index=RefineTerm
-RefineTerm.__bor=function(vLeft:class.RefineTerm, vRight:class.RefineTerm):Ret(class.RefineTerm)
-	const nTypeCaseList:List(class.TypeCasePair) = {}
+RefineTerm.__bor=function(vLeft:clazz.RefineTerm, vRight:clazz.RefineTerm):Ret(clazz.RefineTerm)
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vLeft:foreach(function(vType, vCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
 	end)
@@ -17,7 +17,7 @@ RefineTerm.__bor=function(vLeft:class.RefineTerm, vRight:class.RefineTerm):Ret(c
 	end)
 	return vLeft._manager:mergeToRefineTerm(nTypeCaseList)
 end
-RefineTerm.__tostring=function(self:class.RefineTerm):Ret(String)
+RefineTerm.__tostring=function(self:clazz.RefineTerm):Ret(String)
 	const l:List(String) = {}
 	for nType, nTermCase in pairs(self._typeToCase) do
 		l[#l + 1] = tostring(nType) .."=>"..tostring(nTermCase)
@@ -25,15 +25,15 @@ RefineTerm.__tostring=function(self:class.RefineTerm):Ret(String)
 	return "RefineTerm("..table.concat(l, ",")..")"
 end
 
-function:class(class.RefineTerm) RefineTerm.new(
-	vManager:class.TypeManager,
-	vType:class.UAtomUnion,
-	vTypeToCase:OrNil(Dict(class.IAtomType, class.TermCase)))
+function:class(clazz.RefineTerm) RefineTerm.new(
+	vManager:clazz.TypeManager,
+	vType:clazz.UAtomUnion,
+	vTypeToCase:OrNil(Dict(clazz.IAtomType, clazz.TermCase)))
 	const self = setmetatable({.class
 		_manager=vManager,
-		_typeToCase=vTypeToCase or {}@Dict(class.IAtomType, class.TermCase),
+		_typeToCase=vTypeToCase or {}@Dict(clazz.IAtomType, clazz.TermCase),
 		_type=vType,
-		_symbolShot=false @ Union(False, class.ImmutShot),
+		_symbolShot=false @ Union(False, clazz.ImmutShot),
 	}, RefineTerm)
 	vType:foreach(function(vType)
 		if not self._typeToCase[vType] then
@@ -43,18 +43,18 @@ function:class(class.RefineTerm) RefineTerm.new(
 	return self
 end
 
-function RefineTerm:foreach(func:Fn(class.IAtomType, class.TermCase))
+function RefineTerm:foreach(func:Fn(clazz.IAtomType, clazz.TermCase))
 	for nType, nTermCase in pairs(self._typeToCase) do
 		func(nType, nTermCase)
 	end
 end
 
-function.open RefineTerm.is(v):isguard(class.RefineTerm)
+function.open RefineTerm.is(v):isguard(clazz.RefineTerm)
 	return getmetatable(v) == RefineTerm
 end
 
-function RefineTerm:caseIsType(vGuardType:class.LuaTable):Ret(OrNil(class.TermCase))
-	local nCase:OrNil(class.TermCase) = nil
+function RefineTerm:caseIsType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.TermCase))
+	local nCase:OrNil(clazz.TermCase) = nil
 	self._type:foreach(function(vType)
 		if vType:containAll(vGuardType) then
 			nCase = self._typeToCase[vType]
@@ -72,8 +72,8 @@ function RefineTerm:caseIsType(vGuardType:class.LuaTable):Ret(OrNil(class.TermCa
 	end
 end
 
-function RefineTerm:caseIsNotType(vGuardType:class.LuaTable):Ret(OrNil(class.TermCase))
-	local reCase:OrNil(class.TermCase) = nil
+function RefineTerm:caseIsNotType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.TermCase))
+	local reCase:OrNil(clazz.TermCase) = nil
 	self._type:foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if vGuardType ~= vType then
@@ -87,8 +87,8 @@ function RefineTerm:caseIsNotType(vGuardType:class.LuaTable):Ret(OrNil(class.Ter
 	return reCase
 end
 
-function RefineTerm:caseTrue():Ret(OrNil(class.TermCase))
-	local reCase:OrNil(class.TermCase) = nil
+function RefineTerm:caseTrue():Ret(OrNil(clazz.TermCase))
+	local reCase:OrNil(clazz.TermCase) = nil
 	self._type:trueType():foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if not reCase then
@@ -100,17 +100,17 @@ function RefineTerm:caseTrue():Ret(OrNil(class.TermCase))
 	return reCase
 end
 
-function RefineTerm:notnilTerm():Ret(class.RefineTerm)
+function RefineTerm:notnilTerm():Ret(clazz.RefineTerm)
 	const nNotnilType = self._type:notnilType()
-	const nTypeCaseList:List(class.TypeCasePair) = {}
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	nNotnilType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:caseNotnil():Ret(OrNil(class.TermCase))
-	local reCase:OrNil(class.TermCase) = nil
+function RefineTerm:caseNotnil():Ret(OrNil(clazz.TermCase))
+	local reCase:OrNil(clazz.TermCase) = nil
 	self._type:foreach(function(vType)
 		if not Nil.is(vType) then
 			const nCase = self._typeToCase[vType]!
@@ -125,8 +125,8 @@ function RefineTerm:caseNotnil():Ret(OrNil(class.TermCase))
 end
 
 -- return TermCase | nil
-function RefineTerm:caseFalse():Ret(OrNil(class.TermCase))
-	local reCase:OrNil(class.TermCase) = nil
+function RefineTerm:caseFalse():Ret(OrNil(clazz.TermCase))
+	local reCase:OrNil(clazz.TermCase) = nil
 	self._type:falseType():foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if not reCase then
@@ -138,26 +138,26 @@ function RefineTerm:caseFalse():Ret(OrNil(class.TermCase))
 	return reCase
 end
 
-function RefineTerm:falseTerm():Ret(class.RefineTerm)
+function RefineTerm:falseTerm():Ret(clazz.RefineTerm)
 	const nFalseType = self._type:falseType()
-	const nTypeCaseList:List(class.TypeCasePair) = {}
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	nFalseType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:trueTerm():Ret(class.RefineTerm)
+function RefineTerm:trueTerm():Ret(clazz.RefineTerm)
 	const nTrueType = self._type:trueType()
-	const nTypeCaseList:List(class.TypeCasePair) = {}
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	nTrueType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:notTerm():Ret(class.RefineTerm)
-	const nTypeCaseList:List(class.TypeCasePair) = {}
+function RefineTerm:notTerm():Ret(clazz.RefineTerm)
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	self._type:falseType():foreach(function(vType)
 	nTypeCaseList[#nTypeCaseList + 1] = {
 		self._manager.type.True,
@@ -173,17 +173,17 @@ function RefineTerm:notTerm():Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:getType():Ret(class.UAtomUnion)
+function RefineTerm:getType():Ret(clazz.UAtomUnion)
 	return self._type
 end
 
-function RefineTerm:and_case(vCase1:class.TermCase)
+function RefineTerm:and_case(vCase1:clazz.TermCase)
 	for nType, nCase2 in pairs(self._typeToCase) do
 		self._typeToCase[nType] = vCase1 & nCase2
 	end
 end
 
-function RefineTerm:initShot(vImmutShot:class.ImmutShot)
+function RefineTerm:initShot(vImmutShot:clazz.ImmutShot)
 	assert(not self._symbolShot, "term can only set symbolshot once")
 	self._symbolShot = vImmutShot
 	for nType, nTermCase in pairs(self._typeToCase) do
@@ -196,8 +196,8 @@ function RefineTerm:initShot(vImmutShot:class.ImmutShot)
 	end
 end
 
-function RefineTerm:filter(vType:class.UAllType):Ret(class.RefineTerm)
-	const nTypeCaseList:List(class.TypeCasePair) = {}
+function RefineTerm:filter(vType:clazz.UAllType):Ret(clazz.RefineTerm)
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vType:foreach(function(vSubType)
 		const nContainType = self._type:containAtom(vSubType)
 		if nContainType then
@@ -210,7 +210,7 @@ function RefineTerm:filter(vType:class.UAllType):Ret(class.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:attachImmutShot():Ret(class.ImmutShot)
+function RefineTerm:attachImmutShot():Ret(clazz.ImmutShot)
 	local nImmutShot = self._symbolShot
 	if not nImmutShot then
 		nImmutShot = ImmutShot.new(self)

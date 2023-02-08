@@ -13,41 +13,41 @@ const MetaObject = require "thlua.object.MetaObject"
 
 const LuaTable = AtomTypeClass()
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(class.LuaTable) LuaTable.new(vManager:class.TypeManager):impl(class.IAtomType)
+function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_name="Table"@String,
 		_unionSign=false,
-		_metaTable=false@OrFalse(class.LuaTable),
+		_metaTable=false@OrFalse(clazz.LuaTable),
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
-		_metaEventCom=false@OrFalse(class.MetaEventCom),
-		_defaultCom=nil@class.DefaultTableCom,
-		_classCom=false@OrFalse(class.ClassReferCom),
-		_objectType=false@OrFalse(class.MetaObject),
+		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
+		_defaultCom=nil@clazz.DefaultTableCom,
+		_clazzCom=false@OrFalse(clazz.ClassReferCom),
+		_objectType=false@OrFalse(clazz.MetaObject),
 	}, LuaTable)
 	self._defaultCom=DefaultTableCom.new(self._manager, self)
 	return self
 end
 
-function LuaTable:initByClassCom(vFnCom:class.ClassReferCom, vInterface:class.MetaObject)
-	self._classCom = vFnCom
+function LuaTable:initByClassCom(vFnCom:clazz.ClassReferCom, vInterface:clazz.MetaObject)
+	self._clazzCom = vFnCom
 	self._objectType = vInterface
 	self._defaultCom:setInterface(vInterface)
 end
 
-function LuaTable:getMetaEventCom():Ret(OrFalse(class.MetaEventCom))
+function LuaTable:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
 end
 
-function LuaTable:getDefaultCom():Ret(class.DefaultTableCom)
+function LuaTable:getDefaultCom():Ret(clazz.DefaultTableCom)
 	return self._defaultCom
 end
 
-function LuaTable:_lockOrWaitClass(vContext:class.Context)
-	const nClassCom = self._classCom
+function LuaTable:_lockOrWaitClass(vContext:clazz.Context)
+	const nClassCom = self._clazzCom
 	if nClassCom then
 		nClassCom:waitBuild()
 	else
@@ -75,7 +75,7 @@ function LuaTable:meta_pairs(vContext)
 		if nPairsFn then
 			const nManager = self._manager
 			const nRetTuples = nPairsFn:meta_call(vContext, nManager:Tuple(self))
-			local nRetOneTuple:OrFalse(class.TypeTuple) = false
+			local nRetOneTuple:OrFalse(clazz.TypeTuple) = false
 			nRetTuples:foreachWithFirst(function(vTuple, _)
 				nRetOneTuple = vTuple
 			end)
@@ -113,8 +113,8 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	local nManager = self._manager
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
-	local nAsIndex:OrFalse(class.MetaIndexField) = false
-	local nAsNewIndex:OrFalse(class.MetaIndexField) = false
+	local nAsIndex:OrFalse(clazz.MetaIndexField) = false
+	local nAsNewIndex:OrFalse(clazz.MetaIndexField) = false
 	if LuaTable.is(nIndexType) then
 		nAsIndex = nIndexType:getDefaultCom():lockAsMetaIndex()
 	end
@@ -124,8 +124,8 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- 3. set default com
 	const nDefaultCom = self._defaultCom
 	nDefaultCom:setMetaIndex(vContext, nAsIndex, nAsNewIndex)
-	-- 4. set class com
-	const nClassCom = self._classCom
+	-- 4. set clazz com
+	const nClassCom = self._clazzCom
 	if nClassCom then
 		nClassCom:onSetMetaTable()
 	end
@@ -141,19 +141,19 @@ function LuaTable:native_type()
 	return self._manager:Literal("table")
 end
 
-function LuaTable:native_rawget(vContext, vKeyType):Ret(class.UAtomUnion)
+function LuaTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	self:_lockOrWaitClass(vContext)
 	return self._defaultCom:native_rawget(vContext, vKeyType)
 end
 
-function LuaTable:native_rawset(vContext, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil, Boolean))
+function LuaTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil, Boolean))
 	self:_lockOrWaitClass(vContext)
 	return self._defaultCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
 end
 
-function LuaTable:_checkComOrStruct(vContext:class.Context):Ret(class.IMetaNative)
+function LuaTable:_checkComOrStruct(vContext:clazz.Context):Ret(clazz.IMetaNative)
 	self:_lockOrWaitClass(vContext)
-	if self._classCom then
+	if self._clazzCom then
 		return self._defaultCom
 	else
 		const nCastStruct = self._objectType
@@ -176,8 +176,8 @@ end
 
 function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
 	self:_lockOrWaitClass(vContext)
-	if self._classCom then
-		vContext:error("override set can't work on class table")
+	if self._clazzCom then
+		vContext:error("override set can't work on clazz table")
 	else
 		self._defaultCom:meta_set_ifoverride(vContext, vKeyType, vValueType, true)
 	end
@@ -228,13 +228,13 @@ function LuaTable:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function LuaTable:cast(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion):Ret(OrFalse(class.MetaObject))
-	if self._classCom then
+function LuaTable:cast(vContext:clazz.Context, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
+	if self._clazzCom then
 		return false
 	end
 	const nOldStruct = self._objectType
 	if nOldStruct then
-		local nMatchStruct:OrNil(class.MetaObject) = nil
+		local nMatchStruct:OrNil(clazz.MetaObject) = nil
 		vObjectAtomUnion:foreach(function(vAtomType)
 			if not nMatchStruct and MetaObject.is(vAtomType)
 				and vAtomType:containAll(nOldStruct) and nOldStruct:containAll(vAtomType) then
@@ -266,7 +266,7 @@ end
 
 -- called when struct contain
 function LuaTable:checkBaseObjectType()
-	if self._classCom then
+	if self._clazzCom then
 		return (assert(self._objectType))
 	end
 	const nStruct = self._objectType
@@ -277,11 +277,11 @@ function LuaTable:checkBaseObjectType()
 	return self._manager.type.AnyObject
 end
 
-function LuaTable:getCompletion():Ret(class.LspCompletion)
+function LuaTable:getCompletion():Ret(clazz.LspCompletion)
 	return self._defaultCom:getCompletion()
 end
 
-function.open LuaTable.is(v):isguard(class.LuaTable)
+function.open LuaTable.is(v):isguard(clazz.LuaTable)
 	return getmetatable(v) == LuaTable
 end
 

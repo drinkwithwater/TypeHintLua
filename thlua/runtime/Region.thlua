@@ -11,7 +11,7 @@ const DoBuilder = require "thlua.builder.DoBuilder"
 const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 (@let.node= import("thlua.code.Node").node)
 
 Region.__index = Region
@@ -19,19 +19,19 @@ Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._context:getNode())
 end
 
-function:class(class.Region) Region.new(vContext:class.Context, vBodyFn:class.URegionFunction, vUpCase:class.TermCase)
+function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:clazz.URegionFunction, vUpCase:clazz.TermCase)
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
 	const self = setmetatable({.class
 		_context=vContext,
 		_curBranch=nRootBranch,
-		_branchStack={nRootBranch}@List(class.Branch),
+		_branchStack={nRootBranch}@List(clazz.Branch),
 		_bodyFn=vBodyFn,
-		_retList={} @ List(class.TermTuple),
+		_retList={} @ List(clazz.TermTuple),
 	}, Region)
 	return self
 end
 
-function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn()):Ret(class.Branch)
+function Region:withBranch(vTermCase:clazz.TermCase, vFunc:Fn()):Ret(clazz.Branch)
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
@@ -44,17 +44,17 @@ function Region:withBranch(vTermCase:class.TermCase, vFunc:Fn()):Ret(class.Branc
 	return nNewBranch
 end
 
-function Region:topBranch():Ret(class.Branch)
+function Region:topBranch():Ret(clazz.Branch)
 	return self._curBranch
 end
 
-function Region:SYMBOL_SET(vNode:class.IAstNode, vSymbol:class.LocalSymbol, vTerm:class.RefineTerm, vOverride:Boolean)
+function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm, vOverride:Boolean)
 	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
 	const nAssignContext = self._context:newOpenContext(vNode)
 	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol):Ret(class.RefineTerm)
+function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(clazz.RefineTerm)
 	local nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
@@ -63,7 +63,7 @@ function Region:SYMBOL_GET(vNode:class.IAstNode, vSymbol:class.USymbol):Ret(clas
 	end
 end
 
-function Region:SYMBOL_NEW(vNode:class.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(class.RefineTerm), vHintType:OrNil(class.UAllType)):Ret(class.USymbol)
+function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.RefineTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
 		vTerm = nAssignContext:NilTerm()
@@ -98,7 +98,7 @@ function Region:SYMBOL_NEW(vNode:class.IAstNode, vKind:node.SymbolKindEnum, vMod
 	end
 end
 
-function Region:IF(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
+function Region:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
 	const nBeforeBranch = self:topBranch()
@@ -122,7 +122,7 @@ function Region:IF(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:F
 	end
 end
 
-function Region:WHILE(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunction:Fn())
+function Region:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
 		self:withBranch(nTrueCase, function()
@@ -133,7 +133,7 @@ function Region:WHILE(vNode:class.IAstNode, vTerm:class.RefineTerm, vTrueFunctio
 	end
 end
 
-function Region:DO(vNode:class.IAstNode, vHintInfo:class.TLongHintInfo(Nil), vDoFunc:Fn())
+function Region:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
 	const nBuilder = DoBuilder.new(self._context, vNode)
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
@@ -141,7 +141,7 @@ function Region:DO(vNode:class.IAstNode, vHintInfo:class.TLongHintInfo(Nil), vDo
 	end
 end
 
-function Region:FOR_IN(vNode:class.IAstNode, vFunc:Fn(class.TermTuple), vNext:class.RefineTerm, vSelf:class.RefineTerm, vInit:class.RefineTerm)
+function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNext:clazz.RefineTerm, vSelf:clazz.RefineTerm, vInit:clazz.RefineTerm)
 	const nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
 	if #nTuple <= 0 then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value")
@@ -160,7 +160,7 @@ function Region:FOR_IN(vNode:class.IAstNode, vFunc:Fn(class.TermTuple), vNext:cl
 		if vAtomType:isNilable() then
 			return
 		end
-		const nTermList:List(class.RefineTerm) = {self._context:RefineTerm(vAtomType)}
+		const nTermList:List(clazz.RefineTerm) = {self._context:RefineTerm(vAtomType)}
 		--[[for i=2, #nTuple do
 			nTermList[i] = nTuple:get(i)
 		end]]
@@ -180,22 +180,22 @@ function Region:FOR_IN(vNode:class.IAstNode, vFunc:Fn(class.TermTuple), vNext:cl
 end
 
 function Region:FOR_NUM(
-	vNode:class.IAstNode,
-	vStart:class.RefineTerm,
-	vStop:class.RefineTerm,
-	vStepOrNil:OrNil(class.RefineTerm),
-	vFunc:Fn(class.RefineTerm)
+	vNode:clazz.IAstNode,
+	vStart:clazz.RefineTerm,
+	vStop:clazz.RefineTerm,
+	vStepOrNil:OrNil(clazz.RefineTerm),
+	vFunc:Fn(clazz.RefineTerm)
 )
 	vFunc(self._context:NumberTerm())
 end
 
-function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm)):Ret(class.RefineTerm)
+function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	local nLeftTrueTerm = vLeftTerm:trueTerm()
 	local nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
 		return nLeftTrueTerm
 	else
-		local nRightTerm:OrNil(class.RefineTerm) = nil
+		local nRightTerm:OrNil(clazz.RefineTerm) = nil
 		self:withBranch(nLeftFalseCase, function()
 			nRightTerm = vRightFunction()
 		end)
@@ -205,13 +205,13 @@ function Region:LOGIC_OR(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRigh
 	end
 end
 
-function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRightFunction:Fn():Ret(class.RefineTerm)):Ret(class.RefineTerm)
+function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	local nLeftFalseTerm = vLeftTerm:falseTerm()
 	local nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
 		return nLeftFalseTerm
 	else
-		local nRightTerm:OrNil(class.RefineTerm) = nil
+		local nRightTerm:OrNil(clazz.RefineTerm) = nil
 		self:withBranch(nLeftTrueCase, function()
 			nRightTerm = vRightFunction()
 		end)
@@ -221,7 +221,7 @@ function Region:LOGIC_AND(vNode:class.IAstNode, vLeftTerm:class.RefineTerm, vRig
 	end
 end
 
-function Region:LOGIC_NOT(vNode:class.IAstNode, vData:class.RefineTerm):Ret(class.RefineTerm)
+function Region:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	return vData:notTerm()
 end
 
@@ -229,18 +229,18 @@ function Region:nativeError()
 	self:topBranch():setStop()
 end
 
-function Region:nativeAssert(vTerm:class.RefineTerm)
+function Region:nativeAssert(vTerm:clazz.RefineTerm)
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
 		self:topBranch():assertCase(nTrueCase)
 	end
 end
 
-function Region:BREAK(vNode:class.IAstNode)
+function Region:BREAK(vNode:clazz.IAstNode)
 	self:topBranch():setStop()
 end
 
-function Region:_bodyReturn(vNode:class.IAstNode, vTypeTuple:class.UTypeTuple)
+function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 	const nBodyFn = self._bodyFn
 	if TypeFunction.is(nBodyFn) then
 		const nContext = self._context
@@ -260,7 +260,7 @@ function Region:_bodyReturn(vNode:class.IAstNode, vTypeTuple:class.UTypeTuple)
 	end
 end
 
-function Region:_bodyEnd(vNode:class.IAstNode, vTermTupleList:List(class.TermTuple)):Ret(class.TermTuple)
+function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.TermTuple)):Ret(clazz.TermTuple)
 	const nBodyFn = self._bodyFn
 	if OpenFunction.is(nBodyFn) then
 		local nLen = #vTermTupleList
@@ -279,7 +279,7 @@ function Region:_bodyEnd(vNode:class.IAstNode, vTermTupleList:List(class.TermTup
 	return self._context:TermTuple({})
 end
 
-function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
+function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.TermTuple)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getRepeatType() then
 		self:_bodyReturn(vNode, vTermTuple:getTypeTuple())
@@ -287,7 +287,7 @@ function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 		const nManager = self._context:getTypeManager()
 		const nFirstTerm = vTermTuple:get(1)
 		nFirstTerm:foreach(function(vAtomType, vCase)
-			const nTypeList:List(class.UAtomUnion) = {vAtomType}
+			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
 			for i=2, #vTermTuple do
 				local nTerm = vTermTuple:get(i)
 				const nType = vCase[nTerm:attachImmutShot()]
@@ -304,7 +304,7 @@ function Region:RETURN(vNode:class.IAstNode, vTermTuple:class.TermTuple)
 	self:topBranch():setStop()
 end
 
-function Region:END(vNode:class.IAstNode):Ret(class.TermTuple)
+function Region:END(vNode:clazz.IAstNode):Ret(clazz.TermTuple)
 	local re = self:_bodyEnd(vNode, self._retList)
 	self._context:getNamespace():close()
 	self._context:seal()

@@ -9,7 +9,7 @@ const ComplexUnion = require "thlua.union.ComplexUnion"
 const FalsableUnion = require "thlua.union.FalsableUnion"
 
 (@do
-	let.class = import("thlua.type.TypeClass").class
+	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
 const FastTypeBitsToTrue = {
@@ -35,18 +35,18 @@ TypeCollection.__len=function(self)
 	return self.count
 end
 
-function:class(class.TypeCollection) TypeCollection.new(vManager:class.TypeManager)
+function:class(clazz.TypeCollection) TypeCollection.new(vManager:clazz.TypeManager)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_type=vManager.type,
-		bitsToSet={} @ Dict(Number,Dict(class.IAtomType,True)),
+		bitsToSet={} @ Dict(Number,Dict(clazz.IAtomType,True)),
 		bits=0 @ Number,
  		count=0 @ Number,
 	}, TypeCollection)
 	return self
 end
 
-function TypeCollection:_putOne(vType:class.IAtomType)
+function TypeCollection:_putOne(vType:clazz.IAtomType)
 	local nBitsToSet = self.bitsToSet
 	local nBits = vType.bits
 	local nSet = nBitsToSet[nBits]
@@ -60,15 +60,15 @@ function TypeCollection:_putOne(vType:class.IAtomType)
 	end
 end
 
-function TypeCollection:put(vType:class.UAllType)
+function TypeCollection:put(vType:clazz.UAllType)
 	vType:foreach(function(vSubType)
 		self.bits = self.bits | vSubType.bits
 		self:_putOne(vSubType)
 	end)
 end
 
-function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(class.IAtomType, True)):Ret(class.UAtomUnion)
-	local nUnionType:OrNil(class.IUnionType) = nil
+function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomType, True)):Ret(clazz.UAtomUnion)
+	local nUnionType:OrNil(clazz.IUnionType) = nil
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
 	elseif vBit == TYPE_BITS.NUMBER then
@@ -98,7 +98,7 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(class.IAtomT
 	return self._manager:_unifyUnion(nUnionType)
 end
 
-function TypeCollection:mergeToAtomUnion():Ret(class.UAtomUnion)
+function TypeCollection:mergeToAtomUnion():Ret(clazz.UAtomUnion)
 	local nBits = self.bits
 	-- 1. fast type
 	if nBits == 0 then
@@ -114,13 +114,13 @@ function TypeCollection:mergeToAtomUnion():Ret(class.UAtomUnion)
 	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
 	-- 2. make true part
-	local nTrueBitToType:Dict(Number, class.UAtomUnion) = {}
+	local nTrueBitToType:Dict(Number, clazz.UAtomUnion) = {}
 	for nBit, nSet in pairs(self.bitsToSet) do
 		if TrueBitToTrue[nBit] then
 			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
 		end
 	end
-	local nTrueType:class.UAtomUnion = self._type.Never
+	local nTrueType:clazz.UAtomUnion = self._type.Never
 	if TrueBitToTrue[nTruableBits] then
 		-- if truablebits is bit, then just one case
 		nTrueType = nTrueBitToType[nTruableBits]!
@@ -141,7 +141,7 @@ function TypeCollection:mergeToAtomUnion():Ret(class.UAtomUnion)
 	end
 end
 
-function.open TypeCollection.is(vData):isguard(class.TypeCollection)
+function.open TypeCollection.is(vData):isguard(clazz.TypeCollection)
 	return getmetatable(vData) == TypeCollection
 end
 

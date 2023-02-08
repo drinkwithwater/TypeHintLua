@@ -6,11 +6,11 @@ const Exception = require "thlua.Exception"
 
 const TypeFunction = AtomTypeClass()
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(class.TypeFunction) TypeFunction.new(vManager:class.TypeManager, vNode:class.IAstNode,
-	vParTuple:class.UTypeTuple, vRetTuples:OrFalse(class.RetTuples)
-):impl(class.IAtomType)
+function:class(clazz.TypeFunction) TypeFunction.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
+	vParTuple:clazz.UTypeTuple, vRetTuples:OrFalse(clazz.RetTuples)
+):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_node=vNode,
@@ -23,7 +23,7 @@ function:class(class.TypeFunction) TypeFunction.new(vManager:class.TypeManager, 
 	return self
 end
 
-function TypeFunction:Dots(vType:class.UAllType):Ret(class.TypeFunction)
+function TypeFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypeFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Dots")
 	local nParTuple = self._parTuple
 	if TypeTupleDots.is(nParTuple) then
@@ -33,7 +33,7 @@ function TypeFunction:Dots(vType:class.UAllType):Ret(class.TypeFunction)
 	return self
 end
 
-function TypeFunction:Ret(...:Truth):Ret(class.TypeFunction)
+function TypeFunction:Ret(...:Truth):Ret(clazz.TypeFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Ret")
 	local nTypeTuple = self._manager:Tuple(...)
 	local nPreRetTuples = self._buildingRetTuples
@@ -46,12 +46,12 @@ function TypeFunction:Ret(...:Truth):Ret(class.TypeFunction)
 	return self
 end
 
-function TypeFunction:finish():Ret(class.TypeFunction)
+function TypeFunction:finish():Ret(clazz.TypeFunction)
 	self:_buildRetTuples()
 	return self
 end
 
-function TypeFunction:_buildRetTuples():Ret(class.RetTuples)
+function TypeFunction:_buildRetTuples():Ret(clazz.RetTuples)
 	local nRetTuples = self._retTuples
 	if not nRetTuples then
 		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
@@ -102,7 +102,7 @@ function TypeFunction:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:class.TypeFunction):Ret(Boolean)
+function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypeFunction):Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
 	if not vRight:getParTuple():assumeContainTuple(vAssumeSet, self._parTuple) then
@@ -140,12 +140,12 @@ function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
 	end
 end
 
-function TypeFunction:getParTuple():Ret(class.UTypeTuple)
+function TypeFunction:getParTuple():Ret(clazz.UTypeTuple)
 	self:_buildRetTuples()
 	return self._parTuple
 end
 
-function TypeFunction:getRetTuples():Ret(class.RetTuples)
+function TypeFunction:getRetTuples():Ret(clazz.RetTuples)
 	return self:_buildRetTuples()
 end
 
@@ -161,7 +161,7 @@ function TypeFunction:isSingleton()
 	return false
 end
 
-function.open TypeFunction.is(vType):isguard(class.TypeFunction)
+function.open TypeFunction.is(vType):isguard(clazz.TypeFunction)
 	return getmetatable(vType) == TypeFunction
 end
 

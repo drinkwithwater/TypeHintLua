@@ -5,12 +5,12 @@ const TermTuple = require "thlua.tuple.TermTuple"
 
 const OpenFunction = AtomTypeClass()
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(class.OpenFunction) OpenFunction.new(
-	vManager:class.TypeManager,
-	vFunc:OrNil(class.OpenCaller)
-):impl(class.IAtomType)
+function:class(clazz.OpenFunction) OpenFunction.new(
+	vManager:clazz.TypeManager,
+	vFunc:OrNil(clazz.OpenCaller)
+):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_func=vFunc,
@@ -21,24 +21,24 @@ function:class(class.OpenFunction) OpenFunction.new(
 	return self
 end
 
-function OpenFunction:lateInitFromGenFunc(vGenFunc:class.GenFunc):Ret(class.OpenFunction)
-	const nFn:class.OpenCaller = function(vContext, vTermTuple)
+function OpenFunction:lateInitFromGenFunc(vGenFunc:clazz.GenFunc):Ret(clazz.OpenFunction)
+	const nFn:clazz.OpenCaller = function(vContext, vTermTuple)
 		return vGenFunc(self, vContext, vTermTuple, {}, false)
 	end
 	self._func = nFn
 	return self
 end
 
-function OpenFunction:lateInitFromGuard(vType:class.UAllType):Ret(class.OpenFunction)
+function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunction)
 	const nTrue = self._manager.type.True
 	const nFalse = self._manager.type.False
-	const nFn:class.OpenCaller = function(vContext, vTermTuple)
+	const nFn:clazz.OpenCaller = function(vContext, vTermTuple)
 		const nIsLuaTable, nTableType = self._manager:tryLuaTable(vType)
 		assert(nIsLuaTable, "assert lua table failed")
 		local nTerm = vTermTuple:get(1)
 		local caseTrue = nTerm:caseIsType(nTableType)
 		local caseFalse = nTerm:caseIsNotType(nTableType)
-		local nTypeCaseList:List(class.TypeCasePair) = {}
+		local nTypeCaseList:List(clazz.TypeCasePair) = {}
 		if caseTrue then
 			nTypeCaseList[#nTypeCaseList + 1] = {nTrue, caseTrue}
 		end
@@ -63,7 +63,7 @@ function OpenFunction:set_name(name:String)
 	self.name = name
 end
 
-function OpenFunction:meta_open_call(vContext:class.Context, vTermTuple:class.TermTuple):Ret(class.TermTuple)
+function OpenFunction:meta_open_call(vContext:clazz.Context, vTermTuple:clazz.TermTuple):Ret(clazz.TermTuple)
 	local re = self._func!(vContext, vTermTuple)
 	if TermTuple.is(re) then
 		return re
@@ -100,7 +100,7 @@ function OpenFunction:mayRecursive()
 	return true
 end
 
-function.open OpenFunction.is(vType):isguard(class.OpenFunction)
+function.open OpenFunction.is(vType):isguard(clazz.OpenFunction)
 	return getmetatable(vType) == OpenFunction
 end
 

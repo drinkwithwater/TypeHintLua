@@ -7,11 +7,11 @@ local Runtime = require "thlua.runtime.Runtime"
 local CodeEnv = require "thlua.code.CodeEnv"
 
 (@do
-	let.class=import("thlua.type.TypeClass").class
+	let.clazz=import("thlua.type.TypeClass").clazz
 	let.lsp=import("thlua.server.protocol").lsp
 	let.FileState = Struct {
-		succCodeEnv=OrNil(class.CodeEnv),
-		dirtyCodeEnv=class.CodeEnv,
+		succCodeEnv=OrNil(clazz.CodeEnv),
+		dirtyCodeEnv=clazz.CodeEnv,
 		version=Number,
 	}
 end)
@@ -47,7 +47,7 @@ function Client:searchDefine(vFileName, vLine, vColumn)
 	return nil
 end
 
-function Client:syncFile(vContent, vFileName, vVersion):Ret(True):Ret(False, class.IAstNode):Ret(True)
+function Client:syncFile(vContent, vFileName, vVersion):Ret(True):Ret(False, clazz.IAstNode):Ret(True)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
@@ -114,7 +114,7 @@ function Client:thluaParseFile(vFileName)
 	return nCodeEnv
 end
 
-function Client:getSuccCodeEnv(vFileName):Ret(Nil):Ret(class.CodeEnv)
+function Client:getSuccCodeEnv(vFileName):Ret(Nil):Ret(clazz.CodeEnv)
 	local nState = self.fileStateDict[vFileName]
 	if nState then
 		return nState.succCodeEnv
@@ -123,7 +123,7 @@ function Client:getSuccCodeEnv(vFileName):Ret(Nil):Ret(class.CodeEnv)
 	end
 end
 
-function Client:getDirtyCodeEnv(vFileName):Ret(Nil):Ret(class.CodeEnv)
+function Client:getDirtyCodeEnv(vFileName):Ret(Nil):Ret(clazz.CodeEnv)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
 		self:error(vFileName, "has no file state")
@@ -306,7 +306,7 @@ function Client:publishNormal()
 	end
 end
 
-function Client:publishException(vException:Union(class.Exception, String))
+function Client:publishException(vException:Union(clazz.Exception, String))
 	local nNode
 	local nMsg
 	if Exception.is(vException) then

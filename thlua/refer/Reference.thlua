@@ -9,16 +9,16 @@ const ClassReferCom = require "thlua.refer.ClassReferCom"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 (@do
-	let.class = import("thlua.type.TypeClass").class
-	let.UReferCom = Union(class.TypeReferCom, class.TemplateReferCom, class.ClassReferCom)
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassReferCom)
 end)
 
 const Reference = TypeClass()
 
-Reference.__call=function(self:class.Reference, ...:class.UAllType):Ret(class.Reference)
+Reference.__call=function(self:clazz.Reference, ...:clazz.UAllType):Ret(clazz.Reference)
 	-- TODO, cast
 	const nNode = Node.getDebugNode(3)
-	const nArgList:List(class.UAllType) = {...}
+	const nArgList:List(clazz.UAllType) = {...}
 	const nKey = self._manager:signTemplateArgs(nArgList)
 	const nCom = self._com
 	if TemplateReferCom.is(nCom) then
@@ -39,13 +39,13 @@ Reference.__call=function(self:class.Reference, ...:class.UAllType):Ret(class.Re
 	return nRefer
 end
 
-function:class(class.Reference) Reference.new(vManager:class.TypeManager, vKeyOrFalse:OrFalse(String)):impl(class.IType)
+function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String)):impl(clazz.IType)
 	local self = setmetatable({.class
 		_manager=vManager,
 		_key=vKeyOrFalse,
-		_callDict={}@Dict(String, class.Reference),
-		_assignNode=false@OrFalse(class.IAstNode),
-		_referNodes={}@List(class.IAstNode),
+		_callDict={}@Dict(String, clazz.Reference),
+		_assignNode=false@OrFalse(clazz.IAstNode),
+		_referNodes={}@List(clazz.IAstNode),
 		_com=false@OrFalse(let.UReferCom),
 		_waitComCoToSid={} @ Dict(Thread, Integer),
 		id=vManager:genTypeId(),
@@ -89,13 +89,13 @@ function Reference:getComAwait():Ret(let.UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(class.TypeReferCom, class.ClassReferCom))
+function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassReferCom))
 	const nCom = self:getComAwait()
 	assert(TypeReferCom.is(nCom) or ClassReferCom.is(nCom), "type reference expected, but get some other reference")
 	return nCom
 end
 
-function Reference:waitTemplateCom():Ret(class.TemplateReferCom)
+function Reference:waitTemplateCom():Ret(clazz.TemplateReferCom)
 	const nCom = self:getComAwait()
 	assert(TemplateReferCom.is(nCom), "template reference expected, but get some other reference")
 	return nCom
@@ -108,7 +108,7 @@ function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	end
 end
 
-function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
+function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	self._manager:coStart(self._selfCo, function()
@@ -130,7 +130,7 @@ function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
 	end)
 end
 
-function Reference:setTemplateAsync(vNode:class.IAstNode, vFunc:AnyFunction, vParNum:Integer)
+function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vParNum:Integer)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = TemplateReferCom.new(self._manager, self, vFunc, vParNum)
@@ -139,10 +139,10 @@ function Reference:setTemplateAsync(vNode:class.IAstNode, vFunc:AnyFunction, vPa
 	end)
 end
 
-function Reference:setClassAsync(vNode:class.IAstNode,
-	vGetInterface:Fn():Ret(class.MetaObject),
-	vContext:class.Context,
-	vClassBuilder:Fn(class.LuaTable)
+function Reference:setClassAsync(vNode:clazz.IAstNode,
+	vGetInterface:Fn():Ret(clazz.MetaObject),
+	vContext:clazz.Context,
+	vClassBuilder:Fn(clazz.LuaTable)
 )
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
@@ -153,9 +153,9 @@ function Reference:setClassAsync(vNode:class.IAstNode,
 	end)
 end
 
-function Reference:setUnionAsync(vNode:class.IAstNode,
-	vGetList:Fn():Ret(List(class.IAtomType)),
-	vLaterCall:OrNil(Fn(class.UAtomUnion))
+function Reference:setUnionAsync(vNode:clazz.IAstNode,
+	vGetList:Fn():Ret(List(clazz.IAtomType)),
+	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
 )
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
@@ -166,20 +166,20 @@ function Reference:setUnionAsync(vNode:class.IAstNode,
 	end)
 end
 
-function Reference:getAssignNode():Ret(OrFalse(class.IAstNode))
+function Reference:getAssignNode():Ret(OrFalse(clazz.IAstNode))
 	return self._assignNode
 end
 
-function Reference:getReferNode():Ret(List(class.IAstNode))
+function Reference:getReferNode():Ret(List(clazz.IAstNode))
 	return self._referNodes
 end
 
-function Reference:pushReferNode(vNode:class.IAstNode)
+function Reference:pushReferNode(vNode:clazz.IAstNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:checkAtomUnion():Ret(class.UAtomUnion)
+function Reference:checkAtomUnion():Ret(clazz.UAtomUnion)
 	return self:waitTypeCom():getTypeAwait()
 end
 
@@ -308,7 +308,7 @@ function Reference:falseType()
 	return self:checkAtomUnion():falseType()
 end
 
-function.open Reference.is(v):isguard(class.Reference)
+function.open Reference.is(v):isguard(clazz.Reference)
 	return getmetatable(v) == Reference
 end
 

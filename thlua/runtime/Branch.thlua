@@ -4,24 +4,24 @@ const RefineTerm = require "thlua.term.RefineTerm"
 
 const Branch = {}
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
 Branch.__index = Branch
 Branch.__tostring = function(self):Ret(String)
 	return "Branch"
 end
 
-function:class(class.Branch) Branch.new(vContext:class.Context, vPreBranch:OrNil(class.Branch), vTermCase:class.TermCase)
-	(@let.ShotDict = Dict(class.LocalSymbol, class.ImmutShot))
+function:class(clazz.Branch) Branch.new(vContext:clazz.Context, vPreBranch:OrNil(clazz.Branch), vTermCase:clazz.TermCase)
+	(@let.ShotDict = Dict(clazz.LocalSymbol, clazz.ImmutShot))
 	const self = setmetatable({.class
 		_context=vContext,
 		_stop=false@Boolean,
-		_case=nil@class.TermCase,
+		_case=nil@clazz.TermCase,
 		symbolToShot={}@ShotDict,
 		_headCase=vTermCase,
 	}, Branch)
 	self.symbolToShot = (setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToShot})) @ ShotDict
-	local nTermCase:OrNil(class.TermCase) = nil
+	local nTermCase:OrNil(clazz.TermCase) = nil
 	if vPreBranch then
 		nTermCase = vPreBranch:getCase() & vTermCase
 	else
@@ -31,7 +31,7 @@ function:class(class.Branch) Branch.new(vContext:class.Context, vPreBranch:OrNil
 	return self
 end
 
-function Branch:immutGet(vImmutShot:class.ImmutShot):Ret(class.RefineTerm)
+function Branch:immutGet(vImmutShot:clazz.ImmutShot):Ret(clazz.RefineTerm)
 	local nType = self._case[vImmutShot]
 	if nType then
 		if not nType:isNever() then
@@ -47,7 +47,7 @@ function Branch:immutGet(vImmutShot:class.ImmutShot):Ret(class.RefineTerm)
 	end
 end
 
-function Branch:mutGet(vLocalSymbol:class.LocalSymbol):Ret(class.RefineTerm)
+function Branch:mutGet(vLocalSymbol:clazz.LocalSymbol):Ret(clazz.RefineTerm)
 	local nImmutShot = self.symbolToShot[vLocalSymbol]
 	if not nImmutShot then
 		-- TODO, consider upvalue symbol??
@@ -57,12 +57,12 @@ function Branch:mutGet(vLocalSymbol:class.LocalSymbol):Ret(class.RefineTerm)
 	return self:immutGet(nImmutShot)
 end
 
-function Branch:mutMark(vSymbol:class.LocalSymbol, vImmutShot:class.ImmutShot)
+function Branch:mutMark(vSymbol:clazz.LocalSymbol, vImmutShot:clazz.ImmutShot)
 	self.symbolToShot[vSymbol] = vImmutShot
 	vImmutShot:addSymbol(vSymbol)
 end
 
-function Branch:mutSet(vContext:class.Context, vSymbol:class.LocalSymbol, vValueTerm:class.RefineTerm)
+function Branch:mutSet(vContext:clazz.Context, vSymbol:clazz.LocalSymbol, vValueTerm:clazz.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
 	const nCastType = vContext:castLuaType(nValueType, nDstType)
@@ -80,7 +80,7 @@ function Branch:mutSet(vContext:class.Context, vSymbol:class.LocalSymbol, vValue
 	end
 end
 
-function Branch:mergeOneBranch(vContext:class.Context, vOneBranch:class.Branch, vOtherCase:OrNil(class.TermCase))
+function Branch:mergeOneBranch(vContext:clazz.Context, vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.TermCase))
 	if vOneBranch:getStop() then
 		if vOtherCase then
 			self._case = self._case & vOtherCase
@@ -104,14 +104,14 @@ function Branch:mergeOneBranch(vContext:class.Context, vOneBranch:class.Branch, 
 	end
 end
 
-function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFalseBranch:class.Branch)
+function Branch:merge_from(vContext:clazz.Context, vTrueBranch:clazz.Branch, vFalseBranch:clazz.Branch)
 	local nTrueStop = vTrueBranch:getStop()
 	local nFalseStop = vFalseBranch:getStop()
 	if nTrueStop and nFalseStop then
 		self._stop = true
 		return
 	end
-	local nModLocalSymbolDict:Dict(class.LocalSymbol, True) = {}
+	local nModLocalSymbolDict:Dict(clazz.LocalSymbol, True) = {}
 	for nLocalSymbol, _ in pairs(vTrueBranch.symbolToShot) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
@@ -120,7 +120,7 @@ function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFa
 	end
 	for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
 		if self.symbolToShot[nLocalSymbol] then
-			local nType:OrNil(class.UAtomUnion)
+			local nType:OrNil(clazz.UAtomUnion)
 			if nFalseStop then
 				nType = vTrueBranch:mutGet(nLocalSymbol):getType()
 			elseif nTrueStop then
@@ -134,7 +134,7 @@ function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFa
 			self.symbolToShot[nLocalSymbol] = nImmutShot
 		end
 	end
-	local nAndCase:OrNil(class.TermCase)
+	local nAndCase:OrNil(clazz.TermCase)
 	if nFalseStop then
 		nAndCase = vTrueBranch._headCase
 	elseif nTrueStop then
@@ -146,7 +146,7 @@ function Branch:merge_from(vContext:class.Context, vTrueBranch:class.Branch, vFa
 	end
 end
 
-function Branch:assertCase(vTermCase:class.TermCase)
+function Branch:assertCase(vTermCase:clazz.TermCase)
 	self._case = self._case & vTermCase
 	self._headCase = self._headCase & vTermCase
 end
@@ -155,7 +155,7 @@ function Branch:setStop()
 	self._stop = true
 end
 
-function Branch:getCase():Ret(class.TermCase)
+function Branch:getCase():Ret(clazz.TermCase)
 	return self._case
 end
 

@@ -7,10 +7,10 @@ const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 
 (@do
-	let.class = import("thlua.type.TypeClass").class
+	let.clazz = import("thlua.type.TypeClass").clazz
 	let.TableField = Struct {
-		rawValueType = class.UAtomUnion,
-		castValueType = OrFalse(class.UAtomUnion),
+		rawValueType = clazz.UAtomUnion,
+		castValueType = OrFalse(clazz.UAtomUnion),
 		kind = Union("property", "override", "getter"),
 	}
 end)
@@ -18,22 +18,22 @@ end)
 const DefaultTableCom = {}
 DefaultTableCom.__index = DefaultTableCom
 
-function:class(class.DefaultTableCom) DefaultTableCom.new(vManager:class.TypeManager,
-	vLuaTable:class.LuaTable):impl(class.IMetaNative)
+function:class(clazz.DefaultTableCom) DefaultTableCom.new(vManager:clazz.TypeManager,
+	vLuaTable:clazz.LuaTable):impl(clazz.IMetaNative)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_keyType=vManager.type.Never @class.UAtomUnion,
-		_fieldDict={}@Dict(class.IAtomType, let.TableField),
-		_nextValue=false@Union(False, class.UAtomUnion),
-		_nextDict=false@Union(False, Dict(class.IAtomType, class.UAtomUnion)),
+		_keyType=vManager.type.Never @clazz.UAtomUnion,
+		_fieldDict={}@Dict(clazz.IAtomType, let.TableField),
+		_nextValue=false@Union(False, clazz.UAtomUnion),
+		_nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion)),
 		_luaTable=vLuaTable,
 		_isBasingDefault=false@Boolean,
-		_interface=false@OrFalse(class.MetaObject),
+		_interface=false@OrFalse(clazz.MetaObject),
 	}, DefaultTableCom)
 	return self
 end
 
-function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Dict(class.IAtomType, class.UAtomUnion)):Ret()
+function DefaultTableCom:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
@@ -44,11 +44,11 @@ function DefaultTableCom:initByKeyValue(vKeyType:class.UAtomUnion, vValueDict:Di
 	end
 end
 
-function DefaultTableCom:setInterface(vInterface:class.MetaObject)
+function DefaultTableCom:setInterface(vInterface:clazz.MetaObject)
 	self._interface = vInterface
 end
 
-function DefaultTableCom:foreachGetPair(vFunc:Fn(class.IAtomType, class.UAtomUnion))
+function DefaultTableCom:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
 	self._keyType:foreach(function(vType)
 		vFunc(vType, self._fieldDict[vType]!.rawValueType)
 	end)
@@ -58,7 +58,7 @@ function DefaultTableCom:meta_set(vContext, vKeyType, vValueType)
 	self:meta_set_ifoverride(vContext, vKeyType, vValueType, false)
 end
 
-function DefaultTableCom:meta_set_ifoverride(vContext:class.Context, vKeyType:class.IAtomType, vValueType:class.UAtomUnion, vOverride:Union(Nil,Boolean))
+function DefaultTableCom:meta_set_ifoverride(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil,Boolean))
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
@@ -81,7 +81,7 @@ function DefaultTableCom:meta_set_ifoverride(vContext:class.Context, vKeyType:cl
 	self:native_rawset(vContext, vKeyType, vValueType, vOverride)
 end
 
-function DefaultTableCom:meta_get(vContext, vKeyType:class.IAtomType)
+function DefaultTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		const nField = self._fieldDict[nKeyContainType]!
@@ -123,7 +123,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride
 	end
 end
 
-function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(class.UAtomUnion)
+function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		const nField = self._fieldDict[nKeyContainType]!
@@ -133,17 +133,17 @@ function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(class.UAtomUnion)
 	end
 end
 
-function DefaultTableCom:setMetaIndex(vContext:class.Context, vAsIndex:OrFalse(class.MetaIndexField), vAsNewIndex:OrFalse(class.MetaIndexField))
+function DefaultTableCom:setMetaIndex(vContext:clazz.Context, vAsIndex:OrFalse(clazz.MetaIndexField), vAsNewIndex:OrFalse(clazz.MetaIndexField))
 	if not vAsIndex and not vAsNewIndex then
 		print("TODO, impl interface if setmetatable without index")
 		return
 	end
 	const nNever = self._manager.type.Never
 	const nMetaIndexKeyType = vAsIndex and vAsIndex.keyType or nNever
-	const nMetaIndexValueDict = vAsIndex and vAsIndex.valueDict or {} @ Dict(class.IAtomType, class.UAtomUnion)
+	const nMetaIndexValueDict = vAsIndex and vAsIndex.valueDict or {} @ Dict(clazz.IAtomType, clazz.UAtomUnion)
 	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
 	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKeyType, nSelfKey)
-	const nFinalFieldDict:Dict(class.IAtomType, let.TableField) = {}
+	const nFinalFieldDict:Dict(clazz.IAtomType, let.TableField) = {}
 	nMergedKeyType:foreach(function(vKeyAtom)
 		const nSelfInter = nSelfKey:intersectAtom(vKeyAtom) or nNever
 		const nMetaInter = nMetaIndexKeyType:intersectAtom(vKeyAtom) or nNever
@@ -243,8 +243,8 @@ function DefaultTableCom:native_next(vContext, vInitType)
 	return nValueType, nNextDict
 end
 
-function DefaultTableCom:lockAsMetaIndex():Ret(class.MetaIndexField)
-	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+function DefaultTableCom:lockAsMetaIndex():Ret(clazz.MetaIndexField)
+	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.castValueType or nField.rawValueType
 	end
@@ -255,8 +255,8 @@ function DefaultTableCom:lockAsMetaIndex():Ret(class.MetaIndexField)
 	}
 end
 
-function DefaultTableCom:lockAsMetaNewIndex():Ret(class.MetaIndexField)
-	const nDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+function DefaultTableCom:lockAsMetaNewIndex():Ret(clazz.MetaIndexField)
+	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.castValueType or nField.rawValueType
 	end
@@ -276,7 +276,7 @@ function DefaultTableCom:basingByDefault()
 	end
 end
 
-function DefaultTableCom:getCompletion():Ret(class.LspCompletion)
+function DefaultTableCom:getCompletion():Ret(clazz.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then
@@ -286,7 +286,7 @@ function DefaultTableCom:getCompletion():Ret(class.LspCompletion)
 	return nDict
 end
 
-function DefaultTableCom:implInterface(vContext:class.Context, vInterface:class.MetaObject)
+function DefaultTableCom:implInterface(vContext:clazz.Context, vInterface:clazz.MetaObject)
 	const nInterfaceKeyValue = vInterface:copyValueDict(self._luaTable)
 	const nSelfKey = self._keyType
 	const nSelfFieldDict = self._fieldDict
@@ -322,18 +322,18 @@ function DefaultTableCom:implInterface(vContext:class.Context, vInterface:class.
 	end
 end
 
-function DefaultTableCom:castStruct(vContext:class.Context, vObjectAtomUnion:class.UObjectAtomUnion):Ret(OrFalse(class.MetaObject))
+function DefaultTableCom:castStruct(vContext:clazz.Context, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
 	if self._isBasingDefault then
 		return false
 	end
-	local nFinalMatchStruct:OrFalse(class.MetaObject) = false
-	local nFinalMatchCastList:List(Struct {class.LuaTable, class.UAllType}) = {}
+	local nFinalMatchStruct:OrFalse(clazz.MetaObject) = false
+	local nFinalMatchCastList:List(Struct {clazz.LuaTable, clazz.UAllType}) = {}
 	vObjectAtomUnion:foreach(function(vAtomType)
 		if not MetaObject.is(vAtomType) then return end
 		if vAtomType:isInterface() then return end
 		const nCopyValueDict = vAtomType:copyValueDict()
 		local nMatchSucc = true
-		const nCastList:List(Struct {class.LuaTable, class.UAllType}) = {}
+		const nCastList:List(Struct {clazz.LuaTable, clazz.UAllType}) = {}
 		self:foreachGetPair(function(vTableKey, vTableValue)
 			if not nMatchSucc then
 				return

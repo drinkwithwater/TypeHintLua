@@ -2,7 +2,7 @@
 const RefineTerm = require "thlua.term.RefineTerm"
 const Exception = require "thlua.Exception"
 
-(@let.class = import("thlua.type.TypeClass").class)
+(@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const function.open ContextClass()
 	const Context = {}
@@ -11,39 +11,39 @@ const function.open ContextClass()
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TermTuple(a:List(class.RefineTerm),b:OrNil(class.TermTuple)):Ret(class.TermTuple)
+	function Context:TermTuple(a:List(clazz.RefineTerm),b:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
 		return self._manager:TermTuple(a,b)
 	end
 
-	function Context:RefineTerm(vType:class.UAllType):Ret(class.RefineTerm)
+	function Context:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
 		return self._manager:RefineTerm(vType)
 	end
 
-	function Context:NumberTerm():Ret(class.RefineTerm)
+	function Context:NumberTerm():Ret(clazz.RefineTerm)
 		return RefineTerm.new(self._manager, self._manager.type.Number)
 	end
 
-	function Context:NeverTerm():Ret(class.RefineTerm)
+	function Context:NeverTerm():Ret(clazz.RefineTerm)
 		return RefineTerm.new(self._manager, self._manager.type.Never)
 	end
 
-	function Context:TruthTerm():Ret(class.RefineTerm)
+	function Context:TruthTerm():Ret(clazz.RefineTerm)
 		return RefineTerm.new(self._manager, self._manager.type.Truth)
 	end
 
-	function Context:NilTerm():Ret(class.RefineTerm)
+	function Context:NilTerm():Ret(clazz.RefineTerm)
 		return RefineTerm.new(self._manager, self._manager.type.Nil)
 	end
 
-	function Context:BooleanTerm(vValue:Boolean):Ret(class.RefineTerm)
+	function Context:BooleanTerm(vValue:Boolean):Ret(clazz.RefineTerm)
 		return RefineTerm.new(self._manager, self._manager:Boolean(vValue))
 	end
 
-	function Context:LiteralTerm(v:Union(String, Number)):Ret(class.RefineTerm)
+	function Context:LiteralTerm(v:Union(String, Number)):Ret(clazz.RefineTerm)
 		return RefineTerm.new(self._manager, self:Literal(v))
 	end
 
-	function Context:Literal(vValue:Union(String, Number)):Ret(Union(class.StringLiteral, class.NumberLiteral))
+	function Context:Literal(vValue:Union(String, Number)):Ret(Union(clazz.StringLiteral, clazz.NumberLiteral))
 		return self._manager:Literal(vValue)
 	end
 
@@ -59,32 +59,32 @@ const function.open ContextClass()
 		self._runtime:nodeInfo(self._node, ...)
 	end
 
-	function Context:newSealContext(vNode:class.IAstNode):Ret(class.Context)
+	function Context:newSealContext(vNode:clazz.IAstNode):Ret(clazz.Context)
 		return self._runtime:newContext(vNode, false, self)
 	end
 
-	function Context:newOpenContext(vNode:class.IAstNode):Ret(class.Context)
+	function Context:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.Context)
 		return self._runtime:newContext(vNode, self._sealContext, self)
 	end
 
-	function Context:getNode():Ret(class.IAstNode)
+	function Context:getNode():Ret(clazz.IAstNode)
 		return self._node
 	end
 
-	function Context:getNamespace():Ret(class.Namespace)
+	function Context:getNamespace():Ret(clazz.Namespace)
 		local nSpace = self._namespace
 		return assert(nSpace, "space is false when get")
 	end
 
-	function Context:getRuntime():Ret(class.Runtime)
+	function Context:getRuntime():Ret(clazz.Runtime)
 		return self._runtime
 	end
 
-	function Context:getTypeManager():Ret(class.TypeManager)
+	function Context:getTypeManager():Ret(clazz.TypeManager)
 		return self._manager
 	end
 
-	function Context:recordLateLuaFunction(vFunc:class.LateFnCom)
+	function Context:recordLateLuaFunction(vFunc:clazz.LateFnCom)
 		if self._sealContext == self then
 			self._lateFnSet[vFunc] = true
 		else
@@ -92,17 +92,17 @@ const function.open ContextClass()
 		end
 	end
 
-	function Context:recordDefineLuaFunction(vFunc:class.ClassReferCom)
+	function Context:recordDefineLuaFunction(vFunc:clazz.ClassReferCom)
 		if self._sealContext ~= self then
 			self._sealContext:recordDefineLuaFunction(vFunc)
 			return
 		else
-			self._classFnSet[vFunc] = true
+			self._clazzFnSet[vFunc] = true
 		end
 	end
 
 	function Context:checkDefineLuaFunction()
-		for fn, v in pairs(self._classFnSet) do
+		for fn, v in pairs(self._clazzFnSet) do
 			fn:startBuild()
 		end
 	end

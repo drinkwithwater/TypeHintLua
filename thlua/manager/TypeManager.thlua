@@ -41,36 +41,36 @@ const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
 (@do
-	let.class = import("thlua.type.TypeClass").class
+	let.clazz = import("thlua.type.TypeClass").clazz
 	let.WaitingInfo = Struct {
 		waitSid = Integer,
 		dependCo = Thread,
 	}
 end)
 
-const function:class(class.CoroutineInterrupt) CoroutineInterrupt()
+const function:class(clazz.CoroutineInterrupt) CoroutineInterrupt()
 	return {.class}
 end
 
 const TypeManager = {}
 TypeManager.__index=TypeManager
 
-function:class(class.TypeManager) TypeManager.new(vRuntime:class.Runtime)
+function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 	const self = setmetatable({.class
 		_runtime=vRuntime,
 		-- type items
 		type={
-			Object=nil @ class.MetaObject,
+			Object=nil @ clazz.MetaObject,
 		},
 		generic={},
 		builtin={},
-		_pairToContain={} @ Dict(Integer, class.Reference),
-		_literalDict={}@Struct {[Number]=class.NumberLiteral, [String]=class.StringLiteral},
-		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, class.UAtomUnion)),
+		_pairToContain={} @ Dict(Integer, clazz.Reference),
+		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral},
+		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
 		-- coroutine items
 		_coStop=CoroutineInterrupt(),
-		_coToRefer={} @ Dict(Thread, class.Reference),
+		_coToRefer={} @ Dict(Thread, clazz.Reference),
 		_coToScheduleParam={}@Dict(Thread, Union(True, Fn())),
 		_coToWaitingInfo={}@Dict(Thread, WaitingInfo),
 		_sessionIdCounter=0@Integer,
@@ -86,7 +86,7 @@ function:class(class.TypeManager) TypeManager.new(vRuntime:class.Runtime)
 	self.type.String = String.new(self)
 	self.type.Truth = Truth.new(self)
 	self.type.AnyFunction = AnyFunction.new(self)
-	for k, nType in pairs(self.type @!! Dict(String, class.UAtomUnion)) do
+	for k, nType in pairs(self.type @!! Dict(String, clazz.UAtomUnion)) do
 		self:_recordTypeUnionSign(nType)
 	end
 	const nRootNode = vRuntime:getNode()
@@ -165,16 +165,16 @@ for k, v in pairs(AtomMetatableSet) do
 	AtomUnionMetatableSet[k] = v
 end
 
-function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(class.Reference, class.IAtomType)):Ret(False, String)
+function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(clazz.Reference, clazz.IAtomType)):Ret(False, String)
 	local meta = getmetatable(vData)
 	if meta and (AtomMetatableSet[meta] or meta == Reference) then
-		return true, vData @!! Union(class.Reference, class.IAtomType)
+		return true, vData @!! Union(clazz.Reference, clazz.IAtomType)
 	else
 		return false, "not atom or reference"
 	end
 end
 
-function TypeManager:tryLuaTable(vType:class.UAllType):Ret(False):Ret(True, class.LuaTable)
+function TypeManager:tryLuaTable(vType:clazz.UAllType):Ret(False):Ret(True, clazz.LuaTable)
 	if Reference.is(vType) then
 		vType = vType:checkAtomUnion()
 	end
@@ -185,7 +185,7 @@ function TypeManager:tryLuaTable(vType:class.UAllType):Ret(False):Ret(True, clas
 	end
 end
 
-function TypeManager:basingByDefault(vType:class.UAtomUnion)
+function TypeManager:basingByDefault(vType:clazz.UAtomUnion)
 	vType:foreach(function(vAtomType)
 		if LuaTable.is(vAtomType) then
 			vAtomType:checkBaseObjectType()
@@ -193,16 +193,16 @@ function TypeManager:basingByDefault(vType:class.UAtomUnion)
 	end)
 end
 
-function TypeManager:assertAllType(vData:Truth):Ret(class.UAllType)
+function TypeManager:assertAllType(vData:Truth):Ret(clazz.UAllType)
 	local meta = getmetatable(vData)
 	if meta and (AtomUnionMetatableSet[meta] or meta == Reference) then
-		return vData @!! class.UAllType
+		return vData @!! clazz.UAllType
 	else
 		error("assertAllType failed, type="..type(vData)..tostring(debug.traceback()))
 	end
 end
 
-function.pass TypeManager:_checkAllType(vData:Any):Ret(OrFalse(class.UAllType))
+function.pass TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
@@ -216,7 +216,7 @@ function.pass TypeManager:_checkAllType(vData:Any):Ret(OrFalse(class.UAllType))
 	return false
 end
 
-function.pass TypeManager:_toType(vData:Any):Ret(class.IAtomType)
+function.pass TypeManager:_toType(vData:Any):Ret(clazz.IAtomType)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
@@ -232,11 +232,11 @@ function.pass TypeManager:_toType(vData:Any):Ret(class.IAtomType)
 	end
 end
 
-function TypeManager:TypeCollection():Ret(class.TypeCollection)
+function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Boolean, vObjectList:List(class.UAllType)):Ret(class.Reference)
+function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Boolean, vObjectList:List(clazz.UAllType)):Ret(clazz.Reference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setUnionAsync(vNode, function()
 		if vIsInterface then
@@ -244,11 +244,11 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		else
 			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
-		const nKeyList:List(class.IAtomType) = {}
-		const nAllValueDict:class.MemberDict = {}
-		const nIntersectSet:Dict(class.MetaObject, True) = {}
-		const nMetaEventComList:List(class.MetaEventCom) = {}
-		local nIntersectNextKey:OrFalse(class.UAllType) = self.type.Truth
+		const nKeyList:List(clazz.IAtomType) = {}
+		const nAllValueDict:clazz.MemberDict = {}
+		const nIntersectSet:Dict(clazz.MetaObject, True) = {}
+		const nMetaEventComList:List(clazz.MetaEventCom) = {}
+		local nIntersectNextKey:OrFalse(clazz.UAllType) = self.type.Truth
 		for i=1,#vObjectList do
 			local nMetaObject = vObjectList[i]!
 			if Reference.is(nMetaObject) then
@@ -311,20 +311,20 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 	return nObjectRefer
 end
 
-function TypeManager:buildStructExtend(vNode:class.IAstNode, vFirst:Union(Dict(Truth, Truth), class.UAllType),
-	...:Union(class.Reference, class.MetaObject)):Ret(class.Reference)
+function TypeManager:buildStructExtend(vNode:clazz.IAstNode, vFirst:Union(Dict(Truth, Truth), clazz.UAllType),
+	...:Union(clazz.Reference, clazz.MetaObject)):Ret(clazz.Reference)
 	const nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst @ Dict(Truth, Truth))
-	const l:List(class.UAllType) = {nStruct, ...}
+	const l:List(clazz.UAllType) = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end
 
-function TypeManager:buildIntersect(vNode:class.IAstNode, ...:Union(class.Reference, class.MetaObject)):Ret(class.Reference)
-	const l:List(class.UAllType) = {...}
+function TypeManager:buildIntersect(vNode:clazz.IAstNode, ...:Union(clazz.Reference, clazz.MetaObject)):Ret(clazz.Reference)
+	const l:List(clazz.UAllType) = {...}
 	return self:_buildCombineObject(vNode, true, l)
 end
 
-function TypeManager:checkedUnion(...:class.UAllType):Ret(class.UAtomUnion)
-	const l:List(class.UAllType) = {...}
+function TypeManager:checkedUnion(...:clazz.UAllType):Ret(clazz.UAtomUnion)
+	const l:List(clazz.UAllType) = {...}
 	const nCollection = self:TypeCollection()
 	for i=1, select("#", ...) do
 		l[i]!:foreach(function(vAtomType)
@@ -334,12 +334,12 @@ function TypeManager:checkedUnion(...:class.UAllType):Ret(class.UAtomUnion)
 	return nCollection:mergeToAtomUnion()
 end
 
-function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth):Ret(class.Reference)
+function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Reference)
 	local l = {...}
 	const nLen = select("#", ...)
 	local nNewRefer = self:Reference(false)
 	nNewRefer:setUnionAsync(vNode, function()
-		local nTypeList:List(class.IAtomType) = {}
+		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
 			local nItem = l[i]
 			if Reference.is(nItem) then
@@ -354,23 +354,23 @@ function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth):Ret(class.Refer
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType))):Ret(class.MetaObject)
+function TypeManager:buildInterface(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.MetaObject)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, true)
 end
 
-function TypeManager:buildStruct(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType))):Ret(class.MetaObject)
+function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.MetaObject)
 	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, false)
 end
 
-function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)), vIsInterface:Boolean):Ret(class.MetaObject)
+function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:Boolean):Ret(clazz.MetaObject)
 	const nKeyRefer = self:Reference(false)
 	const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
 	nKeyRefer:setUnionAsync(vNode, function()
-		const nKeyList:List(class.IAtomType) = {}
-		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
+		const nKeyList:List(clazz.IAtomType) = {}
+		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
 		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
-			local nValueType:OrNil(class.UAllType, class.MemberFunction)
+			local nValueType:OrNil(clazz.UAllType, clazz.MemberFunction)
 			if Reference.is(nValue) then
 				nValueType = nValue
 			elseif MemberFunction.is(nValue) then
@@ -378,7 +378,7 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 			else
 				nValueType = self:_toType(nValue)
 			end
-			local nKeyType:OrNil(class.UAllType)
+			local nKeyType:OrNil(clazz.UAllType)
 			if Reference.is(nKey) then
 				nKeyType = nKey
 			else
@@ -417,31 +417,31 @@ function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Tr
 	return self:_recordTypeUnionSign(nNewObject)
 end
 
-function TypeManager:buildIDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType):Ret(class.MetaObject)
+function TypeManager:buildIDict(vNode:clazz.IAstNode, vKey:clazz.UAtomUnion, vValue:clazz.UAllType):Ret(clazz.MetaObject)
 	return self:buildInterface(vNode, {[vKey]=vValue})
 end
 
-function TypeManager:buildDict(vNode:class.IAstNode, vKey:class.UAtomUnion, vValue:class.UAllType):Ret(class.MetaObject)
+function TypeManager:buildDict(vNode:clazz.IAstNode, vKey:clazz.UAtomUnion, vValue:clazz.UAllType):Ret(clazz.MetaObject)
 	return self:buildStruct(vNode, {[vKey]=vValue}, {__next=vKey})
 end
 
-function TypeManager:buildIList(vNode:class.IAstNode, vValue:class.UAllType):Ret(class.MetaObject)
+function TypeManager:buildIList(vNode:clazz.IAstNode, vValue:clazz.UAllType):Ret(clazz.MetaObject)
 	return self:buildInterface(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 end
 
-function TypeManager:buildList(vNode:class.IAstNode, vValue:class.UAllType):Ret(class.MetaObject)
+function TypeManager:buildList(vNode:clazz.IAstNode, vValue:clazz.UAllType):Ret(clazz.MetaObject)
 	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __next=self.type.Integer})
 end
 
-function TypeManager:buildOrNil(vNode:class.IAstNode, ...:Truth):Ret(class.Reference)
+function TypeManager:buildOrNil(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Reference)
 	return self:buildUnion(vNode, self.type.Nil, ...)
 end
 
-function TypeManager:buildOrFalse(vNode:class.IAstNode, ...:Truth):Ret(class.Reference)
+function TypeManager:buildOrFalse(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Reference)
 	return self:buildUnion(vNode, self.type.False, ...)
 end
 
-function TypeManager:_unifyUnion(vNewType:class.IUnionType):Ret(class.UAtomUnion)
+function TypeManager:_unifyUnion(vNewType:clazz.IUnionType):Ret(clazz.UAtomUnion)
 	local nSign = vNewType:unionSign()
 	local nSignToType = self._unionSignToType
 	local nOldType = nSignToType[nSign]
@@ -459,19 +459,19 @@ function.open TypeManager:_recordTypeUnionSign(vType)
 	return vType
 end
 
-function TypeManager:OpenFunction(vFunc:OrNil(class.OpenCaller)):Ret(class.OpenFunction)
+function TypeManager:OpenFunction(vFunc:OrNil(clazz.OpenCaller)):Ret(clazz.OpenFunction)
 	return self:_recordTypeUnionSign(OpenFunction.new(self, vFunc))
 end
 
-function TypeManager:LuaFunction():Ret(class.LuaFunction)
+function TypeManager:LuaFunction():Ret(clazz.LuaFunction)
 	return self:_recordTypeUnionSign(LuaFunction.new(self))
 end
 
-function TypeManager:LuaTable():Ret(class.LuaTable)
+function TypeManager:LuaTable():Ret(clazz.LuaTable)
 	return self:_recordTypeUnionSign(LuaTable.new(self))
 end
 
-function TypeManager:Boolean(vValue:Boolean):Ret(class.BooleanLiteral)
+function TypeManager:Boolean(vValue:Boolean):Ret(clazz.BooleanLiteral)
 	if vValue then
 		return self.type.True
 	else
@@ -479,7 +479,7 @@ function TypeManager:Boolean(vValue:Boolean):Ret(class.BooleanLiteral)
 	end
 end
 
-function TypeManager:Literal(vValue:Union(String, Number)):Ret(Union(class.NumberLiteral,class.StringLiteral))
+function TypeManager:Literal(vValue:Union(String, Number)):Ret(Union(clazz.NumberLiteral,clazz.StringLiteral))
 	local t = type(vValue)
 	local nLiteralDict = self._literalDict
 	local nLiteralType = nLiteralDict[vValue]
@@ -498,8 +498,8 @@ function TypeManager:Literal(vValue:Union(String, Number)):Ret(Union(class.Numbe
 	return nLiteralType
 end
 
-function TypeManager:Tuple(...:Truth):Ret(class.TypeTuple)
-	local nTypeList:List(class.UAllType) = {}
+function TypeManager:Tuple(...:Truth):Ret(clazz.TypeTuple)
+	local nTypeList:List(clazz.UAllType) = {}
 	for i=1, select("#", ...) do
 		local nArg = select(i, ...)
 		assert(nArg, "tuple can't take false or nil value")
@@ -512,24 +512,24 @@ function TypeManager:Tuple(...:Truth):Ret(class.TypeTuple)
 	return TypeTuple.new(self, nTypeList)
 end
 
-function TypeManager:VoidRetTuples():Ret(class.RetTuples)
+function TypeManager:VoidRetTuples():Ret(clazz.RetTuples)
 	const nFirst = self.type.Nil
 	return RetTuples.new(self, nFirst, {[nFirst]=self:Tuple()})
 end
 
-function TypeManager:SingleRetTuples(vTypeTuple:class.TypeTuple):Ret(class.RetTuples)
+function TypeManager:SingleRetTuples(vTypeTuple:clazz.TypeTuple):Ret(clazz.RetTuples)
 	const nFirst = vTypeTuple:get(1)
 	return RetTuples.new(self, nFirst, {[nFirst]=vTypeTuple})
 end
 
-function TypeManager:retConcat(vNode:class.IAstNode, vRetTuples:class.RetTuples, vTypeTuple:class.TypeTuple):Ret(class.RetTuples)
-	const nFirstToTuple:Dict(class.UAllType, class.TypeTuple) = {}
+function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples, vTypeTuple:clazz.TypeTuple):Ret(clazz.RetTuples)
+	const nFirstToTuple:Dict(clazz.UAllType, clazz.TypeTuple) = {}
 	vRetTuples:foreachWithFirst(function(vTuple, vFirst)
 		nFirstToTuple[vFirst] = vTuple
 	end)
 	nFirstToTuple[vTypeTuple:get(1)] = vTypeTuple
 	const nFirstRefer = self:Reference(false)
-	local nTypeList:List(class.IAtomType) = {}
+	local nTypeList:List(clazz.IAtomType) = {}
 	nFirstRefer:setUnionAsync(vNode, function()
 		for nFirst, _ in pairs(nFirstToTuple) do
 			nFirst:foreachAwait(function(vSubType)
@@ -549,9 +549,9 @@ function TypeManager:retConcat(vNode:class.IAstNode, vRetTuples:class.RetTuples,
 	return RetTuples.new(self, nFirstRefer, nFirstToTuple)
 end
 
-function TypeManager:buildMemberFn(vNode:class.IAstNode, ...:Truth):Ret(class.MemberFunction)
+function TypeManager:buildMemberFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.MemberFunction)
 	const nWildFn = self:buildFn(vNode, self.type.Truth, ...)
-	const nPolyFn = self:buildPfn(vNode, function(vSelfType:class.UAllType):Ret(class.TypeFunction)
+	const nPolyFn = self:buildPfn(vNode, function(vSelfType:clazz.UAllType):Ret(clazz.TypeFunction)
 		const nRetTuples = nWildFn:getRetTuples()
 		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
 		return self:Function(nParTuple, nRetTuples)
@@ -559,7 +559,7 @@ function TypeManager:buildMemberFn(vNode:class.IAstNode, ...:Truth):Ret(class.Me
 	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
 end
 
-function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class.PolyFunction)
+function TypeManager:buildPfn(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.PolyFunction)
 	const nInfo = debug.getinfo(vFunc)
 	const nPolyParNum=nInfo.nparams
 	if nInfo.isvararg then
@@ -568,32 +568,32 @@ function TypeManager:buildPfn(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class
 	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, nPolyParNum))
 end
 
-function TypeManager:buildFn(vNode:class.IAstNode, ...:Truth):Ret(class.TypeFunction)
+function TypeManager:buildFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeFunction)
 	local nParTuple = self:Tuple(...)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, vNode, nParTuple, false))
 end
 
-function TypeManager:checkedFn(...:Truth):Ret(class.TypeFunction)
+function TypeManager:checkedFn(...:Truth):Ret(clazz.TypeFunction)
 	local nParTuple = self:Tuple(...)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, self._runtime:getNode(), nParTuple, false))
 end
 
-function TypeManager:PolyFunction(vNode:class.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer):Ret(class.PolyFunction)
+function TypeManager:PolyFunction(vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer):Ret(clazz.PolyFunction)
 	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, vPolyParNum))
 end
 
-function TypeManager:MemberFunction(vNode:class.IAstNode, vPolyFn:class.PolyFunction):Ret(class.MemberFunction)
+function TypeManager:MemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunction):Ret(clazz.MemberFunction)
 	return MemberFunction.new(self, vNode, vPolyFn, false)
 end
 
-function TypeManager:Function(vParTuple:class.UTypeTuple, vRetTuples:class.RetTuples):Ret(class.TypeFunction)
+function TypeManager:Function(vParTuple:clazz.UTypeTuple, vRetTuples:clazz.RetTuples):Ret(clazz.TypeFunction)
 	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
 	assert(RetTuples.is(vRetTuples))
 	local nFunc = TypeFunction.new(self, self._runtime:getNode(), vParTuple, vRetTuples)
 	return self:_recordTypeUnionSign(nFunc)
 end
 
-function TypeManager:RefineTerm(vType:class.UAllType):Ret(class.RefineTerm)
+function TypeManager:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
 	local nType = vType:checkAtomUnion()
 	nType:foreach(function(vSubType)
 		if LuaTable.is(vSubType) then
@@ -603,15 +603,15 @@ function TypeManager:RefineTerm(vType:class.UAllType):Ret(class.RefineTerm)
 	return RefineTerm.new(self, nType)
 end
 
-function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil:OrNil(class.TermTuple)):Ret(class.TermTuple)
-	local nTermList:List(class.RefineTerm) = {}
-	local nTypeList:List(class.UAtomUnion) = {}
+function TypeManager:TermTuple(vTermList:List(clazz.RefineTerm), vTermTupleOrNil:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
+	local nTermList:List(clazz.RefineTerm) = {}
+	local nTypeList:List(clazz.UAtomUnion) = {}
 	for _, nTerm in ipairs(vTermList) do
 		local i = #nTermList + 1
 		nTermList[i] = nTerm
 		nTypeList[i] = nTerm:getType()
 	end
-	local nRepeatType:Union(False, class.UAllType) = false
+	local nRepeatType:Union(False, clazz.UAllType) = false
 	if vTermTupleOrNil then
 		for i1=1, #vTermTupleOrNil do
 			local nTerm = vTermTupleOrNil:get(i1)
@@ -630,11 +630,11 @@ function TypeManager:TermTuple(vTermList:List(class.RefineTerm), vTermTupleOrNil
 	end
 end
 
-function TypeManager:makeMetaEventCom(vObject:Union(class.LuaTable, class.MetaObject)):Ret(class.MetaEventCom)
+function TypeManager:makeMetaEventCom(vObject:Union(clazz.LuaTable, clazz.MetaObject)):Ret(clazz.MetaEventCom)
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:buildTemplate(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class.Reference)
+function TypeManager:buildTemplate(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.Reference)
 	const nInfo = debug.getinfo(vFunc)
 	const nParNum = nInfo.nparams
 	if nInfo.isvararg then
@@ -643,19 +643,19 @@ function TypeManager:buildTemplate(vNode:class.IAstNode, vFunc:AnyFunction):Ret(
 	return self:buildTemplateWithParNum(vNode, vFunc, nParNum)
 end
 
-function TypeManager:buildTemplateWithParNum(vNode:class.IAstNode, vFunc:AnyFunction, vParNum:Integer):Ret(class.Reference)
+function TypeManager:buildTemplateWithParNum(vNode:clazz.IAstNode, vFunc:AnyFunction, vParNum:Integer):Ret(clazz.Reference)
 	const nRefer = self:Reference(false)
 	nRefer:setTemplateAsync(vNode, vFunc, vParNum)
 	return nRefer
 end
 
-function TypeManager:Reference(vName:Union(String, False)):Ret(class.Reference)
+function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.Reference)
 	const nRefer = Reference.new(self, vName)
 	self._coToRefer[nRefer:getSelfCo()] = nRefer
 	return nRefer
 end
 
-function TypeManager:mergePairList(vTypePairList:List(Struct {class.UAtomUnion, class.UAtomUnion})):Ret(class.UAtomUnion, Dict(class.IAtomType, class.UAtomUnion))
+function TypeManager:mergePairList(vTypePairList:List(Struct {clazz.UAtomUnion, clazz.UAtomUnion})):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	local nCollection = self:TypeCollection()
 	for _, nPair in ipairs(vTypePairList) do
 		local nFieldType = nPair[1]
@@ -666,7 +666,7 @@ function TypeManager:mergePairList(vTypePairList:List(Struct {class.UAtomUnion, 
 		nCollection:put(nFieldType)
 	end
 	local nKeyUnion = nCollection:mergeToAtomUnion()
-	local nTypeDict:Dict(class.IAtomType, class.UAtomUnion) = {}
+	local nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for _, nPair in ipairs(vTypePairList) do
 		local nKey = nPair[1]
 		local nValueType = nPair[2]
@@ -683,7 +683,7 @@ function TypeManager:mergePairList(vTypePairList:List(Struct {class.UAtomUnion, 
 	return nKeyUnion, nTypeDict
 end
 
-function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair)):Ret(class.RefineTerm)
+function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair)):Ret(clazz.RefineTerm)
 	local nCollection = self:TypeCollection()
 	for _, nPair in ipairs(vTypeCasePairList) do
 		local nFieldType = nPair[1]
@@ -694,7 +694,7 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(class.TypeCasePair
 		nCollection:put(nFieldType)
 	end
 	local nKeyUnion = nCollection:mergeToAtomUnion()
-	local nTypeDict:Dict(class.IAtomType, class.TermCase) = {}
+	local nTypeDict:Dict(clazz.IAtomType, clazz.TermCase) = {}
 	for _, nPair in ipairs(vTypeCasePairList) do
 		local nKey = nPair[1]
 		local nCase = nPair[2]
@@ -787,13 +787,13 @@ function TypeManager:_schedule()
 	end
 end
 
-function TypeManager:makePair(vLeft:class.IAtomType, vRight:class.IAtomType):Ret(Integer)
+function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)
 	const nLeftId, nRightId = vLeft.id, vRight.id
 	assert(nLeftId ~= 0 and nRightId ~=0, "use id ==0")
 	return (nLeftId << 32) + nRightId
 end
 
-function TypeManager:makeDuPair(vLeft:class.IAtomType, vRight:class.IAtomType):Ret(Boolean, Integer, Integer)
+function TypeManager:makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Boolean, Integer, Integer)
 	const nLeftId, nRightId = vLeft.id, vRight.id
 	if nLeftId < nRightId then
 		return false, (nLeftId << 32) + nRightId, (nRightId << 32) + nLeftId
@@ -802,18 +802,18 @@ function TypeManager:makeDuPair(vLeft:class.IAtomType, vRight:class.IAtomType):R
 	end
 end
 
-function TypeManager:getTypePairContain(vLeft:class.IAtomType, vRight:class.IAtomType):Ret(OrNil(class.Reference))
+function TypeManager:getTypePairContain(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(OrNil(clazz.Reference))
 	const nPair = self:makePair(vLeft, vRight)
 	return self._pairToContain[nPair]
 end
 
-function TypeManager:attachPairContain(vLeft:class.MetaObject, vRight:class.MetaObject, vWaitCreate:Boolean):Ret(OrNil(class.RelationEnum))
+function TypeManager:attachPairContain(vLeft:clazz.MetaObject, vRight:clazz.MetaObject, vWaitCreate:Boolean):Ret(OrNil(clazz.RelationEnum))
 	const nInverse, nLRPair, nRLPair = self:makeDuPair(vLeft, vRight)
 	if nInverse then
 		vRight, vLeft = vLeft, vRight
 	end
 	local nContainRefer = self._pairToContain[nLRPair]
-	local nResultType:OrFalse(class.UAtomUnion) = false
+	local nResultType:OrFalse(clazz.UAtomUnion) = false
 	if vWaitCreate then
 		if not nContainRefer then
 			nContainRefer = self:Reference(false)
@@ -847,8 +847,8 @@ function TypeManager:attachPairContain(vLeft:class.MetaObject, vRight:class.Meta
 	if not nResultType then
 		return nil
 	else
-		const nLiteral = nResultType @!! class.StringLiteral
-		const nRelation = (nLiteral:getLiteral()) @!! class.RelationEnum
+		const nLiteral = nResultType @!! clazz.StringLiteral
+		const nRelation = (nLiteral:getLiteral()) @!! clazz.RelationEnum
 		if nInverse then
 			if nRelation == ">" then
 				return "<"
@@ -863,11 +863,11 @@ function TypeManager:attachPairContain(vLeft:class.MetaObject, vRight:class.Meta
 	end
 end
 
-function TypeManager:getRuntime():Ret(class.Runtime)
+function TypeManager:getRuntime():Ret(clazz.Runtime)
 	return self._runtime
 end
 
-function TypeManager:literal2Primitive(vType:class.UAtomUnion):Ret(class.UAtomUnion)
+function TypeManager:literal2Primitive(vType:clazz.UAtomUnion):Ret(clazz.UAtomUnion)
 	if BooleanLiteral.is(vType) then
 		return self.type.Boolean:checkAtomUnion()
 	elseif NumberLiteral.is(vType) then
@@ -879,7 +879,7 @@ function TypeManager:literal2Primitive(vType:class.UAtomUnion):Ret(class.UAtomUn
 	end
 end
 
-function TypeManager:signTemplateArgs(vTypeList:IList(class.UAllType)):Ret(String)
+function TypeManager:signTemplateArgs(vTypeList:IList(clazz.UAllType)):Ret(String)
 	const nIdList:List(Integer) = {}
 	for i=1,#vTypeList do
 		nIdList[i] = vTypeList[i]!.id
