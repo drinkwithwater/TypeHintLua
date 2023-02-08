@@ -123,9 +123,17 @@ function LuaFunction:native_type()
 end
 
 function LuaFunction:castPoly(vContext, vTypeArgsList)
-	-- TODO
-	print("cast poly TODO")
-	return self._hintCom:checkWhenTemplate(vContext, vTypeArgsList)
+	const nInnerFn = self._innerFn
+	if PolyFunction.is(nInnerFn) then
+		return nInnerFn:castPoly(vContext, vTypeArgsList)
+	else
+		if TypeFunction.is(nInnerFn) then
+			vContext:error("poly cast for non-poly function")
+			return nInnerFn
+		else
+			error("TODO, poly cast error")
+		end
+	end
 end
 
 function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(OrFalse(clazz.TypeFunction))

@@ -1,4 +1,6 @@
 
+const Exception = require "thlua.Exception"
+
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const TemplateReferCom = {}
@@ -26,6 +28,9 @@ function TemplateReferCom:call(vNode:clazz.IAstNode, vKey:String, vArgList:List(
 	if not nRefer then
 		nRefer = self._manager:Reference(false)
 		nRefer:setAssignAsync(vNode, function()
+			if #vArgList ~= self._parNum then
+				error(Exception.new("template args num not match", vNode))
+			end
 			return nFn(table.unpack(vArgList))
 		end)
 		self._cache[vKey] = nRefer

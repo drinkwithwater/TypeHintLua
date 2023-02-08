@@ -26,8 +26,8 @@ const LateFnCom = require "thlua.func.LateFnCom"
 		_prefixHint=clazz.TLongHintInfo(clazz.FnPrefixHint),
 		_parNum=Integer,
 		_isvararg=Boolean,
-		_hasRet=Boolean,
-		_polyParNum=OrFalse(Integer), -- if not full hint, _polyParNum is false
+		_hasRetStat=Boolean,
+		_polyParNum=OrFalse(Integer), -- if par is not full hint, _polyParNum is false
 		_parMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(List(OrFalse(clazz.UAllType)), OrFalse(clazz.UAllType)),
 		_retMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.TLongHintInfo(clazz.FnSuffixHint)),
 		_genFunc=clazz.GenFunc,
@@ -50,7 +50,6 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_context=vContext,
 		_node=vNode,
 		_member=false@Boolean,
-		_luaFunc=vManager:LuaFunction(),
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
 	}
 	for k,v in pairs(vInfo) do
@@ -110,7 +109,7 @@ function FunctionBuilder:_makeRetTuples(
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	if not self._hasRet then
+	if not self._hasRetStat then
 		if nRetTuples and not self._pass then
 			local hasVoid = false
 			local hasSome = false
@@ -168,8 +167,8 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 	end
 end
 
-function FunctionBuilder:_checkParTupleByDefault():Ret(clazz.UTypeTuple)
-	const nParList, nDotsType = self._parMaker({}, false)
+function FunctionBuilder:_checkParTupleByDefault(vPolyParList:List(clazz.UAllType)):Ret(clazz.UTypeTuple)
+	const nParList, nDotsType = self._parMaker(vPolyParList, false)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
 			error("param type is required here, order="..tostring(i))
@@ -257,7 +256,7 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 	end
 end
 
-function FunctionBuilder:isFullHint():Ret(Boolean)
+function FunctionBuilder:isParFullHint():Ret(Boolean)
 	return self._polyParNum and true
 end
 
@@ -283,7 +282,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	return nOpenFn or self._manager:OpenFunction():lateInitFromGenFunc(self._genFunc)
 end
 
-function FunctionBuilder:_buildClass():Ret(clazz.TypeFunction)
+function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyFunction))
 	const nPrefixHint = self._prefixHint
 	local nReferOrNil:OrNil(clazz.Reference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
@@ -296,65 +295,92 @@ function FunctionBuilder:_buildClass():Ret(clazz.TypeFunction)
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	const nSuffixHint = self._retMaker({}, false)
-	local nStruct:OrNil(clazz.UAllType) = nil
-	const ok, err = pcall(nSuffixHint.caller, {
-		impl=function(vHint, vStruct)
-			nStruct = vStruct
-			return vHint
-		end,
-		Ret=function(vHint, ...)
-			error("TODO : clazz use Ret not impl")
-			return vHint
-		end,
-		isguard=function(vHint, vType)
-			return vHint
-		end,
-	})
-	if not ok then
-		error(Exception.new(tostring(err), self._node))
-	end
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
-	const nParTuple = self:_checkParTupleByDefault()
-	const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nRefer))
-	const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
-	nRefer:setClassAsync(self._node, function()
-		local nImplType = nStruct
-		if Reference.is(nImplType) then
-			nImplType = nImplType:waitTypeCom():getTypeAwait()
-			assert(not nImplType:isUnion(), "interface can't be union")
+	const nPolyParNum = self._polyParNum
+	if not nPolyParNum then
+		error("non-full-hint class TODO"..tostring(self._node))
+	end
+	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.TypeFunction)
+		const nClassRefer = self._manager:Reference(false)
+		const nSuffixHint = self._retMaker(vPolyParList, false)
+		local nStruct:OrNil(clazz.UAllType) = nil
+		const ok, err = pcall(nSuffixHint.caller, {
+			impl=function(vHint, vStruct)
+				nStruct = vStruct
+				return vHint
+			end,
+			Ret=function(vHint, ...)
+				error("class function can't take Ret")
+				return vHint
+			end,
+			isguard=function(vHint, vType)
+				return vHint
+			end,
+		})
+		if not ok then
+			error(Exception.new(tostring(err), self._node))
 		end
-		local nInterface = self._manager.type.AnyObject
-		if nImplType then
-			assert(MetaObject.is(nImplType), "implement type must be MetaObject")
-			nInterface = nImplType
-		end
-		return nInterface
-	end, self._context, function(vLuaTable)
-		const nContext = self._context:newSealContext(self._node)
-		nContext:setClassTable(vLuaTable)
-		self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(), {}, false)
-	end)
-	return nTypeFn
+		const nParTuple = self:_checkParTupleByDefault(vPolyParList)
+		const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nClassRefer))
+		const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
+		nClassRefer:setClassAsync(self._node, function()
+			local nImplType = nStruct
+			if Reference.is(nImplType) then
+				nImplType = nImplType:waitTypeCom():getTypeAwait()
+				assert(not nImplType:isUnion(), "interface can't be union")
+			end
+			local nInterface = self._manager.type.AnyObject
+			if nImplType then
+				assert(MetaObject.is(nImplType), "implement type must be MetaObject")
+				nInterface = nImplType
+			end
+			return nInterface
+		end, self._context, function(vLuaTable)
+			const nContext = self._context:newSealContext(self._node)
+			nContext:setClassTable(vLuaTable)
+			self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(), vPolyParList, false)
+		end)
+		return nTypeFn
+	end
+	if nPolyParNum <= 0 then
+		const nTypeFn = nFnMaker({})
+		nRefer:setAssignAsync(self._node, function()
+			return nTypeFn:getRetTuples():getFirstType()
+		end)
+		return nTypeFn
+	else
+		const nPolyFn = self._manager:PolyFunction(self._node, function(...)
+			return nFnMaker({...}, false)
+		end, nPolyParNum)
+		nRefer:setTemplateAsync(self._node, function(...)
+			const nTypeFn = nPolyFn:noCtxCastPoly({...})
+			return nTypeFn:getRetTuples():getFirstType()
+		end, nPolyParNum)
+		return nPolyFn
+	end
 end
 
 function FunctionBuilder:build():Ret(clazz.LuaFunction)
+	const nLuaFunc = self._manager:LuaFunction()
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		self._luaFunc:lateInit(self._context, self._node, self, false, self:_buildOpen())
+		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildOpen())
 	elseif nAttrSet.class then
-		self._luaFunc:lateInit(self._context, self._node, self, false, self:_buildClass())
+		if nAttrSet.member then
+			error("class factory can't be member-function-like")
+		end
+		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildClass())
 	else
 		if nAttrSet.member then
-			self._luaFunc:setMember()
+			nLuaFunc:setMember()
 			self._member = true
 		end
 		local nDefaultFn:OrFalse(clazz.UDefaultFunction) = self:_checkWhenDefault()
-		const nLateFnCom = LateFnCom.new(self._manager, self._luaFunc, nDefaultFn, nAttrSet.pass and true or false)
+		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nDefaultFn, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
-		self._luaFunc:lateInit(self._context, self._node, self, nLateFnCom, nDefaultFn)
+		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nDefaultFn)
 	end
-	return self._luaFunc
+	return nLuaFunc
 end
 
 function FunctionBuilder:getGenFunc():Ret(clazz.GenFunc)
