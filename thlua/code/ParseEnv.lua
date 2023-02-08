@@ -387,7 +387,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
-		local generic = lpeg.Cg(vv.HintPolyArgs + cc(false), "hintPolyArgs")
+		local polyArgs = lpeg.Cg(vv.HintPolyArgs + cc(false), "hintPolyArgs")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		index1 = addAtHint(index1)
@@ -395,7 +395,7 @@ local G = lpeg.P { "TypeHintLua";
 		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
 		index2 = addAtHint(index2)
 		-- invoke
-		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * generic * vvA.FuncArgs)
+		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * polyArgs * vvA.FuncArgs)
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
 		-- add completion case

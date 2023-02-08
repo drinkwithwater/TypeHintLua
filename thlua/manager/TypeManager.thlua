@@ -634,15 +634,17 @@ function TypeManager:makeMetaEventCom(vObject:Union(class.LuaTable, class.MetaOb
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:buildTemplate(vNode:class.IAstNode, vFunc:AnyFunction, vParNum:OrNil(Integer)):Ret(class.Reference)
-	const nRefer = self:Reference(false)
-	if not vParNum then
-		const nInfo = debug.getinfo(vFunc)
-		vParNum = nInfo.nparams
-		if nInfo.isvararg then
-			error("generic's parameter number is undetermined")
-		end
+function TypeManager:buildTemplate(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class.Reference)
+	const nInfo = debug.getinfo(vFunc)
+	const nParNum = nInfo.nparams
+	if nInfo.isvararg then
+		error("template's parameter number is undetermined")
 	end
+	return self:buildTemplateWithParNum(vNode, vFunc, nParNum)
+end
+
+function TypeManager:buildTemplateWithParNum(vNode:class.IAstNode, vFunc:AnyFunction, vParNum:Integer):Ret(class.Reference)
+	const nRefer = self:Reference(false)
 	nRefer:setTemplateAsync(vNode, vFunc, vParNum)
 	return nRefer
 end
