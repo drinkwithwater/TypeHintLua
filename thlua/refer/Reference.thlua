@@ -6,11 +6,11 @@ const Node = require "thlua.code.Node"
 
 const TypeReferCom = require "thlua.refer.TypeReferCom"
 const ClassReferCom = require "thlua.refer.ClassReferCom"
-const GenericReferCom = require "thlua.refer.GenericReferCom"
+const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 (@do
 	let.class = import("thlua.type.TypeClass").class
-	let.UReferCom = Union(class.TypeReferCom, class.GenericReferCom, class.ClassReferCom)
+	let.UReferCom = Union(class.TypeReferCom, class.TemplateReferCom, class.ClassReferCom)
 end)
 
 const Reference = TypeClass()
@@ -19,9 +19,9 @@ Reference.__call=function(self:class.Reference, ...:class.UAllType):Ret(class.Re
 	-- TODO, cast
 	const nNode = Node.getDebugNode(3)
 	const nArgList:List(class.UAllType) = {...}
-	const nKey = self._manager:signGenericArgs(nArgList)
+	const nKey = self._manager:signTemplateArgs(nArgList)
 	const nCom = self._com
-	if GenericReferCom.is(nCom) then
+	if TemplateReferCom.is(nCom) then
 		return nCom:call(nNode, nKey, nArgList)
 	elseif nCom then
 		error(Exception.new("generic reference expected here", nNode))
@@ -31,7 +31,7 @@ Reference.__call=function(self:class.Reference, ...:class.UAllType):Ret(class.Re
 	if not nRefer then
 		nRefer = self._manager:Reference(false)
 		nRefer:setAssignAsync(nNode, function()
-			const nCom = self:waitGenericCom()
+			const nCom = self:waitTemplateCom()
 			return nCom:call(nNode, nKey, nArgList)
 		end)
 		nDict[nKey] = nRefer
@@ -95,9 +95,9 @@ function Reference:waitTypeCom():Ret(Union(class.TypeReferCom, class.ClassReferC
 	return nCom
 end
 
-function Reference:waitGenericCom():Ret(class.GenericReferCom)
+function Reference:waitTemplateCom():Ret(class.TemplateReferCom)
 	const nCom = self:getComAwait()
-	assert(GenericReferCom.is(nCom), "generic reference expected, but get some other reference")
+	assert(TemplateReferCom.is(nCom), "generic reference expected, but get some other reference")
 	return nCom
 end
 
@@ -119,10 +119,6 @@ function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
 		if Reference.is(nAssignValue) then
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
-		elseif type(nAssignValue) == "function" then
-			const nCom = GenericReferCom.new(self._manager, self)
-			nCom:build(nAssignValue)
-			self:_setComAndWakeup(nCom)
 		else
 			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
 			const nCom = TypeReferCom.new(self._manager, self)
@@ -131,6 +127,16 @@ function Reference:setAssignAsync(vNode:class.IAstNode, vGetFunc:Fn():Ret(Any))
 				return {nAssignValue}
 			end)
 		end
+	end)
+end
+
+function Reference:setTemplateAsync(vNode:class.IAstNode, vFunc:AnyFunction, vParNum:Integer)
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
+	self._manager:coStart(self._selfCo, function()
+		const nCom = TemplateReferCom.new(self._manager, self)
+		nCom:build(vFunc, vParNum)
+		self:_setComAndWakeup(nCom)
 	end)
 end
 
@@ -148,7 +154,7 @@ function Reference:setClassAsync(vNode:class.IAstNode,
 	end)
 end
 
-function Reference:setRawAsync(vNode:class.IAstNode,
+function Reference:setUnionAsync(vNode:class.IAstNode,
 	vGetList:Fn():Ret(List(class.IAtomType)),
 	vLaterCall:OrNil(Fn(class.UAtomUnion))
 )

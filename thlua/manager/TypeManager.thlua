@@ -93,23 +93,23 @@ function:class(class.TypeManager) TypeManager.new(vRuntime:class.Runtime)
 	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(nRootNode, {}, nil, false)
-	self.generic.Dict = self:buildGeneric(nRootNode, function.pass(vKey,vValue)
+	self.generic.Dict = self:buildTemplate(nRootNode, function.pass(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.IDict = self:buildGeneric(nRootNode, function.pass(vKey,vValue)
+	self.generic.IDict = self:buildTemplate(nRootNode, function.pass(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
 		return self:buildInterface(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.List = self:buildGeneric(nRootNode, function.pass(vValue)
+	self.generic.List = self:buildTemplate(nRootNode, function.pass(vValue)
 		assert(vValue, "value can't be nil when build List")
 		return self:buildStruct(nRootNode, {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
 	end)
-	self.generic.IList = self:buildGeneric(nRootNode, function.pass(vValue)
+	self.generic.IList = self:buildTemplate(nRootNode, function.pass(vValue)
 		assert(vValue, "value can't be nil when build IList")
 		return self:buildInterface(nRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:buildGeneric(nRootNode, function.pass(vOneType)
+	self.generic.KeyOf = self:buildTemplate(nRootNode, function.pass(vOneType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
 			nObject = vOneType:waitTypeCom():getTypeAwait()
@@ -165,12 +165,10 @@ for k, v in pairs(AtomMetatableSet) do
 	AtomUnionMetatableSet[k] = v
 end
 
-function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(class.Reference, class.GenericFunction, class.IAtomType)):Ret(False, String)
+function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(class.Reference, class.IAtomType)):Ret(False, String)
 	local meta = getmetatable(vData)
 	if meta and (AtomMetatableSet[meta] or meta == Reference) then
 		return true, vData @!! Union(class.Reference, class.IAtomType)
-	elseif type(vData) == "function" then
-		return true, vData @!! class.GenericFunction
 	else
 		return false, "not atom or reference"
 	end
@@ -240,7 +238,7 @@ end
 
 function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Boolean, vObjectList:List(class.UAllType)):Ret(class.Reference)
 	const nObjectRefer = self:Reference(false)
-	nObjectRefer:setRawAsync(vNode, function()
+	nObjectRefer:setUnionAsync(vNode, function()
 		if vIsInterface then
 			assert(#vObjectList>=1, "Interface must take at least one arguments")
 		else
@@ -302,7 +300,7 @@ function TypeManager:_buildCombineObject(vNode:class.IAstNode, vIsInterface:Bool
 		else
 			nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
 		end
-		nKeyRefer:setRawAsync(vNode, function()
+		nKeyRefer:setUnionAsync(vNode, function()
 			return nKeyList
 		end, function(_)
 			nNewObject:lateCheck()
@@ -340,7 +338,7 @@ function TypeManager:buildUnion(vNode:class.IAstNode, ...:Truth):Ret(class.Refer
 	local l = {...}
 	const nLen = select("#", ...)
 	local nNewRefer = self:Reference(false)
-	nNewRefer:setRawAsync(vNode, function()
+	nNewRefer:setUnionAsync(vNode, function()
 		local nTypeList:List(class.IAtomType) = {}
 		for i=1, nLen do
 			local nItem = l[i]
@@ -367,7 +365,7 @@ end
 function TypeManager:_buildMetaObject(vNode:class.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, class.UAllType)), vIsInterface:Boolean):Ret(class.MetaObject)
 	const nKeyRefer = self:Reference(false)
 	const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
-	nKeyRefer:setRawAsync(vNode, function()
+	nKeyRefer:setUnionAsync(vNode, function()
 		const nKeyList:List(class.IAtomType) = {}
 		const nValueDict:Dict(class.IAtomType, Union(class.UAllType, class.MemberFunction)) = {}
 		local nKeyCount = 0
@@ -532,7 +530,7 @@ function TypeManager:retConcat(vNode:class.IAstNode, vRetTuples:class.RetTuples,
 	nFirstToTuple[vTypeTuple:get(1)] = vTypeTuple
 	const nFirstRefer = self:Reference(false)
 	local nTypeList:List(class.IAtomType) = {}
-	nFirstRefer:setRawAsync(vNode, function()
+	nFirstRefer:setUnionAsync(vNode, function()
 		for nFirst, _ in pairs(nFirstToTuple) do
 			nFirst:foreachAwait(function(vSubType)
 				nTypeList[#nTypeList + 1] = vSubType
@@ -636,11 +634,16 @@ function TypeManager:makeMetaEventCom(vObject:Union(class.LuaTable, class.MetaOb
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:buildGeneric(vNode:class.IAstNode, vFunc:AnyFunction):Ret(class.Reference)
+function TypeManager:buildTemplate(vNode:class.IAstNode, vFunc:AnyFunction, vParNum:OrNil(Integer)):Ret(class.Reference)
 	const nRefer = self:Reference(false)
-	nRefer:setAssignAsync(vNode, function()
-		return vFunc
-	end)
+	if not vParNum then
+		const nInfo = debug.getinfo(vFunc)
+		vParNum = nInfo.nparams
+		if nInfo.isvararg then
+			error("generic's parameter number is undetermined")
+		end
+	end
+	nRefer:setTemplateAsync(vNode, vFunc, vParNum)
 	return nRefer
 end
 
@@ -813,7 +816,7 @@ function TypeManager:attachPairContain(vLeft:class.MetaObject, vRight:class.Meta
 		if not nContainRefer then
 			nContainRefer = self:Reference(false)
 			self._pairToContain[nLRPair] = nContainRefer
-			nContainRefer:setRawAsync(self._runtime:getNode(), function()
+			nContainRefer:setUnionAsync(self._runtime:getNode(), function()
 				const nLRContain = vLeft:assumeContainObject({[nLRPair]=true}, vRight)
 				const nRLContain = vRight:assumeContainObject({[nRLPair]=true}, vLeft)
 				if nLRContain and nRLContain then
@@ -874,7 +877,7 @@ function TypeManager:literal2Primitive(vType:class.UAtomUnion):Ret(class.UAtomUn
 	end
 end
 
-function TypeManager:signGenericArgs(vTypeList:IList(class.UAllType)):Ret(String)
+function TypeManager:signTemplateArgs(vTypeList:IList(class.UAllType)):Ret(String)
 	const nIdList:List(Integer) = {}
 	for i=1,#vTypeList do
 		nIdList[i] = vTypeList[i]!.id

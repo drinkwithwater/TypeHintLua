@@ -1,0 +1,40 @@
+
+(@let.class = import("thlua.type.TypeClass").class)
+
+const TemplateReferCom = {}
+TemplateReferCom.__index = TemplateReferCom
+
+function:class(class.TemplateReferCom) TemplateReferCom.new(vManager:class.TypeManager, vRefer:class.Reference)
+	const self = setmetatable({.class
+		_manager=vManager,
+		_refer=vRefer,
+		_parNum=0@Integer,
+		_func=false@OrFalse(AnyFunction),
+		_cache={}@Dict(String, class.Reference),
+	}, TemplateReferCom)
+	return self
+end
+
+function TemplateReferCom:build(vFunc:AnyFunction, vParNum:Integer)
+	self._parNum = vParNum
+	self._func = vFunc
+end
+
+function TemplateReferCom:call(vNode:class.IAstNode, vKey:String, vArgList:List(class.UAllType)):Ret(class.Reference)
+	const nFn = assert(self._func)
+	local nRefer = self._cache[vKey]
+	if not nRefer then
+		nRefer = self._manager:Reference(false)
+		nRefer:setAssignAsync(vNode, function()
+			return nFn(table.unpack(vArgList))
+		end)
+		self._cache[vKey] = nRefer
+	end
+	return nRefer
+end
+
+function.open TemplateReferCom.is(self):isguard(class.TemplateReferCom)
+	return getmetatable(self) == TemplateReferCom
+end
+
+return TemplateReferCom
