@@ -32,7 +32,7 @@ local TagToVisiting:RealTraverser = {
 		}
 	end,
 	Block=function(self, node)
-		return self:forList(node, function(i, vStatNode)
+		return self:concatList@<node.IAstNode>(node, function(i, vStatNode)
 			return self:visit(vStatNode)
 		end, " ")
 	end,
@@ -44,22 +44,21 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Set=function(self, node)
 		return {
-			" local ", self:forList(node[1], function(i,v)
+			" local ", self:concatList@<node.IAstNode>(node[1], function(i,v)
 				return "set_a"..i
 			end, ","),
 			"=", self:ctxWrap(node).EXPLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
-			self:forList(node[1], function(i, vNode)
-				const nVarNode = vNode @ node.Lhs
-				if nVarNode.tag == "Ident" then
-					return self:rgnWrap(nVarNode).SYMBOL_SET(
-						self:formatIdent(nVarNode),
+			self:concatList@<node.Lhs>(node[1], function(i, vVarNode)
+				if vVarNode.tag == "Ident" then
+					return self:rgnWrap(vVarNode).SYMBOL_SET(
+						self:formatIdent(vVarNode),
 						"set_a"..i,
 						tostring(node.override or false)
 					)
 				else
 					return self:ctxWrap(node).META_SET(
-						self:visit(nVarNode[1]),
-						self:visit(nVarNode[2]),
+						self:visit(vVarNode[1]),
+						self:visit(vVarNode[2]),
 						"set_a"..i,
 						tostring(node.override or false)
 					)
@@ -124,13 +123,12 @@ local TagToVisiting:RealTraverser = {
 			"local forin_next,forin_self,forin_init=",
 			self:ctxWrap(node).EXPLIST_UNPACK("3", self:visit(node[2])),
 			self:rgnWrap(node).FOR_IN(self:fnWrap("vIterTuple")(
-				"local ", self:forList(node[1], function(i, vNode)
+				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 					return "forin_gen"..i
 				end, ","),
 				"=", self:ctxWrap(node).TUPLE_UNPACK("vIterTuple", tostring(#node[1]), tostring(false)),
-				self:forList(node[1], function(i, vNode)
-					const nIdent = vNode @ node.Ident_def
-					return self:visitIdentDef(nIdent, "forin_gen"..i)
+				self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
+					return self:visitIdentDef(vIdent, "forin_gen"..i)
 				end, " "),
 				self:visit(node[3])
 			), "forin_next", "forin_self", "forin_init")
@@ -139,13 +137,12 @@ local TagToVisiting:RealTraverser = {
 	Local=function(self, node)
 		return {
 			line=node.l,
-			"local ", self:forList(node[1], function(i, vNode)
+			"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 				return "local_a"..i
 			end, ","), "=",
 			#node[2] > 0 and self:ctxWrap(node).EXPLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
-			self:forList(node[1], function(i, vNode)
-				const nIdent = vNode @ node.Ident_def
-				return self:visitIdentDef(nIdent, "local_a"..i)
+			self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
+				return self:visitIdentDef(vIdent, "local_a"..i)
 			end, " ")
 		}
 	end,
@@ -262,16 +259,15 @@ local TagToVisiting:RealTraverser = {
 		return {
 			"____ctx:RefineTerm(", self:ctxWrap(node).TABLE_NEW(
 				self:visitLongHint(node.hintLong),
-				self:fnRetWrap(self:listWrap(self:forList(node, function(i, vNode)
-					const nTableItem = vNode @ Union(node.Pair, node.Expr)
-					if nTableItem.tag ~= "Pair" then
+				self:fnRetWrap(self:listWrap(self:concatList@<Union(node.Pair, node.Expr)>(node, function(i, vTableItem)
+					if vTableItem.tag ~= "Pair" then
 						if i==#node and tailDots then
 							return "nil"
 						else
-							return self:listWrap("____ctx:LiteralTerm("..i2i[i]!..")", self:visit(nTableItem))
+							return self:listWrap("____ctx:LiteralTerm("..i2i[i]!..")", self:visit(vTableItem))
 						end
 					else
-						return self:listWrap(self:visit(nTableItem[1]), self:visit(nTableItem[2]))
+						return self:listWrap(self:visit(vTableItem[1]), self:visit(vTableItem[2]))
 					end
 				end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
 			), ")"
@@ -360,24 +356,23 @@ local TagToVisiting:RealTraverser = {
 		)
 	end,
 	ExprList=function(self, node)
-		return self:forList(node, function(i, expr)
+		return self:concatList@<node.IAstNode>(node, function(i, expr)
 			return self:visit(expr)
 		end, ",")
 	end,
 	ParList=function(self, node)
 		error("implement in other way")
-		return self:forList(node, function(i, vNode)
-			const nParNode = vNode @ Union(node.Ident_use, node.Dots)
-			return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
+		return self:concatList@<Union(node.Ident_def, node.Dots)>(node, function(i, vParNode)
+			return vParNode.tag == "Ident" and "v_"..vParNode[1]..vParNode.index or "vDOTS"
 		end, ",")
 	end,
 	VarList=function(self, node)
-		return self:forList(node, function(i, varNode)
+		return self:concatList@<node.IAstNode>(node, function(i, varNode)
 			return self:visit(varNode)
 		end, ",")
 	end,
 	IdentList=function(self, node)
-		return self:forList(node, function(i, identNode)
+		return self:concatList@<node.IAstNode>(node, function(i, identNode)
 			return self:visit(identNode)
 		end, ",")
 	end,
@@ -628,16 +623,14 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nIsVararg = nLastDots and true or false
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
-			" local ", self:forList(nParList, function(i, vNode)
-				const nParNode = vNode @ Union(node.Ident_use, node.Dots)
-				return nParNode.tag == "Ident" and "v_"..nParNode[1]..nParNode.index or "vDOTS"
+			" local ", self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+				return vParNode.tag == "Ident" and "v_"..vParNode[1]..vParNode.index or "vDOTS"
 			end, ","),
 			"=" ,
 			self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple", tostring(nParamNum), tostring(nIsVararg)),
-			self:forList(nParList, function(i, vNode)
-				const nParNode = vNode @ Union(node.Dots, node.Ident_def)
-				if nParNode.tag ~= "Dots" then
-					return self:visitIdentDef(nParNode, "v_"..nParNode[1]..nParNode.index, true)
+			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+				if vParNode.tag ~= "Dots" then
+					return self:visitIdentDef(vParNode, "v_"..vParNode[1]..vParNode.index, true)
 				else
 					return ""
 				end
@@ -645,23 +638,16 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		} or "",
 	}
 	const nPolyParList = vNode.hintPolyParList
-	const nPolyUnpack:let.GenResult = {}
+	local nPolyUnpack:let.GenResult = {}
 	const nPolyParNum = nPolyParList and #nPolyParList or false
 	if nPolyParNum and nPolyParNum > 0 then
-		nPolyUnpack[#nPolyUnpack + 1] = " local "
-		for i=1,nPolyParNum do
-			nPolyUnpack[#nPolyUnpack + 1] = nPolyParList[i]
-			if i ~= nPolyParNum then
-				nPolyUnpack[#nPolyUnpack + 1] = ","
-			end
-		end
-		nPolyUnpack[#nPolyUnpack + 1] = "="
-		for i=1,nPolyParNum do
-			nPolyUnpack[#nPolyUnpack + 1] = "____typeList["..tostring(i).."]"
-			if i ~= nPolyParNum then
-				nPolyUnpack[#nPolyUnpack + 1] = ","
-			end
-		end
+		nPolyUnpack = {
+			" local ", self:concatList@<String>(nPolyParList, function(_, vPolyPar)
+				return vPolyPar
+			end, ","), "=", self:concatList@<String>(nPolyParList, function(i, vPolyPar)
+				return "____typeList["..tostring(i).."]"
+			end, ",")
+		}
 	end
 	const nFirstPar = nParList[1]
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
@@ -677,10 +663,9 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			_parMaker=self:fnWrap("____typeList", nSelf)(
 				nPolyUnpack,
 				"return ",
-				self:listWrap(self:forList(nParList, function(i, vNode)
-					const nParNode = vNode @ Union(node.Dots, node.Ident_def)
-					const nHintShort = nParNode.hintShort
-					if nParNode.tag == "Dots" then
+				self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+					const nHintShort = vParNode.hintShort
+					if vParNode.tag == "Dots" then
 						return "nil"
 					else
 						if i == 1 and nIsMember then
@@ -709,11 +694,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	}
 end
 
-function HintGener:forList(
-	vList:IList(node.IAstNode),
-	vFunc:Fn(Integer, node.IAstNode):Ret(let.UGenResult),
+function HintGener:concatList@<T>(
+	vList:IList(T),
+	vFunc:Fn(Integer, T):Ret(let.UGenResult),
 	vSep:String
-	):Ret(let.GenResult)
+):Ret(let.GenResult)
 	const nResult:let.GenResult = {}
 	const nLen = #vList
 	for i=1,nLen do

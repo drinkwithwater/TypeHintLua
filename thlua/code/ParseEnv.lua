@@ -290,8 +290,12 @@ local G = lpeg.P { "TypeHintLua";
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
-	HintPolyParList = symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") / function(...)
-		return {...}
+	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") * Cpos / function(env, pos, ...)
+		local l = {...}
+		local posEnd = l[#l]
+		l[#l] = nil
+		env:markDel(pos, posEnd - 1)
+		return l
 	end;
 
 	HintPolyArgs = hintC.wrap(false, symb("@<") * cc(Enum.CastKind_POLY),

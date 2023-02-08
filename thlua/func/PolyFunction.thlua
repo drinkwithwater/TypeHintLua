@@ -13,7 +13,7 @@ function:class(clazz.PolyFunction) PolyFunction.new(vManager:clazz.TypeManager, 
 		_manager=vManager,
 		_polyParNum=vPolyParNum,
 		_innerFunc=vFunc,
-		_typeFnDict = {} @ Dict(String, clazz.TypeFunction),
+		_polyCallPairDict = {} @ Dict(String, Struct {clazz.TypeFunction, List(clazz.UAllType)}),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
 	}, PolyFunction)
@@ -28,8 +28,8 @@ function PolyFunction:isOpen():Ret(False)
 	return false
 end
 
-function PolyFunction:getTypeFnDict():Ret(Dict(String, clazz.TypeFunction))
-	return self._typeFnDict
+function PolyFunction:getPolyCallPairDict():Ret(Dict(String, Struct {clazz.TypeFunction, List(clazz.UAllType)}))
+	return self._polyCallPairDict
 end
 
 function PolyFunction:getPolyParNum():Ret(Integer)
@@ -43,16 +43,17 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.Ty
 		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()
 	end
 	const nKey = self._manager:signTemplateArgs(nAtomUnionList)
-	local nTypeFn = self._typeFnDict[nKey]
-	if not nTypeFn then
+	const nPair = self._polyCallPairDict[nKey]
+	if not nPair then
 		const nResult = (self._innerFunc(table.unpack(vTypeList)) @ Any)
 		if not TypeFunction.is(nResult) then
 			error("poly function must return Fn type but got:"..tostring(nResult))
 		end
-		nTypeFn = nResult
-		self._typeFnDict[nKey] = nTypeFn
+		self._polyCallPairDict[nKey] = {nResult, vTypeList}
+		return nResult
+	else
+		return nPair[1]
 	end
-	return nTypeFn
 end
 
 function PolyFunction:castPoly(vContext, vTypeList)

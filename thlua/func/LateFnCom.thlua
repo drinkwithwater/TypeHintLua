@@ -35,16 +35,16 @@ function LateFnCom:checkLateRun()
 		return
 	end
 	self._once = true
-	const nSpecFnList:List(clazz.TypeFunction) = {}
+	const nSpecFnList:List(Struct {clazz.TypeFunction, OrNil(List(clazz.UAllType)), OrNil(clazz.UAllType)}) = {}
 	-- 1. cast fn
 	const nCastFn = self._castSpecList[1]
 	if nCastFn then
-		nSpecFnList[#nSpecFnList + 1] = nCastFn
+		nSpecFnList[#nSpecFnList + 1] = {nCastFn}
 		const nList = self._castSpecList
 		for i=2,#nList do
 			const nTypeFn = nList[i]!
 			if not nCastFn:containAll(nTypeFn) then
-				nSpecFnList[#nSpecFnList + 1] = nTypeFn
+				nSpecFnList[#nSpecFnList + 1] = {nTypeFn}
 				print("polymorphism cast TODO")
 			end
 		end
@@ -52,12 +52,15 @@ function LateFnCom:checkLateRun()
 	-- 2. default fn
 	const nDefaultFn = self._defaultFn
 	if MemberFunction.is(nDefaultFn) then
-		const nTypeFnDict = nDefaultFn:getTypeFnDict()
-		for _, nTypeFn in pairs(nTypeFnDict) do
-			nSpecFnList[#nSpecFnList + 1] = nTypeFn
+		const nPairDict = nDefaultFn:getPolyFn():getPolyCallPairDict()
+		for _, nPair in pairs(nPairDict) do
+			const nRawPolyArgs = nPair[2]
+			const nPolyArgs:List(clazz.UAllType) = {table.unpack(nRawPolyArgs, 2)}
+			const nSelfType = assert(nRawPolyArgs[1], "self type must existed here")
+			nSpecFnList[#nSpecFnList + 1] = {nPair[1], nPolyArgs, nSelfType}
 		end
 	elseif TypeFunction.is(nDefaultFn) then
-		nSpecFnList[#nSpecFnList + 1] = nDefaultFn
+		nSpecFnList[#nSpecFnList + 1] = {nDefaultFn}
 	elseif nDefaultFn then
 		print("poly function lateRun TODO", tostring(self._luaFunction:getNode()))
 	else
@@ -66,11 +69,12 @@ function LateFnCom:checkLateRun()
 		end
 		-- nDefaultFn is false
 	end
-	for _, nTypeFn in ipairs(nSpecFnList) do
-		const nParTuple = nTypeFn:getParTuple()
+	for _, nPair in ipairs(nSpecFnList) do
+		const nParTuple = nPair[1]:getParTuple()
 		const nInplaceContext = self._luaFunction:newInplaceSealContext()
-		const ok, err = pcall(function():Ret()
-			self._luaFunction:getGenFunc()(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(), {}, false)
+		const ok, err = pcall(function()
+			const nEmpty:List(clazz.UAllType) = {}
+			self._luaFunction:getGenFunc()(nPair[1], nInplaceContext, nParTuple:makeTermTuple(), nPair[2] or nEmpty, nPair[3] or false)
 		end)
 		if not ok then
 			nInplaceContext:error(tostring(err))
