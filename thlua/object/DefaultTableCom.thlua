@@ -2,6 +2,7 @@
 const StringLiteral = require "thlua.type.StringLiteral"
 const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
@@ -315,7 +316,10 @@ function DefaultTableCom:implInterface(vContext:clazz.Context, vInterface:clazz.
 			const nSelfValue = nField.rawValueType
 			if LuaFunction.is(nSelfValue) then
 				if nSelfValue:isMember() then
-					nField.castValueType = nSelfValue:autoSpecialize(vContext, self._luaTable)
+					const nFn = nSelfValue:getRealFn()
+					if MemberFunction.is(nFn) and not nFn:needPolyArgs() then
+						nFn:indexTypeFn(self._luaTable)
+					end
 				end
 			end
 		end

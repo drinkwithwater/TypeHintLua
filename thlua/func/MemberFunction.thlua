@@ -64,6 +64,23 @@ function MemberFunction:getTypeFnDict():Ret(Dict(String, clazz.TypeFunction))
 	return self._polyFn:getTypeFnDict()
 end
 
+function MemberFunction:meta_invoke(
+	vContext:clazz.Context,
+	vSelfType:clazz.UAllType,
+	vPolyArgs:List(clazz.UAllType),
+	vTypeTuple:clazz.UTypeTuple
+):Ret(clazz.RetTuples)
+	if #vPolyArgs == 0 and self:needPolyArgs() then
+		vContext:error("TODO poly member function called without poly args")
+	end
+	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyArgs)})
+	return nTypeFn:meta_call(vContext, vTypeTuple)
+end
+
+function MemberFunction:needPolyArgs():Ret(Boolean)
+	return self._polyFn:getPolyParNum() > 1
+end
+
 function MemberFunction:indexTypeFn(vType:clazz.IAtomType):Ret(clazz.TypeFunction)
 	return self._polyFn:noCtxCastPoly({vType})
 end

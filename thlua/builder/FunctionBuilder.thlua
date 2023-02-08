@@ -30,7 +30,6 @@ const LateFnCom = require "thlua.func.LateFnCom"
 		_polyParNum=OrFalse(Integer), -- if par is not full hint, _polyParNum is false
 		_parMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(List(OrFalse(clazz.UAllType)), OrFalse(clazz.UAllType)),
 		_retMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.TLongHintInfo(clazz.FnSuffixHint)),
-		_genFunc=clazz.GenFunc,
 	}, {
 		__next=KeyOf(clazz.FuncNewInfo)
 	})
@@ -43,11 +42,13 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vManager:clazz.TypeManager,
 	vContext:clazz.Context,
 	vNode:clazz.IAstNode,
-	vInfo:clazz.FuncNewInfo
+	vInfo:clazz.FuncNewInfo,
+	vGenFunc:clazz.GenFunc
 )
 	const self = {.class
 		_manager=vManager,
 		_context=vContext,
+		_genFunc=vGenFunc,
 		_node=vNode,
 		_member=false@Boolean,
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
@@ -69,7 +70,7 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 	-- 1. check par
 	const nParTuple = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
-	const nHintRetTuples = self:_makeRetTuples(vContext, {}, false)
+	const nHintRetTuples = self:_makeRetTuples({}, false)
 	const nCastRetTuples = vCastTypeFn:getRetTuples()
 	if nHintRetTuples then
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
@@ -82,7 +83,6 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 end
 
 function FunctionBuilder:_makeRetTuples(
-	vContext:clazz.Context,
 	vTypeList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
 ):Ret(OrFalse(clazz.RetTuples))
@@ -167,14 +167,22 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 	end
 end
 
-function FunctionBuilder:_checkParTupleByDefault(vPolyParList:List(clazz.UAllType)):Ret(clazz.UTypeTuple)
-	const nParList, nDotsType = self._parMaker(vPolyParList, false)
+function FunctionBuilder:_makeParTupleByPoly(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.UTypeTuple)
+	const nNewParList:List(clazz.UAllType) = {}
+	const nParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
 	for i, nParType in ipairs(nParList) do
 		if not nParType then
-			error("param type is required here, order="..tostring(i))
+			if i == 1 then
+				nNewParList[1] = self._manager.type.Truth
+				assert(self._member, "only trait function's self can be default to Truth")
+			else
+				error("check default but hint type is not true value, order="..tostring(i))
+			end
+		else
+			nNewParList[i] = nParType
 		end
 	end
-	local nTuple = self._manager:Tuple(table.unpack(nParList @ List(clazz.UAllType)))
+	const nTuple = self._manager:Tuple(table.unpack(nNewParList))
 	if self._isvararg then
 		if not nDotsType then
 			error("dots type is required here")
@@ -183,30 +191,6 @@ function FunctionBuilder:_checkParTupleByDefault(vPolyParList:List(clazz.UAllTyp
 	else
 		return nTuple
 	end
-end
-
-function FunctionBuilder:_makeParTuple(vContext:clazz.Context, vTypeList:List(clazz.UAllType)):Ret(clazz.UTypeTuple)
-	const nParList, nDotsType = self._parMaker(vTypeList, false)
-	for i, nParType in ipairs(nParList) do
-		if not nParType then
-			error("param type is required here, order="..tostring(i))
-		end
-	end
-	local nTuple = self._manager:Tuple(table.unpack(nParList @ List(clazz.UAllType)))
-	if self._isvararg then
-		if not nDotsType then
-			error("dots type is required here")
-		end
-		return nTuple:Dots(nDotsType)
-	else
-		return nTuple
-	end
-end
-
-function FunctionBuilder:checkWhenTemplate(vContext:clazz.Context, vTypeList:List(clazz.UAllType)):Ret(clazz.TypeFunction)
-	const nParTuple = self:_makeParTuple(vContext, vTypeList)
-	const nRetTuples = self:_makeRetTuples(vContext, vTypeList, false) or self._manager:VoidRetTuples()
-	return self._manager:Function(nParTuple, nRetTuples)
 end
 
 function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction))
@@ -215,29 +199,8 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 		return false
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.TypeFunction)
-		const nNewParList:List(clazz.UAllType) = {}
-		const nParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
-		for i, nParType in ipairs(nParList) do
-			if not nParType then
-				if i == 1 then
-					nNewParList[1] = self._manager.type.Truth
-					assert(self._member, "only trait function's self can be default to Truth")
-				else
-					error("check default but hint type is not true value, order="..tostring(i))
-				end
-			else
-				nNewParList[i] = nParType
-			end
-		end
-		const nRawTuple = self._manager:Tuple(table.unpack(nNewParList))
-		local nParTuple:clazz.UTypeTuple = nRawTuple
-		if self._isvararg then
-			if not nDotsType then
-				error("dots type is required here")
-			end
-			nParTuple = nRawTuple:Dots(nDotsType)
-		end
-		const nRetTuples = self:_makeRetTuples(self._context, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
+		const nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
+		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
 		return self._manager:Function(nParTuple, nRetTuples)
 	end
 	if not self._member then
@@ -320,7 +283,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
-		const nParTuple = self:_checkParTupleByDefault(vPolyParList)
+		const nParTuple = self:_makeParTupleByPoly(vPolyParList, false)
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nClassRefer))
 		const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
 		nClassRefer:setClassAsync(self._node, function()

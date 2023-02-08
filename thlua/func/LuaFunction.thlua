@@ -21,7 +21,7 @@ function:class(clazz.LuaFunction) LuaFunction.new(vManager:clazz.TypeManager):im
 		_context=false@clazz.Context,
 		_node=false@clazz.IAstNode,
 		_isMember=false@Boolean,
-		_innerFn=false@OrFalse(clazz.OpenFunction, clazz.UDefaultFunction),
+		_realFn=false@OrFalse(clazz.OpenFunction, clazz.UDefaultFunction),
 		_lateFnCom=false@OrFalse(clazz.LateFnCom),
 		_hintCom=nil@clazz.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
@@ -44,7 +44,7 @@ function LuaFunction:lateInit(vContext:clazz.Context, vNode:clazz.IAstNode, vHin
 	self._node = vNode
 	self._hintCom = vHintCom
 	self._lateFnCom = vLateFnCom
-	self._innerFn = vInnerFn
+	self._realFn = vInnerFn
 	self.name = tostring(vNode)
 end
 
@@ -57,7 +57,7 @@ function LuaFunction:newInplaceOpenContext():Ret(clazz.Context)
 end
 
 function LuaFunction:isOpen():Ret(Boolean)
-	return OpenFunction.is(self._innerFn)
+	return OpenFunction.is(self._realFn)
 end
 
 function LuaFunction:detailString(v, vVerbose)
@@ -65,7 +65,7 @@ function LuaFunction:detailString(v, vVerbose)
 end
 
 function LuaFunction:meta_open_call(vContext:clazz.Context, vTermTuple:clazz.TermTuple):Ret(clazz.TermTuple)
-	const nInnerFn = self._innerFn
+	const nInnerFn = self._realFn
 	if OpenFunction.is(nInnerFn) then
 		return nInnerFn:meta_open_call(vContext, vTermTuple)
 	else
@@ -74,9 +74,9 @@ function LuaFunction:meta_open_call(vContext:clazz.Context, vTermTuple:clazz.Ter
 end
 
 function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	const nInnerFn = self._innerFn
+	const nInnerFn = self._realFn
 	if MemberFunction.is(nInnerFn) then
-		return nInnerFn:indexTypeFn(vSelfType):meta_call(vContext, vTypeTuple)
+		return nInnerFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 	elseif PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
 		return nInnerFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 	elseif nInnerFn then
@@ -88,7 +88,7 @@ function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
-	const nInnerFn = self._innerFn
+	const nInnerFn = self._realFn
 	if PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
 		return nInnerFn:meta_call(vContext, vTypeTuple)
 	else
@@ -123,7 +123,7 @@ function LuaFunction:native_type()
 end
 
 function LuaFunction:castPoly(vContext, vTypeArgsList)
-	const nInnerFn = self._innerFn
+	const nInnerFn = self._realFn
 	if PolyFunction.is(nInnerFn) then
 		return nInnerFn:castPoly(vContext, vTypeArgsList)
 	else
@@ -158,14 +158,18 @@ end
 function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.TypeFunction)
 	local nLateCom = self._lateFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
-	const nDefaultFn = nLateCom:getDefaultFn()
+	const nInnerFn = self._realFn
 	if not vSelfType then
-		assert(TypeFunction.is(nDefaultFn), "only type function can be auto specialize")
-		return nDefaultFn
+		assert(TypeFunction.is(nInnerFn), "only type function can be auto specialize")
+		return nInnerFn
 	else
-		assert(MemberFunction.is(nDefaultFn), "only member function can be auto specialize with self")
-		return nDefaultFn:indexTypeFn(vSelfType)
+		assert(MemberFunction.is(nInnerFn), "only member function can be auto specialize with self")
+		return nInnerFn:indexTypeFn(vSelfType)
 	end
+end
+
+function LuaFunction:getRealFn():Ret(OrFalse(clazz.OpenFunction, clazz.UDefaultFunction))
+	return self._realFn
 end
 
 function LuaFunction:isMember():Ret(Boolean)
