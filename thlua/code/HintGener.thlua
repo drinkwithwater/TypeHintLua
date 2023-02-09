@@ -639,8 +639,8 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	}
 	const nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack:let.GenResult = {}
-	const nPolyParNum = nPolyParList and #nPolyParList or false
-	if nPolyParNum and nPolyParNum > 0 then
+	const nPolyParNum = nPolyParList and #nPolyParList or 0
+	if nPolyParList and nPolyParNum > 0 then
 		nPolyUnpack = {
 			" local ", self:concatList@<String>(nPolyParList, function(_, vPolyPar)
 				return vPolyPar
@@ -657,9 +657,10 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
 			_prefixHint=nHintPrefix,
 			_hasRetStat=tostring(vNode.retFlag or false),
-			_parNum=tostring(nParamNum),
 			_isvararg=tostring(nIsVararg),
 			_polyParNum=tostring(nPolyParNum),
+			_parNum=tostring(nParamNum),
+			_parFullHint=tostring(vNode.parFullHint or false),
 			_parMaker=self:fnWrap("____typeList", nSelf)(
 				nPolyUnpack,
 				"return ",

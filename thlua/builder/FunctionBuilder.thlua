@@ -24,11 +24,12 @@ const LateFnCom = require "thlua.func.LateFnCom"
 
 	clazz.FuncNewInfo = Struct ({
 		_prefixHint=clazz.TLongHintInfo(clazz.FnPrefixHint),
-		_parNum=Integer,
 		_isvararg=Boolean,
 		_hasRetStat=Boolean,
-		_polyParNum=OrFalse(Integer), -- if par is not full hint, _polyParNum is false
+		_polyParNum=Integer,
+		_parNum=Integer,
 		_parMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(List(OrFalse(clazz.UAllType)), OrFalse(clazz.UAllType)),
+		_parFullHint=Boolean,
 		_retMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	}, {
 		__next=KeyOf(clazz.FuncNewInfo)
@@ -194,7 +195,7 @@ function FunctionBuilder:_makeParTupleByPoly(vPolyParList:List(clazz.UAllType), 
 end
 
 function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction))
-	const nPolyParNum = self._polyParNum
+	const nPolyParNum = self:_getPolyNumOrNotHint()
 	if not nPolyParNum then
 		return false
 	end
@@ -219,8 +220,8 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 	end
 end
 
-function FunctionBuilder:isParFullHint():Ret(Boolean)
-	return self._polyParNum and true
+function FunctionBuilder:_getPolyNumOrNotHint():Ret(OrFalse(Integer))
+	return self._parFullHint and (self._polyParNum or 0)
 end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
@@ -259,9 +260,9 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		error(Exception.new(tostring(err), self._node))
 	end
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
-	const nPolyParNum = self._polyParNum
+	const nPolyParNum = self:_getPolyNumOrNotHint()
 	if not nPolyParNum then
-		error("non-full-hint class TODO"..tostring(self._node))
+		error(Exception.new("non-full-hint class TODO", self._node))
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.TypeFunction)
 		const nClassRefer = self._manager:Reference(false)
@@ -330,7 +331,7 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildOpen())
 	elseif nAttrSet.class then
 		if nAttrSet.member then
-			error("class factory can't be member-function-like")
+			error(Exception.new("class factory can't be member-function-like", self._node))
 		end
 		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildClass())
 	else

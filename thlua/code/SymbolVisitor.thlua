@@ -94,27 +94,28 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		const nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
-			local nFullHint = true
+			local nParFullHint = true
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
 					self:symbolDefine(par, Enum.SymbolKind_PARAM)
 					if not par.isSelf and not par.hintShort then
-						nFullHint = false
+						nParFullHint = false
 					end
 				else
 					self:dotsDefine(par)
 					if not par.hintShort then
-						nFullHint = false
+						nParFullHint = false
 					end
 				end
 			end
 			-- self:realVisit(func[1])
 			self:realVisit(nBlockNode)
 			const nPolyParList = func.hintPolyParList
-			if not nFullHint then
+			func.parFullHint = nParFullHint
+			if not nParFullHint then
 				if nPolyParList and #nPolyParList > 0 then
-					const nErrNode = self._env:makeErrNode(func[1].pos, "poly function must be full-hint or self:full-hint")
-					error(Exception.new(nErrNode[1], nErrNode))
+					-- const nErrNode = self._env:makeErrNode(func[1].pos, "poly function must be full-hint or self:full-hint")
+					-- error(Exception.new(nErrNode[1], nErrNode))
 				end
 			else
 				if not func.hintPolyParList then
