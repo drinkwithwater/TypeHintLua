@@ -7,15 +7,20 @@ const LuaFunction = require "thlua.func.LuaFunction"
 const Nil = require "thlua.type.Nil"
 const TypeFunction = require "thlua.func.TypeFunction"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
-const DefaultTableCom = require "thlua.object.DefaultTableCom"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const MetaObject = require "thlua.object.MetaObject"
 
+const DefaultTableCom = require "thlua.object.DefaultTableCom"
+const OpenTableCom = require "thlua.object.OpenTableCom"
+
 const LuaTable = AtomTypeClass()
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	clazz.UTableCom = Union(clazz.DefaultTableCom, clazz.OpenTableCom)
+end)
 
-function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
+function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:OrNil(True)):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_name="Table"@String,
@@ -24,26 +29,35 @@ function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager):impl(cla
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
-		_defaultCom=nil@clazz.DefaultTableCom,
+		_tableCom=nil@clazz.UTableCom,
 		_clazzCom=false@OrFalse(clazz.ClassReferCom),
 		_objectType=false@OrFalse(clazz.MetaObject),
 	}, LuaTable)
-	self._defaultCom=DefaultTableCom.new(self._manager, self)
+	self._tableCom=DefaultTableCom.new(self._manager, self)
 	return self
 end
 
+function LuaTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
+	self._tableCom:initByKeyValue(vKeyType, vValueDict)
+end
+
 function LuaTable:initByClassCom(vFnCom:clazz.ClassReferCom, vInterface:clazz.MetaObject)
-	self._clazzCom = vFnCom
-	self._objectType = vInterface
-	self._defaultCom:setInterface(vInterface)
+	const nTableCom = self._tableCom
+	if DefaultTableCom.is(nTableCom) then
+		self._clazzCom = vFnCom
+		self._objectType = vInterface
+		nTableCom:setInterface(vInterface)
+	else
+		error("open table can't be class")
+	end
 end
 
 function LuaTable:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
 end
 
-function LuaTable:getDefaultCom():Ret(clazz.DefaultTableCom)
-	return self._defaultCom
+function LuaTable:getTableCom():Ret(clazz.UTableCom)
+	return self._tableCom
 end
 
 function LuaTable:_lockOrWaitClass(vContext:clazz.Context)
@@ -107,7 +121,11 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- 1. copyout meta event items
 	assert(not self._metaEventCom, "meta event has been setted")
 	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	nMetaEventCom:initByLuaTable(vContext, vMetaTableType:getDefaultCom())
+	const nTableCom = vMetaTableType:getTableCom()
+	if not DefaultTableCom.is(nTableCom) then
+		error("open table as meta TODO")
+	end
+	nMetaEventCom:initByLuaTable(vContext, nTableCom)
 	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager
@@ -116,13 +134,13 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	local nAsIndex:OrFalse(clazz.MetaIndexField) = false
 	local nAsNewIndex:OrFalse(clazz.MetaIndexField) = false
 	if LuaTable.is(nIndexType) then
-		nAsIndex = nIndexType:getDefaultCom():lockAsMetaIndex()
+		nAsIndex = nIndexType:getTableCom():lockAsMetaIndex()
 	end
 	if LuaTable.is(nNewIndexType) then
-		nAsNewIndex = nNewIndexType:getDefaultCom():lockAsMetaNewIndex()
+		nAsNewIndex = nNewIndexType:getTableCom():lockAsMetaNewIndex()
 	end
 	-- 3. set default com
-	const nDefaultCom = self._defaultCom
+	const nDefaultCom = self._tableCom
 	nDefaultCom:setMetaIndex(vContext, nAsIndex, nAsNewIndex)
 	-- 4. set clazz com
 	const nClassCom = self._clazzCom
@@ -143,25 +161,25 @@ end
 
 function LuaTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	self:_lockOrWaitClass(vContext)
-	return self._defaultCom:native_rawget(vContext, vKeyType)
+	return self._tableCom:native_rawget(vContext, vKeyType)
 end
 
 function LuaTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil, Boolean))
 	self:_lockOrWaitClass(vContext)
-	return self._defaultCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+	return self._tableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
 end
 
 function LuaTable:_checkComOrStruct(vContext:clazz.Context):Ret(clazz.IMetaNative)
 	self:_lockOrWaitClass(vContext)
 	if self._clazzCom then
-		return self._defaultCom
+		return self._tableCom
 	else
 		const nCastStruct = self._objectType
 		if nCastStruct then
 			vContext:warn("table has been cast to other type")
 			return nCastStruct
 		else
-			return self._defaultCom
+			return self._tableCom
 		end
 	end
 end
@@ -179,7 +197,7 @@ function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
 	if self._clazzCom then
 		vContext:error("override set can't work on clazz table")
 	else
-		self._defaultCom:meta_set_ifoverride(vContext, vKeyType, vValueType, true)
+		self._tableCom:meta_set_ifoverride(vContext, vKeyType, vValueType, true)
 	end
 end
 
@@ -247,7 +265,7 @@ function LuaTable:cast(vContext:clazz.Context, vObjectAtomUnion:clazz.UObjectAto
 		end
 		return nMatchStruct
 	end
-	const nMatchStruct = self._defaultCom:castStruct(vContext, vObjectAtomUnion)
+	const nMatchStruct = self._tableCom:castStruct(vContext, vObjectAtomUnion)
 	if not nMatchStruct then
 		vContext:error("default table can't cast to struct type", self, vObjectAtomUnion)
 		return false
@@ -273,12 +291,12 @@ function LuaTable:checkBaseObjectType()
 	if nStruct then
 		return nStruct
 	end
-	self._defaultCom:basingByDefault()
+	self._tableCom:basingByDefault()
 	return self._manager.type.AnyObject
 end
 
 function LuaTable:getCompletion():Ret(clazz.LspCompletion)
-	return self._defaultCom:getCompletion()
+	return self._tableCom:getCompletion()
 end
 
 function.open LuaTable.is(v):isguard(clazz.LuaTable)

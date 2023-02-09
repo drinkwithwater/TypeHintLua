@@ -1,0 +1,138 @@
+
+const StringLiteral = require "thlua.type.StringLiteral"
+const MetaObject = require "thlua.object.MetaObject"
+const TypeFunction = require "thlua.func.TypeFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
+const LuaFunction = require "thlua.func.LuaFunction"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.TableField = Struct {
+		rawValueType = clazz.UAtomUnion,
+		castValueType = OrFalse(clazz.UAtomUnion),
+		kind = Union("property", "override", "getter"),
+	}
+end)
+
+const OpenTableCom = {}
+OpenTableCom.__index = OpenTableCom
+
+function:class(clazz.OpenTableCom) OpenTableCom.new(vManager:clazz.TypeManager,
+	vLuaTable:clazz.LuaTable):impl(clazz.IMetaNative)
+	const self = setmetatable({.class
+		_manager=vManager,
+		_keyType=vManager.type.Never @clazz.UAtomUnion,
+		_valueDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion),
+		_luaTable=vLuaTable,
+	}, OpenTableCom)
+	return self
+end
+
+function OpenTableCom:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
+	self._keyType = vKeyType
+	for k,v in pairs(vValueDict) do
+		self._valueDict[k] = v
+	end
+end
+
+function OpenTableCom:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
+	self._keyType:foreach(function(vType)
+		vFunc(vType, self._valueDict[vType]!)
+	end)
+end
+
+function OpenTableCom:meta_set_ifoverride(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil,Boolean))
+	self:meta_set(vContext, vKeyType, vValueType)
+end
+
+function OpenTableCom:meta_set(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
+	local nKeyContainType = self._keyType:containAtom(vKeyType)
+	if nKeyContainType then
+		self._valueDict[nKeyContainType] = vValueType
+	end
+	self:native_rawset(vContext, vKeyType, vValueType, false)
+end
+
+function OpenTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
+	local nKeyContainType = self._keyType:containAtom(vKeyType)
+	if nKeyContainType then
+		return self._valueDict[nKeyContainType]!
+	else
+		return self._manager.type.Nil
+	end
+end
+
+function OpenTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+	local nContainType = self._keyType:containAtom(vKeyType)
+	if not nContainType then
+		if vKeyType:isSingleton() and not vKeyType:isNilable() then
+			-- TODO thinking when to lock this
+			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
+			self._valueDict[vKeyType] = vValueType
+		else
+			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
+		end
+	else
+		self._valueDict[nContainType] = vValueType
+	end
+end
+
+function OpenTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
+	local nKeyContainType = self._keyType:containAtom(vKeyType)
+	if nKeyContainType then
+		return self._valueDict[nKeyContainType]!
+	else
+		return self._manager.type.Nil
+	end
+end
+
+function OpenTableCom:setMetaIndex(vContext:clazz.Context, vAsIndex:OrFalse(clazz.MetaIndexField), vAsNewIndex:OrFalse(clazz.MetaIndexField))
+	-- TODO
+end
+
+function OpenTableCom:native_next(vContext, vInitType)
+	-- TODO
+end
+
+function OpenTableCom:lockAsMetaIndex():Ret(clazz.MetaIndexField)
+	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	for k, nType in pairs(self._valueDict) do
+		nDict[k] = nType
+	end
+	return {
+		keyType=self._keyType,
+		valueDict=nDict,
+		fnType=false,
+	}
+end
+
+function OpenTableCom:lockAsMetaNewIndex():Ret(clazz.MetaIndexField)
+	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	for k, nType in pairs(self._valueDict) do
+		nDict[k] = nType
+	end
+	return {
+		keyType=self._keyType,
+		valueDict=nDict,
+		fnType=false,
+	}
+end
+
+function OpenTableCom:basingByDefault()
+end
+
+function OpenTableCom:castStruct(vContext:clazz.Context, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
+	return false
+end
+
+function OpenTableCom:getCompletion():Ret(clazz.LspCompletion)
+	local nDict:Dict(String, True) = {}
+	self._keyType:foreach(function(vType)
+		if StringLiteral.is(vType) then
+			nDict[vType:getLiteral()] = true
+		end
+	end)
+	return nDict
+end
+
+return OpenTableCom
