@@ -11,37 +11,37 @@ const function.open AtomTypeClass()
 	function t:foreach(vFunc)
 		vFunc(self)
 	end
-	function t:isSingleton?()
+	function t:isSingleton()
 		error(tostring(self).."is singleton TODO")
 		return false
 	end
 	--- meta method --------------
-	function.pass t:meta_ipairs?(vContext)
+	function.pass t:meta_ipairs(vContext)
 		error(tostring(self).."meta_ipairs not implement")
 	end
-	function t:meta_pairs?(vContext)
+	function t:meta_pairs(vContext)
 		error(tostring(self).."meta_pairs not implement")
 		return false
 	end
-	function t:meta_set?(vContext, vKeyType, vValueType)
+	function t:meta_set(vContext, vKeyType, vValueType)
 		vContext:error(tostring(self).." can't take set index")
 	end
-	function t:meta_set_override?(vContext, vKeyType, vValueType)
+	function t:meta_set_override(vContext, vKeyType, vValueType)
 		vContext:warn(tostring(self).." can't take set_override")
 		self:meta_set(vContext, vKeyType, vValueType)
 	end
-	function t:meta_get?(vContext, vKeyType)
+	function t:meta_get(vContext, vKeyType)
 		vContext:error(tostring(self).." can't take get index")
 		return self._manager.type.Never
 	end
-	function t:meta_get_invoke?(vContext, vKeyType)
+	function t:meta_get_invoke(vContext, vKeyType)
 		return self:meta_get(vContext, vKeyType)
 	end
-	function t:meta_call?(vContext, vTypeTuple):Ret(clazz.RetTuples)
+	function t:meta_call(vContext, vTypeTuple):Ret(clazz.RetTuples)
 		vContext:error(tostring(self).." can't take call")
 		return self._manager:VoidRetTuples()
 	end
-	function t:meta_invoke?(vContext, vSelfType, vPolyArgs, vTypeTuple):Ret(clazz.RetTuples)
+	function t:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple):Ret(clazz.RetTuples)
 		if #vPolyArgs > 0 then
 			const nCast = self:castPoly(vContext, vPolyArgs) or self
 			return nCast:meta_call(vContext, vTypeTuple)
@@ -49,7 +49,7 @@ const function.open AtomTypeClass()
 			return self:meta_call(vContext, vTypeTuple)
 		end
 	end
-	function t:meta_bop_func?(vContext, vOper)
+	function t:meta_bop_func(vContext, vOper)
 		if OPER_ENUM.mathematic[vOper] then
 			return false, self._manager.builtin.bop.mathematic
 		elseif OPER_ENUM.bitwise[vOper] then
@@ -63,53 +63,53 @@ const function.open AtomTypeClass()
 			return false, nil
 		end
 	end
-	function t:meta_len?(vContext)
+	function t:meta_len(vContext)
 		vContext:error(tostring(self).." can't take len oper")
 		return self._manager.type.Number
 	end
-	function t:meta_uop_some?(vContext, vOper)
+	function t:meta_uop_some(vContext, vOper)
 		vContext:error(tostring(self).." can't take uop :"..vOper)
 		return self._manager.type.Number
 	end
 	--- native method --------------
-	function.pass t:native_next?(vContext, vInitType)
+	function.pass t:native_next(vContext, vInitType)
 		error("native_next not implement")
 	end
-	function t:native_tostring?()
+	function t:native_tostring()
 		return self._manager.type.String
 	end
-	function t:native_rawget?(vContext, vKeyType)
+	function t:native_rawget(vContext, vKeyType)
 		return self:meta_get(vContext, vKeyType)
 	end
-	function t:native_rawset?(vContext, vKeyType, vValueType, vOverride)
+	function t:native_rawset(vContext, vKeyType, vValueType, vOverride)
 		vContext:error(tostring(self).." rawset not implement")
 	end
-	function t:castPoly?(vContext, vTypeArgsList)
+	function t:castPoly(vContext, vTypeArgsList)
 		vContext:error("poly cast can't work on this type:"..tostring(self))
 		return false
 	end
-	function t:native_type?()
+	function t:native_type()
 		print("native_type not implement ")
 		return self._manager.type.String
 	end
-	function t:native_getmetatable?(vContext)
+	function t:native_getmetatable(vContext)
 		return self._manager.type.Nil
 	end
-	function t:native_setmetatable?(vContext, vTable)
+	function t:native_setmetatable(vContext, vTable)
 		error(Exception.new(tostring(self).." setmetatable not implement"))
 	end
-	function t:checkBaseObjectType?()
+	function t:checkBaseObjectType()
 		return false
 	end
-	function t:linkNamedReference?(vRefer)
+	function t:linkNamedReference(vRefer)
 	end
-	function t:assumeContainAtom?(vAssumeSet, vRight)
+	function t:assumeContainAtom(vAssumeSet, vRight)
 		error(tostring(self).."assumeContainAtom not implement")
 	end
-	function t:assumeIntersectAtom?(vAssumeSet, vRight)
+	function t:assumeIntersectAtom(vAssumeSet, vRight)
 		error(tostring(self).."assumeIntersectAtom TODO")
 	end
-	function t:isStrNumLiteral?()
+	function t:isStrNumLiteral()
 		return false
 	end
 	return t

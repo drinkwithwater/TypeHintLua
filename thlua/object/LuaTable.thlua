@@ -20,7 +20,7 @@ const LuaTable = AtomTypeClass()
 	clazz.UTableCom = Union(clazz.DefaultTableCom, clazz.OpenTableCom)
 end)
 
-function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:OrNil(True)):impl(clazz.IAtomType)
+function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:OrNil(Boolean)):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_name="Table"@String,
@@ -33,7 +33,11 @@ function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:
 		_clazzCom=false@OrFalse(clazz.ClassReferCom),
 		_objectType=false@OrFalse(clazz.MetaObject),
 	}, LuaTable)
-	self._tableCom=DefaultTableCom.new(self._manager, self)
+	if vIsOpen then
+		self._tableCom=OpenTableCom.new(self._manager, self)
+	else
+		self._tableCom=DefaultTableCom.new(self._manager, self)
+	end
 	return self
 end
 
@@ -121,11 +125,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- 1. copyout meta event items
 	assert(not self._metaEventCom, "meta event has been setted")
 	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	const nTableCom = vMetaTableType:getTableCom()
-	if not DefaultTableCom.is(nTableCom) then
-		error("open table as meta TODO")
-	end
-	nMetaEventCom:initByLuaTable(vContext, nTableCom)
+	nMetaEventCom:initByLuaTable(vContext, vMetaTableType:getTableCom())
 	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager

@@ -140,30 +140,30 @@ end)
 
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const function.open TypeClass()
-	const t = {}
+	const t = {.open}
 	t.__index=t
 	function t.__tostring(self)
 		return self:detailString({}, false)
 	end
-	function t:foreachAwait?(vFunc)
+	function t:foreachAwait(vFunc)
 		self:foreach(vFunc)
 	end
-	function t:isReference?()
+	function t:isReference()
 		return false
 	end
-	function t:checkAtomUnion?()
+	function t:checkAtomUnion()
 		return self
 	end
-	function t:isNilable?()
+	function t:isNilable()
 		return false
 	end
-	function t:intersectAtom?(vRight)
+	function t:intersectAtom(vRight)
 		return self:assumeIntersectAtom(nil, vRight)
 	end
-	function t:containAtom?(vRight)
+	function t:containAtom(vRight)
 		return self:assumeContainAtom(nil, vRight)
 	end
-	function t:assumeIntersectSome?(vAssumeSet, vRight)
+	function t:assumeIntersectSome(vAssumeSet, vRight)
 		local nSomeIntersect:Boolean = false
 		vRight:foreachAwait(function(vSubType)
 			if not nSomeIntersect and self:assumeIntersectAtom(vAssumeSet, vSubType) then
@@ -172,7 +172,7 @@ const function.open TypeClass()
 		end)
 		return nSomeIntersect
 	end
-	function t:assumeContainAll?(vAssumeSet, vRight)
+	function t:assumeContainAll(vAssumeSet, vRight)
 		local nAllContain:Boolean = true
 		vRight:foreachAwait(function(vSubType)
 			if nAllContain and not self:assumeContainAtom(vAssumeSet, vSubType) then
@@ -220,37 +220,37 @@ const function.open TypeClass()
 			error("unexpected intersect")
 		end
 	end
-	function t:isUnion?()
+	function t:isUnion()
 		return false
 	end
-	function t:foreach?(vFunc)
+	function t:foreach(vFunc)
 		error("foreach TODO")
 	end
-	function t:unionSign?()
+	function t:unionSign()
 		return tostring(self.id)
 	end
 	function t.__bor(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
 		return vLeft._manager:checkedUnion(vLeft, vRight)
 	end
-	function t:isNever?()
+	function t:isNever()
 			return false
 	end
-	function t:notnilType?()
+	function t:notnilType()
 		return self:checkAtomUnion()
 	end
-	function t:trueType?()
+	function t:trueType()
 			return self:checkAtomUnion()
 	end
-	function t:mayRecursive?()
+	function t:mayRecursive()
 		return false
 	end
-	function t:objectPartType?()
+	function t:objectPartType()
 			return self._manager.type.Never
 	end
-	function t:fnPartType?()
+	function t:fnPartType()
 			return self._manager.type.Never
 	end
-	function t:falseType?()
+	function t:falseType()
 			return self._manager.type.Never
 	end
 	function t:same(vType):Ret(Boolean)
@@ -263,7 +263,7 @@ const function.open TypeClass()
 			return self == vType
 		end
 	end
-	function t:getCompletion?():Ret(clazz.LspCompletion)
+	function t:getCompletion():Ret(clazz.LspCompletion)
 		return {}
 	end
 	return t
