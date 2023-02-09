@@ -40,9 +40,12 @@ function TypeTuple:castOrIn(vContext:clazz.Context, vDstTypeTuple:clazz.UTypeTup
 			end
 		end
 	elseif #vDstTypeTuple < #self then
+		const nDstRepeatType = vDstTypeTuple:getRepeatType()
+		if not nDstRepeatType then
+			return false
+		end
 		for i=#vDstTypeTuple + 1, #self do
 			const nSelfi = self:get(i):checkAtomUnion()
-			const nDstRepeatType = vDstTypeTuple:getRepeatType()
 			if not Nil.is(nSelfi) and nDstRepeatType then
 				if not vContext:castLuaType(nSelfi, nDstRepeatType) then
 					if not nDstRepeatType:containAll(nSelfi) then

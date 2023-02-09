@@ -24,6 +24,7 @@ const LateFnCom = require "thlua.func.LateFnCom"
 
 	clazz.FuncNewInfo = Struct ({
 		_prefixHint=clazz.TLongHintInfo(clazz.FnPrefixHint),
+		_suffixHint=clazz.TLongHintInfo(clazz.FnSuffixHint),
 		_isvararg=Boolean,
 		_hasRetStat=Boolean,
 		_polyParNum=Integer,
@@ -199,6 +200,10 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 	if not nPolyParNum then
 		return false
 	end
+	if self._hasRetStat and not self._suffixHint.attrSet.Ret then
+		-- return not full hint
+		return false
+	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.TypeFunction)
 		const nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
 		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
@@ -243,7 +248,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	return nOpenFn or self._manager:OpenFunction():lateInitFromGenFunc(self._genFunc)
+	return nOpenFn or self._manager:OpenFunction():lateInitFromGenFunc(self._genFunc, self._polyParNum)
 end
 
 function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyFunction))
