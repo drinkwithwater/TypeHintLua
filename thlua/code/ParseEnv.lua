@@ -270,8 +270,6 @@ local G = lpeg.P { "TypeHintLua";
 
 	NotnilHint = hintC.char("!");
 
-	OverrideHint = hintC.char("?");
-
 	HintExpr = vv.EvalExpr + vv.SimpleExpr;
 
 	AtHint = hintC.wrap(
@@ -452,8 +450,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	AssignStat = (function()
 		local VarList = tagC.VarList(vv.VarExpr * (symb(",") * vv.VarExpr)^0)
-		local OverrideHint = lpeg.Cg(symb("=")*cc(false) + vv.OverrideHint*symb("=")*cc(true), "override")
-		return tagC.Set(VarList * OverrideHint * vv.ExprList)
+		return tagC.Set(VarList * symb("=") * vv.ExprList)
 	end)();
 
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
@@ -476,7 +473,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 			local FuncName = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
-			return Cpos * vv.FuncPrefix * FuncName * MethodName * (vv.OverrideHint*vv.Skip*cc(true) + cc(false)) * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, override, posMid, funcExpr, posEnd)
+			return Cpos * vv.FuncPrefix * FuncName * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
 					if not hintPrefix then
@@ -492,7 +489,7 @@ local G = lpeg.P { "TypeHintLua";
 					varPrefix = makeNameIndex(varPrefix, methodName)
 				end
 				return {
-					tag = "Set", pos=pos, override=override, posEnd=posEnd,
+					tag = "Set", pos=pos, posEnd=posEnd,
 					{ tag="VarList", pos=pos, posEnd=posMid, varPrefix},
 					{ tag="ExprList", pos=posMid, posEnd=posEnd, funcExpr },
 				}
