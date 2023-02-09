@@ -12,7 +12,7 @@ const Nil = require "thlua.type.Nil"
 	let.TableField = Struct {
 		rawValueType = clazz.UAtomUnion,
 		castValueType = OrFalse(clazz.UAtomUnion),
-		kind = Union("property", "override", "getter"),
+		kind = Union("property", "getter"),
 	}
 end)
 
@@ -56,10 +56,6 @@ function DefaultTableCom:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUni
 end
 
 function DefaultTableCom:meta_set(vContext, vKeyType, vValueType)
-	self:meta_set_ifoverride(vContext, vKeyType, vValueType, false)
-end
-
-function DefaultTableCom:meta_set_ifoverride(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil,Boolean))
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
@@ -68,18 +64,11 @@ function DefaultTableCom:meta_set_ifoverride(vContext:clazz.Context, vKeyType:cl
 		const nTableField = self._fieldDict[nKeyContainType]!
 		const nFieldType = nTableField.castValueType or nTableField.rawValueType
 		if not nFieldType:containAll(vValueType) then
-			if nTableField.kind == "override" then
-				nTableField.rawValueType = vValueType
-				if not vOverride then
-					nTableField.kind = "property"
-				end
-			else
-				vContext:error("wrong value type when set key:"..tostring(nKeyContainType))
-			end
+			vContext:error("wrong value type when set key:"..tostring(nKeyContainType))
 		end
 		return
 	end
-	self:native_rawset(vContext, vKeyType, vValueType, vOverride)
+	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
 function DefaultTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
@@ -93,7 +82,7 @@ function DefaultTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
 	end
 end
 
-function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
@@ -105,21 +94,16 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride
 			self._fieldDict[vKeyType] = {
 				rawValueType = vValueType,
 				castValueType = false,
-				kind = vOverride and "override" or "property",
+				kind = "property",
 			}
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
 		end
 	else
-		assert(not vOverride, "unexcepted case, rawset take override=true")
 		const nTableField = self._fieldDict[nContainType]!
 		const nFieldType = nTableField.castValueType or nTableField.rawValueType
 		if not nFieldType:containAll(vValueType) then
 			vContext:error("wrong value type when set, key:"..tostring(nContainType))
-		else
-			if nTableField.kind == "override" then
-				nTableField.kind = "property"
-			end
 		end
 	end
 end

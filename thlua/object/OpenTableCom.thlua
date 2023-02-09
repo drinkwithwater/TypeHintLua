@@ -7,11 +7,6 @@ const LuaFunction = require "thlua.func.LuaFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.TableField = Struct {
-		rawValueType = clazz.UAtomUnion,
-		castValueType = OrFalse(clazz.UAtomUnion),
-		kind = Union("property", "override", "getter"),
-	}
 end)
 
 const OpenTableCom = {}
@@ -41,16 +36,12 @@ function OpenTableCom:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion)
 	end)
 end
 
-function OpenTableCom:meta_set_ifoverride(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil,Boolean))
-	self:meta_set(vContext, vKeyType, vValueType)
-end
-
 function OpenTableCom:meta_set(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
 	local nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
 		self._valueDict[nKeyContainType] = vValueType
 	end
-	self:native_rawset(vContext, vKeyType, vValueType, false)
+	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
 function OpenTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
@@ -62,7 +53,7 @@ function OpenTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
 	end
 end
 
-function OpenTableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+function OpenTableCom:native_rawset(vContext, vKeyType, vValueType)
 	local nContainType = self._keyType:containAtom(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then

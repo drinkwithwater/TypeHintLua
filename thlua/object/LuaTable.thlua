@@ -164,9 +164,9 @@ function LuaTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	return self._tableCom:native_rawget(vContext, vKeyType)
 end
 
-function LuaTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion, vOverride:Union(Nil, Boolean))
+function LuaTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
 	self:_lockOrWaitClass(vContext)
-	return self._tableCom:native_rawset(vContext, vKeyType, vValueType, vOverride)
+	return self._tableCom:native_rawset(vContext, vKeyType, vValueType)
 end
 
 function LuaTable:_checkComOrStruct(vContext:clazz.Context):Ret(clazz.IMetaNative)
@@ -190,15 +190,6 @@ end
 
 function LuaTable:meta_set(vContext, vKeyType, vValueType)
 	self:_checkComOrStruct(vContext):meta_set(vContext, vKeyType, vValueType)
-end
-
-function LuaTable:meta_set_override(vContext, vKeyType, vValueType)
-	self:_lockOrWaitClass(vContext)
-	if self._clazzCom then
-		vContext:error("override set can't work on clazz table")
-	else
-		self._tableCom:meta_set_ifoverride(vContext, vKeyType, vValueType, true)
-	end
 end
 
 function LuaTable:meta_len(vContext)
