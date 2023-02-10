@@ -655,7 +655,7 @@ function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.Reference)
 	return nRefer
 end
 
-function TypeManager:mergePairList(vTypePairList:List(Struct {clazz.UAtomUnion, clazz.UAtomUnion})):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
+function TypeManager:mergePairList@<TValue>(vTypePairList:List(Struct {clazz.UAtomUnion, TValue})):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, TValue))
 	local nCollection = self:TypeCollection()
 	for _, nPair in ipairs(vTypePairList) do
 		local nFieldType = nPair[1]
@@ -666,7 +666,7 @@ function TypeManager:mergePairList(vTypePairList:List(Struct {clazz.UAtomUnion, 
 		nCollection:put(nFieldType)
 	end
 	local nKeyUnion = nCollection:mergeToAtomUnion()
-	local nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	local nTypeDict:Dict(clazz.IAtomType, TValue) = {}
 	for _, nPair in ipairs(vTypePairList) do
 		local nKey = nPair[1]
 		local nValueType = nPair[2]
@@ -684,30 +684,7 @@ function TypeManager:mergePairList(vTypePairList:List(Struct {clazz.UAtomUnion, 
 end
 
 function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair)):Ret(clazz.RefineTerm)
-	local nCollection = self:TypeCollection()
-	for _, nPair in ipairs(vTypeCasePairList) do
-		local nFieldType = nPair[1]
-		if nFieldType:isReference() then
-			nFieldType = nFieldType:checkAtomUnion()
-			nPair[1] = nFieldType
-		end
-		nCollection:put(nFieldType)
-	end
-	local nKeyUnion = nCollection:mergeToAtomUnion()
-	local nTypeDict:Dict(clazz.IAtomType, clazz.TermCase) = {}
-	for _, nPair in ipairs(vTypeCasePairList) do
-		local nKey = nPair[1]
-		local nCase = nPair[2]
-		nKey:foreach(function(vSubType)
-			local nContainType = assert(nKeyUnion:containAtom(vSubType), "merge error")
-			local nOldCase = nTypeDict[nContainType]
-			if nOldCase then
-				nTypeDict[nContainType] = nOldCase | nCase
-			else
-				nTypeDict[nContainType] = nCase
-			end
-		end)
-	end
+	const nKeyUnion, nTypeDict = self:mergePairList@<clazz.TermCase>(vTypeCasePairList)
 	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
