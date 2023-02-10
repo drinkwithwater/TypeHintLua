@@ -147,17 +147,17 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNextSel
 		self._context:getRuntime():nodeError(vNode, "FOR_IN iterator error, arguments number must be 1 or 2 or 3")
 		return
 	end
-	const nNext = vNextSelfInit:get(1)
+	const nNext = vNextSelfInit:get(self._context, 1)
 	const nTuple = self._context:META_CALL(vNode, nNext, function ()
 		if nLenNext == 1 then
 			return self._context:TermTuple({})
 		else
-			const nSelf = vNextSelfInit:get(2)
+			const nSelf = vNextSelfInit:get(self._context, 2)
 			if nLenNext == 2 then
 				return self._context:TermTuple({nSelf})
 			else
 				if nLenNext == 3 then
-					const nInit = vNextSelfInit:get(3)
+					const nInit = vNextSelfInit:get(self._context, 3)
 					return self._context:TermTuple({nSelf, nInit})
 				else
 					error("NextSelfInit tuple must be 3, this branch is impossible")
@@ -169,7 +169,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNextSel
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value when iterator")
 		return
 	end
-	local nFirstTerm = nTuple:get(1)
+	local nFirstTerm = nTuple:get(self._context, 1)
 	const nFirstType = nFirstTerm:getType()
 	if not nFirstType:isNilable() then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : still run logic?? ")
@@ -187,7 +187,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNextSel
 			nTermList[i] = nTuple:get(i)
 		end]]
 		for i=2, #nTuple do
-			local nTerm = nTuple:get(i)
+			local nTerm = nTuple:get(self._context, i)
 			const nType = vCase[nTerm:attachImmutShot()]
 			if nType then
 				nTerm = self._context:RefineTerm(nType)
@@ -307,11 +307,11 @@ function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.TermTuple)
 		self:_bodyReturn(vNode, vTermTuple:getTypeTuple())
 	else
 		const nManager = self._context:getTypeManager()
-		const nFirstTerm = vTermTuple:get(1)
+		const nFirstTerm = vTermTuple:get(self._context, 1)
 		nFirstTerm:foreach(function(vAtomType, vCase)
 			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
 			for i=2, #vTermTuple do
-				local nTerm = vTermTuple:get(i)
+				local nTerm = vTermTuple:get(self._context, i)
 				const nType = vCase[nTerm:attachImmutShot()]
 				if not nType then
 					nTypeList[i] = nTerm:getType()

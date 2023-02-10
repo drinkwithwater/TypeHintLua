@@ -20,10 +20,15 @@ TermTuple.__bor=function(vLeftTuple:clazz.TermTuple, vRightTuple:clazz.TermTuple
 	const nLen = math.max(#vLeftTuple, #vRightTuple)
 	const l:List(clazz.RefineTerm) = {}
 	const nNil = vLeftTuple._manager.type.Nil
+	print("term tuple bor TODO")
 	for i=1, nLen do
-		const nLeftTerm = vLeftTuple:get(i)
-		const nRightTerm = vRightTuple:get(i)
-		l[i] = nLeftTerm | nRightTerm
+		const nLeftTerm = vLeftTuple:rawget(i)
+		const nRightTerm = vRightTuple:rawget(i)
+		if nLeftTerm and nRightTerm then
+			l[i] = nLeftTerm | nRightTerm
+		else
+			l[i] = nLeftTerm or nRightTerm or vLeftTuple._manager:RefineTerm(nNil)
+		end
 	end
 	return vLeftTuple._manager:TermTuple(l)
 end
@@ -54,7 +59,11 @@ function TermTuple:select(i:Integer):Ret(clazz.TermTuple)
 	return self._manager:TermTuple(nList)
 end
 
-function TermTuple:get(i:Number):Ret(clazz.RefineTerm)
+function TermTuple:rawget(i:Number):Ret(OrNil(clazz.RefineTerm))
+	return self._list[i]
+end
+
+function TermTuple:get(vContext:clazz.Context, i:Number):Ret(clazz.RefineTerm)
 	const more = i - #self
 	if more <= 0 then
 		return self._list[i]!
@@ -66,6 +75,8 @@ function TermTuple:get(i:Number):Ret(clazz.RefineTerm)
 			if nRepeatType then
 				nTerm = self._manager:RefineTerm(self._manager:checkedUnion(nRepeatType, nNil))
 			else
+				-- TODO
+				-- vContext:error("tuple unpack but args not enough, index="..i)
 				nTerm = self._manager:RefineTerm(nNil)
 			end
 			self._repeatTermList[more] = nTerm
