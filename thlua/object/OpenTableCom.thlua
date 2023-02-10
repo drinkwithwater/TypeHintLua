@@ -7,6 +7,10 @@ const LuaFunction = require "thlua.func.LuaFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
+	let.OpenTableField = Struct {
+		valueType = clazz.UAtomUnion,
+		lockCtx = OrFalse(clazz.Context),
+	}
 end)
 
 const OpenTableCom = {}
@@ -17,7 +21,7 @@ function:class(clazz.OpenTableCom) OpenTableCom.new(vManager:clazz.TypeManager,
 	const self = setmetatable({.class
 		_manager=vManager,
 		_keyType=vManager.type.Never @clazz.UAtomUnion,
-		_valueDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion),
+		_fieldDict={}@Dict(clazz.IAtomType, let.OpenTableField),
 		_luaTable=vLuaTable,
 	}, OpenTableCom)
 	return self
@@ -26,52 +30,78 @@ end
 function OpenTableCom:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
-		self._valueDict[k] = v
+		self._fieldDict[k] = {
+			valueType = v,
+			lockCtx = false,
+		}
 	end
 end
 
 function OpenTableCom:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
 	self._keyType:foreach(function(vType)
-		vFunc(vType, self._valueDict[vType]!)
+		vFunc(vType, self._fieldDict[vType]!.valueType)
 	end)
 end
 
 function OpenTableCom:meta_set(vContext:clazz.Context, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
-	local nKeyContainType = self._keyType:containAtom(vKeyType)
+	if not vKeyType:isSingleton() then
+		vContext:error("open table's key must be singleton type")
+		return
+	end
+	if vKeyType:isNilable() then
+		vContext:error("open table's key can't be nil")
+		return
+	end
+	const nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
-		self._valueDict[nKeyContainType] = vValueType
+		self._fieldDict[nKeyContainType] = {
+			valueType = vValueType,
+			lockCtx = false
+		}
 	end
 	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
-function OpenTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
-	local nKeyContainType = self._keyType:containAtom(vKeyType)
+function OpenTableCom:meta_get(vContext, vKeyType)
+	-- TODO trigger meta index
+	const nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
-		return self._valueDict[nKeyContainType]!
+		const nField = self._fieldDict[nKeyContainType]!
+		nField.lockCtx = vContext
+		return nField.valueType
 	else
+		vContext:error("index error, key=", tostring(vKeyType))
 		return self._manager.type.Nil
 	end
 end
 
 function OpenTableCom:native_rawset(vContext, vKeyType, vValueType)
-	local nContainType = self._keyType:containAtom(vKeyType)
+	const nContainType = self._keyType:containAtom(vKeyType)
 	if not nContainType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
-			self._valueDict[vKeyType] = vValueType
+			self._fieldDict[vKeyType] = {
+				valueType = vValueType,
+				lockCtx = false,
+			}
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
 		end
 	else
-		self._valueDict[nContainType] = vValueType
+		self._fieldDict[nContainType] = {
+			valueType = vValueType,
+			lockCtx = false,
+		}
 	end
 end
 
 function OpenTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
-	local nKeyContainType = self._keyType:containAtom(vKeyType)
+	const nKeyContainType = self._keyType:containAtom(vKeyType)
 	if nKeyContainType then
-		return self._valueDict[nKeyContainType]!
+		const nField = self._fieldDict[nKeyContainType]!
+		nField.lockCtx = vContext
+		return nField.valueType
 	else
 		return self._manager.type.Nil
 	end
@@ -87,8 +117,8 @@ end
 
 function OpenTableCom:lockAsMetaIndex():Ret(clazz.MetaIndexField)
 	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
-	for k, nType in pairs(self._valueDict) do
-		nDict[k] = nType
+	for k, nField in pairs(self._fieldDict) do
+		nDict[k] = nField.valueType
 	end
 	return {
 		keyType=self._keyType,
@@ -99,8 +129,8 @@ end
 
 function OpenTableCom:lockAsMetaNewIndex():Ret(clazz.MetaIndexField)
 	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
-	for k, nType in pairs(self._valueDict) do
-		nDict[k] = nType
+	for k, nField in pairs(self._fieldDict) do
+		nDict[k] = nField.valueType
 	end
 	return {
 		keyType=self._keyType,

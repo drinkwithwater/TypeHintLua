@@ -5,7 +5,7 @@ let.node = import("thlua.code.Node").node
 let.clazz = import("thlua.type.TypeClass").clazz
 
 let.GenResult = Struct ({
-	line = OrNil(True, Integer),
+	line = OrNil(True, Integer), -- if line is true, add new line after finish
 	[Integer] = let.UGenResult,
 }, {
 	__len=Integer
@@ -654,13 +654,13 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
 			_prefixHint=nHintPrefix,
-			_suffixHint=nHintSuffix,
 			_hasRetStat=tostring(vNode.retFlag or false),
 			_isvararg=tostring(nIsVararg),
 			_polyParNum=tostring(nPolyParNum),
 			_parNum=tostring(nParamNum),
 			_parFullHint=tostring(vNode.parFullHint or false),
-			_parMaker=self:fnWrap("____typeList", nSelf)(
+		}),
+			self:fnWrap("____typeList", nSelf)(
 				nPolyUnpack,
 				"return ",
 				self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
@@ -677,11 +677,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				end, ", ")), ",",
 				nDotsHint or "false"
 			),
-			_retMaker=self:fnWrap("____typeList", nSelf)(
+			self:fnWrap("____typeList", nSelf)(
 				nPolyUnpack,
 				"return ", nHintSuffix
 			),
-		}), self:fnWrap("____bodyFn", "____newCtx", "vArgTuple", "____typeList", nSelf)(
+			self:fnWrap("____bodyFn", "____newCtx", "vArgTuple", "____typeList", nSelf)(
 				nPolyUnpack,
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ",____bodyFn,____fn,____uv) ",
 				nParInBody,

@@ -24,14 +24,11 @@ const LateFnCom = require "thlua.func.LateFnCom"
 
 	clazz.FuncNewInfo = Struct ({
 		_prefixHint=clazz.TLongHintInfo(clazz.FnPrefixHint),
-		_suffixHint=clazz.TLongHintInfo(clazz.FnSuffixHint),
 		_isvararg=Boolean,
 		_hasRetStat=Boolean,
 		_polyParNum=Integer,
 		_parNum=Integer,
-		_parMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(List(OrFalse(clazz.UAllType)), OrFalse(clazz.UAllType)),
 		_parFullHint=Boolean,
-		_retMaker=Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	}, {
 		__next=KeyOf(clazz.FuncNewInfo)
 	})
@@ -45,15 +42,19 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vContext:clazz.Context,
 	vNode:clazz.IAstNode,
 	vInfo:clazz.FuncNewInfo,
+	vParMaker:Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(List(OrFalse(clazz.UAllType)), OrFalse(clazz.UAllType)),
+	vRetMaker:Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	vGenFunc:clazz.GenFunc
 )
 	const self = {.class
 		_manager=vManager,
 		_context=vContext,
-		_genFunc=vGenFunc,
 		_node=vNode,
 		_member=false@Boolean,
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
+		_parMaker=vParMaker,
+		_retMaker=vRetMaker,
+		_genFunc=vGenFunc,
 	}
 	for k,v in pairs(vInfo) do
 		self[k] = v
@@ -200,7 +201,8 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 	if not nPolyParNum then
 		return false
 	end
-	if self._hasRetStat and not self._suffixHint.attrSet.Ret then
+	const nSuffixHint = self._retMaker({}, false)
+	if self._hasRetStat and not nSuffixHint.attrSet.Ret then
 		-- return not full hint
 		return false
 	end
