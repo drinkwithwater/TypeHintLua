@@ -47,7 +47,7 @@ local TagToVisiting:RealTraverser = {
 			" local ", self:concatList@<node.IAstNode>(node[1], function(i,v)
 				return "set_a"..i
 			end, ","),
-			"=", self:ctxWrap(node).EXPLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
+			"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
 			self:concatList@<node.Lhs>(node[1], function(i, vVarNode)
 				if vVarNode.tag == "Ident" then
 					return self:rgnWrap(vVarNode).SYMBOL_SET(
@@ -118,8 +118,7 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Forin=function(self, node)
 		return {
-			"local forin_next,forin_self,forin_init=",
-			self:ctxWrap(node).EXPLIST_UNPACK("3", self:visit(node[2])),
+			"local ____n_t_i=", self:ctxWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
 			self:rgnWrap(node).FOR_IN(self:fnWrap("vIterTuple")(
 				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 					return "forin_gen"..i
@@ -129,7 +128,7 @@ local TagToVisiting:RealTraverser = {
 					return self:visitIdentDef(vIdent, "forin_gen"..i)
 				end, " "),
 				self:visit(node[3])
-			), "forin_next", "forin_self", "forin_init")
+			), "____n_t_i")
 		}
 	end,
 	Local=function(self, node)
@@ -138,7 +137,7 @@ local TagToVisiting:RealTraverser = {
 			"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 				return "local_a"..i
 			end, ","), "=",
-			#node[2] > 0 and self:ctxWrap(node).EXPLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
+			#node[2] > 0 and self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
 			self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
 				return self:visitIdentDef(vIdent, "local_a"..i)
 			end, " ")
@@ -166,7 +165,7 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Return=function(self, node)
 		return self:rgnWrap(node).RETURN(
-			self:ctxWrap(node).EXPLIST_PACK(
+			self:ctxWrap(node).EXPRLIST_REPACK(
 				"false",
 				self:listWrap(self:visit(node[1]))
 			)
@@ -179,7 +178,7 @@ local TagToVisiting:RealTraverser = {
 		return self:ctxAutoUnpack(node,
 			self:ctxWrap(node).META_CALL(
 				self:visit(node[1]),
-				self:ctxWrap(node).EXPLIST_PACK(
+				self:ctxWrap(node).EXPRLIST_REPACK(
 					"true",
 					self:listWrap(#node[2] > 0 and self:visit(node[2]) or "")
 				)
@@ -193,7 +192,7 @@ local TagToVisiting:RealTraverser = {
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
 				self:listWrap(nHintPolyArgs and self:fixIHintInfo(nHintPolyArgs) or ""),
-				self:ctxWrap(node).EXPLIST_PACK(
+				self:ctxWrap(node).EXPRLIST_REPACK(
 					"false",
 					self:listWrap(#node[3] > 0 and self:visit(node[3]) or "")
 				)
@@ -498,8 +497,8 @@ end
 		"TABLE_NEW",
 
 		"TUPLE_UNPACK",
-		"EXPLIST_UNPACK",
-		"EXPLIST_PACK",
+		"EXPRLIST_UNPACK",
+		"EXPRLIST_REPACK",
 
 		"CAST_HINT",
 		"EVAL",
@@ -576,7 +575,7 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult):R
 		nAutoUnpack = false
 	end
 	if nAutoUnpack then
-		return self:ctxWrap(vNode).EXPLIST_UNPACK("1", vInner)
+		return self:ctxWrap(vNode).EXPRLIST_UNPACK("1", vInner)
 	else
 		return vInner
 	end

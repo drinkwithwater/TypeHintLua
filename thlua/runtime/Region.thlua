@@ -141,10 +141,32 @@ function Region:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDo
 	end
 end
 
-function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNext:clazz.RefineTerm, vSelf:clazz.RefineTerm, vInit:clazz.RefineTerm)
-	const nTuple = self._context:META_CALL(vNode, vNext, function () return self._context:TermTuple({vSelf, vInit}) end)
+function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNextSelfInit:clazz.TermTuple)
+	const nLenNext = #vNextSelfInit
+	if nLenNext < 1 or nLenNext > 3 then
+		self._context:getRuntime():nodeError(vNode, "FOR_IN iterator error, arguments number must be 1 or 2 or 3")
+		return
+	end
+	const nNext = vNextSelfInit:get(1)
+	const nTuple = self._context:META_CALL(vNode, nNext, function ()
+		if nLenNext == 1 then
+			return self._context:TermTuple({})
+		else
+			const nSelf = vNextSelfInit:get(2)
+			if nLenNext == 2 then
+				return self._context:TermTuple({nSelf})
+			else
+				if nLenNext == 3 then
+					const nInit = vNextSelfInit:get(3)
+					return self._context:TermTuple({nSelf, nInit})
+				else
+					error("NextSelfInit tuple must be 3, this branch is impossible")
+				end
+			end
+		end
+	end)
 	if #nTuple <= 0 then
-		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value")
+		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value when iterator")
 		return
 	end
 	local nFirstTerm = nTuple:get(1)
