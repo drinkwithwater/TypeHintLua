@@ -7,9 +7,10 @@ const TypeTuple = TupleClass()
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.TypeTuple) TypeTuple.new(vManager:clazz.TypeManager, vList:List(clazz.UAllType))
+function:class(clazz.TypeTuple) TypeTuple.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vList:List(clazz.UAllType))
 	const self = setmetatable({.class
 		_manager=vManager,
+		_node=vNode,
 		_list=vList,
 		_repeatType=false,
 	}, TypeTuple)
@@ -21,11 +22,11 @@ function TypeTuple:getRepeatType():Ret(False)
 end
 
 function TypeTuple:Dots(vType:clazz.UAllType):Ret(clazz.TypeTupleDots)
-	return TypeTupleDots.new(self._manager, self._list, vType)
+	return TypeTupleDots.new(self._manager, self._node, self._list, vType)
 end
 
 function TypeTuple:replaceFirst(vType:clazz.UAllType):Ret(clazz.TypeTuple)
-	return TypeTuple.new(self._manager, {vType, table.unpack(self._list, 2)})
+	return TypeTuple.new(self._manager, self._node, {vType, table.unpack(self._list, 2)})
 end
 
 function TypeTuple:get(i:Number):Ret(clazz.UAllType)
@@ -66,7 +67,7 @@ function TypeTuple:castOrIn(vContext:clazz.Context, vDstTypeTuple:clazz.UTypeTup
 end
 
 function TypeTuple:select(i:Integer):Ret(clazz.TypeTuple)
-	return self._manager:Tuple(table.unpack(self._list, i))
+	return self._manager:TypeTuple(self._node, table.unpack(self._list, i))
 end
 
 function.open TypeTuple.is(t):isguard(clazz.TypeTuple)

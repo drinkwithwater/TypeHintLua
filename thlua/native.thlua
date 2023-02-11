@@ -66,13 +66,13 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		ipairs=nManager:OpenFunction(function(vContext, vTermTuple)
 			local nType1 = vTermTuple:get(vContext, 1):getType()
 			assert(not nType1:isUnion(), "ipairs for union type TODO")
-			local nTypeTuple = nType1:meta_ipairs(vContext) or nManager:Tuple(nManager.builtin.inext, nType1, nManager:Literal(0))
+			local nTypeTuple = nType1:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.inext, nType1, nManager:Literal(0))
 			return nTypeTuple:makeTermTuple()
 		end),
 		pairs=nManager:OpenFunction(function(vContext, vTermTuple)
 			local nType1 = vTermTuple:get(vContext, 1):getType()
 			assert(not nType1:isUnion(), "pairs for union type TODO")
-			local nTypeTuple = nType1:meta_pairs(vContext) or nManager:Tuple(nManager.builtin.next, nType1, nManager.type.Nil)
+			local nTypeTuple = nType1:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, nType1, nManager.type.Nil)
 			return nTypeTuple:makeTermTuple()
 		end),
 		rawequal=nManager:OpenFunction(function(vContext, vTermTuple)
@@ -146,13 +146,13 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 						end
 						const nFinalType = nCollection:mergeToAtomUnion()
 						if nRepeatType then
-							return nManager:Tuple():Dots(nRepeatType):makeTermTuple()
+							return nManager:TypeTuple(vContext:getNode()):Dots(nRepeatType):makeTermTuple()
 						else
 							const nReList:List(clazz.UAtomUnion) = {}
 							for i=2, #vTermTuple do
 								nReList[#nReList + 1] = nFinalType
 							end
-							return nManager:Tuple(table.unpack(nReList)):makeTermTuple()
+							return nManager:TypeTuple(vContext:getNode(), table.unpack(nReList)):makeTermTuple()
 						end
 					else
 						vContext:error("select's first value must be number or number-literal")
@@ -344,7 +344,7 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			checkList(vContext, nType, "sort")
-			return vManager:Tuple():makeTermTuple()
+			return vManager:TypeTuple(vContext:getNode()):makeTermTuple()
 		end),
 		concat=vManager:OpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
@@ -379,7 +379,7 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 				nCollection:put(nValueType)
 			end)
 			local nRetType = nCollection:mergeToAtomUnion()
-			return vManager:Tuple():Dots(nRetType:notnilType()):makeTermTuple()
+			return vManager:TypeTuple(vContext:getNode()):Dots(nRetType:notnilType()):makeTermTuple()
 		end),
 		move=vManager:OpenFunction(function(vContext, vTermTuple)
 			-- move TODO

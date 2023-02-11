@@ -498,7 +498,7 @@ function TypeManager:Literal(vValue:Union(String, Number)):Ret(Union(clazz.Numbe
 	return nLiteralType
 end
 
-function TypeManager:Tuple(...:Truth):Ret(clazz.TypeTuple)
+function TypeManager:TypeTuple(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeTuple)
 	local nTypeList:List(clazz.UAllType) = {}
 	for i=1, select("#", ...) do
 		local nArg = select(i, ...)
@@ -509,12 +509,12 @@ function TypeManager:Tuple(...:Truth):Ret(clazz.TypeTuple)
 			nTypeList[i] = self:assertAllType(nArg)
 		end
 	end
-	return TypeTuple.new(self, nTypeList)
+	return TypeTuple.new(self, vNode, nTypeList)
 end
 
 function TypeManager:VoidRetTuples():Ret(clazz.RetTuples)
 	const nFirst = self.type.Nil
-	return RetTuples.new(self, nFirst, {[nFirst]=self:Tuple()})
+	return RetTuples.new(self, nFirst, {[nFirst]=self:TypeTuple(nil)})
 end
 
 function TypeManager:SingleRetTuples(vTypeTuple:clazz.TypeTuple):Ret(clazz.RetTuples)
@@ -569,12 +569,12 @@ function TypeManager:buildPfn(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz
 end
 
 function TypeManager:buildFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeFunction)
-	local nParTuple = self:Tuple(...)
+	local nParTuple = self:TypeTuple(vNode, ...)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, vNode, nParTuple, false))
 end
 
 function TypeManager:checkedFn(...:Truth):Ret(clazz.TypeFunction)
-	local nParTuple = self:Tuple(...)
+	local nParTuple = self:TypeTuple(self._runtime:getNode(), ...)
 	return self:_recordTypeUnionSign(TypeFunction.new(self, self._runtime:getNode(), nParTuple, false))
 end
 
@@ -621,7 +621,7 @@ function TypeManager:TermTuple(vTermList:List(clazz.RefineTerm), vTermTupleOrNil
 		end
 		nRepeatType = vTermTupleOrNil:getRepeatType()
 	end
-	const nTypeTuple = self:Tuple(table.unpack(nTypeList))
+	const nTypeTuple = self:TypeTuple(nil, table.unpack(nTypeList))
 	if nRepeatType then
 		const nTypeTupleDots = nTypeTuple:Dots(nRepeatType)
 		return TermTuple.new(self, nTermList, nTypeTupleDots)

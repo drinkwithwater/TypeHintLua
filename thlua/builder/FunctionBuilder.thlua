@@ -98,9 +98,9 @@ function FunctionBuilder:_makeRetTuples(
 		end,
 		Ret=function(vHint, ...:clazz.UAllType)
 			if not nRetTuples then
-				nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(...))
+				nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, ...))
 			else
-				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:Tuple(...))
+				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:TypeTuple(self._node, ...))
 			end
 			return vHint
 		end,
@@ -148,7 +148,7 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 			end
 		end
 	end
-	local nTuple = self._manager:Tuple(table.unpack(nNewList))
+	local nTuple = self._manager:TypeTuple(self._node, table.unpack(nNewList))
 	const nRepeatType = vTypeTuple:getRepeatType()
 	if self._isvararg then
 		if not nRepeatType then
@@ -185,7 +185,7 @@ function FunctionBuilder:_makeParTupleByPoly(vPolyParList:List(clazz.UAllType), 
 			nNewParList[i] = nParType
 		end
 	end
-	const nTuple = self._manager:Tuple(table.unpack(nNewParList))
+	const nTuple = self._manager:TypeTuple(self._node, table.unpack(nNewParList))
 	if self._isvararg then
 		if not nDotsType then
 			error("dots type is required here")
@@ -292,7 +292,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 			error(Exception.new(tostring(err), self._node))
 		end
 		const nParTuple = self:_makeParTupleByPoly(vPolyParList, false)
-		const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nClassRefer))
+		const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		nClassRefer:setClassAsync(self._node, function()
 			local nImplType = nStruct
