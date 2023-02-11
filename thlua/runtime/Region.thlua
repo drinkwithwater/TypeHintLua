@@ -1,7 +1,7 @@
 
 const Region = {}
 const Enum = require "thlua.Enum"
-const TermCase = require "thlua.term.TermCase"
+const VariableCase = require "thlua.term.VariableCase"
 const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.runtime.LocalSymbol"
 const Exception = require "thlua.Exception"
@@ -19,7 +19,7 @@ Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._context:getNode())
 end
 
-function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:clazz.URegionFunction, vUpCase:clazz.TermCase)
+function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:clazz.URegionFunction, vUpCase:clazz.VariableCase)
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
 	const self = setmetatable({.class
 		_context=vContext,
@@ -31,11 +31,11 @@ function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:clazz.UR
 	return self
 end
 
-function Region:withBranch(vTermCase:clazz.TermCase, vFunc:Fn()):Ret(clazz.Branch)
+function Region:withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(clazz.Branch)
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
-	const nNewBranch = Branch.new(self._context, nOldBranch, vTermCase)
+	const nNewBranch = Branch.new(self._context, nOldBranch, vVariableCase)
 	nStack[nNewLen] = nNewBranch
 	self._curBranch = nNewBranch
 	vFunc()
@@ -87,14 +87,14 @@ function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vMod
 		end
 		nAssignContext:getTypeManager():basingByDefault(vTerm:getType())
 	end
-	const nImmutShot = vTerm:attachImmutShot()
+	const nImmutVariable = vTerm:attachImmutVariable()
 	if vModify then
 		local nLocalSymbol = LocalSymbol.new(nAssignContext, vNode, vTerm:getType(), vTerm)
 		nAssignContext:getRuntime():recordSymbol(nLocalSymbol)
-		self:topBranch():mutMark(nLocalSymbol, nImmutShot)
+		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
 		return nLocalSymbol
 	else
-		return nImmutShot
+		return nImmutVariable
 	end
 end
 
@@ -188,7 +188,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNextSel
 		end]]
 		for i=2, #nTuple do
 			local nTerm = nTuple:get(self._context, i)
-			const nType = vCase[nTerm:attachImmutShot()]
+			const nType = vCase[nTerm:attachImmutVariable()]
 			if nType then
 				nTerm = self._context:RefineTerm(nType)
 			end
@@ -312,7 +312,7 @@ function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.TermTuple)
 			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
 			for i=2, #vTermTuple do
 				local nTerm = vTermTuple:get(self._context, i)
-				const nType = vCase[nTerm:attachImmutShot()]
+				const nType = vCase[nTerm:attachImmutVariable()]
 				if not nType then
 					nTypeList[i] = nTerm:getType()
 				else

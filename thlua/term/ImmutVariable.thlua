@@ -1,0 +1,29 @@
+
+const ImmutVariable = {}
+ImmutVariable.__index=ImmutVariable
+ImmutVariable.__tostring=function(self)
+	return "shot-"..tostring(next(self._symbolSet))
+end
+
+(@let.clazz = import("thlua.type.TypeClass").clazz)
+
+function:class(clazz.ImmutVariable) ImmutVariable.new(vTerm:clazz.RefineTerm)
+	return setmetatable({.class
+		_term=vTerm,
+		_symbolSet={} @ Dict(clazz.LocalSymbol, True),
+	}, ImmutVariable)
+end
+
+function ImmutVariable:addSymbol(vSymbol:clazz.LocalSymbol)
+	self._symbolSet[vSymbol] = true
+end
+
+function ImmutVariable:getType():Ret(clazz.UAtomUnion)
+	return self._term:getType()
+end
+
+function ImmutVariable:getTerm():Ret(clazz.RefineTerm)
+	return self._term
+end
+
+return ImmutVariable

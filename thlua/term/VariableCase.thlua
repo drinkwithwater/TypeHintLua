@@ -1,0 +1,72 @@
+
+
+const VariableCase = {}
+
+(@let.clazz = import("thlua.type.TypeClass").clazz)
+
+VariableCase.__index = VariableCase
+VariableCase.__bor=function(vLeftVariableCase:clazz.VariableCase, vRightVariableCase:clazz.VariableCase):Ret(clazz.VariableCase)
+	const nNewVariableCase = VariableCase.new()
+	for nImmutVariable, nLeftType in pairs(vLeftVariableCase) do
+		const nRightType = vRightVariableCase[nImmutVariable]
+		if nRightType then
+			nNewVariableCase[nImmutVariable] = nLeftType | nRightType
+		end
+	end
+	return nNewVariableCase
+end
+VariableCase.__band=function(vLeftVariableCase:clazz.VariableCase, vRightVariableCase:clazz.VariableCase):Ret(clazz.VariableCase)
+	const nNewVariableCase = VariableCase.new()
+	for nImmutVariable, nLeftType in pairs(vLeftVariableCase) do
+		const nRightType = vRightVariableCase[nImmutVariable]
+		if nRightType then
+			nNewVariableCase[nImmutVariable] = nLeftType & nRightType
+		else
+			nNewVariableCase[nImmutVariable] = nLeftType
+		end
+	end
+	for nImmutVariable, nRightType in pairs(vRightVariableCase) do
+		if not vLeftVariableCase[nImmutVariable] then
+			nNewVariableCase[nImmutVariable] = nRightType
+		end
+	end
+	return nNewVariableCase
+end
+VariableCase.__tostring=function(self:clazz.VariableCase):Ret(String)
+	const l:List(String)={"VariableCase("}
+	for nImmutVariable, vType in pairs(self) do
+		l[#l + 1] = tostring(nImmutVariable).."->"..tostring(vType)
+	end
+	l[#l + 1] = ")"
+	return table.concat(l,"|")
+end
+
+function:class(clazz.VariableCase) VariableCase.new()
+	return setmetatable({.class:Init({
+		[clazz.ImmutVariable]=clazz.UAtomUnion
+	})
+	}, VariableCase)
+end
+
+function VariableCase:put_and(vImmutVariable:clazz.ImmutVariable, vType:clazz.UAtomUnion)
+	const nCurType = self[vImmutVariable]
+	if not nCurType then
+		self[vImmutVariable] = vType
+	else
+		self[vImmutVariable] = nCurType & vType
+	end
+end
+
+function VariableCase:empty():Ret(Boolean)
+	if next(self) then
+		return true
+	else
+		return false
+	end
+end
+
+function.open VariableCase.is(t):isguard(clazz.VariableCase)
+	return getmetatable(t) == VariableCase
+end
+
+return VariableCase

@@ -7,7 +7,7 @@ local StringLiteral = require "thlua.type.StringLiteral"
 local NumberLiteral = require "thlua.type.NumberLiteral"
 local Number = require "thlua.type.Number"
 local Exception = require "thlua.Exception"
-local TermCase = require "thlua.term.TermCase"
+local VariableCase = require "thlua.term.VariableCase"
 
 local native = {}
 
@@ -54,10 +54,10 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		getmetatable=nManager:OpenFunction(function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(vContext, 1)
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
-			nTerm1:foreach(function(vType1, vTermCase)
+			nTerm1:foreach(function(vType1, vVariableCase)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					vType1:native_getmetatable(vContext),
-					vTermCase,
+					vVariableCase,
 				}
 			end)
 			return vContext._manager:mergeToRefineTerm(nTypeCaseList)
@@ -100,9 +100,9 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		type=nManager:OpenFunction(function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(vContext, 1)
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
-			nTerm:foreach(function(vType, vTermCase)
+			nTerm:foreach(function(vType, vVariableCase)
 				nTypeCaseList[#nTypeCaseList + 1] = {
-					vType:native_type(), vTermCase
+					vType:native_type(), vVariableCase
 				}
 			end)
 			return vContext._manager:mergeToRefineTerm(nTypeCaseList)
@@ -409,8 +409,8 @@ function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 			}
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
-				local nCase = TermCase.new()
-				nCase:put_and(nValueTerm:attachImmutShot(), nOneValue)
+				local nCase = VariableCase.new()
+				nCase:put_and(nValueTerm:attachImmutVariable(), nOneValue)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					nOneKey, nCase
 				}
@@ -433,8 +433,8 @@ function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 			local nValueTerm = vManager:RefineTerm(nValueType)
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			for nOneKey, nOneValue in pairs(nKeyValue) do
-				local nCase = TermCase.new()
-				nCase:put_and(nValueTerm:attachImmutShot(), nOneValue)
+				local nCase = VariableCase.new()
+				nCase:put_and(nValueTerm:attachImmutVariable(), nOneValue)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					nOneKey, nCase
 				}

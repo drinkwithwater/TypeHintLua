@@ -1,6 +1,6 @@
 
-const ImmutShot = require "thlua.term.ImmutShot"
-const TermCase = require "thlua.term.TermCase"
+const ImmutVariable = require "thlua.term.ImmutVariable"
+const VariableCase = require "thlua.term.VariableCase"
 const Nil = require "thlua.type.Nil"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
@@ -19,8 +19,8 @@ RefineTerm.__bor=function(vLeft:clazz.RefineTerm, vRight:clazz.RefineTerm):Ret(c
 end
 RefineTerm.__tostring=function(self:clazz.RefineTerm):Ret(String)
 	const l:List(String) = {}
-	for nType, nTermCase in pairs(self._typeToCase) do
-		l[#l + 1] = tostring(nType) .."=>"..tostring(nTermCase)
+	for nType, nVariableCase in pairs(self._typeToCase) do
+		l[#l + 1] = tostring(nType) .."=>"..tostring(nVariableCase)
 	end
 	return "RefineTerm("..table.concat(l, ",")..")"
 end
@@ -28,24 +28,24 @@ end
 function:class(clazz.RefineTerm) RefineTerm.new(
 	vManager:clazz.TypeManager,
 	vType:clazz.UAtomUnion,
-	vTypeToCase:OrNil(Dict(clazz.IAtomType, clazz.TermCase)))
+	vTypeToCase:OrNil(Dict(clazz.IAtomType, clazz.VariableCase)))
 	const self = setmetatable({.class
 		_manager=vManager,
-		_typeToCase=vTypeToCase or {}@Dict(clazz.IAtomType, clazz.TermCase),
+		_typeToCase=vTypeToCase or {}@Dict(clazz.IAtomType, clazz.VariableCase),
 		_type=vType,
-		_symbolShot=false @ Union(False, clazz.ImmutShot),
+		_symbolVariable=false @ Union(False, clazz.ImmutVariable),
 	}, RefineTerm)
 	vType:foreach(function(vType)
 		if not self._typeToCase[vType] then
-			self._typeToCase[vType] = TermCase.new()
+			self._typeToCase[vType] = VariableCase.new()
 		end
 	end)
 	return self
 end
 
-function RefineTerm:foreach(func:Fn(clazz.IAtomType, clazz.TermCase))
-	for nType, nTermCase in pairs(self._typeToCase) do
-		func(nType, nTermCase)
+function RefineTerm:foreach(func:Fn(clazz.IAtomType, clazz.VariableCase))
+	for nType, nVariableCase in pairs(self._typeToCase) do
+		func(nType, nVariableCase)
 	end
 end
 
@@ -53,8 +53,8 @@ function.open RefineTerm.is(v):isguard(clazz.RefineTerm)
 	return getmetatable(v) == RefineTerm
 end
 
-function RefineTerm:caseIsType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.TermCase))
-	local nCase:OrNil(clazz.TermCase) = nil
+function RefineTerm:caseIsType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.VariableCase))
+	local nCase:OrNil(clazz.VariableCase) = nil
 	self._type:foreach(function(vType)
 		if vType:containAll(vGuardType) then
 			nCase = self._typeToCase[vType]
@@ -63,17 +63,17 @@ function RefineTerm:caseIsType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.TermCa
 	if not nCase then
 		return nil
 	else
-		const nReCase = TermCase.new() & nCase
-		const nImmutShot = self._symbolShot
-		if nImmutShot then
-			nReCase:put_and(nImmutShot, vGuardType)
+		const nReCase = VariableCase.new() & nCase
+		const nImmutVariable = self._symbolVariable
+		if nImmutVariable then
+			nReCase:put_and(nImmutVariable, vGuardType)
 		end
 		return nReCase
 	end
 end
 
-function RefineTerm:caseIsNotType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.TermCase))
-	local reCase:OrNil(clazz.TermCase) = nil
+function RefineTerm:caseIsNotType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.VariableCase))
+	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if vGuardType ~= vType then
@@ -87,8 +87,8 @@ function RefineTerm:caseIsNotType(vGuardType:clazz.LuaTable):Ret(OrNil(clazz.Ter
 	return reCase
 end
 
-function RefineTerm:caseTrue():Ret(OrNil(clazz.TermCase))
-	local reCase:OrNil(clazz.TermCase) = nil
+function RefineTerm:caseTrue():Ret(OrNil(clazz.VariableCase))
+	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:trueType():foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if not reCase then
@@ -109,8 +109,8 @@ function RefineTerm:notnilTerm():Ret(clazz.RefineTerm)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:caseNotnil():Ret(OrNil(clazz.TermCase))
-	local reCase:OrNil(clazz.TermCase) = nil
+function RefineTerm:caseNotnil():Ret(OrNil(clazz.VariableCase))
+	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:foreach(function(vType)
 		if not Nil.is(vType) then
 			const nCase = self._typeToCase[vType]!
@@ -124,9 +124,9 @@ function RefineTerm:caseNotnil():Ret(OrNil(clazz.TermCase))
 	return reCase
 end
 
--- return TermCase | nil
-function RefineTerm:caseFalse():Ret(OrNil(clazz.TermCase))
-	local reCase:OrNil(clazz.TermCase) = nil
+-- return VariableCase | nil
+function RefineTerm:caseFalse():Ret(OrNil(clazz.VariableCase))
+	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:falseType():foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
 		if not reCase then
@@ -177,22 +177,22 @@ function RefineTerm:getType():Ret(clazz.UAtomUnion)
 	return self._type
 end
 
-function RefineTerm:and_case(vCase1:clazz.TermCase)
+function RefineTerm:and_case(vCase1:clazz.VariableCase)
 	for nType, nCase2 in pairs(self._typeToCase) do
 		self._typeToCase[nType] = vCase1 & nCase2
 	end
 end
 
-function RefineTerm:initShot(vImmutShot:clazz.ImmutShot)
-	assert(not self._symbolShot, "term can only set symbolshot once")
-	self._symbolShot = vImmutShot
-	for nType, nTermCase in pairs(self._typeToCase) do
-		const nNewTermCase = TermCase.new() & nTermCase
-		const nImmutShot = self._symbolShot
-		if nImmutShot then
-			nNewTermCase:put_and(nImmutShot, nType)
+function RefineTerm:initVariable(vImmutVariable:clazz.ImmutVariable)
+	assert(not self._symbolVariable, "term can only set symbolshot once")
+	self._symbolVariable = vImmutVariable
+	for nType, nVariableCase in pairs(self._typeToCase) do
+		const nNewVariableCase = VariableCase.new() & nVariableCase
+		const nImmutVariable = self._symbolVariable
+		if nImmutVariable then
+			nNewVariableCase:put_and(nImmutVariable, nType)
 		end
-		self._typeToCase[nType] = nNewTermCase
+		self._typeToCase[nType] = nNewVariableCase
 	end
 end
 
@@ -204,19 +204,19 @@ function RefineTerm:filter(vType:clazz.UAllType):Ret(clazz.RefineTerm)
 			const nCase = self._typeToCase[nContainType]!
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, nCase}
 		else
-			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, TermCase.new()}
+			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, VariableCase.new()}
 		end
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function RefineTerm:attachImmutShot():Ret(clazz.ImmutShot)
-	local nImmutShot = self._symbolShot
-	if not nImmutShot then
-		nImmutShot = ImmutShot.new(self)
-		self:initShot(nImmutShot)
+function RefineTerm:attachImmutVariable():Ret(clazz.ImmutVariable)
+	local nImmutVariable = self._symbolVariable
+	if not nImmutVariable then
+		nImmutVariable = ImmutVariable.new(self)
+		self:initVariable(nImmutVariable)
 	end
-	return nImmutShot
+	return nImmutVariable
 end
 
 return RefineTerm

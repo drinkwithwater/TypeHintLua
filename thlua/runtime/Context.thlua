@@ -2,7 +2,7 @@
 const TermTuple = require "thlua.tuple.TermTuple"
 const Region = require "thlua.runtime.Region"
 const RefineTerm = require "thlua.term.RefineTerm"
-const TermCase = require "thlua.term.TermCase"
+const VariableCase = require "thlua.term.VariableCase"
 const ContextClass = require "thlua.runtime.ContextClass"
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
@@ -68,10 +68,10 @@ function Context:rootSetNamespace(vRootSpace:clazz.Namespace)
 end
 
 function Context:BEGIN(vLexContext:clazz.Context, vRegionNode:clazz.IAstNode,
-	vBodyFn:clazz.URegionFunction, vLuaFunc:clazz.LuaFunction, vUpCase:OrFalse(clazz.TermCase)
+	vBodyFn:clazz.URegionFunction, vLuaFunc:clazz.LuaFunction, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._region, "context can only begin once")
-	const nRegion = Region.new(self, vBodyFn, vUpCase or TermCase.new())
+	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
 	self._region = nRegion
 	const nSpace = self._runtime:LetNamespace(vLexContext:getNamespace(), vRegionNode)
 	self._namespace = nSpace
@@ -192,13 +192,13 @@ function Context:META_GET(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vKeyTerm
 	local nGetContext = self:newSealContext(vNode)
 	local nTypeCaseList:List(clazz.TypeCasePair) = {}
 	local nOkay = self:nodePcall(vNode, function()
-		vTerm:foreach(function(vType, vTermCase)
-			vKeyTerm:foreach(function(vKeyType, vKeyTermCase)
+		vTerm:foreach(function(vType, vVariableCase)
+			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
 				local nReType = vType:meta_get(nGetContext, vKeyType)
 				if vNotnil then
 					nReType = nReType:notnilType()
 				end
-				nTypeCaseList[#nTypeCaseList + 1] = {nReType, vTermCase & vKeyTermCase}
+				nTypeCaseList[#nTypeCaseList + 1] = {nReType, vVariableCase & vKeyVariableCase}
 			end)
 		end)
 	end)
@@ -226,7 +226,7 @@ function Context:META_SET(
 	end)
 end
 
-(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTypeTuple, clazz.TermCase, self=OrNil(clazz.IAtomType)}))
+(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTypeTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
 (@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.TermTuple})
 function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(clazz.TermTuple)
@@ -239,7 +239,7 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 			end
 			return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
 		elseif nListLen >= 1 then
-			const nType1TupleCaseList:List(Struct {clazz.UAtomUnion, clazz.TypeTuple, clazz.TermCase}) = {}
+			const nType1TupleCaseList:List(Struct {clazz.UAtomUnion, clazz.TypeTuple, clazz.VariableCase}) = {}
 			const nNil = self._manager.type.Nil
 			local nMaxLength = 0
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
@@ -254,7 +254,7 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 						nMaxLength = nLength
 					end
 					nType1TupleCaseList[#nType1TupleCaseList + 1] = {
-						vFirst:checkAtomUnion(), vTypeTuple, TermCase.new() & nCase
+						vFirst:checkAtomUnion(), vTypeTuple, VariableCase.new() & nCase
 					}
 				end)
 			end
@@ -276,7 +276,7 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 				local nTypeTuple = nType1TupleCase[2]
 				local nCase = nType1TupleCase[3]
 				for i=2,nMaxLength do
-					nCase:put_and(nTermList[i]!:attachImmutShot(), nTypeTuple:get(i):checkAtomUnion())
+					nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
 				end
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					nType1, nCase
@@ -302,9 +302,9 @@ function Context:META_CALL(vNode:clazz.IAstNode,
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
-	vFuncTerm:foreach(function(vFuncType, vTermCase)
+	vFuncTerm:foreach(function(vFuncType, vVariableCase)
 		local nArgTermTuple:OrNil(clazz.TermTuple) = nil
-		nRegion:withBranch(vTermCase, function()
+		nRegion:withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
 		assert(nArgTermTuple, "must be true here")
@@ -319,7 +319,7 @@ function Context:META_CALL(vNode:clazz.IAstNode,
 				end
 			else
 				nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-					vFuncType, nArgTermTuple:getTypeTuple() , vTermCase
+					vFuncType, nArgTermTuple:getTypeTuple() , vVariableCase
 				}
 			end
 		else
@@ -336,7 +336,7 @@ function Context:META_INVOKE(vNode:clazz.IAstNode,
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
-	vSelfTerm:foreach(function(vSelfType, vTermCase)
+	vSelfTerm:foreach(function(vSelfType, vVariableCase)
 		if vSelfType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
@@ -354,7 +354,7 @@ function Context:META_INVOKE(vNode:clazz.IAstNode,
 						end
 					else
 						nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-							vSingleFuncType, nNewArgTuple:getTypeTuple(), vTermCase,
+							vSingleFuncType, nNewArgTuple:getTypeTuple(), vVariableCase,
 							self=vSelfType,
 						}
 					end
@@ -370,8 +370,8 @@ end
 function Context:META_EQ_NE(vNode:clazz.IAstNode,
 	vIsEq:Boolean, vLeftTerm:clazz.RefineTerm, vRightTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
-		vRightTerm:foreach(function(vRightType, vRightTermCase)
+	vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
+		vRightTerm:foreach(function(vRightType, vRightVariableCase)
 			local nReType:OrNil(clazz.UAtomUnion) = nil
 			if vLeftType:isSingleton() and vRightType:isSingleton() then
 				-- TODO check for named type
@@ -390,7 +390,7 @@ function Context:META_EQ_NE(vNode:clazz.IAstNode,
 					nReType = self._manager.type.True
 				end
 			end
-			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vLeftTermCase & vRightTermCase}
+			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vLeftVariableCase & vRightVariableCase}
 		end)
 	end)
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
@@ -399,7 +399,7 @@ end
 function Context:META_BOP_SOME(vNode:clazz.IAstNode, vOper:String, vLeftTerm:clazz.RefineTerm, vRightTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nBopContext = self:newSealContext(vNode)
 	const nCollection = self._manager:TypeCollection()
-	vLeftTerm:foreach(function(vLeftType, vLeftTermCase)
+	vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
 		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
@@ -407,7 +407,7 @@ function Context:META_BOP_SOME(vNode:clazz.IAstNode, vOper:String, vLeftTerm:cla
 			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
-			vRightTerm:foreach(function(vRightType, vRightTermCase)
+			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTypeTuple = self._manager:Tuple(vLeftType, vRightType)
@@ -432,17 +432,17 @@ function Context:META_UOP(vNode:clazz.IAstNode, vOper:String, vData:clazz.Refine
 	const nUopContext = self:newSealContext(vNode)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	if vOper == "#" then
-		vData:foreach(function(vType, vTermCase)
+		vData:foreach(function(vType, vVariableCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {
 				vType:meta_len(nUopContext),
-				vTermCase
+				vVariableCase
 			}
 		end)
 	else
-		vData:foreach(function(vType, vTermCase)
+		vData:foreach(function(vType, vVariableCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {
 				vType:meta_uop_some(nUopContext, vOper),
-				vTermCase
+				vVariableCase
 			}
 		end)
 	end
@@ -478,7 +478,7 @@ function Context:FUNC_NEW(vNode:clazz.IAstNode,
 	vParMaker:Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(List(OrFalse(clazz.UAllType)), OrFalse(clazz.UAllType)),
 	vRetMaker:Fn(List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	vGenFunc:clazz.GenFunc
-):Ret(clazz.LuaFunction, OrFalse(clazz.TermCase))
+):Ret(clazz.LuaFunction, OrFalse(clazz.VariableCase))
 	const nHintCom = FunctionBuilder.new(self._manager, self, vNode, vFnNewInfo, vParMaker, vRetMaker, vGenFunc)
 	const nRegion = self._region
 	return nHintCom:build(), nRegion and nRegion:topBranch():getCase()
@@ -504,12 +504,12 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
 		const nTemplateList:List(clazz.UAllType) = {...}
-		vTerm:foreach(function(vType, vTermCase)
+		vTerm:foreach(function(vType, vVariableCase)
 			const nAfterType = vType:castPoly(self, nTemplateList)
 			if nAfterType then
-				nTypeCaseList[#nTypeCaseList + 1] = {nAfterType, vTermCase}
+				nTypeCaseList[#nTypeCaseList + 1] = {nAfterType, vVariableCase}
 			else
-				nTypeCaseList[#nTypeCaseList + 1] = {vType, vTermCase}
+				nTypeCaseList[#nTypeCaseList + 1] = {vType, vVariableCase}
 			end
 		end)
 		return self._manager:mergeToRefineTerm(nTypeCaseList)

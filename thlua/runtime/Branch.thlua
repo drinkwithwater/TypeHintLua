@@ -1,5 +1,5 @@
 
-const TermCase = require "thlua.term.TermCase"
+const VariableCase = require "thlua.term.VariableCase"
 const RefineTerm = require "thlua.term.RefineTerm"
 
 const Branch = {}
@@ -11,55 +11,55 @@ Branch.__tostring = function(self):Ret(String)
 	return "Branch"
 end
 
-function:class(clazz.Branch) Branch.new(vContext:clazz.Context, vPreBranch:OrNil(clazz.Branch), vTermCase:clazz.TermCase)
-	(@let.ShotDict = Dict(clazz.LocalSymbol, clazz.ImmutShot))
+function:class(clazz.Branch) Branch.new(vContext:clazz.Context, vPreBranch:OrNil(clazz.Branch), vVariableCase:clazz.VariableCase)
+	(@let.VariableDict = Dict(clazz.LocalSymbol, clazz.ImmutVariable))
 	const self = setmetatable({.class
 		_context=vContext,
 		_stop=false@Boolean,
-		_case=nil@clazz.TermCase,
-		symbolToShot={}@ShotDict,
-		_headCase=vTermCase,
+		_case=nil@clazz.VariableCase,
+		symbolToVariable={}@VariableDict,
+		_headCase=vVariableCase,
 	}, Branch)
-	self.symbolToShot = (setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToShot})) @ ShotDict
-	local nTermCase:OrNil(clazz.TermCase) = nil
+	self.symbolToVariable = (setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToVariable})) @ VariableDict
+	local nVariableCase:OrNil(clazz.VariableCase) = nil
 	if vPreBranch then
-		nTermCase = vPreBranch:getCase() & vTermCase
+		nVariableCase = vPreBranch:getCase() & vVariableCase
 	else
-		nTermCase = vTermCase
+		nVariableCase = vVariableCase
 	end
-	self._case=nTermCase
+	self._case=nVariableCase
 	return self
 end
 
-function Branch:immutGet(vImmutShot:clazz.ImmutShot):Ret(clazz.RefineTerm)
-	local nType = self._case[vImmutShot]
+function Branch:immutGet(vImmutVariable:clazz.ImmutVariable):Ret(clazz.RefineTerm)
+	local nType = self._case[vImmutVariable]
 	if nType then
 		if not nType:isNever() then
-			const nTerm = vImmutShot:getTerm():filter(nType)
-			nTerm:initShot(vImmutShot)
+			const nTerm = vImmutVariable:getTerm():filter(nType)
+			nTerm:initVariable(vImmutVariable)
 			return nTerm
 		else
-			print("TODO type is never when get symbol"..tostring(vImmutShot))
+			print("TODO type is never when get symbol"..tostring(vImmutVariable))
 			return self._context:NeverTerm()
 		end
 	else
-		return vImmutShot:getTerm()
+		return vImmutVariable:getTerm()
 	end
 end
 
 function Branch:mutGet(vLocalSymbol:clazz.LocalSymbol):Ret(clazz.RefineTerm)
-	local nImmutShot = self.symbolToShot[vLocalSymbol]
-	if not nImmutShot then
+	local nImmutVariable = self.symbolToVariable[vLocalSymbol]
+	if not nImmutVariable then
 		-- TODO, consider upvalue symbol??
-		nImmutShot = vLocalSymbol:makeShot()
-		self.symbolToShot[vLocalSymbol] = nImmutShot
+		nImmutVariable = vLocalSymbol:makeVariable()
+		self.symbolToVariable[vLocalSymbol] = nImmutVariable
 	end
-	return self:immutGet(nImmutShot)
+	return self:immutGet(nImmutVariable)
 end
 
-function Branch:mutMark(vSymbol:clazz.LocalSymbol, vImmutShot:clazz.ImmutShot)
-	self.symbolToShot[vSymbol] = vImmutShot
-	vImmutShot:addSymbol(vSymbol)
+function Branch:mutMark(vSymbol:clazz.LocalSymbol, vImmutVariable:clazz.ImmutVariable)
+	self.symbolToVariable[vSymbol] = vImmutVariable
+	vImmutVariable:addSymbol(vSymbol)
 end
 
 function Branch:mutSet(vContext:clazz.Context, vSymbol:clazz.LocalSymbol, vValueTerm:clazz.RefineTerm)
@@ -68,36 +68,36 @@ function Branch:mutSet(vContext:clazz.Context, vSymbol:clazz.LocalSymbol, vValue
 	const nCastType = vContext:castLuaType(nValueType, nDstType)
 	if nCastType then
 		const nCastTerm = vContext:RefineTerm(nCastType)
-		const nImmutShot = nCastTerm:attachImmutShot()
-		self.symbolToShot[vSymbol] = nImmutShot
-		nImmutShot:addSymbol(vSymbol)
+		const nImmutVariable = nCastTerm:attachImmutVariable()
+		self.symbolToVariable[vSymbol] = nImmutVariable
+		nImmutVariable:addSymbol(vSymbol)
 	elseif vSymbol:getType():containAll(nValueType) then
-		const nImmutShot = vValueTerm:attachImmutShot()
-		self.symbolToShot[vSymbol] = nImmutShot
-		nImmutShot:addSymbol(vSymbol)
+		const nImmutVariable = vValueTerm:attachImmutVariable()
+		self.symbolToVariable[vSymbol] = nImmutVariable
+		nImmutVariable:addSymbol(vSymbol)
 	else
 		vContext:error(tostring(nValueType).." can't be assigned to "..tostring(vSymbol:getType()))
 	end
 end
 
-function Branch:mergeOneBranch(vContext:clazz.Context, vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.TermCase))
+function Branch:mergeOneBranch(vContext:clazz.Context, vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.VariableCase))
 	if vOneBranch:getStop() then
 		if vOtherCase then
 			self._case = self._case & vOtherCase
 			self._headCase = self._headCase & vOtherCase
 		end
 	else
-		const nSymbolToShot = self.symbolToShot
-		for nLocalSymbol, nOneShot in pairs(vOneBranch.symbolToShot) do
-			const nBeforeShot = nSymbolToShot[nLocalSymbol]
-			if nBeforeShot then
+		const nSymbolToVariable = self.symbolToVariable
+		for nLocalSymbol, nOneVariable in pairs(vOneBranch.symbolToVariable) do
+			const nBeforeVariable = nSymbolToVariable[nLocalSymbol]
+			if nBeforeVariable then
 				const nOneType = vOneBranch:mutGet(nLocalSymbol):getType()
 				if not vOtherCase then
-					nSymbolToShot[nLocalSymbol] = nLocalSymbol:makeShot(nOneType)
+					nSymbolToVariable[nLocalSymbol] = nLocalSymbol:makeVariable(nOneType)
 				else
-					const nOtherType = vOtherCase[nBeforeShot] or nBeforeShot:getType()
+					const nOtherType = vOtherCase[nBeforeVariable] or nBeforeVariable:getType()
 					const nMergeType = nOneType | nOtherType
-					nSymbolToShot[nLocalSymbol] = nLocalSymbol:makeShot(nMergeType)
+					nSymbolToVariable[nLocalSymbol] = nLocalSymbol:makeVariable(nMergeType)
 				end
 			end
 		end
@@ -112,14 +112,14 @@ function Branch:merge_from(vContext:clazz.Context, vTrueBranch:clazz.Branch, vFa
 		return
 	end
 	local nModLocalSymbolDict:Dict(clazz.LocalSymbol, True) = {}
-	for nLocalSymbol, _ in pairs(vTrueBranch.symbolToShot) do
+	for nLocalSymbol, _ in pairs(vTrueBranch.symbolToVariable) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
-	for nLocalSymbol, _ in pairs(vFalseBranch.symbolToShot) do
+	for nLocalSymbol, _ in pairs(vFalseBranch.symbolToVariable) do
 		nModLocalSymbolDict[nLocalSymbol] = true
 	end
 	for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
-		if self.symbolToShot[nLocalSymbol] then
+		if self.symbolToVariable[nLocalSymbol] then
 			local nType:OrNil(clazz.UAtomUnion)
 			if nFalseStop then
 				nType = vTrueBranch:mutGet(nLocalSymbol):getType()
@@ -130,11 +130,11 @@ function Branch:merge_from(vContext:clazz.Context, vTrueBranch:clazz.Branch, vFa
 				const nFalseType = vFalseBranch:mutGet(nLocalSymbol):getType()
 				nType = nTrueType | nFalseType
 			end
-			local nImmutShot = nLocalSymbol:makeShot(nType)
-			self.symbolToShot[nLocalSymbol] = nImmutShot
+			local nImmutVariable = nLocalSymbol:makeVariable(nType)
+			self.symbolToVariable[nLocalSymbol] = nImmutVariable
 		end
 	end
-	local nAndCase:OrNil(clazz.TermCase)
+	local nAndCase:OrNil(clazz.VariableCase)
 	if nFalseStop then
 		nAndCase = vTrueBranch._headCase
 	elseif nTrueStop then
@@ -146,16 +146,16 @@ function Branch:merge_from(vContext:clazz.Context, vTrueBranch:clazz.Branch, vFa
 	end
 end
 
-function Branch:assertCase(vTermCase:clazz.TermCase)
-	self._case = self._case & vTermCase
-	self._headCase = self._headCase & vTermCase
+function Branch:assertCase(vVariableCase:clazz.VariableCase)
+	self._case = self._case & vVariableCase
+	self._headCase = self._headCase & vVariableCase
 end
 
 function Branch:setStop()
 	self._stop = true
 end
 
-function Branch:getCase():Ret(clazz.TermCase)
+function Branch:getCase():Ret(clazz.VariableCase)
 	return self._case
 end
 
