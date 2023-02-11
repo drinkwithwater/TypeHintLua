@@ -519,13 +519,13 @@ function TypeManager:VoidRetTuples():Ret(clazz.RetTuples)
 	return RetTuples.new(self, nFirst, {[nFirst]=self:TypeTuple(self._runtime:getNode())})
 end
 
-function TypeManager:SingleRetTuples(vTypeTuple:clazz.TypeTuple):Ret(clazz.RetTuples)
+function TypeManager:SingleRetTuples(vTypeTuple:clazz.UTypeTuple):Ret(clazz.RetTuples)
 	const nFirst = vTypeTuple:get(1)
 	return RetTuples.new(self, nFirst, {[nFirst]=vTypeTuple})
 end
 
-function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples, vTypeTuple:clazz.TypeTuple):Ret(clazz.RetTuples)
-	const nFirstToTuple:Dict(clazz.UAllType, clazz.TypeTuple) = {}
+function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples, vTypeTuple:clazz.UTypeTuple):Ret(clazz.RetTuples)
+	const nFirstToTuple:Dict(clazz.UAllType, clazz.UTypeTuple) = {}
 	vRetTuples:foreachWithFirst(function(vTuple, vFirst)
 		nFirstToTuple[vFirst] = vTuple
 	end)
@@ -588,10 +588,16 @@ function TypeManager:MemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunc
 	return MemberFunction.new(self, vNode, vPolyFn, false)
 end
 
+function TypeManager:TypeFunctionNotFinish(vNode:clazz.IAstNode, vParTuple:clazz.UTypeTuple):Ret(clazz.TypeFunction)
+	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
+	const nFunc = TypeFunction.new(self, vNode, vParTuple, false)
+	return self:_recordTypeUnionSign(nFunc)
+end
+
 function TypeManager:TypeFunction(vNode:clazz.IAstNode, vParTuple:clazz.UTypeTuple, vRetTuples:clazz.RetTuples):Ret(clazz.TypeFunction)
 	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, vNode, vParTuple, vRetTuples)
+	const nFunc = TypeFunction.new(self, vNode, vParTuple, vRetTuples)
 	return self:_recordTypeUnionSign(nFunc)
 end
 

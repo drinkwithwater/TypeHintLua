@@ -33,7 +33,26 @@ function TypeFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypeFunction)
 	return self
 end
 
-function TypeFunction:Ret(...:Truth):Ret(clazz.TypeFunction)
+function TypeFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.TypeFunction)
+	-- TODO check ... is type
+	assert(not self._retTuples, "fn building is finish, can't call RetDots")
+	const nTypeList:List(clazz.UAllType) = {vFirst, ...}
+	const nLen = #nTypeList
+	assert(nLen > 0, "RetDots must take at least 1 value")
+	const nDotsType = nTypeList[nLen]!
+	nTypeList[#nTypeList] = nil
+	const nTypeTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList)):Dots(nDotsType)
+	local nPreRetTuples = self._buildingRetTuples
+	if not nPreRetTuples then
+		nPreRetTuples = self._manager:SingleRetTuples(nTypeTuple)
+	else
+		nPreRetTuples = self._manager:retConcat(self._node, nPreRetTuples, nTypeTuple)
+	end
+	self._buildingRetTuples = nPreRetTuples
+	return self
+end
+
+function TypeFunction:Ret(...:clazz.UAllType):Ret(clazz.TypeFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Ret")
 	local nTypeTuple = self._manager:TypeTuple(self._node, ...)
 	local nPreRetTuples = self._buildingRetTuples

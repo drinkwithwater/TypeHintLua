@@ -19,6 +19,7 @@ const LateFnCom = require "thlua.func.LateFnCom"
 	clazz.FnSuffixHint = Struct {
 		impl=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		Ret=Fn(clazz.FnSuffixHint):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
+		RetDots=Fn(clazz.FnSuffixHint, clazz.UAllType):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
 		isguard=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 	}
 
@@ -96,7 +97,11 @@ function FunctionBuilder:_makeRetTuples(
 			error("impl can only be used with function:class")
 			return vHint
 		end,
-		Ret=function(vHint, ...:clazz.UAllType)
+		RetDots=function(vHint, vFirst, ...)
+			error("TODO RetDots when function check cast")
+			return vHint
+		end,
+		Ret=function(vHint, ...)
 			if not nRetTuples then
 				nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, ...))
 			else
@@ -129,6 +134,51 @@ function FunctionBuilder:_makeRetTuples(
 		end
 	end
 	return nRetTuples
+end
+function FunctionBuilder:_makeRetTuplesWithFn(
+	vTypeFn:clazz.TypeFunction,
+	vTypeList:List(clazz.UAllType),
+	vSelfType:OrFalse(clazz.UAllType)
+)
+	const nSuffixHint = self._retMaker(vTypeList, vSelfType)
+	const ok, err = pcall(nSuffixHint.caller, {
+		impl=function(vHint, _)
+			error("impl can only be used with function:class")
+			return vHint
+		end,
+		RetDots=function(vHint, vFirst, ...)
+			vTypeFn:RetDots(vFirst, ...)
+			return vHint
+		end,
+		Ret=function(vHint, ...)
+			vTypeFn:Ret(...)
+			return vHint
+		end,
+		isguard=function(vHint, vType)
+			error("isguard can only be used with function.open")
+			return vHint
+		end,
+	})
+	if not ok then
+		error(Exception.new(tostring(err), self._node))
+	end
+	vTypeFn:finish()
+	if not self._hasRetStat then
+		if not self._pass then
+			local hasVoid = false
+			local hasSome = false
+			vTypeFn:getRetTuples():foreachWithFirst(function(vTypeTuple, _)
+				if #vTypeTuple > 0 or vTypeTuple:getRepeatType() then
+					hasSome = true
+				else
+					hasVoid = true
+				end
+			end)
+			if hasSome and not hasVoid then
+				self:error("hint return something but block has no RetStat")
+			end
+		end
+	end
 end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple)
@@ -202,14 +252,15 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 		return false
 	end
 	const nSuffixHint = self._retMaker({}, false)
-	if self._hasRetStat and not nSuffixHint.attrSet.Ret then
+	if self._hasRetStat and not nSuffixHint.attrSet.Ret and not nSuffixHint.attrSet.RetDots then
 		-- return not full hint
 		return false
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.TypeFunction)
 		const nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
-		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-		return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+		const nTypeFn = self._manager:TypeFunctionNotFinish(self._node, nParTuple)
+		self:_makeRetTuplesWithFn(nTypeFn, vPolyParList, vSelfType)
+		return nTypeFn
 	end
 	if not self._member then
 		if nPolyParNum <= 0 then
@@ -238,7 +289,12 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		impl=function(vHint, _)
 			return vHint
 		end,
+		RetDots=function(vHint, vFirst, ...)
+			error("open table can't take RetDots")
+			return vHint
+		end,
 		Ret=function(vHint, ...)
+			error("open table can't take Ret")
 			return vHint
 		end,
 		isguard=function(vHint, vType)
@@ -281,6 +337,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 				return vHint
 			end,
 			Ret=function(vHint, ...)
+				error("class function can't take Ret")
+				return vHint
+			end,
+			RetDots=function(vHint, vFirst, ...)
 				error("class function can't take Ret")
 				return vHint
 			end,

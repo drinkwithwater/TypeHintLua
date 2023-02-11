@@ -166,7 +166,7 @@ function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(cl
 				if (i < #l and #cur ~= 1) then
 					self._runtime:nodeWarn(vNode, "exprlist_unpack except 1 value but has "..#cur)
 				end
-				re[i] = cur:get(self, 1) or self:RefineTerm(self._manager.type.Nil)
+				re[i] = cur:get(self, 1)
 			else
 				re[i] = cur
 			end
@@ -244,9 +244,10 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 			return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
 		elseif nListLen >= 1 then
 			-- step 1. prepare for return
-			const nType1TupleCaseList:List(Struct {clazz.UAtomUnion, clazz.TypeTuple, clazz.VariableCase}) = {}
+			const nType1TupleCaseList:List(Struct {clazz.UAtomUnion, clazz.UTypeTuple, clazz.VariableCase}) = {}
 			const nNil = self._manager.type.Nil
 			local nMaxLength = 0
+			const nRepeatCollection = self._manager:TypeCollection()
 			-- step 2. call function
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,nArgs,nCase,nSelf = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3], nFuncArgCase.self
@@ -262,17 +263,26 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 					nType1TupleCaseList[#nType1TupleCaseList + 1] = {
 						vFirst:checkAtomUnion(), vTypeTuple, VariableCase.new() & nCase
 					}
+					const nRepeatType = vTypeTuple:getRepeatType()
+					if nRepeatType then
+						nRepeatCollection:put(nRepeatType)
+					end
 				end)
 			end
+			const nRepeatType = nRepeatCollection:mergeToAtomUnion()
+			local nTailTermTuple:OrNil(clazz.TermTuple) = nil
+			if not nRepeatType:isNever() then
+				nTailTermTuple = self._manager:TypeTuple(self._node):Dots(nRepeatType):makeTermTuple(self)
+			end
 			if nMaxLength <= 0 then
-				return self:TermTuple({})
+				return self:TermTuple({}, nTailTermTuple)
 			end
 			const nTermList:List(clazz.RefineTerm) = {}
 			-- step 3. merge 2 ~ nMaxLength
 			for i=2,nMaxLength do
 				const nCollection = self._manager:TypeCollection()
 				for _, nType1TupleCase in pairs(nType1TupleCaseList) do
-					nCollection:put(nType1TupleCase[2]:get(i) or nNil)
+					nCollection:put(nType1TupleCase[2]:get(i))
 				end
 				const nTypeI = nCollection:mergeToAtomUnion()
 				nTermList[i] = self:RefineTerm(nTypeI)
@@ -291,7 +301,7 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 				}
 			end
 			nTermList[1] = self._manager:mergeToRefineTerm(nTypeCaseList)
-			return self:TermTuple(nTermList)
+			return self:TermTuple(nTermList, nTailTermTuple)
 		else
 			self._runtime:nodeError(vNode, "meta_call function can't be Never")
 			return self:TermTuple({})
@@ -457,7 +467,7 @@ function Context:META_UOP(vNode:clazz.IAstNode, vOper:String, vData:clazz.Refine
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function.open Context:nodePcall(vNode:clazz.IAstNode, vFunc:Fn(), ...)
+function.open Context:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 	const ok, err = xpcall(vFunc, function(exc:Union(String, clazz.Exception)):Ret(clazz.Exception)
 		if Exception.is(exc) then
 			return exc
