@@ -97,7 +97,7 @@ end
 function Runtime:main():Ret(Boolean, Nil)
 	return pcall(function():Ret()
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
-		local nTermTuple = self._manager:TermTuple({})
+		local nTermTuple = self._rootContext:TermTuple({})
 		nLuaFunc:meta_open_call(self._rootContext:newOpenContext(nLuaFunc:getNode()), nTermTuple)
 		self._rootContext:checkDefineLuaFunction()
 		self._rootContext:checkLateLuaFunction()
@@ -138,7 +138,7 @@ function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
 			context=false,
 		} @ LoadedState
 		self._loadedDict[vPath] = nLoadedState
-		local nTermTuple = self._manager:TermTuple({})
+		local nTermTuple = self._rootContext:TermTuple({})
 		local nContext = self._rootContext:newOpenContext(nLuaFunc:getNode())
 		local ret = nLuaFunc:meta_open_call(nContext, nTermTuple)
 		nLoadedState.term = ret:get(nContext, 1)

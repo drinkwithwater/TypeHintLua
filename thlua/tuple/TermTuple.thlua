@@ -30,7 +30,7 @@ TermTuple.__bor=function(vLeftTuple:clazz.TermTuple, vRightTuple:clazz.TermTuple
 			l[i] = nLeftTerm or nRightTerm or vLeftTuple._manager:RefineTerm(nNil)
 		end
 	end
-	return vLeftTuple._manager:TermTuple(l)
+	return vLeftTuple:getContext():TermTuple(l)
 end
 
 TermTuple.__len=function(self:clazz.TermTuple)
@@ -38,9 +38,10 @@ TermTuple.__len=function(self:clazz.TermTuple)
 end
 
 
-function:class(clazz.TermTuple) TermTuple.new(vManager:clazz.TypeManager, vTermList:List(clazz.RefineTerm), vTypeTuple:clazz.UTypeTuple)
+function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTypeTuple:clazz.UTypeTuple)
 	const self = setmetatable({.class
-		_manager=vManager,
+		_context=vContext,
+		_manager=vContext:getTypeManager(),
 		_repeatTermList={}@List(clazz.RefineTerm),
 		_typeTuple=vTypeTuple,
 		_list=vTermList,
@@ -56,7 +57,7 @@ function TermTuple:select(i:Integer):Ret(clazz.TermTuple)
 	for n=1,#self._repeatTermList do
 		nList[#nList + 1] = self._repeatTermList[n]
 	end
-	return self._manager:TermTuple(nList)
+	return self._context:TermTuple(nList)
 end
 
 function TermTuple:rawget(i:Number):Ret(OrNil(clazz.RefineTerm))
@@ -87,8 +88,12 @@ function TermTuple:get(vContext:clazz.Context, i:Number):Ret(clazz.RefineTerm)
 	end
 end
 
-function TermTuple:getDots(vStart:Integer):Ret(clazz.TermTuple)
-	return self._typeTuple:select(vStart):makeTermTuple()
+function TermTuple:getContext():Ret(clazz.Context)
+	return self._context
+end
+
+function TermTuple:getDots(vContext:clazz.Context, vStart:Integer):Ret(clazz.TermTuple)
+	return self._typeTuple:select(vStart):makeTermTuple(vContext)
 end
 
 function TermTuple:getTypeTuple():Ret(clazz.UTypeTuple)

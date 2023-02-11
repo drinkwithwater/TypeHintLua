@@ -603,33 +603,6 @@ function TypeManager:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
 	return RefineTerm.new(self, nType)
 end
 
-function TypeManager:TermTuple(vTermList:List(clazz.RefineTerm), vTermTupleOrNil:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
-	local nTermList:List(clazz.RefineTerm) = {}
-	local nTypeList:List(clazz.UAtomUnion) = {}
-	for _, nTerm in ipairs(vTermList) do
-		local i = #nTermList + 1
-		nTermList[i] = nTerm
-		nTypeList[i] = nTerm:getType()
-	end
-	local nRepeatType:Union(False, clazz.UAllType) = false
-	if vTermTupleOrNil then
-		for i1=1, #vTermTupleOrNil do
-			const nTerm = (assert(vTermTupleOrNil:rawget(i1), "term tuple length error"))
-			local i2 = #nTermList + 1
-			nTermList[i2] = nTerm
-			nTypeList[i2] = nTerm:getType()
-		end
-		nRepeatType = vTermTupleOrNil:getRepeatType()
-	end
-	const nTypeTuple = self:TypeTuple(nil, table.unpack(nTypeList))
-	if nRepeatType then
-		const nTypeTupleDots = nTypeTuple:Dots(nRepeatType)
-		return TermTuple.new(self, nTermList, nTypeTupleDots)
-	else
-		return TermTuple.new(self, nTermList, nTypeTuple)
-	end
-end
-
 function TypeManager:makeMetaEventCom(vObject:Union(clazz.LuaTable, clazz.MetaObject)):Ret(clazz.MetaEventCom)
 	return MetaEventCom.new(self, vObject)
 end

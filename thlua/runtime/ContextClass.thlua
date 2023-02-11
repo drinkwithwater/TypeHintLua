@@ -1,4 +1,5 @@
 
+const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const Exception = require "thlua.Exception"
 
@@ -11,8 +12,31 @@ const function.open ContextClass()
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TermTuple(a:List(clazz.RefineTerm),b:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
-		return self._manager:TermTuple(a,b)
+	function Context:TermTuple(vTermList:List(clazz.RefineTerm), vTermTupleOrNil:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
+		local nTermList:List(clazz.RefineTerm) = {}
+		local nTypeList:List(clazz.UAtomUnion) = {}
+		for _, nTerm in ipairs(vTermList) do
+			local i = #nTermList + 1
+			nTermList[i] = nTerm
+			nTypeList[i] = nTerm:getType()
+		end
+		local nRepeatType:Union(False, clazz.UAllType) = false
+		if vTermTupleOrNil then
+			for i1=1, #vTermTupleOrNil do
+				const nTerm = (assert(vTermTupleOrNil:rawget(i1), "term tuple length error"))
+				local i2 = #nTermList + 1
+				nTermList[i2] = nTerm
+				nTypeList[i2] = nTerm:getType()
+			end
+			nRepeatType = vTermTupleOrNil:getRepeatType()
+		end
+		const nTypeTuple = self._manager:TypeTuple(nil, table.unpack(nTypeList))
+		if nRepeatType then
+			const nTypeTupleDots = nTypeTuple:Dots(nRepeatType)
+			return TermTuple.new(self, nTermList, nTypeTupleDots)
+		else
+			return TermTuple.new(self, nTermList, nTypeTuple)
+		end
 	end
 
 	function Context:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
