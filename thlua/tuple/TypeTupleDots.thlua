@@ -8,12 +8,15 @@ function:class(clazz.TypeTupleDots) TypeTupleDots.new(
 	vManager:clazz.TypeManager,
 	vNode:clazz.IAstNode,
 	vList:List(clazz.UAllType),
-	vRepeatType:clazz.UAllType)
+	vRepeatType:clazz.UAllType,
+	vRepeatTypeWithNil:clazz.UAllType
+)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_node=vNode,
 		_list=vList,
 		_repeatType=vRepeatType,
+		_repeatTypeWithNil=vRepeatTypeWithNil,
 	}, TypeTupleDots)
 	return self
 end
@@ -23,20 +26,20 @@ function TypeTupleDots:getRepeatType():Ret(clazz.UAllType)
 end
 
 function TypeTupleDots:replaceFirst(vType:clazz.UAllType):Ret(clazz.TypeTupleDots)
-	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list, 2)}, self._repeatType)
+	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list, 2)}, self._repeatType, self._repeatTypeWithNil)
 end
 
 function TypeTupleDots:get(i:Number):Ret(clazz.UAllType)
 	if i <= #self then
 		return self._list[i]!
 	else
-		return self._repeatType
+		return self._repeatTypeWithNil
 	end
 end
 
 function TypeTupleDots:select(i:Integer):Ret(clazz.TypeTupleDots)
 	const nList: List(clazz.UAllType) = {table.unpack(self._list, i)}
-	return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType)
+	return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType, self._repeatTypeWithNil)
 end
 
 function TypeTupleDots:castOrIn(vContext:clazz.Context, vDstTypeTuple:clazz.UTypeTuple):Ret(Boolean)

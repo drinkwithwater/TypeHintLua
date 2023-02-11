@@ -220,7 +220,7 @@ function.pass TypeManager:_toType(vData:Any):Ret(clazz.IAtomType)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
-		if AtomMetatableSet[meta] then
+		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] then
 			return vData
 		else
 			error("to type failed")
@@ -346,7 +346,9 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Refer
 				local nList = nItem:waitTypeCom():getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
-				nTypeList[#nTypeList + 1] = self:_toType(nItem)
+				self:_toType(nItem):foreach(function(vAtom)
+					nTypeList[#nTypeList + 1] = vAtom
+				end)
 			end
 		end
 		return nTypeList
@@ -382,7 +384,7 @@ function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Tr
 			if Reference.is(nKey) then
 				nKeyType = nKey
 			else
-				nKeyType =	self:_toType(nKey)
+				nKeyType = self:_toType(nKey)
 			end
 			nKeyType:foreachAwait(function(vAtomType)
 				nKeyCount = nKeyCount + 1
@@ -514,7 +516,7 @@ end
 
 function TypeManager:VoidRetTuples():Ret(clazz.RetTuples)
 	const nFirst = self.type.Nil
-	return RetTuples.new(self, nFirst, {[nFirst]=self:TypeTuple(nil)})
+	return RetTuples.new(self, nFirst, {[nFirst]=self:TypeTuple(self._runtime:getNode())})
 end
 
 function TypeManager:SingleRetTuples(vTypeTuple:clazz.TypeTuple):Ret(clazz.RetTuples)
