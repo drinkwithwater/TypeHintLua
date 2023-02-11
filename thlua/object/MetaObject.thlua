@@ -86,8 +86,8 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	const nLeftNextKey = self._nextKey
 	if nLeftNextKey and nRightNextKey then
-		const nLR = nLeftNextKey:assumeContainAll(vAssumeSet, nRightNextKey)
-		const nRL = nRightNextKey:assumeContainAll(vAssumeSet, nLeftNextKey)
+		const nLR = nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey)
+		const nRL = nRightNextKey:assumeIncludeAll(vAssumeSet, nLeftNextKey)
 		if not (nLR and nRL) then
 			return false
 		end
@@ -97,13 +97,13 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 	const function isMatchedKeyValue(
 		vLeftKey:clazz.IAtomType, vLeftValue:clazz.UAllType,
 		vRightKey:clazz.IAtomType, vRightValue:clazz.UAllType):Ret(Boolean)
-		if not vRightValue:assumeContainAll(vAssumeSet, vLeftValue) then
+		if not vRightValue:assumeIncludeAll(vAssumeSet, vLeftValue) then
 			return false
 		end
-		if not vLeftValue:assumeContainAll(vAssumeSet, vRightValue) then
+		if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
 			return false
 		end
-		if not vLeftKey:assumeContainAtom(vAssumeSet, vRightKey) then
+		if not vLeftKey:assumeIncludeAtom(vAssumeSet, vRightKey) then
 			return false
 		end
 		return true
@@ -112,7 +112,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 	const nRightResultType = nRightTypeCom:getResultType()
 	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue, _)
 		if nRightResultType then -- key is merged, just get one matched
-			const nRightKey = nRightResultType:assumeContainAtom(vAssumeSet, nLeftKey)
+			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, nLeftKey)
 			if not nRightKey then
 				return false
 			end
@@ -127,7 +127,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		else -- key is not merged, iter for one matched
 			local nMatchedKey:OrNil(clazz.IAtomType) = nil
 			for _, nRightKey in ipairs(nRightTypeCom:getListAwait()) do
-				if nRightKey:assumeContainAtom(vAssumeSet, nLeftKey) then
+				if nRightKey:assumeIncludeAtom(vAssumeSet, nLeftKey) then
 					const nRightValue = nRightValueDict[nRightKey]
 					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
 						nMatchedKey = nRightKey
@@ -158,7 +158,7 @@ function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), 
 	const nRightResultType = nRightTypeCom:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
 		if nRightResultType then -- key is merged, just get one matched
-			const nRightKey = nRightResultType:assumeContainAtom(vAssumeSet, vLeftKey)
+			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
 			if not nRightKey then
 				return true
 			end
@@ -173,7 +173,7 @@ function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), 
 			end
 		else
 			for _, nRightKey in ipairs(nRightTypeCom:getListAwait()) do
-				if nRightKey:assumeContainAtom(vAssumeSet, vLeftKey) then
+				if nRightKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					local nRightValue = nRightValueDict[nRightKey]!
 					if MemberFunction.is(nRightValue) then
 						nRightValue = nRightValue:indexTypeFn(vRightObject)
@@ -188,7 +188,7 @@ function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), 
 	end)
 end
 
-function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
+function MetaObject:_interfaceIncludeWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
 	if vRightObject._intersectSet[self] then
 		return true
 	end
@@ -198,7 +198,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 		if not nRightNextKey then
 			return false
 		end
-		if not nLeftNextKey:assumeContainAll(vAssumeSet, nRightNextKey) then
+		if not nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey) then
 			return false
 		end
 	end
@@ -208,11 +208,11 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 				return false
 			end
 			const nRightTypeFn = vRightValue:indexTypeFn(vRightObject)
-			if not vLeftValue:assumeContainAll(vAssumeSet, nRightTypeFn) then
+			if not vLeftValue:assumeIncludeAll(vAssumeSet, nRightTypeFn) then
 				return false
 			end
 		else
-			if not vLeftValue:assumeContainAll(vAssumeSet, vRightValue) then
+			if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
 				return false
 			end
 		end
@@ -223,7 +223,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	const nRightResultType = nRightTypeCom:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
 		if nRightResultType then -- key is merged, just get one matched
-			const nRightKey = nRightResultType:assumeContainAtom(vAssumeSet, vLeftKey)
+			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
 			if not nRightKey then
 				return false
 			end
@@ -234,7 +234,7 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
 		else -- key is not merged, iter for one matched
 			for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
-				if nRightMoreKey:assumeContainAtom(vAssumeSet, vLeftKey) then
+				if nRightMoreKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					const nRightValue = nRightValueDict[nRightMoreKey]
 					if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
 						return true
@@ -246,10 +246,10 @@ function MetaObject:_interfaceContainWithAssume(vAssumeSet:Dict(Integer, Boolean
 	end)
 end
 
-function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
-	local nAssumeContain:Boolean = false
+function MetaObject:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
+	local nAssumeInclude:Boolean = false
 	if self:isInterface() then
-		return self:_interfaceContainWithAssume(vAssumeSet, vRightObject)
+		return self:_interfaceIncludeWithAssume(vAssumeSet, vRightObject)
 	elseif vRightObject:isInterface() then
 		return false
 	else
@@ -257,7 +257,7 @@ function MetaObject:assumeContainObject(vAssumeSet:Dict(Integer, Boolean), vRigh
 	end
 end
 
-function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
+function MetaObject:assumeIncludeAtom(vAssumeSet, vRightType)
 	local nRightStruct = vRightType:checkBaseObjectType()
 	if not nRightStruct then
 		return false
@@ -266,7 +266,7 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 		return self
 	end
 	const nMgr = self._manager
-	const nRelation = nMgr:attachPairContain(self, nRightStruct, not vAssumeSet)
+	const nRelation = nMgr:attachPairInclude(self, nRightStruct, not vAssumeSet)
 	if nRelation then
 		if nRelation == ">" or nRelation == "=" then
 			return self
@@ -282,8 +282,8 @@ function MetaObject:assumeContainAtom(vAssumeSet, vRightType)
 		return nAssumeResult and self
 	end
 	vAssumeSet[nPair] = true
-	local nAssumeContain = self:assumeContainObject(vAssumeSet, nRightStruct)
-	if not nAssumeContain then
+	local nAssumeInclude = self:assumeIncludeObject(vAssumeSet, nRightStruct)
+	if not nAssumeInclude then
 		vAssumeSet[nPair] = false
 		return false
 	else
@@ -295,9 +295,9 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 	if (not (MetaObject.is(vRightType) and vRightType:isInterface())) or (not self:isInterface()) then
 		if self == vRightType then
 			return self
-		elseif vRightType:assumeContainAtom(nil, self) then
+		elseif vRightType:assumeIncludeAtom(nil, self) then
 			return self
-		elseif self:assumeContainAtom(nil, vRightType) then
+		elseif self:assumeIncludeAtom(nil, vRightType) then
 			return vRightType
 		else
 			return false
@@ -308,7 +308,7 @@ function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
 	end
 	const nRightStruct = vRightType
 	const nMgr = self._manager
-	const nRelation = nMgr:attachPairContain(self, nRightStruct, not vAssumeSet)
+	const nRelation = nMgr:attachPairInclude(self, nRightStruct, not vAssumeSet)
 	if nRelation then
 		if nRelation == ">" then
 			return vRightType
@@ -401,7 +401,7 @@ function MetaObject:isSingleton()
 	return false
 end
 
-function MetaObject:_keyContainAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UMemberAllType):Ret(False)
+function MetaObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UMemberAllType):Ret(False)
 	const nKey = self._keyRefer:containAtom(vType)
 	if nKey then
 		return nKey, assert(self._memberDict)[nKey]!
@@ -419,7 +419,7 @@ function MetaObject:meta_get_invoke(vContext, vType)
 end
 
 function MetaObject:_meta_get(vContext:clazz.Context, vType:clazz.IAtomType, vIsInvoke:Boolean):Ret(clazz.UAtomUnion)
-	const nKey, nGetValue = self:_keyContainAtom(vType)
+	const nKey, nGetValue = self:_keyIncludeAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
@@ -440,7 +440,7 @@ function MetaObject:meta_set(vContext, vKeyType, vValueType)
 		vContext:error("interface's field is readonly")
 		return
 	end
-	const nKey, nSetValue = self:_keyContainAtom(vKeyType)
+	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
 		if MemberFunction.is(nSetValue) then
 			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
@@ -471,7 +471,7 @@ function MetaObject:meta_bop_func(vContext, vOper)
 end
 
 function MetaObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
-	const nKey, nValue = self:_keyContainAtom(vKeyType)
+	const nKey, nValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
 		if MemberFunction.is(nValue) then
 			return false

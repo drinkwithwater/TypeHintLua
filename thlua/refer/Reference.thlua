@@ -241,30 +241,30 @@ function Reference:assumeIntersectSome(vAssumeSet, vRight)
 	end
 end
 
-function Reference:assumeContainAll(vAssumeSet, vRight)
+function Reference:assumeIncludeAll(vAssumeSet, vRight)
 	const nTypeCom = self:waitTypeCom()
 	const nResultType = nTypeCom:getResultType()
 	if nResultType then
-		return nResultType:assumeContainAll(vAssumeSet, vRight)
+		return nResultType:assumeIncludeAll(vAssumeSet, vRight)
 	else
-		local nAllContain:Boolean = true
+		local nAllInclude:Boolean = true
 		const nTypeList = nTypeCom:getListAwait()
 		vRight:foreachAwait(function(vAtomType)
-			if not nAllContain then
+			if not nAllInclude then
 				return
 			end
-			local nCurContain:Boolean = false
+			local nCurInclude:Boolean = false
 			for _, nType in ipairs(nTypeList) do
-				if nType:assumeContainAtom(vAssumeSet, vAtomType) then
-					nCurContain = true
+				if nType:assumeIncludeAtom(vAssumeSet, vAtomType) then
+					nCurInclude = true
 					break
 				end
 			end
-			if not nCurContain then
-				nAllContain = false
+			if not nCurInclude then
+				nAllInclude = false
 			end
 		end)
-		return nAllContain
+		return nAllInclude
 	end
 end
 

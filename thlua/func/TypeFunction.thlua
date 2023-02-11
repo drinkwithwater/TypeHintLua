@@ -93,28 +93,28 @@ function TypeFunction:assumeIntersectAtom(vAssumeSet, vType)
 	const nLeftRetFirst = self:_buildRetTuples():getFirstType()
 	if vType == self then
 		return self
-	elseif vType:assumeContainAtom(nil, self) then
+	elseif vType:assumeIncludeAtom(nil, self) then
 		return self
-	elseif self:assumeContainAtom(nil, vType) then
+	elseif self:assumeIncludeAtom(nil, vType) then
 		return vType
 	else
 		return false
 	end
 end
 
-function TypeFunction:assumeContainFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypeFunction):Ret(Boolean)
+function TypeFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypeFunction):Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
-	if not vRight:getParTuple():assumeContainTuple(vAssumeSet, self._parTuple) then
+	if not vRight:getParTuple():assumeIncludeTuple(vAssumeSet, self._parTuple) then
 		return false
 	end
-	if not nLeftRetTuples:assumeContainTuples(vAssumeSet, nRightRetTuples) then
+	if not nLeftRetTuples:assumeIncludeTuples(vAssumeSet, nRightRetTuples) then
 		return false
 	end
 	return true
 end
 
-function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
+function TypeFunction:assumeIncludeAtom(vAssumeSet, vRight)
 	if self == vRight then
 		return self
 	end
@@ -124,15 +124,15 @@ function TypeFunction:assumeContainAtom(vAssumeSet, vRight)
 	const nMgr = self._manager
 	const nPair = self._manager:makePair(self, vRight)
 	if not vAssumeSet then
-		return self:assumeContainFn({[nPair]=true}, vRight) and self
+		return self:assumeIncludeFn({[nPair]=true}, vRight) and self
 	end
 	const nAssumeResult = vAssumeSet[nPair]
 	if nAssumeResult ~= nil then
 		return nAssumeResult and self
 	end
 	vAssumeSet[nPair] = true
-	local nAssumeContain = self:assumeContainFn(vAssumeSet, vRight)
-	if not nAssumeContain then
+	local nAssumeInclude = self:assumeIncludeFn(vAssumeSet, vRight)
+	if not nAssumeInclude then
 		vAssumeSet[nPair] = false
 		return false
 	else

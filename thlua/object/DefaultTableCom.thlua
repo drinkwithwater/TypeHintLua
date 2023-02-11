@@ -59,12 +59,12 @@ function DefaultTableCom:meta_set(vContext, vKeyType, vValueType)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
-	local nKeyContainType = self._keyType:containAtom(vKeyType)
-	if nKeyContainType then
-		const nTableField = self._fieldDict[nKeyContainType]!
+	local nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	if nKeyIncludeType then
+		const nTableField = self._fieldDict[nKeyIncludeType]!
 		const nFieldType = nTableField.castValueType or nTableField.rawValueType
 		if not nFieldType:containAll(vValueType) then
-			vContext:error("wrong value type when set key:"..tostring(nKeyContainType))
+			vContext:error("wrong value type when set key:"..tostring(nKeyIncludeType))
 		end
 		return
 	end
@@ -72,9 +72,9 @@ function DefaultTableCom:meta_set(vContext, vKeyType, vValueType)
 end
 
 function DefaultTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
-	local nKeyContainType = self._keyType:containAtom(vKeyType)
-	if nKeyContainType then
-		const nField = self._fieldDict[nKeyContainType]!
+	local nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	if nKeyIncludeType then
+		const nField = self._fieldDict[nKeyIncludeType]!
 		return nField.castValueType or nField.rawValueType
 	else
 		vContext:error("index error, key=", tostring(vKeyType))
@@ -86,8 +86,8 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
-	local nContainType = self._keyType:containAtom(vKeyType)
-	if not nContainType then
+	local nIncludeType = self._keyType:containAtom(vKeyType)
+	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
@@ -100,18 +100,18 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType)
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
 		end
 	else
-		const nTableField = self._fieldDict[nContainType]!
+		const nTableField = self._fieldDict[nIncludeType]!
 		const nFieldType = nTableField.castValueType or nTableField.rawValueType
 		if not nFieldType:containAll(vValueType) then
-			vContext:error("wrong value type when set, key:"..tostring(nContainType))
+			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
 	end
 end
 
 function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
-	local nKeyContainType = self._keyType:containAtom(vKeyType)
-	if nKeyContainType then
-		const nField = self._fieldDict[nKeyContainType]!
+	local nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	if nKeyIncludeType then
+		const nField = self._fieldDict[nKeyIncludeType]!
 		return nField.castValueType or nField.rawValueType
 	else
 		return self._manager.type.Nil

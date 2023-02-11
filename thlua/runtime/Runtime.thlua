@@ -18,8 +18,8 @@ const VariableCase = require "thlua.term.VariableCase"
 	let.clazz = import("thlua.type.TypeClass").clazz
 
 	let.ILoader = Interface {
-		thluaSearch=member:Fn(String):Ret(Boolean, String),
-		thluaParseFile=member:Fn(String):Ret(clazz.CodeEnv),
+		thluaSearch=Mfn(String):Ret(Boolean, String),
+		thluaParseFile=Mfn(String):Ret(clazz.CodeEnv),
 	}
 
 	let.LoadedState = Struct {
@@ -180,6 +180,7 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 		OrFalse="buildOrFalse",
 		Fn="buildFn",
 		Pfn="buildPfn",
+		Mfn="buildMfn",
 	}
 	local nManager = self._manager
 	for k,v in pairs(l) do
@@ -196,11 +197,6 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	nGlobal.import=function(vPath)
 		return self:import(vPath)
 	end
-	nGlobal.member={
-		Fn=function(self, ...)
-			return nManager:buildMemberFn(Node.getDebugNode(3), ...)
-		end,
-	}
 	nGlobal.foreachPair=function(vObject, vFunc)
 		const vObject = vObject:checkAtomUnion()
 		const d = vObject:copyValueDict()

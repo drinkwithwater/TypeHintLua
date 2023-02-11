@@ -64,7 +64,7 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		},
 		generic={},
 		builtin={},
-		_pairToContain={} @ Dict(Integer, clazz.Reference),
+		_pairToInclude={} @ Dict(Integer, clazz.Reference),
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
@@ -549,7 +549,7 @@ function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples,
 	return RetTuples.new(self, nFirstRefer, nFirstToTuple)
 end
 
-function TypeManager:buildMemberFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.MemberFunction)
+function TypeManager:buildMfn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.MemberFunction)
 	const nWildFn = self:buildFn(vNode, self.type.Truth, ...)
 	const nPolyFn = self:buildPfn(vNode, function(vSelfType:clazz.UAllType):Ret(clazz.TypeFunction)
 		const nRetTuples = nWildFn:getRetTuples()
@@ -671,12 +671,12 @@ function TypeManager:mergePairList@<TValue>(vTypePairList:List(Struct {clazz.UAt
 		local nKey = nPair[1]
 		local nValueType = nPair[2]
 		nKey:foreach(function(vSubType)
-			local nContainType = assert(nKeyUnion:containAtom(vSubType), "merge error")
-			local nOldType = nTypeDict[nContainType]
+			local nIncludeType = assert(nKeyUnion:containAtom(vSubType), "merge error")
+			local nOldType = nTypeDict[nIncludeType]
 			if nOldType then
-				nTypeDict[nContainType] = nOldType | nValueType
+				nTypeDict[nIncludeType] = nOldType | nValueType
 			else
-				nTypeDict[nContainType] = nValueType
+				nTypeDict[nIncludeType] = nValueType
 			end
 		end)
 	end
@@ -779,30 +779,30 @@ function TypeManager:makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):R
 	end
 end
 
-function TypeManager:getTypePairContain(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(OrNil(clazz.Reference))
+function TypeManager:getTypePairInclude(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(OrNil(clazz.Reference))
 	const nPair = self:makePair(vLeft, vRight)
-	return self._pairToContain[nPair]
+	return self._pairToInclude[nPair]
 end
 
-function TypeManager:attachPairContain(vLeft:clazz.MetaObject, vRight:clazz.MetaObject, vWaitCreate:Boolean):Ret(OrNil(clazz.RelationEnum))
+function TypeManager:attachPairInclude(vLeft:clazz.MetaObject, vRight:clazz.MetaObject, vWaitCreate:Boolean):Ret(OrNil(clazz.RelationEnum))
 	const nInverse, nLRPair, nRLPair = self:makeDuPair(vLeft, vRight)
 	if nInverse then
 		vRight, vLeft = vLeft, vRight
 	end
-	local nContainRefer = self._pairToContain[nLRPair]
+	local nIncludeRefer = self._pairToInclude[nLRPair]
 	local nResultType:OrFalse(clazz.UAtomUnion) = false
 	if vWaitCreate then
-		if not nContainRefer then
-			nContainRefer = self:Reference(false)
-			self._pairToContain[nLRPair] = nContainRefer
-			nContainRefer:setUnionAsync(self._runtime:getNode(), function()
-				const nLRContain = vLeft:assumeContainObject({[nLRPair]=true}, vRight)
-				const nRLContain = vRight:assumeContainObject({[nRLPair]=true}, vLeft)
-				if nLRContain and nRLContain then
+		if not nIncludeRefer then
+			nIncludeRefer = self:Reference(false)
+			self._pairToInclude[nLRPair] = nIncludeRefer
+			nIncludeRefer:setUnionAsync(self._runtime:getNode(), function()
+				const nLRInclude = vLeft:assumeIncludeObject({[nLRPair]=true}, vRight)
+				const nRLInclude = vRight:assumeIncludeObject({[nRLPair]=true}, vLeft)
+				if nLRInclude and nRLInclude then
 					return {self:Literal("=")}
-				elseif nLRContain then
+				elseif nLRInclude then
 					return {self:Literal(">")}
-				elseif nRLContain then
+				elseif nRLInclude then
 					return {self:Literal("<")}
 				else
 					if vLeft:isInterface() and vRight:isInterface() then
@@ -815,10 +815,10 @@ function TypeManager:attachPairContain(vLeft:clazz.MetaObject, vRight:clazz.Meta
 				end
 			end)
 		end
-		nResultType = nContainRefer:waitTypeCom():getTypeAwait()
+		nResultType = nIncludeRefer:waitTypeCom():getTypeAwait()
 	else
-		if nContainRefer then
-			nResultType = nContainRefer:waitTypeCom():getResultType()
+		if nIncludeRefer then
+			nResultType = nIncludeRefer:waitTypeCom():getResultType()
 		end
 	end
 	if not nResultType then
