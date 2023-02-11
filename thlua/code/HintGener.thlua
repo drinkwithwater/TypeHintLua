@@ -338,12 +338,13 @@ local TagToVisiting:RealTraverser = {
 			const nParent = node.parent!
 			const nParentTag = nParent.tag
 			const nParentParentTag = nParent.parent!.tag
-			const nLazyEval = nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call")
-			return {
-				nLazyEval and " function() return " or "",
-				self:rgnWrap(node).SYMBOL_GET(symbol),
-				nLazyEval and " end " or "",
-			}
+			const nSymbolGet = self:rgnWrap(node).SYMBOL_GET(symbol)
+			if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
+				-- lazy eval
+				return self:fnRetWrap(nSymbolGet)
+			else
+				return nSymbolGet
+			end
 		end
 	end,
 	Index=function(self, node)

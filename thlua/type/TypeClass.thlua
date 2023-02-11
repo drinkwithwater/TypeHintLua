@@ -39,11 +39,7 @@ clazz.MemberDict = Dict(clazz.IAtomType, clazz.UMemberAllType)
 clazz.IType = Interface ({
 	_manager=clazz.TypeManager,
 	id=Number,
-	foreach=member:Fn(Fn(clazz.IAtomType)),
 	foreachAwait=member:Fn(Fn(clazz.IAtomType)),
-
-	isNilable=member:Fn():Ret(Boolean),
-	isNever=member:Fn():Ret(Boolean),
 
 	unionSign=member:Fn():Ret(String),
 
@@ -60,19 +56,21 @@ clazz.IType = Interface ({
 
 	mayRecursive=member:Fn():Ret(Boolean),
 
-	notnilType=member:Fn():Ret(clazz.UAtomUnion),
-	trueType=member:Fn():Ret(clazz.UAtomUnion),
-	falseType=member:Fn():Ret(clazz.UAtomUnion),
-	objectPartType=member:Fn():Ret(clazz.UObjectAtomUnion),
-	fnPartType=member:Fn():Ret(clazz.UFnAtomUnion),
-
 	same=member:Fn(clazz.UAllType):Ret(Boolean),
 }, {
 	__bor=Fn(clazz.UAllType, clazz.UAllType):Ret(clazz.UAtomUnion),
 	__band=Fn(clazz.UAllType, clazz.UAllType):Ret(clazz.UAtomUnion),
 })
 
-clazz.IAssumeRelationBase = Interface {
+clazz.IReadyType = Interface {
+	foreach=member:Fn(Fn(clazz.IAtomType)),
+	isNever=member:Fn():Ret(Boolean),
+	notnilType=member:Fn():Ret(clazz.UAtomUnion),
+	isNilable=member:Fn():Ret(Boolean),
+	objectPartType=member:Fn():Ret(clazz.UObjectAtomUnion),
+	fnPartType=member:Fn():Ret(clazz.UFnAtomUnion),
+	falseType=member:Fn():Ret(clazz.UAtomUnion),
+	trueType=member:Fn():Ret(clazz.UAtomUnion),
 	assumeContainAtom=member:Fn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType):Ret(OrFalse(clazz.IAtomType)),
 	assumeIntersectAtom=member:Fn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
 }
@@ -86,7 +84,7 @@ clazz.IMetaNative = Interface {
 	meta_set=member:Fn(clazz.Context, clazz.IAtomType, clazz.UAtomUnion),
 }
 
-clazz.IAtomType = Intersect(clazz.IType, clazz.IAssumeRelationBase, clazz.IMetaNative, Interface {
+clazz.IAtomType = Intersect(clazz.IType, clazz.IReadyType, clazz.IMetaNative, Interface {
 	bits=Number,
 	isReference=member:Fn():Ret(False),
 	linkNamedReference=member:Fn(clazz.TypeReferCom),
@@ -118,7 +116,7 @@ clazz.IAtomType = Intersect(clazz.IType, clazz.IAssumeRelationBase, clazz.IMetaN
 	native_type=member:Fn():Ret(clazz.UAtomUnion),
 })
 
-clazz.IUnionType = Intersect(clazz.IType, clazz.IAssumeRelationBase, Interface {
+clazz.IUnionType = Intersect(clazz.IType, clazz.IReadyType, Interface {
 	bits=Number,
 	isReference=member:Fn():Ret(False),
 	checkAtomUnion=member:Fn():Ret(clazz.IUnionType),
@@ -152,9 +150,6 @@ const function.open TypeClass()
 	end
 	function t:checkAtomUnion()
 		return self
-	end
-	function t:isNilable()
-		return false
 	end
 	function t:intersectAtom(vRight)
 		return self:assumeIntersectAtom(nil, vRight)
@@ -222,35 +217,14 @@ const function.open TypeClass()
 	function t:isUnion()
 		return false
 	end
-	function t:foreach(vFunc)
-		error("foreach TODO")
-	end
 	function t:unionSign()
 		return tostring(self.id)
 	end
 	function t.__bor(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
 		return vLeft._manager:checkedUnion(vLeft, vRight)
 	end
-	function t:isNever()
-			return false
-	end
-	function t:notnilType()
-		return self:checkAtomUnion()
-	end
-	function t:trueType()
-			return self:checkAtomUnion()
-	end
 	function t:mayRecursive()
 		return false
-	end
-	function t:objectPartType()
-			return self._manager.type.Never
-	end
-	function t:fnPartType()
-			return self._manager.type.Never
-	end
-	function t:falseType()
-			return self._manager.type.Never
 	end
 	function t:same(vType):Ret(Boolean)
 		if vType:isReference() then

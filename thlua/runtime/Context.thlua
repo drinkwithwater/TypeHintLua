@@ -239,9 +239,11 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 			end
 			return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
 		elseif nListLen >= 1 then
+			-- step 1. prepare for return
 			const nType1TupleCaseList:List(Struct {clazz.UAtomUnion, clazz.TypeTuple, clazz.VariableCase}) = {}
 			const nNil = self._manager.type.Nil
 			local nMaxLength = 0
+			-- step 2. call function
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,nArgs,nCase,nSelf = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3], nFuncArgCase.self
 				const nNewContext = self:newSealContext(vNode)
@@ -261,20 +263,22 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 			if nMaxLength <= 0 then
 				return self:TermTuple({})
 			end
-			local nTermList:List(clazz.RefineTerm) = {}
+			const nTermList:List(clazz.RefineTerm) = {}
+			-- step 3. merge 2 ~ nMaxLength
 			for i=2,nMaxLength do
-				local nCollection = self._manager:TypeCollection()
+				const nCollection = self._manager:TypeCollection()
 				for _, nType1TupleCase in pairs(nType1TupleCaseList) do
 					nCollection:put(nType1TupleCase[2]:get(i) or nNil)
 				end
-				local nTypeI = nCollection:mergeToAtomUnion()
+				const nTypeI = nCollection:mergeToAtomUnion()
 				nTermList[i] = self:RefineTerm(nTypeI)
 			end
-			local nTypeCaseList:List(clazz.TypeCasePair) = {}
+			-- step 4. merge 1
+			const nTypeCaseList:List(clazz.TypeCasePair) = {}
 			for _, nType1TupleCase in pairs(nType1TupleCaseList) do
-				local nType1 = nType1TupleCase[1]
-				local nTypeTuple = nType1TupleCase[2]
-				local nCase = nType1TupleCase[3]
+				const nType1 = nType1TupleCase[1]
+				const nTypeTuple = nType1TupleCase[2]
+				const nCase = nType1TupleCase[3]
 				for i=2,nMaxLength do
 					nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
 				end
@@ -526,17 +530,19 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 	end
 end
 
-function Context:castLuaType(vSrcType:clazz.UAllType, vDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
-	if LuaFunction.is(vSrcType) then
-		const nFnPartType = vDstType:fnPartType()
+function Context:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
+	const nSrcType = vRawSrcType:checkAtomUnion()
+	const nDstType = vRawDstType:checkAtomUnion()
+	if LuaFunction.is(nSrcType) then
+		const nFnPartType = nDstType:fnPartType()
 		if TypeFunction.is(nFnPartType) then
-			return vSrcType:cast(self, nFnPartType)
+			return nSrcType:cast(self, nFnPartType)
 		end
 	else
-		const nSrcTable = vSrcType:objectPartType()
-		const nDstObjectPart = vDstType:objectPartType()
+		const nSrcTable = nSrcType:objectPartType()
+		const nDstObjectPart = nDstType:objectPartType()
 		if LuaTable.is(nSrcTable) and not nDstObjectPart:isNever() then
-			const nCastResult = nSrcTable:cast(self, vDstType:objectPartType())
+			const nCastResult = nSrcTable:cast(self, nDstType:objectPartType())
 			if nCastResult then
 				return self._manager:checkedUnion(nSrcTable, nCastResult)
 			else
