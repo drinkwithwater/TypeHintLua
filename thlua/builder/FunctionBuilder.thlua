@@ -79,9 +79,9 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
 			self:error("interface-fn ret and hint ret notmatch")
 		end
-		return self._manager:Function(nParTuple, nHintRetTuples)
+		return self._manager:TypeFunction(self._node, nParTuple, nHintRetTuples)
 	else
-		return self._manager:Function(nParTuple, nCastRetTuples)
+		return self._manager:TypeFunction(self._node, nParTuple, nCastRetTuples)
 	end
 end
 
@@ -209,7 +209,7 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.TypeFunction)
 		const nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
 		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-		return self._manager:Function(nParTuple, nRetTuples)
+		return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 	end
 	if not self._member then
 		if nPolyParNum <= 0 then
@@ -293,7 +293,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		end
 		const nParTuple = self:_makeParTupleByPoly(vPolyParList, false)
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:Tuple(nClassRefer))
-		const nTypeFn = self._manager:Function(nParTuple, nRetTuples)
+		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		nClassRefer:setClassAsync(self._node, function()
 			local nImplType = nStruct
 			if Reference.is(nImplType) then

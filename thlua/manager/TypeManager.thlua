@@ -554,7 +554,7 @@ function TypeManager:buildMfn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.MemberF
 	const nPolyFn = self:buildPfn(vNode, function(vSelfType:clazz.UAllType):Ret(clazz.TypeFunction)
 		const nRetTuples = nWildFn:getRetTuples()
 		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
-		return self:Function(nParTuple, nRetTuples)
+		return self:TypeFunction(vNode, nParTuple, nRetTuples)
 	end)
 	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
 end
@@ -586,10 +586,10 @@ function TypeManager:MemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunc
 	return MemberFunction.new(self, vNode, vPolyFn, false)
 end
 
-function TypeManager:Function(vParTuple:clazz.UTypeTuple, vRetTuples:clazz.RetTuples):Ret(clazz.TypeFunction)
+function TypeManager:TypeFunction(vNode:clazz.IAstNode, vParTuple:clazz.UTypeTuple, vRetTuples:clazz.RetTuples):Ret(clazz.TypeFunction)
 	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
 	assert(RetTuples.is(vRetTuples))
-	local nFunc = TypeFunction.new(self, self._runtime:getNode(), vParTuple, vRetTuples)
+	local nFunc = TypeFunction.new(self, vNode, vParTuple, vRetTuples)
 	return self:_recordTypeUnionSign(nFunc)
 end
 
