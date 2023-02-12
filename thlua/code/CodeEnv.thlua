@@ -21,7 +21,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vSubject:String, vChunkName:String, vV
 		_chunkName = vChunkName,
 		_astOrErr = nil@Union(node.Error, node.Chunk),
 		_nodeList = {}@List(node.IAstNode),
-		_nameList = {}@List(node.Ident),
+		_nameList = {}@List(node.Ident_def),
 		_rootScope = false@OrFalse(node.Block),
 		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
@@ -90,11 +90,11 @@ function CodeEnv:prepare()
 end
 
 function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
-	local visitor = VisitorExtend(vFunc)
+	const visitor = VisitorExtend(vFunc)
 	visitor:realVisit(self._astOrErr)
 end
 
-function.open CodeEnv:binSearch(vList, vPos)
+function CodeEnv:binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(False):Ret(Integer, TValue)
 	if #vList <= 0 then
 		return false
 	end
@@ -117,12 +117,12 @@ function.open CodeEnv:binSearch(vList, vPos)
 			nRight = nMiddle
 		end
 	end
-	return nLeft, vList[nLeft]
+	return nLeft, vList[nLeft]!
 end
 
 -- pos to line & column
 function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
-	local line, lineInfo = self:binSearch(self._linePosList, vPos)
+	local line, lineInfo = self:binSearch@<Struct {pos=Integer, posEnd=Integer}>(self._linePosList, vPos)
 	if not line or not lineInfo then
 		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
 		return 1, 1
@@ -269,8 +269,8 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident))
 	return nIdent
 end
 
-function.pass CodeEnv:searchName(vPos:Integer):Ret(OrNil(node.Ident))
-	local nIndex, nNode = self:binSearch(self._nameList, vPos)
+function CodeEnv:searchName(vPos:Integer):Ret(OrNil(node.Ident))
+	local nIndex, nNode = self:binSearch@<node.Ident_def>(self._nameList, vPos)
 	if not nIndex then
 		return nil
 	end

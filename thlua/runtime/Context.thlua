@@ -142,7 +142,7 @@ function Context:EXPRLIST_REPACK(vNode:clazz.IAstNode, vLazy:Boolean, l:List(UPa
 end
 
 -- unpack explist to vNum term | termtuple
-function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(clazz.RefineTerm, clazz.TermTuple)):Ret()
+function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(clazz.RefineTerm, clazz.TermTuple)):RetDots(clazz.RefineTerm)
 	const l:List(Union(clazz.RefineTerm, clazz.TermTuple)) = {...}
 	const re:List(clazz.RefineTerm) = {}
 	for i=1, vNum do
@@ -172,13 +172,11 @@ function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(cl
 			end
 		end
 	end
-	do.pass
-		return table.unpack(re)
-	end
+	return table.unpack(re)
 end
 
 -- unpack in function's argument & for_in
-function Context:TUPLE_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.TermTuple, vNum:Number, vUseDots:Boolean)
+function Context:TUPLE_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.TermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.RefineTerm, clazz.TermTuple))
 	const l:List(Union(clazz.RefineTerm, clazz.TermTuple)) = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(self, i)
@@ -186,9 +184,7 @@ function Context:TUPLE_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.TermTuple, vNum
 	if vUseDots then
 		l[vNum + 1] = vTuple:getDots(self, vNum + 1)
 	end
-	do.pass
-		return table.unpack(l)
-	end
+	return table.unpack(l)
 end
 
 -- meta items
