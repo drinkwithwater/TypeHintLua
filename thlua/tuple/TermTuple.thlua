@@ -9,9 +9,9 @@ TermTuple.__tostring=function(self:clazz.TermTuple):Ret(String)
 	for i=1, #self do
 		re[i] = tostring(self._list[i])
 	end
-	const nRepeatType = self:getRepeatType()
-	if nRepeatType then
-		re[#re + 1] = tostring(nRepeatType) .."*"
+	const nTail = self._tail
+	if nTail then
+		re[#re + 1] = tostring(nTail) .."*"
 	end
 	return "TermTuple("..table.concat(re, ",")..")"
 end
@@ -34,17 +34,18 @@ TermTuple.__bor=function(vLeftTuple:clazz.TermTuple, vRightTuple:clazz.TermTuple
 end
 
 TermTuple.__len=function(self:clazz.TermTuple)
-    return #self._list
+	return #self._list
 end
 
 
-function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTypeTuple:clazz.UTypeTuple)
+function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTail:OrFalse(clazz.UAllType), vTypeTuple:clazz.UTypeTuple)
 	const self = setmetatable({.class
 		_context=vContext,
 		_manager=vContext:getTypeManager(),
+		_list=vTermList,
+		_tail=vTail,
 		_repeatTermList={}@List(clazz.RefineTerm),
 		_typeTuple=vTypeTuple,
-		_list=vTermList,
 	}, TermTuple)
 	return self
 end
@@ -70,7 +71,7 @@ function TermTuple:get(vContext:clazz.Context, i:Number):Ret(clazz.RefineTerm)
 		return self._list[i]!
 	else
 		local nTerm = self._repeatTermList[more]
-		const nRepeatType = self:getRepeatType()
+		const nRepeatType = self:getTail()
 		if not nTerm then
 			local nNil = self._manager.type.Nil
 			if nRepeatType then
@@ -100,7 +101,7 @@ function TermTuple:getTypeTuple():Ret(clazz.UTypeTuple)
 	return self._typeTuple
 end
 
-function TermTuple:getRepeatType():Ret(Union(clazz.UAllType, False))
+function TermTuple:getTail():Ret(Union(clazz.UAllType, False))
 	return self._typeTuple:getRepeatType()
 end
 

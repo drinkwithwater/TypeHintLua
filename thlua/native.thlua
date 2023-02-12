@@ -140,7 +140,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 							const nType = vTermTuple:get(vContext, i):getType()
 							nCollection:put(nType)
 						end
-						const nRepeatType = vTermTuple:getRepeatType()
+						const nRepeatType = vTermTuple:getTail()
 						if nRepeatType then
 							nCollection:put(nRepeatType)
 						end
@@ -190,7 +190,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		pcall=nManager:OpenFunction(function(vContext, vTermTuple)
 			const nFunc = vTermTuple:get(vContext, 1)
 			const nArgs = vTermTuple:select(2)
-			const nParentContext = (vContext:getParentContext()) @!!clazz.Context
+			const nParentContext = assert(vContext:getParentContext(), "parent context must existed")
 			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nManager:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
@@ -199,7 +199,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		xpcall=nManager:OpenFunction(function(vContext, vTermTuple)
 			const nFunc = vTermTuple:get(vContext, 1)
 			const nArgs = vTermTuple:select(3)
-			const nParentContext = (vContext:getParentContext()) @!!clazz.Context
+			const nParentContext = assert(vContext:getParentContext(), "parent context must existed")
 			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nManager:RefineTerm(nManager.type.True)
 			-- TODO combine first & second

@@ -12,6 +12,7 @@ const function.open ContextClass()
 		return "context:"..tostring(self:getNode())
 	end
 
+
 	function Context:TermTuple(vTermList:List(clazz.RefineTerm), vTermTupleOrNil:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
 		local nTermList:List(clazz.RefineTerm) = {}
 		local nTypeList:List(clazz.UAtomUnion) = {}
@@ -28,14 +29,14 @@ const function.open ContextClass()
 				nTermList[i2] = nTerm
 				nTypeList[i2] = nTerm:getType()
 			end
-			nRepeatType = vTermTupleOrNil:getRepeatType()
+			nRepeatType = vTermTupleOrNil:getTail()
 		end
 		const nTypeTuple = self._manager:TypeTuple(self:getNode(), table.unpack(nTypeList))
 		if nRepeatType then
 			const nTypeTupleDots = nTypeTuple:Dots(nRepeatType)
-			return TermTuple.new(self, nTermList, nTypeTupleDots)
+			return TermTuple.new(self, nTermList, nRepeatType, nTypeTupleDots)
 		else
-			return TermTuple.new(self, nTermList, nTypeTuple)
+			return TermTuple.new(self, nTermList, false, nTypeTuple)
 		end
 	end
 
