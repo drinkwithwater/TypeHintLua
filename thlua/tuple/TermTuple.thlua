@@ -38,7 +38,7 @@ TermTuple.__len=function(self:clazz.TermTuple)
 end
 
 
-function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTail:OrFalse(clazz.UAllType), vTypeTuple:clazz.UTypeTuple)
+function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTail:OrFalse(clazz.UAllType), vTypeTuple:OrFalse(clazz.UTypeTuple))
 	const self = setmetatable({.class
 		_context=vContext,
 		_manager=vContext:getTypeManager(),
@@ -94,15 +94,30 @@ function TermTuple:getContext():Ret(clazz.Context)
 end
 
 function TermTuple:getDots(vContext:clazz.Context, vStart:Integer):Ret(clazz.TermTuple)
-	return self._typeTuple:select(vStart):makeTermTuple(vContext)
+	return self:getTypeTuple():select(vStart):makeTermTuple(vContext)
 end
 
 function TermTuple:getTypeTuple():Ret(clazz.UTypeTuple)
-	return self._typeTuple
+	local nTypeTuple = self._typeTuple
+	if not nTypeTuple then
+		const nList:List(clazz.UAllType) = {}
+		for i,v in ipairs(self._list) do
+			nList[i] = v:getType()
+		end
+		nTypeTuple = self._manager:TypeTuple(self._context:getNode(), table.unpack(nList))
+		const nTail = self._tail
+		if nTail then
+			nTypeTuple = nTypeTuple:Dots(nTail)
+		end
+		self._typeTuple = nTypeTuple
+		return nTypeTuple
+	else
+		return nTypeTuple
+	end
 end
 
 function TermTuple:getTail():Ret(Union(clazz.UAllType, False))
-	return self._typeTuple:getRepeatType()
+	return self._tail
 end
 
 function.open TermTuple.is(t):isguard(clazz.TermTuple)

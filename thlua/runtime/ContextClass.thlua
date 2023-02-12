@@ -12,32 +12,16 @@ const function.open ContextClass()
 		return "context:"..tostring(self:getNode())
 	end
 
+	function Context:TermTupleByAppend(vTermList:List(clazz.RefineTerm), vTermTuple:clazz.TermTuple):Ret(clazz.TermTuple)
+		for i=1, #vTermTuple do
+			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
+			vTermList[#vTermList + 1] = nTerm
+		end
+		return TermTuple.new(self, vTermList, vTermTuple:getTail(), false)
+	end
 
-	function Context:TermTuple(vTermList:List(clazz.RefineTerm), vTermTupleOrNil:OrNil(clazz.TermTuple)):Ret(clazz.TermTuple)
-		local nTermList:List(clazz.RefineTerm) = {}
-		local nTypeList:List(clazz.UAtomUnion) = {}
-		for _, nTerm in ipairs(vTermList) do
-			local i = #nTermList + 1
-			nTermList[i] = nTerm
-			nTypeList[i] = nTerm:getType()
-		end
-		local nRepeatType:Union(False, clazz.UAllType) = false
-		if vTermTupleOrNil then
-			for i1=1, #vTermTupleOrNil do
-				const nTerm = (assert(vTermTupleOrNil:rawget(i1), "term tuple length error"))
-				local i2 = #nTermList + 1
-				nTermList[i2] = nTerm
-				nTypeList[i2] = nTerm:getType()
-			end
-			nRepeatType = vTermTupleOrNil:getTail()
-		end
-		const nTypeTuple = self._manager:TypeTuple(self:getNode(), table.unpack(nTypeList))
-		if nRepeatType then
-			const nTypeTupleDots = nTypeTuple:Dots(nRepeatType)
-			return TermTuple.new(self, nTermList, nRepeatType, nTypeTupleDots)
-		else
-			return TermTuple.new(self, nTermList, false, nTypeTuple)
-		end
+	function Context:TermTuple(vTermList:List(clazz.RefineTerm), vTail:OrNil(False, clazz.UAllType)):Ret(clazz.TermTuple)
+		return TermTuple.new(self, vTermList, vTail or false, false)
 	end
 
 	function Context:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
