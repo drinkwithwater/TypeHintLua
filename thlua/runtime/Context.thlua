@@ -84,29 +84,6 @@ function Context:EXPRLIST_REPACK(
 	vLazy:Boolean,
 	l:List(Union(clazz.TermTuple, clazz.RefineTerm, Fn():Ret(clazz.RefineTerm)))
 ):Ret(clazz.TermTuple):Ret(Fn():Ret(clazz.TermTuple))
-	const nTermFalseList:List(Union(clazz.RefineTerm, False)) = {}
-	const nIndexToFunc:Dict(Integer, Fn():Ret(clazz.RefineTerm)) = {}
-	for i=1, #l-1 do
-		const cur = l[i]
-		if TermTuple.is(cur) then
-			if #cur ~= 1 then
-				self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
-			end
-			nTermFalseList[i] = cur:get(self, 1) or self:RefineTerm(self._manager.type.Nil)
-		elseif RefineTerm.is(cur) then
-			nTermFalseList[i] = cur
-		elseif type(cur) == "function" then
-			nIndexToFunc[i] = cur
-			nTermFalseList[i] = false
-		else
-			error("unexcept branch")
-		end
-	end
-	const lazyEvalFunc = function()
-		for i, nFunc in pairs(nIndexToFunc) do
-			nTermFalseList[i] = nFunc()
-		end
-	end
 	local reFunc:OrNil(Fn():Ret(clazz.TermTuple))
 	const nLastIndex = #l
 	const nLast = l[nLastIndex]
@@ -115,24 +92,44 @@ function Context:EXPRLIST_REPACK(
 			return self:TermTuple({})
 		end
 	else
+		const repackWithoutLast = function():Ret(List(clazz.RefineTerm))
+			const nTermList:List(clazz.RefineTerm) = {}
+			const nIndexToFunc:Dict(Integer, Fn():Ret(clazz.RefineTerm)) = {}
+			for i=1, #l-1 do
+				const cur = l[i]
+				if TermTuple.is(cur) then
+					if #cur ~= 1 then
+						self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
+					end
+					nTermList[i] = cur:get(self, 1)
+				elseif RefineTerm.is(cur) then
+					nTermList[i] = cur
+				elseif type(cur) == "function" then
+					nIndexToFunc[i] = cur
+				else
+					error("unexcept branch")
+				end
+			end
+			for i, nFunc in pairs(nIndexToFunc) do
+				nTermList[i] = nFunc()
+			end
+			return nTermList
+		end
 		-- force cast
-		const nTermList = nTermFalseList @!! List(clazz.RefineTerm)
 		if TermTuple.is(nLast) then
 			reFunc = function()
-				lazyEvalFunc()
-				return self:TermTupleByAppend(nTermList, nLast)
+				return self:TermTupleByAppend(repackWithoutLast(), nLast)
 			end
 		else
-			if RefineTerm.is(nLast) then
-				nTermFalseList[nLastIndex] = nLast
-			elseif type(nLast) == "function" then
-				nIndexToFunc[nLastIndex] = nLast
-				nTermFalseList[nLastIndex] = false
-			else
-				error("unexcept branch")
-			end
 			reFunc = function()
-				lazyEvalFunc()
+				const nTermList = repackWithoutLast()
+				if RefineTerm.is(nLast) then
+					nTermList[#nTermList + 1] = nLast
+				elseif type(nLast) == "function" then
+					nTermList[#nTermList + 1] = nLast()
+				else
+					error("unexcept branch")
+				end
 				return self:TermTuple(nTermList)
 			end
 		end
@@ -229,7 +226,7 @@ function Context:META_SET(
 	end)
 end
 
-(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTypeTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
+(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.TermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
 (@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.TermTuple})
 function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.TermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(clazz.TermTuple)
@@ -333,7 +330,7 @@ function Context:META_CALL(vNode:clazz.IAstNode,
 				end
 			else
 				nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-					vFuncType, nArgTermTuple:getTypeTuple() , vVariableCase
+					vFuncType, nArgTermTuple, vVariableCase
 				}
 			end
 		else
@@ -368,7 +365,7 @@ function Context:META_INVOKE(vNode:clazz.IAstNode,
 						end
 					else
 						nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-							vSingleFuncType, nNewArgTuple:getTypeTuple(), vVariableCase,
+							vSingleFuncType, nNewArgTuple, vVariableCase,
 							self=vSelfType,
 						}
 					end
@@ -417,20 +414,20 @@ function Context:META_BOP_SOME(vNode:clazz.IAstNode, vOper:String, vLeftTerm:cla
 		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
-			const nTypeTuple = self._manager:TypeTuple(vNode, vLeftType, vRightTerm:getType())
-			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+			const nTermTuple = self:TermTuple({vLeftTerm:filter(vLeftType), vRightTerm})
+			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTermTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
-					const nTypeTuple = self._manager:TypeTuple(vNode, vLeftType, vRightType)
-					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+					const nTermTuple = self:TermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
+					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTermTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
-						const nTypeTuple = self._manager:TypeTuple(vNode, vLeftType, vRightType)
-						const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTypeTuple)
+						const nTermTuple = self:TermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
+						const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTermTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
