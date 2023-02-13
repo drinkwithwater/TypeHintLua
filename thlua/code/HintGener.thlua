@@ -625,7 +625,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				return vParNode.tag == "Ident" and "v_"..vParNode[1]..vParNode.index or "vDOTS"
 			end, ","),
 			"=" ,
-			self:ctxWrap(nParList).TUPLE_UNPACK("vArgTuple", tostring(nParamNum), tostring(nIsVararg)),
+			self:ctxWrap(nParList).TUPLE_UNPACK("____termArgs", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
 					return self:visitIdentDef(vParNode, "v_"..vParNode[1]..vParNode.index, true)
@@ -643,7 +643,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			" local ", self:concatList@<String>(nPolyParList, function(_, vPolyPar)
 				return vPolyPar
 			end, ","), "=", self:concatList@<String>(nPolyParList, function(i, vPolyPar)
-				return "____typeList["..tostring(i).."]"
+				return "____polyArgs["..tostring(i).."]"
 			end, ",")
 		}
 	end
@@ -660,7 +660,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			_parNum=tostring(nParamNum),
 			_parFullHint=tostring(vNode.parFullHint or false),
 		}),
-			self:fnWrap("____typeList", nSelf)(
+			self:fnWrap("____polyArgs", nSelf)(
 				nPolyUnpack,
 				"return ",
 				self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
@@ -677,11 +677,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				end, ", ")), ",",
 				nDotsHint or "false"
 			),
-			self:fnWrap("____typeList", nSelf)(
+			self:fnWrap("____polyArgs", nSelf)(
 				nPolyUnpack,
 				"return ", nHintSuffix
 			),
-			self:fnWrap("____bodyFn", "____newCtx", "vArgTuple", "____typeList", nSelf)(
+			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____polyArgs", nSelf)(
 				nPolyUnpack,
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ",____bodyFn,____fn,____uv) ",
 				nParInBody,
