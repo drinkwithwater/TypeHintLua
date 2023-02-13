@@ -5,12 +5,13 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
 
 const TypeReferCom = require "thlua.refer.TypeReferCom"
+const AutoReferCom = require "thlua.refer.AutoReferCom"
 const ClassReferCom = require "thlua.refer.ClassReferCom"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassReferCom)
+	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassReferCom, clazz.AutoReferCom)
 end)
 
 const Reference = TypeClass()
@@ -89,9 +90,9 @@ function Reference:getComAwait():Ret(let.UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassReferCom))
+function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassReferCom, clazz.AutoReferCom))
 	const nCom = self:getComAwait()
-	assert(TypeReferCom.is(nCom) or ClassReferCom.is(nCom), "type reference expected, but get some other reference")
+	assert(not TemplateReferCom.is(nCom), "type reference expected, but get template reference")
 	return nCom
 end
 
@@ -261,6 +262,15 @@ function Reference:assumeIncludeAll(vAssumeSet, vRight)
 			end
 		end)
 		return nAllInclude
+	end
+end
+
+function Reference:tryAutoRefer():Ret(False):Ret(True, clazz.AutoReferCom)
+	const nCom = self._com
+	if AutoReferCom.is(nCom) then
+		return true, nCom
+	else
+		return false
 	end
 end
 

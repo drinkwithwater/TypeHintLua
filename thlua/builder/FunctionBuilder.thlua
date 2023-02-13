@@ -135,6 +135,7 @@ function FunctionBuilder:_makeRetTuples(
 	end
 	return nRetTuples
 end
+
 function FunctionBuilder:_makeRetTuplesWithFn(
 	vTypeFn:clazz.TypeFunction,
 	vTypeList:List(clazz.UAllType),
@@ -220,10 +221,36 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 	end
 end
 
+function FunctionBuilder:_makeAutoTupleByPoly(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.UTypeTuple)
+	const nNewParList:List(clazz.UAllType) = {}
+	const nRawParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
+	for i, nParType in ipairs(nRawParList) do
+		if not nParType then
+			if i == 1 then
+				nNewParList[1] = self._manager.type.Truth
+				assert(self._member, "only trait function's self can be default to Truth")
+			else
+				error("check default but hint type is not true value, order="..tostring(i))
+			end
+		else
+			nNewParList[i] = nParType
+		end
+	end
+	const nTuple = self._manager:TypeTuple(self._node, table.unpack(nNewParList))
+	if self._isvararg then
+		if not nDotsType then
+			error("dots type is required here")
+		end
+		return nTuple:Dots(nDotsType)
+	else
+		return nTuple
+	end
+end
+
 function FunctionBuilder:_makeParTupleByPoly(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.UTypeTuple)
 	const nNewParList:List(clazz.UAllType) = {}
-	const nParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
-	for i, nParType in ipairs(nParList) do
+	const nRawParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
+	for i, nParType in ipairs(nRawParList) do
 		if not nParType then
 			if i == 1 then
 				nNewParList[1] = self._manager.type.Truth

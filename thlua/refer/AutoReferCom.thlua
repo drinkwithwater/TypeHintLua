@@ -1,0 +1,75 @@
+
+const Exception = require "thlua.Exception"
+
+(@let.clazz = import("thlua.type.TypeClass").clazz)
+
+const AutoReferCom = {}
+AutoReferCom.__index=AutoReferCom
+
+function:class(clazz.AutoReferCom) AutoReferCom.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
+	const self = setmetatable({.class
+		_manager=vManager,
+		_refer=vRefer,
+		_namedRefer=vRefer,
+		_mayRecursive=false@Boolean,
+		_typeList={}@List(clazz.IAtomType),
+		_resultType=false@OrFalse(clazz.UAtomUnion),
+	}, AutoReferCom)
+	return self
+end
+
+function AutoReferCom:addReference(vRefer:clazz.Reference)
+	if vRefer:getKey() and not self._namedRefer:getKey() then
+		self._namedRefer = vRefer
+	end
+end
+
+function AutoReferCom:getToString():Ret(String)
+	return tostring(self._refer)
+end
+
+function AutoReferCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+	return self._resultType
+end
+
+function AutoReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
+	local nReturn = self._resultType
+	if not nReturn then
+		--[[
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())]]
+		error("can't get auto refer before it's setted")
+	end
+	return (assert(self._resultType, "result type not setted"))
+end
+
+function AutoReferCom:getMayRecursive():Ret(Boolean)
+	self:getTypeAwait()
+	return self._mayRecursive
+end
+
+function AutoReferCom:getListAwait():Ret(List(clazz.IAtomType))
+	self:getTypeAwait()
+	return self._typeList
+end
+
+function AutoReferCom:getAutoType():Ret(OrFalse(clazz.UAtomUnion))
+	return self._resultType
+end
+
+function AutoReferCom:setAutoType(vType:clazz.UAtomUnion)
+	assert(not self._resultType, "type has been setted")
+	self._resultType = vType
+	const nList = self._typeList
+	vType:foreach(function(vAtom)
+		nList[#nList + 1] = vAtom
+	end)
+end
+
+function.open AutoReferCom.is(self):isguard(clazz.AutoReferCom)
+	return getmetatable(self) == AutoReferCom
+end
+
+return AutoReferCom
