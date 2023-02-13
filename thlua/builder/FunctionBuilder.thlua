@@ -4,7 +4,8 @@ const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
 const MetaObject = require "thlua.object.MetaObject"
-const AutoTuple = require "thlua.tuple.AutoTuple"
+const AutoTuple = require "thlua.auto.AutoTuple"
+const AutoHolder = require "thlua.auto.AutoHolder"
 
 const LateFnCom = require "thlua.func.LateFnCom"
 
@@ -178,37 +179,44 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 	end
 end
 
-function FunctionBuilder:_makeParTupleByPoly(
+function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
+	vAllowAuto:IsAuto,
 	vPolyParList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
-):Ret(False, clazz.UTypeTuple):Ret(True, clazz.AutoTuple)
-	const nNewParList:List(clazz.UAllType) = {}
+):Ret(Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple))
+	const nParList:Cond(IsAuto, List(Union(clazz.UAllType, clazz.AutoHolder)), List(clazz.UAllType))  = {}
 	const nRawParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
-	local nHasAuto = false
 	for i, nParType in ipairs(nRawParList) do
 		if not nParType then
-			nHasAuto = true
-			nNewParList[i] = self._manager:AutoReference(self._node)
+			if vAllowAuto then
+				nParList[i] = AutoHolder.new()
+			else
+				error("auto type not allow here")
+			end
 		else
-			nNewParList[i] = nParType
+			nParList[i] = nParType
 		end
 	end
-	const nTuple = self._manager:TypeTuple(self._node, table.unpack(nNewParList))
-	if self._isvararg then
-		if not nDotsType then
-			return true, AutoTuple.new(self._manager, nNewParList, true)
-		else
-			if nHasAuto then
-				return true, AutoTuple.new(self._manager, nNewParList, false)
+	if vAllowAuto then
+		if self._isvararg then
+			if not nDotsType then
+				return AutoTuple.new(self._manager, nParList, true)
 			else
-				return false, nTuple:Dots(nDotsType)
+				return AutoTuple.new(self._manager, nParList, nDotsType)
 			end
+		else
+			return AutoTuple.new(self._manager, nParList, false)
 		end
 	else
-		if nHasAuto then
-			return true, AutoTuple.new(self._manager, nNewParList, false)
+		const nTuple = self._manager:TypeTuple(self._node, table.unpack(nParList))
+		if self._isvararg then
+			if not nDotsType then
+				error("auto type not allow here but dots not hint")
+			else
+				return nTuple:Dots(nDotsType)
+			end
 		else
-			return false, nTuple
+			return nTuple
 		end
 	end
 end
@@ -216,16 +224,20 @@ end
 function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.FuncMakerCom, clazz.UDefaultFunction))
 	const nPolyParNum = self._polyParNum
 	const nSuffixHint = self._retMaker({}, false)
+	if not self._parFullHint then
+		return false
+	end
 	if self._hasRetStat and not nSuffixHint.attrSet.Ret and not nSuffixHint.attrSet.RetDots then
 		-- return not full hint
 		return false
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.FuncMakerCom))
-		const nHasAuto, nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
 		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-		if not nHasAuto then
+		if self._parFullHint then
+			const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
 			return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		else
+			const nParTuple = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
 			return self._manager:Reference(false):setFuncMaker(self._node, nParTuple, nRetTuples)
 		end
 	end
@@ -318,8 +330,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
-		const nHasAuto, nParTuple = self:_makeParTupleByPoly(vPolyParList, false)
-		assert(not nHasAuto, "auto in class TODO")
+		const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		nClassRefer:setClassAsync(self._node, function()

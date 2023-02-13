@@ -5,7 +5,6 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
 
 const TypeReferCom = require "thlua.refer.TypeReferCom"
-const AutoReferCom = require "thlua.refer.AutoReferCom"
 const ClassReferCom = require "thlua.refer.ClassReferCom"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
@@ -13,7 +12,7 @@ const FuncMakerCom = require "thlua.refer.FuncMakerCom"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassReferCom, clazz.AutoReferCom)
+	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassReferCom)
 end)
 
 const Reference = TypeClass()
@@ -92,7 +91,7 @@ function Reference:getComAwait():Ret(let.UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassReferCom, clazz.AutoReferCom))
+function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassReferCom))
 	const nCom = self:getComAwait()
 	assert(not TemplateReferCom.is(nCom), "type reference expected, but get template reference")
 	return nCom
@@ -109,14 +108,6 @@ function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	for co, sid in pairs(self._waitComCoToSid) do
 		self._manager:coWakeup(co, sid)
 	end
-end
-
-function Reference:setAutoSync(vNode:clazz.IAstNode)
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._assignNode = vNode
-	const nCom = AutoReferCom.new(self._manager, self)
-	self._com = nCom
-	-- self:_setComAndWakeup(nCom)
 end
 
 function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
@@ -285,15 +276,6 @@ function Reference:assumeIncludeAll(vAssumeSet, vRight)
 			end
 		end)
 		return nAllInclude
-	end
-end
-
-function Reference:tryAutoRefer():Ret(False):Ret(True, clazz.AutoReferCom)
-	const nCom = self._com
-	if AutoReferCom.is(nCom) then
-		return true, nCom
-	else
-		return false
 	end
 end
 
