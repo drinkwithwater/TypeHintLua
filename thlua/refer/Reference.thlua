@@ -9,6 +9,8 @@ const AutoReferCom = require "thlua.refer.AutoReferCom"
 const ClassReferCom = require "thlua.refer.ClassReferCom"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
+const FuncMakerCom = require "thlua.refer.FuncMakerCom"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassReferCom, clazz.AutoReferCom)
@@ -109,6 +111,14 @@ function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	end
 end
 
+function Reference:setAutoSync(vNode:clazz.IAstNode)
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
+	const nCom = AutoReferCom.new(self._manager, self)
+	self._com = nCom
+	-- self:_setComAndWakeup(nCom)
+end
+
 function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
@@ -138,6 +148,19 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 	self._manager:coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
 	end)
+end
+
+function Reference:setFuncMaker(vNode:clazz.IAstNode,
+	vAutoTuple:clazz.AutoTuple,
+	vRetTuples:clazz.RetTuples
+):Ret(clazz.FuncMakerCom)
+	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	self._assignNode = vNode
+	const nCom = FuncMakerCom.new(self._manager, self)
+	self._manager:coStart(self._selfCo, function()
+		nCom:build(vAutoTuple, vRetTuples)
+	end)
+	return nCom
 end
 
 function Reference:setClassAsync(vNode:clazz.IAstNode,

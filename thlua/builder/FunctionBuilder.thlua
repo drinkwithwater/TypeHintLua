@@ -3,6 +3,7 @@ const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
 const MetaObject = require "thlua.object.MetaObject"
+const AutoTuple = require "thlua.tuple.AutoTuple"
 
 const LateFnCom = require "thlua.func.LateFnCom"
 
@@ -91,22 +92,22 @@ function FunctionBuilder:_makeRetTuples(
 	vSelfType:OrFalse(clazz.UAllType)
 ):Ret(OrFalse(clazz.RetTuples))
 	const nSuffixHint = self._retMaker(vTypeList, vSelfType)
-	local nRetTuples:OrFalse(clazz.RetTuples) = false
+	local nFakeFn:OrFalse(clazz.TypeFunction) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		impl=function(vHint, _)
 			error("impl can only be used with function:class")
 			return vHint
 		end,
 		RetDots=function(vHint, vFirst, ...)
-			error("TODO RetDots when function check cast")
+			const nFn = nFakeFn or self._manager:buildFn(self._node)
+			nFn:RetDots(vFirst, ...)
+			nFakeFn = nFn
 			return vHint
 		end,
 		Ret=function(vHint, ...)
-			if not nRetTuples then
-				nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, ...))
-			else
-				nRetTuples = self._manager:retConcat(self._node, nRetTuples, self._manager:TypeTuple(self._node, ...))
-			end
+			const nFn = nFakeFn or self._manager:buildFn(self._node)
+			nFn:Ret(...)
+			nFakeFn = nFn
 			return vHint
 		end,
 		isguard=function(vHint, vType)
@@ -117,6 +118,7 @@ function FunctionBuilder:_makeRetTuples(
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
+	const nRetTuples = nFakeFn and nFakeFn:getRetTuples()
 	if not self._hasRetStat then
 		if nRetTuples and not self._pass then
 			local hasVoid = false
@@ -134,52 +136,6 @@ function FunctionBuilder:_makeRetTuples(
 		end
 	end
 	return nRetTuples
-end
-
-function FunctionBuilder:_makeRetTuplesWithFn(
-	vTypeFn:clazz.TypeFunction,
-	vTypeList:List(clazz.UAllType),
-	vSelfType:OrFalse(clazz.UAllType)
-)
-	const nSuffixHint = self._retMaker(vTypeList, vSelfType)
-	const ok, err = pcall(nSuffixHint.caller, {
-		impl=function(vHint, _)
-			error("impl can only be used with function:class")
-			return vHint
-		end,
-		RetDots=function(vHint, vFirst, ...)
-			vTypeFn:RetDots(vFirst, ...)
-			return vHint
-		end,
-		Ret=function(vHint, ...)
-			vTypeFn:Ret(...)
-			return vHint
-		end,
-		isguard=function(vHint, vType)
-			error("isguard can only be used with function.open")
-			return vHint
-		end,
-	})
-	if not ok then
-		error(Exception.new(tostring(err), self._node))
-	end
-	vTypeFn:finish()
-	if not self._hasRetStat then
-		if not self._pass then
-			local hasVoid = false
-			local hasSome = false
-			vTypeFn:getRetTuples():foreachWithFirst(function(vTypeTuple, _)
-				if #vTypeTuple > 0 or vTypeTuple:getRepeatType() then
-					hasSome = true
-				else
-					hasVoid = true
-				end
-			end)
-			if hasSome and not hasVoid then
-				self:error("hint return something but block has no RetStat")
-			end
-		end
-	end
 end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple)
@@ -221,33 +177,10 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 	end
 end
 
-function FunctionBuilder:_makeAutoTupleByPoly(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.UTypeTuple)
-	const nNewParList:List(clazz.UAllType) = {}
-	const nRawParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
-	for i, nParType in ipairs(nRawParList) do
-		if not nParType then
-			if i == 1 then
-				nNewParList[1] = self._manager.type.Truth
-				assert(self._member, "only trait function's self can be default to Truth")
-			else
-				error("check default but hint type is not true value, order="..tostring(i))
-			end
-		else
-			nNewParList[i] = nParType
-		end
-	end
-	const nTuple = self._manager:TypeTuple(self._node, table.unpack(nNewParList))
-	if self._isvararg then
-		if not nDotsType then
-			error("dots type is required here")
-		end
-		return nTuple:Dots(nDotsType)
-	else
-		return nTuple
-	end
-end
-
-function FunctionBuilder:_makeParTupleByPoly(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.UTypeTuple)
+function FunctionBuilder:_makeParTupleByPoly(
+	vPolyParList:List(clazz.UAllType),
+	vSelfType:OrFalse(clazz.UAllType)
+):Ret(clazz.UTypeTuple)
 	const nNewParList:List(clazz.UAllType) = {}
 	const nRawParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
 	for i, nParType in ipairs(nRawParList) do
@@ -285,9 +218,8 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction)
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.TypeFunction)
 		const nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
-		const nTypeFn = self._manager:TypeFunctionNotFinish(self._node, nParTuple)
-		self:_makeRetTuplesWithFn(nTypeFn, vPolyParList, vSelfType)
-		return nTypeFn
+		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
+		return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 	end
 	if not self._member then
 		if nPolyParNum <= 0 then
