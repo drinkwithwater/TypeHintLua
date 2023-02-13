@@ -1,4 +1,5 @@
 
+const FuncMakerCom = require "thlua.refer.FuncMakerCom"
 const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
@@ -180,17 +181,14 @@ end
 function FunctionBuilder:_makeParTupleByPoly(
 	vPolyParList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
-):Ret(clazz.UTypeTuple)
+):Ret(False, clazz.UTypeTuple):Ret(True, clazz.AutoTuple)
 	const nNewParList:List(clazz.UAllType) = {}
 	const nRawParList, nDotsType = self._parMaker(vPolyParList, vSelfType)
+	local nHasAuto = false
 	for i, nParType in ipairs(nRawParList) do
 		if not nParType then
-			if i == 1 then
-				nNewParList[1] = self._manager.type.Truth
-				assert(self._member, "only trait function's self can be default to Truth")
-			else
-				error("check default but hint type is not true value, order="..tostring(i))
-			end
+			nHasAuto = true
+			nNewParList[i] = self._manager:AutoReference(self._node)
 		else
 			nNewParList[i] = nParType
 		end
@@ -198,28 +196,38 @@ function FunctionBuilder:_makeParTupleByPoly(
 	const nTuple = self._manager:TypeTuple(self._node, table.unpack(nNewParList))
 	if self._isvararg then
 		if not nDotsType then
-			error("dots type is required here")
+			return true, AutoTuple.new(self._manager, nNewParList, true)
+		else
+			if nHasAuto then
+				return true, AutoTuple.new(self._manager, nNewParList, false)
+			else
+				return false, nTuple:Dots(nDotsType)
+			end
 		end
-		return nTuple:Dots(nDotsType)
 	else
-		return nTuple
+		if nHasAuto then
+			return true, AutoTuple.new(self._manager, nNewParList, false)
+		else
+			return false, nTuple
+		end
 	end
 end
 
-function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.UDefaultFunction))
-	const nPolyParNum = self:_getPolyNumOrNotHint()
-	if not nPolyParNum then
-		return false
-	end
+function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.FuncMakerCom, clazz.UDefaultFunction))
+	const nPolyParNum = self._polyParNum
 	const nSuffixHint = self._retMaker({}, false)
 	if self._hasRetStat and not nSuffixHint.attrSet.Ret and not nSuffixHint.attrSet.RetDots then
 		-- return not full hint
 		return false
 	end
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.TypeFunction)
-		const nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
+	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.FuncMakerCom))
+		const nHasAuto, nParTuple = self:_makeParTupleByPoly(vPolyParList, vSelfType)
 		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-		return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+		if not nHasAuto then
+			return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+		else
+			return self._manager:Reference(false):setFuncMaker(self._node, nParTuple, nRetTuples)
+		end
 	end
 	if not self._member then
 		if nPolyParNum <= 0 then
@@ -310,7 +318,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
-		const nParTuple = self:_makeParTupleByPoly(vPolyParList, false)
+		const nHasAuto, nParTuple = self:_makeParTupleByPoly(vPolyParList, false)
+		assert(not nHasAuto, "auto in class TODO")
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		nClassRefer:setClassAsync(self._node, function()
@@ -365,10 +374,15 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 			nLuaFunc:setMember()
 			self._member = true
 		end
-		local nDefaultFn:OrFalse(clazz.UDefaultFunction) = self:_checkWhenDefault()
+		local nDefaultFn = self:_checkWhenDefault()
+		local nMakerCom:OrFalse(clazz.FuncMakerCom) = false
+		if FuncMakerCom.is(nDefaultFn) then
+			nMakerCom = nDefaultFn
+			nDefaultFn = false
+		end
 		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nDefaultFn, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
-		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nDefaultFn)
+		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nDefaultFn or nMakerCom)
 	end
 	return nLuaFunc
 end

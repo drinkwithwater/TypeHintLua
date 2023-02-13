@@ -97,6 +97,20 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
+	self.generic.Cond = self:buildTemplate(nRootNode, function.pass(vCond,v1,v2)
+		local nType = vCond
+		if Reference.is(vCond) then
+			nType = vCond:waitTypeCom():getTypeAwait()
+		end
+		if nType:isUnion() then
+			error("Cond's first value can't be union")
+		end
+		if nType == self.type.Nil or nType == self.type.False then
+			return v2
+		else
+			return v1
+		end
+	end)
 	self.generic.IDict = self:buildTemplate(nRootNode, function.pass(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
 		return self:buildInterface(nRootNode, {[vKey]=vValue}, {__next=vKey})
