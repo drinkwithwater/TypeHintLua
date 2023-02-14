@@ -78,11 +78,12 @@ function LuaFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 	const nInnerFn = self._realFn
 	if MemberFunction.is(nInnerFn) then
 		return nInnerFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	elseif PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
+	elseif PolyFunction.is(nInnerFn) then
 		return nInnerFn:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	elseif nInnerFn then
-		print("TODO, not-late fn com meta_invoke")
+	elseif AutoFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
 		return self:meta_call(vContext, vTypeTuple)
+	elseif OpenFunction.is(nInnerFn) then
+		error("open function can't called with meta_invoke")
 	else
 		error("innerFn is empty, TODO")
 	end
@@ -90,10 +91,8 @@ end
 
 function LuaFunction:meta_call(vContext, vTypeTuple)
 	const nInnerFn = self._realFn
-	if PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
+	if PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) or AutoFunction.is(nInnerFn) then
 		return nInnerFn:meta_call(vContext, vTypeTuple)
-	elseif AutoFunction.is(nInnerFn) then
-		return nInnerFn:getFnAwait():meta_call(vContext, vTypeTuple)
 	else
 		error("innerFn can't be called, TODO")
 	end
@@ -163,8 +162,8 @@ function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(claz
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nInnerFn = self._realFn
 	if not vSelfType then
-		assert(TypeFunction.is(nInnerFn), "only type function can be auto specialize")
-		return nInnerFn
+		assert(AutoFunction.is(nInnerFn), "only type function can be auto specialize")
+		return nInnerFn:getFnAwait()
 	else
 		assert(MemberFunction.is(nInnerFn), "only member function can be auto specialize with self")
 		return nInnerFn:indexTypeFn(vSelfType)

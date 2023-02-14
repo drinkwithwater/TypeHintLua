@@ -231,7 +231,7 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.AutoFunction, cla
 		-- return not full hint
 		return false
 	end
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.AutoFunction))
+	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
 		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
 		if self._parFullHint then
 			const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
@@ -244,7 +244,7 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.AutoFunction, cla
 				return nTypeFn
 			end)
 			self._context:recordAutoFunction(nCom)
-			return nTypeFn
+			return nCom
 		else
 			error("auto TODO")
 			--const nParTuple = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
@@ -257,12 +257,12 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.AutoFunction, cla
 			return nFnMaker({}, false)
 		else
 			return self._manager:PolyFunction(self._node, function(...)
-				return nFnMaker({...}, false)
+				return nFnMaker({...}, false):getFnAwait()
 			end, nPolyParNum)
 		end
 	else
 		const nPolyFn = self._manager:PolyFunction(self._node, function(self, ...)
-			return nFnMaker({...}, self)
+			return nFnMaker({...}, self):getFnAwait()
 		end, nPolyParNum + 1)
 		return self._manager:MemberFunction(self._node, nPolyFn)
 	end
@@ -397,15 +397,10 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 			nLuaFunc:setMember()
 			self._member = true
 		end
-		local nDefaultFn = self:_checkWhenDefault()
-		local nMakerCom:OrFalse(clazz.AutoFunction) = false
-		if AutoFunction.is(nDefaultFn) then
-			nMakerCom = nDefaultFn
-			nDefaultFn = false
-		end
-		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nDefaultFn, nAttrSet.pass and true or false)
+		const nInnerFn = self:_checkWhenDefault()
+		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
-		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nDefaultFn or nMakerCom)
+		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nInnerFn)
 	end
 	return nLuaFunc
 end

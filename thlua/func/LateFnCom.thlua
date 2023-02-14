@@ -11,13 +11,11 @@ LateFnCom.__index=LateFnCom
 
 function:class(clazz.LateFnCom) LateFnCom.new(vManager:clazz.TypeManager,
 	vLuaFunction:clazz.LuaFunction,
-	vDefaultFn:OrFalse(clazz.UDefaultFunction),
 	vPass:Boolean
 )
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_defaultFn=vDefaultFn,
 		_selfSpecDict={}@Dict(clazz.LuaTable, clazz.TypeFunction),
 		_castSpecList={}@List(clazz.TypeFunction),
 		_once=false@Boolean,
@@ -50,7 +48,7 @@ function LateFnCom:checkLateRun()
 		end
 	end
 	-- 2. default fn
-	const nDefaultFn = self._defaultFn
+	--[[const nDefaultFn = self._defaultFn
 	if MemberFunction.is(nDefaultFn) then
 		const nPairDict = nDefaultFn:getPolyFn():getPolyCallPairDict()
 		for _, nPair in pairs(nPairDict) do
@@ -68,7 +66,7 @@ function LateFnCom:checkLateRun()
 			-- print("function no cast and no default", tostring(self._luaFunction:getNode()))
 		end
 		-- nDefaultFn is false
-	end
+	end]]
 	for _, nPair in ipairs(nSpecFnList) do
 		const nParTuple = nPair[1]:getParTuple()
 		const nInplaceContext = self._luaFunction:newInplaceSealContext()
@@ -80,10 +78,6 @@ function LateFnCom:checkLateRun()
 			nInplaceContext:error(tostring(err))
 		end
 	end
-end
-
-function LateFnCom:getDefaultFn():Ret(OrFalse(clazz.UDefaultFunction))
-	return self._defaultFn
 end
 
 function LateFnCom:addSpecFn(vTypeFn:clazz.TypeFunction, vSelfType:OrNil(clazz.LuaTable))
