@@ -1,5 +1,5 @@
 
-const FuncMakerCom = require "thlua.refer.FuncMakerCom"
+const AutoFunction = require "thlua.refer.AutoFunction"
 const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
@@ -221,7 +221,7 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	end
 end
 
-function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.FuncMakerCom, clazz.UDefaultFunction))
+function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.AutoFunction, clazz.UDefaultFunction))
 	const nPolyParNum = self:_getPolyNumOrNotHint()
 	if not nPolyParNum then
 		return false
@@ -231,24 +231,24 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.FuncMakerCom, cla
 		-- return not full hint
 		return false
 	end
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.FuncMakerCom))
+	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.AutoFunction))
 		const nRetTuples = self:_makeRetTuples(vPolyParList, vSelfType) or self._manager:VoidRetTuples()
 		if self._parFullHint then
 			const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
 			const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 			const nInplaceContext = self._context:newSealContext(self._node)
-			const nCom = self._manager:Reference(false):setFuncMaker(self._node, nTypeFn, function()
+			const nCom = self._manager:Reference(false):setAutoFunction(self._node, nTypeFn, function()
 				if not self._pass then
 					self._genFunc(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), vPolyParList, vSelfType)
 				end
 				return nTypeFn
 			end)
-			self._context:recordFuncMakerCom(nCom)
+			self._context:recordAutoFunction(nCom)
 			return nTypeFn
 		else
 			error("auto TODO")
 			--const nParTuple = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
-			--return self._manager:Reference(false):setFuncMaker(self._node, nParTuple, nRetTuples, function()
+			--return self._manager:Reference(false):setAutoFunction(self._node, nParTuple, nRetTuples, function()
 			--end)
 		end
 	end
@@ -344,7 +344,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
-		const nCom = nClassRefer:setClassAsync(self._node, function()
+		const nCom = nClassRefer:setClassFactory(self._node, function()
 			local nImplType = nStruct
 			if Reference.is(nImplType) then
 				nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -361,7 +361,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 			nContext:setClassTable(vLuaTable)
 			self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(nContext), vPolyParList, false)
 		end)
-		self._context:recordDefineLuaFunction(nCom)
+		self._context:recordClassFactory(nCom)
 		return nTypeFn
 	end
 	if nPolyParNum <= 0 then
@@ -398,8 +398,8 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 			self._member = true
 		end
 		local nDefaultFn = self:_checkWhenDefault()
-		local nMakerCom:OrFalse(clazz.FuncMakerCom) = false
-		if FuncMakerCom.is(nDefaultFn) then
+		local nMakerCom:OrFalse(clazz.AutoFunction) = false
+		if AutoFunction.is(nDefaultFn) then
 			nMakerCom = nDefaultFn
 			nDefaultFn = false
 		end

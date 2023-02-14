@@ -3,10 +3,10 @@ const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const ClassReferCom = {}
-ClassReferCom.__index=ClassReferCom
+const ClassFactory = {}
+ClassFactory.__index=ClassFactory
 
-function:class(clazz.ClassReferCom) ClassReferCom.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
+function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
@@ -16,25 +16,25 @@ function:class(clazz.ClassReferCom) ClassReferCom.new(vManager:clazz.TypeManager
 		_clazzType=false@OrFalse(clazz.LuaTable),
 		_waitClassCoToSid={} @ Dict(Thread, Integer),
 		_waitBuildCoToSid={}@OrFalse(Dict(Thread, Integer)),
-	}, ClassReferCom)
+	}, ClassFactory)
 	return self
 end
 
-function ClassReferCom:addReference(vRefer:clazz.Reference)
+function ClassFactory:addReference(vRefer:clazz.Reference)
 	if vRefer:getKey() and not self._namedRefer:getKey() then
 		self._namedRefer = vRefer
 	end
 end
 
-function ClassReferCom:getToString():Ret(String)
+function ClassFactory:getToString():Ret(String)
 	return tostring(self._refer)
 end
 
-function ClassReferCom:getResultType():Ret(OrFalse(clazz.LuaTable))
+function ClassFactory:getResultType():Ret(OrFalse(clazz.LuaTable))
 	return self._clazzType
 end
 
-function ClassReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
+function ClassFactory:getTypeAwait():Ret(clazz.UAtomUnion)
 	if not self._clazzType then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
@@ -44,11 +44,11 @@ function ClassReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
 	return (assert(self._clazzType, "result type not setted"))
 end
 
-function ClassReferCom:getMayRecursive():Ret(Boolean)
+function ClassFactory:getMayRecursive():Ret(Boolean)
 	return true
 end
 
-function ClassReferCom:getListAwait():Ret(List(clazz.IAtomType))
+function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
 	if not self._clazzType then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
@@ -59,7 +59,7 @@ function ClassReferCom:getListAwait():Ret(List(clazz.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.LuaTable))
+function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.LuaTable))
 	-- step 1. wait inteface
 	const nInterface = vGetInterface()
 	-- step 2. create table
@@ -83,7 +83,7 @@ function ClassReferCom:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBui
 	self:_wakeupBuild()
 end
 
-function ClassReferCom:startBuild()
+function ClassFactory:startBuild()
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
 		self._waitStartSid = false
@@ -94,11 +94,11 @@ function ClassReferCom:startBuild()
 	end
 end
 
-function ClassReferCom:onSetMetaTable()
+function ClassFactory:onSetMetaTable()
 	self:_wakeupBuild()
 end
 
-function ClassReferCom:waitBuild()
+function ClassFactory:waitBuild()
 	self:startBuild()
 	const nCurCo = coroutine.running()
 	const nSelfCo = self._refer:getSelfCo()
@@ -112,7 +112,7 @@ function ClassReferCom:waitBuild()
 	end
 end
 
-function ClassReferCom:_wakeupBuild()
+function ClassFactory:_wakeupBuild()
 	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
 	const nWaitCoToSid = self._waitBuildCoToSid
 	if nWaitCoToSid then
@@ -123,8 +123,8 @@ function ClassReferCom:_wakeupBuild()
 	end
 end
 
-function.open ClassReferCom.is(self):isguard(clazz.ClassReferCom)
-	return getmetatable(self) == ClassReferCom
+function.open ClassFactory.is(self):isguard(clazz.ClassFactory)
+	return getmetatable(self) == ClassFactory
 end
 
-return ClassReferCom
+return ClassFactory

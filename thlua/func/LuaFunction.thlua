@@ -6,7 +6,7 @@ const Enum = require "thlua.Enum"
 
 const LateFnCom = require "thlua.func.LateFnCom"
 
-const FuncMakerCom = require "thlua.refer.FuncMakerCom"
+const AutoFunction = require "thlua.refer.AutoFunction"
 const OpenFunction = require "thlua.func.OpenFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
@@ -22,9 +22,8 @@ function:class(clazz.LuaFunction) LuaFunction.new(vManager:clazz.TypeManager):im
 		_context=false@clazz.Context,
 		_node=false@clazz.IAstNode,
 		_isMember=false@Boolean,
-		_realFn=false@OrFalse(clazz.OpenFunction, clazz.FuncMakerCom, clazz.UDefaultFunction),
+		_realFn=false@OrFalse(clazz.OpenFunction, clazz.AutoFunction, clazz.UDefaultFunction),
 		_lateFnCom=false@OrFalse(clazz.LateFnCom),
-		_autoMaker=false@OrFalse(clazz.FuncMakerCom),
 		_hintCom=nil@clazz.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown"@String,
@@ -41,7 +40,7 @@ function LuaFunction:getBuilder():Ret(clazz.FunctionBuilder)
 	return self._hintCom
 end
 
-function LuaFunction:lateInit(vContext:clazz.Context, vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vLateFnCom:OrFalse(clazz.LateFnCom), vInnerFn:OrFalse(clazz.OpenFunction, clazz.FuncMakerCom, clazz.UDefaultFunction))
+function LuaFunction:lateInit(vContext:clazz.Context, vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vLateFnCom:OrFalse(clazz.LateFnCom), vInnerFn:OrFalse(clazz.OpenFunction, clazz.AutoFunction, clazz.UDefaultFunction))
 	self._context = vContext
 	self._node = vNode
 	self._hintCom = vHintCom
@@ -93,7 +92,7 @@ function LuaFunction:meta_call(vContext, vTypeTuple)
 	const nInnerFn = self._realFn
 	if PolyFunction.is(nInnerFn) or TypeFunction.is(nInnerFn) then
 		return nInnerFn:meta_call(vContext, vTypeTuple)
-	elseif FuncMakerCom.is(nInnerFn) then
+	elseif AutoFunction.is(nInnerFn) then
 		return nInnerFn:getFnAwait():meta_call(vContext, vTypeTuple)
 	else
 		error("innerFn can't be called, TODO")
@@ -172,7 +171,7 @@ function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(claz
 	end
 end
 
-function LuaFunction:getRealFn():Ret(OrFalse(clazz.OpenFunction, clazz.FuncMakerCom, clazz.UDefaultFunction))
+function LuaFunction:getRealFn():Ret(OrFalse(clazz.OpenFunction, clazz.AutoFunction, clazz.UDefaultFunction))
 	return self._realFn
 end
 
