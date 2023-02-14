@@ -114,23 +114,15 @@ const function.open ContextClass()
 		end
 	end
 
-	function Context:checkDefineLuaFunction()
-		for fn, v in pairs(self._clazzFnSet) do
-			fn:startBuild()
-		end
-	end
-
-	function Context:checkLateLuaFunction()
-		for fn, v in pairs(self._lateFnSet) do
-			fn:checkLateRun()
-		end
-	end
-
 	function Context:seal()
 		self._sealed = true
 		if self._sealContext == self then
-			self:checkDefineLuaFunction()
-			self:checkLateLuaFunction()
+			for fn, v in pairs(self._clazzFnSet) do
+				fn:startBuild()
+			end
+			for fn, v in pairs(self._lateFnSet) do
+				fn:checkLateRun()
+			end
 		end
 	end
 

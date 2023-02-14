@@ -222,7 +222,10 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 end
 
 function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.FuncMakerCom, clazz.UDefaultFunction))
-	const nPolyParNum = self._polyParNum
+	const nPolyParNum = self:_getPolyNumOrNotHint()
+	if not nPolyParNum then
+		return false
+	end
 	const nSuffixHint = self._retMaker({}, false)
 	if self._hasRetStat and not nSuffixHint.attrSet.Ret and not nSuffixHint.attrSet.RetDots then
 		-- return not full hint
@@ -234,9 +237,10 @@ function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.FuncMakerCom, cla
 			const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
 			return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		else
-			const nParTuple = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
-			return self._manager:Reference(false):setFuncMaker(self._node, nParTuple, nRetTuples, function()
-			end)
+			error("auto TODO")
+			--const nParTuple = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
+			--return self._manager:Reference(false):setFuncMaker(self._node, nParTuple, nRetTuples, function()
+			--end)
 		end
 	end
 	if not self._member then

@@ -6,24 +6,28 @@ const Exception = require "thlua.Exception"
 const FuncMakerCom = {}
 FuncMakerCom.__index=FuncMakerCom
 
-function:class(clazz.FuncMakerCom) FuncMakerCom.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
+function:class(clazz.FuncMakerCom) FuncMakerCom.new(vManager:clazz.TypeManager, vRefer:clazz.Reference, vTypeFn:OrFalse(clazz.TypeFunction))
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
 		_startSid=(vManager:genSessionId()@OrFalse(Integer)),
-		_typeFn=false@OrFalse(clazz.TypeFunction),
+		_typeFn=vTypeFn@OrFalse(clazz.TypeFunction),
 		_waitCoToSid={}@OrFalse(Dict(Thread, Integer)),
 	}, FuncMakerCom)
 	return self
 end
 
-function FuncMakerCom:build(vAutoTuple:clazz.AutoTuple, vRetTuples:clazz.RetTuples, vRunner:Fn())
+function FuncMakerCom:build(vRunner:Fn():Ret(clazz.TypeFunction))
 	const nStartSid = self._startSid
 	assert(nStartSid, "FuncMakerCom error state... building startSid is not true value")
 	const co = coroutine.running()
 	self._manager:coWait(co, nStartSid)
-	-- step 3. run build
-	self:_wakeupBuild()
+	if not self._typeFn then
+		self._typeFn = vRunner()
+		self:_wakeupBuild()
+	else
+		vRunner()
+	end
 end
 
 function FuncMakerCom:getFnAwait():Ret(clazz.TypeFunction)
