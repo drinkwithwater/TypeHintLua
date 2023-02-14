@@ -97,6 +97,15 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
+	self.generic.Tget = self:buildTemplate(nRootNode, function.pass(vTable, vKey)
+		local nType = vTable
+		if Reference.is(vTable) then
+			nType = vTable:waitTypeCom():getTypeAwait()
+		end
+		if LuaTable.is(nType) then
+			return nType:tget(vKey)
+		end
+	end)
 	self.generic.Cond = self:buildTemplate(nRootNode, function.pass(vCond,v1,v2)
 		local nType = vCond
 		if Reference.is(vCond) then
@@ -230,19 +239,29 @@ function.pass TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
 	return false
 end
 
-function.pass TypeManager:_toType(vData:Any):Ret(clazz.IAtomType)
+function.pass TypeManager:easyToTypeList(...:Any):Ret(List(clazz.UAllType))
+	const l = {...}
+	for i=1,#l do
+		l[i] = self:easyToType(l[i])
+	end
+	return l
+end
+
+function.pass TypeManager:easyToType(vData:Any):Ret(clazz.UAllType)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
-		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] then
+		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] or meta == Reference then
 			return vData
 		else
 			error("to type failed")
 		end
 	elseif t == "number" or t == "string" then
 		return self:Literal(vData)
+	elseif t == "boolean" then
+		return self:BooleanLiteral(vData)
 	else
-		error("_toType("..t..") todo")
+		error("easyToType("..t..") invalid")
 	end
 end
 
@@ -360,7 +379,7 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Refer
 				local nList = nItem:waitTypeCom():getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
-				self:_toType(nItem):foreach(function(vAtom)
+				self:easyToType(nItem):foreachAwait(function(vAtom)
 					nTypeList[#nTypeList + 1] = vAtom
 				end)
 			end
@@ -386,20 +405,13 @@ function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Tr
 		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
 		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
-			local nValueType:OrNil(clazz.UAllType, clazz.MemberFunction)
-			if Reference.is(nValue) then
-				nValueType = nValue
-			elseif MemberFunction.is(nValue) then
+			local nValueType:OrNil(clazz.UAllType, clazz.MemberFunction) = nil
+			if MemberFunction.is(nValue) then
 				nValueType = nValue
 			else
-				nValueType = self:_toType(nValue)
+				nValueType = self:easyToType(nValue)
 			end
-			local nKeyType:OrNil(clazz.UAllType)
-			if Reference.is(nKey) then
-				nKeyType = nKey
-			else
-				nKeyType = self:_toType(nKey)
-			end
+			local nKeyType = self:easyToType(nKey)
 			nKeyType:foreachAwait(function(vAtomType)
 				nKeyCount = nKeyCount + 1
 				nKeyList[#nKeyList + 1] = vAtomType

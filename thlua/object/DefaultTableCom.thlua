@@ -82,6 +82,16 @@ function DefaultTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
 	end
 end
 
+function DefaultTableCom:tget(vKeyType:clazz.IAtomType):Ret(clazz.UAllType)
+	const nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	if nKeyIncludeType then
+		const nField = self._fieldDict[nKeyIncludeType]!
+		return nField.castValueType or nField.rawValueType
+	else
+		return self._manager.type.Nil
+	end
+end
+
 function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)

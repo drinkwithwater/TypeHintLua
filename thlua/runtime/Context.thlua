@@ -101,7 +101,7 @@ function Context:EXPRLIST_REPACK(
 				const cur = l[i]
 				if TermTuple.is(cur) then
 					if #cur ~= 1 then
-						self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
+						-- self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
 					end
 					nTermList[i] = cur:get(self, 1)
 				elseif RefineTerm.is(cur) then
@@ -512,11 +512,11 @@ function Context:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	end
 end
 
-function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:clazz.UAllType):Ret(clazz.RefineTerm)
+function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
-		const nTemplateList:List(clazz.UAllType) = {...}
+		const nTemplateList:List(clazz.UAllType) = self._manager:easyToTypeList(...)
 		vTerm:foreach(function(vType, vVariableCase)
 			const nAfterType = vType:castPoly(self, nTemplateList)
 			if nAfterType then
@@ -530,8 +530,8 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 		if not vCastKind then
 			vContext:error("unexcepted castkind:"..tostring(vCastKind))
 		end
-		const nDstType = ...
-		assert(nDstType, "hint type can't be nil")
+		const nDst = assert(..., "hint type can't be nil")
+		const nDstType = self._manager:easyToType(nDst)
 		if not nDstType:containAll(vTerm:getType()) then
 			-- self:getRuntime():nodeError(vNode, "@ cast fail")
 		end
