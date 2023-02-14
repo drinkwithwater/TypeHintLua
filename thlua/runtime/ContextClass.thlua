@@ -101,27 +101,48 @@ const function.open ContextClass()
 		end
 	end
 
+	function Context:recordFuncMakerCom(vFunc:clazz.FuncMakerCom)
+		if self._sealContext ~= self then
+			self._sealContext:recordFuncMakerCom(vFunc)
+			return
+		else
+			const nSet = self._funcMakerSet
+			if nSet then
+				nSet[vFunc] = true
+			else
+				vFunc:startBuild()
+			end
+		end
+	end
+
 	function Context:recordDefineLuaFunction(vFunc:clazz.ClassReferCom)
 		if self._sealContext ~= self then
 			self._sealContext:recordDefineLuaFunction(vFunc)
 			return
 		else
-			if self._sealed then
-				vFunc:startBuild()
+			const nSet = self._clazzFnSet
+			if nSet then
+				nSet[vFunc] = true
 			else
-				self._clazzFnSet[vFunc] = true
+				vFunc:startBuild()
 			end
 		end
 	end
 
 	function Context:seal()
-		self._sealed = true
 		if self._sealContext == self then
-			for fn, v in pairs(self._clazzFnSet) do
+			const nClassFnSet = assert(self._clazzFnSet, "class set must be true here")
+			self._clazzFnSet = false
+			for fn, v in pairs(nClassFnSet) do
 				fn:startBuild()
 			end
 			for fn, v in pairs(self._lateFnSet) do
 				fn:checkLateRun()
+			end
+			const nFuncMakerSet = assert(self._funcMakerSet, "maker set must be true here")
+			self._funcMakerSet = false
+			for fn, v in pairs(nFuncMakerSet) do
+				fn:startBuild()
 			end
 		end
 	end
