@@ -1,0 +1,37 @@
+
+(@let.clazz = import("thlua.type.TypeClass").clazz)
+
+const DotsTail = {}
+DotsTail.__index=DotsTail
+
+function:class(clazz.DotsTail) DotsTail.new(vContext:clazz.Context, vRepeatType:clazz.UAllType)
+	const self = setmetatable({.class
+		_context=vContext,
+		_manager=vContext:getTypeManager(),
+		_termList={}@List(clazz.RefineTerm),
+		_repeatType=vRepeatType,
+	}, DotsTail)
+	return self
+end
+
+function DotsTail:getRepeatType():Ret(clazz.UAllType)
+	return self._repeatType
+end
+
+function DotsTail:get(vContext:clazz.Context, i:Integer):Ret(clazz.RefineTerm)
+	const nTermList = self._termList
+	const nTerm = nTermList[i]
+	if nTerm then
+		return nTerm
+	else
+		const nNewTerm = self._manager:RefineTerm(self._repeatType)
+		nTermList[i] = nNewTerm
+		return nNewTerm
+	end
+end
+
+function.open DotsTail.is(t):isguard(clazz.DotsTail)
+	return getmetatable(t) == DotsTail
+end
+
+return DotsTail
