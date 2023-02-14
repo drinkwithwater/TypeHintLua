@@ -106,7 +106,11 @@ const function.open ContextClass()
 			self._sealContext:recordDefineLuaFunction(vFunc)
 			return
 		else
-			self._clazzFnSet[vFunc] = true
+			if self._sealed then
+				vFunc:startBuild()
+			else
+				self._clazzFnSet[vFunc] = true
+			end
 		end
 	end
 
@@ -123,6 +127,7 @@ const function.open ContextClass()
 	end
 
 	function Context:seal()
+		self._sealed = true
 		if self._sealContext == self then
 			self:checkDefineLuaFunction()
 			self:checkLateLuaFunction()

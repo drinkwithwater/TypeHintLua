@@ -157,16 +157,16 @@ end
 
 function Reference:setClassAsync(vNode:clazz.IAstNode,
 	vGetInterface:Fn():Ret(clazz.MetaObject),
-	vContext:clazz.Context,
 	vClassBuilder:Fn(clazz.LuaTable)
-)
+):Ret(clazz.ClassReferCom)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
+	const nCom = ClassReferCom.new(self._manager, self)
 	self._manager:coStart(self._selfCo, function()
-		const nCom = ClassReferCom.new(self._manager, self)
 		self:_setComAndWakeup(nCom)
-		nCom:build(vGetInterface, vContext, vClassBuilder)
+		nCom:build(vGetInterface, vClassBuilder)
 	end)
+	return nCom
 end
 
 function Reference:setUnionAsync(vNode:clazz.IAstNode,

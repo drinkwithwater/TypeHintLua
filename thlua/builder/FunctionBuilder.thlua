@@ -331,7 +331,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
-		nClassRefer:setClassAsync(self._node, function()
+		const nCom = nClassRefer:setClassAsync(self._node, function()
 			local nImplType = nStruct
 			if Reference.is(nImplType) then
 				nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -343,11 +343,12 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 				nInterface = nImplType
 			end
 			return nInterface
-		end, self._context, function(vLuaTable)
+		end, function(vLuaTable)
 			const nContext = self._context:newSealContext(self._node)
 			nContext:setClassTable(vLuaTable)
 			self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(nContext), vPolyParList, false)
 		end)
+		self._context:recordDefineLuaFunction(nCom)
 		return nTypeFn
 	end
 	if nPolyParNum <= 0 then

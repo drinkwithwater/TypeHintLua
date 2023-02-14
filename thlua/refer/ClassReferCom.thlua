@@ -10,7 +10,8 @@ function:class(clazz.ClassReferCom) ClassReferCom.new(vManager:clazz.TypeManager
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
-		_startSid=(vManager:genSessionId()@OrFalse(Integer)),
+		-- startSid : true means wait to gen sid and start, int means waiting, false means started
+		_waitStartSid=true@Union(Boolean, Integer),
 		_namedRefer=vRefer,
 		_clazzType=false@OrFalse(clazz.LuaTable),
 		_waitClassCoToSid={} @ Dict(Thread, Integer),
@@ -58,10 +59,9 @@ function ClassReferCom:getListAwait():Ret(List(clazz.IAtomType))
 	return {nClassType}
 end
 
-function ClassReferCom:build(vGetInterface:Fn():Ret(clazz.MetaObject), vContext:clazz.Context, vClassBuilder:Fn(clazz.LuaTable))
+function ClassReferCom:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.LuaTable))
 	-- step 1. wait inteface
 	const nInterface = vGetInterface()
-	vContext:recordDefineLuaFunction(self)
 	-- step 2. create table
 	const nNewTable = self._manager:LuaTable()
 	nNewTable:initByClassCom(self, nInterface)
@@ -70,21 +70,27 @@ function ClassReferCom:build(vGetInterface:Fn():Ret(clazz.MetaObject), vContext:
 	for co, sid in pairs(self._waitClassCoToSid) do
 		self._manager:coWakeup(co, sid)
 	end
-	const nStartSid = self._startSid
-	assert(nStartSid, "ClassReferCom error state... building startSid is not true value")
-	const co = coroutine.running()
-	self._manager:coWait(co, nStartSid)
+	const nWaitStartSid = self._waitStartSid
+	if nWaitStartSid then
+		assert(nWaitStartSid == true, "wait start sid must be true here")
+		const nSessionId = self._manager:genSessionId()
+		self._waitStartSid = nSessionId
+		const co = coroutine.running()
+		self._manager:coWait(co, nSessionId)
+	end
 	-- step 3. run build
 	vClassBuilder(nNewTable)
 	self:_wakeupBuild()
 end
 
 function ClassReferCom:startBuild()
-	const nStartSid = self._startSid
-	if nStartSid then
-		self._startSid = false
-		const co = self._refer:getSelfCo()
-		self._manager:coWakeup(co, nStartSid)
+	const nWaitStartSid = self._waitStartSid
+	if nWaitStartSid then
+		self._waitStartSid = false
+		if type(nWaitStartSid) == "number" then
+			const co = self._refer:getSelfCo()
+			self._manager:coWakeup(co, nWaitStartSid)
+		end
 	end
 end
 
