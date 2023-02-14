@@ -1,4 +1,5 @@
 
+const DotsTail = require "thlua.tuple.DotsTail"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const Exception = require "thlua.Exception"
@@ -20,8 +21,17 @@ const function.open ContextClass()
 		return TermTuple.new(self, vTermList, vTermTuple:getTail(), false)
 	end
 
-	function Context:TermTuple(vTermList:List(clazz.RefineTerm), vTail:OrNil(False, clazz.UAllType)):Ret(clazz.TermTuple)
-		return TermTuple.new(self, vTermList, vTail or false, false)
+	function Context:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:OrNil(False, clazz.UAllType), vTypeTuple:OrNil(clazz.UTypeTuple)):Ret(clazz.TermTuple)
+		if vDotsType then
+			const nTail = DotsTail.new(self, vDotsType)
+			return TermTuple.new(self, vTermList, nTail, vTypeTuple or false)
+		else
+			return TermTuple.new(self, vTermList, false, vTypeTuple or false)
+		end
+	end
+
+	function Context:TermTuple(vTermList:List(clazz.RefineTerm)):Ret(clazz.TermTuple)
+		return TermTuple.new(self, vTermList, false, false)
 	end
 
 	function Context:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)

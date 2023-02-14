@@ -22,12 +22,12 @@ TermTuple.__len=function(self:clazz.TermTuple)
 	return #self._list
 end
 
-function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTail:OrFalse(clazz.UAllType), vTypeTuple:OrFalse(clazz.UTypeTuple))
+function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:List(clazz.RefineTerm), vTail:OrFalse(clazz.DotsTail), vTypeTuple:OrFalse(clazz.UTypeTuple))
 	const self = setmetatable({.class
 		_context=vContext,
 		_manager=vContext:getTypeManager(),
 		_list=vTermList,
-		_tail=vTail and DotsTail.new(vContext, vTail) or false,
+		_tail=vTail,
 		_typeTuple=vTypeTuple,
 	}, TermTuple)
 	return self
@@ -38,7 +38,7 @@ function TermTuple:select(i:Integer):Ret(clazz.TermTuple)
 	for n=i,#self._list do
 		nList[#nList + 1] = self._list[n]
 	end
-	return self._context:TermTuple(nList, self:getTail())
+	return self._context:FixedTermTuple(nList, self:getRepeatType())
 end
 
 function TermTuple:rawget(i:Number):Ret(OrNil(clazz.RefineTerm))
@@ -86,7 +86,11 @@ function TermTuple:checkTypeTuple():Ret(clazz.UTypeTuple)
 	end
 end
 
-function TermTuple:getTail():Ret(Union(clazz.UAllType, False))
+function TermTuple:getTail():Ret(OrFalse(clazz.DotsTail))
+	return self._tail
+end
+
+function TermTuple:getRepeatType():Ret(OrFalse(clazz.UAllType))
 	const nTail = self._tail
 	if nTail then
 		return nTail:getRepeatType()
