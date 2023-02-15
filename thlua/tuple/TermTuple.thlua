@@ -1,12 +1,15 @@
 
 const DotsTail = require "thlua.tuple.DotsTail"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	clazz.FixedTermTuple = clazz.TermTuple
+end)
 
 const TermTuple = {}
 
 TermTuple.__index=TermTuple
-TermTuple.__tostring=function(self:clazz.TermTuple):Ret(String)
+TermTuple.__tostring=function(self:clazz.FixedTermTuple):Ret(String)
 	const re:List(String) = {}
 	for i=1, #self do
 		re[i] = tostring(self._list[i])
@@ -18,7 +21,7 @@ TermTuple.__tostring=function(self:clazz.TermTuple):Ret(String)
 	return "TermTuple("..table.concat(re, ",")..")"
 end
 
-TermTuple.__len=function(self:clazz.TermTuple)
+TermTuple.__len=function(self:clazz.FixedTermTuple)
 	return #self._list
 end
 
@@ -33,7 +36,7 @@ function:class(clazz.TermTuple) TermTuple.new(vContext:clazz.Context, vTermList:
 	return self
 end
 
-function TermTuple:select(i:Integer):Ret(clazz.TermTuple)
+function TermTuple:select(vContext:clazz.Context, i:Integer):Ret(clazz.FixedTermTuple)
 	const nList:List(clazz.RefineTerm) = {}
 	for n=i,#self._list do
 		nList[#nList + 1] = self._list[n]
@@ -61,10 +64,6 @@ end
 
 function TermTuple:getContext():Ret(clazz.Context)
 	return self._context
-end
-
-function TermTuple:getDots(vContext:clazz.Context, vStart:Integer):Ret(clazz.TermTuple)
-	return self:checkTypeTuple():select(vStart):makeTermTuple(vContext)
 end
 
 function TermTuple:checkTypeTuple():Ret(clazz.UTypeTuple)
@@ -99,7 +98,7 @@ function TermTuple:getRepeatType():Ret(OrFalse(clazz.UAllType))
 	end
 end
 
-function.open TermTuple.is(t):isguard(clazz.TermTuple)
+function.open TermTuple.is(t):isguard(clazz.FixedTermTuple)
 	return getmetatable(t) == TermTuple
 end
 

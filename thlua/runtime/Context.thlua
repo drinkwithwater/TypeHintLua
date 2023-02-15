@@ -84,9 +84,9 @@ end
 function Context:EXPRLIST_REPACK(
 	vNode:clazz.IAstNode,
 	vLazy:Boolean,
-	l:List(Union(clazz.TermTuple, clazz.RefineTerm, Fn():Ret(clazz.RefineTerm)))
-):Ret(clazz.TermTuple):Ret(Fn():Ret(clazz.TermTuple))
-	local reFunc:OrNil(Fn():Ret(clazz.TermTuple))
+	l:List(Union(clazz.FixedTermTuple, clazz.RefineTerm, Fn():Ret(clazz.RefineTerm)))
+):Ret(clazz.FixedTermTuple):Ret(Fn():Ret(clazz.FixedTermTuple))
+	local reFunc:OrNil(Fn():Ret(clazz.FixedTermTuple))
 	const nLastIndex = #l
 	const nLast = l[nLastIndex]
 	if not nLast then
@@ -144,8 +144,8 @@ function Context:EXPRLIST_REPACK(
 end
 
 -- unpack explist to vNum term | termtuple
-function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(clazz.RefineTerm, clazz.TermTuple)):RetDots(clazz.RefineTerm)
-	const l:List(Union(clazz.RefineTerm, clazz.TermTuple)) = {...}
+function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(clazz.RefineTerm, clazz.FixedTermTuple)):RetDots(clazz.RefineTerm)
+	const l:List(Union(clazz.RefineTerm, clazz.FixedTermTuple)) = {...}
 	const re:List(clazz.RefineTerm) = {}
 	for i=1, vNum do
 		if i > #l then
@@ -178,13 +178,13 @@ function Context:EXPRLIST_UNPACK(vNode:clazz.IAstNode, vNum:Number, ...:Union(cl
 end
 
 -- unpack in function's argument & for_in
-function Context:TUPLE_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.TermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.RefineTerm, clazz.TermTuple))
-	const l:List(Union(clazz.RefineTerm, clazz.TermTuple)) = {}
+function Context:TUPLE_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.FixedTermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.RefineTerm, clazz.FixedTermTuple))
+	const l:List(Union(clazz.RefineTerm, clazz.FixedTermTuple)) = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(self, i)
 	end
 	if vUseDots then
-		l[vNum + 1] = vTuple:getDots(self, vNum + 1)
+		l[vNum + 1] = vTuple:select(self, vNum + 1)
 	end
 	return table.unpack(l)
 end
@@ -228,10 +228,10 @@ function Context:META_SET(
 	end)
 end
 
-(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.TermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
-(@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.TermTuple})
-function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.TermTuple)
-	const ok, err = self:nodePcall(vNode, function():Ret(clazz.TermTuple)
+(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.FixedTermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
+(@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.FixedTermTuple})
+function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.FixedTermTuple)
+	const ok, err = self:nodePcall(vNode, function():Ret(clazz.FixedTermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nOpenPair = vOpenPair
 		if nOpenPair then
@@ -310,13 +310,13 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 end
 
 function Context:META_CALL(vNode:clazz.IAstNode,
-	vFuncTerm:clazz.RefineTerm, vLazyFunc:Fn():Ret(clazz.TermTuple)):Ret(clazz.TermTuple)
+	vFuncTerm:clazz.RefineTerm, vLazyFunc:Fn():Ret(clazz.FixedTermTuple)):Ret(clazz.FixedTermTuple)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
 	vFuncTerm:foreach(function(vFuncType, vVariableCase)
-		local nArgTermTuple:OrNil(clazz.TermTuple) = nil
+		local nArgTermTuple:OrNil(clazz.FixedTermTuple) = nil
 		nRegion:withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
@@ -343,7 +343,7 @@ function Context:META_CALL(vNode:clazz.IAstNode,
 end
 
 function Context:META_INVOKE(vNode:clazz.IAstNode,
-	vSelfTerm:clazz.RefineTerm, vName:String, vPolyArgs:List(clazz.UAllType), vArgTuple:clazz.TermTuple):Ret(clazz.TermTuple)
+	vSelfTerm:clazz.RefineTerm, vName:String, vPolyArgs:List(clazz.UAllType), vArgTuple:clazz.FixedTermTuple):Ret(clazz.FixedTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
 	const nGetContext = self:newSealContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil

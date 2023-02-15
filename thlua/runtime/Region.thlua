@@ -26,7 +26,7 @@ function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:clazz.UR
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(clazz.Branch),
 		_bodyFn=vBodyFn,
-		_retList={} @ List(clazz.TermTuple),
+		_retList={} @ List(clazz.FixedTermTuple),
 	}, Region)
 	return self
 end
@@ -141,7 +141,7 @@ function Region:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDo
 	end
 end
 
-function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.TermTuple), vNextSelfInit:clazz.TermTuple)
+function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
 	const nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN iterator error, arguments number must be 1 or 2 or 3")
@@ -279,7 +279,7 @@ function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 	end
 end
 
-function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.TermTuple)):Ret(clazz.TermTuple)
+function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTermTuple)):Ret(clazz.FixedTermTuple)
 	const nBodyFn = self._bodyFn
 	if OpenFunction.is(nBodyFn) then
 		local nLen = #vTermTupleList
@@ -300,7 +300,7 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.TermTup
 	return self._context:TermTuple({})
 end
 
-function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.TermTuple)
+function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getTail() then
 		self:_bodyReturn(vNode, vTermTuple:checkTypeTuple())
@@ -325,7 +325,7 @@ function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.TermTuple)
 	self:topBranch():setStop()
 end
 
-function Region:END(vNode:clazz.IAstNode):Ret(clazz.TermTuple)
+function Region:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	local re = self:_bodyEnd(vNode, self._retList)
 	self._context:getNamespace():close()
 	self._context:seal()

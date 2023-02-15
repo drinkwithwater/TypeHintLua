@@ -125,7 +125,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 				if NumberLiteral.is(nFirstType) then
 					local nStart = nFirstType:getLiteral()
 					if nStart > 0 then
-						return vTermTuple:getDots(vContext, nStart + 1)
+						return vTermTuple:select(vContext, nStart + 1)
 					elseif nStart < 0 then
 						vContext:error("select first < 0 TODO")
 						return vContext:TermTuple({})
@@ -189,7 +189,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		end),
 		pcall=nManager:OpenFunction(function(vContext, vTermTuple)
 			const nFunc = vTermTuple:get(vContext, 1)
-			const nArgs = vTermTuple:select(2)
+			const nArgs = vTermTuple:select(vContext, 2)
 			const nParentContext = assert(vContext:getParentContext(), "parent context must existed")
 			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nManager:RefineTerm(nManager.type.True)
@@ -198,7 +198,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 		end),
 		xpcall=nManager:OpenFunction(function(vContext, vTermTuple)
 			const nFunc = vTermTuple:get(vContext, 1)
-			const nArgs = vTermTuple:select(3)
+			const nArgs = vTermTuple:select(vContext, 3)
 			const nParentContext = assert(vContext:getParentContext(), "parent context must existed")
 			const nTermTuple = nParentContext:META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nManager:RefineTerm(nManager.type.True)
