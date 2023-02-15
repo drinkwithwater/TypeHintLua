@@ -63,6 +63,18 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(claz
 	end
 end
 
+-- unpack in function's argument & for_in
+function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.UTerm, clazz.UTermTuple))
+	const l:List(Union(clazz.UTerm, clazz.UTermTuple)) = {}
+	for i=1, vNum do
+		l[i] = vTuple:get(self._context, i)
+	end
+	if vUseDots then
+		l[vNum + 1] = vTuple:select(self._context, vNum + 1)
+	end
+	return table.unpack(l)
+end
+
 function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.RefineTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then

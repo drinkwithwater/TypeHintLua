@@ -123,7 +123,7 @@ local TagToVisiting:RealTraverser = {
 				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 					return "forin_gen"..i
 				end, ","),
-				"=", self:ctxWrap(node).TUPLE_UNPACK("vIterTuple", tostring(#node[1]), tostring(false)),
+				"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "vIterTuple"),
 				self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
 					return self:visitIdentDef(vIdent, "forin_gen"..i)
 				end, " "),
@@ -497,7 +497,6 @@ end
 		"FUNC_NEW",
 		"TABLE_NEW",
 
-		"TUPLE_UNPACK",
 		"EXPRLIST_UNPACK",
 		"EXPRLIST_REPACK",
 
@@ -534,6 +533,7 @@ end
 		"FOR_NUM",
 		"IF",
 		"BREAK",
+		"PAR_UNPACK",
 		"SYMBOL_NEW",
 		"SYMBOL_GET",
 		"SYMBOL_SET",
@@ -625,7 +625,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				return vParNode.tag == "Ident" and "v_"..vParNode[1]..vParNode.index or "vDOTS"
 			end, ","),
 			"=" ,
-			self:ctxWrap(nParList).TUPLE_UNPACK("____termArgs", tostring(nParamNum), tostring(nIsVararg)),
+			self:rgnWrap(nParList).PAR_UNPACK("____termArgs", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
 					return self:visitIdentDef(vParNode, "v_"..vParNode[1]..vParNode.index, true)
