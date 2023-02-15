@@ -1,8 +1,13 @@
 
+const Exception = require "thlua.Exception"
+
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const AutoHolder = {}
 AutoHolder.__index = AutoHolder
+AutoHolder.__tostring = function(self:clazz.AutoHolder)
+	return "auto"
+end
 
 function:class(clazz.AutoHolder) AutoHolder.new()
 	const self = setmetatable({.class
@@ -17,7 +22,7 @@ function AutoHolder:checkRefineTerm(vContext:clazz.Context):Ret(clazz.RefineTerm
 	if nTerm then
 		return nTerm
 	else
-		error("auto param used but not deduce its type")
+		error(Exception.new("undeduced auto param is used", vContext:getNode()))
 	end
 end
 
