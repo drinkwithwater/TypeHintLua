@@ -1,16 +1,20 @@
 
-const AutoTail = require "thlua.auto.AutoTail"
 const Reference = require "thlua.refer.Reference"
+const AutoHolder = require "thlua.auto.AutoHolder"
+
+const DotsTail = require "thlua.tuple.DotsTail"
+const AutoTail = require "thlua.auto.AutoTail"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const AutoTuple = {}
 AutoTuple.__index = AutoTuple
 
-function:class(clazz.AutoTuple) AutoTuple.new(vManager:clazz.TypeManager, vArgList:List(Union(clazz.AutoHolder, clazz.UAllType)), vDots:OrFalse(clazz.UAllType, True))
+function:class(clazz.AutoTuple) AutoTuple.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vParList:List(Union(clazz.AutoHolder, clazz.UAllType)), vDots:OrFalse(clazz.UAllType, True))
 	const self = setmetatable({.class
 		_manager=vManager,
-		_argList=vArgList,
+		_node=vNode,
+		_parList=vParList,
 		_dots=false@OrFalse(clazz.UAllType, clazz.AutoTail),
 	}, AutoTuple)
 	if vDots == true then
@@ -19,6 +23,61 @@ function:class(clazz.AutoTuple) AutoTuple.new(vManager:clazz.TypeManager, vArgLi
 		self._dots = vDots
 	end
 	return self
+end
+
+function AutoTuple:finishTypeTuple(vContext:clazz.Context):Ret(clazz.UTypeTuple)
+	const nTypeList:List(clazz.UAllType) = {}
+	for k,v in ipairs(self._parList) do
+		if not AutoHolder.is(v) then
+			nTypeList[k] = v
+		else
+			const nType = v:getType()
+			if not nType then
+				vContext:error("auto deduce failed")
+				error("auto deduce failed")
+			else
+				nTypeList[k] = nType
+			end
+		end
+	end
+	const nDots = self._dots
+	if AutoTail.is(nDots) then
+		const nList = nDots:getList()
+		if not nList then
+			vContext:error("auto deduce failed for dots tail")
+			error("auto deduce failed for dots tail")
+		else
+			for i=1,#nList do
+				nTypeList[#nTypeList + 1] = nList[i]
+			end
+			return self._manager:TypeTuple(self._node, table.unpack(nTypeList))
+		end
+	else
+		const nTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList))
+		if not nDots then
+			return nTuple
+		else
+			return nTuple:Dots(nDots)
+		end
+	end
+end
+
+function AutoTuple:makeTermTuple(vContext:clazz.Context):Ret(clazz.AutoTermTuple)
+	const nTermList:List(clazz.UTerm) = {}
+	for k,v in ipairs(self._parList) do
+		if not AutoHolder.is(v) then
+			nTermList[k] = vContext:RefineTerm(v)
+		else
+			nTermList[k] = v
+		end
+	end
+	const nDots = self._dots
+	if not nDots or AutoTail.is(nDots) then
+		return vContext:AutoTermTuple(nTermList, nDots)
+	else
+		const nTail = DotsTail.new(vContext, nDots)
+		return vContext:AutoTermTuple(nTermList, nTail)
+	end
 end
 
 function.open AutoTuple.is(t):isguard(clazz.AutoTuple)

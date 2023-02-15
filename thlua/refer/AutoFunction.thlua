@@ -18,7 +18,7 @@ function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, 
 	return self
 end
 
-function AutoFunction:build(vRunner:Fn():Ret(clazz.TypeFunction))
+function AutoFunction:build(vRunner:Fn(clazz.AutoFunction):Ret(clazz.TypeFunction))
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
 		assert(nWaitStartSid == true, "wait start sid must be true here")
@@ -28,10 +28,10 @@ function AutoFunction:build(vRunner:Fn():Ret(clazz.TypeFunction))
 		self._manager:coWait(co, nSessionId)
 	end
 	if not self._typeFn then
-		self._typeFn = vRunner()
+		self._typeFn = vRunner(self)
 		self:_wakeupBuild()
 	else
-		vRunner()
+		vRunner(self)
 	end
 end
 

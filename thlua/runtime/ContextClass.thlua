@@ -18,20 +18,24 @@ const function.open ContextClass()
 			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
 			vTermList[#vTermList + 1] = nTerm
 		end
-		return TermTuple.new(self, vTermList, vTermTuple:getTail(), false)
+		return TermTuple.new@<false>(self, false, vTermList, vTermTuple:getTail(), false)
+	end
+
+	function Context:AutoTermTuple(vTermList:List(clazz.UTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.AutoTermTuple)
+		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
 	end
 
 	function Context:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:OrNil(False, clazz.UAllType), vTypeTuple:OrNil(clazz.UTypeTuple)):Ret(clazz.FixedTermTuple)
 		if vDotsType then
 			const nTail = DotsTail.new(self, vDotsType)
-			return TermTuple.new(self, vTermList, nTail, vTypeTuple or false)
+			return TermTuple.new@<false>(self, false, vTermList, nTail, vTypeTuple or false)
 		else
-			return TermTuple.new(self, vTermList, false, vTypeTuple or false)
+			return TermTuple.new@<false>(self, false, vTermList, false, vTypeTuple or false)
 		end
 	end
 
 	function Context:TermTuple(vTermList:List(clazz.RefineTerm)):Ret(clazz.FixedTermTuple)
-		return TermTuple.new(self, vTermList, false, false)
+		return TermTuple.new@<false>(self, false, vTermList, false, false)
 	end
 
 	function Context:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
