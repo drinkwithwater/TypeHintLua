@@ -7,6 +7,7 @@ const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.term.LocalSymbol"
 const ImmutVariable = require "thlua.term.ImmutVariable"
 const Exception = require "thlua.Exception"
+const TermTuple = require "thlua.tuple.TermTuple"
 
 const DoBuilder = require "thlua.builder.DoBuilder"
 
@@ -195,6 +196,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value when iterator")
 		return
 	end
+	assert(TermTuple.isFixed(nTuple), "iter func can't return auto term")
 	local nFirstTerm = nTuple:get(self._context, 1)
 	const nFirstType = nFirstTerm:getType()
 	if not nFirstType:isNilable() then

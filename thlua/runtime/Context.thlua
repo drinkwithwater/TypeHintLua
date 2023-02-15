@@ -1,4 +1,5 @@
 
+const AutoHolder = require "thlua.auto.AutoHolder"
 const TermTuple = require "thlua.tuple.TermTuple"
 const Region = require "thlua.runtime.Region"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -229,10 +230,10 @@ function Context:META_SET(
 	end)
 end
 
-(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.FixedTermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
-(@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.FixedTermTuple})
-function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.FixedTermTuple)
-	const ok, err = self:nodePcall(vNode, function():Ret(clazz.FixedTermTuple)
+(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
+(@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.UTermTuple})
+function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
+	const ok, err = self:nodePcall(vNode, function():Ret(clazz.UTermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nOpenPair = vOpenPair
 		if nOpenPair then
@@ -313,8 +314,8 @@ end
 function Context:META_CALL(
 	vNode:clazz.IAstNode,
 	vFuncAutoTerm:clazz.UAutoTerm,
-	vLazyFunc:Fn():Ret(clazz.FixedTermTuple)
-):Ret(clazz.FixedTermTuple)
+	vLazyFunc:Fn():Ret(clazz.UTermTuple)
+):Ret(clazz.UTermTuple)
 	const nNewContext = self:newSealContext(vNode)
 	const nFuncTerm = vFuncAutoTerm:checkRefineTerm(nNewContext)
 	local nOpenPair:OrNil(OpenPair) = nil
@@ -322,7 +323,7 @@ function Context:META_CALL(
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
 	nFuncTerm:foreach(function(vFuncType, vVariableCase)
-		local nArgTermTuple:OrNil(clazz.FixedTermTuple) = nil
+		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
 		nRegion:withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
@@ -354,7 +355,7 @@ function Context:META_INVOKE(
 	vName:String,
 	vPolyArgs:List(clazz.UAllType),
 	vArgTuple:clazz.FixedTermTuple
-):Ret(clazz.FixedTermTuple)
+):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
 	const nGetContext = self:newSealContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
@@ -560,6 +561,29 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 			-- self:getRuntime():nodeError(vNode, "@ cast fail")
 		end
 		return self._manager:RefineTerm(nDstType)
+	end
+end
+
+function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:clazz.UTypeTuple)
+	if TermTuple.isFixed(vTermTuple) then
+		const nTuple = vTermTuple:checkTypeTuple()
+		if not nTuple:castOrIn(self, vTypeTuple) then
+			self:error("args error when call", vTypeTuple, nTuple)
+		end
+	else
+		const nMaxLength = math.max(#vTypeTuple, #vTermTuple)
+		for i=1, nMaxLength do
+			const nAutoTerm = vTermTuple:get(self, i)
+			const nDstType = vTypeTuple:get(i)
+			if AutoHolder.is(nAutoTerm) then
+				nAutoTerm:setAutoCastType(self, nDstType)
+			else
+				const nSrcType = nAutoTerm:getType()
+				if not self:castLuaType(nSrcType, nDstType) and not nDstType:containAll(nSrcType) then
+					self:error("args error when call")
+				end
+			end
+		end
 	end
 end
 

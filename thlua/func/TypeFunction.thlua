@@ -3,6 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const Exception = require "thlua.Exception"
+const TermTuple = require "thlua.tuple.TermTuple"
 
 const TypeFunction = AtomTypeClass()
 
@@ -102,10 +103,7 @@ end
 
 function TypeFunction:meta_call(vContext, vTermTuple)
 	const nRetTuples = self:_buildRetTuples()
-	const nTuple = vTermTuple:checkTypeTuple()
-	if not nTuple:castOrIn(vContext, self._parTuple) then
-		vContext:error("args error when call", self._parTuple, nTuple)
-	end
+	vContext:matchTermTypeTuple(vTermTuple, self._parTuple)
 	return nRetTuples
 end
 
