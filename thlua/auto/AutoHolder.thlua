@@ -6,13 +6,28 @@ AutoHolder.__index = AutoHolder
 
 function:class(clazz.AutoHolder) AutoHolder.new()
 	const self = setmetatable({.class
-		_type=false@OrFalse(clazz.UAllType)
+		_type=false@OrFalse(clazz.UAllType),
+		_term=false@OrFalse(clazz.RefineTerm)
 	}, AutoHolder)
 	return self
 end
 
-function AutoHolder:castToType(vType:clazz.UAllType)
+function AutoHolder:checkRefineTerm(vContext:clazz.Context):Ret(clazz.RefineTerm)
+	const nTerm = self._term
+	if nTerm then
+		return nTerm
+	else
+		error("auto param used but not deduce its type")
+	end
+end
+
+function AutoHolder:autoCast(vContext:clazz.Context, vType:clazz.UAllType)
 	self._type = vType
+	self._term = vContext:RefineTerm(vType)
+end
+
+function AutoHolder:getRefineTerm():Ret(OrFalse(clazz.RefineTerm))
+	return self._term
 end
 
 function AutoHolder:getType():Ret(OrFalse(clazz.UAllType))

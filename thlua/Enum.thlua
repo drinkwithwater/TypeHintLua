@@ -4,6 +4,7 @@ local Enum = {}
 Enum.SymbolKind_CONST = "const"
 Enum.SymbolKind_LOCAL = "local"
 Enum.SymbolKind_PARAM = "param"
+Enum.SymbolKind_ITER = "iter"
 
 Enum.CastKind_COVAR = "covar"
 Enum.CastKind_CONTRA = "contra"

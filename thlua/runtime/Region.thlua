@@ -2,8 +2,10 @@
 const Region = {}
 const Enum = require "thlua.Enum"
 const VariableCase = require "thlua.term.VariableCase"
+const AutoHolder = require "thlua.auto.AutoHolder"
 const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.term.LocalSymbol"
+const ImmutVariable = require "thlua.term.ImmutVariable"
 const Exception = require "thlua.Exception"
 
 const DoBuilder = require "thlua.builder.DoBuilder"
@@ -54,12 +56,14 @@ function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTer
 	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(clazz.RefineTerm)
+function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(clazz.UTerm)
 	local nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
-	else
+	elseif ImmutVariable.is(vSymbol) then
 		return nBranch:immutGet(vSymbol)
+	else
+		return vSymbol
 	end
 end
 
@@ -75,7 +79,17 @@ function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:N
 	return table.unpack(l)
 end
 
-function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.RefineTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+	if AutoHolder.is(vTerm) then
+		const nAutoRefineTerm = vTerm:getRefineTerm()
+		if not nAutoRefineTerm then
+			if vKind ~= Enum.SymbolKind_PARAM then
+				error(Exception.new("unknown auto variable can't be assigned to other variable", vNode))
+			end
+			return vTerm
+		end
+		vTerm = nAutoRefineTerm
+	end
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
 		vTerm = nAssignContext:NilTerm()
