@@ -1,6 +1,7 @@
 
 const DotsTail = require "thlua.tuple.DotsTail"
 const TermTuple = require "thlua.tuple.TermTuple"
+const AutoHolder = require "thlua.auto.AutoHolder"
 const RefineTerm = require "thlua.term.RefineTerm"
 const Exception = require "thlua.Exception"
 
@@ -13,15 +14,33 @@ const function.open ContextClass()
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TermTupleByAppend(vTermList:List(clazz.RefineTerm), vTermTuple:clazz.FixedTermTuple):Ret(clazz.FixedTermTuple)
-		for i=1, #vTermTuple do
-			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
-			vTermList[#vTermList + 1] = nTerm
+	function Context:TermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.FixedTermTuple)
+		local nHasAuto = TermTuple.isAuto(vTermTuple)
+		for _, v in ipairs(vTermList) do
+			if AutoHolder.is(v) then
+				nHasAuto = true
+			end
 		end
-		return TermTuple.new@<false>(self, false, vTermList, vTermTuple:getTail(), false)
+		if vTermTuple then
+			for i=1, #vTermTuple do
+				const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
+				vTermList[#vTermList + 1] = nTerm
+			end
+		end
+		if nHasAuto then
+			return TermTuple.new@<true>(self, true, vTermList, vTermTuple and vTermTuple:getTail() or false, false)
+		else
+			const nList = vTermList @ List(clazz.RefineTerm)
+			local nTail:OrFalse(clazz.DotsTail) = false
+			if vTermTuple then
+				assert(not TermTuple.isAuto(vTermTuple))
+				nTail = vTermTuple:getTail()
+			end
+			return TermTuple.new@<false>(self, false, nList, nTail, false)
+		end
 	end
 
-	function Context:AutoTermTuple(vTermList:List(clazz.UTermHolder), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.AutoTermTuple)
+	function Context:AutoTermTuple(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.AutoTermTuple)
 		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
 	end
 

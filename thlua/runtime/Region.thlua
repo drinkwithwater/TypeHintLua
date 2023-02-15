@@ -56,7 +56,7 @@ function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTer
 	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(clazz.UTermHolder)
+function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(clazz.UAutoTerm)
 	local nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
@@ -68,8 +68,8 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(claz
 end
 
 -- unpack in function's argument & for_in
-function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.UTermHolder, clazz.UTermTuple))
-	const l:List(Union(clazz.UTermHolder, clazz.UTermTuple)) = {}
+function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.UAutoTerm, clazz.UTermTuple))
+	const l:List(Union(clazz.UAutoTerm, clazz.UTermTuple)) = {}
 	for i=1, vNum do
 		l[i] = vTuple:get(self._context, i)
 	end
@@ -79,7 +79,7 @@ function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:N
 	return table.unpack(l)
 end
 
-function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UTermHolder), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	if AutoHolder.is(vTerm) then
 		const nAutoRefineTerm = vTerm:getRefineTerm()
 		if not nAutoRefineTerm then

@@ -84,9 +84,9 @@ end
 function Context:EXPRLIST_REPACK(
 	vNode:clazz.IAstNode,
 	vLazy:Boolean,
-	l:List(Union(clazz.FixedTermTuple, clazz.RefineTerm, Fn():Ret(clazz.RefineTerm)))
-):Ret(clazz.FixedTermTuple):Ret(Fn():Ret(clazz.FixedTermTuple))
-	local reFunc:OrNil(Fn():Ret(clazz.FixedTermTuple))
+	l:List(Union(clazz.UTermTuple, clazz.UAutoTerm, Fn():Ret(clazz.UAutoTerm)))
+):Ret(clazz.UTermTuple):Ret(Fn():Ret(clazz.UTermTuple))
+	local reFunc:OrNil(Fn():Ret(clazz.UTermTuple))
 	const nLastIndex = #l
 	const nLast = l[nLastIndex]
 	if not nLast then
@@ -94,9 +94,9 @@ function Context:EXPRLIST_REPACK(
 			return self:TermTuple({})
 		end
 	else
-		const repackWithoutLast = function():Ret(List(clazz.RefineTerm))
-			const nTermList:List(clazz.RefineTerm) = {}
-			const nIndexToFunc:Dict(Integer, Fn():Ret(clazz.RefineTerm)) = {}
+		const repackWithoutLast = function():Ret(List(clazz.UAutoTerm))
+			const nTermList:List(clazz.UAutoTerm) = {}
+			const nIndexToFunc:Dict(Integer, Fn():Ret(clazz.UAutoTerm)) = {}
 			for i=1, #l-1 do
 				const cur = l[i]
 				if TermTuple.isFixed(cur) then
@@ -132,7 +132,7 @@ function Context:EXPRLIST_REPACK(
 				else
 					error("unexcept branch")
 				end
-				return self:TermTuple(nTermList)
+				return self:TermTupleByAppend(nTermList, false)
 			end
 		end
 	end
@@ -184,8 +184,8 @@ end
 -- meta items
 function Context:META_GET(
 	vNode:clazz.IAstNode,
-	vTermHolder:clazz.UTermHolder,
-	vKeyTermHolder:clazz.UTermHolder,
+	vTermHolder:clazz.UAutoTerm,
+	vKeyTermHolder:clazz.UAutoTerm,
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
 	const nGetContext = self:newSealContext(vNode)
@@ -212,8 +212,8 @@ end
 
 function Context:META_SET(
 	vNode:clazz.IAstNode,
-	vTermHolder:clazz.UTermHolder,
-	vKeyTermHolder:clazz.UTermHolder,
+	vTermHolder:clazz.UAutoTerm,
+	vKeyTermHolder:clazz.UAutoTerm,
 	vValueTerm:clazz.RefineTerm
 )
 	const nSetContext = self:newSealContext(vNode)
@@ -312,7 +312,7 @@ end
 
 function Context:META_CALL(
 	vNode:clazz.IAstNode,
-	vFuncTermHolder:clazz.UTermHolder,
+	vFuncTermHolder:clazz.UAutoTerm,
 	vLazyFunc:Fn():Ret(clazz.FixedTermTuple)
 ):Ret(clazz.FixedTermTuple)
 	const nNewContext = self:newSealContext(vNode)
