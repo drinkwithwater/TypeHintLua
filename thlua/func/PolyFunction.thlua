@@ -4,6 +4,7 @@ const Exception = require "thlua.Exception"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const TypeFunction = require "thlua.func.TypeFunction"
 const AutoFunction = require "thlua.refer.AutoFunction"
+const ClassFactory = require "thlua.refer.ClassFactory"
 
 const PolyFunction = AtomTypeClass()
 
@@ -14,7 +15,7 @@ function:class(clazz.PolyFunction) PolyFunction.new(vManager:clazz.TypeManager, 
 		_manager=vManager,
 		_polyParNum=vPolyParNum,
 		_innerFunc=vFunc,
-		_fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction)),
+		_fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory)),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
 	}, PolyFunction)
@@ -33,7 +34,7 @@ function PolyFunction:getPolyParNum():Ret(Integer)
 	return self._polyParNum
 end
 
-function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.AutoFunction))
+function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory))
 	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
 	for i=1, #vTypeList do
@@ -43,7 +44,7 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(cl
 	const nFn = self._fnDict[nKey]
 	if not nFn then
 		const nResult = (self._innerFunc(table.unpack(vTypeList)) @ Any)
-		if (not TypeFunction.is(nResult)) and (not AutoFunction.is(nResult)) then
+		if (not TypeFunction.is(nResult)) and (not AutoFunction.is(nResult)) and (not ClassFactory.is(nResult)) then
 			error("poly function must return Fn type but got:"..tostring(nResult))
 		end
 		self._fnDict[nKey] = nResult
@@ -55,10 +56,10 @@ end
 
 function PolyFunction:castPoly(vContext, vTypeList)
 	const nFn = self:noCtxCastPoly(vTypeList)
-	if AutoFunction.is(nFn) then
-		return nFn:getFnAwait()
-	else
+	if TypeFunction.is(nFn) then
 		return nFn
+	else
+		return nFn:getFnAwait()
 	end
 end
 

@@ -6,6 +6,7 @@ const Enum = require "thlua.Enum"
 const MetaObject = require "thlua.object.MetaObject"
 const AutoTuple = require "thlua.auto.AutoTuple"
 const AutoHolder = require "thlua.auto.AutoHolder"
+const ClassFactory = require "thlua.refer.ClassFactory"
 
 const LateFnCom = require "thlua.func.LateFnCom"
 
@@ -307,7 +308,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	return nOpenFn or self._manager:OpenFunction():lateInitFromGenFunc(self._genFunc)
 end
 
-function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyFunction))
+function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyFunction))
 	const nPrefixHint = self._prefixHint
 	local nReferOrNil:OrNil(clazz.Reference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
@@ -325,7 +326,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 	if not nPolyParNum then
 		error(Exception.new("non-full-hint class TODO", self._node))
 	end
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.TypeFunction)
+	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory, clazz.TypeFunction)
 		const nClassRefer = self._manager:Reference(false)
 		const nSuffixHint = self._retMaker(vPolyParList, false)
 		local nStruct:OrNil(clazz.UAllType) = nil
@@ -352,7 +353,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 		const nParTuple = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
 		const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
-		const nCom = nClassRefer:setClassFactory(self._node, function()
+		const nFactory = nClassRefer:setClassFactory(self._node, function()
 			local nImplType = nStruct
 			if Reference.is(nImplType) then
 				nImplType = nImplType:waitTypeCom():getTypeAwait()
@@ -368,23 +369,25 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.TypeFunction, clazz.PolyF
 			const nContext = self._context:newSealContext(self._node)
 			nContext:setClassTable(vLuaTable)
 			self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(nContext), vPolyParList, false)
+			return nTypeFn
 		end)
-		self._context:recordClassFactory(nCom)
-		return nTypeFn
+		self._context:recordClassFactory(nFactory)
+		return nFactory, nTypeFn
 	end
 	if nPolyParNum <= 0 then
-		const nTypeFn = nFnMaker({})
+		const nFactory, nTypeFn = nFnMaker({})
 		nRefer:setAssignAsync(self._node, function()
-			return nTypeFn:getRetTuples():getFirstType()
+			return nFactory:getTypeAwait()
 		end)
-		return nTypeFn
+		return nFactory
 	else
 		const nPolyFn = self._manager:PolyFunction(self._node, function(...)
 			return nFnMaker({...}, false)
 		end, nPolyParNum)
 		nRefer:setTemplateAsync(self._node, function(...)
-			const nTypeFn = nPolyFn:noCtxCastPoly({...})
-			return nTypeFn:getRetTuples():getFirstType()
+			const nFactory = nPolyFn:noCtxCastPoly({...})
+			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
+			return nFactory:getTypeAwait()
 		end, nPolyParNum)
 		return nPolyFn
 	end

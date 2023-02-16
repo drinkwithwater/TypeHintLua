@@ -13,9 +13,11 @@ function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, 
 		-- startSid : true means wait to gen sid and start, int means waiting, false means started
 		_waitStartSid=true@Union(Boolean, Integer),
 		_namedRefer=vRefer,
+		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_clazzType=false@OrFalse(clazz.LuaTable),
 		_waitClassCoToSid={} @ Dict(Thread, Integer),
-		_waitBuildCoToSid={}@OrFalse(Dict(Thread, Integer)),
+		_waitBuildCoToSid={} @ OrFalse(Dict(Thread, Integer)),
+		_waitFuncCoToSid={} @ Dict(Thread, Integer),
 	}, ClassFactory)
 	return self
 end
@@ -40,6 +42,14 @@ function ClassFactory:meta_call(vContext:clazz.Context, vTermTuple:clazz.UTermTu
 end
 
 function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
+	if not self._typeFn then
+		self:startBuild()
+		const nSessionId = self._manager:genSessionId()
+		const nCurCo = coroutine.running()
+		self._waitFuncCoToSid[nCurCo] = nSessionId
+		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	end
+	return (assert(self._typeFn, "type function not setted after wait"))
 end
 
 function ClassFactory:getTypeAwait():Ret(clazz.UAtomUnion)
@@ -67,7 +77,7 @@ function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
 	return {nClassType}
 end
 
-function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.LuaTable))
+function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.LuaTable):Ret(clazz.TypeFunction))
 	-- step 1. wait inteface
 	const nInterface = vGetInterface()
 	-- step 2. create table
@@ -87,8 +97,12 @@ function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuil
 		self._manager:coWait(co, nSessionId)
 	end
 	-- step 3. run build
-	vClassBuilder(nNewTable)
+	self._typeFn = vClassBuilder(nNewTable)
 	self:_wakeupBuild()
+	-- step 4. wake up fn
+	for co, sid in pairs(self._waitFuncCoToSid) do
+		self._manager:coWakeup(co, sid)
+	end
 end
 
 function ClassFactory:startBuild()
