@@ -3,6 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const TypeFunction = require "thlua.func.TypeFunction"
+const AutoFunction = require "thlua.refer.AutoFunction"
 
 const PolyFunction = AtomTypeClass()
 
@@ -13,7 +14,7 @@ function:class(clazz.PolyFunction) PolyFunction.new(vManager:clazz.TypeManager, 
 		_manager=vManager,
 		_polyParNum=vPolyParNum,
 		_innerFunc=vFunc,
-		_fnDict = {} @ Dict(String, clazz.TypeFunction),
+		_fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction)),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
 	}, PolyFunction)
@@ -32,7 +33,7 @@ function PolyFunction:getPolyParNum():Ret(Integer)
 	return self._polyParNum
 end
 
-function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.TypeFunction)
+function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.AutoFunction))
 	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
 	for i=1, #vTypeList do
@@ -42,7 +43,7 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.Ty
 	const nFn = self._fnDict[nKey]
 	if not nFn then
 		const nResult = (self._innerFunc(table.unpack(vTypeList)) @ Any)
-		if not TypeFunction.is(nResult) then
+		if (not TypeFunction.is(nResult)) and (not AutoFunction.is(nResult)) then
 			error("poly function must return Fn type but got:"..tostring(nResult))
 		end
 		self._fnDict[nKey] = nResult
@@ -53,7 +54,12 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.Ty
 end
 
 function PolyFunction:castPoly(vContext, vTypeList)
-	return self:noCtxCastPoly(vTypeList)
+	const nFn = self:noCtxCastPoly(vTypeList)
+	if AutoFunction.is(nFn) then
+		return nFn:getFnAwait()
+	else
+		return nFn
+	end
 end
 
 function PolyFunction:native_type()

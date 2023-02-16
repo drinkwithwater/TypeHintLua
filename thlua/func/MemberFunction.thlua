@@ -4,6 +4,7 @@ const Exception = require "thlua.Exception"
 
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
+const AutoFunction = require "thlua.refer.AutoFunction"
 
 const MemberFunction = {}
 MemberFunction.__index=MemberFunction
@@ -86,7 +87,12 @@ function MemberFunction:needPolyArgs():Ret(Boolean)
 end
 
 function MemberFunction:indexTypeFn(vType:clazz.IAtomType):Ret(clazz.TypeFunction)
-	return self._polyFn:noCtxCastPoly({vType})
+	const nFn = self._polyFn:noCtxCastPoly({vType})
+	if AutoFunction.is(nFn) then
+		return nFn:getFnAwait()
+	else
+		return nFn
+	end
 end
 
 function MemberFunction:mayRecursive():Ret(True)
