@@ -86,12 +86,17 @@ function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vMod
 	if AutoHolder.is(vTerm) then
 		const nAutoRefineTerm = vTerm:getRefineTerm()
 		if not nAutoRefineTerm then
-			if vKind ~= Enum.SymbolKind_PARAM then
-				error(Exception.new("unknown auto variable can't be assigned to other variable", vNode))
+			if not vHintType then
+				if vKind ~= Enum.SymbolKind_PARAM then
+					error(Exception.new("undeduced auto variable can't be assigned to other variable", vNode))
+				end
+				return vTerm
+			else
+				vTerm = vTerm:setAutoCastType(self._context, vHintType)
 			end
-			return vTerm
+		else
+			vTerm = nAutoRefineTerm
 		end
-		vTerm = nAutoRefineTerm
 	end
 	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then

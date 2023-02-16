@@ -45,20 +45,20 @@ local TagToVisiting:RealTraverser = {
 	Set=function(self, node)
 		return {
 			" local ", self:concatList@<node.IAstNode>(node[1], function(i,v)
-				return "set_a"..i
+				return "____set_a"..i
 			end, ","),
 			"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
 			self:concatList@<node.Lhs>(node[1], function(i, vVarNode)
 				if vVarNode.tag == "Ident" then
 					return self:rgnWrap(vVarNode).SYMBOL_SET(
 						self:formatIdent(vVarNode),
-						"set_a"..i
+						"____set_a"..i
 					)
 				else
 					return self:ctxWrap(node).META_SET(
 						self:visit(vVarNode[1]),
 						self:visit(vVarNode[2]),
-						"set_a"..i
+						"____set_a"..i
 					)
 				end
 			end, " ")
@@ -110,8 +110,8 @@ local TagToVisiting:RealTraverser = {
 		assert(nBlockNode.tag == "Block", "4th or 5th node must be block")
 		return self:rgnWrap(node).FOR_NUM(
 			self:visit(node[2]), self:visit(node[3]), nHasStep and self:visit(node[4]) or "nil",
-			self:fnWrap("fornum_i")(
-				self:visitIdentDef(node[1], "fornum_i"),
+			self:fnWrap("____fornum")(
+				self:visitIdentDef(node[1], "____fornum"),
 				self:visit(nBlockNode)
 			)
 		)
@@ -119,13 +119,13 @@ local TagToVisiting:RealTraverser = {
 	Forin=function(self, node)
 		return {
 			"local ____n_t_i=", self:ctxWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
-			self:rgnWrap(node).FOR_IN(self:fnWrap("vIterTuple")(
+			self:rgnWrap(node).FOR_IN(self:fnWrap("____iterTuple")(
 				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
-					return "forin_gen"..i
+					return "____forin"..i
 				end, ","),
-				"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "vIterTuple"),
+				"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
 				self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
-					return self:visitIdentDef(vIdent, "forin_gen"..i)
+					return self:visitIdentDef(vIdent, "____forin"..i)
 				end, " "),
 				self:visit(node[3])
 			), "____n_t_i")
@@ -135,11 +135,11 @@ local TagToVisiting:RealTraverser = {
 		return {
 			line=node.l,
 			"local ", self:concatList@<Truth>(node[1], function(i, vNode)
-				return "local_a"..i
+				return "____lo"..i
 			end, ","), "=",
 			#node[2] > 0 and self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
 			self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
-				return self:visitIdentDef(vIdent, "local_a"..i)
+				return self:visitIdentDef(vIdent, "____lo"..i)
 			end, " ")
 		}
 	end,
@@ -361,7 +361,7 @@ local TagToVisiting:RealTraverser = {
 	ParList=function(self, node)
 		error("implement in other way")
 		return self:concatList@<Union(node.Ident_def, node.Dots)>(node, function(i, vParNode)
-			return vParNode.tag == "Ident" and "v_"..vParNode[1]..vParNode.index or "vDOTS"
+			return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "vDOTS"
 		end, ",")
 	end,
 	VarList=function(self, node)
@@ -622,13 +622,13 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
 			" local ", self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-				return vParNode.tag == "Ident" and "v_"..vParNode[1]..vParNode.index or "vDOTS"
+				return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "vDOTS"
 			end, ","),
 			"=" ,
 			self:rgnWrap(nParList).PAR_UNPACK("____termArgs", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
-					return self:visitIdentDef(vParNode, "v_"..vParNode[1]..vParNode.index, "____hintArgs["..i.."]")
+					return self:visitIdentDef(vParNode, "____v_"..vParNode[1]..vParNode.index, "____hintArgs["..i.."]")
 				else
 					return ""
 				end
