@@ -77,7 +77,7 @@ function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
 	return {nClassType}
 end
 
-function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.LuaTable):Ret(clazz.TypeFunction))
+function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.ClassFactory, clazz.LuaTable):Ret(clazz.TypeFunction))
 	-- step 1. wait inteface
 	const nInterface = vGetInterface()
 	-- step 2. create table
@@ -97,7 +97,7 @@ function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuil
 		self._manager:coWait(co, nSessionId)
 	end
 	-- step 3. run build
-	self._typeFn = vClassBuilder(nNewTable)
+	self._typeFn = vClassBuilder(self, nNewTable)
 	self:_wakeupBuild()
 	-- step 4. wake up fn
 	for co, sid in pairs(self._waitFuncCoToSid) do

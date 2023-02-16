@@ -33,16 +33,16 @@ function LateFnCom:checkLateRun()
 		return
 	end
 	self._once = true
-	const nSpecFnList:List(Struct {clazz.TypeFunction, OrNil(List(clazz.UAllType)), OrNil(clazz.UAllType)}) = {}
+	const nSpecFnList:List(clazz.TypeFunction) = {}
 	-- 1. cast fn
 	const nCastFn = self._castSpecList[1]
 	if nCastFn then
-		nSpecFnList[#nSpecFnList + 1] = {nCastFn}
+		nSpecFnList[#nSpecFnList + 1] = nCastFn
 		const nList = self._castSpecList
 		for i=2,#nList do
 			const nTypeFn = nList[i]!
 			if not nCastFn:containAll(nTypeFn) then
-				nSpecFnList[#nSpecFnList + 1] = {nTypeFn}
+				nSpecFnList[#nSpecFnList + 1] = nTypeFn
 				print("polymorphism cast TODO")
 			end
 		end
@@ -67,12 +67,11 @@ function LateFnCom:checkLateRun()
 		end
 		-- nDefaultFn is false
 	end]]
-	for _, nPair in ipairs(nSpecFnList) do
-		const nParTuple = nPair[1]:getParTuple()
+	for _, nTypeFn in ipairs(nSpecFnList) do
+		const nParTuple = nTypeFn:getParTuple()
 		const nInplaceContext = self._luaFunction:newInplaceSealContext()
 		const ok, err = pcall(function()
-			const nEmpty:List(clazz.UAllType) = {}
-			self._luaFunction:getGenFunc()(nPair[1], nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), nPair[2] or nEmpty, nPair[3] or false)
+			self._luaFunction:getGenFunc()(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), {}, false)
 		end)
 		if not ok then
 			nInplaceContext:error(tostring(err))

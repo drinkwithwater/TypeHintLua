@@ -13,6 +13,8 @@ const DoBuilder = require "thlua.builder.DoBuilder"
 
 const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
+const AutoFunction = require "thlua.refer.AutoFunction"
+const ClassFactory = require "thlua.refer.ClassFactory"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 (@let.node= import("thlua.code.Node").node)
@@ -292,17 +294,26 @@ end
 
 function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 	const nBodyFn = self._bodyFn
-	if TypeFunction.is(nBodyFn) then
+	if AutoFunction.is(nBodyFn) or TypeFunction.is(nBodyFn) then
 		const nContext = self._context
 		local nOneOkay = false
 		local nRetTuples = nBodyFn:getRetTuples()
-		nRetTuples:foreachWithFirst(function(vDstTuple, _)
-			if vTypeTuple:castOrIn(nContext, vDstTuple) then
-				nOneOkay = true
+		if nRetTuples then
+			nRetTuples:foreachWithFirst(function(vDstTuple, _)
+				if vTypeTuple:castOrIn(nContext, vDstTuple) then
+					nOneOkay = true
+				end
+			end)
+			if not nOneOkay then
+				nContext:getRuntime():nodeError(vNode, "return check failed")
 			end
-		end)
-		if not nOneOkay then
-			nContext:getRuntime():nodeError(vNode, "return check failed")
+		else
+			error("auto return TODO")
+		end
+	elseif ClassFactory.is(nBodyFn) then
+		const nResultType = nBodyFn:getTypeAwait()
+		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
+			self._context:getRuntime():nodeError(vNode, "class return check failed")
 		end
 	end
 end
