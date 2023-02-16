@@ -1,4 +1,5 @@
 
+const TypeFunction = require "thlua.func.TypeFunction"
 const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
@@ -6,16 +7,26 @@ const Exception = require "thlua.Exception"
 const AutoFunction = {}
 AutoFunction.__index=AutoFunction
 
-function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, vRefer:clazz.Reference, vTypeFn:OrFalse(clazz.TypeFunction))
+function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, vRefer:clazz.Reference, vFnOrRet:OrFalse(clazz.RetTuples, clazz.TypeFunction))
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
 		-- startSid : true means wait to gen sid and start, int means waiting, false means started
 		_waitStartSid=true@Union(Boolean, Integer),
-		_typeFn=vTypeFn@OrFalse(clazz.TypeFunction),
+		_typeFn=false@OrFalse(clazz.TypeFunction),
+		_retTuples=false@OrFalse(clazz.RetTuples),
 		_waitCoToSid={}@OrFalse(Dict(Thread, Integer)),
 	}, AutoFunction)
+	if TypeFunction.is(vFnOrRet) then
+		self._typeFn = vFnOrRet
+	else
+		self._retTuples = vFnOrRet
+	end
 	return self
+end
+
+function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
+	return self._retTuples
 end
 
 function AutoFunction:build(vRunner:Fn(clazz.AutoFunction):Ret(clazz.TypeFunction))
@@ -28,7 +39,9 @@ function AutoFunction:build(vRunner:Fn(clazz.AutoFunction):Ret(clazz.TypeFunctio
 		self._manager:coWait(co, nSessionId)
 	end
 	if not self._typeFn then
-		self._typeFn = vRunner(self)
+		const nTypeFn = vRunner(self)
+		self._typeFn = nTypeFn
+		self._retTuples = nTypeFn:getRetTuples()
 		self:_wakeupBuild()
 	else
 		vRunner(self)
