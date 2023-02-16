@@ -33,6 +33,7 @@ const LateFnCom = require "thlua.func.LateFnCom"
 		_polyParNum=Integer,
 		_parNum=Integer,
 		_parFullHint=Boolean,
+		_member=Boolean,
 	}, {
 		__next=KeyOf(clazz.FuncNewInfo)
 	})
@@ -54,7 +55,6 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_manager=vManager,
 		_context=vContext,
 		_node=vNode,
-		_member=false@Boolean,
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
 		_parMaker=vParMaker,
 		_retMaker=vRetMaker,
@@ -396,14 +396,13 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 	if nAttrSet.open then
 		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildOpen())
 	elseif nAttrSet.class then
-		if nAttrSet.member then
+		if self._member then
 			error(Exception.new("class factory can't be member-function-like", self._node))
 		end
 		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildClass())
 	else
-		if nAttrSet.member then
+		if self._member then
 			nLuaFunc:setMember()
-			self._member = true
 		end
 		const nInnerFn = self:_checkWhenDefault()
 		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nAttrSet.pass and true or false)
