@@ -476,7 +476,6 @@ local G = lpeg.P { "TypeHintLua";
 			return Cpos * vv.FuncPrefix * FuncName * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
-					funcExpr.member = true
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
 					varPrefix = makeNameIndex(varPrefix, methodName)
 				end

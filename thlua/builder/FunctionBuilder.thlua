@@ -241,7 +241,7 @@ function FunctionBuilder:_checkWhenDefault(
 			const nInplaceContext = self._context:newSealContext(self._node)
 			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, nTypeFn, function(vAutoFn)
 				if not self._pass then
-					self._genFunc(vAutoFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), vPolyParList, vSelfType)
+					self._genFunc(vAutoFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), {}, vPolyParList, vSelfType)
 				end
 				return nTypeFn
 			end)
@@ -254,7 +254,7 @@ function FunctionBuilder:_checkWhenDefault(
 			const nParTuple = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
 			const nInplaceContext = self._context:newSealContext(self._node)
 			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, false, function(vAutoFn)
-				self._genFunc(vAutoFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), vPolyParList, vSelfType)
+				self._genFunc(vAutoFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), {}, vPolyParList, vSelfType)
 				const nTypeTuple = nParTuple:finishTypeTuple(nInplaceContext)
 				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
 			end)
@@ -283,8 +283,12 @@ function FunctionBuilder:_getPolyNumOrNotHint():Ret(OrFalse(Integer))
 end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
+	const nParList, nParDots = self._parMaker({}, false)
+	if nParDots then
+		error(Exception.new("open function can't hint ...", self._node))
+	end
 	const nSuffixHint = self._retMaker({}, false)
-	local nOpenFn:OrFalse(clazz.OpenFunction) = false
+	local nGuardFn:OrFalse(clazz.OpenFunction) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		impl=function(vHint, _)
 			return vHint
@@ -298,15 +302,19 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 			return vHint
 		end,
 		isguard=function(vHint, vType)
-			assert(not nOpenFn, "isguard can only use once here")
-			nOpenFn = self._manager:OpenFunction():lateInitFromGuard(vType)
+			assert(not nGuardFn, "isguard can only use once here")
+			nGuardFn = self._manager:OpenFunction():lateInitFromGuard(vType)
 			return vHint
 		end,
 	})
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	return nOpenFn or self._manager:OpenFunction():lateInitFromGenFunc(self._genFunc)
+	if nGuardFn then
+		return nGuardFn
+	else
+		return self._manager:OpenFunction():lateInitFromGenFunc(nParList, self._genFunc)
+	end
 end
 
 function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyFunction))
@@ -369,7 +377,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		end, nTypeFn, function(vFactory, vLuaTable)
 			const nContext = self._context:newSealContext(self._node)
 			nContext:setClassTable(vLuaTable)
-			self._genFunc(vFactory, nContext, nParTuple:makeTermTuple(nContext), vPolyParList, false)
+			self._genFunc(vFactory, nContext, nParTuple:makeTermTuple(nContext), {}, vPolyParList, false)
 			return nTypeFn
 		end)
 		self._context:recordClassFactory(nFactory)

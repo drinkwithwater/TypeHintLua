@@ -428,13 +428,13 @@ function HintGener:formatIdent(vIdentNode:node.Ident):Ret(String)
 	end
 end
 
-function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vNoHint:OrNil(True)):Ret(let.UGenResult)
+function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vFixedHint:OrNil(String)):Ret(let.UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
 		" local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
-			vValue, vNoHint and "nil" or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
+			vValue, vFixedHint or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
 		)
 	}
 end
@@ -609,7 +609,6 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nHintPrefix = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintPrefix)
 	const nHintSuffix = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintSuffix)
 	const nParList = nIsChunk and vNode[2] or vNode[1]
-	const nMember = (not nIsChunk) and (vNode.member and true or false) or false
 	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
 	const nLastNode = nParList[#nParList]
 	const nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
@@ -629,7 +628,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			self:rgnWrap(nParList).PAR_UNPACK("____termArgs", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
-					return self:visitIdentDef(vParNode, "v_"..vParNode[1]..vParNode.index, true)
+					return self:visitIdentDef(vParNode, "v_"..vParNode[1]..vParNode.index, "____hintArgs["..i.."]")
 				else
 					return ""
 				end
@@ -683,7 +682,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				nPolyUnpack,
 				"return ", nHintSuffix
 			),
-			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____polyArgs", nSelf)(
+			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____hintArgs", "____polyArgs", nSelf)(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ",____bodyFn,____fn,____uv) ",
 				nPolyUnpack,
 				nParInBody,
