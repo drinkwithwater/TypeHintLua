@@ -14,7 +14,7 @@ const LateFnCom = require "thlua.func.LateFnCom"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 
-	clazz.UDefaultFunction = Union(clazz.TypeFunction, clazz.PolyFunction, clazz.MemberFunction)
+	clazz.ULuaRealFn = Union(clazz.ClassFactory, clazz.AutoFunction, clazz.OpenFunction, clazz.PolyFunction, clazz.MemberFunction)
 
 	clazz.FnPrefixHint = Struct {
 		class=Fn(clazz.FnPrefixHint, Any):Ret(clazz.FnPrefixHint),
@@ -222,7 +222,8 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	end
 end
 
-function FunctionBuilder:_checkWhenDefault():Ret(OrFalse(clazz.AutoFunction, clazz.UDefaultFunction))
+function FunctionBuilder:_checkWhenDefault(
+):Ret(OrFalse(clazz.AutoFunction, clazz.MemberFunction, clazz.PolyFunction))
 	const nPolyParNum = self._polyParNum
 	if not self._parFullHint and self._pass then
 		return false
@@ -326,7 +327,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	if not nPolyParNum then
 		error(Exception.new("non-full-hint class TODO", self._node))
 	end
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory, clazz.TypeFunction)
+	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
 		const nClassRefer = self._manager:Reference(false)
 		const nSuffixHint = self._retMaker(vPolyParList, false)
 		local nStruct:OrNil(clazz.UAllType) = nil
@@ -365,17 +366,17 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				nInterface = nImplType
 			end
 			return nInterface
-		end, function(vLuaTable)
+		end, nTypeFn, function(vLuaTable)
 			const nContext = self._context:newSealContext(self._node)
 			nContext:setClassTable(vLuaTable)
 			self._genFunc(nTypeFn, nContext, nParTuple:makeTermTuple(nContext), vPolyParList, false)
 			return nTypeFn
 		end)
 		self._context:recordClassFactory(nFactory)
-		return nFactory, nTypeFn
+		return nFactory
 	end
 	if nPolyParNum <= 0 then
-		const nFactory, nTypeFn = nFnMaker({})
+		const nFactory = nFnMaker({})
 		nRefer:setAssignAsync(self._node, function()
 			return nFactory:getTypeAwait()
 		end)
