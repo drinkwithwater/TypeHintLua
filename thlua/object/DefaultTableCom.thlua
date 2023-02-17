@@ -128,14 +128,24 @@ function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	end
 end
 
-function DefaultTableCom:setMetaIndex(vContext:clazz.Context, vAsIndex:OrFalse(clazz.MetaIndexField), vAsNewIndex:OrFalse(clazz.MetaIndexField))
-	if not vAsIndex and not vAsNewIndex then
-		print("TODO, impl interface if setmetatable without index")
+function DefaultTableCom:setMetaIndex(vContext:clazz.Context, vIndexType:OrFalse(clazz.UAtomUnion), vNewIndexType:OrFalse(clazz.UAtomUnion))
+	if not vIndexType then
+		return
+	end
+	if vIndexType:isUnion() then
+		vContext:info("union type as __index TODO")
+		return
+	end
+	if vIndexType:isNilable() then
+		vContext:info("TODO, impl interface if setmetatable without index")
+		return
+	end
+	const nMetaIndexKeyType, nMetaIndexValueDict = vIndexType:lockAsMetaIndex()
+	if not nMetaIndexKeyType then
+		vContext:info("use type.."..tostring(vIndexType).." as __index TODO")
 		return
 	end
 	const nNever = self._manager.type.Never
-	const nMetaIndexKeyType = vAsIndex and vAsIndex.keyType or nNever
-	const nMetaIndexValueDict = vAsIndex and vAsIndex.valueDict or {} @ Dict(clazz.IAtomType, clazz.UAtomUnion)
 	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
 	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKeyType, nSelfKey)
 	const nFinalFieldDict:Dict(clazz.IAtomType, let.TableField) = {}
@@ -238,28 +248,12 @@ function DefaultTableCom:native_next(vContext, vInitType)
 	return nValueType, nNextDict
 end
 
-function DefaultTableCom:lockAsMetaIndex():Ret(clazz.MetaIndexField)
+function DefaultTableCom:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.castValueType or nField.rawValueType
 	end
-	return {
-		keyType=self._keyType,
-		valueDict=nDict,
-		fnType=false,
-	}
-end
-
-function DefaultTableCom:lockAsMetaNewIndex():Ret(clazz.MetaIndexField)
-	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
-	for k, nField in pairs(self._fieldDict) do
-		nDict[k] = nField.castValueType or nField.rawValueType
-	end
-	return {
-		keyType=self._keyType,
-		valueDict=nDict,
-		fnType=false,
-	}
+	return self._keyType, nDict
 end
 
 function DefaultTableCom:basingByDefault()

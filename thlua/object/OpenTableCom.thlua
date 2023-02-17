@@ -107,7 +107,7 @@ function OpenTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	end
 end
 
-function OpenTableCom:setMetaIndex(vContext:clazz.Context, vAsIndex:OrFalse(clazz.MetaIndexField), vAsNewIndex:OrFalse(clazz.MetaIndexField))
+function OpenTableCom:setMetaIndex(vContext:clazz.Context, vIndexType:OrFalse(clazz.UAtomUnion), vNewIndexType:OrFalse(clazz.UAtomUnion))
 	-- TODO
 end
 
@@ -115,28 +115,12 @@ function OpenTableCom:native_next(vContext, vInitType)
 	-- TODO
 end
 
-function OpenTableCom:lockAsMetaIndex():Ret(clazz.MetaIndexField)
+function OpenTableCom:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.valueType
 	end
-	return {
-		keyType=self._keyType,
-		valueDict=nDict,
-		fnType=false,
-	}
-end
-
-function OpenTableCom:lockAsMetaNewIndex():Ret(clazz.MetaIndexField)
-	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
-	for k, nField in pairs(self._fieldDict) do
-		nDict[k] = nField.valueType
-	end
-	return {
-		keyType=self._keyType,
-		valueDict=nDict,
-		fnType=false,
-	}
+	return self._keyType, nDict
 end
 
 function OpenTableCom:basingByDefault()

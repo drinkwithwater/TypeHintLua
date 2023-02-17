@@ -210,7 +210,7 @@ local TagToVisiting:RealTraverser = {
 		return "____ctx:NilTerm()"
 	end,
 	Dots=function(self, node)
-		return self:ctxAutoUnpack(node, "vDOTS")
+		return self:ctxAutoUnpack(node, "____vDOTS")
 	end,
 	True=function(self, node)
 		return "____ctx:BooleanTerm(true)"
@@ -369,7 +369,7 @@ local TagToVisiting:RealTraverser = {
 	ParList=function(self, node)
 		error("implement in other way")
 		return self:concatList@<Union(node.Ident_def, node.Dots)>(node, function(i, vParNode)
-			return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "vDOTS"
+			return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "____vDOTS"
 		end, ",")
 	end,
 	VarList=function(self, node)
@@ -593,7 +593,7 @@ end
 function HintGener:chunkLongHint():Ret(let.GenResult)
 	return self:dictWrap({
 		attrSet="{open=1}",
-		caller="function(_) return _ end"
+		caller="function(____longHint) return ____longHint end"
 	})
 end
 
@@ -630,7 +630,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
 			" local ", self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-				return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "vDOTS"
+				return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "____vDOTS"
 			end, ","),
 			"=" ,
 			self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openHintArgs", tostring(nParamNum), tostring(nIsVararg)),

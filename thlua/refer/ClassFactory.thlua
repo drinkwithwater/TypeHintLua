@@ -44,10 +44,12 @@ end
 function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
 		self:startBuild()
-		const nSessionId = self._manager:genSessionId()
-		const nCurCo = coroutine.running()
-		self._waitFuncCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+		if not self._typeFn then
+			const nSessionId = self._manager:genSessionId()
+			const nCurCo = coroutine.running()
+			self._waitFuncCoToSid[nCurCo] = nSessionId
+			self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+		end
 	end
 	return (assert(self._typeFn, "type function not setted after wait"))
 end
