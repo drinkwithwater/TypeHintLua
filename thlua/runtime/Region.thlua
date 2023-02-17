@@ -17,7 +17,7 @@ const AutoFunction = require "thlua.refer.AutoFunction"
 const ClassFactory = require "thlua.refer.ClassFactory"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
-(@let.node= import("thlua.code.Node").node)
+(@let.node = import("thlua.code.Node").node)
 
 Region.__index = Region
 Region.__tostring = function(self):Ret(String)
@@ -54,7 +54,8 @@ function Region:topBranch():Ret(clazz.Branch)
 end
 
 function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
-	assert(LocalSymbol.is(vSymbol), "set immutable symbol"..tostring(vNode))
+	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
+	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
 	const nAssignContext = self._context:newOpenContext(vNode)
 	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
@@ -71,7 +72,7 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAu
 			return nBranch:immutGet(nTerm:attachImmutVariable())
 		else
 			if not vAllowAuto then
-				error(Exception.new("auto term can't be used here", vNode))
+				error(Exception.new("auto term can't be used when it's undeduced", vNode))
 			else
 				return vSymbol
 			end
@@ -91,18 +92,14 @@ function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:N
 	return table.unpack(l)
 end
 
-function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(False, clazz.UAllType)):Ret(clazz.USymbol)
+function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	if AutoHolder.is(vTerm) then
 		const nAutoRefineTerm = vTerm:getRefineTerm()
 		if not nAutoRefineTerm then
-			if not vHintType then
-				if vKind ~= Enum.SymbolKind_PARAM then
-					error(Exception.new("undeduced auto variable can't be assigned to other variable", vNode))
-				end
-				return vTerm
-			else
-				vTerm = vTerm:setAutoCastType(self._context, vHintType)
+			if vKind ~= Enum.SymbolKind_PARAM then
+				error(Exception.new("undeduced auto variable can't be assigned to other variable", vNode))
 			end
+			return vTerm
 		else
 			vTerm = nAutoRefineTerm
 		end

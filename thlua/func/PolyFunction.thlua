@@ -14,7 +14,7 @@ function:class(clazz.PolyFunction) PolyFunction.new(vManager:clazz.TypeManager, 
 	local self = setmetatable({.class
 		_manager=vManager,
 		_polyParNum=vPolyParNum,
-		_innerFunc=vFunc,
+		_makerFn=vFunc,
 		_fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory)),
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
@@ -43,7 +43,7 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(cl
 	const nKey = self._manager:signTemplateArgs(nAtomUnionList)
 	const nFn = self._fnDict[nKey]
 	if not nFn then
-		const nResult = (self._innerFunc(table.unpack(vTypeList)) @ Any)
+		const nResult = (self._makerFn(table.unpack(vTypeList)) @ Any)
 		if (not TypeFunction.is(nResult)) and (not AutoFunction.is(nResult)) and (not ClassFactory.is(nResult)) then
 			error("poly function must return Fn type but got:"..tostring(nResult))
 		end
