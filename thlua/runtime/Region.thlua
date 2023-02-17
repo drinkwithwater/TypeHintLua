@@ -3,6 +3,7 @@ const Region = {}
 const Enum = require "thlua.Enum"
 const VariableCase = require "thlua.term.VariableCase"
 const AutoHolder = require "thlua.auto.AutoHolder"
+const AutoTail = require "thlua.auto.AutoTail"
 const Branch = require "thlua.runtime.Branch"
 const LocalSymbol = require "thlua.term.LocalSymbol"
 const ImmutVariable = require "thlua.term.ImmutVariable"
@@ -81,13 +82,82 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAu
 end
 
 -- unpack in function's argument & for_in
-function Region:PAR_UNPACK(vNode:clazz.IAstNode, vTuple:clazz.UTermTuple, vNum:Number, vUseDots:Boolean):RetDots(Union(clazz.UAutoTerm, clazz.UTermTuple))
+function Region:PARLIST_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vOpenHintTypeList:OrFalse(List(OrFalse(clazz.UAllType))),
+	vParNum:Number,
+	vUseDots:Boolean
+):RetDots(Union(clazz.UAutoTerm, clazz.UTermTuple))
 	const l:List(Union(clazz.UAutoTerm, clazz.UTermTuple)) = {}
-	for i=1, vNum do
-		l[i] = vTuple:get(self._context, i)
+	if not vOpenHintTypeList then
+		assert(vParNum == #vTermTuple)
+		if vUseDots then
+			assert(vTermTuple:getTail(), "")
+		else
+			assert(not vTermTuple:getTail())
+		end
+		for i=1, vParNum do
+			l[i] = vTermTuple:get(self._context, i)
+		end
+		if vUseDots then
+			l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)
+		end
+		return table.unpack(l)
 	end
-	if vUseDots then
-		l[vNum + 1] = vTuple:select(self._context, vNum + 1)
+	-- open call unpack
+	assert(vParNum == #vOpenHintTypeList)
+	for i=1, #vTermTuple do
+		local nHintType = vOpenHintTypeList[i]
+		if i > vParNum and not vUseDots then
+			nHintType = self._context:getTypeManager().type.Nil
+		end
+		const nAutoTerm = vTermTuple:get(self._context, i)
+		local nPut:OrNil(clazz.UAutoTerm) = nil
+		if nHintType then
+			-- if hint then cast auto or check type contain
+			const nArgType = nAutoTerm:getType()
+			if not nArgType then
+				nAutoTerm:setAutoCastType(self._context, nHintType)
+			else
+				if not self._context:castLuaType(nArgType, nHintType) and not nHintType:containAll(nArgType) then
+					self._context:error("parameter's type not match when open call")
+				end
+			end
+			nPut = self._context:RefineTerm(nHintType)
+		else
+			-- if no hint, just return, maybe return auto
+			nPut = nAutoTerm
+		end
+		if i <= vParNum then
+			l[i] = nPut
+		end
+	end
+	const nTail = vTermTuple:getTail()
+	if not AutoTail.is(nTail) then
+		if vUseDots then
+			-- if unpack with dots then select
+			l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)
+		end
+	else
+		if not vUseDots then
+			const nTypeList:List(clazz.UAllType) = {}
+			for i=#vTermTuple+1, vParNum do
+				const nHintType = vOpenHintTypeList[i]
+				if not nHintType then
+					error(Exception.new("unpack auto dots in par, TODO", vNode))
+				end
+				nTypeList[#nTypeList + 1] = nHintType
+				l[i] = self._context:RefineTerm(nHintType)
+			end
+			nTail:setAutoCastTuple(self._context:getTypeManager():TypeTuple(vNode, table.unpack(nTypeList)))
+		else
+			if vParNum > #vTermTuple then
+				error(Exception.new("unpack auto dots in par dots, TODO", vNode))
+			else
+				l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)
+			end
+		end
 	end
 	return table.unpack(l)
 end

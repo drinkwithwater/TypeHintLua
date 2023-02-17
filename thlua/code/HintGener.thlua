@@ -541,7 +541,7 @@ end
 		"FOR_NUM",
 		"IF",
 		"BREAK",
-		"PAR_UNPACK",
+		"PARLIST_UNPACK",
 		"SYMBOL_NEW",
 		"SYMBOL_GET",
 		"SYMBOL_SET",
@@ -633,7 +633,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "vDOTS"
 			end, ","),
 			"=" ,
-			self:rgnWrap(nParList).PAR_UNPACK("____termArgs", tostring(nParamNum), tostring(nIsVararg)),
+			self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openHintArgs", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
 					return self:visitIdentDef(vParNode, "____v_"..vParNode[1]..vParNode.index, "nil")
@@ -690,7 +690,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				nPolyUnpack,
 				"return ", nHintSuffix
 			),
-			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____hintArgs", "____polyArgs", nSelf)(
+			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____openHintArgs", "____polyArgs", nSelf)(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ",____bodyFn,____fn,____uv) ",
 				nPolyUnpack,
 				nParInBody,
