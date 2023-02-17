@@ -42,15 +42,21 @@ function AutoTuple:finishTypeTuple(vContext:clazz.Context):Ret(clazz.UTypeTuple)
 	end
 	const nDots = self._dots
 	if AutoTail.is(nDots) then
-		const nList = nDots:getList()
-		if not nList then
+		const nTailTuple = nDots:getTypeTuple()
+		if not nTailTuple then
 			vContext:error("auto deduce failed for dots tail")
 			error("auto deduce failed for dots tail")
 		else
-			for i=1,#nList do
-				nTypeList[#nTypeList + 1] = nList[i]
+			for i=1,#nTailTuple do
+				nTypeList[#nTypeList + 1] = nTailTuple:get(i)
 			end
-			return self._manager:TypeTuple(self._node, table.unpack(nTypeList))
+			const nFinalTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList))
+			const nRepeatType = nTailTuple:getRepeatType()
+			if nRepeatType then
+				return nFinalTuple:Dots(nRepeatType)
+			else
+				return nFinalTuple
+			end
 		end
 	else
 		const nTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList))

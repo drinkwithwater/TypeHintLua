@@ -21,6 +21,8 @@ const Truth = require "thlua.type.Truth"
 
 const FunctionBuilder = require "thlua.builder.FunctionBuilder"
 const TableBuilder = require "thlua.builder.TableBuilder"
+const DotsTail = require "thlua.tuple.DotsTail"
+const AutoTail = require "thlua.auto.AutoTail"
 
 const Context = ContextClass()
 
@@ -100,12 +102,12 @@ function Context:EXPRLIST_REPACK(
 			const nIndexToFunc:Dict(Integer, Fn():Ret(clazz.UAutoTerm)) = {}
 			for i=1, #l-1 do
 				const cur = l[i]
-				if TermTuple.isFixed(cur) then
+				if TermTuple.is(cur) then
 					if #cur ~= 1 then
 						-- self._runtime:nodeWarn(vNode, "tuple expect 1 value but get "..#cur)
 					end
 					nTermList[i] = cur:get(self, 1)
-				elseif RefineTerm.is(cur) then
+				elseif RefineTerm.is(cur) or AutoHolder.is(cur) then
 					nTermList[i] = cur
 				elseif type(cur) == "function" then
 					nIndexToFunc[i] = cur
@@ -119,14 +121,14 @@ function Context:EXPRLIST_REPACK(
 			return nTermList
 		end
 		-- force cast
-		if TermTuple.isFixed(nLast) then
+		if TermTuple.is(nLast) then
 			reFunc = function()
 				return self:TermTupleByAppend(repackWithoutLast(), nLast)
 			end
 		else
 			reFunc = function()
 				const nTermList = repackWithoutLast()
-				if RefineTerm.is(nLast) then
+				if RefineTerm.is(nLast) or AutoHolder.is(nLast) then
 					nTermList[#nTermList + 1] = nLast
 				elseif type(nLast) == "function" then
 					nTermList[#nTermList + 1] = nLast()
@@ -155,7 +157,7 @@ function Context:EXPRLIST_UNPACK(
 	for i=1, vNum do
 		if i > #l then
 			local last = l[#l]
-			if TermTuple.isFixed(last) then
+			if TermTuple.is(last) then
 				local value = last:get(self, i - #l + 1)
 				if not value then
 					self._runtime:nodeError(vNode, "exprlist_unpack but right tuple value not enough")
@@ -169,7 +171,7 @@ function Context:EXPRLIST_UNPACK(
 			end
 		else
 			local cur = l[i]
-			if TermTuple.isFixed(cur) then
+			if TermTuple.is(cur) then
 				if (i < #l and #cur ~= 1) then
 					self._runtime:nodeWarn(vNode, "exprlist_unpack except 1 value but has "..#cur)
 				end
@@ -565,22 +567,52 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 end
 
 function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:clazz.UTypeTuple)
-	if TermTuple.isFixed(vTermTuple) then
+	if false then -- TermTuple.isFixed(vTermTuple) then
 		const nTuple = vTermTuple:checkTypeTuple()
 		if not nTuple:castOrIn(self, vTypeTuple) then
-			self:error("args error when call", vTypeTuple, nTuple)
+			self:error("args error", vTypeTuple, nTuple)
 		end
 	else
-		const nMaxLength = math.max(#vTypeTuple, #vTermTuple)
-		for i=1, nMaxLength do
+		for i=1, #vTermTuple do
 			const nAutoTerm = vTermTuple:get(self, i)
 			const nDstType = vTypeTuple:get(i)
-			if AutoHolder.is(nAutoTerm) then
+			const nSrcType = nAutoTerm:getType()
+			if not nSrcType then
 				nAutoTerm:setAutoCastType(self, nDstType)
 			else
-				const nSrcType = nAutoTerm:getType()
 				if not self:castLuaType(nSrcType, nDstType) and not nDstType:containAll(nSrcType) then
 					self:error("args error when call")
+				end
+			end
+		end
+		const nTail = vTermTuple:getTail()
+		if nTail then
+			if AutoTail.is(nTail) then
+				nTail:setAutoCastTuple(vTypeTuple:select(#vTermTuple + 1))
+			else
+				const nSrcRepeatType = nTail:getRepeatType()
+				const nDstRepeatType = vTypeTuple:getRepeatType()
+				if not nDstRepeatType then
+					self:error("args error in tail")
+				else
+					if not nDstRepeatType:containAll(nSrcRepeatType) then
+						self:error("args error in dots")
+					end
+				end
+				if #vTermTuple < #vTypeTuple then
+					for i=#vTermTuple + 1, #vTypeTuple do
+						if not vTypeTuple:get(i):containAll(nSrcRepeatType) then
+							self:error("args error in tail")
+						end
+					end
+				end
+			end
+		else
+			if #vTermTuple < #vTypeTuple then
+				for i=#vTermTuple + 1, #vTypeTuple do
+					if not vTypeTuple:get(i):checkAtomUnion():isNilable() then
+						self:error("args error for args not enough")
+					end
 				end
 			end
 		end

@@ -2,6 +2,7 @@
 const Exception = require "thlua.Exception"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const DotsTail = require "thlua.tuple.DotsTail"
+const AutoTail = require "thlua.auto.AutoTail"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -34,7 +35,7 @@ TermTuple.__index=TermTuple
 TermTuple.__tostring=function(self:clazz.UTermTuple):Ret(String)
 	const re:List(String) = {}
 	for i=1, #self do
-		re[i] = tostring(self._list[i])
+		re[i] = tostring(self._list[i]!:getType())
 	end
 	const nTail = self._tail
 	if nTail then
@@ -99,6 +100,8 @@ function TermTuple:get(vContext:clazz.Context, i:Number):Ret(let.Element(Self))
 		const nTail = self._tail
 		if DotsTail.is(nTail) then
 			return nTail:get(vContext, more)
+		elseif AutoTail.is(nTail) then
+			error(Exception.new("can't unpack auto dots", vContext:getNode()))
 		else
 			return self._manager:RefineTerm(self._manager.type.Nil)
 		end
