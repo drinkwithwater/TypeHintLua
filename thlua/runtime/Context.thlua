@@ -187,17 +187,15 @@ end
 -- meta items
 function Context:META_GET(
 	vNode:clazz.IAstNode,
-	vAutoTerm:clazz.UAutoTerm,
-	vKeyAutoTerm:clazz.UAutoTerm,
+	vSelfTerm:clazz.RefineTerm,
+	vKeyTerm:clazz.RefineTerm,
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
 	const nGetContext = self:newSealContext(vNode)
-	const nSelfTerm = vAutoTerm:checkRefineTerm(nGetContext)
-	const nKeyTerm = vKeyAutoTerm:checkRefineTerm(nGetContext)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	const nOkay = self:nodePcall(vNode, function()
-		nSelfTerm:foreach(function(vType, vVariableCase)
-			nKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
+		vSelfTerm:foreach(function(vType, vVariableCase)
+			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
 				local nReType = vType:meta_get(nGetContext, vKeyType)
 				if vNotnil then
 					nReType = nReType:notnilType()
@@ -215,17 +213,15 @@ end
 
 function Context:META_SET(
 	vNode:clazz.IAstNode,
-	vAutoTerm:clazz.UAutoTerm,
-	vKeyAutoTerm:clazz.UAutoTerm,
+	vSelfTerm:clazz.RefineTerm,
+	vKeyTerm:clazz.RefineTerm,
 	vValueTerm:clazz.RefineTerm
 )
 	const nSetContext = self:newSealContext(vNode)
-	const nSelfTerm = vAutoTerm:checkRefineTerm(nSetContext)
-	const nKeyTerm = vKeyAutoTerm:checkRefineTerm(nSetContext)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
-		nSelfTerm:foreach(function(vType, _)
-			nKeyTerm:foreach(function(vKeyType, _)
+		vSelfTerm:foreach(function(vType, _)
+			vKeyTerm:foreach(function(vKeyType, _)
 				vType:meta_set(nSetContext, vKeyType, vValueTerm:getType())
 			end)
 		end)
@@ -315,16 +311,15 @@ end
 
 function Context:META_CALL(
 	vNode:clazz.IAstNode,
-	vFuncAutoTerm:clazz.UAutoTerm,
+	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
 	const nNewContext = self:newSealContext(vNode)
-	const nFuncTerm = vFuncAutoTerm:checkRefineTerm(nNewContext)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
-	nFuncTerm:foreach(function(vFuncType, vVariableCase)
+	vFuncTerm:foreach(function(vFuncType, vVariableCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
 		nRegion:withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
@@ -572,47 +567,46 @@ function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:claz
 		if not nTuple:castOrIn(self, vTypeTuple) then
 			self:error("args error", vTypeTuple, nTuple)
 		end
-	else
-		for i=1, #vTermTuple do
-			const nAutoTerm = vTermTuple:get(self, i)
-			const nDstType = vTypeTuple:get(i)
-			const nSrcType = nAutoTerm:getType()
-			if not nSrcType then
-				nAutoTerm:setAutoCastType(self, nDstType)
+	end -- old code..., save it before new code is tested enough
+	for i=1, #vTermTuple do
+		const nAutoTerm = vTermTuple:get(self, i)
+		const nDstType = vTypeTuple:get(i)
+		const nSrcType = nAutoTerm:getType()
+		if not nSrcType then
+			nAutoTerm:setAutoCastType(self, nDstType)
+		else
+			if not self:castLuaType(nSrcType, nDstType) and not nDstType:containAll(nSrcType) then
+				self:error("args error when call")
+			end
+		end
+	end
+	const nTail = vTermTuple:getTail()
+	if nTail then
+		if AutoTail.is(nTail) then
+			nTail:setAutoCastTuple(vTypeTuple:select(#vTermTuple + 1))
+		else
+			const nSrcRepeatType = nTail:getRepeatType()
+			const nDstRepeatType = vTypeTuple:getRepeatType()
+			if not nDstRepeatType then
+				self:error("args error in tail")
 			else
-				if not self:castLuaType(nSrcType, nDstType) and not nDstType:containAll(nSrcType) then
-					self:error("args error when call")
+				if not nDstRepeatType:containAll(nSrcRepeatType) then
+					self:error("args error in dots")
+				end
+			end
+			if #vTermTuple < #vTypeTuple then
+				for i=#vTermTuple + 1, #vTypeTuple do
+					if not vTypeTuple:get(i):containAll(nSrcRepeatType) then
+						self:error("args error in tail")
+					end
 				end
 			end
 		end
-		const nTail = vTermTuple:getTail()
-		if nTail then
-			if AutoTail.is(nTail) then
-				nTail:setAutoCastTuple(vTypeTuple:select(#vTermTuple + 1))
-			else
-				const nSrcRepeatType = nTail:getRepeatType()
-				const nDstRepeatType = vTypeTuple:getRepeatType()
-				if not nDstRepeatType then
-					self:error("args error in tail")
-				else
-					if not nDstRepeatType:containAll(nSrcRepeatType) then
-						self:error("args error in dots")
-					end
-				end
-				if #vTermTuple < #vTypeTuple then
-					for i=#vTermTuple + 1, #vTypeTuple do
-						if not vTypeTuple:get(i):containAll(nSrcRepeatType) then
-							self:error("args error in tail")
-						end
-					end
-				end
-			end
-		else
-			if #vTermTuple < #vTypeTuple then
-				for i=#vTermTuple + 1, #vTypeTuple do
-					if not vTypeTuple:get(i):checkAtomUnion():isNilable() then
-						self:error("args error for args not enough")
-					end
+	else
+		if #vTermTuple < #vTypeTuple then
+			for i=#vTermTuple + 1, #vTypeTuple do
+				if not vTypeTuple:get(i):checkAtomUnion():isNilable() then
+					self:error("args error for args not enough")
 				end
 			end
 		end

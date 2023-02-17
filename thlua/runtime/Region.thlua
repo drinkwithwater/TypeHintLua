@@ -59,14 +59,23 @@ function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTer
 	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
 end
 
-function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol):Ret(clazz.UAutoTerm)
+function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
 	local nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(vSymbol)
 	elseif ImmutVariable.is(vSymbol) then
 		return nBranch:immutGet(vSymbol)
 	else
-		return vSymbol
+		const nTerm = vSymbol:getRefineTerm()
+		if nTerm then
+			return nBranch:immutGet(nTerm:attachImmutVariable())
+		else
+			if not vAllowAuto then
+				error(Exception.new("auto term can't be used here", vNode))
+			else
+				return vSymbol
+			end
+		end
 	end
 end
 

@@ -335,14 +335,22 @@ local TagToVisiting:RealTraverser = {
 		if node.isSet then
 			return symbol
 		else
-			const nParent = node.parent!
+			local nParent = node.parent!
+			while nParent.tag == "Paren" and not nParent.hintShort do
+				nParent = nParent.parent!
+			end
 			const nParentTag = nParent.tag
 			const nParentParentTag = nParent.parent!.tag
-			const nSymbolGet = self:rgnWrap(node).SYMBOL_GET(symbol)
-			if nParentTag == "ExprList" and (nParentParentTag == "Invoke" or nParentParentTag == "Call") then
-				-- lazy eval
-				return self:fnRetWrap(nSymbolGet)
+			if nParentTag == "ExprList" then
+				const nSymbolGet = self:rgnWrap(node).SYMBOL_GET(symbol, "true")
+				if nParentParentTag == "Invoke" or nParentParentTag == "Call" then
+					-- lazy eval
+					return self:fnRetWrap(nSymbolGet)
+				else
+					return nSymbolGet
+				end
 			else
+				const nSymbolGet = self:rgnWrap(node).SYMBOL_GET(symbol, "false")
 				return nSymbolGet
 			end
 		end
