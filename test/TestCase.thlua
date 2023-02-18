@@ -1,0 +1,85 @@
+
+const Runtime = require "thlua.runtime.Runtime"
+const CodeEnv = require "thlua.code.CodeEnv"
+(@do
+	let.test = namespace()
+	let.clazz = import("thlua.class").clazz
+	let.ILoader = import("thlua.runtime.Runtime").ILoader
+end)
+
+const TestCase = {}
+TestCase.__index = TestCase
+
+function:class(test.Case) TestCase.new(vScript:String, vLineList:List(Integer)):impl(let.ILoader)
+	const self = setmetatable({.class
+		_runtime = nil @ clazz.Runtime,
+		_script = vScript,
+		_lineToResult = {} @ Dict(Integer, Union(String, Integer)),
+	}, TestCase)
+	for _, line in pairs(vLineList) do
+		self._lineToResult[line] = 0
+	end
+	self._runtime = Runtime.new(self, "[test]")
+	return self
+end
+
+function TestCase:getRuntime():Ret(clazz.Runtime)
+	return self._runtime
+end
+
+function TestCase.expect(vScript:String, vLineList:List(Integer))
+	const case = TestCase.new(vScript, vLineList)
+	const nRuntime = case:getRuntime()
+	const oldprint = print
+	do.pass
+		print = function(...)
+		end
+	end
+	nRuntime:main()
+	print = oldprint
+	const nLineToResult = case._lineToResult
+	for _, nDiaList in pairs(nRuntime:getAllDiagnostic()) do
+		for _, nDiagnostic in pairs(nDiaList) do
+			const nLine = nDiagnostic.node.l
+			const nResult = nLineToResult[nLine]
+			if type(nResult) == "number" then
+				nLineToResult[nLine] = nResult + 1
+			else
+				nLineToResult[nLine] = nDiagnostic.msg
+			end
+		end
+	end
+	const l:List(Struct {Integer, Union(Integer, String)}) = {}
+	for nLine, nResult in pairs(nLineToResult) do
+		l[#l + 1] = {nLine, nResult}
+	end
+	for _, nPair in pairs(l) do
+		const nLine, nResult = nPair[1], nPair[2]
+		if nResult == 0 then
+			print(nLine, "fail: no diagnostic")
+		elseif type(nResult) == "string" then
+			print(nLine, "fail: diagnostic unexpected", nResult)
+		else
+			print(nLine, "ok")
+		end
+	end
+end
+
+function TestCase:thluaSearch(vPath)
+	error("test case can't search path")
+end
+
+function TestCase:thluaParseFile(vFileName)
+	if vFileName == "[test]" then
+    const nCodeEnv = CodeEnv.new(self._script, vFileName, -1)
+    local ok, err = nCodeEnv:checkOkay()
+    if not ok then
+        error(err)
+    end
+    return nCodeEnv
+	else
+		error("test case can only parse its script")
+	end
+end
+
+return TestCase

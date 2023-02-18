@@ -9,9 +9,13 @@ local boot = {}
 
 boot.path = package.path:gsub("[.]lua", ".thlua")
 
+function boot.compile(chunk, chunkName)
+	local parser = ParseEnv.new(chunk, chunkName or "[anonymous script]")
+	return parser:genLuaCode()
+end
+
 function boot.load(chunk, chunkName, ...)
-	local parser = ParseEnv.new(chunk, chunkName)
-	local luaCode = parser:genLuaCode()
+	local luaCode = boot.compile(chunk, chunkName)
 	local f, err3 = load(luaCode, chunkName, ...)
 	if not f then
 		error(err3)
@@ -36,16 +40,27 @@ function boot.searcher(name)
 	return boot.load(thluaCode, name)
 end
 
-table.insert(package.searchers, boot.searcher)
+local patch = false
 
+function boot.patch()
+	if not patch then
+		table.insert(package.searchers, boot.searcher)
+		patch = true
+	end
+end
+
+-- start check from a main file
 function boot.runCheck(vMainFileName)
+	boot.patch()
 	local Runtime = require "thlua.runtime.Runtime"
 	local thloader = require "thlua.code.thloader"
 	local nRuntime = Runtime.new(thloader, vMainFileName)
 	assert(nRuntime:main())
 end
 
+-- run language server
 function boot.runServer(vFileOpen)
+	boot.patch()
 	local Client = require "thlua.server.Client"
 	local client = Client.new(vFileOpen)
 
