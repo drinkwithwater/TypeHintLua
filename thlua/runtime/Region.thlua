@@ -116,15 +116,7 @@ function Region:PARLIST_UNPACK(
 		local nPut:OrNil(clazz.UAutoTerm) = nil
 		if nHintType then
 			-- if hint then cast auto or check type contain
-			const nArgType = nAutoTerm:getType()
-			if not nArgType then
-				nAutoTerm:setAutoCastType(self._context, nHintType)
-			else
-				if not self._context:castLuaType(nArgType, nHintType) and not nHintType:containAll(nArgType) then
-					self._context:error("parameter's type not match when open call")
-				end
-			end
-			nPut = self._context:RefineTerm(nHintType)
+			nPut = self._context:assignTermToType(nAutoTerm, nHintType)
 		else
 			-- if no hint, just return, maybe return auto
 			nPut = nAutoTerm
@@ -135,6 +127,19 @@ function Region:PARLIST_UNPACK(
 	end
 	const nTail = vTermTuple:getTail()
 	if not AutoTail.is(nTail) then
+		for i=#vTermTuple+1, vParNum do
+			const nAutoTerm = vTermTuple:get(self._context, i)
+			const nHintType = vOpenHintTypeList[i]
+			local nPut:OrNil(clazz.UAutoTerm) = nil
+			if nHintType then
+				-- if hint then cast auto or check type contain
+				nPut = self._context:assignTermToType(nAutoTerm, nHintType)
+			else
+				-- if no hint, just return, maybe return auto
+				nPut = nAutoTerm
+			end
+			l[i] = nPut
+		end
 		if vUseDots then
 			-- if unpack with dots then select
 			l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)

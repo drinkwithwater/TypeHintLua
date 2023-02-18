@@ -571,14 +571,7 @@ function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:claz
 	for i=1, #vTermTuple do
 		const nAutoTerm = vTermTuple:get(self, i)
 		const nDstType = vTypeTuple:get(i)
-		const nSrcType = nAutoTerm:getType()
-		if not nSrcType then
-			nAutoTerm:setAutoCastType(self, nDstType)
-		else
-			if not self:castLuaType(nSrcType, nDstType) and not nDstType:containAll(nSrcType) then
-				self:error("args error when call")
-			end
-		end
+		self:assignTermToType(nAutoTerm, nDstType)
 	end
 	const nTail = vTermTuple:getTail()
 	if nTail then
@@ -611,6 +604,18 @@ function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:claz
 			end
 		end
 	end
+end
+
+function Context:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.UAutoTerm)
+	const nSrcType = vAutoTerm:getType()
+	if not nSrcType then
+		vAutoTerm:setAutoCastType(self, vDstType)
+	else
+		if not self:castLuaType(nSrcType, vDstType) and not vDstType:containAll(nSrcType) then
+			self:error("assign but type not match")
+		end
+	end
+	return self:RefineTerm(vDstType)
 end
 
 function Context:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
