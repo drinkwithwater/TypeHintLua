@@ -24,6 +24,8 @@ function:class(clazz.OpenTableCom) OpenTableCom.new(vManager:clazz.TypeManager,
 		_fieldDict={}@Dict(clazz.IAtomType, let.OpenTableField),
 		_indexType=false@OrFalse(clazz.IAtomType),
 		_newIndexType=false@OrFalse(clazz.IAtomType),
+		_nextValue=false@Union(False, clazz.UAtomUnion),
+		_nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion)),
 		_luaTable=vLuaTable,
 	}, OpenTableCom)
 	return self
@@ -56,10 +58,12 @@ function OpenTableCom:meta_set(vContext:clazz.Context, vKeyType:clazz.IAtomType,
 	end
 	const nKeyIncludeType = self._keyType:containAtom(vKeyType)
 	if nKeyIncludeType then
-		self._fieldDict[nKeyIncludeType] = {
-			valueType = vValueType,
-			lockCtx = false
-		}
+		const nField = self._fieldDict[nKeyIncludeType]!
+		if nField.lockCtx then
+			vContext:error("field is locked"..tostring(vKeyType))
+		else
+			nField.valueType = vValueType
+		end
 	else
 		const nNewIndexType = self._newIndexType
 		if nNewIndexType then
@@ -139,7 +143,29 @@ function OpenTableCom:setMetaIndex(vContext:clazz.Context, vIndexType:OrFalse(cl
 end
 
 function OpenTableCom:native_next(vContext, vInitType)
-	-- TODO
+	local nNextDict = self._nextDict
+	local nValueType = self._nextValue
+	if not nNextDict or not nValueType then
+		nNextDict = {}
+		for nKeyAtom, nField in pairs(self._fieldDict) do
+			nNextDict[nKeyAtom] = nField.valueType
+		end
+		local nNil = self._manager.type.Nil
+		local nCollection = self._manager:TypeCollection()
+		for nOneKey, nOneField in pairs(self._fieldDict) do
+			const nValueType = nOneField.valueType
+			const nNotnilType = nValueType:notnilType()
+			nNextDict[nOneKey] = nNotnilType
+			nCollection:put(nNotnilType)
+			nOneField.lockCtx = vContext
+		end
+		nCollection:put(nNil)
+		nValueType = nCollection:mergeToAtomUnion()
+		nNextDict[nNil] = nNil
+		self._nextValue = nValueType
+		self._nextDict = nNextDict
+	end
+	return nValueType, nNextDict
 end
 
 function OpenTableCom:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
