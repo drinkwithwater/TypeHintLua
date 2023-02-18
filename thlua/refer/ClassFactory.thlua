@@ -14,7 +14,7 @@ function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, 
 		_waitStartSid=true@Union(Boolean, Integer),
 		_namedRefer=vRefer,
 		_typeFn=vTypeFn@OrFalse(clazz.TypeFunction),
-		_clazzType=false@OrFalse(clazz.LuaTable),
+		_classType=false@OrFalse(clazz.LuaTable),
 		_waitClassCoToSid={} @ Dict(Thread, Integer),
 		_waitBuildCoToSid={} @ OrFalse(Dict(Thread, Integer)),
 		_waitFuncCoToSid={} @ Dict(Thread, Integer),
@@ -33,7 +33,7 @@ function ClassFactory:getToString():Ret(String)
 end
 
 function ClassFactory:getResultType():Ret(OrFalse(clazz.LuaTable))
-	return self._clazzType
+	return self._classType
 end
 
 function ClassFactory:meta_call(vContext:clazz.Context, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
@@ -55,13 +55,13 @@ function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 end
 
 function ClassFactory:getTypeAwait():Ret(clazz.UAtomUnion)
-	if not self._clazzType then
+	if not self._classType then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
 		self._waitClassCoToSid[nCurCo] = nSessionId
 		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
 	end
-	return (assert(self._clazzType, "result type not setted"))
+	return (assert(self._classType, "result type not setted"))
 end
 
 function ClassFactory:getMayRecursive():Ret(Boolean)
@@ -69,13 +69,13 @@ function ClassFactory:getMayRecursive():Ret(Boolean)
 end
 
 function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
-	if not self._clazzType then
+	if not self._classType then
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
 		self._waitClassCoToSid[nCurCo] = nSessionId
 		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
 	end
-	const nClassType = assert(self._clazzType, "clazz type is not setted")
+	const nClassType = assert(self._classType, "clazz type is not setted")
 	return {nClassType}
 end
 
@@ -85,7 +85,7 @@ function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuil
 	-- step 2. create table
 	const nNewTable = self._manager:LuaTable()
 	nNewTable:initByClassCom(self, nInterface)
-	self._clazzType = nNewTable
+	self._classType = nNewTable
 	-- nClassType:linkNamedReference(self)
 	for co, sid in pairs(self._waitClassCoToSid) do
 		self._manager:coWakeup(co, sid)

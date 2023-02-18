@@ -1,0 +1,66 @@
+const _class={}
+
+(@do
+	let.clazz = namespace()
+end)
+
+const META_FIELD = setmetatable({.open
+	__tostring=1,
+	__len=1,
+}, {
+	__index=function.open(a,b,c)
+		return nil
+	end
+})
+
+const function.open class(name, super, interface)
+	const class_type={.open}
+	class_type.ctor=false
+	class_type.super=super
+	class_type.new=function:class(clazz[$name]) (...):impl(Cond($interface, $interface, AnyObject))
+			const obj={.class}
+			do
+				const function.open create(c,...)
+					if c.super then
+						create(c.super,...)
+					end
+					if c.ctor then
+						c.ctor(obj,...)
+					end
+				end
+
+				create(class_type,...)
+			end
+			setmetatable(obj, class_type.meta)
+			return obj
+		end
+	const vtbl={.open}
+	const meta={.open
+		__index=vtbl
+	}
+	class_type.is=function.open(v):isguard(clazz[$name])
+		return getmetatable(vType) == vtbl
+	end
+	class_type.meta=meta
+	_class[class_type]=vtbl
+
+	setmetatable(class_type,{__newindex=
+		function.open(t,k,v)
+			if META_FIELD[k] then
+				meta[k] = v
+			else
+				vtbl[k]=v
+			end
+		end
+	})
+
+	if super then
+		for k,v in pairs(_class[super]) do
+			vtbl[k] = v
+		end
+	end
+
+	return class_type
+end
+
+return class

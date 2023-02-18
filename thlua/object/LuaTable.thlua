@@ -30,7 +30,7 @@ function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:
 		id=vManager:genTypeId(),
 		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
 		_tableCom=nil@clazz.UTableCom,
-		_clazzCom=false@OrFalse(clazz.ClassFactory),
+		_classCom=false@OrFalse(clazz.ClassFactory),
 		_objectType=false@OrFalse(clazz.MetaObject),
 	}, LuaTable)
 	if vIsOpen then
@@ -48,7 +48,7 @@ end
 function LuaTable:initByClassCom(vFnCom:clazz.ClassFactory, vInterface:clazz.MetaObject)
 	const nTableCom = self._tableCom
 	if DefaultTableCom.is(nTableCom) then
-		self._clazzCom = vFnCom
+		self._classCom = vFnCom
 		self._objectType = vInterface
 		nTableCom:setInterface(vInterface)
 	else
@@ -65,7 +65,7 @@ function LuaTable:getTableCom():Ret(clazz.UTableCom)
 end
 
 function LuaTable:_lockOrWaitClass(vContext:clazz.Context)
-	const nClassCom = self._clazzCom
+	const nClassCom = self._classCom
 	if nClassCom then
 		nClassCom:waitBuild()
 	else
@@ -138,7 +138,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 		not nIndexType:isNever() and nIndexType or false,
 		not nNewIndexType:isNever() and nNewIndexType or false)
 	-- 4. set clazz com
-	const nClassCom = self._clazzCom
+	const nClassCom = self._classCom
 	if nClassCom then
 		nClassCom:onSetMetaTable()
 	end
@@ -174,7 +174,7 @@ end
 
 function LuaTable:_checkComOrStruct(vContext:clazz.Context):Ret(clazz.IMetaNative)
 	self:_lockOrWaitClass(vContext)
-	if self._clazzCom then
+	if self._classCom then
 		return self._tableCom
 	else
 		const nCastStruct = self._objectType
@@ -188,7 +188,7 @@ function LuaTable:_checkComOrStruct(vContext:clazz.Context):Ret(clazz.IMetaNativ
 end
 
 function LuaTable:tget(vKeyType)
-	const nClassCom = self._clazzCom
+	const nClassCom = self._classCom
 	if nClassCom then
 		nClassCom:waitBuild()
 	end
@@ -258,7 +258,7 @@ function LuaTable:assumeIntersectAtom(vAssumeSet, vType)
 end
 
 function LuaTable:cast(vContext:clazz.Context, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
-	if self._clazzCom then
+	if self._classCom then
 		return false
 	end
 	const nOldStruct = self._objectType
@@ -295,7 +295,7 @@ end
 
 -- called when struct contain
 function LuaTable:checkBaseObjectType()
-	if self._clazzCom then
+	if self._classCom then
 		return (assert(self._objectType))
 	end
 	const nStruct = self._objectType
