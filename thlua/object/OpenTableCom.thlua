@@ -22,6 +22,8 @@ function:class(clazz.OpenTableCom) OpenTableCom.new(vManager:clazz.TypeManager,
 		_manager=vManager,
 		_keyType=vManager.type.Never @clazz.UAtomUnion,
 		_fieldDict={}@Dict(clazz.IAtomType, let.OpenTableField),
+		_indexType=false@OrFalse(clazz.IAtomType),
+		_newIndexType=false@OrFalse(clazz.IAtomType),
 		_luaTable=vLuaTable,
 	}, OpenTableCom)
 	return self
@@ -58,6 +60,13 @@ function OpenTableCom:meta_set(vContext:clazz.Context, vKeyType:clazz.IAtomType,
 			valueType = vValueType,
 			lockCtx = false
 		}
+	else
+		const nNewIndexType = self._newIndexType
+		if nNewIndexType then
+			nNewIndexType:triggerAsMetaNewIndex(vContext, vContext:RefineTerm(self._luaTable),
+				vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType))
+			return
+		end
 	end
 	self:native_rawset(vContext, vKeyType, vValueType)
 end
@@ -70,6 +79,11 @@ function OpenTableCom:meta_get(vContext, vKeyType)
 		nField.lockCtx = vContext
 		return nField.valueType
 	else
+		const nIndexType = self._indexType
+		if nIndexType then
+			const nType = nIndexType:triggerAsMetaIndex(vContext, vContext:RefineTerm(self._luaTable), vContext:RefineTerm(vKeyType)):getType()
+			return assert(nType):checkAtomUnion()
+		end
 		vContext:error("index error, key=", tostring(vKeyType))
 		return self._manager.type.Nil
 	end
@@ -108,7 +122,20 @@ function OpenTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 end
 
 function OpenTableCom:setMetaIndex(vContext:clazz.Context, vIndexType:OrFalse(clazz.UAtomUnion), vNewIndexType:OrFalse(clazz.UAtomUnion))
-	-- TODO
+	if vIndexType then
+		if not vIndexType:isUnion() then
+			self._indexType = vIndexType
+		else
+			vContext:error("open table's __index can't be union type")
+		end
+	end
+	if vNewIndexType then
+		if not vNewIndexType:isUnion() then
+			self._newIndexType = vNewIndexType
+		else
+			vContext:error("open table's __newindex can't be union type")
+		end
+	end
 end
 
 function OpenTableCom:native_next(vContext, vInitType)

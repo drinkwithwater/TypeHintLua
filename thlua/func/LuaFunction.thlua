@@ -66,6 +66,30 @@ function LuaFunction:detailString(v, vVerbose)
 	return "LuaFunction-"..self.name
 end
 
+function LuaFunction:triggerAsMetaIndex(vContext, vSelfTerm, vKeyTerm)
+	const nInnerFn = self._innerFn
+	if OpenFunction.is(nInnerFn) then
+		return nInnerFn:triggerAsMetaIndex(vContext, vSelfTerm, vKeyTerm)
+	elseif AutoFunction.is(nInnerFn) then
+		const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm})
+		return vContext:RefineTerm(nInnerFn:meta_call(vContext, nTermTuple):getFirstType())
+	else
+		error("this function can't called as __index")
+	end
+end
+
+function LuaFunction:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValueTerm)
+	const nInnerFn = self._innerFn
+	if OpenFunction.is(nInnerFn) then
+		nInnerFn:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValueTerm)
+	elseif AutoFunction.is(nInnerFn) then
+		const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm, vValueTerm})
+		nInnerFn:meta_call(vContext, nTermTuple)
+	else
+		error("this function can't called as __index")
+	end
+end
+
 function LuaFunction:meta_open_call(vContext:clazz.Context, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple)
 	const nInnerFn = self._innerFn
 	if OpenFunction.is(nInnerFn) then
