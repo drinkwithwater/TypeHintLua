@@ -220,6 +220,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 
 	global.string=nManager.builtin.string
 
+	global.os=native.make_os(nManager)
 	global.math=native.make_math(nManager)
 	global.debug=native.make_debug(nManager)
 	global.table=native.make_table(nManager)
@@ -303,6 +304,16 @@ function native.make_coroutine(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	}
 	local nTable = native._toTable(vManager, co)
 	nTable:setName("coroutine")
+	return nTable
+end
+
+function native.make_os(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+	const type = vManager.type
+	const string:StringToAtomUnion = {
+		clock=vManager:checkedFn():Ret(type.Number),
+	}
+	const nTable = native._toTable(vManager, string)
+	nTable:setName("os")
 	return nTable
 end
 

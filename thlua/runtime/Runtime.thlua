@@ -99,7 +99,10 @@ function Runtime:main():Ret(Boolean, Nil)
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._rootContext:TermTuple({})
 		nLuaFunc:meta_open_call(self._rootContext:newOpenContext(nLuaFunc:getNode()), nTermTuple)
+		local t1 = os.clock()
 		self._rootContext:seal()
+		local t2 = os.clock()
+		print(t2-t1)
 	end)
 end
 
@@ -209,7 +212,11 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	nGlobal.print=function(...)
 		self:nodeInfo(Node.getDebugNode(3), ...)
 	end
-	return nGlobal
+	const nRetGlobal = {}
+	for k,v in pairs(nGlobal) do
+		nRetGlobal[self._manager:Literal(k)] = v
+	end
+	return nRetGlobal
 end
 
 function Runtime:RootNamespace():Ret(clazz.Namespace)

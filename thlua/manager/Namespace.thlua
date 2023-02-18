@@ -11,7 +11,7 @@ Namespace.__index=Namespace
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	clazz.SpaceTable = Interface {
-		[String]=clazz.Reference,
+		[let.UAllType]=clazz.Reference,
 	}
 	let.StringToRefer = Dict(String, clazz.Reference)
 end)
@@ -28,9 +28,12 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 		_closed=false@Boolean,
 		_node=vNode,
 		_key=false@Union(False, String),
+		localExport=nil@clazz.SpaceTable,
+		globalExport=nil@clazz.SpaceTable,
 	}, Namespace)
 	self.localExport=(setmetatable({}, {
-		__index=function(_,k:String)
+		__index=function(_,k:Any)
+			k = self:assertSpaceKeyType(k)
 			const nNode = Node.getDebugNode(3)
 			local rawgetV = rawget(self._key2type, k)
 			if rawgetV ~= nil then
@@ -51,7 +54,8 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 			self._key2type[k] = refer
 			return refer
 		end,
-		__newindex=function(_,k:String,newV)
+		__newindex=function(_,k:Any,newV)
+			k = self:assertSpaceKeyType(k)
 			if self._closed then
 				throw("namespace closed, can't create key="..tostring(k))
 			end
@@ -85,7 +89,8 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 		__self=self,
 	})) @ clazz.SpaceTable
 	self.globalExport=(setmetatable({}, {
-		__index=function(_,k:String)
+		__index=function(_,k:Any)
+			k = self:assertSpaceKeyType(k)
 			local v = self._key2type[k]
 			if v ~= nil then
 				return v
@@ -100,6 +105,16 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 		end,
 	})) @ clazz.SpaceTable
 	return self
+end
+
+function Namespace:assertSpaceKeyType(vKey:Any):Ret(clazz.UAllType)
+	const nNode = Node.getDebugNode(5)
+	const nOkay, nType = self._manager:peasyToType(vKey)
+	if not nOkay then
+		error(Exception.new(nType, nNode))
+	end
+	-- TODO rm union
+	return nType
 end
 
 function Namespace:trySetKey(vKey:String)

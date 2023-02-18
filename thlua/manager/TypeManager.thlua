@@ -247,21 +247,30 @@ function.pass TypeManager:easyToTypeList(...:Any):Ret(List(clazz.UAllType))
 	return l
 end
 
-function.pass TypeManager:easyToType(vData:Any):Ret(clazz.UAllType)
+function.pass TypeManager:peasyToType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
 		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] or meta == Reference then
-			return vData
+			return true, vData
 		else
-			error("to type failed")
+			return false, "to type failed"
 		end
 	elseif t == "number" or t == "string" then
-		return self:Literal(vData)
+		return true, self:Literal(vData)
 	elseif t == "boolean" then
-		return self:Boolean(vData)
+		return true, self:Boolean(vData)
 	else
-		error("easyToType("..t..") invalid")
+		return false, "easyToType("..t..") invalid"
+	end
+end
+
+function TypeManager:easyToType(vData:Any):Ret(clazz.UAllType)
+	const nOkay, nType = self:peasyToType(vData)
+	if nOkay then
+		return nType
+	else
+		error(nType)
 	end
 end
 
@@ -520,10 +529,10 @@ function TypeManager:Boolean(vValue:Boolean):Ret(clazz.BooleanLiteral)
 end
 
 function TypeManager:Literal(vValue:Union(String, Number)):Ret(Union(clazz.NumberLiteral,clazz.StringLiteral))
-	local t = type(vValue)
-	local nLiteralDict = self._literalDict
+	const nLiteralDict = self._literalDict
 	local nLiteralType = nLiteralDict[vValue]
 	if not nLiteralType then
+		local t = type(vValue)
 		if t == "number" then
 			nLiteralType = NumberLiteral.new(self, vValue)
 			nLiteralDict[vValue] = nLiteralType
