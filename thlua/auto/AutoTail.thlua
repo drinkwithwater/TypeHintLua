@@ -1,4 +1,6 @@
 
+const AutoHolder = require "thlua.auto.AutoHolder"
+
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const AutoTail = {}
@@ -7,9 +9,24 @@ AutoTail.__index = AutoTail
 function:class(clazz.AutoTail) AutoTail.new(vManager:clazz.TypeManager)
 	const self = setmetatable({.class
 		_manager=vManager,
+		_holderList={}@List(clazz.AutoHolder),
+		_sealTail=false@OrFalse(True, clazz.AutoTail, clazz.DotsTail),
 		_typeTuple=false@OrFalse(clazz.UTypeTuple)
 	}, AutoTail)
 	return self
+end
+
+function AutoTail:getMore(vContext:clazz.Context, vMore:Integer):Ret(clazz.AutoHolder)
+	const nList = self._holderList
+	const nHolder = nList[vMore]
+	if nHolder then
+		return nHolder
+	else
+		for i=#nList + 1, vMore do
+			nList[i] = AutoHolder.new()
+		end
+		return nList[vMore]!
+	end
 end
 
 function AutoTail:setAutoCastTuple(vTuple:clazz.UTypeTuple)

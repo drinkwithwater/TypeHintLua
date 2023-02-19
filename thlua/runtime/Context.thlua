@@ -568,7 +568,7 @@ function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:claz
 			self:error("args error", vTypeTuple, nTuple)
 		end
 	end -- old code..., save it before new code is tested enough
-	for i=1, #vTermTuple do
+	for i=1, math.max(#vTermTuple, #vTypeTuple) do
 		const nAutoTerm = vTermTuple:get(self, i)
 		const nDstType = vTypeTuple:get(i)
 		self:assignTermToType(nAutoTerm, nDstType)
@@ -585,21 +585,6 @@ function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:claz
 			else
 				if not nDstRepeatType:containAll(nSrcRepeatType) then
 					self:error("args error in dots")
-				end
-			end
-			if #vTermTuple < #vTypeTuple then
-				for i=#vTermTuple + 1, #vTypeTuple do
-					if not vTypeTuple:get(i):containAll(nSrcRepeatType) then
-						self:error("args error in tail")
-					end
-				end
-			end
-		end
-	else
-		if #vTermTuple < #vTypeTuple then
-			for i=#vTermTuple + 1, #vTypeTuple do
-				if not vTypeTuple:get(i):checkAtomUnion():isNilable() then
-					self:error("args error for args not enough")
 				end
 			end
 		end

@@ -18,15 +18,16 @@ function DotsTail:getRepeatType():Ret(clazz.UAllType)
 	return self._repeatType
 end
 
-function DotsTail:get(vContext:clazz.Context, i:Integer):Ret(clazz.RefineTerm)
+function DotsTail:getMore(vContext:clazz.Context, vMore:Integer):Ret(clazz.RefineTerm)
 	const nTermList = self._termList
-	const nTerm = nTermList[i]
+	const nTerm = nTermList[vMore]
 	if nTerm then
 		return nTerm
 	else
-		const nNewTerm = self._manager:RefineTerm(self._repeatType)
-		nTermList[i] = nNewTerm
-		return nNewTerm
+		for i=#nTermList + 1, vMore do
+			nTermList[i] = vContext:RefineTerm(self._repeatType)
+		end
+		return nTermList[vMore]!
 	end
 end
 

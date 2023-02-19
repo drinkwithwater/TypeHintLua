@@ -57,7 +57,7 @@ function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 	self._fileStateDict = {} @Dict(String, FileState)
 	self._rootContext = self:newContext(self._node, false, false)
 	self._rootContext:rootSetNamespace(self:RootNamespace())
-	self._lineToExpectResult = {} @ Dict(Integer, Union(String, Integer))
+	self._lineToExpectResult = false @ OrFalse(Dict(Integer, Union(String, Integer)))
 	return self
 end
 
@@ -163,6 +163,9 @@ end
 
 function Runtime:diffTestExpect()
 	const nLineToResult = self._lineToExpectResult
+	if not nLineToResult then
+		return
+	end
 	for _, nDiaList in pairs(self:getAllDiagnostic()) do
 		for _, nDiagnostic in pairs(nDiaList) do
 			const nLine = nDiagnostic.node.l
@@ -244,8 +247,10 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 		self:nodeInfo(Node.getDebugNode(3), ...)
 	end
 	nGlobal.debug.expect=function(...)
+		const t:Dict(Integer, Union(String, Integer)) = {}
+		self._lineToExpectResult = t
 		for _, nLine in pairs({...}) do
-			self._lineToExpectResult[nLine] = 0
+			t[nLine] = 0
 		end
 	end
 	const nRetGlobal = {}

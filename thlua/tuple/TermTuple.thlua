@@ -93,15 +93,13 @@ function TermTuple:checkFixed(vContext:clazz.Context, i:Number):Ret(clazz.Refine
 end
 
 function TermTuple:get(vContext:clazz.Context, i:Number):Ret(let.Element(Self))
-	const more = i - #self
-	if more <= 0 then
+	const nMore = i - #self
+	if nMore <= 0 then
 		return self._list[i]!
 	else
 		const nTail = self._tail
-		if DotsTail.is(nTail) then
-			return nTail:get(vContext, more)
-		elseif AutoTail.is(nTail) then
-			error(Exception.new("can't unpack auto dots", vContext:getNode()))
+		if nTail then
+			return nTail:getMore(vContext, nMore)
 		else
 			return self._manager:RefineTerm(self._manager.type.Nil)
 		end
