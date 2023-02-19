@@ -561,6 +561,39 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 	end
 end
 
+function Context:matchArgTermToParType(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vTypeList:List(OrFalse(clazz.UAllType)), -- false means auto
+	vDots:OrFalse(clazz.AutoTail, clazz.UAllType) -- false means no dots, type is nilable dots type
+):Ret(List(Union(clazz.UAutoTerm, clazz.UTermTuple)))
+	const nNamedTermList:List(clazz.UAutoTerm) = {}
+	const nTailTermList:List(clazz.UAutoTerm) = {}
+	for i=1, #vTermTuple do
+		const nAutoTerm = vTermTuple:get(self, i)
+		local nHintType = vTypeList[i]
+		const nMore = i-#vTypeList
+		if nMore > 0 then
+			if AutoTail.is(vDots) then
+				vDots:setMore(self, nMore, nAutoTerm)
+			elseif vDots then
+				nHintType = vDots
+			else
+				nHintType = self._manager.type.Nil
+			end
+		end
+		const nPut = nHintType and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
+		if nMore <= 0 then
+			nNamedTermList[i] = nPut
+		else
+			nTailTermList[nMore] = nPut
+		end
+	end
+	for i=#vTermTuple + 1, #vTypeList do
+	end
+	return {}
+end
+
 function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:clazz.UTypeTuple)
 	if false then -- TermTuple.isFixed(vTermTuple) then
 		const nTuple = vTermTuple:checkTypeTuple()

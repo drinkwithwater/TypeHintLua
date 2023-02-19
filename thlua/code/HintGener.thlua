@@ -629,14 +629,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nIsVararg = nLastDots and true or false
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
-			" local ", self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-				return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "____vDOTS"
-			end, ","),
-			"=" ,
+			" local ____vList,____vDOTS=" ,
 			self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openHintArgs", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
-					return self:visitIdentDef(vParNode, "____v_"..vParNode[1]..vParNode.index, "nil")
+					return self:visitIdentDef(vParNode, "____vList["..i.."]", "nil")
 				else
 					return ""
 				end

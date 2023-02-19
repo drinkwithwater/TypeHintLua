@@ -88,12 +88,12 @@ function Region:PARLIST_UNPACK(
 	vOpenHintTypeList:OrFalse(List(OrFalse(clazz.UAllType))),
 	vParNum:Number,
 	vUseDots:Boolean
-):RetDots(Union(clazz.UAutoTerm, clazz.UTermTuple))
-	const l:List(Union(clazz.UAutoTerm, clazz.UTermTuple)) = {}
+):RetDots(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
+	const l:List(clazz.UAutoTerm) = {}
 	if not vOpenHintTypeList then
 		assert(vParNum == #vTermTuple)
 		if vUseDots then
-			assert(vTermTuple:getTail(), "")
+			assert(vTermTuple:getTail())
 		else
 			assert(not vTermTuple:getTail())
 		end
@@ -101,9 +101,10 @@ function Region:PARLIST_UNPACK(
 			l[i] = vTermTuple:get(self._context, i)
 		end
 		if vUseDots then
-			l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)
+			return l, vTermTuple:select(self._context, vParNum + 1)
+		else
+			return l, false
 		end
-		return table.unpack(l)
 	end
 	-- open call unpack
 	assert(vParNum == #vOpenHintTypeList)
@@ -142,7 +143,9 @@ function Region:PARLIST_UNPACK(
 		end
 		if vUseDots then
 			-- if unpack with dots then select
-			l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)
+			return l, vTermTuple:select(self._context, vParNum + 1)
+		else
+			return l
 		end
 	else
 		if not vUseDots then
@@ -156,15 +159,15 @@ function Region:PARLIST_UNPACK(
 				l[i] = self._context:RefineTerm(nHintType)
 			end
 			nTail:setAutoCastTuple(self._context:getTypeManager():TypeTuple(vNode, table.unpack(nTypeList)))
+			return l, false
 		else
 			if vParNum > #vTermTuple then
 				error(Exception.new("unpack auto dots in par dots, TODO", vNode))
 			else
-				l[vParNum + 1] = vTermTuple:select(self._context, vParNum + 1)
+				return l, vTermTuple:select(self._context, vParNum + 1)
 			end
 		end
 	end
-	return table.unpack(l)
 end
 
 function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
