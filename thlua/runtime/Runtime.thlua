@@ -57,6 +57,7 @@ function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 	self._fileStateDict = {} @Dict(String, FileState)
 	self._rootContext = self:newContext(self._node, false, false)
 	self._rootContext:rootSetNamespace(self:RootNamespace())
+	self._lineToExpectResult = {} @ Dict(Integer, Union(String, Integer))
 	return self
 end
 
@@ -94,7 +95,7 @@ function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 end
 
 function Runtime:main():Ret(Boolean, Nil)
-	return pcall(function():Ret()
+	const a,b = pcall(function():Ret()
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._rootContext:TermTuple({})
 		nLuaFunc:meta_open_call(self._rootContext:newOpenContext(nLuaFunc:getNode()), nTermTuple)
@@ -103,6 +104,8 @@ function Runtime:main():Ret(Boolean, Nil)
 		local t2 = os.clock()
 		print(t2-t1)
 	end)
+	self:diffTestExpect()
+	return a,b
 end
 
 function Runtime:newContext(vApplyNode:clazz.IAstNode, vSealContext:OrFalse(clazz.Context), vParentContext:OrFalse(clazz.Context)):Ret(clazz.Context)
@@ -158,6 +161,35 @@ function Runtime:TreeNamespace():Ret(clazz.Namespace)
 	return nSpace
 end
 
+function Runtime:diffTestExpect()
+	const nLineToResult = self._lineToExpectResult
+	for _, nDiaList in pairs(self:getAllDiagnostic()) do
+		for _, nDiagnostic in pairs(nDiaList) do
+			const nLine = nDiagnostic.node.l
+			const nResult = nLineToResult[nLine]
+			if type(nResult) == "number" then
+				nLineToResult[nLine] = nResult + 1
+			else
+				nLineToResult[nLine] = nDiagnostic.msg
+			end
+		end
+	end
+	const l:List(Struct {Integer, Union(Integer, String)}) = {}
+	for nLine, nResult in pairs(nLineToResult) do
+		l[#l + 1] = {nLine, nResult}
+	end
+	for _, nPair in pairs(l) do
+		const nLine, nResult = nPair[1], nPair[2]
+		if nResult == 0 then
+			print(nLine, "fail: no diagnostic")
+		elseif type(nResult) == "string" then
+			print(nLine, "fail: diagnostic unexpected", nResult)
+		else
+			print(nLine, "ok")
+		end
+	end
+end
+
 function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	local nGlobal = {}
 	for k,v in pairs(self._manager.type) do
@@ -210,6 +242,11 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	end
 	nGlobal.print=function(...)
 		self:nodeInfo(Node.getDebugNode(3), ...)
+	end
+	nGlobal.debug.expect=function(...)
+		for _, nLine in pairs({...}) do
+			self._lineToExpectResult[nLine] = 0
+		end
 	end
 	const nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
