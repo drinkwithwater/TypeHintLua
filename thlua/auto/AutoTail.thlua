@@ -1,5 +1,6 @@
 
 const AutoHolder = require "thlua.auto.AutoHolder"
+const DotsTail = require "thlua.tuple.DotsTail"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
@@ -14,6 +15,18 @@ function:class(clazz.AutoTail) AutoTail.new(vManager:clazz.TypeManager)
 		_typeTuple=false@OrFalse(clazz.UTypeTuple)
 	}, AutoTail)
 	return self
+end
+
+-- return seal state, true means seal with no dots, type means seal with dotsType, false means not sealed
+function AutoTail:getSealState():Ret(OrFalse(True, clazz.UAllType))
+	const nSealTail = self._sealTail
+	if DotsTail.is(nSealTail) then
+		return nSealTail:getRepeatType()
+	elseif AutoTail.is(nSealTail) then
+		return nSealTail:getSealState()
+	else
+		return nSealTail
+	end
 end
 
 function AutoTail:getMore(vContext:clazz.Context, vMore:Integer):Ret(clazz.UAutoTerm)
@@ -34,7 +47,19 @@ function AutoTail:setMore(vContext:clazz.Context, vMore:Integer, vAutoTerm:clazz
 	nList[vMore] = vAutoTerm
 end
 
+function AutoTail:toOpenAutoTailFrom(vContext:clazz.Context, vFrom:Integer):Ret(clazz.AutoTail)
+	if vFrom == 1 then
+		return self
+	else
+		-- TODO
+	end
+end
+
+function AutoTail:sealWithTail(vContext:clazz.Context, vSealTail:OrFalse(True, clazz.UAllType))
+end
+
 function AutoTail:setAutoCastTuple(vTuple:clazz.UTypeTuple)
+	-- error("set auto cast tuple TODO")
 	self._typeTuple = vTuple
 end
 

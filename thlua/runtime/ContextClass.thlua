@@ -1,4 +1,5 @@
 
+const AutoTail = require "thlua.auto.AutoTail"
 const DotsTail = require "thlua.tuple.DotsTail"
 const TermTuple = require "thlua.tuple.TermTuple"
 const AutoHolder = require "thlua.auto.AutoHolder"
@@ -40,8 +41,22 @@ const function.open ContextClass()
 		end
 	end
 
-	function Context:AutoTermTuple(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.AutoTermTuple)
-		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+	function Context:UTermTuple(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.UTermTuple)
+		if AutoTail.is(vTail) then
+			return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+		else
+			local nHasAuto = false
+			for _, v in ipairs(vTermList) do
+				if AutoHolder.is(v) then
+					nHasAuto = true
+				end
+			end
+			if nHasAuto then
+				return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+			else
+				return TermTuple.new@<false>(self, false, vTermList @ List(clazz.RefineTerm), vTail or false, false)
+			end
+		end
 	end
 
 	function Context:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:OrNil(False, clazz.UAllType), vTypeTuple:OrNil(clazz.UTypeTuple)):Ret(clazz.FixedTermTuple)

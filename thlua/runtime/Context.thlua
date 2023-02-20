@@ -561,37 +561,58 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 	end
 end
 
-function Context:matchArgTermToParType(
+function Context:matchTupleArgTermToParType(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
-	vTypeList:List(OrFalse(clazz.UAllType)), -- false means auto
-	vDots:OrFalse(clazz.AutoTail, clazz.UAllType) -- false means no dots, type is nilable dots type
-):Ret(List(Union(clazz.UAutoTerm, clazz.UTermTuple)))
+	vHintList:List(Union(True, clazz.UAllType)), -- true means auto in openfunction
+	vHintTail:OrFalse(True, clazz.UAllType) -- true means auto in openfunction
+):Ret(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
 	const nNamedTermList:List(clazz.UAutoTerm) = {}
 	const nTailTermList:List(clazz.UAutoTerm) = {}
 	for i=1, #vTermTuple do
 		const nAutoTerm = vTermTuple:get(self, i)
-		local nHintType = vTypeList[i]
-		const nMore = i-#vTypeList
+		local nHintType = vHintList[i]
+		const nMore = i-#vHintList
 		if nMore > 0 then
-			if AutoTail.is(vDots) then
-				vDots:setMore(self, nMore, nAutoTerm)
-			elseif vDots then
-				nHintType = vDots
+			if vHintTail then
+				if vHintTail ~= true then
+					nHintType = vHintTail
+				end
 			else
 				nHintType = self._manager.type.Nil
 			end
 		end
-		const nPut = nHintType and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
+		const nPut = (nHintType and nHintType ~= true) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
 		if nMore <= 0 then
 			nNamedTermList[i] = nPut
 		else
 			nTailTermList[nMore] = nPut
 		end
 	end
-	for i=#vTermTuple + 1, #vTypeList do
+	for i=#vTermTuple + 1, #vHintList do
+		const nAutoTerm = vTermTuple:get(self, i)
+		const nHintType = vHintList[i]!
+		nNamedTermList[i] = (nHintType ~= true) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
 	end
-	return {}
+	const nTermTail = vTermTuple:getTail()
+	if not AutoTail.is(nTermTail) then
+		if not vHintTail then
+			return nNamedTermList, false
+		elseif vHintTail == true then
+			return nNamedTermList, self:TermTupleByAppend(nTailTermList, false)
+		else
+			-- const nTail = DotsTail.new(self, vHintTail)
+			-- return nNamedTermList, self:AutoTermTuple({}, nTail)
+		end
+	else
+		local nArgRepeatType:OrNil(clazz.UAllType) = nil
+		if AutoTail.is(nTermTail) then
+			nTermTail:toOpenAutoTailFrom(self, #vTermTuple - #vHintList)
+		else
+			nArgRepeatType = nTermTail:getRepeatType()
+		end
+	end
+	return {}, false
 end
 
 function Context:matchTermTypeTuple(vTermTuple:clazz.UTermTuple, vTypeTuple:clazz.UTypeTuple)
