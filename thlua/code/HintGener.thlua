@@ -630,7 +630,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nParInBody:let.GenResult = {
 		#nParList > 0 and {
 			" local ____vList,____vDOTS=" ,
-			self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openHintArgs", tostring(nParamNum), tostring(nIsVararg)),
+			self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openParHint", tostring(nParamNum), tostring(nIsVararg)),
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
 					return self:visitIdentDef(vParNode, "____vList["..i.."]", "nil")
@@ -666,13 +666,17 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			_parFullHint=tostring(vNode.parFullHint or false),
 			_member=tostring(nIsMember),
 		}),
+		-- par maker
 			self:fnWrap("____polyArgs", nSelf)(
 				nPolyUnpack,
 				"return ",
 				self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
 					if vParNode.tag == "Dots" then
-						return "nil"
+						return {
+							"dots=",
+							nHintShort and self:fixIHintInfo(nHintShort) or "nil"
+						}
 					else
 						if i == 1 and nIsMember then
 							return "Self"
@@ -683,11 +687,13 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 				end, ", ")), ",",
 				nDotsHint or "false"
 			),
+		-- ret maker
 			self:fnWrap("____polyArgs", nSelf)(
 				nPolyUnpack,
 				"return ", nHintSuffix
 			),
-			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____openHintArgs", "____polyArgs", nSelf)(
+		-- gen function
+			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____openParHint", "____polyArgs", nSelf)(
 				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ",____bodyFn,____fn,____uv) ",
 				nPolyUnpack,
 				nParInBody,
