@@ -1,6 +1,7 @@
 
 const TestCase = require "test.TestCase"
 
+-- not open
 TestCase.go([[
 const function dosth(a:Integer)
 end
@@ -23,7 +24,8 @@ dosth()
 dosth("fdsfs") --E
 dosth(nil, 321) --E
 const function outer(...:Integer)
-	dosth(...)
+	dosth(321, ...)
+	dosth(..., 321) --E
 end
 ]])
 
@@ -32,5 +34,29 @@ const function dosth(a:String, b:Integer, ...:Integer)
 end
 dosth("fsfs", 321, 321, 321)
 dosth(321, "fsfs", 321, 321) --E
+const function outer(...:Integer)
+	dosth("fdfdsfs", ...)
+	dosth(...) --E
+	dosth("fdsfs", 321,321,321, ...)
+end
 ]])
 
+-- open
+
+TestCase.go([[
+const function.open openfn(...)
+	const function dosth(a:Integer, b:Integer)
+	end
+	dosth(...) --E
+	const function dosth(a:Integer, b:Integer, c:Integer)
+	end
+	dosth(...)
+	const function dosth(a:Integer, b:Integer, c:Integer, d:Integer)
+	end
+	dosth(...) --E
+	const function dosth(a:Integer, b:Integer, c:Integer, d:OrNil(Integer))
+	end
+	dosth(...)
+end
+openfn(1,2,3)
+]])

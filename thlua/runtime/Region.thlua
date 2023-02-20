@@ -85,7 +85,7 @@ end
 function Region:PARLIST_UNPACK(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
-	vOpenHintTypeList:OrFalse(List(OrFalse(clazz.UAllType))),
+	vOpenHintTypeList:OrFalse(List(Union(True, clazz.UAllType))),
 	vParNum:Number,
 	vUseDots:Boolean
 ):RetDots(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
@@ -109,20 +109,17 @@ function Region:PARLIST_UNPACK(
 	-- open call unpack
 	assert(vParNum == #vOpenHintTypeList)
 	for i=1, #vTermTuple do
-		local nHintType = vOpenHintTypeList[i]
-		if i > vParNum and not vUseDots then
-			nHintType = self._context:getTypeManager().type.Nil
-		end
-		const nAutoTerm = vTermTuple:get(self._context, i)
-		local nPut:OrNil(clazz.UAutoTerm) = nil
-		if nHintType then
-			-- if hint then cast auto or check type contain
-			nPut = self._context:assignTermToType(nAutoTerm, nHintType)
-		else
-			-- if no hint, just return, maybe return auto
-			nPut = nAutoTerm
-		end
 		if i <= vParNum then
+			const nAutoTerm = vTermTuple:get(self._context, i)
+			const nHintType = vOpenHintTypeList[i]!
+			local nPut:OrNil(clazz.UAutoTerm) = nil
+			if nHintType == true then
+				-- if auto hint, just return, maybe return auto
+				nPut = nAutoTerm
+			else
+				-- if hint then cast auto or check type contain
+				nPut = self._context:assignTermToType(nAutoTerm, nHintType)
+			end
 			l[i] = nPut
 		end
 	end
@@ -130,14 +127,14 @@ function Region:PARLIST_UNPACK(
 	if not AutoTail.is(nTail) then
 		for i=#vTermTuple+1, vParNum do
 			const nAutoTerm = vTermTuple:get(self._context, i)
-			const nHintType = vOpenHintTypeList[i]
+			const nHintType = vOpenHintTypeList[i]!
 			local nPut:OrNil(clazz.UAutoTerm) = nil
-			if nHintType then
+			if nHintType == true then
+				-- if auto hint, just return, maybe return auto
+				nPut = nAutoTerm
+			else
 				-- if hint then cast auto or check type contain
 				nPut = self._context:assignTermToType(nAutoTerm, nHintType)
-			else
-				-- if no hint, just return, maybe return auto
-				nPut = nAutoTerm
 			end
 			l[i] = nPut
 		end
@@ -151,8 +148,8 @@ function Region:PARLIST_UNPACK(
 		if not vUseDots then
 			const nTypeList:List(clazz.UAllType) = {}
 			for i=#vTermTuple+1, vParNum do
-				const nHintType = vOpenHintTypeList[i]
-				if not nHintType then
+				const nHintType = vOpenHintTypeList[i]!
+				if nHintType == true then
 					error(Exception.new("unpack auto dots in par, TODO", vNode))
 				end
 				nTypeList[#nTypeList + 1] = nHintType
