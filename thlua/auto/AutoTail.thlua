@@ -7,26 +7,13 @@ const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = {}
 AutoTail.__index = AutoTail
 
-function:class(clazz.AutoTail) AutoTail.new(vManager:clazz.TypeManager)
+function:class(clazz.AutoTail) AutoTail.new(vManager:clazz.TypeManager, vInit:OrNil(List(clazz.AutoHolder)))
 	const self = setmetatable({.class
 		_manager=vManager,
-		_holderList={}@List(clazz.UAutoTerm),
+		_holderList=vInit or {}@List(clazz.AutoHolder),
 		_sealTail=false@OrFalse(True, clazz.AutoTail, clazz.DotsTail),
-		_typeTuple=false@OrFalse(clazz.UTypeTuple)
 	}, AutoTail)
 	return self
-end
-
--- return seal state, true means seal with no dots, type means seal with dotsType, false means not sealed
-function AutoTail:getSealState():Ret(OrFalse(True, clazz.UAllType))
-	const nSealTail = self._sealTail
-	if DotsTail.is(nSealTail) then
-		return nSealTail:getRepeatType()
-	elseif AutoTail.is(nSealTail) then
-		return nSealTail:getSealState()
-	else
-		return nSealTail
-	end
 end
 
 function AutoTail:getMore(vContext:clazz.Context, vMore:Integer):Ret(clazz.UAutoTerm)
@@ -35,26 +22,34 @@ function AutoTail:getMore(vContext:clazz.Context, vMore:Integer):Ret(clazz.UAuto
 	if nHolder then
 		return nHolder
 	else
-		for i=#nList + 1, vMore do
-			nList[i] = AutoHolder.new()
+		const nSealTail = self._sealTail
+		if not nSealTail then
+			for i=#nList + 1, vMore do
+				nList[i] = AutoHolder.new()
+			end
+			return nList[vMore]!
+		else
+			if nSealTail == true then
+				return vContext:NilTerm()
+			else
+				return nSealTail:getMore(vContext, vMore - #nList)
+			end
 		end
-		return nList[vMore]!
 	end
-end
-
-function AutoTail:setMore(vContext:clazz.Context, vMore:Integer, vAutoTerm:clazz.UAutoTerm)
-	const nList = self._holderList
-	nList[vMore] = vAutoTerm
 end
 
 function AutoTail:openTailFrom(vContext:clazz.Context, vFrom:Integer):Ret(clazz.AutoTail)
 	if vFrom == 1 then
 		return self
 	elseif vFrom > 1 then
-		const nNewAutoTail = AutoTail.new(self._manager)
-		for i=1, math.max(vFrom, #self._holderList) do
-			nNewAutoTail:setMore(vContext, vFrom, self:getMore(vContext, i))
+		const nSelfHolderList = self._holderList
+		const nSelfLen = #nSelfHolderList
+		const nNewHolderList:List(clazz.AutoHolder) = {}
+		for i=vFrom, nSelfLen do
+			nNewHolderList[#nNewHolderList + 1] = nSelfHolderList[i]
+			nSelfHolderList[i] = nil
 		end
+		const nNewAutoTail = AutoTail.new(self._manager, nNewHolderList)
 		self._sealTail = nNewAutoTail
 		return nNewAutoTail
 	else
@@ -70,13 +65,41 @@ function AutoTail:sealTailFrom(vContext:clazz.Context, vFrom:Integer, vSealTail:
 	end
 end
 
-function AutoTail:setAutoCastTuple(vTuple:clazz.UTypeTuple)
-	-- error("set auto cast tuple TODO")
-	self._typeTuple = vTuple
+-- false means has auto part, true or type means seal success
+function AutoTail:_recurPutType(vList:List(clazz.UAllType)):Ret(OrFalse(True, clazz.UAllType))
+	for i,v in ipairs(self._holderList) do
+		const nType = v:getType()
+		if nType then
+			vList[#vList + 1] = nType
+		else
+			return false
+		end
+	end
+	const nTail = self._sealTail
+	if not nTail then
+		return false
+	elseif nTail == true then
+		return true
+	elseif AutoTail.is(nTail) then
+		return nTail:_recurPutType(vList)
+	else
+		return nTail:getRepeatType()
+	end
 end
 
-function AutoTail:getTypeTuple():Ret(OrFalse(clazz.UTypeTuple))
-	return self._typeTuple
+function AutoTail:checkTypeTuple(vContext:clazz.Context):Ret(OrFalse(clazz.UTypeTuple))
+	const nList:List(clazz.UAllType) = {}
+	const nDotsType = self:_recurPutType({})
+	if not nDotsType then
+		return false
+	else
+		const nType = self._manager:TypeTuple(vContext:getNode(), table.unpack(nList))
+		if nDotsType == true then
+			return nType
+		else
+			return nType:Dots(nDotsType)
+		end
+	end
 end
 
 function.open AutoTail.is(t):isguard(clazz.AutoTail)

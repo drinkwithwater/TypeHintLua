@@ -284,9 +284,6 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	const nParList, nParDots = self._parMaker({}, false)
-	if nParDots then
-		error(Exception.new("open function can't hint ...", self._node))
-	end
 	const nSuffixHint = self._retMaker({}, false)
 	local nGuardFn:OrFalse(clazz.OpenFunction) = false
 	const ok, err = pcall(nSuffixHint.caller, {
@@ -317,7 +314,8 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		for i,v in ipairs(nParList) do
 			nWithAutoParList[i] = v or true
 		end
-		return self._manager:OpenFunction():lateInitFromGenFunc(nWithAutoParList, self._genFunc)
+		const nHintTail = self._isvararg and (nParDots or true) or false
+		return self._manager:OpenFunction():lateInitFromGenFunc(nWithAutoParList, nHintTail, self._genFunc)
 	end
 end
 
