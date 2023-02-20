@@ -566,18 +566,17 @@ function Context:matchToParHintStruct(
 	vTermTuple:clazz.UTermTuple,
 	vParHintStruct:clazz.ParHintStruct
 ):Ret(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
-	const vHintList:IList(Union(True, clazz.UAllType)) = vParHintStruct
-	const vHintDots:OrFalse(True, clazz.UAllType) = vParHintStruct.dots or false
+	const nHintDots = vParHintStruct.dots
 	const nNamedTermList:List(clazz.UAutoTerm) = {}
 	const nTailTermList:List(clazz.UAutoTerm) = {}
 	for i=1, #vTermTuple do
 		const nAutoTerm = vTermTuple:get(self, i)
-		local nHintType = vHintList[i]
-		const nMore = i-#vHintList
+		local nHintType = vParHintStruct[i]
+		const nMore = i-#vParHintStruct
 		if nMore > 0 then
-			if vHintDots then
-				if vHintDots ~= true then
-					nHintType = vHintDots
+			if nHintDots then
+				if nHintDots ~= true then
+					nHintType = nHintDots
 				end
 			else
 				nHintType = self._manager.type.Nil
@@ -590,21 +589,21 @@ function Context:matchToParHintStruct(
 			nTailTermList[nMore] = nPut
 		end
 	end
-	for i=#vTermTuple + 1, #vHintList do
+	for i=#vTermTuple + 1, #vParHintStruct do
 		const nAutoTerm = vTermTuple:get(self, i)
-		const nHintType = vHintList[i]!
+		const nHintType = vParHintStruct[i]!
 		nNamedTermList[i] = (nHintType ~= true) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
 	end
 	const nTermTail = vTermTuple:getTail()
 	if not AutoTail.is(nTermTail) then
-		if vHintDots == true then
+		if nHintDots == true then
 			if nTermTail then
 				return nNamedTermList, self:UTermTuple(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
 			else
 				return nNamedTermList, self:UTermTuple(nTailTermList)
 			end
-		elseif vHintDots then
-			return nNamedTermList, self:UTermTuple({}, DotsTail.new(self, vHintDots))
+		elseif nHintDots then
+			return nNamedTermList, self:UTermTuple({}, DotsTail.new(self, nHintDots))
 		else
 			if nTermTail then
 				self:getRuntime():nodeError(vNode, "args dots not match par")
@@ -612,20 +611,20 @@ function Context:matchToParHintStruct(
 			return nNamedTermList, false
 		end
 	else
-		const nMore = #vHintList - #vTermTuple
-		if vHintDots == true then
+		const nMore = #vParHintStruct - #vTermTuple
+		if nHintDots == true then
 			if nMore <= 0 then
 				return nNamedTermList, self:UTermTuple(nTailTermList, nTermTail)
 			else
 				return nNamedTermList, self:UTermTuple(nTailTermList, nTermTail:openTailFrom(self, nMore + 1))
 			end
-		elseif vHintDots then
+		elseif nHintDots then
 			if nMore <= 0 then
-				nTermTail:sealTailFrom(self, 1, vHintDots)
+				nTermTail:sealTailFrom(self, 1, nHintDots)
 			else
-				nTermTail:sealTailFrom(self, nMore + 1, vHintDots)
+				nTermTail:sealTailFrom(self, nMore + 1, nHintDots)
 			end
-			return nNamedTermList, self:UTermTuple({}, DotsTail.new(self, vHintDots))
+			return nNamedTermList, self:UTermTuple({}, DotsTail.new(self, nHintDots))
 		else
 			if nMore <= 0 then
 				nTermTail:sealTailFrom(self, 1, true)

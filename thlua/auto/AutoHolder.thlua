@@ -11,7 +11,6 @@ end
 
 function:class(clazz.AutoHolder) AutoHolder.new()
 	const self = setmetatable({.class
-		_type=false@OrFalse(clazz.UAllType),
 		_term=false@OrFalse(clazz.RefineTerm)
 	}, AutoHolder)
 	return self
@@ -28,7 +27,6 @@ end
 
 function AutoHolder:setAutoCastType(vContext:clazz.Context, vType:clazz.UAllType):Ret(clazz.RefineTerm)
 	const nTerm = vContext:RefineTerm(vType)
-	self._type = vType
 	self._term = nTerm
 	return nTerm
 end
@@ -37,8 +35,9 @@ function AutoHolder:getRefineTerm():Ret(OrFalse(clazz.RefineTerm))
 	return self._term
 end
 
-function AutoHolder:getType():Ret(OrFalse(clazz.UAllType))
-	return self._type
+function AutoHolder:getType():Ret(OrFalse(clazz.UAtomUnion))
+	const nTerm = self._term
+	return nTerm and nTerm:getType()
 end
 
 function.open AutoHolder.is(t):isguard(clazz.AutoHolder)
