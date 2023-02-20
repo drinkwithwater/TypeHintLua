@@ -47,15 +47,27 @@ function AutoTail:setMore(vContext:clazz.Context, vMore:Integer, vAutoTerm:clazz
 	nList[vMore] = vAutoTerm
 end
 
-function AutoTail:toOpenAutoTailFrom(vContext:clazz.Context, vFrom:Integer):Ret(clazz.AutoTail)
+function AutoTail:openTailFrom(vContext:clazz.Context, vFrom:Integer):Ret(clazz.AutoTail)
 	if vFrom == 1 then
 		return self
+	elseif vFrom > 1 then
+		const nNewAutoTail = AutoTail.new(self._manager)
+		for i=1, math.max(vFrom, #self._holderList) do
+			nNewAutoTail:setMore(vContext, vFrom, self:getMore(vContext, i))
+		end
+		self._sealTail = nNewAutoTail
+		return nNewAutoTail
 	else
-		-- TODO
+		error("openTailFrom must take from > 0")
 	end
 end
 
-function AutoTail:sealWithTail(vContext:clazz.Context, vSealTail:OrFalse(True, clazz.UAllType))
+function AutoTail:sealTailFrom(vContext:clazz.Context, vFrom:Integer, vSealTail:Union(True, clazz.UAllType))
+	if vSealTail == true then
+		self._sealTail = true
+	else
+		self._sealTail = DotsTail.new(vContext, vSealTail)
+	end
 end
 
 function AutoTail:setAutoCastTuple(vTuple:clazz.UTypeTuple)
