@@ -15,7 +15,7 @@ const function.open ContextClass()
 		return "context:"..tostring(self:getNode())
 	end
 
-	function Context:TermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
+	function Context:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
 		local nHasAuto = TermTuple.isAuto(vTermTuple)
 		for _, v in ipairs(vTermList) do
 			if AutoHolder.is(v) then
@@ -29,7 +29,13 @@ const function.open ContextClass()
 			end
 		end
 		if nHasAuto then
-			return TermTuple.new@<true>(self, true, vTermList, vTermTuple and vTermTuple:getTail() or false, false)
+			const nTail = vTermTuple and vTermTuple:getTail()
+			if AutoTail.is(nTail) then
+				const nPutTail = nTail:recurPutTermWithTail(vTermList)
+				return TermTuple.new@<true>(self, true, vTermList, nPutTail, false)
+			else
+				return TermTuple.new@<true>(self, true, vTermList, nTail or false, false)
+			end
 		else
 			const nList = vTermList @ List(clazz.RefineTerm)
 			local nTail:OrFalse(clazz.DotsTail) = false
@@ -41,7 +47,7 @@ const function.open ContextClass()
 		end
 	end
 
-	function Context:UTermTuple(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.UTermTuple)
+	function Context:UTermTupleByTail(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.UTermTuple)
 		if AutoTail.is(vTail) then
 			return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
 		else
@@ -66,10 +72,6 @@ const function.open ContextClass()
 		else
 			return TermTuple.new@<false>(self, false, vTermList, false, vTypeTuple or false)
 		end
-	end
-
-	function Context:TermTuple(vTermList:List(clazz.RefineTerm)):Ret(clazz.FixedTermTuple)
-		return TermTuple.new@<false>(self, false, vTermList, false, false)
 	end
 
 	function Context:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)

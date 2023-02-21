@@ -209,15 +209,15 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 	const nNext = vNextSelfInit:get(self._context, 1)
 	const nTuple = self._context:META_CALL(vNode, nNext, function ()
 		if nLenNext == 1 then
-			return self._context:TermTuple({})
+			return self._context:FixedTermTuple({})
 		else
 			const nSelf = vNextSelfInit:get(self._context, 2)
 			if nLenNext == 2 then
-				return self._context:TermTuple({nSelf})
+				return self._context:FixedTermTuple({nSelf})
 			else
 				if nLenNext == 3 then
 					const nInit = vNextSelfInit:get(self._context, 3)
-					return self._context:TermTuple({nSelf, nInit})
+					return self._context:FixedTermTuple({nSelf, nInit})
 				else
 					error("NextSelfInit tuple must be 3, this branch is impossible")
 				end
@@ -254,7 +254,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 			end
 			nTermList[i] = nTerm
 		end
-		local nNewTuple = self._context:TermTuple(nTermList)
+		local nNewTuple = self._context:FixedTermTuple(nTermList)
 		self:withBranch(vCase, function()
 			vFunc(nNewTuple)
 		end)
@@ -353,7 +353,7 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTe
 	if OpenFunction.is(nBodyFn) then
 		local nLen = #vTermTupleList
 		if nLen == 0 then
-			return self._context:TermTuple({})
+			return self._context:FixedTermTuple({})
 		elseif nLen == 1 then
 			return vTermTupleList[1]!
 		else
@@ -366,7 +366,7 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTe
 			return retTermTuple]]
 		end
 	end
-	return self._context:TermTuple({})
+	return self._context:FixedTermTuple({})
 end
 
 function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)

@@ -65,8 +65,33 @@ function AutoTail:sealTailFrom(vContext:clazz.Context, vFrom:Integer, vSealTail:
 	end
 end
 
+-- return as TermTuple's tail
+function AutoTail:recurPutTermWithTail(vList:List(clazz.UAutoTerm)):Ret(OrFalse(clazz.AutoTail, clazz.DotsTail))
+	const nTail = self._sealTail
+	if not nTail then
+		return self
+	end
+	for i,v in ipairs(self._holderList) do
+		const nTerm = v:getRefineTerm()
+		if nTerm then
+			vList[#vList + 1] = nTerm
+		else
+			vList[#vList + 1] = v
+		end
+	end
+	if nTail == true then
+		return false
+	else
+		if AutoTail.is(nTail) then
+			return nTail:recurPutTermWithTail(vList)
+		else
+			return nTail
+		end
+	end
+end
+
 -- false means has auto part, true or type means seal success
-function AutoTail:_recurPutType(vList:List(clazz.UAllType)):Ret(OrFalse(True, clazz.UAllType))
+function AutoTail:_recurPutTypeWhenCheckout(vList:List(clazz.UAllType)):Ret(OrFalse(True, clazz.UAllType))
 	for i,v in ipairs(self._holderList) do
 		const nType = v:getType()
 		if nType then
@@ -81,7 +106,7 @@ function AutoTail:_recurPutType(vList:List(clazz.UAllType)):Ret(OrFalse(True, cl
 	elseif nTail == true then
 		return true
 	elseif AutoTail.is(nTail) then
-		return nTail:_recurPutType(vList)
+		return nTail:_recurPutTypeWhenCheckout(vList)
 	else
 		return nTail:getRepeatType()
 	end
@@ -89,7 +114,7 @@ end
 
 function AutoTail:checkTypeTuple(vContext:clazz.Context):Ret(OrFalse(clazz.UTypeTuple))
 	const nList:List(clazz.UAllType) = {}
-	const nDotsType = self:_recurPutType(nList)
+	const nDotsType = self:_recurPutTypeWhenCheckout(nList)
 	if not nDotsType then
 		return false
 	else
