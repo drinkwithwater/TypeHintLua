@@ -40,17 +40,16 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
+const AutoFlag = require "thlua.auto.AutoFlag"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.WaitingInfo = Struct {
 		waitSid = Integer,
 		dependCo = Thread,
 	}
+	clazz.AutoFlag = $AutoFlag
 end)
-
-const function:class(clazz.CoroutineInterrupt) CoroutineInterrupt()
-	return {.class}
-end
 
 const TypeManager = {}
 TypeManager.__index=TypeManager
@@ -69,7 +68,6 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
 		-- coroutine items
-		_coStop=CoroutineInterrupt(),
 		_coToRefer={} @ Dict(Thread, clazz.Reference),
 		_coToScheduleParam={}@Dict(Thread, Union(True, Fn())),
 		_coToWaitingInfo={}@Dict(Thread, WaitingInfo),
@@ -744,7 +742,7 @@ function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Th
 	}
 	const nSucc = coroutine.yield()
 	if not nSucc then
-		error(self._coStop)
+		error("coroutine yield finish with false value")
 	end
 end
 

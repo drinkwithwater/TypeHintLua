@@ -1,4 +1,5 @@
 
+const AutoFlag = require "thlua.auto.AutoFlag"
 const AutoFunction = require "thlua.refer.AutoFunction"
 const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
@@ -28,8 +29,8 @@ const LateFnCom = require "thlua.func.LateFnCom"
 	}
 
 	clazz.ParHintStruct = Struct ({
-		[Integer]=Union(True, clazz.UAllType),
-		dots=OrNil(Union(True, clazz.UAllType)),
+		[Integer]=Union(clazz.AutoFlag, clazz.UAllType),
+		dots=OrNil(Union(clazz.AutoFlag, clazz.UAllType)),
 	}, {
 		__next=Integer,
 		__len=Integer,
@@ -57,7 +58,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vContext:clazz.Context,
 	vNode:clazz.IAstNode,
 	vInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(List(clazz.UAllType), Union(True, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
+	vParRetMaker:Fn(List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	vGenFunc:clazz.GenFunc
 )
 	const self = {.class
@@ -149,14 +150,14 @@ function FunctionBuilder:_makeRetTuples(
 end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint))
-	const nParHintStruct, nSuffixHint = self._parRetMaker({}, true)
+	const nParHintStruct, nSuffixHint = self._parRetMaker({}, AutoFlag)
 	local nNewList:List(clazz.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
 	end
 	for i, nPar in ipairs(nParHintStruct) do
 		local nInputType = vTypeTuple:get(i)
-		if nPar == true then
+		if nPar == AutoFlag then
 			nNewList[i] = nInputType
 		else
 			nNewList[i] = nPar
@@ -172,7 +173,7 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 		if not nRepeatType then
 			self:error("arguments type not match for not dots")
 		end
-		if nDots == true then
+		if nDots == AutoFlag then
 			return nTuple:Dots(nRepeatType or self._manager.type.Truth), nSuffixHint
 		else
 			if nRepeatType and not nDots:containAll(nRepeatType) then
@@ -194,9 +195,9 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	vSelfType:OrFalse(clazz.UAllType)
 ):Ret(Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint))
 	const nParList:Cond(IsAuto, List(Union(clazz.UAllType, clazz.AutoHolder)), List(clazz.UAllType))  = {}
-	const nParHintStruct, nSuffixHint = self._parRetMaker(vPolyParList, vSelfType or true)
+	const nParHintStruct, nSuffixHint = self._parRetMaker(vPolyParList, vSelfType or AutoFlag)
 	for i, nParType in ipairs(nParHintStruct) do
-		if nParType == true then
+		if nParType == AutoFlag then
 			if vAllowAuto then
 				nParList[i] = AutoHolder.new()
 			else
@@ -208,15 +209,11 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	end
 	const nDots = nParHintStruct.dots
 	if vAllowAuto then
-		if nDots then
-			return AutoTuple.new(self._manager, self._node, nParList, nDots), nSuffixHint
-		else
-			return AutoTuple.new(self._manager, self._node, nParList, false), nSuffixHint
-		end
+		return AutoTuple.new(self._manager, self._node, nParList, nDots or false), nSuffixHint
 	else
 		const nTuple = self._manager:TypeTuple(self._node, table.unpack(nParList))
 		if nDots then
-			if nDots == true then
+			if nDots == AutoFlag then
 				error("auto type not allow here but dots not hint")
 			else
 				return nTuple:Dots(nDots), nSuffixHint
@@ -288,7 +285,7 @@ function FunctionBuilder:_getPolyNumOrNotHint():Ret(OrFalse(Integer))
 end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
-	const nParHintStruct, nSuffixHint = self._parRetMaker({}, true)
+	const nParHintStruct, nSuffixHint = self._parRetMaker({}, AutoFlag)
 	local nGuardFn:OrFalse(clazz.OpenFunction) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		impl=function(vHint, _)

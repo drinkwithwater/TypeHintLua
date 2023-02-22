@@ -1,5 +1,6 @@
 
 const AutoHolder = require "thlua.auto.AutoHolder"
+const AutoFlag = require "thlua.auto.AutoFlag"
 const TermTuple = require "thlua.tuple.TermTuple"
 const Region = require "thlua.runtime.Region"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -73,7 +74,7 @@ function Context:rootSetNamespace(vRootSpace:clazz.Namespace)
 end
 
 function Context:BEGIN(vLexContext:clazz.Context, vRegionNode:clazz.IAstNode,
-	vBodyFn:clazz.URegionFunction, vLuaFunc:clazz.LuaFunction, vUpCase:OrFalse(clazz.VariableCase)
+	vBodyFn:clazz.URegionFunction, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
@@ -506,7 +507,7 @@ end
 
 function Context:FUNC_NEW(vNode:clazz.IAstNode,
 	vFnNewInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(List(clazz.UAllType), Union(True, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
+	vParRetMaker:Fn(List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	vGenFunc:clazz.GenFunc
 ):Ret(clazz.LuaFunction, OrFalse(clazz.VariableCase))
 	const nHintCom = FunctionBuilder.new(self._manager, self, vNode, vFnNewInfo, vParRetMaker, vGenFunc)
@@ -570,14 +571,14 @@ function Context:matchToParHintStruct(
 		const nMore = i-#vParHintStruct
 		if nMore > 0 then
 			if nHintDots then
-				if nHintDots ~= true then
+				if nHintDots ~= AutoFlag then
 					nHintType = nHintDots
 				end
 			else
 				nHintType = self._manager.type.Nil
 			end
 		end
-		const nPut = (nHintType and nHintType ~= true) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
+		const nPut = (nHintType and nHintType ~= AutoFlag) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
 		if nMore <= 0 then
 			nNamedTermList[i] = nPut
 		else
@@ -587,11 +588,11 @@ function Context:matchToParHintStruct(
 	for i=#vTermTuple + 1, #vParHintStruct do
 		const nAutoTerm = vTermTuple:get(self, i)
 		const nHintType = vParHintStruct[i]!
-		nNamedTermList[i] = (nHintType ~= true) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
+		nNamedTermList[i] = (nHintType ~= AutoFlag) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
 	end
 	const nTermTail = vTermTuple:getTail()
 	if not AutoTail.is(nTermTail) then
-		if nHintDots == true then
+		if nHintDots == AutoFlag then
 			if nTermTail then
 				return nNamedTermList, self:UTermTupleByTail(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
 			else
@@ -607,7 +608,7 @@ function Context:matchToParHintStruct(
 		end
 	else
 		const nMore = #vParHintStruct - #vTermTuple
-		if nHintDots == true then
+		if nHintDots == AutoFlag then
 			if nMore <= 0 then
 				return nNamedTermList, self:UTermTupleByTail(nTailTermList, nTermTail)
 			else
