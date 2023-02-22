@@ -506,13 +506,11 @@ end
 
 function Context:FUNC_NEW(vNode:clazz.IAstNode,
 	vFnNewInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(
-		clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc),
-	vGenFunc:clazz.GenFunc
-):Ret(clazz.LuaFunction, OrFalse(clazz.VariableCase))
-	const nHintCom = FunctionBuilder.new(self._manager, self, vNode, vFnNewInfo, vParRetMaker, vGenFunc)
+	vParRetMaker:Fn(OrFalse(clazz.VariableCase), clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+):Ret(clazz.LuaFunction)
 	const nRegion = self._region
-	return nHintCom:build(), nRegion and nRegion:topBranch():getCase()
+	const nUpValueCase = nRegion and nRegion:topBranch():getCase()
+	return FunctionBuilder.new(self._manager, self, vNode, nUpValueCase, vFnNewInfo, vParRetMaker):build()
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)

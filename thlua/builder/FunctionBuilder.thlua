@@ -58,15 +58,15 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vManager:clazz.TypeManager,
 	vContext:clazz.Context,
 	vNode:clazz.IAstNode,
+	vUpValueCase:OrFalse(clazz.VariableCase),
 	vInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(
-		clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc),
-	vGenFunc:clazz.GenFunc
+	vParRetMaker:Fn(OrFalse(clazz.VariableCase), clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 )
 	const self = {.class
 		_manager=vManager,
 		_context=vContext,
 		_node=vNode,
+		_uvCase=vUpValueCase,
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
 		_parRetMaker=vParRetMaker,
 	}
@@ -152,7 +152,7 @@ end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	const nMakerContext = vContext:newSealContext(self._node)
-	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(nMakerContext, {}, AutoFlag)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nMakerContext, {}, AutoFlag)
 	local nNewList:List(clazz.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
@@ -198,7 +198,7 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 ):Ret(clazz.Context, Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	const nNewContext = self._context:newSealContext(self._node)
 	const nParList:Cond(IsAuto, List(Union(clazz.UAllType, clazz.AutoHolder)), List(clazz.UAllType))  = {}
-	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(nNewContext, vPolyParList, vSelfType or AutoFlag)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, vSelfType or AutoFlag)
 	for i, nParType in ipairs(nParHintStruct) do
 		if nParType == AutoFlag then
 			if vAllowAuto then
@@ -288,7 +288,7 @@ end
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	const nMakerContext = self._context:newSealContext(self._node)
 	if self._hasSuffixHint then
-		const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(nMakerContext, {}, AutoFlag)
+		const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nMakerContext, {}, AutoFlag)
 		local nGuardFn:OrFalse(clazz.OpenFunction) = false
 		const ok, err = pcall(nSuffixHint.caller, {
 			impl=function(vHint, _)
@@ -314,7 +314,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		return (assert(nGuardFn, "open function with suffix hint only can be guard function"..tostring(self._node)))
 	else
 		return self._manager:OpenFunction():lateInitFromBuilder(function(vOpenFn, vContext, vTermTuple)
-			const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(vContext, {}, AutoFlag)
+			const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, vContext, {}, AutoFlag)
 			return nGenFunc(vOpenFn, vContext, vTermTuple, nParHintStruct, {}, false)
 		end)
 	end

@@ -28,6 +28,7 @@ local TagToVisiting:RealTraverser = {
 		return {
 			'local ____rt, ____ctx, ____nodes=... ',
 			"local ____s__ENV"..node[1].index.."=____rt:makeSymbol_ENV(",self:codeNode(node[1]),") ",
+			"return ",
 			self:visitFunc(node)
 		}
 	end,
@@ -234,9 +235,7 @@ local TagToVisiting:RealTraverser = {
 	Function=function(self, node)
 		-- TODO
 		return {
-			"____ctx:RefineTerm((", self:fnWrap()(
-				self:visitFunc(node)
-			), ")())",
+			"____ctx:RefineTerm(", self:visitFunc(node) , ")",
 		}
 	end,
 	Table=function(self, node)
@@ -657,53 +656,49 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nFirstPar = nParList[1]
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
 	const nSelf = nIsMember and "Self" or "____self"
-	return {
-		"local ____fn,____uv ",
-		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
-			_prefixHint=nHintPrefix,
-			_hasRetSome=tostring(vNode.retFlag or false),
-			_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
-			_isvararg=tostring(nIsVararg),
-			_polyParNum=tostring(nPolyParNum),
-			_parNum=tostring(nParamNum),
-			_parFullHint=tostring(vNode.parFullHint or false),
-			_member=tostring(nIsMember),
-		}),
-		-- par ret maker
-			self:fnWrap("____newCtx","____polyArgs", nSelf)(
-				"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:REGION(____ctx,", self:codeNode(vNode), ",____uv) ",
-				nPolyUnpack,
-				"return ",
-				self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-					const nHintShort = vParNode.hintShort
-					if vParNode.tag == "Dots" then
-						return {
-							"dots=",
-							nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
-						}
+	return self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
+		_prefixHint=nHintPrefix,
+		_hasRetSome=tostring(vNode.retFlag or false),
+		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
+		_isvararg=tostring(nIsVararg),
+		_polyParNum=tostring(nPolyParNum),
+		_parNum=tostring(nParamNum),
+		_parFullHint=tostring(vNode.parFullHint or false),
+		_member=tostring(nIsMember),
+	}),
+	-- par ret maker
+		self:fnWrap("____uv", "____newCtx","____polyArgs", nSelf)(
+			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:REGION(____ctx,", self:codeNode(vNode), ",____uv) ",
+			nPolyUnpack,
+			"return ",
+			self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+				const nHintShort = vParNode.hintShort
+				if vParNode.tag == "Dots" then
+					return {
+						"dots=",
+						nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
+					}
+				else
+					if i == 1 and nIsMember then
+						return "Self"
 					else
-						if i == 1 and nIsMember then
-							return "Self"
-						else
-							return nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
-						end
+						return nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
 					end
-				end, ", ")),
-				",",
-				nHintSuffix,
-				",",
-				self:fnWrap("____bodyFn", "____oldCtx", "____termArgs", "____openParHint", "____polyArgs", nSelf)(
-					self:rgnWrap(vNode).BEGIN("____bodyFn"),
-					nParInBody,
-					self:visit(nBlockNode),
-					" return ",
-					self:rgnWrap(vNode).END()
-				)
+				end
+			end, ", ")),
+			",",
+			nHintSuffix,
+			",",
+			self:fnWrap("____bodyFn", "____oldCtx", "____termArgs", "____openParHint", "____polyArgs", nSelf)(
+				self:rgnWrap(vNode).BEGIN("____bodyFn"),
+				nParInBody,
+				self:visit(nBlockNode),
+				" return ",
+				self:rgnWrap(vNode).END()
 			)
-		-- gen function
-		),
-		"return ____fn ",
-	}
+		)
+	-- gen function
+	)
 end
 
 function HintGener:concatList@<T>(
