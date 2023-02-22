@@ -83,7 +83,7 @@ function FunctionBuilder:error(...:Truth)
 	end
 end
 
-function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction)
+function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction, clazz.GenFunc)
 	-- 1. check par
 	const nParTuple, nSuffixHint = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
@@ -93,9 +93,9 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
 			self:error("interface-fn ret and hint ret notmatch")
 		end
-		return self._manager:TypeFunction(self._node, nParTuple, nHintRetTuples)
+		return self._manager:TypeFunction(self._node, nParTuple, nHintRetTuples), self._genFunc
 	else
-		return self._manager:TypeFunction(self._node, nParTuple, nCastRetTuples)
+		return self._manager:TypeFunction(self._node, nParTuple, nCastRetTuples), self._genFunc
 	end
 end
 

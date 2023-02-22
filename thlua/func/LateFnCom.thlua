@@ -16,8 +16,7 @@ function:class(clazz.LateFnCom) LateFnCom.new(vManager:clazz.TypeManager,
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_selfSpecDict={}@Dict(clazz.LuaTable, clazz.TypeFunction),
-		_castSpecList={}@List(clazz.TypeFunction),
+		_castSpecFnToGenFunc={}@Dict(clazz.TypeFunction, clazz.GenFunc),
 		_once=false@Boolean,
 		_pass=vPass,
 	}, LateFnCom)
@@ -33,45 +32,24 @@ function LateFnCom:checkLateRun()
 		return
 	end
 	self._once = true
-	const nSpecFnList:List(clazz.TypeFunction) = {}
+	const nSpecFnDict:Dict(clazz.TypeFunction, clazz.GenFunc) = {}
 	-- 1. cast fn
-	const nCastFn = self._castSpecList[1]
+	const nCastFn = next(self._castSpecFnToGenFunc)
 	if nCastFn then
-		nSpecFnList[#nSpecFnList + 1] = nCastFn
-		const nList = self._castSpecList
-		for i=2,#nList do
-			const nTypeFn = nList[i]!
+		nSpecFnDict[nCastFn] = self._castSpecFnToGenFunc[nCastFn]
+		const nDict = self._castSpecFnToGenFunc
+		for nTypeFn, nGenFunc in pairs(nDict) do
 			if not nCastFn:containAll(nTypeFn) then
-				nSpecFnList[#nSpecFnList + 1] = nTypeFn
+				nSpecFnDict[nTypeFn] = nGenFunc
 				print("polymorphism cast TODO")
 			end
 		end
 	end
-	-- 2. default fn
-	--[[const nDefaultFn = self._defaultFn
-	if MemberFunction.is(nDefaultFn) then
-		const nPairDict = nDefaultFn:getPolyFn():getPolyCallPairDict()
-		for _, nPair in pairs(nPairDict) do
-			const nRawPolyArgs = nPair[2]
-			const nPolyArgs:List(clazz.UAllType) = {table.unpack(nRawPolyArgs, 2)}
-			const nSelfType = assert(nRawPolyArgs[1], "self type must existed here")
-			nSpecFnList[#nSpecFnList + 1] = {nPair[1], nPolyArgs, nSelfType}
-		end
-	elseif TypeFunction.is(nDefaultFn) then
-		nSpecFnList[#nSpecFnList + 1] = {nDefaultFn}
-	elseif nDefaultFn then
-		print("poly function lateRun TODO", tostring(self._luaFunction:getNode()))
-	else
-		if #self._castSpecList <= 0 then
-			-- print("function no cast and no default", tostring(self._luaFunction:getNode()))
-		end
-		-- nDefaultFn is false
-	end]]
-	for _, nTypeFn in ipairs(nSpecFnList) do
+	for nTypeFn, nGenFunc in pairs(nSpecFnDict) do
 		const nParTuple = nTypeFn:getParTuple()
 		const nInplaceContext = self._luaFunction:newInplaceSealContext()
 		const ok, err = pcall(function()
-			self._luaFunction:getGenFunc()(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), false, {}, false)
+			nGenFunc(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), false, {}, false)
 		end)
 		if not ok then
 			nInplaceContext:error(tostring(err))
@@ -79,13 +57,8 @@ function LateFnCom:checkLateRun()
 	end
 end
 
-function LateFnCom:addSpecFn(vTypeFn:clazz.TypeFunction, vSelfType:OrNil(clazz.LuaTable))
-	if vSelfType then
-		self._selfSpecDict[vSelfType] = vTypeFn
-	else
-		const nList = self._castSpecList
-		nList[#nList + 1] = vTypeFn
-	end
+function LateFnCom:addSpecFn(vTypeFn:clazz.TypeFunction, vGenFunc:clazz.GenFunc)
+	self._castSpecFnToGenFunc[vTypeFn] = vGenFunc
 end
 
 function.open LateFnCom.is(v):isguard(clazz.LateFnCom)
