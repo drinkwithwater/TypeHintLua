@@ -59,7 +59,8 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vContext:clazz.Context,
 	vNode:clazz.IAstNode,
 	vInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
+	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(
+		clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc),
 	vGenFunc:clazz.GenFunc
 )
 	const self = {.class
@@ -68,7 +69,6 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_node=vNode,
 		_pass=vInfo._prefixHint.attrSet.pass and true or false,
 		_parRetMaker=vParRetMaker,
-		_genFunc=vGenFunc,
 	}
 	for k,v in pairs(vInfo) do
 		self[k] = v
@@ -85,7 +85,7 @@ end
 
 function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction, clazz.GenFunc)
 	-- 1. check par
-	const nParTuple, nSuffixHint = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
+	const nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
 	const nHintRetTuples = self:_makeRetTuples(nSuffixHint, {}, false)
 	const nCastRetTuples = vCastTypeFn:getRetTuples()
@@ -93,9 +93,9 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 		if not nCastRetTuples:containTuples(nHintRetTuples) then
 			self:error("interface-fn ret and hint ret notmatch")
 		end
-		return self._manager:TypeFunction(self._node, nParTuple, nHintRetTuples), self._genFunc
+		return self._manager:TypeFunction(self._node, nParTuple, nHintRetTuples), nGenFunc
 	else
-		return self._manager:TypeFunction(self._node, nParTuple, nCastRetTuples), self._genFunc
+		return self._manager:TypeFunction(self._node, nParTuple, nCastRetTuples), nGenFunc
 	end
 end
 
@@ -150,9 +150,9 @@ function FunctionBuilder:_makeRetTuples(
 	return nRetTuples
 end
 
-function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint))
-	const nMakerContext = self._context:newSealContext(self._node)
-	const nParHintStruct, nSuffixHint = self._parRetMaker(nMakerContext, {}, AutoFlag)
+function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	const nMakerContext = vContext:newSealContext(self._node)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(nMakerContext, {}, AutoFlag)
 	local nNewList:List(clazz.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
@@ -176,18 +176,18 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 			self:error("arguments type not match for not dots")
 		end
 		if nDots == AutoFlag then
-			return nTuple:Dots(nRepeatType or self._manager.type.Truth), nSuffixHint
+			return nTuple:Dots(nRepeatType or self._manager.type.Truth), nSuffixHint, nGenFunc
 		else
 			if nRepeatType and not nDots:containAll(nRepeatType) then
 				self:error("arguments type not match for wrong dots")
 			end
-			return nTuple:Dots(nDots), nSuffixHint
+			return nTuple:Dots(nDots), nSuffixHint, nGenFunc
 		end
 	else
 		if nRepeatType then
 			self:error("arguments type not match for dots")
 		end
-		return nTuple, nSuffixHint
+		return nTuple, nSuffixHint, nGenFunc
 	end
 end
 
@@ -195,10 +195,10 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	vAllowAuto:IsAuto,
 	vPolyParList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
-):Ret(Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint))
-	const nMakerContext = self._context:newSealContext(self._node)
+):Ret(clazz.Context, Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	const nNewContext = self._context:newSealContext(self._node)
 	const nParList:Cond(IsAuto, List(Union(clazz.UAllType, clazz.AutoHolder)), List(clazz.UAllType))  = {}
-	const nParHintStruct, nSuffixHint = self._parRetMaker(nMakerContext, vPolyParList, vSelfType or AutoFlag)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(nNewContext, vPolyParList, vSelfType or AutoFlag)
 	for i, nParType in ipairs(nParHintStruct) do
 		if nParType == AutoFlag then
 			if vAllowAuto then
@@ -212,17 +212,17 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	end
 	const nDots = nParHintStruct.dots
 	if vAllowAuto then
-		return AutoTuple.new(self._manager, self._node, nParList, nDots or false), nSuffixHint
+		return nNewContext, AutoTuple.new(self._manager, self._node, nParList, nDots or false), nSuffixHint, nGenFunc
 	else
 		const nTuple = self._manager:TypeTuple(self._node, table.unpack(nParList))
 		if nDots then
 			if nDots == AutoFlag then
 				error("auto type not allow here but dots not hint")
 			else
-				return nTuple:Dots(nDots), nSuffixHint
+				return nNewContext, nTuple:Dots(nDots), nSuffixHint, nGenFunc
 			end
 		else
-			return nTuple, nSuffixHint
+			return nNewContext, nTuple, nSuffixHint, nGenFunc
 		end
 	end
 end
@@ -239,13 +239,12 @@ function FunctionBuilder:_buildInnerFn(
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
 		if self._parFullHint then
-			const nParTuple, nSuffixHint = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
+			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
 			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
 			const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
-			const nInplaceContext = self._context:newSealContext(self._node)
 			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, nTypeFn, function(vAutoFn)
 				if not self._pass then
-					self._genFunc(vAutoFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), false, vPolyParList, vSelfType)
+					nGenFunc(vAutoFn, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, vSelfType)
 				end
 				return nTypeFn
 			end)
@@ -255,12 +254,11 @@ function FunctionBuilder:_buildInnerFn(
 			if self._pass then
 				error("pass function must be full hint")
 			end
-			const nParTuple, nSuffixHint = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
+			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
 			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-			const nInplaceContext = self._context:newSealContext(self._node)
 			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, false, function(vAutoFn)
-				self._genFunc(vAutoFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), false, vPolyParList, vSelfType)
-				const nTypeTuple = nParTuple:finishTypeTuple(nInplaceContext)
+				nGenFunc(vAutoFn, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, vSelfType)
+				const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
 				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
 			end)
 			-- self._context:recordAutoFunction(nAutoFn)
@@ -289,33 +287,36 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	const nMakerContext = self._context:newSealContext(self._node)
-	const nParHintStruct, nSuffixHint = self._parRetMaker(nMakerContext, {}, AutoFlag)
-	local nGuardFn:OrFalse(clazz.OpenFunction) = false
-	const ok, err = pcall(nSuffixHint.caller, {
-		impl=function(vHint, _)
-			return vHint
-		end,
-		RetDots=function(vHint, vFirst, ...)
-			error("open table can't take RetDots")
-			return vHint
-		end,
-		Ret=function(vHint, ...)
-			error("open table can't take Ret")
-			return vHint
-		end,
-		isguard=function(vHint, vType)
-			assert(not nGuardFn, "isguard can only use once here")
-			nGuardFn = self._manager:OpenFunction():lateInitFromGuard(vType)
-			return vHint
-		end,
-	})
-	if not ok then
-		error(Exception.new(tostring(err), self._node))
-	end
-	if nGuardFn then
-		return nGuardFn
+	if self._hasSuffixHint then
+		const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(nMakerContext, {}, AutoFlag)
+		local nGuardFn:OrFalse(clazz.OpenFunction) = false
+		const ok, err = pcall(nSuffixHint.caller, {
+			impl=function(vHint, _)
+				return vHint
+			end,
+			RetDots=function(vHint, vFirst, ...)
+				error("open table can't take RetDots")
+				return vHint
+			end,
+			Ret=function(vHint, ...)
+				error("open table can't take Ret")
+				return vHint
+			end,
+			isguard=function(vHint, vType)
+				assert(not nGuardFn, "isguard can only use once here")
+				nGuardFn = self._manager:OpenFunction():lateInitFromGuard(vType)
+				return vHint
+			end,
+		})
+		if not ok then
+			error(Exception.new(tostring(err), self._node))
+		end
+		return (assert(nGuardFn, "open function with suffix hint only can be guard function"..tostring(self._node)))
 	else
-		return self._manager:OpenFunction():lateInitFromGenFunc(nParHintStruct, self._genFunc)
+		return self._manager:OpenFunction():lateInitFromBuilder(function(vOpenFn, vContext, vTermTuple)
+			const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(vContext, {}, AutoFlag)
+			return nGenFunc(vOpenFn, vContext, vTermTuple, nParHintStruct, {}, false)
+		end)
 	end
 end
 
@@ -371,29 +372,27 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			return nInterface
 		end
 		if self._parFullHint then
-			const nParTuple, nSuffixHint = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
+			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
 			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 			const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 			const nFactory = nClassRefer:setClassFactory(self._node, function()
 				return nInterfaceGetter(nSuffixHint)
 			end, nTypeFn, function(vFactory, vLuaTable)
-				const nContext = self._context:newSealContext(self._node)
-				nContext:setClassTable(vLuaTable)
-				self._genFunc(vFactory, nContext, nParTuple:makeTermTuple(nContext), false, vPolyParList, false)
+				nNewContext:setClassTable(vLuaTable)
+				nGenFunc(vFactory, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, false)
 				return nTypeFn
 			end)
 			self._context:recordClassFactory(nFactory)
 			return nFactory
 		else
-			const nParTuple, nSuffixHint = self:_makeParTupleByPoly@<True>(true, vPolyParList, false)
+			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, false)
 			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 			const nFactory = nClassRefer:setClassFactory(self._node, function()
 				return nInterfaceGetter(nSuffixHint)
 			end, false, function(vFactory, vLuaTable)
-				const nContext = self._context:newSealContext(self._node)
-				nContext:setClassTable(vLuaTable)
-				self._genFunc(vFactory, nContext, nParTuple:makeTermTuple(nContext), false, vPolyParList, false)
-				const nTypeTuple = nParTuple:finishTypeTuple(nContext)
+				nNewContext:setClassTable(vLuaTable)
+				nGenFunc(vFactory, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, false)
+				const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
 				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
 			end)
 			self._context:recordClassFactory(nFactory)
@@ -439,10 +438,6 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nInnerFn)
 	end
 	return nLuaFunc
-end
-
-function FunctionBuilder:getGenFunc():Ret(clazz.GenFunc)
-	return self._genFunc
 end
 
 return FunctionBuilder

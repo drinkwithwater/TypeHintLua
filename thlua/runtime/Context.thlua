@@ -73,11 +73,10 @@ function Context:rootSetNamespace(vRootSpace:clazz.Namespace)
 	self._namespace = vRootSpace
 end
 
-function Context:BEGIN(vLexContext:clazz.Context, vRegionNode:clazz.IAstNode,
-	vBodyFn:OrFalse(clazz.UBodyFunction), vUpCase:OrFalse(clazz.VariableCase)
+function Context:REGION(vLexContext:clazz.Context, vRegionNode:clazz.IAstNode, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._region, "context can only begin once")
-	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
+	const nRegion = Region.new(self, vUpCase or VariableCase.new())
 	self._region = nRegion
 	const nSpace = self._runtime:LetNamespace(vLexContext:getNamespace(), vRegionNode)
 	self._namespace = nSpace
@@ -507,7 +506,8 @@ end
 
 function Context:FUNC_NEW(vNode:clazz.IAstNode,
 	vFnNewInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
+	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(
+		clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc),
 	vGenFunc:clazz.GenFunc
 ):Ret(clazz.LuaFunction, OrFalse(clazz.VariableCase))
 	const nHintCom = FunctionBuilder.new(self._manager, self, vNode, vFnNewInfo, vParRetMaker, vGenFunc)
