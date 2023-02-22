@@ -25,7 +25,7 @@ Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._context:getNode())
 end
 
-function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:clazz.URegionFunction, vUpCase:clazz.VariableCase)
+function:class(clazz.Region) Region.new(vContext:clazz.Context, vBodyFn:OrFalse(clazz.UBodyFunction), vUpCase:clazz.VariableCase)
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
 	const self = setmetatable({.class
 		_context=vContext,
@@ -323,7 +323,7 @@ function Region:BREAK(vNode:clazz.IAstNode)
 end
 
 function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
-	const nBodyFn = self._bodyFn
+	const nBodyFn = assert(self._bodyFn)
 	if AutoFunction.is(nBodyFn) or TypeFunction.is(nBodyFn) then
 		const nContext = self._context
 		local nOneOkay = false
@@ -349,7 +349,7 @@ function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 end
 
 function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTermTuple)):Ret(clazz.FixedTermTuple)
-	const nBodyFn = self._bodyFn
+	const nBodyFn = assert(self._bodyFn)
 	if OpenFunction.is(nBodyFn) then
 		local nLen = #vTermTupleList
 		if nLen == 0 then

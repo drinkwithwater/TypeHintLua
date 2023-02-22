@@ -15,6 +15,7 @@ const LateFnCom = require "thlua.func.LateFnCom"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 
+	clazz.AutoFlag = $AutoFlag
 	clazz.ULuaInnerFn = Union(clazz.ClassFactory, clazz.AutoFunction, clazz.OpenFunction, clazz.PolyFunction, clazz.MemberFunction)
 
 	clazz.FnPrefixHint = Struct {
@@ -58,7 +59,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vContext:clazz.Context,
 	vNode:clazz.IAstNode,
 	vInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
+	vParRetMaker:Fn(clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint)),
 	vGenFunc:clazz.GenFunc
 )
 	const self = {.class
@@ -150,7 +151,8 @@ function FunctionBuilder:_makeRetTuples(
 end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint))
-	const nParHintStruct, nSuffixHint = self._parRetMaker({}, AutoFlag)
+	const nMakerContext = self._context:newSealContext(self._node)
+	const nParHintStruct, nSuffixHint = self._parRetMaker(nMakerContext, {}, AutoFlag)
 	local nNewList:List(clazz.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
@@ -194,8 +196,9 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 	vPolyParList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
 ):Ret(Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint))
+	const nMakerContext = self._context:newSealContext(self._node)
 	const nParList:Cond(IsAuto, List(Union(clazz.UAllType, clazz.AutoHolder)), List(clazz.UAllType))  = {}
-	const nParHintStruct, nSuffixHint = self._parRetMaker(vPolyParList, vSelfType or AutoFlag)
+	const nParHintStruct, nSuffixHint = self._parRetMaker(nMakerContext, vPolyParList, vSelfType or AutoFlag)
 	for i, nParType in ipairs(nParHintStruct) do
 		if nParType == AutoFlag then
 			if vAllowAuto then
@@ -285,7 +288,8 @@ function FunctionBuilder:_getPolyNumOrNotHint():Ret(OrFalse(Integer))
 end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
-	const nParHintStruct, nSuffixHint = self._parRetMaker({}, AutoFlag)
+	const nMakerContext = self._context:newSealContext(self._node)
+	const nParHintStruct, nSuffixHint = self._parRetMaker(nMakerContext, {}, AutoFlag)
 	local nGuardFn:OrFalse(clazz.OpenFunction) = false
 	const ok, err = pcall(nSuffixHint.caller, {
 		impl=function(vHint, _)
