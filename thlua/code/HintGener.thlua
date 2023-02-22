@@ -659,14 +659,15 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		"local ____fn,____uv ",
 		"____fn,____uv=", self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
 			_prefixHint=nHintPrefix,
-			_hasRetStat=tostring(vNode.retFlag or false),
+			_hasRetSome=tostring(vNode.retFlag or false),
+			_hasSuffixHint=tostring(nIsChunk and true or (vNode.hintSuffix and true or false)),
 			_isvararg=tostring(nIsVararg),
 			_polyParNum=tostring(nPolyParNum),
 			_parNum=tostring(nParamNum),
 			_parFullHint=tostring(vNode.parFullHint or false),
 			_member=tostring(nIsMember),
 		}),
-		-- par maker
+		-- par ret maker
 			self:fnWrap("____polyArgs", nSelf)(
 				nPolyUnpack,
 				"return ",
@@ -684,12 +685,9 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 							return nHintShort and self:fixIHintInfo(nHintShort) or "true"
 						end
 					end
-				end, ", "))
-			),
-		-- ret maker
-			self:fnWrap("____polyArgs", nSelf)(
-				nPolyUnpack,
-				"return ", nHintSuffix
+				end, ", ")),
+				",",
+				nHintSuffix
 			),
 		-- gen function
 			self:fnWrap("____bodyFn", "____newCtx", "____termArgs", "____openParHint", "____polyArgs", nSelf)(

@@ -16,52 +16,43 @@ const function.open ContextClass()
 	end
 
 	function Context:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
-		local nHasAuto = TermTuple.isAuto(vTermTuple)
-		for _, v in ipairs(vTermList) do
-			if AutoHolder.is(v) then
-				nHasAuto = true
-			end
-		end
 		if vTermTuple then
 			for i=1, #vTermTuple do
 				const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
 				vTermList[#vTermList + 1] = nTerm
 			end
-		end
-		if nHasAuto then
-			const nTail = vTermTuple and vTermTuple:getTail()
-			if AutoTail.is(nTail) then
-				const nPutTail = nTail:recurPutTermWithTail(vTermList)
-				return TermTuple.new@<true>(self, true, vTermList, nPutTail, false)
-			else
-				return TermTuple.new@<true>(self, true, vTermList, nTail or false, false)
-			end
+			return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
 		else
-			const nList = vTermList @ List(clazz.RefineTerm)
-			local nTail:OrFalse(clazz.DotsTail) = false
-			if vTermTuple then
-				assert(not TermTuple.isAuto(vTermTuple))
-				nTail = vTermTuple:getTail()
-			end
-			return TermTuple.new@<false>(self, false, nList, nTail, false)
+			return self:UTermTupleByTail(vTermList, false)
 		end
 	end
 
 	function Context:UTermTupleByTail(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.UTermTuple)
 		if AutoTail.is(vTail) then
+			vTail = vTail:recurPutTermWithTail(vTermList)
+		end
+		if AutoTail.is(vTail) then
 			return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
-		else
-			local nHasAuto = false
-			for _, v in ipairs(vTermList) do
-				if AutoHolder.is(v) then
-					nHasAuto = true
+		end
+		local nHasAuto = false
+		if not nHasAuto then
+			for i=1, #vTermList do
+				const nAuto = vTermList[i]!
+				if AutoHolder.is(nAuto) then
+					const nTerm = nAuto:getRefineTerm()
+					if not nTerm then
+						nHasAuto = true
+						break
+					else
+						vTermList[i] = nAuto
+					end
 				end
 			end
-			if nHasAuto then
-				return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
-			else
-				return TermTuple.new@<false>(self, false, vTermList @ List(clazz.RefineTerm), vTail or false, false)
-			end
+		end
+		if nHasAuto then
+			return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+		else
+			return TermTuple.new@<false>(self, false, vTermList @ List(clazz.RefineTerm), vTail or false, false)
 		end
 	end
 
