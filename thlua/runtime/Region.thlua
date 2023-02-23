@@ -85,16 +85,34 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAu
 	end
 end
 
+function Region:PARAM_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vIndex:Integer,
+	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
+):Ret(clazz.UAutoTerm)
+	return vTermTuple:get(self._context, vIndex)
+end
+
+function Region:PARAM_DOTS_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vDotsIndex:Integer,
+	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
+):Ret(OrFalse(clazz.UTermTuple))
+	return false
+end
+
 -- unpack in function's argument & for_in
 function Region:PARLIST_UNPACK(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
-	vOpenParHintStruct:OrFalse(clazz.ParHintStruct),
+	vOpenParHintStruct:clazz.ParHintStruct,
 	vParNum:Number,
 	vUseDots:Boolean
 ):RetDots(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
 	const l:List(clazz.UAutoTerm) = {}
-	if not vOpenParHintStruct then
+	if not OpenFunction.is(self._bodyFn) then
 		assert(vParNum == #vTermTuple)
 		if vUseDots then
 			assert(vTermTuple:getTail())
