@@ -20,7 +20,6 @@ const LuaFunction = AtomTypeClass()
 function:class(clazz.LuaFunction) LuaFunction.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
 	local self = setmetatable({.class
 		_manager=vManager,
-		_context=false@clazz.Context,
 		_node=false@clazz.IAstNode,
 		_isMember=false@Boolean,
 		_innerFn=false@OrFalse(clazz.ULuaInnerFn),
@@ -37,25 +36,12 @@ function LuaFunction:setMember()
 	self._isMember = true
 end
 
-function LuaFunction:getBuilder():Ret(clazz.FunctionBuilder)
-	return self._hintCom
-end
-
-function LuaFunction:lateInit(vContext:clazz.Context, vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vLateFnCom:OrFalse(clazz.LateFnCom), vInnerFn:OrFalse(clazz.ULuaInnerFn))
-	self._context = vContext
+function LuaFunction:lateInit(vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vLateFnCom:OrFalse(clazz.LateFnCom), vInnerFn:OrFalse(clazz.ULuaInnerFn))
 	self._node = vNode
 	self._hintCom = vHintCom
 	self._lateFnCom = vLateFnCom
 	self._innerFn = vInnerFn
 	self.name = tostring(vNode)
-end
-
-function LuaFunction:newInplaceSealContext():Ret(clazz.Context)
-	return self._context:newSealContext(self._node)
-end
-
-function LuaFunction:newInplaceOpenContext():Ret(clazz.Context)
-	return self._context:newOpenContext(self._node)
 end
 
 function LuaFunction:isOpen():Ret(Boolean)
@@ -209,10 +195,6 @@ end
 
 function LuaFunction:mayRecursive()
 	return true
-end
-
-function LuaFunction:getNode():Ret(clazz.IAstNode)
-	return self._node
 end
 
 function.open LuaFunction.is(vType):isguard(clazz.LuaFunction)

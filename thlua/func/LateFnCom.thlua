@@ -16,7 +16,7 @@ function:class(clazz.LateFnCom) LateFnCom.new(vManager:clazz.TypeManager,
 	local self = setmetatable({.class
 		_manager=vManager,
 		_luaFunction=vLuaFunction,
-		_castSpecFnToGenFunc={}@Dict(clazz.TypeFunction, clazz.GenFunc),
+		_castSpecFnToCheckFn={}@Dict(clazz.TypeFunction, Fn()),
 		_once=false@Boolean,
 		_pass=vPass,
 	}, LateFnCom)
@@ -32,33 +32,27 @@ function LateFnCom:checkLateRun()
 		return
 	end
 	self._once = true
-	const nSpecFnDict:Dict(clazz.TypeFunction, clazz.GenFunc) = {}
+	const nSpecFnDict:Dict(clazz.TypeFunction, Fn()) = {}
 	-- 1. cast fn
-	const nCastFn = next(self._castSpecFnToGenFunc)
+	const nCastFn = next(self._castSpecFnToCheckFn)
 	if nCastFn then
-		nSpecFnDict[nCastFn] = self._castSpecFnToGenFunc[nCastFn]
-		const nDict = self._castSpecFnToGenFunc
-		for nTypeFn, nGenFunc in pairs(nDict) do
+		nSpecFnDict[nCastFn] = self._castSpecFnToCheckFn[nCastFn]
+		const nDict = self._castSpecFnToCheckFn
+		for nTypeFn, nCheckFn in pairs(nDict) do
 			if not nCastFn:containAll(nTypeFn) then
-				nSpecFnDict[nTypeFn] = nGenFunc
+				nSpecFnDict[nTypeFn] = nCheckFn
 				print("polymorphism cast TODO")
 			end
 		end
 	end
-	for nTypeFn, nGenFunc in pairs(nSpecFnDict) do
+	for nTypeFn, nCheckFn in pairs(nSpecFnDict) do
 		const nParTuple = nTypeFn:getParTuple()
-		const nInplaceContext = self._luaFunction:newInplaceSealContext()
-		const ok, err = pcall(function()
-			nGenFunc(nTypeFn, nInplaceContext, nParTuple:makeTermTuple(nInplaceContext), false, {}, false)
-		end)
-		if not ok then
-			nInplaceContext:error(tostring(err))
-		end
+		nCheckFn()
 	end
 end
 
-function LateFnCom:addSpecFn(vTypeFn:clazz.TypeFunction, vGenFunc:clazz.GenFunc)
-	self._castSpecFnToGenFunc[vTypeFn] = vGenFunc
+function LateFnCom:addSpecFn(vTypeFn:clazz.TypeFunction, vCheckFn:Fn())
+	self._castSpecFnToCheckFn[vTypeFn] = vCheckFn
 end
 
 function.open LateFnCom.is(v):isguard(clazz.LateFnCom)

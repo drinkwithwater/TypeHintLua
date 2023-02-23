@@ -83,19 +83,24 @@ function FunctionBuilder:error(...:Truth)
 	end
 end
 
-function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction, clazz.GenFunc)
+function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction, Fn())
 	-- 1. check par
-	const nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
+	const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
 	-- 2. check ret
 	const nHintRetTuples = self:_makeRetTuples(nSuffixHint, {}, false)
-	const nCastRetTuples = vCastTypeFn:getRetTuples()
+	local nFinalRetTuples = vCastTypeFn:getRetTuples()
 	if nHintRetTuples then
-		if not nCastRetTuples:containTuples(nHintRetTuples) then
+		if not nFinalRetTuples:containTuples(nHintRetTuples) then
 			self:error("interface-fn ret and hint ret notmatch")
 		end
-		return self._manager:TypeFunction(self._node, nParTuple, nHintRetTuples), nGenFunc
-	else
-		return self._manager:TypeFunction(self._node, nParTuple, nCastRetTuples), nGenFunc
+		nFinalRetTuples = nHintRetTuples
+	end
+	const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nFinalRetTuples)
+	return nTypeFn , function()
+		const ok, err = pcall(nGenFunc, nTypeFn, nParTuple:makeTermTuple(nNewContext), false)
+		if not ok then
+			nNewContext:error(tostring(err))
+		end
 	end
 end
 
@@ -150,9 +155,9 @@ function FunctionBuilder:_makeRetTuples(
 	return nRetTuples
 end
 
-function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
-	const nMakerContext = vContext:newSealContext(self._node)
-	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nMakerContext, {}, AutoFlag)
+function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.Context, clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	const nNewContext = vContext:newSealContext(self._node)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, {}, AutoFlag)
 	local nNewList:List(clazz.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
@@ -176,18 +181,18 @@ function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:
 			self:error("arguments type not match for not dots")
 		end
 		if nDots == AutoFlag then
-			return nTuple:Dots(nRepeatType or self._manager.type.Truth), nSuffixHint, nGenFunc
+			return nNewContext, nTuple:Dots(nRepeatType or self._manager.type.Truth), nSuffixHint, nGenFunc
 		else
 			if nRepeatType and not nDots:containAll(nRepeatType) then
 				self:error("arguments type not match for wrong dots")
 			end
-			return nTuple:Dots(nDots), nSuffixHint, nGenFunc
+			return nNewContext, nTuple:Dots(nDots), nSuffixHint, nGenFunc
 		end
 	else
 		if nRepeatType then
 			self:error("arguments type not match for dots")
 		end
-		return nTuple, nSuffixHint, nGenFunc
+		return nNewContext, nTuple, nSuffixHint, nGenFunc
 	end
 end
 
@@ -244,7 +249,7 @@ function FunctionBuilder:_buildInnerFn(
 			const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, nTypeFn, function(vAutoFn)
 				if not self._pass then
-					nGenFunc(vAutoFn, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, vSelfType)
+					nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
 				end
 				return nTypeFn
 			end)
@@ -257,7 +262,7 @@ function FunctionBuilder:_buildInnerFn(
 			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
 			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
 			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, false, function(vAutoFn)
-				nGenFunc(vAutoFn, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, vSelfType)
+				nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
 				const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
 				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
 			end)
@@ -315,7 +320,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	else
 		return self._manager:OpenFunction():lateInitFromBuilder(function(vOpenFn, vContext, vTermTuple)
 			const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, vContext, {}, AutoFlag)
-			return nGenFunc(vOpenFn, vContext, vTermTuple, nParHintStruct, {}, false)
+			return nGenFunc(vOpenFn, vTermTuple, nParHintStruct)
 		end)
 	end
 end
@@ -379,7 +384,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				return nInterfaceGetter(nSuffixHint)
 			end, nTypeFn, function(vFactory, vLuaTable)
 				nNewContext:setClassTable(vLuaTable)
-				nGenFunc(vFactory, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, false)
+				nGenFunc(vFactory, nParTuple:makeTermTuple(nNewContext), false)
 				return nTypeFn
 			end)
 			self._context:recordClassFactory(nFactory)
@@ -391,7 +396,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				return nInterfaceGetter(nSuffixHint)
 			end, false, function(vFactory, vLuaTable)
 				nNewContext:setClassTable(vLuaTable)
-				nGenFunc(vFactory, nNewContext, nParTuple:makeTermTuple(nNewContext), false, vPolyParList, false)
+				nGenFunc(vFactory, nParTuple:makeTermTuple(nNewContext), false)
 				const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
 				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
 			end)
@@ -422,12 +427,12 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 	const nLuaFunc = self._manager:LuaFunction()
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildOpen())
+		nLuaFunc:lateInit(self._node, self, false, self:_buildOpen())
 	elseif nAttrSet.class then
 		if self._member then
 			error(Exception.new("class factory can't be member-function-like", self._node))
 		end
-		nLuaFunc:lateInit(self._context, self._node, self, false, self:_buildClass())
+		nLuaFunc:lateInit(self._node, self, false, self:_buildClass())
 	else
 		if self._member then
 			nLuaFunc:setMember()
@@ -435,7 +440,7 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 		const nInnerFn = self:_buildInnerFn()
 		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nAttrSet.pass and true or false)
 		self._context:recordLateLuaFunction(nLateFnCom)
-		nLuaFunc:lateInit(self._context, self._node, self, nLateFnCom, nInnerFn)
+		nLuaFunc:lateInit(self._node, self, nLateFnCom, nInnerFn)
 	end
 	return nLuaFunc
 end
