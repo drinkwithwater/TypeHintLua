@@ -60,7 +60,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vNode:clazz.IAstNode,
 	vUpValueCase:OrFalse(clazz.VariableCase),
 	vInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(OrFalse(clazz.VariableCase), clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	vParRetMaker:Fn(OrFalse(clazz.VariableCase), clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType), Boolean):Ret(clazz.ParHintStruct, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 )
 	const self = {.class
 		_manager=vManager,
@@ -157,7 +157,7 @@ end
 
 function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.Context, clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	const nNewContext = vContext:newSealContext(self._node)
-	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, {}, AutoFlag)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, {}, AutoFlag, false)
 	local nNewList:List(clazz.UAllType) = {}
 	if #vTypeTuple ~= self._parNum then
 		self:error("arguments num not match when specification")
@@ -203,7 +203,7 @@ function FunctionBuilder:_makeParTupleByPoly@<IsAuto>(
 ):Ret(clazz.Context, Cond(IsAuto, clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	const nNewContext = self._context:newSealContext(self._node)
 	const nParList:Cond(IsAuto, List(Union(clazz.UAllType, clazz.AutoHolder)), List(clazz.UAllType))  = {}
-	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, vSelfType or AutoFlag)
+	const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, vSelfType or AutoFlag, false)
 	for i, nParType in ipairs(nParHintStruct) do
 		if nParType == AutoFlag then
 			if vAllowAuto then
@@ -293,7 +293,7 @@ end
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	const nMakerContext = self._context:newSealContext(self._node)
 	if self._hasSuffixHint then
-		const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nMakerContext, {}, AutoFlag)
+		const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nMakerContext, {}, AutoFlag, true)
 		local nGuardFn:OrFalse(clazz.OpenFunction) = false
 		const ok, err = pcall(nSuffixHint.caller, {
 			impl=function(vHint, _)
@@ -319,7 +319,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		return (assert(nGuardFn, "open function with suffix hint only can be guard function"..tostring(self._node)))
 	else
 		return self._manager:OpenFunction():lateInitFromBuilder(function(vOpenFn, vContext, vTermTuple)
-			const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, vContext, {}, AutoFlag)
+			const nParHintStruct, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, vContext, {}, AutoFlag, true)
 			return nGenFunc(vOpenFn, vTermTuple, nParHintStruct)
 		end)
 	end

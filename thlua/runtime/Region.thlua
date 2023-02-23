@@ -1,5 +1,4 @@
 
-const Region = {}
 const Enum = require "thlua.Enum"
 const VariableCase = require "thlua.term.VariableCase"
 const AutoHolder = require "thlua.auto.AutoHolder"
@@ -12,6 +11,8 @@ const TermTuple = require "thlua.tuple.TermTuple"
 
 const DoBuilder = require "thlua.builder.DoBuilder"
 
+const AutoTuple = require "thlua.auto.AutoTuple"
+const AutoFlag = require "thlua.auto.AutoFlag"
 const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const AutoFunction = require "thlua.refer.AutoFunction"
@@ -20,6 +21,7 @@ const ClassFactory = require "thlua.refer.ClassFactory"
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 (@let.node = import("thlua.code.Node").node)
 
+const Region = {}
 Region.__index = Region
 Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._context:getNode())
@@ -85,6 +87,34 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAu
 	end
 end
 
+function Region:PAR_TO_TUPLE(vNode:clazz.IAstNode, vParHintStruct:clazz.ParHintStruct):Ret(clazz.UTermTuple)
+
+	--:Ret(Union(clazz.AutoTuple, clazz.UTypeTuple))
+	local nHasAuto = false
+	const nParList:List(Union(clazz.UAllType, clazz.AutoHolder)) = {}
+	for i, nParType in ipairs(vParHintStruct) do
+		if nParType == AutoFlag then
+			nHasAuto = true
+			nParList[i] = AutoHolder.new()
+		else
+			nParList[i] = nParType
+		end
+	end
+	const nDots = vParHintStruct.dots
+	nHasAuto = nHasAuto or nDots == AutoFlag
+	const nManager = self._context:getTypeManager()
+	if nHasAuto then
+		return AutoTuple.new(nManager, vNode, nParList, nDots or false):makeTermTuple(self._context)
+	else
+		const nTuple = nManager:TypeTuple(vNode, table.unpack(nParList))
+		if nDots then
+			return nTuple:Dots(nDots):makeTermTuple(self._context)
+		else
+			return nTuple:makeTermTuple(self._context)
+		end
+	end
+end
+
 function Region:PARAM_UNPACK(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
@@ -109,10 +139,11 @@ function Region:PARLIST_UNPACK(
 	vTermTuple:clazz.UTermTuple,
 	vOpenParHintStruct:clazz.ParHintStruct,
 	vParNum:Number,
-	vUseDots:Boolean
+	vUseDots:Boolean,
+	vIsOpen:Boolean
 ):RetDots(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
 	const l:List(clazz.UAutoTerm) = {}
-	if not OpenFunction.is(self._bodyFn) then
+	if not vIsOpen then
 		assert(vParNum == #vTermTuple)
 		if vUseDots then
 			assert(vTermTuple:getTail())
