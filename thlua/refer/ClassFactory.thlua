@@ -6,16 +6,16 @@ const Exception = require "thlua.Exception"
 const ClassFactory = {}
 ClassFactory.__index=ClassFactory
 
-function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, vRefer:clazz.Reference, vTypeFn:OrFalse(clazz.TypeFunction))
+function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
 		-- startSid : true means wait to gen sid and start, int means waiting, false means started
 		_waitStartSid=true@Union(Boolean, Integer),
 		_namedRefer=vRefer,
-		_typeFn=vTypeFn@OrFalse(clazz.TypeFunction),
+		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_classType=false@OrFalse(clazz.LuaTable),
-		_waitClassCoToSid={} @ Dict(Thread, Integer),
+		_waitClassCoToSid={} @ OrFalse(Dict(Thread, Integer)),
 		_waitBuildCoToSid={} @ OrFalse(Dict(Thread, Integer)),
 		_waitFuncCoToSid={} @ Dict(Thread, Integer),
 	}, ClassFactory)
@@ -43,12 +43,15 @@ end
 
 function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
-		self:startBuild()
+		self:getTypeAwait()
 		if not self._typeFn then
-			const nSessionId = self._manager:genSessionId()
-			const nCurCo = coroutine.running()
-			self._waitFuncCoToSid[nCurCo] = nSessionId
-			self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+			self:startBuild()
+			if not self._typeFn then
+				const nSessionId = self._manager:genSessionId()
+				const nCurCo = coroutine.running()
+				self._waitFuncCoToSid[nCurCo] = nSessionId
+				self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+			end
 		end
 	end
 	return (assert(self._typeFn, "type function not setted after wait"))
@@ -56,9 +59,10 @@ end
 
 function ClassFactory:getTypeAwait():Ret(clazz.UAtomUnion)
 	if not self._classType then
+		const nWaitClassCoToSid = assert(self._waitClassCoToSid, "can't be false here")
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
-		self._waitClassCoToSid[nCurCo] = nSessionId
+		nWaitClassCoToSid[nCurCo] = nSessionId
 		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
 	end
 	return (assert(self._classType, "result type not setted"))
@@ -70,26 +74,35 @@ end
 
 function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
 	if not self._classType then
+		const nWaitClassCoToSid = assert(self._waitClassCoToSid, "can't be false here")
 		const nSessionId = self._manager:genSessionId()
 		const nCurCo = coroutine.running()
-		self._waitClassCoToSid[nCurCo] = nSessionId
+		nWaitClassCoToSid[nCurCo] = nSessionId
 		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
 	end
 	const nClassType = assert(self._classType, "clazz type is not setted")
 	return {nClassType}
 end
 
-function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.ClassFactory, clazz.LuaTable):Ret(clazz.TypeFunction))
+function ClassFactory:build(
+	vRunner:Fn():Ret(
+		clazz.MetaObject,
+		OrFalse(clazz.TypeFunction),
+		Fn(clazz.ClassFactory, clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction))
+	)
+)
+	--vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.ClassFactory, clazz.LuaTable):Ret(clazz.TypeFunction))
 	-- step 1. wait inteface
-	const nInterface = vGetInterface()
+	const nInterface, nTypeFn, nLateRunner = vRunner()
 	-- step 2. create table
 	const nNewTable = self._manager:LuaTable()
 	nNewTable:initByClassCom(self, nInterface)
 	self._classType = nNewTable
-	-- nClassType:linkNamedReference(self)
-	for co, sid in pairs(self._waitClassCoToSid) do
-		self._manager:coWakeup(co, sid)
+	if nTypeFn then
+		self._typeFn = nTypeFn
 	end
+	self:_wakeupClass()
+	-- nClassType:linkNamedReference(self)
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
 		assert(nWaitStartSid == true, "wait start sid must be true here")
@@ -99,7 +112,10 @@ function ClassFactory:build(vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuil
 		self._manager:coWait(co, nSessionId)
 	end
 	-- step 3. run build
-	self._typeFn = vClassBuilder(self, nNewTable)
+	const nTypeFn = nLateRunner(self, nNewTable)
+	if nTypeFn then
+		self._typeFn = nTypeFn
+	end
 	self:_wakeupBuild()
 	-- step 4. wake up fn
 	for co, sid in pairs(self._waitFuncCoToSid) do
@@ -132,6 +148,17 @@ function ClassFactory:waitBuild()
 			const nSessionId = self._manager:genSessionId()
 			nWaitCoToSid[nCurCo] = nSessionId
 			self._manager:coWait(nCurCo, nSessionId, nSelfCo)
+		end
+	end
+end
+
+function ClassFactory:_wakeupClass()
+	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
+	const nWaitCoToSid = self._waitClassCoToSid
+	if nWaitCoToSid then
+		self._waitClassCoToSid = false
+		for co, sid in pairs(nWaitCoToSid) do
+			self._manager:coWakeup(co, sid)
 		end
 	end
 end

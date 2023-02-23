@@ -12,7 +12,7 @@ const AutoFunction = require "thlua.refer.AutoFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassFactory)
+	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassFactory, clazz.AutoFunction)
 end)
 
 const Reference = TypeClass()
@@ -93,7 +93,7 @@ end
 
 function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassFactory))
 	const nCom = self:getComAwait()
-	assert(not TemplateReferCom.is(nCom), "type reference expected, but get template reference")
+	assert(not TemplateReferCom.is(nCom) and not AutoFunction.is(nCom), "type reference expected, but get template reference")
 	return nCom
 end
 
@@ -141,29 +141,35 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 	end)
 end
 
-function Reference:setAutoFunction(vNode:clazz.IAstNode,
+function Reference:setAutoFunction(
+	vNode:clazz.IAstNode,
 	vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.AutoFunction):Ret(OrFalse(clazz.TypeFunction)))
 ):Ret(clazz.AutoFunction)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = AutoFunction.new(self._manager, self)
 	self._manager:coStart(self._selfCo, function()
+		self:_setComAndWakeup(nCom)
 		nCom:build(vRunner)
 	end)
 	return nCom
 end
 
-function Reference:setClassFactory(vNode:clazz.IAstNode,
-	vGetInterface:Fn():Ret(clazz.MetaObject),
-	vTypeFn:OrFalse(clazz.TypeFunction),
-	vClassBuilder:Fn(clazz.ClassFactory, clazz.LuaTable):Ret(clazz.TypeFunction)
+function Reference:setClassFactory(
+	vNode:clazz.IAstNode,
+	vRunner:Fn():Ret(
+		clazz.MetaObject,
+		OrFalse(clazz.TypeFunction),
+		Fn(clazz.ClassFactory, clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction))
+	)
 ):Ret(clazz.ClassFactory)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	const nCom = ClassFactory.new(self._manager, self, vTypeFn)
+	const nCom = ClassFactory.new(self._manager, self)
 	self._manager:coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
-		nCom:build(vGetInterface, vClassBuilder)
+		-- nCom:build(vGetInterface, vClassBuilder)
+		nCom:build(vRunner)
 	end)
 	return nCom
 end

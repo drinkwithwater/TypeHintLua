@@ -381,28 +381,29 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			return nInterface
 		end
 		if self._parFullHint then
-			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
-			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
-			const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 			const nFactory = nClassRefer:setClassFactory(self._node, function()
-				return nInterfaceGetter(nSuffixHint)
-			end, nTypeFn, function(vFactory, vLuaTable)
-				nNewContext:setClassTable(vLuaTable)
-				nGenFunc(vFactory, nParTuple:makeTermTuple(nNewContext), false)
-				return nTypeFn
+				const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<False>(false, vPolyParList, false)
+				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
+				const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+				return nInterfaceGetter(nSuffixHint), nTypeFn, function(vFactory, vLuaTable)
+					nNewContext:setClassTable(vLuaTable)
+					nGenFunc(vFactory, nParTuple:makeTermTuple(nNewContext), false)
+					return false
+				end
 			end)
 			self._context:recordClassFactory(nFactory)
 			return nFactory
 		else
-			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, false)
-			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 			const nFactory = nClassRefer:setClassFactory(self._node, function()
-				return nInterfaceGetter(nSuffixHint)
-			end, false, function(vFactory, vLuaTable)
-				nNewContext:setClassTable(vLuaTable)
-				nGenFunc(vFactory, nParTuple:makeTermTuple(nNewContext), false)
-				const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
-				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
+				const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, false)
+				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
+
+				return nInterfaceGetter(nSuffixHint), false, function(vFactory, vLuaTable)
+					nNewContext:setClassTable(vLuaTable)
+					nGenFunc(vFactory, nParTuple:makeTermTuple(nNewContext), false)
+					const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
+					return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
+				end
 			end)
 			self._context:recordClassFactory(nFactory)
 			return nFactory
