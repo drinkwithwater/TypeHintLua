@@ -142,12 +142,11 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 end
 
 function Reference:setAutoFunction(vNode:clazz.IAstNode,
-	vTypeFn:OrFalse(clazz.RetTuples, clazz.TypeFunction),
-	vRunner:Fn(clazz.AutoFunction):Ret(clazz.TypeFunction)
+	vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.AutoFunction):Ret(OrFalse(clazz.TypeFunction)))
 ):Ret(clazz.AutoFunction)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	const nCom = AutoFunction.new(self._manager, self, vTypeFn)
+	const nCom = AutoFunction.new(self._manager, self)
 	self._manager:coStart(self._selfCo, function()
 		nCom:build(vRunner)
 	end)

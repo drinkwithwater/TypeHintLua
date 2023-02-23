@@ -10,7 +10,7 @@ AutoFunction.__tostring=function(self:clazz.AutoFunction)
 	return "auto-fn"
 end
 
-function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, vRefer:clazz.Reference, vFnOrRet:OrFalse(clazz.RetTuples, clazz.TypeFunction))
+function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
@@ -18,14 +18,9 @@ function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, 
 		_waitStartSid=true@Union(Boolean, Integer),
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_retTuples=false@OrFalse(clazz.RetTuples),
-		_waitCoToSid={}@OrFalse(Dict(Thread, Integer)),
+		_waitPreCoToSid={}@OrFalse(Dict(Thread, Integer)),
+		_waitLateCoToSid={}@OrFalse(Dict(Thread, Integer)),
 	}, AutoFunction)
-	if TypeFunction.is(vFnOrRet) then
-		self._typeFn = vFnOrRet
-		self._retTuples = vFnOrRet:getRetTuples()
-	else
-		self._retTuples = vFnOrRet
-	end
 	return self
 end
 
@@ -33,7 +28,13 @@ function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function AutoFunction:build(vRunner:Fn(clazz.AutoFunction):Ret(clazz.TypeFunction))
+function AutoFunction:build(vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.AutoFunction):Ret(OrFalse(clazz.TypeFunction))))
+	const nTypeFn, nLateRunner = vRunner()
+	if nTypeFn then
+		self._typeFn = nTypeFn
+		self._retTuples = nTypeFn:getRetTuples()
+	end
+	self:_wakeupPre()
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
 		assert(nWaitStartSid == true, "wait start sid must be true here")
@@ -42,14 +43,12 @@ function AutoFunction:build(vRunner:Fn(clazz.AutoFunction):Ret(clazz.TypeFunctio
 		const co = coroutine.running()
 		self._manager:coWait(co, nSessionId)
 	end
-	if not self._typeFn then
-		const nTypeFn = vRunner(self)
+	const nTypeFn = nLateRunner(self)
+	if nTypeFn then
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
-		self:_wakeupBuild()
-	else
-		vRunner(self)
 	end
+	self:_wakeupLate()
 end
 
 function AutoFunction:meta_call(vContext:clazz.Context, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
@@ -58,15 +57,23 @@ function AutoFunction:meta_call(vContext:clazz.Context, vTermTuple:clazz.UTermTu
 end
 
 function AutoFunction:getFnAwait():Ret(clazz.TypeFunction)
-	const nTypeFn = self._typeFn
-	if not nTypeFn then
-		self:startBuild()
-		if not self._typeFn then
+	if not self._typeFn then
+		const nWaitPreCoToSid = self._waitPreCoToSid
+		if nWaitPreCoToSid then
 			const nSessionId = self._manager:genSessionId()
 			const nCurCo = coroutine.running()
-			const nWaitCoToSid = assert(self._waitCoToSid)
-			nWaitCoToSid[nCurCo] = nSessionId
+			nWaitPreCoToSid[nCurCo] = nSessionId
 			self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+		end
+		if not self._typeFn then
+			self:startBuild()
+			if not self._typeFn then
+				const nSessionId = self._manager:genSessionId()
+				const nCurCo = coroutine.running()
+				const nWaitLateCoToSid = assert(self._waitLateCoToSid)
+				nWaitLateCoToSid[nCurCo] = nSessionId
+				self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+			end
 		end
 	end
 	return (assert(self._typeFn, "_typeFn must existed here"))
@@ -83,11 +90,22 @@ function AutoFunction:startBuild()
 	end
 end
 
-function AutoFunction:_wakeupBuild()
+function AutoFunction:_wakeupPre()
 	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
-	const nWaitCoToSid = self._waitCoToSid
+	const nWaitCoToSid = self._waitPreCoToSid
 	if nWaitCoToSid then
-		self._waitCoToSid = false
+		self._waitPreCoToSid = false
+		for co, sid in pairs(nWaitCoToSid) do
+			self._manager:coWakeup(co, sid)
+		end
+	end
+end
+
+function AutoFunction:_wakeupLate()
+	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
+	const nWaitCoToSid = self._waitLateCoToSid
+	if nWaitCoToSid then
+		self._waitLateCoToSid = false
 		for co, sid in pairs(nWaitCoToSid) do
 			self._manager:coWakeup(co, sid)
 		end

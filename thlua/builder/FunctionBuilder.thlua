@@ -244,14 +244,16 @@ function FunctionBuilder:_buildInnerFn(
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
 		if self._parFullHint then
-			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
-			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-			const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
-			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, nTypeFn, function(vAutoFn)
-				if not self._pass then
-					nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
+			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
+				const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<False>(false, vPolyParList, vSelfType)
+				const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
+				const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+				return nTypeFn, function(vAutoFn)
+					if not self._pass then
+						nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
+					end
+					return false
 				end
-				return nTypeFn
 			end)
 			self._context:recordAutoFunction(nAutoFn)
 			return nAutoFn
@@ -259,12 +261,14 @@ function FunctionBuilder:_buildInnerFn(
 			if self._pass then
 				error("pass function must be full hint")
 			end
-			const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
-			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, false, function(vAutoFn)
-				nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
-				const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
-				return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
+			const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
+				const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByPoly@<True>(true, vPolyParList, vSelfType)
+				const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
+				return false, function(vAutoFn)
+					nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
+					const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
+					return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
+				end
 			end)
 			-- self._context:recordAutoFunction(nAutoFn)
 			return nAutoFn
