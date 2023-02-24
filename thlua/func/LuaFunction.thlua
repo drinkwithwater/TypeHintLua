@@ -4,8 +4,6 @@ const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
 
-const LateFnCom = require "thlua.func.LateFnCom"
-
 const AutoFunction = require "thlua.refer.AutoFunction"
 const ClassFactory = require "thlua.refer.ClassFactory"
 const OpenFunction = require "thlua.func.OpenFunction"
@@ -23,7 +21,6 @@ function:class(clazz.LuaFunction) LuaFunction.new(vManager:clazz.TypeManager):im
 		_node=false@clazz.IAstNode,
 		_isMember=false@Boolean,
 		_innerFn=false@OrFalse(clazz.ULuaInnerFn),
-		_lateFnCom=false@OrFalse(clazz.LateFnCom),
 		_hintCom=nil@clazz.FunctionBuilder,
 		bits=TYPE_BITS.FUNCTION,
 		name="unknown"@String,
@@ -36,10 +33,9 @@ function LuaFunction:setMember()
 	self._isMember = true
 end
 
-function LuaFunction:lateInit(vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vLateFnCom:OrFalse(clazz.LateFnCom), vInnerFn:OrFalse(clazz.ULuaInnerFn))
+function LuaFunction:lateInit(vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuilder, vInnerFn:OrFalse(clazz.ULuaInnerFn))
 	self._node = vNode
 	self._hintCom = vHintCom
-	self._lateFnCom = vLateFnCom
 	self._innerFn = vInnerFn
 	self.name = tostring(vNode)
 end
@@ -149,28 +145,17 @@ function LuaFunction:castPoly(vContext, vTypeArgsList)
 	end
 end
 
-function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(OrFalse(clazz.TypeFunction))
-	const nUnionFnCom = self._lateFnCom
-	if LateFnCom.is(nUnionFnCom) then
-		const nAfterTypeFn, nGenFunc = self._hintCom:checkWhenCast(vContext, vTypeFn)
-		nUnionFnCom:addSpecFn(nAfterTypeFn, nGenFunc)
-		return nAfterTypeFn
+function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction)
+	const nInnerFn = self._innerFn
+	if AutoFunction.is(nInnerFn) or MemberFunction.is(nInnerFn) or not nInnerFn then
+		self._hintCom:checkWhenCast(vContext, vTypeFn)
+		return vTypeFn
 	else
-		return false
+		error("TODO: open function or poly function cast to some Type")
 	end
 end
 
-function LuaFunction:castSpecialize(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction)
-	const nLateCom = self._lateFnCom
-	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
-	const nAfterTypeFn, nGenFunc = self._hintCom:checkWhenCast(vContext, vTypeFn)
-	nLateCom:addSpecFn(nAfterTypeFn, nGenFunc)
-	return vTypeFn
-end
-
 function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.AutoFunction)
-	local nLateCom = self._lateFnCom
-	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nInnerFn = self._innerFn
 	if not vSelfType then
 		assert(AutoFunction.is(nInnerFn), "only auto function can be specialized without self")

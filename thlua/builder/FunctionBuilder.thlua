@@ -9,8 +9,6 @@ const AutoTuple = require "thlua.auto.AutoTuple"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.refer.ClassFactory"
 
-const LateFnCom = require "thlua.func.LateFnCom"
-
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
@@ -83,25 +81,28 @@ function FunctionBuilder:error(...:Truth)
 	end
 end
 
-function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction, Fn())
-	-- 1. check par
-	const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByCast(vContext, vCastTypeFn:getParTuple())
-	-- 2. check ret
-	const nHintRetTuples = self:_makeRetTuples(nSuffixHint, {}, false)
-	local nFinalRetTuples = vCastTypeFn:getRetTuples()
-	if nHintRetTuples then
-		if not nFinalRetTuples:containTuples(nHintRetTuples) then
-			self:error("interface-fn ret and hint ret notmatch")
+function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction)
+	const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
+		-- 1. check par
+		const nNewContext, nParTuple, nSuffixHint, nGenFunc = self:_makeParTupleByCast(self._context, vCastTypeFn:getParTuple())
+		-- 2. check ret
+		const nHintRetTuples = self:_makeRetTuples(nSuffixHint, {}, false)
+		local nFinalRetTuples = vCastTypeFn:getRetTuples()
+		if nHintRetTuples then
+			if not nFinalRetTuples:containTuples(nHintRetTuples) then
+				self:error("interface-fn ret and hint ret notmatch")
+			end
+			nFinalRetTuples = nHintRetTuples
 		end
-		nFinalRetTuples = nHintRetTuples
-	end
-	const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nFinalRetTuples)
-	return nTypeFn , function()
-		const ok, err = pcall(nGenFunc, nTypeFn, nParTuple:makeTermTuple(nNewContext), false)
-		if not ok then
-			nNewContext:error(tostring(err))
+		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nFinalRetTuples)
+		return nTypeFn, function(vAutoFn)
+			if not self._pass then
+				nGenFunc(vAutoFn, nParTuple:makeTermTuple(nNewContext), false)
+			end
+			return false
 		end
-	end
+	end)
+	self._context:recordAutoFunction(nAutoFn)
 end
 
 function FunctionBuilder:_makeRetTuples(
@@ -432,20 +433,17 @@ function FunctionBuilder:build():Ret(clazz.LuaFunction)
 	const nLuaFunc = self._manager:LuaFunction()
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		nLuaFunc:lateInit(self._node, self, false, self:_buildOpen())
+		nLuaFunc:lateInit(self._node, self, self:_buildOpen())
 	elseif nAttrSet.class then
 		if self._member then
 			error(Exception.new("class factory can't be member-function-like", self._node))
 		end
-		nLuaFunc:lateInit(self._node, self, false, self:_buildClass())
+		nLuaFunc:lateInit(self._node, self, self:_buildClass())
 	else
 		if self._member then
 			nLuaFunc:setMember()
 		end
-		const nInnerFn = self:_buildInnerFn()
-		const nLateFnCom = LateFnCom.new(self._manager, nLuaFunc, nAttrSet.pass and true or false)
-		self._context:recordLateLuaFunction(nLateFnCom)
-		nLuaFunc:lateInit(self._node, self, nLateFnCom, nInnerFn)
+		nLuaFunc:lateInit(self._node, self, self:_buildInnerFn())
 	end
 	return nLuaFunc
 end

@@ -135,14 +135,6 @@ const function.open ContextClass()
 		return self._manager
 	end
 
-	function Context:recordLateLuaFunction(vFunc:clazz.LateFnCom)
-		if self._sealContext == self then
-			self._lateFnSet[vFunc] = true
-		else
-			self._sealContext:recordLateLuaFunction(vFunc)
-		end
-	end
-
 	function Context:recordAutoFunction(vFunc:clazz.AutoFunction)
 		if self._sealContext ~= self then
 			self._sealContext:recordAutoFunction(vFunc)
@@ -181,9 +173,6 @@ const function.open ContextClass()
 			self._classFnSet = false
 			for fn, v in pairs(nClassFnSet) do
 				fn:startBuild()
-			end
-			for fn, v in pairs(self._lateFnSet) do
-				fn:checkLateRun()
 			end
 			const nFuncMakerSet = assert(self._funcMakerSet, "maker set must be true here")
 			self._funcMakerSet = false
