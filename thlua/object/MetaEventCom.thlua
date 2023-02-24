@@ -9,7 +9,8 @@ const LuaFunction = require "thlua.func.LuaFunction"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.MetaFnField = Struct {
 		luaFn=OrFalse(clazz.LuaFunction),
-		typeFn=clazz.TypeFunction,
+		typeFn=OrNil(clazz.TypeFunction),
+		autoFn=OrNil(clazz.AutoFunction),
 	}
 end)
 
@@ -40,7 +41,7 @@ end
 
 function MetaEventCom:getBopFunc(vBopEvent:String):Ret(OrNil(clazz.TypeFunction))
 	const nField = self._bopDict[vBopEvent]
-	return nField and nField.typeFn
+	return nField and (nField.typeFn or nField.autoFn!:getFnAwait())
 end
 
 function MetaEventCom:getLenType():Ret(OrFalse(clazz.UAtomUnion))
@@ -49,7 +50,7 @@ end
 
 function MetaEventCom:getPairsFunc():Ret(OrFalse(clazz.TypeFunction))
 	const nField = self._pairs
-	return nField and nField.typeFn
+	return nField and (nField.typeFn or nField.autoFn!:getFnAwait())
 end
 
 const function buildFieldFromFn(vContext:clazz.Context, vEvent:String, vMethodFn:clazz.UAtomUnion,
@@ -71,12 +72,12 @@ const function buildFieldFromFn(vContext:clazz.Context, vEvent:String, vMethodFn
 		elseif vSelfOrTypeFn then
 			return {
 				luaFn=vMethodFn,
-				typeFn=vMethodFn:autoSpecialize(vContext, vSelfOrTypeFn)
+				autoFn=vMethodFn:autoSpecialize(vContext, vSelfOrTypeFn)
 			}
 		else
 			return {
 				luaFn=vMethodFn,
-				typeFn=vMethodFn:autoSpecialize(vContext, nil)
+				autoFn=vMethodFn:autoSpecialize(vContext, nil)
 			}
 		end
 	elseif not Nil.is(vMethodFn) then
@@ -102,7 +103,9 @@ function MetaEventCom:initByLuaTable(vContext:clazz.Context, vMetaTable:clazz.UT
 	const nLenTypeFn = nManager:checkedFn(nSelfType):Ret(nManager.type.Integer)
 	const nLenField = buildFieldFromFn(vContext, "__len", nLenFn, nLenTypeFn)
 	if nLenField then
-		self._uopLen = nLenField.typeFn:getRetTuples():getFirstType():checkAtomUnion()
+		self._uopLen = nManager.type.Integer
+		-- TODO, use fn's ret in the future
+		-- self._uopLen = nLenField.typeFn:getRetTuples():getFirstType():checkAtomUnion()
 	end
 	-- 3. build other
 	-- 1) __tostring

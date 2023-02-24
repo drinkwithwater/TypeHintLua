@@ -165,19 +165,19 @@ function LuaFunction:castSpecialize(vContext:clazz.Context, vTypeFn:clazz.TypeFu
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nAfterTypeFn, nGenFunc = self._hintCom:checkWhenCast(vContext, vTypeFn)
 	nLateCom:addSpecFn(nAfterTypeFn, nGenFunc)
-	return nAfterTypeFn
+	return vTypeFn
 end
 
-function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.TypeFunction)
+function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.AutoFunction)
 	local nLateCom = self._lateFnCom
 	assert(LateFnCom.is(nLateCom), "only LateFnCom can specificate")
 	const nInnerFn = self._innerFn
 	if not vSelfType then
 		assert(AutoFunction.is(nInnerFn), "only auto function can be specialized without self")
-		return nInnerFn:getFnAwait()
+		return nInnerFn
 	else
 		assert(MemberFunction.is(nInnerFn), "only member function can be specialized with self")
-		return nInnerFn:indexTypeFn(vSelfType)
+		return nInnerFn:indexAutoFn(vSelfType)
 	end
 end
 
