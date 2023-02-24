@@ -634,23 +634,19 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
 	const nSelf = nIsMember and "Self" or "____self"
 	const nParInBody:let.GenResult = {
-		#nParList > 0 and {
-			" local ____vList,____vDOTS=" ,
-			self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openParHint", tostring(nParamNum), tostring(nIsVararg)),
-			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-				if vParNode.tag ~= "Dots" then
-					const nHintShort = vParNode.hintShort
-					local nHintType:let.UGenResult = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
-					if i == 1 and nIsMember then
-						nHintType = "Self"
-					end
-					-- self:rgnWrap(vParNode).PARAM_UNPACK("__termArgs", tostring(i), nHintType)
-					return self:visitIdentDef(vParNode, "____vList["..i.."]", "nil")
-				else
-					return ""
+		#nParList > 0 and self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+			if vParNode.tag ~= "Dots" then
+				const nHintShort = vParNode.hintShort
+				local nHintType:let.UGenResult = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
+				if i == 1 and nIsMember then
+					nHintType = "Self"
 				end
-			end, " ")
-		} or "",
+				-- self:rgnWrap(vParNode).PARAM_UNPACK("__termArgs", tostring(i), nHintType)
+				return self:visitIdentDef(vParNode, "____vList["..i.."]", "nil")
+			else
+				return ""
+			end
+		end, " ") or "",
 	}
 	const nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack:let.GenResult = {}
@@ -694,8 +690,12 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 					end
 				end
 			end, ", ")),
-			" return ____openParHint,", nHintSuffix, ",",
-			self:fnWrap("____bodyFn", "____termArgs")(
+			" local ____vList,____vDOTS=nil, nil " ,
+			" return ____openParHint,", self:fnWrap("____termArgs")(
+				"____vList,____vDOTS=",
+				self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openParHint", tostring(nParamNum), tostring(nIsVararg))
+			), ",", nHintSuffix, ",",
+			self:fnWrap("____bodyFn")(
 				self:rgnWrap(vNode).BEGIN("____bodyFn"),
 				nParInBody,
 				self:visit(nBlockNode),
