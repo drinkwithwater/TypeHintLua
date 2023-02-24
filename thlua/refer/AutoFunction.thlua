@@ -18,8 +18,8 @@ function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, 
 		_waitStartSid=true@Union(Boolean, Integer),
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_retTuples=false@OrFalse(clazz.RetTuples),
-		_waitPreCoToSid={}@OrFalse(Dict(Thread, Integer)),
-		_waitLateCoToSid={}@OrFalse(Dict(Thread, Integer)),
+		_preBuildEvent=vRefer:makeEvent(),
+		_lateBuildEvent=vRefer:makeEvent(),
 	}, AutoFunction)
 	return self
 end
@@ -34,7 +34,7 @@ function AutoFunction:build(vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn(cla
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
 	end
-	self:_wakeupPre()
+	self._preBuildEvent:wakeup()
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
 		assert(nWaitStartSid == true, "wait start sid must be true here")
@@ -48,7 +48,7 @@ function AutoFunction:build(vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn(cla
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
 	end
-	self:_wakeupLate()
+	self._lateBuildEvent:wakeup()
 end
 
 function AutoFunction:meta_call(vContext:clazz.Context, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
@@ -58,21 +58,11 @@ end
 
 function AutoFunction:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
-		const nWaitPreCoToSid = self._waitPreCoToSid
-		if nWaitPreCoToSid then
-			const nSessionId = self._manager:genSessionId()
-			const nCurCo = coroutine.running()
-			nWaitPreCoToSid[nCurCo] = nSessionId
-			self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
-		end
+		self._preBuildEvent:wait()
 		if not self._typeFn then
 			self:startBuild()
 			if not self._typeFn then
-				const nSessionId = self._manager:genSessionId()
-				const nCurCo = coroutine.running()
-				const nWaitLateCoToSid = assert(self._waitLateCoToSid)
-				nWaitLateCoToSid[nCurCo] = nSessionId
-				self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+				self._lateBuildEvent:wait()
 			end
 		end
 	end
@@ -86,28 +76,6 @@ function AutoFunction:startBuild()
 		if type(nWaitStartSid) == "number" then
 			const co = self._refer:getSelfCo()
 			self._manager:coWakeup(co, nWaitStartSid)
-		end
-	end
-end
-
-function AutoFunction:_wakeupPre()
-	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
-	const nWaitCoToSid = self._waitPreCoToSid
-	if nWaitCoToSid then
-		self._waitPreCoToSid = false
-		for co, sid in pairs(nWaitCoToSid) do
-			self._manager:coWakeup(co, sid)
-		end
-	end
-end
-
-function AutoFunction:_wakeupLate()
-	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
-	const nWaitCoToSid = self._waitLateCoToSid
-	if nWaitCoToSid then
-		self._waitLateCoToSid = false
-		for co, sid in pairs(nWaitCoToSid) do
-			self._manager:coWakeup(co, sid)
 		end
 	end
 end

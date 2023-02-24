@@ -14,8 +14,8 @@ function:class(clazz.TypeReferCom) TypeReferCom.new(vManager:clazz.TypeManager, 
 		_mayRecursive=false@Boolean,
 		_typeList=false@OrFalse(List(clazz.IAtomType)),
 		_resultType=false@OrFalse(clazz.UAtomUnion),
-		_waitListCoToSid={} @ Dict(Thread, Integer),
-		_waitResultCoToSid={} @ Dict(Thread, Integer),
+		_listBuildEvent=vRefer:makeEvent(),
+		_resultBuildEvent=vRefer:makeEvent(),
 	}, TypeReferCom)
 	return self
 end
@@ -35,12 +35,8 @@ function TypeReferCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
 end
 
 function TypeReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
-	local nReturn = self._resultType
-	if not nReturn then
-		const nSessionId = self._manager:genSessionId()
-		const nCurCo = coroutine.running()
-		self._waitResultCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	if not self._resultType then
+		self._resultBuildEvent:wait()
 	end
 	return (assert(self._resultType, "result type not setted"))
 end
@@ -50,20 +46,16 @@ function TypeReferCom:getMayRecursive():Ret(Boolean)
 end
 
 function TypeReferCom:getListAwait():Ret(List(clazz.IAtomType))
-	local nReturn = self._typeList
-	if not nReturn then
-		const nSessionId = self._manager:genSessionId()
-		const nCurCo = coroutine.running()
-		self._waitListCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+	if not self._typeList then
+		self._listBuildEvent:wait()
 	end
 	return (assert(self._typeList, "type list not setted"))
 end
 
 function TypeReferCom:build(
-		vGetList:Fn():Ret(List(clazz.IAtomType)),
-		vLaterCall:OrNil(Fn(clazz.UAtomUnion))
-	):Ret()
+	vGetList:Fn():Ret(List(clazz.IAtomType)),
+	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
+):Ret()
 	-- step 1. get list
 	const nAtomList = vGetList()
 	self._typeList = nAtomList
@@ -72,9 +64,7 @@ function TypeReferCom:build(
 			self._mayRecursive = true
 		end
 	end
-	for co, sid in pairs(self._waitListCoToSid) do
-		self._manager:coWakeup(co, sid)
-	end
+	self._listBuildEvent:wakeup()
 	-- step 2. merge to result
 	local nResultType:OrNil(clazz.UAtomUnion) = nil
 	if #nAtomList == 0 then
@@ -90,11 +80,9 @@ function TypeReferCom:build(
 	end
 	self._resultType = nResultType
 	if not nResultType:isUnion() then
-			nResultType:linkNamedReference(self)
+		nResultType:linkNamedReference(self)
 	end
-	for co, sid in pairs(self._waitResultCoToSid) do
-		self._manager:coWakeup(co, sid)
-	end
+	self._resultBuildEvent:wakeup()
 	-- step 3. later call
 	if vLaterCall then
 		vLaterCall(nResultType)

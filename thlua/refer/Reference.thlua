@@ -9,6 +9,7 @@ const ClassFactory = require "thlua.refer.ClassFactory"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 const AutoFunction = require "thlua.refer.AutoFunction"
+const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -42,19 +43,19 @@ Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.Reference)
 end
 
 function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String)):impl(clazz.IType)
-	local self = setmetatable({.class
+	const self = setmetatable({.class
 		_manager=vManager,
 		_key=vKeyOrFalse,
 		_callDict={}@Dict(String, clazz.Reference),
 		_assignNode=false@OrFalse(clazz.IAstNode),
 		_referNodes={}@List(clazz.IAstNode),
 		_com=false@OrFalse(let.UReferCom),
-		_waitComCoToSid={} @ Dict(Thread, Integer),
+		_assignComEvent=nil@clazz.ScheduleEvent,
 		id=vManager:genTypeId(),
 		bits=false,
 		_selfCo=nil@Thread,
 	}, Reference)
-	self._selfCo = coroutine.create(function(vRunFn:Fn())
+	const co = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
 			if Exception.is(nExc) then
@@ -65,6 +66,8 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOr
 			end
 		end
 	end)
+	self._selfCo = co
+	self._assignComEvent = self:makeEvent()
 	return self
 end
 
@@ -82,10 +85,7 @@ end
 
 function Reference:getComAwait():Ret(let.UReferCom)
 	if not self._com then
-		const nSessionId = self._manager:genSessionId()
-		const nCurCo = coroutine.running()
-		self._waitComCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, self._selfCo)
+		self._assignComEvent:wait()
 	end
 	const nCom = assert(self._com, "com not setted after wait finish")
 	return nCom
@@ -105,9 +105,7 @@ end
 
 function Reference:_setComAndWakeup(vCom:let.UReferCom)
 	self._com = vCom
-	for co, sid in pairs(self._waitComCoToSid) do
-		self._manager:coWakeup(co, sid)
-	end
+	self._assignComEvent:wakeup()
 end
 
 function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
@@ -283,6 +281,10 @@ function Reference:assumeIncludeAll(vAssumeSet, vRight)
 		end)
 		return nAllInclude
 	end
+end
+
+function Reference:makeEvent():Ret(clazz.ScheduleEvent)
+	return ScheduleEvent.new(self._manager, self._selfCo)
 end
 
 function Reference:mayRecursive()

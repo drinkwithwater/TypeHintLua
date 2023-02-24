@@ -15,9 +15,9 @@ function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, 
 		_namedRefer=vRefer,
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_classType=false@OrFalse(clazz.LuaTable),
-		_waitClassCoToSid={} @ OrFalse(Dict(Thread, Integer)),
-		_waitBuildCoToSid={} @ OrFalse(Dict(Thread, Integer)),
-		_waitFuncCoToSid={} @ Dict(Thread, Integer),
+		_classEvent=vRefer:makeEvent(),
+		_buildEvent=vRefer:makeEvent(),
+		_funcEvent=vRefer:makeEvent(),
 	}, ClassFactory)
 	return self
 end
@@ -47,10 +47,7 @@ function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 		if not self._typeFn then
 			self:startBuild()
 			if not self._typeFn then
-				const nSessionId = self._manager:genSessionId()
-				const nCurCo = coroutine.running()
-				self._waitFuncCoToSid[nCurCo] = nSessionId
-				self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+				self._funcEvent:wait()
 			end
 		end
 	end
@@ -59,11 +56,7 @@ end
 
 function ClassFactory:getTypeAwait():Ret(clazz.UAtomUnion)
 	if not self._classType then
-		const nWaitClassCoToSid = assert(self._waitClassCoToSid, "can't be false here")
-		const nSessionId = self._manager:genSessionId()
-		const nCurCo = coroutine.running()
-		nWaitClassCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+		self._classEvent:wait()
 	end
 	return (assert(self._classType, "result type not setted"))
 end
@@ -74,11 +67,7 @@ end
 
 function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
 	if not self._classType then
-		const nWaitClassCoToSid = assert(self._waitClassCoToSid, "can't be false here")
-		const nSessionId = self._manager:genSessionId()
-		const nCurCo = coroutine.running()
-		nWaitClassCoToSid[nCurCo] = nSessionId
-		self._manager:coWait(nCurCo, nSessionId, self._refer:getSelfCo())
+		self._classEvent:wait()
 	end
 	const nClassType = assert(self._classType, "clazz type is not setted")
 	return {nClassType}
@@ -101,7 +90,7 @@ function ClassFactory:build(
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
-	self:_wakeupClass()
+	self._classEvent:wakeup()
 	-- nClassType:linkNamedReference(self)
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
@@ -116,11 +105,9 @@ function ClassFactory:build(
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
-	self:_wakeupBuild()
+	self._buildEvent:wakeup()
 	-- step 4. wake up fn
-	for co, sid in pairs(self._waitFuncCoToSid) do
-		self._manager:coWakeup(co, sid)
-	end
+	self._funcEvent:wakeup()
 end
 
 function ClassFactory:startBuild()
@@ -135,7 +122,7 @@ function ClassFactory:startBuild()
 end
 
 function ClassFactory:onSetMetaTable()
-	self:_wakeupBuild()
+	self._buildEvent:wakeup()
 end
 
 function ClassFactory:waitBuild()
@@ -143,34 +130,7 @@ function ClassFactory:waitBuild()
 	const nCurCo = coroutine.running()
 	const nSelfCo = self._refer:getSelfCo()
 	if nCurCo ~= nSelfCo then
-		const nWaitCoToSid = self._waitBuildCoToSid
-		if nWaitCoToSid then
-			const nSessionId = self._manager:genSessionId()
-			nWaitCoToSid[nCurCo] = nSessionId
-			self._manager:coWait(nCurCo, nSessionId, nSelfCo)
-		end
-	end
-end
-
-function ClassFactory:_wakeupClass()
-	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
-	const nWaitCoToSid = self._waitClassCoToSid
-	if nWaitCoToSid then
-		self._waitClassCoToSid = false
-		for co, sid in pairs(nWaitCoToSid) do
-			self._manager:coWakeup(co, sid)
-		end
-	end
-end
-
-function ClassFactory:_wakeupBuild()
-	assert(coroutine.running() == self._refer:getSelfCo(), "can only setmetatable in constructor thread")
-	const nWaitCoToSid = self._waitBuildCoToSid
-	if nWaitCoToSid then
-		self._waitBuildCoToSid = false
-		for co, sid in pairs(nWaitCoToSid) do
-			self._manager:coWakeup(co, sid)
-		end
+		self._buildEvent:wait()
 	end
 end
 
