@@ -370,17 +370,19 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		end
 		const nFactory = nClassRefer:setClassFactory(self._node, function()
 			const nNewContext, nParTuple, nSuffixHint, nArgsAssignFn, nGenFunc = self:_makeParTupleByPoly(vPolyParList, false)
-			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
-			const nIsAuto = AutoTuple.is(nParTuple)
-			const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
-			return nInterfaceGetter(nSuffixHint), nPreTypeFn, function(vFactory, vLuaTable)
-				nNewContext:setClassTable(vLuaTable)
-				nArgsAssignFn(nParTuple:makeTermTuple(nNewContext))
-				nGenFunc(vFactory)
-				if nIsAuto then
-					return self._manager:TypeFunction(self._node, nParTuple:finishTypeTuple(nNewContext), nRetTuples)
-				else
-					return false
+			return nInterfaceGetter(nSuffixHint), function()
+				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
+				const nIsAuto = AutoTuple.is(nParTuple)
+				const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
+				return nPreTypeFn, function(vFactory, vLuaTable)
+					nNewContext:setClassTable(vLuaTable)
+					nArgsAssignFn(nParTuple:makeTermTuple(nNewContext))
+					nGenFunc(vFactory)
+					if nIsAuto then
+						return self._manager:TypeFunction(self._node, nParTuple:finishTypeTuple(nNewContext), nRetTuples)
+					else
+						return false
+					end
 				end
 			end
 		end)

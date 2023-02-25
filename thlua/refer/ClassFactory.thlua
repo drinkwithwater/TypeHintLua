@@ -76,21 +76,21 @@ end
 function ClassFactory:build(
 	vRunner:Fn():Ret(
 		clazz.MetaObject,
-		OrFalse(clazz.TypeFunction),
-		Fn(clazz.ClassFactory, clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction))
+		Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.ClassFactory, clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction)))
 	)
 )
 	--vGetInterface:Fn():Ret(clazz.MetaObject), vClassBuilder:Fn(clazz.ClassFactory, clazz.LuaTable):Ret(clazz.TypeFunction))
 	-- step 1. wait inteface
-	const nInterface, nTypeFn, nLateRunner = vRunner()
+	const nInterface, nPreRunner = vRunner()
 	-- step 2. create table
 	const nNewTable = self._manager:LuaTable()
 	nNewTable:initByClassCom(self, nInterface)
 	self._classType = nNewTable
+	self._classEvent:wakeup()
+	const nTypeFn, nLateRunner = nPreRunner()
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
-	self._classEvent:wakeup()
 	-- nClassType:linkNamedReference(self)
 	const nWaitStartSid = self._waitStartSid
 	if nWaitStartSid then
