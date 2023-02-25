@@ -654,28 +654,14 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		self:fnWrap("____uv", "____newCtx","____polyArgs", nSelf)(
 			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:REGION(____ctx,", self:codeNode(vNode), ",____uv) ",
 			nPolyUnpack,
-			"local ____openParHint = ",
-			self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-				const nHintShort = vParNode.hintShort
-				if vParNode.tag == "Dots" then
-					return {
-						"dots=",
-						nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
-					}
-				else
-					if i == 1 and nIsMember then
-						return "Self"
-					else
-						return nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
-					end
-				end
-			end, ", ")),
+			-- pre declare param
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
 					return " local "..self:formatIdent(vParNode)
 				end
 			end, " "), " local ____vDOTS=false ",
-			" return ____openParHint,", self:fnWrap("____termArgs")(
+			-- check param when function building
+			" return ", self:fnWrap("____termArgs")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
 					const nHintType = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
