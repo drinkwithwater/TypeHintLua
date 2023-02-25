@@ -8,6 +8,7 @@ const MetaObject = require "thlua.object.MetaObject"
 const AutoTuple = require "thlua.auto.AutoTuple"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.refer.ClassFactory"
+const TermTuple = require "thlua.tuple.TermTuple"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -15,6 +16,9 @@ const ClassFactory = require "thlua.refer.ClassFactory"
 
 	clazz.AutoFlag = $AutoFlag
 	clazz.ULuaInnerFn = Union(clazz.ClassFactory, clazz.AutoFunction, clazz.OpenFunction, clazz.PolyFunction, clazz.MemberFunction)
+
+	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
+	clazz.GenMaker = Fn(OrFalse(clazz.VariableCase), clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 
 	clazz.FnPrefixHint = Struct {
 		class=Fn(clazz.FnPrefixHint, Any):Ret(clazz.FnPrefixHint),
@@ -58,7 +62,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vNode:clazz.IAstNode,
 	vUpValueCase:OrFalse(clazz.VariableCase),
 	vInfo:clazz.FuncNewInfo,
-	vParRetMaker:Fn(OrFalse(clazz.VariableCase), clazz.Context, List(clazz.UAllType), Union(clazz.AutoFlag, clazz.UAllType)):Ret(clazz.ParHintStruct, Fn(clazz.UTermTuple), clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	vParRetMaker:clazz.GenMaker
 )
 	const self = {.class
 		_manager=vManager,
@@ -85,7 +89,13 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 	const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
 		-- 1. check par
 		const nNewContext, nParTuple, nSuffixHint, nArgsAssignFn, nGenFunc = self:_makeParTupleByCast(self._context, vCastTypeFn:getParTuple())
-		nArgsAssignFn(nParTuple:makeTermTuple(nNewContext))
+		const nArgsTermTuple = vCastTypeFn:getParTuple():makeTermTuple(nNewContext)
+		const nParTermTuple = nNewContext:UTermTupleByAppend(nArgsAssignFn(nArgsTermTuple))
+		const nTypeTuple = nParTermTuple:checkTypeTuple()
+		if not nTypeTuple then
+			vContext:error("function cast but has undeduced field")
+			error("TODO, cast has auto error")
+		end
 		-- 2. check ret
 		const nHintRetTuples = self:_makeRetTuples(nSuffixHint, {}, false)
 		local nFinalRetTuples = vCastTypeFn:getRetTuples()
@@ -95,7 +105,7 @@ function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz
 			end
 			nFinalRetTuples = nHintRetTuples
 		end
-		const nTypeFn = self._manager:TypeFunction(self._node, nParTuple, nFinalRetTuples)
+		const nTypeFn = self._manager:TypeFunction(self._node, nTypeTuple, nFinalRetTuples)
 		return nTypeFn, function(vAutoFn)
 			if not self._pass then
 				nGenFunc(vAutoFn)
@@ -157,7 +167,7 @@ function FunctionBuilder:_makeRetTuples(
 	return nRetTuples
 end
 
-function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.Context, clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), Fn(clazz.UTermTuple), clazz.GenFunc)
+function FunctionBuilder:_makeParTupleByCast(vContext:clazz.Context, vTypeTuple:clazz.UTypeTuple):Ret(clazz.Context, clazz.UTypeTuple, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenParam, clazz.GenFunc)
 	const nNewContext = vContext:newSealContext(self._node)
 	const nParHintStruct, nArgsAssignFn, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, {}, AutoFlag)
 	local nNewList:List(clazz.UAllType) = {}
@@ -201,7 +211,7 @@ end
 function FunctionBuilder:_makeParTupleByPoly(
 	vPolyParList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
-):Ret(clazz.Context, Union(clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint), Fn(clazz.UTermTuple), clazz.GenFunc)
+):Ret(clazz.Context, Union(clazz.AutoTuple, clazz.UTypeTuple), clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenParam, clazz.GenFunc)
 	const nNewContext = self._context:newSealContext(self._node)
 	const nParList:List(Union(clazz.UAllType, clazz.AutoHolder)) = {}
 	const nParHintStruct, nArgsAssignFn, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, vSelfType or AutoFlag)
@@ -239,18 +249,23 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
 		const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
-			const nNewContext, nParTuple, nSuffixHint, nArgsAssignFn, nGenFunc = self:_makeParTupleByPoly(vPolyParList, vSelfType)
-			nArgsAssignFn(nParTuple:makeTermTuple(nNewContext))
+			const nNewContext, nParTuple, nSuffixHint, nGenParam, nGenFunc = self:_makeParTupleByPoly(vPolyParList, vSelfType)
+			const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))
+			const nIsAuto = TermTuple.isAuto(nParTermTuple)
 			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
-			const nIsAuto = AutoTuple.is(nParTuple)
-			const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
+			const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTermTuple:checkTypeTuple(), nRetTuples) or false
 			return nPreTypeFn, function(vAutoFn)
 				if not self._pass then
 					nGenFunc(vAutoFn)
 				end
 				if nIsAuto then
-					const nTypeTuple = nParTuple:finishTypeTuple(nNewContext)
-					return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
+					const nTypeTuple = nParTermTuple:checkTypeTuple()
+					if not nTypeTuple then
+						nNewContext:error("auto deduce failed")
+						error("auto deduce failed")
+					else
+						return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
+					end
 				else
 					return false
 				end
@@ -371,15 +386,20 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		const nFactory = nClassRefer:setClassFactory(self._node, function()
 			const nNewContext, nParTuple, nSuffixHint, nArgsAssignFn, nGenFunc = self:_makeParTupleByPoly(vPolyParList, false)
 			return nInterfaceGetter(nSuffixHint), function()
+				const nParTermTuple = nNewContext:UTermTupleByAppend(nArgsAssignFn(false))
 				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
-				const nIsAuto = AutoTuple.is(nParTuple)
-				const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
+				const nIsAuto = TermTuple.isAuto(nParTermTuple)
+				const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTermTuple:checkTypeTuple(), nRetTuples) or false
 				return nPreTypeFn, function(vFactory, vLuaTable)
 					nNewContext:setClassTable(vLuaTable)
-					nArgsAssignFn(nParTuple:makeTermTuple(nNewContext))
 					nGenFunc(vFactory)
 					if nIsAuto then
-						return self._manager:TypeFunction(self._node, nParTuple:finishTypeTuple(nNewContext), nRetTuples)
+						const nTypeTuple = nParTermTuple:checkTypeTuple()
+						if not nTypeTuple then
+							nNewContext:error("auto deduce failed")
+							error("auto deduce failed")
+						end
+						return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
 					else
 						return false
 					end

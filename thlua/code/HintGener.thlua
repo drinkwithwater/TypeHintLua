@@ -693,7 +693,14 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 						}
 					end
 				end, " "),
-				(nLastDots) and "" or self:rgnWrap(nParList).PARAM_NODOTS_UNPACK("____termArgs", tostring(nParamNum))
+				(nLastDots) and "" or self:rgnWrap(nParList).PARAM_NODOTS_UNPACK("____termArgs", tostring(nParamNum)),
+				" return ",
+				self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+					if vParNode.tag ~= "Dots" then
+						return "____tempv"..i
+					end
+				end, ",")), ",",
+				(nLastDots) and "____vDOTS" or tostring(false)
 			), ",", nHintSuffix, ",",
 			self:fnWrap("____bodyFn")(
 				self:rgnWrap(vNode).BEGIN("____bodyFn"),

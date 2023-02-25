@@ -117,28 +117,46 @@ end
 
 function Region:PARAM_UNPACK(
 	vNode:clazz.IAstNode,
-	vTermTuple:clazz.UTermTuple,
+	vTermTuple:OrFalse(clazz.UTermTuple),
 	vIndex:Integer,
 	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
 ):Ret(clazz.UAutoTerm)
-	return vTermTuple:get(self._context, vIndex)
+	if vHintType == AutoFlag then
+		if vTermTuple then
+			return vTermTuple:get(self._context, vIndex)
+		else
+			return AutoHolder.new()
+		end
+	else
+		return self._context:RefineTerm(vHintType)
+	end
 end
 
 function Region:PARAM_NODOTS_UNPACK(
 	vNode:clazz.IAstNode,
-	vTermTuple:clazz.UTermTuple,
+	vTermTuple:OrFalse(clazz.UTermTuple),
 	vParNum:Integer
 )
-	self._context:matchParToDots(vNode, vTermTuple, vParNum, false)
+	if vTermTuple then
+		self._context:matchParToDots(vNode, vTermTuple, vParNum, false)
+	end
 end
 
 function Region:PARAM_DOTS_UNPACK(
 	vNode:clazz.IAstNode,
-	vTermTuple:clazz.UTermTuple,
+	vTermTuple:OrFalse(clazz.UTermTuple),
 	vParNum:Integer,
 	vHintDots:Union(clazz.AutoFlag, clazz.UAllType)
 ):Ret(OrFalse(clazz.UTermTuple))
-	return self._context:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
+	if vTermTuple then
+		return self._context:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
+	else
+		if vHintDots == AutoFlag then
+			return self._context:UTermTupleByTail({}, AutoTail.new(self._context:getTypeManager()))
+		else
+			return self._context:UTermTupleByTail({}, DotsTail.new(self._context, vHintDots))
+		end
+	end
 end
 
 function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)

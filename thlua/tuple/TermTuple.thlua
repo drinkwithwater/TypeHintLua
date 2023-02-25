@@ -27,6 +27,15 @@ const AutoTail = require "thlua.auto.AutoTail"
 			error("template TermTuple.thlua:let.Tail can't take other type as argument:"..tostring(T))
 		end
 	end)
+	let.CheckTuple = Template(function(T)
+		if clazz.FixedTermTuple:containAll(T) then
+			return clazz.UTypeTuple
+		elseif clazz.AutoTermTuple:containAll(T) then
+			return OrFalse(clazz.UTypeTuple)
+		else
+			error("template TermTuple.thlua:let.Element can't take other type as argument:"..tostring(T))
+		end
+	end)
 end)
 
 const TermTuple = {}
@@ -110,9 +119,41 @@ function TermTuple:getContext():Ret(clazz.Context)
 	return self._context
 end
 
-function TermTuple:checkTypeTuple():Ret(clazz.UTypeTuple)
+function TermTuple:checkTypeTuple():Ret(let.CheckTuple(Self))
 	if self._auto then
-		error("auto TermTuple checkTypeTuple failed")
+		const nTypeList:List(clazz.UAllType) = {}
+		for i,v in ipairs(self._list) do
+			const nType = v:getType()
+			if not nType then
+				return false
+			end
+			nTypeList[i] = nType
+		end
+		const nTail = self._tail
+		if AutoTail.is(nTail) then
+			const nTailTuple = nTail:checkTypeTuple(self:getContext())
+			if not nTailTuple then
+				return false
+			else
+				for i=1,#nTailTuple do
+					nTypeList[#nTypeList + 1] = nTailTuple:get(i)
+				end
+				const nFinalTuple = self._manager:TypeTuple(self:getContext():getNode(), table.unpack(nTypeList))
+				const nRepeatType = nTailTuple:getRepeatType()
+				if nRepeatType then
+					return nFinalTuple:Dots(nRepeatType)
+				else
+					return nFinalTuple
+				end
+			end
+		else
+			const nTuple = self._manager:TypeTuple(self:getContext():getNode(), table.unpack(nTypeList))
+			if not nTail then
+				return nTuple
+			else
+				return nTuple:Dots(nTail:getRepeatType())
+			end
+		end
 	else
 		local nTypeTuple = self._typeTuple
 		if not nTypeTuple then
