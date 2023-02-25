@@ -624,10 +624,8 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nLastNode = nParList[#nParList]
 	const nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
 	const nParamNum = nLastDots and #nParList-1 or #nParList
-	const nIsVararg = nLastDots and true or false
 	const nFirstPar = nParList[1]
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
-	const nSelf = nIsMember and "Self" or "____self"
 	const nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack:let.GenResult = {}
 	const nPolyParNum = nPolyParList and #nPolyParList or 0
@@ -644,14 +642,13 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 		_prefixHint=nHintPrefix,
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
-		_isvararg=tostring(nIsVararg),
 		_polyParNum=tostring(nPolyParNum),
 		_parNum=tostring(nParamNum),
 		_parFullHint=tostring(vNode.parFullHint or false),
 		_member=tostring(nIsMember),
 	}),
 	-- par ret maker
-		self:fnWrap("____uv", "____newCtx","____polyArgs", nSelf)(
+		self:fnWrap("____uv", "____newCtx","____polyArgs", "____self")(
 			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:REGION(____ctx,", self:codeNode(vNode), ",____uv) ",
 			nPolyUnpack,
 			-- pre declare param
@@ -664,9 +661,14 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 			" return ", self:fnWrap("____termArgs")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
-					const nHintType = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
+					local nHintType = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
 					if vParNode.tag ~= "Dots" then
-						const nHintType = (i == 1 and nIsMember) and "Self" or nHintType
+						if i == 1 then
+							-- if i == 1 then use ____self as first type if setted
+							nHintType = {
+								"(____self or ", nHintType, ")"
+							}
+						end
 						return {
 							"local ____tempv"..i.."=",
 							self:rgnWrap(vParNode).PARAM_UNPACK("____termArgs", tostring(i), nHintType),
