@@ -9,33 +9,6 @@ const AutoTail = require "thlua.auto.AutoTail"
 	clazz.AutoTermTuple = clazz.TermTuple(true)
 	clazz.FixedTermTuple = clazz.TermTuple(false)
 	clazz.UTermTuple = Union(clazz.AutoTermTuple, clazz.FixedTermTuple)
-	let.Element = Template(function(T)
-		if clazz.FixedTermTuple:containAll(T) then
-			return clazz.RefineTerm
-		elseif clazz.AutoTermTuple:containAll(T) then
-			return clazz.UAutoTerm
-		else
-			error("template TermTuple.thlua:let.Element can't take other type as argument:"..tostring(T))
-		end
-	end)
-	let.Tail = Template(function(T)
-		if clazz.FixedTermTuple:containAll(T) then
-			return OrFalse(clazz.DotsTail)
-		elseif clazz.AutoTermTuple:containAll(T) then
-			return OrFalse(clazz.DotsTail, clazz.AutoTail)
-		else
-			error("template TermTuple.thlua:let.Tail can't take other type as argument:"..tostring(T))
-		end
-	end)
-	let.CheckTuple = Template(function(T)
-		if clazz.FixedTermTuple:containAll(T) then
-			return clazz.UTypeTuple
-		elseif clazz.AutoTermTuple:containAll(T) then
-			return OrFalse(clazz.UTypeTuple)
-		else
-			error("template TermTuple.thlua:let.Element can't take other type as argument:"..tostring(T))
-		end
-	end)
 end)
 
 const TermTuple = {}
@@ -79,7 +52,7 @@ function:class(clazz.TermTuple) TermTuple.new@<Auto>(
 	return self
 end
 
-function TermTuple:select(vContext:clazz.Context, i:Integer):Ret(Union(Self, clazz.FixedTermTuple))
+function TermTuple:select(vContext:clazz.Context, i:Integer):Ret(Union($self, clazz.FixedTermTuple))
 	const nList:$self._list = {}
 	for n=i,#self._list do
 		nList[#nList + 1] = self._list[n]
@@ -92,7 +65,7 @@ function TermTuple:select(vContext:clazz.Context, i:Integer):Ret(Union(Self, cla
 	end
 end
 
-function TermTuple:rawget(i:Number):Ret(OrNil(let.Element(Self)))
+function TermTuple:rawget(i:Number):Ret($self._list[1])
 	return self._list[i]
 end
 
@@ -101,7 +74,7 @@ function TermTuple:checkFixed(vContext:clazz.Context, i:Number):Ret(clazz.Refine
 	return nTerm:checkRefineTerm(vContext)
 end
 
-function TermTuple:get(vContext:clazz.Context, i:Number):Ret(let.Element(Self))
+function TermTuple:get(vContext:clazz.Context, i:Number):Ret($self._list[1]!)
 	const nMore = i - #self
 	if nMore <= 0 then
 		return self._list[i]!
@@ -119,7 +92,7 @@ function TermTuple:getContext():Ret(clazz.Context)
 	return self._context
 end
 
-function TermTuple:checkTypeTuple():Ret(let.CheckTuple(Self))
+function TermTuple:checkTypeTuple():Ret(Cond($self._auto, OrFalse(clazz.UTypeTuple), clazz.UTypeTuple))
 	if self._auto then
 		const nTypeList:List(clazz.UAllType) = {}
 		for i,v in ipairs(self._list) do
@@ -174,7 +147,7 @@ function TermTuple:checkTypeTuple():Ret(let.CheckTuple(Self))
 	end
 end
 
-function TermTuple:getTail():Ret(let.Tail(Self))
+function TermTuple:getTail():Ret($self._tail)
 	return self._tail
 end
 
