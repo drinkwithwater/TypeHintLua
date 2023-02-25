@@ -11,6 +11,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 
 const DoBuilder = require "thlua.builder.DoBuilder"
 
+const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTuple = require "thlua.auto.AutoTuple"
 const AutoFlag = require "thlua.auto.AutoFlag"
 const OpenFunction = require "thlua.func.OpenFunction"
@@ -123,43 +124,21 @@ function Region:PARAM_UNPACK(
 	return vTermTuple:get(self._context, vIndex)
 end
 
+function Region:PARAM_NODOTS_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vParNum:Integer
+)
+	self._context:matchParToDots(vNode, vTermTuple, vParNum, false)
+end
+
 function Region:PARAM_DOTS_UNPACK(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
-	vDotsIndex:Integer,
-	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
+	vParNum:Integer,
+	vHintDots:Union(clazz.AutoFlag, clazz.UAllType)
 ):Ret(OrFalse(clazz.UTermTuple))
-	return false
-end
-
--- unpack in function's argument & for_in
-function Region:PARLIST_UNPACK(
-	vNode:clazz.IAstNode,
-	vTermTuple:clazz.UTermTuple,
-	vOpenParHintStruct:clazz.ParHintStruct,
-	vParNum:Number,
-	vUseDots:Boolean
-):RetDots(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
-	const l:List(clazz.UAutoTerm) = {}
-	if not self._context:isOpen() then
-		assert(vParNum == #vTermTuple)
-		if vUseDots then
-			assert(vTermTuple:getTail())
-		else
-			assert(not vTermTuple:getTail())
-		end
-		for i=1, vParNum do
-			l[i] = vTermTuple:get(self._context, i)
-		end
-		if vUseDots then
-			return l, vTermTuple:select(self._context, vParNum + 1)
-		else
-			return l, false
-		end
-	end
-	-- open call unpack
-	assert(vParNum == #vOpenParHintStruct)
-	return self._context:matchToParHintStruct(vNode, vTermTuple, vOpenParHintStruct)
+	return self._context:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
 end
 
 function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)

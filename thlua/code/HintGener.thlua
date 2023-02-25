@@ -535,6 +535,7 @@ end
 	let.RgnNameEnum = Union(
 		"PARAM_UNPACK",
 		"PARAM_DOTS_UNPACK",
+		"PARAM_NODOTS_UNPACK",
 		"BEGIN",
 		"RETURN",
 		"END",
@@ -544,7 +545,6 @@ end
 		"FOR_NUM",
 		"IF",
 		"BREAK",
-		"PARLIST_UNPACK",
 		"SYMBOL_NEW",
 		"SYMBOL_GET",
 		"SYMBOL_SET",
@@ -623,11 +623,6 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nBlockNode = nIsChunk and vNode[3] or vNode[2]
 	const nLastNode = nParList[#nParList]
 	const nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
-	local nDotsHint:OrFalse(let.UGenResult) = false
-	if nLastDots then
-		const nHint = nLastDots.hintShort
-		nDotsHint = nHint and self:fixIHintInfo(nHint) or false
-	end
 	const nParamNum = nLastDots and #nParList-1 or #nParList
 	const nIsVararg = nLastDots and true or false
 	const nFirstPar = nParList[1]
@@ -675,22 +670,30 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 					end
 				end
 			end, ", ")),
-			" local ____vList, ____vDOTS=nil " ,
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 				if vParNode.tag ~= "Dots" then
 					return " local "..self:formatIdent(vParNode)
 				end
-			end, " "),
+			end, " "), " local ____vDOTS=false ",
 			" return ____openParHint,", self:fnWrap("____termArgs")(
-				"____vList,____vDOTS=",
-				self:rgnWrap(nParList).PARLIST_UNPACK("____termArgs", "____openParHint", tostring(nParamNum), tostring(nIsVararg)),
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
+					const nHintShort = vParNode.hintShort
+					const nHintType = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
 					if vParNode.tag ~= "Dots" then
-						return self:visitIdentDef(vParNode, "____vList["..i.."]", true)
+						const nHintType = (i == 1 and nIsMember) and "Self" or nHintType
+						return {
+							"local ____tempv"..i.."=",
+							self:rgnWrap(vParNode).PARAM_UNPACK("____termArgs", tostring(i), nHintType),
+							self:visitIdentDef(vParNode, "____tempv"..i, true)
+						}
 					else
-						return ""
+						return {
+							"____vDOTS=",
+							self:rgnWrap(vParNode).PARAM_DOTS_UNPACK("____termArgs", tostring(nParamNum), nHintType)
+						}
 					end
-				end, " ")
+				end, " "),
+				(nLastDots) and "" or self:rgnWrap(nParList).PARAM_NODOTS_UNPACK("____termArgs", tostring(nParamNum))
 			), ",", nHintSuffix, ",",
 			self:fnWrap("____bodyFn")(
 				self:rgnWrap(vNode).BEGIN("____bodyFn"),
