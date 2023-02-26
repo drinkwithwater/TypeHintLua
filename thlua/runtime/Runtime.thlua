@@ -45,19 +45,20 @@ Runtime.__index=Runtime
 
 function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 	local self = setmetatable({.class
+		_loader=vLoader,
+		_mainFileName=vMainFileName,
+		_node=Node.newRootNode(vMainFileName),
+		_spaceList={}@List(clazz.Namespace),
+		_loadedDict={}@Dict(String, LoadedState),
+		_nodeToSymbolSet={}@Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True)),
+		_fileStateDict={}@Dict(String, FileState),
+		_manager=nil@clazz.TypeManager,
+		_globalTable=nil@clazz.LuaTable,
+		_rootContext=nil@clazz.Context,
+		_lineToExpectResult=false @ OrFalse(Dict(Integer, Union(String, Integer)))
 	}, Runtime)
-	self._loader = vLoader
-	self._mainFileName = vMainFileName
-	self._node = Node.newRootNode(vMainFileName)
-	self._spaceList = {} @ List(clazz.Namespace)
 	self._manager = TypeManager.new(self)
 	self._globalTable = native.make(self)
-	self._loadedDict = {} @ Dict(String, LoadedState)
-	self._nodeToSymbolSet = {} @ Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True))
-	self._fileStateDict = {} @Dict(String, FileState)
-	self._rootContext = self:newContext(self._node, false, false)
-	self._rootContext:rootSetNamespace(self:RootNamespace())
-	self._lineToExpectResult = false @ OrFalse(Dict(Integer, Union(String, Integer)))
 	return self
 end
 
@@ -96,6 +97,9 @@ end
 
 function Runtime:main():Ret(Boolean, Nil)
 	const a,b = pcall(function():Ret()
+		const nRootContext = self:newContext(self._node, false, false)
+		self._rootContext = nRootContext
+		nRootContext:rootSetNamespace(self:RootNamespace())
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._rootContext:FixedTermTuple({})
 		nLuaFunc:meta_open_call(self._rootContext:newOpenContext(self._node), nTermTuple)
@@ -104,8 +108,30 @@ function Runtime:main():Ret(Boolean, Nil)
 		local t2 = os.clock()
 		print(t2-t1)
 	end)
-	self:diffTestExpect()
 	return a,b
+end
+
+function Runtime:main2():Ret(Boolean, Nil)
+	const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
+		const nRootContext = self:newContext(self._node, false, false)
+		self._rootContext = nRootContext
+		nRootContext:rootSetNamespace(self:RootNamespace())
+		return false, function(vAutoFn)
+			const nLuaFunc = self:cacheLoadFile(self._mainFileName)
+			const nTermTuple = self._rootContext:FixedTermTuple({})
+			nLuaFunc:meta_open_call(self._rootContext:newOpenContext(self._node), nTermTuple)
+			const t1 = os.clock()
+			self._rootContext:seal()
+			const t2 = os.clock()
+			print(t2-t1)
+			const nParTuple = self._manager:TypeTuple(self._node)
+			const nRetTuples = self._manager:VoidRetTuples()
+			return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+		end
+	end)
+	nAutoFn:startBuild()
+	-- self:diffTestExpect()
+	return true, nil
 end
 
 function Runtime:newContext(vApplyNode:clazz.IAstNode, vSealContext:OrFalse(clazz.Context), vParentContext:OrFalse(clazz.Context)):Ret(clazz.Context)

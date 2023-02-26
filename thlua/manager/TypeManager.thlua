@@ -53,14 +53,48 @@ const TypeManager = {}
 TypeManager.__index=TypeManager
 
 function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
+	const function:class(let.BuiltinType) makeBuiltinType(vManager:clazz.TypeManager)
+		const self = {.class
+			Never = Never.new(vManager),
+			Nil = Nil.new(vManager),
+			False = BooleanLiteral.new(vManager, false),
+			True = BooleanLiteral.new(vManager, true),
+			Thread = Thread.new(vManager),
+			Number = Number.new(vManager),
+			String = String.new(vManager),
+			Truth = Truth.new(vManager),
+			AnyFunction = AnyFunction.new(vManager),
+			Boolean = nil @ clazz.Reference,
+			Any = nil @ clazz.Reference,
+			AnyObject = nil @ clazz.MetaObject,
+		}
+		for k, nType in pairs(self @!! Dict(String, clazz.UAtomUnion)) do
+			vManager:_recordTypeUnionSign(nType)
+		end
+		self.Integer = self.Number
+		const nRootNode = vRuntime:getNode()
+		return self
+	end
+	const function:class(let.BuiltinFunc) makeBuiltinFunc(vManager:clazz.TypeManager)
+		const self = {.class
+			string=native.make_string(vManager),
+			next=native.make_next(vManager),
+			inext=native.make_inext(vManager),
+			bop={
+				mathematic=native.make_mathematic(vManager),
+				comparison=native.make_comparison(vManager),
+				bitwise=native.make_bitwise(vManager),
+				concat=native.make_concat(vManager),
+			},
+		}
+		return self
+	end
 	const self = setmetatable({.class
 		_runtime=vRuntime,
 		-- type items
-		type={
-			Object=nil @ clazz.MetaObject,
-		},
-		generic={},
-		builtin={},
+		type=nil @ let.BuiltinType,
+		builtin=nil @ let.BuiltinFunc,
+		generic={} @ Dict(String, clazz.Reference),
 		_pairToInclude={} @ Dict(Integer, clazz.Reference),
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
@@ -72,35 +106,15 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		_sessionIdCounter=0@Integer,
 		_selfCo=coroutine.running(),
 	}, TypeManager)
-	self.type.Never = Never.new(self)
-	self.type.Nil = Nil.new(self)
-	self.type.False = BooleanLiteral.new(self, false)
-	self.type.True = BooleanLiteral.new(self, true)
-	self.type.Thread = Thread.new(self)
-	self.type.Number = Number.new(self)
-	self.type.Integer = self.type.Number
-	self.type.String = String.new(self)
-	self.type.Truth = Truth.new(self)
-	self.type.AnyFunction = AnyFunction.new(self)
-	for k, nType in pairs(self.type @!! Dict(String, clazz.UAtomUnion)) do
-		self:_recordTypeUnionSign(nType)
-	end
 	const nRootNode = vRuntime:getNode()
+	self.type = makeBuiltinType(self)
 	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(nRootNode, {})
+	self.builtin = makeBuiltinFunc(self)
 	self.generic.Dict = self:buildTemplate(nRootNode, function.pass(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
-	end)
-	self.generic.Tget = self:buildTemplate(nRootNode, function.pass(vTable, vKey)
-		local nType = vTable
-		if Reference.is(vTable) then
-			nType = vTable:waitTypeCom():getTypeAwait()
-		end
-		if LuaTable.is(nType) then
-			return nType:tget(vKey)
-		end
 	end)
 	self.generic.Cond = self:buildTemplate(nRootNode, function.pass(vCond,v1,v2)
 		local nType = vCond
@@ -139,15 +153,6 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		const nKeyRefer, _ = nObject:getKeyTypes()
 		return nKeyRefer
 	end)
-	self.builtin.string=native.make_string(self)
-	self.builtin.next=native.make_next(self)
-	self.builtin.inext=native.make_inext(self)
-	self.builtin.bop={
-		mathematic=native.make_mathematic(self),
-		comparison=native.make_comparison(self),
-		bitwise=native.make_bitwise(self),
-		concat=native.make_concat(self),
-	}
 	return self
 end
 
