@@ -61,9 +61,17 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOr
 		if not ok then
 			if Exception.is(nExc) then
 				nExc:fixNode(self:getAssignNode())
-				error(nExc)
+				if vContext then
+					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
+				else
+					error(nExc)
+				end
 			else
-				error(Exception.new(tostring(nExc), self:getAssignNode()))
+				if vContext then
+					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
+				else
+					error(Exception.new(tostring(nExc), self:getAssignNode()))
+				end
 			end
 		end
 	end)
@@ -81,7 +89,16 @@ function Reference:getSelfCo():Ret(Thread)
 end
 
 function Reference:detailString(v, vVerbose)
-	return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
+	const nContext = self._context
+	if not nContext then
+		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
+	else
+		return "SealReference("..tostring(nContext:getNode())..")"
+	end
+end
+
+function Reference:getComNowait():Ret(OrFalse(let.UReferCom))
+	return self._com
 end
 
 function Reference:getComAwait():Ret(let.UReferCom)

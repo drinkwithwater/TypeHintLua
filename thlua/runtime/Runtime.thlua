@@ -95,7 +95,7 @@ function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 	return nSpace.localExport
 end
 
-function Runtime:main():Ret(Boolean, Nil)
+function Runtime:main2():Ret(Boolean, Nil)
 	local t1 = os.clock()
 	const a,b = pcall(function():Ret()
 		const nRootContext = self:newContext(self._node, false, false)
@@ -111,12 +111,12 @@ function Runtime:main():Ret(Boolean, Nil)
 	return a,b
 end
 
-function Runtime:main2():Ret(Boolean, Nil)
+function Runtime:main():Ret(Boolean, Nil)
 	const t1 = os.clock()
-	const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
-		const nRootContext = self:newContext(self._node, false, false)
-		self._rootContext = nRootContext
-		nRootContext:rootSetNamespace(self:RootNamespace())
+	const nRootContext = self:newContext(self._node, false, false)
+	self._rootContext = nRootContext
+	nRootContext:rootSetNamespace(self:RootNamespace())
+	const nAutoFn = self._manager:SealReference(nRootContext):setAutoFunction(self._node, function()
 		return false, function(vAutoFn)
 			const nLuaFunc = self:cacheLoadFile(self._mainFileName)
 			const nTermTuple = self._rootContext:FixedTermTuple({})
@@ -128,6 +128,7 @@ function Runtime:main2():Ret(Boolean, Nil)
 		end
 	end)
 	nAutoFn:startBuild()
+	self._manager:coInterrupt()
 	const t2 = os.clock()
 	print(t2-t1)
 	-- self:diffTestExpect()

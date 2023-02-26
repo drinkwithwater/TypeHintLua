@@ -717,6 +717,25 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair
 	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
+function TypeManager:coInterrupt()
+	const nWaitingInfo = self._coToWaitingInfo
+	for co, v in pairs(nWaitingInfo) do
+		const nDependCo = v.dependCo
+		const nWaitingRefer = self._coToRefer[nDependCo]
+		if nWaitingRefer then
+			const com = nWaitingRefer:getComNowait()
+			if not com then
+				-- TODO set error com
+				print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
+			else
+				print("TODO, unknown error?")
+			end
+		else
+			print("TODO,", self._coToRefer[co], "is waiting, maybe fix AutoCast??")
+		end
+	end
+end
+
 function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
 	assert(vWaitCo == coroutine.running(), "wait co must be current co")
 	if vDependCo then
@@ -767,14 +786,16 @@ function TypeManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
 	end
 	self._coToWaitingInfo[vWaitCo] = nil
 	self._coToScheduleParam[vWaitCo] = true
-	if coroutine.running() == self._selfCo then
+	const nRefer = self._coToRefer[coroutine.running()]
+	if not nRefer or nRefer:getContext() then
 		self:_schedule()
 	end
 end
 
 function TypeManager:coStart(vCo:Thread, vFunc:Fn())
 	self._coToScheduleParam[vCo] = vFunc
-	if coroutine.running() == self._selfCo then
+	const nRefer = self._coToRefer[coroutine.running()]
+	if not nRefer or nRefer:getContext() then
 		self:_schedule()
 	end
 end
