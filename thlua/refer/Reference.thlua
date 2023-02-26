@@ -42,7 +42,7 @@ Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.Reference)
 	return nRefer
 end
 
-function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String)):impl(clazz.IType)
+function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.Context)):impl(clazz.IType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_key=vKeyOrFalse,
@@ -51,6 +51,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOr
 		_referNodes={}@List(clazz.IAstNode),
 		_com=false@OrFalse(let.UReferCom),
 		_assignComEvent=nil@clazz.ScheduleEvent,
+		_context=vContext,
 		id=vManager:genTypeId(),
 		bits=false,
 		_selfCo=nil@Thread,
@@ -280,6 +281,10 @@ function Reference:assumeIncludeAll(vAssumeSet, vRight)
 		end)
 		return nAllInclude
 	end
+end
+
+function Reference:getContext():Ret(OrFalse(clazz.Context))
+	return self._context
 end
 
 function Reference:makeEvent():Ret(clazz.ScheduleEvent)

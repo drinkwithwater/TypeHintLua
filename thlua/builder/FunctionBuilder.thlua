@@ -84,9 +84,9 @@ function FunctionBuilder:error(...:Truth)
 end
 
 function FunctionBuilder:checkWhenCast(vContext:clazz.Context, vCastTypeFn:clazz.TypeFunction)
-	const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
+	const nNewContext = self._context:newSealContext(self._node)
+	const nAutoFn = self._manager:SealReference(nNewContext):setAutoFunction(self._node, function()
 		-- 1. check par
-		const nNewContext = vContext:newSealContext(self._node)
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, {}, false)
 		const nArgsTermTuple = vCastTypeFn:getParTuple():makeTermTuple(nNewContext)
 		const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(nArgsTermTuple))
@@ -176,8 +176,8 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 		return false
 	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
-		const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
-			const nNewContext = self._context:newSealContext(self._node)
+		const nNewContext = self._context:newSealContext(self._node)
+		const nAutoFn = self._manager:SealReference(nNewContext):setAutoFunction(self._node, function()
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, vSelfType)
 			const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))
 			const nIsAuto = TermTuple.isAuto(nParTermTuple)
@@ -277,7 +277,6 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
-		const nClassRefer = self._manager:Reference(false)
 		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(clazz.MetaObject)
 			local nStruct:OrNil(clazz.UAllType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
@@ -312,8 +311,9 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			end
 			return nInterface
 		end
+		const nNewContext = self._context:newSealContext(self._node)
+		const nClassRefer = self._manager:SealReference(nNewContext)
 		const nFactory = nClassRefer:setClassFactory(self._node, function()
-			const nNewContext = self._context:newSealContext(self._node)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, false)
 			return nInterfaceGetter(nSuffixHint), function()
 				const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))

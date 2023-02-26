@@ -96,6 +96,7 @@ function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 end
 
 function Runtime:main():Ret(Boolean, Nil)
+	local t1 = os.clock()
 	const a,b = pcall(function():Ret()
 		const nRootContext = self:newContext(self._node, false, false)
 		self._rootContext = nRootContext
@@ -103,15 +104,15 @@ function Runtime:main():Ret(Boolean, Nil)
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
 		local nTermTuple = self._rootContext:FixedTermTuple({})
 		nLuaFunc:meta_open_call(self._rootContext:newOpenContext(self._node), nTermTuple)
-		local t1 = os.clock()
 		self._rootContext:seal()
-		local t2 = os.clock()
-		print(t2-t1)
 	end)
+	local t2 = os.clock()
+	print(t2-t1)
 	return a,b
 end
 
 function Runtime:main2():Ret(Boolean, Nil)
+	const t1 = os.clock()
 	const nAutoFn = self._manager:Reference(false):setAutoFunction(self._node, function()
 		const nRootContext = self:newContext(self._node, false, false)
 		self._rootContext = nRootContext
@@ -120,16 +121,15 @@ function Runtime:main2():Ret(Boolean, Nil)
 			const nLuaFunc = self:cacheLoadFile(self._mainFileName)
 			const nTermTuple = self._rootContext:FixedTermTuple({})
 			nLuaFunc:meta_open_call(self._rootContext:newOpenContext(self._node), nTermTuple)
-			const t1 = os.clock()
 			self._rootContext:seal()
-			const t2 = os.clock()
-			print(t2-t1)
 			const nParTuple = self._manager:TypeTuple(self._node)
 			const nRetTuples = self._manager:VoidRetTuples()
 			return self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 		end
 	end)
 	nAutoFn:startBuild()
+	const t2 = os.clock()
+	print(t2-t1)
 	-- self:diffTestExpect()
 	return true, nil
 end

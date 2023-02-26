@@ -190,7 +190,7 @@ function Context:META_GET(
 	vKeyTerm:clazz.RefineTerm,
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
-	const nGetContext = self:newSealContext(vNode)
+	const nGetContext = self:newLocalContext(vNode)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	const nOkay = self:nodePcall(vNode, function()
 		vSelfTerm:foreach(function(vType, vVariableCase)
@@ -216,7 +216,7 @@ function Context:META_SET(
 	vKeyTerm:clazz.RefineTerm,
 	vValueTerm:clazz.RefineTerm
 )
-	const nSetContext = self:newSealContext(vNode)
+	const nSetContext = self:newLocalContext(vNode)
 	self:nodePcall(vNode, function()
 		local nNil = self._manager.type.Nil
 		vSelfTerm:foreach(function(vType, _)
@@ -248,7 +248,7 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 			-- step 2. call function
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,nArgs,nCase,nSelf = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3], nFuncArgCase.self
-				const nNewContext = self:newSealContext(vNode)
+				const nNewContext = self:newLocalContext(vNode)
 				const nRetTuples = vPolyArgs
 					and f:meta_invoke(nNewContext, assert(nSelf, "self must exist here"), vPolyArgs, nArgs)
 					or f:meta_call(nNewContext, nArgs)
@@ -313,7 +313,7 @@ function Context:META_CALL(
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
-	const nNewContext = self:newSealContext(vNode)
+	const nNewContext = self:newLocalContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
@@ -353,7 +353,7 @@ function Context:META_INVOKE(
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
-	const nGetContext = self:newSealContext(vNode)
+	const nGetContext = self:newLocalContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
@@ -427,26 +427,26 @@ function Context:META_BOP_SOME(
 	vLeftTerm:clazz.RefineTerm,
 	vRightTerm:clazz.RefineTerm
 ):Ret(clazz.RefineTerm)
-	const nBopContext = self:newSealContext(vNode)
+	const nBopContext = self:newLocalContext(vNode)
 	const nCollection = self._manager:TypeCollection()
 	vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
 		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
 			const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm})
-			const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTermTuple)
+			const nRetTuples = nLeftFunc:meta_call(self:newLocalContext(vNode), nTermTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
-					const nRetTuples = nRightFunc:meta_call(self:newSealContext(vNode), nTermTuple)
+					const nRetTuples = nRightFunc:meta_call(self:newLocalContext(vNode), nTermTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
-						const nRetTuples = nLeftFunc:meta_call(self:newSealContext(vNode), nTermTuple)
+						const nRetTuples = nLeftFunc:meta_call(self:newLocalContext(vNode), nTermTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
@@ -463,7 +463,7 @@ function Context:META_UOP(
 	vOper:String,
 	vData:clazz.RefineTerm
 ):Ret(clazz.RefineTerm)
-	const nUopContext = self:newSealContext(vNode)
+	const nUopContext = self:newLocalContext(vNode)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	if vOper == "#" then
 		vData:foreach(function(vType, vVariableCase)
