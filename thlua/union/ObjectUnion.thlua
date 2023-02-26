@@ -30,14 +30,14 @@ function ObjectUnion:foreach(vFunc)
 end
 
 function ObjectUnion:putAwait(vType:clazz.IAtomType)
-	if self:containAtom(vType) then
+	if self:includeAtom(vType) then
 		return
 	end
 	if MetaObject.is(vType) then
 		-- delete small lua table
 		const nDeleteList1:List(clazz.LuaTable) = {}
 		for nLuaTable, _ in pairs(self._luaTableDict) do
-			if vType:containAtom(nLuaTable) then
+			if vType:includeAtom(nLuaTable) then
 				nDeleteList1[#nDeleteList1 + 1] = nLuaTable
 			end
 		end
@@ -47,7 +47,7 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 		-- delete small struct
 		const nDeleteList2:List(clazz.MetaObject) = {}
 		for nStruct, _ in pairs(self._structDict) do
-			if vType:containAtom(nStruct) then
+			if vType:includeAtom(nStruct) then
 				nDeleteList2[#nDeleteList2 + 1] = nStruct
 			else
 				const nIntersect = vType:intersectAtom(nStruct)
@@ -62,7 +62,7 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 		self._structDict[vType] = true
 	elseif LuaTable.is(vType) then
 		for nStructType, _ in pairs(self._structDict) do
-			if nStructType:containAtom(vType) then
+			if nStructType:includeAtom(vType) then
 				return
 			end
 		end

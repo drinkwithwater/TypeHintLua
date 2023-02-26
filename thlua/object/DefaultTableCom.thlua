@@ -59,11 +59,11 @@ function DefaultTableCom:meta_set(vContext, vKeyType, vValueType)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
-	local nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nTableField = self._fieldDict[nKeyIncludeType]!
 		const nFieldType = nTableField.castValueType or nTableField.rawValueType
-		if not nFieldType:containAll(vValueType) then
+		if not nFieldType:includeAll(vValueType) then
 			vContext:error("wrong value type when set key:"..tostring(nKeyIncludeType))
 		end
 		return
@@ -72,7 +72,7 @@ function DefaultTableCom:meta_set(vContext, vKeyType, vValueType)
 end
 
 function DefaultTableCom:meta_get(vContext, vKeyType:clazz.IAtomType)
-	local nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
 		return nField.castValueType or nField.rawValueType
@@ -86,7 +86,7 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
-	local nIncludeType = self._keyType:containAtom(vKeyType)
+	local nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			-- TODO thinking when to lock this
@@ -102,14 +102,14 @@ function DefaultTableCom:native_rawset(vContext, vKeyType, vValueType)
 	else
 		const nTableField = self._fieldDict[nIncludeType]!
 		const nFieldType = nTableField.castValueType or nTableField.rawValueType
-		if not nFieldType:containAll(vValueType) then
+		if not nFieldType:includeAll(vValueType) then
 			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
 	end
 end
 
 function DefaultTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
-	local nKeyIncludeType = self._keyType:containAtom(vKeyType)
+	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
 		return nField.castValueType or nField.rawValueType
@@ -164,7 +164,7 @@ function DefaultTableCom:setMetaIndex(vContext:clazz.Context, vIndexType:OrFalse
 				nNotLuaFnCount = nNotLuaFnCount + 1
 			end
 		end)
-		if not nSelfInter:containAll(nMetaInter) or nSelfIsNilable then
+		if not nSelfInter:includeAll(nMetaInter) or nSelfIsNilable then
 			local nMetaIsNilable = false
 			nMetaInter:foreach(function(vAtom)
 				const nValue = nMetaIndexValueDict[vAtom]!
@@ -179,7 +179,7 @@ function DefaultTableCom:setMetaIndex(vContext:clazz.Context, vIndexType:OrFalse
 					nNotLuaFnCount = nNotLuaFnCount + 1
 				end
 			end)
-			const nFinalNilable = nMetaIsNilable or not nMetaInter:containAll(nSelfInter)
+			const nFinalNilable = nMetaIsNilable or not nMetaInter:includeAll(nSelfInter)
 			const nMergedValueType = nCollection:mergeToAtomUnion()
 			nFinalFieldDict[vKeyAtom] = {
 				rawValueType = nFinalNilable and nMergedValueType or nMergedValueType:notnilType(),
@@ -270,7 +270,7 @@ function DefaultTableCom:implInterface(vContext:clazz.Context, vInterface:clazz.
 	const nSelfKey = self._keyType
 	const nSelfFieldDict = self._fieldDict
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
-		const nSelfKeyAtom = nSelfKey:containAtom(nKeyAtom)
+		const nSelfKeyAtom = nSelfKey:includeAtom(nKeyAtom)
 		if nSelfKeyAtom then
 			const nField = nSelfFieldDict[nSelfKeyAtom]!
 			const nSelfValue = nField.rawValueType
@@ -281,7 +281,7 @@ function DefaultTableCom:implInterface(vContext:clazz.Context, vInterface:clazz.
 					end
 				end
 			else
-				if not nValue:containAll(nSelfValue) then
+				if not nValue:includeAll(nSelfValue) then
 					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
 				end
 			end
@@ -327,7 +327,7 @@ function DefaultTableCom:castStruct(vContext:clazz.Context, vObjectAtomUnion:cla
 			end
 			const nIsTable, nTableToCast = self._manager:tryLuaTable(vTableValue)
 			if not nIsTable then
-				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:containAll(vTableValue)
+				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:includeAll(vTableValue)
 				if not nOneMatchSucc then
 					nMatchSucc = false
 					return

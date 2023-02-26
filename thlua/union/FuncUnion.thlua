@@ -47,7 +47,7 @@ function FuncUnion:foreach(vFunc)
 end
 
 function FuncUnion:putAwait(vType)
-	if self:containAtom(vType) then
+	if self:includeAtom(vType) then
 		return
 	end
 	if OpenFunction.is(vType) then
@@ -64,7 +64,7 @@ function FuncUnion:putAwait(vType)
 		self._polyFnDict[vType] = true
 	elseif LuaFunction.is(vType) then
 		for nTypeFn, _ in pairs(self._typeFnDict) do
-			if nTypeFn:containAtom(vType) then
+			if nTypeFn:includeAtom(vType) then
 				return
 			end
 		end
@@ -73,7 +73,7 @@ function FuncUnion:putAwait(vType)
 		-- delete small struct
 		const nDeleteList:List(clazz.TypeFunction) = {}
 		for nTypeFn, _ in pairs(self._typeFnDict) do
-			if vType:containAtom(nTypeFn) then
+			if vType:includeAtom(nTypeFn) then
 				nDeleteList[#nDeleteList + 1] = nTypeFn
 			else
 				const nIntersect = vType:intersectAtom(nTypeFn)
@@ -95,13 +95,13 @@ function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
 		return self
 	end
-	if self:containAtom(vType) then
+	if self:includeAtom(vType) then
 		return vType
 	end
 	if TypeFunction.is(vType) then
 		const nCollection = self._manager:TypeCollection()
 		self:foreach(function(vSubType)
-			if vType:containAtom(vSubType) then
+			if vType:includeAtom(vSubType) then
 				nCollection:put(vSubType)
 			end
 		end)
