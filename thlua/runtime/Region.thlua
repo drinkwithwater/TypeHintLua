@@ -353,7 +353,7 @@ function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 				nContext:getRuntime():nodeError(vNode, "return check failed")
 			end
 		else
-			error("auto return TODO")
+			-- error("auto return TODO")
 		end
 	elseif ClassFactory.is(nBodyFn) then
 		const nResultType = nBodyFn:getTypeAwait()
@@ -365,7 +365,7 @@ end
 
 function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTermTuple)):Ret(clazz.FixedTermTuple)
 	const nBodyFn = assert(self._bodyFn)
-	if OpenFunction.is(nBodyFn) then
+	if OpenFunction.is(nBodyFn) or (AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples()) then
 		local nLen = #vTermTupleList
 		if nLen == 0 then
 			return self._context:FixedTermTuple({})

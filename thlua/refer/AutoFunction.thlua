@@ -35,11 +35,15 @@ function AutoFunction:checkWhenCast(vContext:clazz.Context, vTypeFn:clazz.TypeFu
 	end
 end
 
+function AutoFunction:setRetTuples(vRetTuples:clazz.RetTuples)
+	self._retTuples = vRetTuples
+end
+
 function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function AutoFunction:build(vRunner:Fn(clazz.AutoFunction, OrFalse(clazz.TypeFunction)):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(OrFalse(clazz.TypeFunction))))
+function AutoFunction:build(vRunner:Fn(clazz.AutoFunction, OrFalse(clazz.TypeFunction)):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)))
 	self._headStartEvent:wait()
 	local nCastFn:OrFalse(clazz.TypeFunction) = false
 	for k,v in pairs(self._castList) do
@@ -53,7 +57,7 @@ function AutoFunction:build(vRunner:Fn(clazz.AutoFunction, OrFalse(clazz.TypeFun
 	self._headFinidhEvent:wakeup()
 	self._bodyStartEvent:wait()
 	const nTypeFn = nLateRunner()
-	if nTypeFn then
+	if not self._typeFn then
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
 	end

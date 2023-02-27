@@ -145,25 +145,27 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 			-- make par
 			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewContext)
 			const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(nCastArgs))
-			const nIsAuto = TermTuple.isAuto(nParTermTuple)
+			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
 			const nCastRet = vCastTypeFn and vCastTypeFn:getRetTuples()
-			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or nCastRet or self._manager:VoidRetTuples()
-			const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTermTuple:checkTypeTuple(), nRetTuples) or false
+			const nHintRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType)
+			if nHintRetTuples and nCastRet then
+				if not nCastRet:includeTuples(nHintRetTuples) then
+					nNewContext:error("hint return not match when cast")
+				end
+			end
+			const nRetTuples = nHintRetTuples or nCastRet or self._manager:VoidRetTuples()
+			const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
 				if not self._pass then
 					nGenFunc()
 				end
-				if nIsAuto then
-					const nTypeTuple = nParTermTuple:checkTypeTuple()
-					if not nTypeTuple then
-						nNewContext:error("auto deduce failed")
-						error("auto deduce failed")
-					else
-						return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
-					end
+				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple()
+				if not nParTuple then
+					nNewContext:error("auto deduce failed")
+					error("auto deduce failed")
 				else
-					return false
+					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 				end
 			end
 		end)
