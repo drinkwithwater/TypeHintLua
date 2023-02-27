@@ -113,11 +113,11 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(nRootNode, {})
 	self.builtin = makeBuiltinFunc(self)
-	self.generic.Dict = self:buildTemplate(nRootNode, function.pass(vKey,vValue)
+	self.generic.Dict = self:buildTemplate(nRootNode, function.pass(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.Cond = self:buildTemplate(nRootNode, function.pass(vCond,v1,v2)
+	self.generic.Cond = self:buildTemplate(nRootNode, function.pass(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
 		local nType = vCond
 		if Reference.is(vCond) then
 			nType = vCond:waitTypeCom():getTypeAwait()
@@ -131,19 +131,19 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 			return v1
 		end
 	end)
-	self.generic.IDict = self:buildTemplate(nRootNode, function.pass(vKey,vValue)
+	self.generic.IDict = self:buildTemplate(nRootNode, function.pass(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
 		return self:buildInterface(nRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.List = self:buildTemplate(nRootNode, function.pass(vValue)
+	self.generic.List = self:buildTemplate(nRootNode, function.pass(vValue:clazz.UAllType)
 		assert(vValue, "value can't be nil when build List")
 		return self:buildStruct(nRootNode, {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
 	end)
-	self.generic.IList = self:buildTemplate(nRootNode, function.pass(vValue)
+	self.generic.IList = self:buildTemplate(nRootNode, function.pass(vValue:clazz.UAllType)
 		assert(vValue, "value can't be nil when build IList")
 		return self:buildInterface(nRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:buildTemplate(nRootNode, function.pass(vOneType)
+	self.generic.KeyOf = self:buildTemplate(nRootNode, function.pass(vOneType:clazz.UAllType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
 			nObject = vOneType:waitTypeCom():getTypeAwait()
@@ -727,12 +727,12 @@ function TypeManager:coInterrupt()
 			const com = nWaitingRefer:getComNowait()
 			if not com then
 				-- TODO set error com
-				-- print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
+				print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
 			else
-				-- print("TODO, unknown error?")
+				print("TODO, unknown error?")
 			end
 		else
-			-- print("TODO,", self._coToRefer[co], "is waiting, maybe fix AutoCast??")
+			print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
 		end
 	end
 end

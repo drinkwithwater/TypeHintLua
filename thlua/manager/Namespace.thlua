@@ -13,7 +13,7 @@ Namespace.__index=Namespace
 	clazz.SpaceTable = Interface {
 		[clazz.UAllType]=clazz.Reference,
 	}
-	let.StringToRefer = Dict(String, clazz.Reference)
+	let.StringToRefer = Dict(clazz.IAtomType, Union(clazz.Reference, clazz.SpaceTable))
 end)
 
 const function throw(vMsg:String)
@@ -32,89 +32,92 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 		globalExport=nil@clazz.SpaceTable,
 	}, Namespace)
 	self.localExport=(setmetatable({}, {
-		__index=function(_,k:Any)
-			k = self:assertSpaceKeyType(k)
+		__index=function(_:Truth,k:Any):Ret(Union(clazz.Reference, clazz.SpaceTable))
+			const nKeyType = self:assertSpaceKeyType(k)
 			const nNode = Node.getDebugNode(3)
-			local rawgetV = rawget(self._key2type, k)
-			if rawgetV ~= nil then
-				if Reference.is(rawgetV) then
-					rawgetV:pushReferNode(nNode)
-				end
-				return rawgetV
-			end
-			if self._closed then
-				throw("namespace closed, can't create key="..tostring(k))
-			end
-			local getV = self._key2type[k]
+			const getV = self._key2type[nKeyType]
 			if getV ~= nil then
+				if Reference.is(getV) then
+					getV:pushReferNode(nNode)
+				end
 				return getV
 			end
-			const refer = self._manager:Reference(k)
-			refer:pushReferNode(nNode)
-			self._key2type[k] = refer
-			return refer
-		end,
-		__newindex=function(_,k:Any,newV)
-			k = self:assertSpaceKeyType(k)
 			if self._closed then
 				throw("namespace closed, can't create key="..tostring(k))
 			end
-			local getV = self._key2type[k]
-			local rawgetV = rawget(self._key2type, k)
+			const refer = self._manager:Reference(tostring(nKeyType))
+			refer:pushReferNode(nNode)
+			self._key2type[nKeyType] = refer
+			return refer
+		end,
+		__newindex=function(_:Truth,k:Any,newV:Any)
+			const nKeyType = self:assertSpaceKeyType(k)
+			if self._closed then
+				throw("namespace closed, can't create key="..tostring(k))
+			end
+			const getV = self._key2type[nKeyType]
+			local rawgetV = rawget(self._key2type, nKeyType)
 			if getV ~= nil and rawgetV == nil then
-				throw("let shadow set : key="..tostring(k))
+				throw("let shadow set : key="..tostring(nKeyType))
 			end
 			if rawgetV ~= nil then
 				-- for recursive indexing reference
 				if Reference.is(rawgetV) then
 					rawgetV:setAssignAsync(Node.getDebugNode(3), function() return newV end)
 				else
-					throw("assign conflict: key="..tostring(k))
+					throw("assign conflict: key="..tostring(nKeyType))
 				end
 			else
-				local namespace = Namespace.fromLocalExport(newV)
+				const namespace = Namespace.fromLocalExport(newV)
 				if namespace then
-					namespace:trySetKey(k)
-					self._key2type[k] = newV
+					namespace:trySetKey(tostring(nKeyType))
+					self._key2type[nKeyType] = newV @ clazz.SpaceTable
 				else
-					const refer = self._manager:Reference(k)
+					const refer = self._manager:Reference(tostring(nKeyType))
 					refer:setAssignAsync(Node.getDebugNode(3), function() return newV end)
-					self._key2type[k] = refer
+					self._key2type[nKeyType] = refer
 				end
 			end
 		end,
-		__tostring=function(t):Ret(String)
+		__tostring=function(_:Truth):Ret(String)
 			return tostring(self).."->localExport"
 		end,
 		__self=self,
 	})) @ clazz.SpaceTable
 	self.globalExport=(setmetatable({}, {
-		__index=function(_,k:Any)
-			k = self:assertSpaceKeyType(k)
-			local v = self._key2type[k]
+		__index=function(_:Truth,k:Any):Ret(Union(clazz.Reference, clazz.SpaceTable))
+			const nKeyType = self:assertSpaceKeyType(k)
+			local v = self._key2type[nKeyType]
 			if v ~= nil then
 				return v
 			end
-			throw("key with empty value, key="..tostring(k))
+			throw("key with empty value, key="..tostring(nKeyType))
 		end,
-		__newindex=function(t,k,v)
+		__newindex=function(t:Truth,k:Any,v:Any)
 			throw("global can't assign")
 		end,
-		__tostring=function(t):Ret(String)
+		__tostring=function(t:Truth):Ret(String)
 			return tostring(self).."->globalExport"
 		end,
 	})) @ clazz.SpaceTable
 	return self
 end
 
-function Namespace:assertSpaceKeyType(vKey:Any):Ret(clazz.UAllType)
+function Namespace:assertSpaceKeyType(vKey:Any):Ret(clazz.IAtomType)
 	const nNode = Node.getDebugNode(5)
 	const nOkay, nType = self._manager:peasyToType(vKey)
 	if not nOkay then
 		error(Exception.new(nType, nNode))
 	end
-	-- TODO rm union
-	return nType
+	local nFinalKey = nType
+	if Reference.is(nFinalKey) then
+		nFinalKey = nFinalKey:checkAtomUnion()
+	end
+	if not nFinalKey:isUnion() then
+		return nFinalKey
+	else
+		error("namespace's key can't be union type")
+	end
 end
 
 function Namespace:trySetKey(vKey:String)
@@ -127,7 +130,7 @@ function.pass Namespace:isLetSpace():Ret(Boolean)
 	return getmetatable(self._key2type) and true or false
 end
 
-function Namespace.fromLocalExport(t)
+function.pass Namespace.fromLocalExport(t:Any):Ret(OrFalse(clazz.Namespace))
 	local nMeta = getmetatable(t)
 	if type(nMeta) == "table" then
 		local self = rawget(nMeta, "__self")

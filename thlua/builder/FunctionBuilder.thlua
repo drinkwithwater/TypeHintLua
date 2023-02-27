@@ -204,12 +204,12 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 		if nPolyParNum <= 0 then
 			return nFnMaker({}, false)
 		else
-			return self._manager:PolyFunction(self._node, function(...)
+			return self._manager:PolyFunction(self._node, function(...:clazz.UAllType)
 				return nFnMaker({...}, false)
 			end, nPolyParNum)
 		end
 	else
-		const nPolyFn = self._manager:PolyFunction(self._node, function(self, ...)
+		const nPolyFn = self._manager:PolyFunction(self._node, function(self:clazz.UAllType, ...:clazz.UAllType)
 			return nFnMaker({...}, self)
 		end, nPolyParNum + 1)
 		return self._manager:MemberFunction(self._node, nPolyFn)
@@ -337,10 +337,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		end)
 		return nFactory
 	else
-		const nPolyFn = self._manager:PolyFunction(self._node, function(...)
+		const nPolyFn = self._manager:PolyFunction(self._node, function(...:clazz.UAllType)
 			return nFnMaker({...}, false)
 		end, nPolyParNum)
-		nRefer:setTemplateAsync(self._node, function(...)
+		nRefer:setTemplateAsync(self._node, function(...:clazz.UAllType)
 			const nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
 			return nFactory:getTypeAwait()
