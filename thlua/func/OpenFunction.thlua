@@ -14,6 +14,7 @@ function:class(clazz.OpenFunction) OpenFunction.new(
 	const self = setmetatable({.class
 		_manager=vManager,
 		_func=nil@OrNil(clazz.OpenCaller),
+		_polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction)),
 		name="unknown"@String,
 		bits=TYPE_BITS.FUNCTION,
 		id=vManager:genTypeId(),
@@ -40,11 +41,27 @@ function OpenFunction:lateInitFromFixedNative(vNativeFunc:clazz.FixedNativeFunc)
 	return self
 end
 
-function OpenFunction:lateInitFromBuilder(vFunc:Fn(clazz.OpenFunction, clazz.Context, clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
-	const nFn:clazz.OpenCaller = function(vContext, vTermTuple)
-		return vFunc(self, vContext, vTermTuple)
+function OpenFunction:castPoly(vContext, vTypeList)
+	const nPolyWrapper = self._polyWrapper
+	if nPolyWrapper then
+		return nPolyWrapper(vTypeList)
+	else
+		vContext:error("this open function can't cast poly")
+		return self
 	end
-	self._func = nFn
+end
+
+function OpenFunction:lateInitFromBuilder(vFunc:Fn(clazz.OpenFunction, clazz.Context, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
+	const nNoPolyFn:$self._func = function(vContext, vTermTuple)
+		return vFunc(self, vContext, {}, vTermTuple)
+	end
+	const nPolyWrapper:$self._polyWrapper = function(vList)
+		return self._manager:OpenFunction():lateInitFromAutoNative(function(vContext, vTermTuple)
+			return vFunc(self, vContext, vList, vTermTuple)
+		end)
+	end
+	self._func = nNoPolyFn
+	self._polyWrapper = nPolyWrapper
 	return self
 end
 
