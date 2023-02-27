@@ -168,17 +168,17 @@ end
 
 function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.MemberFunction, clazz.PolyFunction))
 	const nPolyParNum = self._polyParNum
-	if self._hasRetSome and not self._hasSuffixHint then
-		-- return not full hint
-		return false
-	end
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
 		const nNewContext = self._context:newSealContext(self._node)
 		const nAutoFn = self._manager:SealReference(nNewContext):setAutoFunction(self._node, function(vCastTypeFn)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(self._uvCase, nNewContext, vPolyParList, vSelfType)
-			const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))
+			-- make par
+			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewContext)
+			const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(nCastArgs))
 			const nIsAuto = TermTuple.isAuto(nParTermTuple)
-			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or self._manager:VoidRetTuples()
+			-- make ret
+			const nCastRet = vCastTypeFn and vCastTypeFn:getRetTuples()
+			const nRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType) or nCastRet or self._manager:VoidRetTuples()
 			const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTermTuple:checkTypeTuple(), nRetTuples) or false
 			return nPreTypeFn, function(vAutoFn)
 				if not self._pass then
@@ -197,13 +197,7 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 				end
 			end
 		end)
-		if self._parFullHint then
-			self._context:recordAutoFunction(nAutoFn)
-		else
-			if self._pass then
-				error("pass function must be full hint")
-			end
-		end
+		self._context:recordAutoFunction(nAutoFn)
 		return nAutoFn
 	end
 	if not self._member then

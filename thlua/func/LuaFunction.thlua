@@ -149,23 +149,18 @@ function LuaFunction:castPoly(vContext, vTypeArgsList)
 end
 
 
-function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.TypeFunction)
+function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction)
 	const nInnerFn = self._innerFn
-	if AutoFunction.is(nInnerFn) or MemberFunction.is(nInnerFn) or not nInnerFn then
-		self._hintCom:checkWhenCast(vContext, vTypeFn)
+	if AutoFunction.is(nInnerFn) then
+		nInnerFn:checkWhenCast(vContext, vTypeFn)
+		return vTypeFn
+	elseif MemberFunction.is(nInnerFn) then
+		const nSelfType = vTypeFn:getParTuple():get(1)
+		nInnerFn:indexAutoFn(nSelfType):checkWhenCast(vContext, vTypeFn)
 		return vTypeFn
 	else
-		error("TODO: cast open function or poly function ")
+		error("TODO: poly or open or class function take cast")
 	end
-	--[[
-	const nInnerFn = self._innerFn
-	if not vSelfType then
-		assert(AutoFunction.is(nInnerFn), "only auto function can be cast without self")
-		return vTypeFn
-	else
-		assert(MemberFunction.is(nInnerFn), "only member function can be cast with self")
-		return vTypeFn
-	end]]
 end
 
 function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.AutoFunction)
