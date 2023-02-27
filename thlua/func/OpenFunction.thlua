@@ -51,12 +51,19 @@ function OpenFunction:castPoly(vContext, vTypeList)
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vFunc:Fn(clazz.OpenFunction, clazz.Context, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.Context, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
 	const nNoPolyFn:$self._func = function(vContext, vTermTuple)
-		return vFunc(self, vContext, {}, vTermTuple)
+		if vPolyParNum == 0 then
+			return vFunc(self, vContext, {}, vTermTuple)
+		else
+			vContext:error("this open function need poly args")
+		end
 	end
 	const nPolyWrapper:$self._polyWrapper = function(vList)
 		return self._manager:OpenFunction():lateInitFromAutoNative(function(vContext, vTermTuple)
+			if #vList ~= vPolyParNum then
+				vContext:error("poly args number not match")
+			end
 			return vFunc(self, vContext, vList, vTermTuple)
 		end)
 	end
