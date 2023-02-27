@@ -10,8 +10,7 @@ function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, 
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
-		-- startSid : true means wait to gen sid and start, int means waiting, false means started
-		_waitStartSid=true@Union(Boolean, Integer),
+		_startEvent=vManager:makeEvent(),
 		_namedRefer=vRefer,
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_classType=false@OrFalse(clazz.LuaTable),
@@ -88,19 +87,12 @@ function ClassFactory:build(
 	nNewTable:initByClassCom(self, nInterface)
 	self._classType = nNewTable
 	self._classEvent:wakeup()
+	-- nClassType:linkNamedReference(self)
 	const nTypeFn, nLateRunner = nPreRunner()
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
-	-- nClassType:linkNamedReference(self)
-	const nWaitStartSid = self._waitStartSid
-	if nWaitStartSid then
-		assert(nWaitStartSid == true, "wait start sid must be true here")
-		const nSessionId = self._manager:genSessionId()
-		self._waitStartSid = nSessionId
-		const co = coroutine.running()
-		self._manager:coWait(co, nSessionId)
-	end
+	self._startEvent:wait()
 	-- step 3. run build
 	const nTypeFn = nLateRunner(self, nNewTable)
 	if nTypeFn then
@@ -112,14 +104,7 @@ function ClassFactory:build(
 end
 
 function ClassFactory:startBuild()
-	const nWaitStartSid = self._waitStartSid
-	if nWaitStartSid then
-		self._waitStartSid = false
-		if type(nWaitStartSid) == "number" then
-			const co = self._refer:getSelfCo()
-			self._manager:coWakeup(co, nWaitStartSid)
-		end
-	end
+	self._startEvent:wakeup()
 end
 
 function ClassFactory:onSetMetaTable()

@@ -14,41 +14,50 @@ function:class(clazz.AutoFunction) AutoFunction.new(vManager:clazz.TypeManager, 
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
-		-- startSid : true means wait to gen sid and start, int means waiting, false means started
-		_waitStartSid=true@Union(Boolean, Integer),
+		_headStartEvent=vManager:makeEvent(),
+		_bodyStartEvent=vManager:makeEvent(),
+		_castList={}@List(clazz.TypeFunction),
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_retTuples=false@OrFalse(clazz.RetTuples),
-		_preBuildEvent=vRefer:makeEvent(),
-		_lateBuildEvent=vRefer:makeEvent(),
+		_headFinidhEvent=vRefer:makeEvent(),
+		_bodyFinishEvent=vRefer:makeEvent(),
 	}, AutoFunction)
 	return self
+end
+
+function AutoFunction:castTypeFn(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(Boolean)
+	if not self._headStartEvent:isWaken() then
+		const nList = self._castList
+		nList[#nList + 1] = vTypeFn
+		return true
+	else
+		return false
+	end
 end
 
 function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function AutoFunction:build(vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.AutoFunction):Ret(OrFalse(clazz.TypeFunction))))
-	const nTypeFn, nLateRunner = vRunner()
+function AutoFunction:build(vRunner:Fn(OrFalse(clazz.TypeFunction)):Ret(OrFalse(clazz.TypeFunction), Fn(clazz.AutoFunction):Ret(OrFalse(clazz.TypeFunction))))
+	self._headStartEvent:wait()
+	local nCastFn:OrFalse(clazz.TypeFunction) = false
+	for k,v in pairs(self._castList) do
+		nCastFn = v
+	end
+	const nTypeFn, nLateRunner = vRunner(nCastFn)
 	if nTypeFn then
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
 	end
-	self._preBuildEvent:wakeup()
-	const nWaitStartSid = self._waitStartSid
-	if nWaitStartSid then
-		assert(nWaitStartSid == true, "wait start sid must be true here")
-		const nSessionId = self._manager:genSessionId()
-		self._waitStartSid = nSessionId
-		const co = coroutine.running()
-		self._manager:coWait(co, nSessionId)
-	end
+	self._headFinidhEvent:wakeup()
+	self._bodyStartEvent:wait()
 	const nTypeFn = nLateRunner(self)
 	if nTypeFn then
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
 	end
-	self._lateBuildEvent:wakeup()
+	self._bodyFinishEvent:wakeup()
 end
 
 function AutoFunction:meta_call(vContext:clazz.Context, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
@@ -58,26 +67,19 @@ end
 
 function AutoFunction:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
-		self._preBuildEvent:wait()
+		self._headStartEvent:wakeup()
+		self._headFinidhEvent:wait()
 		if not self._typeFn then
-			self:startBuild()
-			if not self._typeFn then
-				self._lateBuildEvent:wait()
-			end
+			self._bodyStartEvent:wakeup()
+			self._bodyFinishEvent:wait()
 		end
 	end
 	return (assert(self._typeFn, "_typeFn must existed here"))
 end
 
 function AutoFunction:startBuild()
-	const nWaitStartSid = self._waitStartSid
-	if nWaitStartSid then
-		self._waitStartSid = false
-		if type(nWaitStartSid) == "number" then
-			const co = self._refer:getSelfCo()
-			self._manager:coWakeup(co, nWaitStartSid)
-		end
-	end
+	self._headStartEvent:wakeup()
+	self._bodyStartEvent:wakeup()
 end
 
 function.open AutoFunction.is(self):isguard(clazz.AutoFunction)
