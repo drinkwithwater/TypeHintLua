@@ -154,17 +154,26 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 					nNewContext:error("hint return not match when cast")
 				end
 			end
-			const nRetTuples = nHintRetTuples or nCastRet or self._manager:VoidRetTuples()
-			const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
+			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples())
+			const nPreTypeFn = nParTuple and nRetTuples and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
-				if not self._pass then
-					nGenFunc()
-				end
-				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple()
-				if not nParTuple then
-					nNewContext:error("auto deduce failed")
-					error("auto deduce failed")
+				if self._pass then
+					if not nParTuple or not nRetTuples then
+						error("pass function can't take auto return or auto parameter")
+					end
+					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 				else
+					const nRetTermTuple = nGenFunc()
+					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple()
+					if not nParTuple then
+						nNewContext:error("auto parameter deduce failed")
+						error("auto deduce failed")
+					end
+					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(nRetTermTuple:checkTypeTuple())
+					if not nRetTuples then
+						nNewContext:error("auto return deduce failed")
+						error("auto return deduce failed")
+					end
 					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 				end
 			end
@@ -282,21 +291,17 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			return nInterfaceGetter(nSuffixHint), function()
 				const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))
 				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
-				const nIsAuto = TermTuple.isAuto(nParTermTuple)
-				const nPreTypeFn = (not nIsAuto) and self._manager:TypeFunction(self._node, nParTermTuple:checkTypeTuple(), nRetTuples) or false
+				const nParTuple = nParTermTuple:checkTypeTuple()
+				const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
 				return nPreTypeFn, function(vLuaTable)
 					nNewContext:setClassTable(vLuaTable)
 					nGenFunc()
-					if nIsAuto then
-						const nTypeTuple = nParTermTuple:checkTypeTuple()
-						if not nTypeTuple then
-							nNewContext:error("auto deduce failed")
-							error("auto deduce failed")
-						end
-						return self._manager:TypeFunction(self._node, nTypeTuple, nRetTuples)
-					else
-						return false
+					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple()
+					if not nParTuple then
+						nNewContext:error("auto deduce failed")
+						error("auto deduce failed")
 					end
+					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
 				end
 			end
 		end)
