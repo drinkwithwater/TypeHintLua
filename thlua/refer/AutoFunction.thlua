@@ -39,20 +39,20 @@ function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function AutoFunction:build(vRunner:Fn(OrFalse(clazz.TypeFunction)):Ret(OrFalse(clazz.TypeFunction), Fn(clazz.AutoFunction):Ret(OrFalse(clazz.TypeFunction))))
+function AutoFunction:build(vRunner:Fn(clazz.AutoFunction, OrFalse(clazz.TypeFunction)):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(OrFalse(clazz.TypeFunction))))
 	self._headStartEvent:wait()
 	local nCastFn:OrFalse(clazz.TypeFunction) = false
 	for k,v in pairs(self._castList) do
 		nCastFn = v
 	end
-	const nTypeFn, nLateRunner = vRunner(nCastFn)
+	const nTypeFn, nLateRunner = vRunner(self, nCastFn)
 	if nTypeFn then
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
 	end
 	self._headFinidhEvent:wakeup()
 	self._bodyStartEvent:wait()
-	const nTypeFn = nLateRunner(self)
+	const nTypeFn = nLateRunner()
 	if nTypeFn then
 		self._typeFn = nTypeFn
 		self._retTuples = nTypeFn:getRetTuples()
