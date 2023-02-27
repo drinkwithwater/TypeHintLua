@@ -37,6 +37,9 @@ function LuaFunction:lateInit(vNode:clazz.IAstNode, vHintCom:clazz.FunctionBuild
 	self._node = vNode
 	self._hintCom = vHintCom
 	self._innerFn = vInnerFn
+	if not vInnerFn then
+		print(vNode)
+	end
 	self.name = tostring(vNode)
 end
 
@@ -145,7 +148,8 @@ function LuaFunction:castPoly(vContext, vTypeArgsList)
 	end
 end
 
-function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Ret(clazz.TypeFunction)
+
+function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.TypeFunction)
 	const nInnerFn = self._innerFn
 	if AutoFunction.is(nInnerFn) or MemberFunction.is(nInnerFn) or not nInnerFn then
 		self._hintCom:checkWhenCast(vContext, vTypeFn)
@@ -153,6 +157,15 @@ function LuaFunction:cast(vContext:clazz.Context, vTypeFn:clazz.TypeFunction):Re
 	else
 		error("TODO: cast open function or poly function ")
 	end
+	--[[
+	const nInnerFn = self._innerFn
+	if not vSelfType then
+		assert(AutoFunction.is(nInnerFn), "only auto function can be cast without self")
+		return vTypeFn
+	else
+		assert(MemberFunction.is(nInnerFn), "only member function can be cast with self")
+		return vTypeFn
+	end]]
 end
 
 function LuaFunction:autoSpecialize(vContext:clazz.Context, vSelfType:OrNil(clazz.LuaTable)):Ret(clazz.AutoFunction)
