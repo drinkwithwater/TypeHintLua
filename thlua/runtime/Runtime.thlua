@@ -4,13 +4,16 @@ const TypeManager = require "thlua.manager.TypeManager"
 const OpenFunction = require "thlua.func.OpenFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
 const TermTuple = require "thlua.tuple.TermTuple"
-const BodyContext = require "thlua.context.BodyContext"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
 const Namespace = require "thlua.manager.Namespace"
 const LocalSymbol = require "thlua.term.LocalSymbol"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
+
+const BodyContext = require "thlua.context.BodyContext"
+const OpenContext = require "thlua.context.OpenContext"
+const SealContext = require "thlua.context.SealContext"
 
 (@do
 	import("thlua.code.CodeEnv")
@@ -98,7 +101,7 @@ end
 function Runtime:main2():Ret(Boolean, Nil)
 	local t1 = os.clock()
 	const a,b = pcall(function()
-		const nRootContext = self:newContext(self._node, false)
+		const nRootContext = self:SealContext(self._node, false)
 		self._rootContext = nRootContext
 		nRootContext:rootSetNamespace(self:RootNamespace())
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
@@ -114,7 +117,7 @@ end
 function Runtime:main():Ret(Boolean, Nil)
 	const t1 = os.clock()
 	const a,b = pcall(function()
-		const nRootContext = self:newContext(self._node, false)
+		const nRootContext = self:SealContext(self._node, false)
 		self._rootContext = nRootContext
 		nRootContext:rootSetNamespace(self:RootNamespace())
 		const nAutoFn = self._manager:SealReference(nRootContext):setAutoFunction(self._node, function()
@@ -135,6 +138,14 @@ function Runtime:main():Ret(Boolean, Nil)
 	print(t2-t1)
 	-- self:diffTestExpect()
 	return a,b
+end
+
+function Runtime:SealContext(vApplyNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext)):Ret(clazz.SealContext)
+	return SealContext.new(self, vApplyNode, vParentContext)
+end
+
+function Runtime:OpenContext(vApplyNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext)):Ret(clazz.OpenContext)
+	return OpenContext.new(self, vApplyNode, vParentContext)
 end
 
 function Runtime:newContext(vApplyNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext)):Ret(clazz.BodyContext)

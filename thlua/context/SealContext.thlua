@@ -1,0 +1,55 @@
+
+const class = require "thlua.class"
+const BodyContext = require "thlua.context.BodyContext"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const SealContext = class@<clazz.SealContext, false>(BodyContext)
+
+function.open SealContext:ctor(
+	vRuntime:clazz.Runtime,
+	vApplyNode:clazz.IAstNode,
+	vParentContext:OrFalse(clazz.BodyContext)
+)
+	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
+	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
+end
+
+function SealContext:seal()
+	const nClassFnSet = assert(self._classFnSet, "class set must be true here")
+	self._classFnSet = false
+	for fn, v in pairs(nClassFnSet) do
+		fn:startBuild()
+	end
+	const nFuncMakerSet = assert(self._funcMakerSet, "maker set must be true here")
+	self._funcMakerSet = false
+	for fn, v in pairs(nFuncMakerSet) do
+		fn:startBuild()
+	end
+end
+
+function SealContext:getSealContext():Ret(clazz.SealContext)
+	return self
+end
+
+function SealContext:recordClassFactory(vFunc:clazz.ClassFactory)
+	const nSet = self._classFnSet
+	if nSet then
+		nSet[vFunc] = true
+	else
+		vFunc:startBuild()
+	end
+end
+
+function SealContext:recordAutoFunction(vFunc:clazz.AutoFunction)
+	const nSet = self._funcMakerSet
+	if nSet then
+		nSet[vFunc] = true
+	else
+		vFunc:startBuild()
+	end
+end
+
+return SealContext

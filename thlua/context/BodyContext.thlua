@@ -41,16 +41,8 @@ function.open BodyContext:ctor(
 	vParentContext:OrFalse(clazz.BodyContext)
 )
 	self._region=false@OrFalse(clazz.Region)
-	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
-	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
-	self._sealed=false@Boolean
 	self._classTable=false @ OrFalse(clazz.LuaTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
-	self._sealContext = self
-end
-
-function BodyContext:setOpen()
-	self._sealContext = assert(self._parentContext, "root context can't be open context"):getSealContext()
 end
 
 --[[
@@ -682,8 +674,12 @@ function BodyContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.U
 	return false
 end
 
-function BodyContext:newSealContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
-	return self._runtime:newContext(vNode, self)
+function BodyContext:newSealContext(vNode:clazz.IAstNode):Ret(clazz.SealContext)
+	return self._runtime:SealContext(vNode, self)
+end
+
+function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
+	return self._runtime:OpenContext(vNode, self)
 end
 
 function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
@@ -692,12 +688,6 @@ end
 
 function BodyContext:newLocalContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
 	return self._runtime:newContext(vNode, self)
-end
-
-function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
-	const nContext = self._runtime:newContext(vNode, self)
-	nContext:setOpen()
-	return nContext
 end
 
 function BodyContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
@@ -750,55 +740,19 @@ function BodyContext:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:
 	end
 end
 
-function BodyContext:getSealContext():Ret(clazz.BodyContext)
-	if self._sealContext ~= self then
-		return self
-	else
-		return self._sealContext
-	end
+function.pass BodyContext:getSealContext():Ret(clazz.SealContext)
+	error("use body context")
 end
 
 function BodyContext:recordClassFactory(vFunc:clazz.ClassFactory)
-	if self._sealContext ~= self then
-		self._sealContext:recordClassFactory(vFunc)
-		return
-	else
-		const nSet = self._classFnSet
-		if nSet then
-			nSet[vFunc] = true
-		else
-			vFunc:startBuild()
-		end
-	end
+	self:getSealContext():recordClassFactory(vFunc)
 end
 
 function BodyContext:recordAutoFunction(vFunc:clazz.AutoFunction)
-	if self._sealContext ~= self then
-		self._sealContext:recordAutoFunction(vFunc)
-		return
-	else
-		const nSet = self._funcMakerSet
-		if nSet then
-			nSet[vFunc] = true
-		else
-			vFunc:startBuild()
-		end
-	end
+	self:getSealContext():recordAutoFunction(vFunc)
 end
 
 function BodyContext:seal()
-	if self._sealContext == self then
-		const nClassFnSet = assert(self._classFnSet, "class set must be true here")
-		self._classFnSet = false
-		for fn, v in pairs(nClassFnSet) do
-			fn:startBuild()
-		end
-		const nFuncMakerSet = assert(self._funcMakerSet, "maker set must be true here")
-		self._funcMakerSet = false
-		for fn, v in pairs(nFuncMakerSet) do
-			fn:startBuild()
-		end
-	end
 end
 
 function BodyContext:getNamespace():Ret(clazz.Namespace)
