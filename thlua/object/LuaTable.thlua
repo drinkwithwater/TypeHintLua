@@ -31,6 +31,7 @@ function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:
 		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
 		_tableCom=nil@clazz.UTableCom,
 		_classCom=false@OrFalse(clazz.ClassFactory),
+		_baseClass=false@OrFalse(clazz.LuaTable),
 		_objectType=false@OrFalse(clazz.MetaObject),
 	}, LuaTable)
 	if vIsOpen then
@@ -49,6 +50,7 @@ function LuaTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(c
 	const nTableCom = self._tableCom
 	if DefaultTableCom.is(nTableCom) then
 		self._classCom = vFnCom
+		self._baseClass = vBaseClass
 		self._objectType = vInterface
 		nTableCom:setInterface(vInterface)
 	else
@@ -227,11 +229,24 @@ function LuaTable:isSingleton()
 	end
 end
 
+function LuaTable:getBaseClass()
+	return self._baseClass
+end
+
 function LuaTable:assumeIncludeAtom(vAssumeSet, vType)
-	-- TODO check struct
-	if self == vType then
-		return self
+	if LuaTable.is(vType) then
+		local nMatchTable = vType
+		while nMatchTable ~= self do
+			const nBaseClass = nMatchTable:getBaseClass()
+			if not nBaseClass then
+				break
+			else
+				nMatchTable = nBaseClass
+			end
+		end
+		return nMatchTable == self and self or false
 	else
+		-- TODO check struct
 		return false
 	end
 end
@@ -239,6 +254,8 @@ end
 function LuaTable:assumeIntersectAtom(vAssumeSet, vType)
 	if vType:assumeIncludeAtom(nil, self) then
 		return self
+	elseif self:assumeIncludeAtom(nil, vType) then
+		return vType
 	else
 		return false
 	end

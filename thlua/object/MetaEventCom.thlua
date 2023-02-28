@@ -22,15 +22,15 @@ function:class(clazz.MetaEventCom) MetaEventCom.new(vManager:clazz.TypeManager, 
 		_manager=vManager,
 		_selfType=vSelfType,
 		_bopEq=false,
-		_bopDict={}@Dict(String, let.MetaFnField),
+		_bopDict={}@Dict(String, MetaFnField),
 		_uopLen=false@OrFalse(clazz.UAtomUnion),
-		_uopDict=false, -- TODO {}@Dict(String, let.MetaFnField),
+		_uopDict=false, -- TODO {}@Dict(String, MetaFnField),
 		-- special
-		_pairs=false@OrFalse(let.MetaFnField),
-		_ipairs=false@OrFalse(let.MetaFnField),
-		_tostring=false@OrFalse(let.MetaFnField),
+		_pairs=false@OrFalse(MetaFnField),
+		_ipairs=false@OrFalse(MetaFnField),
+		_tostring=false@OrFalse(MetaFnField),
 		_mode=false,
-		_call=false, -- TODO @OrFalse(let.MetaFnField),
+		_call=false, -- TODO @OrFalse(MetaFnField),
 		_metatable=false,
 		_gc=false,
 		_name=false,
@@ -54,7 +54,7 @@ function MetaEventCom:getPairsFunc():Ret(OrFalse(clazz.TypeFunction))
 end
 
 const function buildFieldFromFn(vContext:clazz.BodyContext, vEvent:String, vMethodFn:clazz.UAtomUnion,
-	vSelfOrTypeFn:OrNil(clazz.TypeFunction, clazz.LuaTable)):Ret(OrNil(let.MetaFnField))
+	vSelfOrTypeFn:OrNil(clazz.TypeFunction, clazz.LuaTable)):Ret(OrNil(MetaFnField))
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
 		return nil
@@ -117,7 +117,7 @@ function MetaEventCom:initByLuaTable(vContext:clazz.BodyContext, vMetaTable:claz
 	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, nSelfType @ clazz.LuaTable) or false
 end
 
-const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UAllType)):Ret(OrNil(let.MetaFnField))
+const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UAllType)):Ret(OrNil(MetaFnField))
 	if not vTypeFn then
 		return nil
 	end
@@ -160,8 +160,8 @@ end
 function MetaEventCom:mergeField(
 	vEvent:String,
 	vComList:List(clazz.MetaEventCom),
-	vFieldGetter:Fn(clazz.MetaEventCom):Ret(OrFalse(let.MetaFnField))):Ret(OrFalse(let.MetaFnField))
-	local nRetField:OrFalse(let.MetaFnField) = false
+	vFieldGetter:Fn(clazz.MetaEventCom):Ret(OrFalse(MetaFnField))):Ret(OrFalse(MetaFnField))
+	local nRetField:OrFalse(MetaFnField) = false
 	for _, vCom in ipairs(vComList) do
 		const nField = vFieldGetter(vCom)
 		if nField then

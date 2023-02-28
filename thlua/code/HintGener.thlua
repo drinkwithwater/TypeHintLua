@@ -76,7 +76,7 @@ local TagToVisiting:RealTraverser = {
 		return {}
 	end,
 	If=function(self, node)
-		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer):Ret(let.UGenResult)
+		const function put(exprNode:node.Expr, blockNode:node.Block, nextIndex:Integer, level:Integer):Ret(UGenResult)
 			const nNext1Node, nNext2Node = node[nextIndex], node[nextIndex + 1]
 			if nNext1Node then
 				if nNext2Node then
@@ -386,7 +386,7 @@ local TagToVisiting:RealTraverser = {
 const HintGener = {}
 HintGener.__index = HintGener
 
-function HintGener:visit(vNode:node.IAstNode):Ret(let.UGenResult)
+function HintGener:visit(vNode:node.IAstNode):Ret(UGenResult)
 	const nUnionNode = vNode @ node.UNodeType
 	const nFunc = TagToVisiting[nUnionNode.tag]
 	if nFunc then
@@ -396,11 +396,11 @@ function HintGener:visit(vNode:node.IAstNode):Ret(let.UGenResult)
 	end
 end
 
-function HintGener:fixIHintInfo(vHintInfo:node.IHintInfo):Ret(let.GenResult)
-	const nResult:let.GenResult = {}
+function HintGener:fixIHintInfo(vHintInfo:node.IHintInfo):Ret(GenResult)
+	const nResult:GenResult = {}
 	for k,v in ipairs(vHintInfo) do
 		if v.tag == "HintScript" then
-			local nLast:OrNil(let.GenResult) = nil
+			local nLast:OrNil(GenResult) = nil
 			for s in string.gmatch(v[1], "[^\n]*") do
 				nLast = {
 					line = true,
@@ -435,7 +435,7 @@ function HintGener:formatIdent(vIdentNode:node.Ident):Ret(String)
 	end
 end
 
-function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vIsParam:OrNil(True)):Ret(let.UGenResult)
+function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vIsParam:OrNil(True)):Ret(UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
@@ -446,11 +446,11 @@ function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vIsPa
 	}
 end
 
-function HintGener:fnWrap(...:String):Ret(Fn():Dots(let.UGenResult):Ret(let.GenResult))
+function HintGener:fnWrap(...:String):Ret(Fn():Dots(UGenResult):Ret(GenResult))
 	const nArgsString = table.concat({...}, ",")
 	return function(...)
-		const nList:let.GenResult = {...}
-		const nResult:let.GenResult = { " function(", nArgsString, ") " }
+		const nList:GenResult = {...}
+		const nResult:GenResult = { " function(", nArgsString, ") " }
 		for i=1, #nList do
 			nResult[#nResult+1] = nList[i]
 			nResult[#nResult+1] = " "
@@ -460,9 +460,9 @@ function HintGener:fnWrap(...:String):Ret(Fn():Dots(let.UGenResult):Ret(let.GenR
 	end
 end
 
-function HintGener:fnRetWrap(...:let.UGenResult):Ret(let.GenResult)
-	const nList:let.GenResult = {...}
-	const nResult:let.GenResult = { " function() return " }
+function HintGener:fnRetWrap(...:UGenResult):Ret(GenResult)
+	const nList:GenResult = {...}
+	const nResult:GenResult = { " function() return " }
 	for i=1, #nList do
 		nResult[#nResult+1] = nList[i]
 		if i~=#nList then
@@ -473,8 +473,8 @@ function HintGener:fnRetWrap(...:let.UGenResult):Ret(let.GenResult)
 	return nResult
 end
 
-function HintGener:dictWrap(vDict:Dict(String, let.UGenResult)):Ret(let.GenResult)
-	const nList:let.GenResult = {}
+function HintGener:dictWrap(vDict:Dict(String, UGenResult)):Ret(GenResult)
+	const nList:GenResult = {}
 	nList[#nList + 1] = "{"
 	for k,v in pairs(vDict) do
 		nList[#nList + 1] = k
@@ -486,9 +486,9 @@ function HintGener:dictWrap(vDict:Dict(String, let.UGenResult)):Ret(let.GenResul
 	return nList
 end
 
-function HintGener:listWrap(...:let.UGenResult):Ret(let.GenResult)
-	const nList:let.GenResult = {...}
-	const nResult:let.GenResult = { "{" }
+function HintGener:listWrap(...:UGenResult):Ret(GenResult)
+	const nList:GenResult = {...}
+	const nResult:GenResult = { "{" }
 	for i=1, #nList do
 		nResult[#nResult+1] = nList[i]
 		if i~=#nList then
@@ -521,7 +521,7 @@ end
 		"META_SET"
 	)
 end)
-function.pass HintGener:ctxWrap(vNode:node.IAstNode):Ret(Dict(let.CtxNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
+function.pass HintGener:ctxWrap(vNode:node.IAstNode):Ret(Dict(CtxNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))
 	return setmetatable({}, {
 		__index=function(t,vName)
 			return function(...)
@@ -553,7 +553,7 @@ end
 		"LOGIC_AND"
 	)
 end)
-function.pass HintGener:rgnWrap(vNode:node.IAstNode):Ret(Dict(let.RgnNameEnum, Fn():Dots(let.UGenResult):Ret(let.GenResult)))
+function.pass HintGener:rgnWrap(vNode:node.IAstNode):Ret(Dict(RgnNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))
 	return setmetatable({}, {
 		__index=function(t,vName)
 			return function(...)
@@ -563,9 +563,9 @@ function.pass HintGener:rgnWrap(vNode:node.IAstNode):Ret(Dict(let.RgnNameEnum, F
 	})
 end
 
-function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNode, ...:let.UGenResult):Ret(let.GenResult)
-	const nList:let.GenResult = {...}
-	const nResult:let.GenResult = {
+function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNode, ...:UGenResult):Ret(GenResult)
+	const nList:GenResult = {...}
+	const nResult:GenResult = {
 		line=vNode.l,
 		vPrefix, ":", vName, "(", self:codeNode(vNode),
 	}
@@ -577,7 +577,7 @@ function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNod
 	return nResult
 end
 
-function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult):Ret(let.UGenResult)
+function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:UGenResult):Ret(UGenResult)
 	const nParent = vNode.parent!
 	local nAutoUnpack = true
 	if nParent.tag == "ExprList" or nParent.tag == "ParList" or nParent.tag == "Block" then
@@ -593,15 +593,15 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:let.UGenResult):R
 	end
 end
 
-function HintGener:chunkLongHint():Ret(let.GenResult)
+function HintGener:chunkLongHint():Ret(GenResult)
 	return self:dictWrap({
 		attrSet="{open=1}",
 		caller="function(____longHint) return ____longHint end"
 	})
 end
 
-function HintGener:visitLongHint(vHintInfo:OrNil(node.LongHintInfo)):Ret(let.GenResult)
-	const nCallGen:let.UGenResult = (vHintInfo and #vHintInfo > 0) and {
+function HintGener:visitLongHint(vHintInfo:OrNil(node.LongHintInfo)):Ret(GenResult)
+	const nCallGen:UGenResult = (vHintInfo and #vHintInfo > 0) and {
 		":", self:fixIHintInfo(vHintInfo)
 	} or ""
 	const nAttrList = vHintInfo and vHintInfo.attrList or ({} @ List(String))
@@ -615,7 +615,7 @@ function HintGener:visitLongHint(vHintInfo:OrNil(node.LongHintInfo)):Ret(let.Gen
 	})
 end
 
-function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGenResult)
+function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenResult)
 	const nIsChunk = vNode.tag == "Chunk"
 	const nHintPrefix = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintPrefix)
 	const nHintSuffix = nIsChunk and self:chunkLongHint() or self:visitLongHint(vNode.hintSuffix)
@@ -627,7 +627,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(let.UGe
 	const nFirstPar = nParList[1]
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
 	const nPolyParList = vNode.hintPolyParList
-	local nPolyUnpack:let.GenResult = {}
+	local nPolyUnpack:GenResult = {}
 	const nPolyParNum = nPolyParList and #nPolyParList or 0
 	if nPolyParList and nPolyParNum > 0 then
 		nPolyUnpack = {
@@ -702,10 +702,10 @@ end
 
 function HintGener:concatList@<T>(
 	vList:IList(T),
-	vFunc:Fn(Integer, T):Ret(let.UGenResult),
+	vFunc:Fn(Integer, T):Ret(UGenResult),
 	vSep:String
-):Ret(let.GenResult)
-	const nResult:let.GenResult = {}
+):Ret(GenResult)
+	const nResult:GenResult = {}
 	const nLen = #vList
 	for i=1,nLen do
 		nResult[#nResult + 1] = vFunc(i, vList[i]!)
@@ -723,7 +723,7 @@ end
 function HintGener:genCode(vNode:node.IAstNode):Ret(String)
 	const nBufferList:List(String) = {}
 	local nLineCount = 1
-	const function recurAppend(vResult:let.UGenResult, vDepth:Integer):Ret()
+	const function recurAppend(vResult:UGenResult, vDepth:Integer):Ret()
 		if type(vResult) == "table" then
 			const nLine = vResult.line
 			if type(nLine) == "number" then

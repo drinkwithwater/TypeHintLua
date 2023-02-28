@@ -24,7 +24,7 @@ end
 function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIndexTable:OrNil(Truth))
 	const self = setmetatable({.class
 		_manager=vManager,
-		_key2type=(vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@let.StringToRefer,
+		_key2type=(vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 		_closed=false@Boolean,
 		_node=vNode,
 		_key=false@Union(False, String),
@@ -35,12 +35,13 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 		__index=function(_:Truth,k:Any):Ret(Union(clazz.Reference, clazz.SpaceTable))
 			const nKeyType = self:assertSpaceKeyType(k)
 			const nNode = Node.getDebugNode(3)
+			local rawgetV = rawget(self._key2type, nKeyType)
+			if rawgetV ~= nil then
+				return rawgetV
+			end
 			const getV = self._key2type[nKeyType]
 			if getV ~= nil then
-				if Reference.is(getV) then
-					getV:pushReferNode(nNode)
-				end
-				return getV
+				throw("let can only get symbol in current level key="..tostring(k))
 			end
 			if self._closed then
 				throw("namespace closed, can't create key="..tostring(k))
@@ -157,7 +158,7 @@ function Namespace:check()
 	end
 end
 
-function Namespace:getKeyToType():Ret(let.StringToRefer)
+function Namespace:getKeyToType():Ret(StringToRefer)
 	return self._key2type
 end
 
