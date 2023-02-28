@@ -43,12 +43,10 @@ const TermTuple = require "thlua.tuple.TermTuple"
 	})
 
 	clazz.FuncNewInfo = Struct ({
-		_prefixHint=clazz.TLongHintInfo(clazz.FnPrefixHint),
 		_hasRetSome=Boolean,
 		_hasSuffixHint=Boolean,
 		_polyParNum=Integer,
 		_parNum=Integer,
-		_parFullHint=Boolean,
 		_member=Boolean,
 	}, {
 		__next=KeyOf(clazz.FuncNewInfo)
@@ -59,19 +57,20 @@ const FunctionBuilder = {}
 FunctionBuilder.__index=FunctionBuilder
 
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
-	vManager:clazz.TypeManager,
 	vContext:clazz.BodyContext,
 	vNode:clazz.IAstNode,
 	vUpValueCase:OrFalse(clazz.VariableCase),
 	vInfo:clazz.FuncNewInfo,
+	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 )
 	const self = {.class
-		_manager=vManager,
 		_context=vContext,
+		_manager=vContext:getTypeManager(),
 		_node=vNode,
 		_uvCase=vUpValueCase,
-		_pass=vInfo._prefixHint.attrSet.pass and true or false,
+		_prefixHint=vPrefixHint,
+		_pass=vPrefixHint.attrSet.pass and true or false,
 		_parRetMaker=vParRetMaker,
 	}
 	for k,v in pairs(vInfo) do
