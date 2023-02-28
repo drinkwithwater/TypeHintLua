@@ -2,11 +2,98 @@
 const class = require "thlua.class"
 const BaseContext = require "thlua.context.BaseContext"
 
+const TypeFunction = require "thlua.func.TypeFunction"
+const LuaTable = require "thlua.object.LuaTable"
+const LuaFunction = require "thlua.func.LuaFunction"
+
+const TermTuple = require "thlua.tuple.TermTuple"
+const AutoFlag = require "thlua.auto.AutoFlag"
+const AutoHolder = require "thlua.auto.AutoHolder"
+const DotsTail = require "thlua.tuple.DotsTail"
+const AutoTail = require "thlua.auto.AutoTail"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 end)
 
 const OperContext = class@<clazz.OperContext, false>(BaseContext)
+
+function OperContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
+	if vTermTuple then
+		for i=1, #vTermTuple do
+			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
+			vTermList[#vTermList + 1] = nTerm
+		end
+		return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
+	else
+		return self:UTermTupleByTail(vTermList, false)
+	end
+end
+
+function OperContext:UTermTupleByTail(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.UTermTuple)
+	if AutoTail.is(vTail) then
+		vTail = vTail:recurPutTermWithTail(vTermList)
+	end
+	if AutoTail.is(vTail) then
+		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+	end
+	local nHasAuto = false
+	if not nHasAuto then
+		for i=1, #vTermList do
+			const nAuto = vTermList[i]!
+			if AutoHolder.is(nAuto) then
+				const nTerm = nAuto:getRefineTerm()
+				if not nTerm then
+					nHasAuto = true
+					break
+				else
+					vTermList[i] = nAuto
+				end
+			end
+		end
+	end
+	if nHasAuto then
+		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+	else
+		return TermTuple.new@<false>(self, false, vTermList @ List(clazz.RefineTerm), vTail or false, false)
+	end
+end
+
+function OperContext:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:OrNil(False, clazz.UAllType), vTypeTuple:OrNil(clazz.UTypeTuple)):Ret(clazz.FixedTermTuple)
+	if vDotsType then
+		const nTail = DotsTail.new(self, vDotsType)
+		return TermTuple.new@<false>(self, false, vTermList, nTail, vTypeTuple or false)
+	else
+		return TermTuple.new@<false>(self, false, vTermList, false, vTypeTuple or false)
+	end
+end
+
+function OperContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
+	const nSrcType = vRawSrcType:checkAtomUnion()
+	const nDstType = vRawDstType:checkAtomUnion()
+	if LuaFunction.is(nSrcType) then
+		const nFnPartType = nDstType:fnPartType()
+		if TypeFunction.is(nFnPartType) then
+			return nSrcType:cast(self, nFnPartType)
+		end
+	else
+		const nSrcTable = nSrcType:objectPartType()
+		const nDstObjectPart = nDstType:objectPartType()
+		if LuaTable.is(nSrcTable) and not nDstObjectPart:isNever() then
+			const nCastResult = nSrcTable:cast(self, nDstType:objectPartType())
+			if nCastResult then
+				return self._manager:checkedUnion(nSrcTable, nCastResult)
+			else
+				return false
+			end
+		end
+	end
+	return false
+end
+
+function OperContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
+	return self._runtime:OpenContext(vNode, assert(self._parentContext):getSealContext())
+end
 
 return OperContext
