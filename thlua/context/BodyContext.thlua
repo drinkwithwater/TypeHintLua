@@ -25,7 +25,8 @@ const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = require "thlua.auto.AutoTail"
 const class = require "thlua.class"
 
-const BaseContext = require "thlua.runtime.BaseContext"
+const BaseContext = require "thlua.context.BaseContext"
+const OperContext = require "thlua.context.OperContext"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -37,7 +38,6 @@ const BodyContext = class@<clazz.BodyContext, false>(BaseContext)
 function.open BodyContext:ctor(
 	vRuntime:clazz.Runtime,
 	vApplyNode:clazz.IAstNode,
-	vSealContext:OrFalse(clazz.BodyContext),
 	vParentContext:OrFalse(clazz.BodyContext)
 )
 	self._region=false@OrFalse(clazz.Region)
@@ -46,6 +46,11 @@ function.open BodyContext:ctor(
 	self._sealed=false@Boolean
 	self._classTable=false @ OrFalse(clazz.LuaTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
+	self._sealContext = self
+end
+
+function BodyContext:setOpen()
+	self._sealContext = assert(self._parentContext, "root context can't be open context"):getSealContext()
 end
 
 --[[
@@ -677,15 +682,21 @@ function BodyContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.U
 end
 
 function BodyContext:newSealContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
-	return self._runtime:newContext(vNode, false, self)
+	return self._runtime:newContext(vNode, self)
+end
+
+function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
+	return OperContext.new(self._runtime, vNode, self)
 end
 
 function BodyContext:newLocalContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
-	return self._runtime:newContext(vNode, self._sealContext, self)
+	return self._runtime:newContext(vNode, self)
 end
 
 function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
-	return self._runtime:newContext(vNode, self._sealContext, self)
+	const nContext = self._runtime:newContext(vNode, self)
+	nContext:setOpen()
+	return nContext
 end
 
 function BodyContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
@@ -735,6 +746,14 @@ function BodyContext:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:
 		return TermTuple.new@<false>(self, false, vTermList, nTail, vTypeTuple or false)
 	else
 		return TermTuple.new@<false>(self, false, vTermList, false, vTypeTuple or false)
+	end
+end
+
+function BodyContext:getSealContext():Ret(clazz.BodyContext)
+	if self._sealContext ~= self then
+		return self
+	else
+		return self._sealContext
 	end
 end
 
