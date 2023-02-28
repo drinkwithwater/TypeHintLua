@@ -340,8 +340,9 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	const function checkList(vContext:clazz.BodyContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
+		const nLenContext = vContext:newOperContext(vContext:getNode())
 		vType:foreach(function(vSubType)
-			const nLenType = vSubType:meta_len(vContext)
+			const nLenType = vSubType:meta_len(nLenContext)
 			if not Number.is(nLenType) then
 				vContext:error("table."..vKey.." must take list-like variable")
 				return
@@ -381,8 +382,9 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 			local nType = nFirstTerm:getType()
 			local nNumber = vManager.type.Number
 			local nCollection = vManager:TypeCollection()
+			const nLenContext = vContext:newOperContext(vContext:getNode())
 			nType:foreach(function(vSubType)
-				local nLenType = vSubType:meta_len(vContext)
+				local nLenType = vSubType:meta_len(nLenContext)
 				if not (Number.is(nLenType) or NumberLiteral.is(nLenType)) then
 					vContext:error("__len must return number when concat")
 					return

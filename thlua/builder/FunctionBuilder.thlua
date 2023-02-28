@@ -293,10 +293,15 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				if nType:isUnion() then
 					error("interface can't be union")
 				end
-				if not MetaObject.is(nType) then
-					error("interface type must be MetaObject")
+				if MetaObject.is(nType) then
+					nImplementsInterface = nType
+				else
+					if nType == self._manager.type.False or nType == self._manager.type.Nil then
+						-- false or nil means no interface
+					else
+						error("interface type must be MetaObject")
+					end
 				end
-				nImplementsInterface = nType
 			end
 			local nExtendsTable:OrFalse(clazz.LuaTable) = false
 			if nExtendsArg then
@@ -304,10 +309,15 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				if nType:isUnion() then
 					error("base class can't be union")
 				end
-				if not LuaTable.is(nType) then
-					error("base class type must be LuaTable")
+				if LuaTable.is(nType) then
+					nExtendsTable = nType
+				else
+					if nType == self._manager.type.False or nType == self._manager.type.Nil then
+						-- false or nil means no base class
+					else
+						error("base class type must be LuaTable")
+					end
 				end
-				nExtendsTable = nType
 			end
 			return nExtendsTable, nImplementsInterface
 		end
