@@ -7,6 +7,7 @@ const Enum = require "thlua.Enum"
 const MetaObject = require "thlua.object.MetaObject"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.refer.ClassFactory"
+const LuaTable = require "thlua.object.LuaTable"
 const TermTuple = require "thlua.tuple.TermTuple"
 
 (@do
@@ -26,6 +27,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 	}
 
 	clazz.FnSuffixHint = Struct {
+		extends=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		impl=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		Ret=Fn(clazz.FnSuffixHint):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
 		RetDots=Fn(clazz.FnSuffixHint, clazz.UAllType):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
@@ -92,6 +94,10 @@ function FunctionBuilder:_makeRetTuples(
 ):Ret(OrFalse(clazz.RetTuples))
 	local nFakeFn:OrFalse(clazz.TypeFunction) = false
 	const ok, err = pcall(vSuffixHint.caller, {
+		extends=function(vHint, _)
+			error("extends can only be used with function:class")
+			return vHint
+		end,
 		impl=function(vHint, _)
 			error("impl can only be used with function:class")
 			return vHint
@@ -204,7 +210,12 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		local nSetted = false
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nGuardFn, self._uvCase, nMakerContext, {}, false)
 		const ok, err = pcall(nSuffixHint.caller, {
+			extends=function(vHint, _)
+				error("extends can only be used with function:class")
+				return vHint
+			end,
 			impl=function(vHint, _)
+				error("impl can only be used with function:class")
 				return vHint
 			end,
 			RetDots=function(vHint, vFirst, ...)
@@ -250,11 +261,16 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
-		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(clazz.MetaObject)
-			local nStruct:OrNil(clazz.UAllType) = nil
+		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.LuaTable), clazz.MetaObject)
+			local nImplementsArg:OrNil(clazz.UAllType) = nil
+			local nExtendsArg:OrNil(clazz.UAllType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
-				impl=function(vHint, vStruct)
-					nStruct = vStruct
+				impl=function(vHint, vInterface)
+					nImplementsArg = vInterface
+					return vHint
+				end,
+				extends=function(vHint, vBaseClass)
+					nExtendsArg = vBaseClass
 					return vHint
 				end,
 				Ret=function(vHint, ...)
@@ -272,23 +288,36 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			if not ok then
 				error(Exception.new(tostring(err), self._node))
 			end
-			local nImplType = nStruct
-			if Reference.is(nImplType) then
-				nImplType = nImplType:waitTypeCom():getTypeAwait()
-				assert(not nImplType:isUnion(), "interface can't be union")
+			local nImplementsInterface = self._manager.type.AnyObject
+			if nImplementsArg then
+				const nType = nImplementsArg:checkAtomUnion()
+				if nType:isUnion() then
+					error("interface can't be union")
+				end
+				if not MetaObject.is(nType) then
+					error("interface type must be MetaObject")
+				end
+				nImplementsInterface = nType
 			end
-			local nInterface = self._manager.type.AnyObject
-			if nImplType then
-				assert(MetaObject.is(nImplType), "implement type must be MetaObject")
-				nInterface = nImplType
+			local nExtendsTable:OrFalse(clazz.LuaTable) = false
+			if nExtendsArg then
+				const nType = nExtendsArg:checkAtomUnion()
+				if nType:isUnion() then
+					error("base class can't be union")
+				end
+				if not LuaTable.is(nType) then
+					error("base class type must be LuaTable")
+				end
+				nExtendsTable = nType
 			end
-			return nInterface
+			return nExtendsTable, nImplementsInterface
 		end
 		const nNewContext = self._context:newSealContext(self._node)
 		const nClassRefer = self._manager:SealReference(nNewContext)
 		const nFactory = nClassRefer:setClassFactory(self._node, function(vFactory)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewContext, vPolyParList, false)
-			return nInterfaceGetter(nSuffixHint), function()
+			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
+			return nExtends, nImplements, function()
 				const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))
 				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 				const nParTuple = nParTermTuple:checkTypeTuple()

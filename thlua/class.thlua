@@ -38,7 +38,7 @@ const function.open class@<C, I>(super)
 		return getmetatable(vType) == vtbl
 	end
 	class_type.meta=meta
-	_class[class_type]=vtbl
+	_class[class_type]=meta
 
 	setmetatable(class_type,{__newindex=
 		function.open(t,k,v)
@@ -51,8 +51,14 @@ const function.open class@<C, I>(super)
 	})
 
 	if super then
-		for k,v in pairs(_class[super]) do
+		const super_meta = _class[super]
+		for k,v in pairs(super_meta.__index) do
 			vtbl[k] = v
+		end
+		for k,v in pairs(super_meta) do
+			if k ~= "__index" then
+				meta[k] = v
+			end
 		end
 	end
 
