@@ -79,12 +79,12 @@ clazz.IReadyType = Interface {
 }
 
 clazz.IMetaNative = Interface {
-	native_rawget=Mfn(clazz.Context, clazz.IAtomType):Ret(clazz.UAtomUnion),
-	native_rawset=Mfn(clazz.Context, clazz.IAtomType, clazz.UAtomUnion),
-	native_next=Mfn(clazz.Context, clazz.UAtomUnion):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion)),
+	native_rawget=Mfn(clazz.BodyContext, clazz.IAtomType):Ret(clazz.UAtomUnion),
+	native_rawset=Mfn(clazz.BodyContext, clazz.IAtomType, clazz.UAtomUnion),
+	native_next=Mfn(clazz.BodyContext, clazz.UAtomUnion):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion)),
 
-	meta_get=Mfn(clazz.Context, clazz.IAtomType):Ret(clazz.UAtomUnion),
-	meta_set=Mfn(clazz.Context, clazz.IAtomType, clazz.UAtomUnion),
+	meta_get=Mfn(clazz.BodyContext, clazz.IAtomType):Ret(clazz.UAtomUnion),
+	meta_set=Mfn(clazz.BodyContext, clazz.IAtomType, clazz.UAtomUnion),
 }
 
 clazz.IAtomType = Intersect(clazz.IType, clazz.IReadyType, clazz.IMetaNative, Interface {
@@ -99,27 +99,27 @@ clazz.IAtomType = Intersect(clazz.IType, clazz.IReadyType, clazz.IMetaNative, In
 
 	checkBaseObjectType=Mfn():Ret(OrFalse(clazz.MetaObject)),
 
-	castPoly=Mfn(clazz.Context, List(clazz.UAllType)):Ret(OrFalse(clazz.TypeFunction, clazz.OpenFunction)),
+	castPoly=Mfn(clazz.BodyContext, List(clazz.UAllType)):Ret(OrFalse(clazz.TypeFunction, clazz.OpenFunction)),
 
-	meta_call=Mfn(clazz.Context, clazz.UTermTuple):Ret(clazz.RetTuples),
-	meta_invoke=Mfn(clazz.Context, clazz.IAtomType, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.RetTuples),
+	meta_call=Mfn(clazz.BodyContext, clazz.UTermTuple):Ret(clazz.RetTuples),
+	meta_invoke=Mfn(clazz.BodyContext, clazz.IAtomType, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.RetTuples),
 
-	meta_pairs=Mfn(clazz.Context):Ret(OrFalse(clazz.UTypeTuple)),
-	meta_ipairs=Mfn(clazz.Context):Ret(OrFalse(clazz.UTypeTuple)),
-	meta_len=Mfn(clazz.Context):Ret(clazz.UAtomUnion),
-	meta_uop_some=Mfn(clazz.Context, String):Ret(clazz.UAtomUnion),
-	meta_bop_func=Mfn(clazz.Context, String):Ret(True, clazz.IAtomType):Ret(False, Union(clazz.IAtomType, Nil)),
+	meta_pairs=Mfn(clazz.BodyContext):Ret(OrFalse(clazz.UTypeTuple)),
+	meta_ipairs=Mfn(clazz.BodyContext):Ret(OrFalse(clazz.UTypeTuple)),
+	meta_len=Mfn(clazz.BodyContext):Ret(clazz.UAtomUnion),
+	meta_uop_some=Mfn(clazz.BodyContext, String):Ret(clazz.UAtomUnion),
+	meta_bop_func=Mfn(clazz.BodyContext, String):Ret(True, clazz.IAtomType):Ret(False, Union(clazz.IAtomType, Nil)),
 
-	meta_get_invoke=Mfn(clazz.Context, clazz.IAtomType):Ret(clazz.UAtomUnion),
+	meta_get_invoke=Mfn(clazz.BodyContext, clazz.IAtomType):Ret(clazz.UAtomUnion),
 
-	native_getmetatable=Mfn(clazz.Context):Ret(clazz.UAtomUnion),
-	native_setmetatable=Mfn(clazz.Context, clazz.LuaTable),
+	native_getmetatable=Mfn(clazz.BodyContext):Ret(clazz.UAtomUnion),
+	native_setmetatable=Mfn(clazz.BodyContext, clazz.LuaTable),
 
 	native_tostring=Mfn():Ret(clazz.String),
 	native_type=Mfn():Ret(clazz.UAtomUnion),
 
-	triggerAsMetaIndex=Mfn(clazz.Context, clazz.RefineTerm, clazz.RefineTerm):Ret(clazz.UAutoTerm),
-	triggerAsMetaNewIndex=Mfn(clazz.Context, clazz.RefineTerm, clazz.RefineTerm, clazz.RefineTerm),
+	triggerAsMetaIndex=Mfn(clazz.BodyContext, clazz.RefineTerm, clazz.RefineTerm):Ret(clazz.UAutoTerm),
+	triggerAsMetaNewIndex=Mfn(clazz.BodyContext, clazz.RefineTerm, clazz.RefineTerm, clazz.RefineTerm),
 
 	lockAsMetaIndex=Mfn():Ret(False):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion)),
 	lockAsMetaNewIndex=Mfn():Ret(False):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion)),
@@ -137,8 +137,8 @@ clazz.IUnionType = Intersect(clazz.IType, clazz.IReadyType, Interface {
 	putAwait=Mfn(clazz.IAtomType),
 })
 
-clazz.OpenCaller = Fn(clazz.Context, clazz.UTermTuple):Ret(clazz.UTermTuple)
-clazz.FixedNativeFunc = Fn(clazz.Context, clazz.FixedTermTuple):Ret(clazz.FixedTermTuple):Ret(clazz.RefineTerm)
+clazz.OpenCaller = Fn(clazz.BodyContext, clazz.UTermTuple):Ret(clazz.UTermTuple)
+clazz.FixedNativeFunc = Fn(clazz.BodyContext, clazz.FixedTermTuple):Ret(clazz.FixedTermTuple):Ret(clazz.RefineTerm)
 
 
 end)

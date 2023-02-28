@@ -11,7 +11,7 @@ Branch.__tostring = function(self):Ret(String)
 	return "Branch"
 end
 
-function:class(clazz.Branch) Branch.new(vContext:clazz.Context, vPreBranch:OrNil(clazz.Branch), vVariableCase:clazz.VariableCase)
+function:class(clazz.Branch) Branch.new(vContext:clazz.BodyContext, vPreBranch:OrNil(clazz.Branch), vVariableCase:clazz.VariableCase)
 	(@let.VariableDict = Dict(clazz.LocalSymbol, clazz.ImmutVariable))
 	const self = setmetatable({.class
 		_context=vContext,
@@ -62,7 +62,7 @@ function Branch:mutMark(vSymbol:clazz.LocalSymbol, vImmutVariable:clazz.ImmutVar
 	vImmutVariable:addSymbol(vSymbol)
 end
 
-function Branch:mutSet(vContext:clazz.Context, vSymbol:clazz.LocalSymbol, vValueTerm:clazz.RefineTerm)
+function Branch:mutSet(vContext:clazz.BodyContext, vSymbol:clazz.LocalSymbol, vValueTerm:clazz.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
 	const nCastType = vContext:castLuaType(nValueType, nDstType)
@@ -80,7 +80,7 @@ function Branch:mutSet(vContext:clazz.Context, vSymbol:clazz.LocalSymbol, vValue
 	end
 end
 
-function Branch:mergeOneBranch(vContext:clazz.Context, vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.VariableCase))
+function Branch:mergeOneBranch(vContext:clazz.BodyContext, vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.VariableCase))
 	if vOneBranch:getStop() then
 		if vOtherCase then
 			self._case = self._case & vOtherCase
@@ -104,7 +104,7 @@ function Branch:mergeOneBranch(vContext:clazz.Context, vOneBranch:clazz.Branch, 
 	end
 end
 
-function Branch:merge_from(vContext:clazz.Context, vTrueBranch:clazz.Branch, vFalseBranch:clazz.Branch)
+function Branch:merge_from(vContext:clazz.BodyContext, vTrueBranch:clazz.Branch, vFalseBranch:clazz.Branch)
 	local nTrueStop = vTrueBranch:getStop()
 	local nFalseStop = vFalseBranch:getStop()
 	if nTrueStop and nFalseStop then

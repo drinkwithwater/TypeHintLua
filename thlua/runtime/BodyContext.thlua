@@ -5,7 +5,6 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const Region = require "thlua.runtime.Region"
 const RefineTerm = require "thlua.term.RefineTerm"
 const VariableCase = require "thlua.term.VariableCase"
-const ContextClass = require "thlua.runtime.ContextClass"
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
 const Node = require "thlua.code.Node"
@@ -24,30 +23,29 @@ const FunctionBuilder = require "thlua.builder.FunctionBuilder"
 const TableBuilder = require "thlua.builder.TableBuilder"
 const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = require "thlua.auto.AutoTail"
+const class = require "thlua.class"
 
-const Context = ContextClass()
+const BaseContext = require "thlua.runtime.BaseContext"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 end)
 
-function:class(clazz.Context) Context.new(vRuntime:clazz.Runtime,
-	vApplyNode:clazz.IAstNode, vSealContext:OrFalse(clazz.Context), vParentContext:OrFalse(clazz.Context))
-	const self = setmetatable({.class
-		_runtime=vRuntime,
-		_manager=vRuntime:getTypeManager(),
-		_node=vApplyNode,
-		_namespace=false@Union(False, clazz.Namespace),
-		_region=false@Union(False, clazz.Region),
-		_classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True)),
-		_funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True)),
-		_classTable=false @ OrFalse(clazz.LuaTable),
-		_sealed=false@Boolean,
-	}, Context)
-	self._parentContext = vParentContext
-	self._sealContext = vSealContext or self
-	return self
+const BodyContext = class@<clazz.BodyContext, false>(BaseContext)
+
+function.open BodyContext:ctor(
+	vRuntime:clazz.Runtime,
+	vApplyNode:clazz.IAstNode,
+	vSealContext:OrFalse(clazz.BodyContext),
+	vParentContext:OrFalse(clazz.BodyContext)
+)
+	self._region=false@OrFalse(clazz.Region)
+	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
+	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
+	self._sealed=false@Boolean
+	self._classTable=false @ OrFalse(clazz.LuaTable)
+	self._namespace=false@OrFalse(clazz.Namespace)
 end
 
 --[[
@@ -59,20 +57,24 @@ function.pass Context:testLine(vNode:clazz.IAstNode, vName:String):Ret(clazz.IAs
 	return vNode
 end]]
 
-function Context:setClassTable(vClassTable:clazz.LuaTable)
+function BodyContext:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
+	return AutoFlag
+end
+
+function BodyContext:setClassTable(vClassTable:clazz.LuaTable)
 	self._classTable = vClassTable
 end
 
-function Context:getClassTable():Ret(OrFalse(clazz.LuaTable))
+function BodyContext:getClassTable():Ret(OrFalse(clazz.LuaTable))
 	return self._classTable
 end
 
-function Context:rootSetNamespace(vRootSpace:clazz.Namespace)
+function BodyContext:rootSetNamespace(vRootSpace:clazz.Namespace)
 	assert(not self._namespace, "namespace has been setted")
 	self._namespace = vRootSpace
 end
 
-function Context:BEGIN(vLexContext:clazz.Context, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
+function BodyContext:BEGIN(vLexContext:clazz.BodyContext, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
@@ -83,7 +85,7 @@ function Context:BEGIN(vLexContext:clazz.Context, vRegionNode:clazz.IAstNode, vB
 end
 
 -- pack explist to termtuple or lazyfunc
-function Context:EXPRLIST_REPACK(
+function BodyContext:EXPRLIST_REPACK(
 	vNode:clazz.IAstNode,
 	vLazy:Boolean,
 	l:List(Union(clazz.UTermTuple, clazz.UAutoTerm, Fn():Ret(clazz.UAutoTerm)))
@@ -142,7 +144,7 @@ function Context:EXPRLIST_REPACK(
 end
 
 -- unpack explist to vNum term | termtuple
-function Context:EXPRLIST_UNPACK(
+function BodyContext:EXPRLIST_UNPACK(
 	vNode:clazz.IAstNode,
 	vNum:Number,
 	...:Union(clazz.RefineTerm, clazz.FixedTermTuple)
@@ -180,7 +182,7 @@ function Context:EXPRLIST_UNPACK(
 end
 
 -- meta items
-function Context:META_GET(
+function BodyContext:META_GET(
 	vNode:clazz.IAstNode,
 	vSelfTerm:clazz.RefineTerm,
 	vKeyTerm:clazz.RefineTerm,
@@ -206,7 +208,7 @@ function Context:META_GET(
 	end
 end
 
-function Context:META_SET(
+function BodyContext:META_SET(
 	vNode:clazz.IAstNode,
 	vSelfTerm:clazz.RefineTerm,
 	vKeyTerm:clazz.RefineTerm,
@@ -225,7 +227,7 @@ end
 
 (@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
 (@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.UTermTuple})
-function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
+function BodyContext:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
 	const ok, err = self:nodePcall(vNode, function():Ret(clazz.UTermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nOpenPair = vOpenPair
@@ -304,7 +306,7 @@ function Context:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncAr
 	end
 end
 
-function Context:META_CALL(
+function BodyContext:META_CALL(
 	vNode:clazz.IAstNode,
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
@@ -341,7 +343,7 @@ function Context:META_CALL(
 	return self:_apply(vNode, nOpenPair, nFuncArgCaseList)
 end
 
-function Context:META_INVOKE(
+function BodyContext:META_INVOKE(
 	vNode:clazz.IAstNode,
 	vSelfTerm:clazz.RefineTerm,
 	vName:String,
@@ -384,7 +386,7 @@ function Context:META_INVOKE(
 	return self:_apply(vNode, nOpenPair, nFuncArgCaseList, vPolyArgs)
 end
 
-function Context:META_EQ_NE(
+function BodyContext:META_EQ_NE(
 	vNode:clazz.IAstNode,
 	vIsEq:Boolean,
 	vLeftTerm:clazz.RefineTerm,
@@ -417,7 +419,7 @@ function Context:META_EQ_NE(
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function Context:META_BOP_SOME(
+function BodyContext:META_BOP_SOME(
 	vNode:clazz.IAstNode,
 	vOper:String,
 	vLeftTerm:clazz.RefineTerm,
@@ -454,7 +456,7 @@ function Context:META_BOP_SOME(
 	return self._manager:RefineTerm(nCollection:mergeToAtomUnion())
 end
 
-function Context:META_UOP(
+function BodyContext:META_UOP(
 	vNode:clazz.IAstNode,
 	vOper:String,
 	vData:clazz.RefineTerm
@@ -479,7 +481,7 @@ function Context:META_UOP(
 	return self._manager:mergeToRefineTerm(nTypeCaseList)
 end
 
-function.open Context:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
+function.open BodyContext:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 	const ok, err = xpcall(vFunc, function(exc:Union(String, clazz.Exception)):Ret(clazz.Exception)
 		if Exception.is(exc) then
 			return exc
@@ -495,15 +497,15 @@ function.open Context:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 	return ok, err
 end
 
-function Context:getRegion():Ret(clazz.Region)
+function BodyContext:getRegion():Ret(clazz.Region)
 	return (assert(self._region, "region not create when context getRegion"))
 end
 
-function Context:getParentContext():Ret(OrFalse(clazz.Context))
+function BodyContext:getParentContext():Ret(OrFalse(clazz.BodyContext))
 	return self._parentContext
 end
 
-function Context:FUNC_NEW(vNode:clazz.IAstNode,
+function BodyContext:FUNC_NEW(vNode:clazz.IAstNode,
 	vFnNewInfo:clazz.FuncNewInfo,
 	vParRetMaker:clazz.GenMaker
 ):Ret(clazz.LuaFunction)
@@ -513,12 +515,12 @@ function Context:FUNC_NEW(vNode:clazz.IAstNode,
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function Context:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.LuaTable)
+function BodyContext:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.LuaTable)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	return nBuilder:build()
 end
 
-function Context:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
+function BodyContext:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	if RefineTerm.is(vTerm) then
 		return vTerm:getType()
 	else
@@ -527,7 +529,7 @@ function Context:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	end
 end
 
-function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
+function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
@@ -554,7 +556,7 @@ function Context:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKi
 	end
 end
 
-function Context:matchParToDots(
+function BodyContext:matchParToDots(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
 	vParNum:Integer,
@@ -606,7 +608,7 @@ function Context:matchParToDots(
 	end
 end
 
-function Context:matchToParHintStruct(
+function BodyContext:matchToParHintStruct(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
 	vParHintStruct:clazz.ParHintStruct
@@ -639,7 +641,7 @@ function Context:matchToParHintStruct(
 	return nNamedTermList, self:matchParToDots(vNode, vTermTuple, #vParHintStruct, vParHintStruct.dots or false)
 end
 
-function Context:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.UAutoTerm)
+function BodyContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.UAutoTerm)
 	const nSrcType = vAutoTerm:getType()
 	if not nSrcType then
 		vAutoTerm:setAutoCastType(self, vDstType)
@@ -651,7 +653,7 @@ function Context:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAll
 	return self:RefineTerm(vDstType)
 end
 
-function Context:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
+function BodyContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
 	const nSrcType = vRawSrcType:checkAtomUnion()
 	const nDstType = vRawDstType:checkAtomUnion()
 	if LuaFunction.is(nSrcType) then
@@ -674,4 +676,114 @@ function Context:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllT
 	return false
 end
 
-return Context
+function BodyContext:newSealContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
+	return self._runtime:newContext(vNode, false, self)
+end
+
+function BodyContext:newLocalContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
+	return self._runtime:newContext(vNode, self._sealContext, self)
+end
+
+function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
+	return self._runtime:newContext(vNode, self._sealContext, self)
+end
+
+function BodyContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
+	if vTermTuple then
+		for i=1, #vTermTuple do
+			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
+			vTermList[#vTermList + 1] = nTerm
+		end
+		return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
+	else
+		return self:UTermTupleByTail(vTermList, false)
+	end
+end
+
+function BodyContext:UTermTupleByTail(vTermList:List(clazz.UAutoTerm), vTail:OrNil(False, clazz.DotsTail, clazz.AutoTail)):Ret(clazz.UTermTuple)
+	if AutoTail.is(vTail) then
+		vTail = vTail:recurPutTermWithTail(vTermList)
+	end
+	if AutoTail.is(vTail) then
+		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+	end
+	local nHasAuto = false
+	if not nHasAuto then
+		for i=1, #vTermList do
+			const nAuto = vTermList[i]!
+			if AutoHolder.is(nAuto) then
+				const nTerm = nAuto:getRefineTerm()
+				if not nTerm then
+					nHasAuto = true
+					break
+				else
+					vTermList[i] = nAuto
+				end
+			end
+		end
+	end
+	if nHasAuto then
+		return TermTuple.new@<true>(self, true, vTermList, vTail or false, false)
+	else
+		return TermTuple.new@<false>(self, false, vTermList @ List(clazz.RefineTerm), vTail or false, false)
+	end
+end
+
+function BodyContext:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:OrNil(False, clazz.UAllType), vTypeTuple:OrNil(clazz.UTypeTuple)):Ret(clazz.FixedTermTuple)
+	if vDotsType then
+		const nTail = DotsTail.new(self, vDotsType)
+		return TermTuple.new@<false>(self, false, vTermList, nTail, vTypeTuple or false)
+	else
+		return TermTuple.new@<false>(self, false, vTermList, false, vTypeTuple or false)
+	end
+end
+
+function BodyContext:recordClassFactory(vFunc:clazz.ClassFactory)
+	if self._sealContext ~= self then
+		self._sealContext:recordClassFactory(vFunc)
+		return
+	else
+		const nSet = self._classFnSet
+		if nSet then
+			nSet[vFunc] = true
+		else
+			vFunc:startBuild()
+		end
+	end
+end
+
+function BodyContext:recordAutoFunction(vFunc:clazz.AutoFunction)
+	if self._sealContext ~= self then
+		self._sealContext:recordAutoFunction(vFunc)
+		return
+	else
+		const nSet = self._funcMakerSet
+		if nSet then
+			nSet[vFunc] = true
+		else
+			vFunc:startBuild()
+		end
+	end
+end
+
+function BodyContext:seal()
+	if self._sealContext == self then
+		const nClassFnSet = assert(self._classFnSet, "class set must be true here")
+		self._classFnSet = false
+		for fn, v in pairs(nClassFnSet) do
+			fn:startBuild()
+		end
+		const nFuncMakerSet = assert(self._funcMakerSet, "maker set must be true here")
+		self._funcMakerSet = false
+		for fn, v in pairs(nFuncMakerSet) do
+			fn:startBuild()
+		end
+	end
+end
+
+function BodyContext:getNamespace():Ret(clazz.Namespace)
+	local nSpace = self._namespace
+	return assert(nSpace, "space is false when get")
+end
+
+return BodyContext
