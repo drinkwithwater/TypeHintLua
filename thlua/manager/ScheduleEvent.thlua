@@ -4,9 +4,9 @@ ScheduleEvent.__index = ScheduleEvent
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.ScheduleEvent) ScheduleEvent.new(vManager:clazz.TypeManager, vThread:OrNil(Thread))
+function:class(clazz.ScheduleEvent) ScheduleEvent.new(vManager:clazz.ScheduleManager, vThread:OrNil(Thread))
 	return setmetatable({.class
-		_manager=vManager,
+		_scheduleManager=vManager,
 		_selfCo=vThread,
 		_coToSid={}@OrFalse(Dict(Thread, Integer)),
 	}, ScheduleEvent)
@@ -15,7 +15,7 @@ end
 function ScheduleEvent:wait()
 	const nCoToSid = self._coToSid
 	if nCoToSid then
-		const nManager = self._manager
+		const nManager = self._scheduleManager
 		const nSessionId = nManager:genSessionId()
 		const nCurCo = coroutine.running()
 		nCoToSid[nCurCo] = nSessionId
@@ -27,7 +27,7 @@ function ScheduleEvent:wakeup()
 	const nCoToSid = self._coToSid
 	if nCoToSid then
 		self._coToSid = false
-		const nManager = self._manager
+		const nManager = self._scheduleManager
 		for co, sid in pairs(nCoToSid) do
 			nManager:coWakeup(co, sid)
 		end

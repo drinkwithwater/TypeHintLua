@@ -37,6 +37,7 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const ScheduleManager = require "thlua.manager.ScheduleManager"
 
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
@@ -100,14 +101,10 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
-		-- coroutine items
-		_coToRefer={} @ Dict(Thread, clazz.Reference),
-		_coToScheduleParam={}@Dict(Thread, Union(True, Fn())),
-		_coToWaitingInfo={}@Dict(Thread, WaitingInfo),
-		_sessionIdCounter=0@Integer,
-		_selfCo=coroutine.running(),
+		_scheduleManager=nil@clazz.ScheduleManager,
 	}, TypeManager)
 	const nRootNode = vRuntime:getNode()
+	self._scheduleManager = ScheduleManager.new()
 	self.type = makeBuiltinType(self)
 	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
@@ -671,13 +668,13 @@ end
 
 function TypeManager:SealReference(vContext:clazz.BodyContext):Ret(clazz.Reference)
 	const nRefer = Reference.new(self, false, vContext)
-	self._coToRefer[nRefer:getSelfCo()] = nRefer
+	self._scheduleManager:markReference(nRefer)
 	return nRefer
 end
 
 function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.Reference)
 	const nRefer = Reference.new(self, vName, false)
-	self._coToRefer[nRefer:getSelfCo()] = nRefer
+	self._scheduleManager:markReference(nRefer)
 	return nRefer
 end
 
@@ -714,105 +711,8 @@ function TypeManager:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair
 	return RefineTerm.new(self, nKeyUnion, nTypeDict)
 end
 
-function TypeManager:coInterrupt()
-	const nWaitingInfo = self._coToWaitingInfo
-	for co, v in pairs(nWaitingInfo) do
-		const nDependCo = v.dependCo
-		const nWaitingRefer = self._coToRefer[nDependCo]
-		if nWaitingRefer then
-			const com = nWaitingRefer:getComNowait()
-			if not com then
-				-- TODO set error com
-				print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
-			else
-				print("TODO, unknown error?")
-			end
-		else
-			print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
-		end
-	end
-end
-
-function TypeManager:makeEvent():Ret(clazz.ScheduleEvent)
-	return ScheduleEvent.new(self)
-end
-
-function TypeManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
-	assert(vWaitCo == coroutine.running(), "wait co must be current co")
-	if vDependCo then
-		const nWaitingRefer = self._coToRefer[vWaitCo]
-		if not nWaitingRefer then
-			const nDependRefer = self._coToRefer[vDependCo]
-			error("can only call coWait in Reference's coroutine, try to get:"..tostring(nDependRefer))
-		end
-		local nCurCo:OrNil(Thread) = vDependCo
-		while nCurCo do
-			if nCurCo == vWaitCo then
-				break
-			else
-				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
-				if nNextWaitingInfo then
-					nCurCo = nNextWaitingInfo.dependCo
-				else
-					nCurCo = nil
-					break
-				end
-			end
-		end
-		if nCurCo then
-			error(Exception.new("recursive build type:"..tostring(self._coToRefer[nCurCo])))
-		end
-	else
-		vDependCo = self._selfCo
-	end
-	self._coToWaitingInfo[vWaitCo] = {
-		waitSid = vWaitSid,
-		dependCo = vDependCo,
-	}
-	const nSucc = coroutine.yield()
-	if not nSucc then
-		error("coroutine yield finish with false value")
-	end
-end
-
-function TypeManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
-	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
-	if not nWaitingInfo then
-		-- session is cancel
-		print("session is cancel when wakeup")
-		return
-	elseif vWaitSid ~= nWaitingInfo.waitSid then
-		print("wait sid not match when wakeup")
-		return
-	end
-	self._coToWaitingInfo[vWaitCo] = nil
-	self._coToScheduleParam[vWaitCo] = true
-	const nRefer = self._coToRefer[coroutine.running()]
-	if not nRefer or nRefer:getContext() then
-		self:_schedule()
-	end
-end
-
-function TypeManager:coStart(vCo:Thread, vFunc:Fn())
-	self._coToScheduleParam[vCo] = vFunc
-	const nRefer = self._coToRefer[coroutine.running()]
-	if not nRefer or nRefer:getContext() then
-		self:_schedule()
-	end
-end
-
-function TypeManager:_schedule()
-	while true do
-		const nCoToParam = self._coToScheduleParam
-		if not next(nCoToParam) then
-			break
-		else
-			self._coToScheduleParam = {}@Dict(Thread, Union(True, Fn()))
-			for co, param in pairs(nCoToParam) do
-				assert(coroutine.resume(co, param))
-			end
-		end
-	end
+function TypeManager:getScheduleManager()
+	return self._scheduleManager
 end
 
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)
@@ -918,12 +818,6 @@ end
 function TypeManager:genTypeId():Ret(Integer)
 	local nNewId = self._typeIdCounter + 1
 	self._typeIdCounter = nNewId
-	return nNewId
-end
-
-function TypeManager:genSessionId():Ret(Integer)
-	local nNewId = self._sessionIdCounter + 1
-	self._sessionIdCounter = nNewId
 	return nNewId
 end
 

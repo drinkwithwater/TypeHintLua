@@ -1,0 +1,135 @@
+
+const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const Exception = require "thlua.Exception"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.WaitingInfo = Struct {
+		waitSid = Integer,
+		dependCo = Thread,
+	}
+end)
+
+const ScheduleManager = class@<clazz.ScheduleManager, false>()
+
+function.open ScheduleManager:ctor()
+	self._coToRefer={} @ Dict(Thread, clazz.Reference)
+	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
+	self._coToWaitingInfo={}@Dict(Thread, WaitingInfo)
+	self._sessionIdCounter=0@Integer
+	self._selfCo=coroutine.running()
+end
+
+function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
+	assert(vWaitCo == coroutine.running(), "wait co must be current co")
+	if vDependCo then
+		const nWaitingRefer = self._coToRefer[vWaitCo]
+		if not nWaitingRefer then
+			const nDependRefer = self._coToRefer[vDependCo]
+			error("can only call coWait in Reference's coroutine, try to get:"..tostring(nDependRefer))
+		end
+		local nCurCo:OrNil(Thread) = vDependCo
+		while nCurCo do
+			if nCurCo == vWaitCo then
+				break
+			else
+				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
+				if nNextWaitingInfo then
+					nCurCo = nNextWaitingInfo.dependCo
+				else
+					nCurCo = nil
+					break
+				end
+			end
+		end
+		if nCurCo then
+			error(Exception.new("recursive build type:"..tostring(self._coToRefer[nCurCo])))
+		end
+	else
+		vDependCo = self._selfCo
+	end
+	self._coToWaitingInfo[vWaitCo] = {
+		waitSid = vWaitSid,
+		dependCo = vDependCo,
+	}
+	const nSucc = coroutine.yield()
+	if not nSucc then
+		error("coroutine yield finish with false value")
+	end
+end
+
+function ScheduleManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
+	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
+	if not nWaitingInfo then
+		-- session is cancel
+		print("session is cancel when wakeup")
+		return
+	elseif vWaitSid ~= nWaitingInfo.waitSid then
+		print("wait sid not match when wakeup")
+		return
+	end
+	self._coToWaitingInfo[vWaitCo] = nil
+	self._coToScheduleParam[vWaitCo] = true
+	const nRefer = self._coToRefer[coroutine.running()]
+	if not nRefer or nRefer:getContext() then
+		self:_schedule()
+	end
+end
+
+function ScheduleManager:coStart(vCo:Thread, vFunc:Fn())
+	self._coToScheduleParam[vCo] = vFunc
+	const nRefer = self._coToRefer[coroutine.running()]
+	if not nRefer or nRefer:getContext() then
+		self:_schedule()
+	end
+end
+
+function ScheduleManager:_schedule()
+	while true do
+		const nCoToParam = self._coToScheduleParam
+		if not next(nCoToParam) then
+			break
+		else
+			self._coToScheduleParam = {}@Dict(Thread, Union(True, Fn()))
+			for co, param in pairs(nCoToParam) do
+				assert(coroutine.resume(co, param))
+			end
+		end
+	end
+end
+
+function ScheduleManager:genSessionId():Ret(Integer)
+	local nNewId = self._sessionIdCounter + 1
+	self._sessionIdCounter = nNewId
+	return nNewId
+end
+
+function ScheduleManager:makeEvent(vThread:OrNil(Thread)):Ret(clazz.ScheduleEvent)
+	return ScheduleEvent.new(self, vThread)
+end
+
+function ScheduleManager:coInterrupt()
+	const nWaitingInfo = self._coToWaitingInfo
+	for co, v in pairs(nWaitingInfo) do
+		const nDependCo = v.dependCo
+		const nWaitingRefer = self._coToRefer[nDependCo]
+		if nWaitingRefer then
+			const com = nWaitingRefer:getComNowait()
+			if not com then
+				-- TODO set error com
+				print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
+			else
+				print("TODO, unknown error?")
+			end
+		else
+			print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
+		end
+	end
+end
+
+function ScheduleManager:markReference(vRefer:clazz.Reference)
+	self._coToRefer[vRefer:getSelfCo()] = vRefer
+end
+
+return ScheduleManager

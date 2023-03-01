@@ -130,7 +130,7 @@ end
 function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	self._manager:coStart(self._selfCo, function()
+	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(vGetFunc())
 		if not nOkay then
 			error("namespace assign a non-type value")
@@ -153,7 +153,7 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = TemplateReferCom.new(self._manager, self, vFunc, vParNum)
-	self._manager:coStart(self._selfCo, function()
+	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
 	end)
 end
@@ -165,7 +165,7 @@ function Reference:setAutoFunction(
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = AutoFunction.new(self._manager, self)
-	self._manager:coStart(self._selfCo, function()
+	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
 		nCom:build(vRunner)
 	end)
@@ -182,7 +182,7 @@ function Reference:setClassFactory(
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = ClassFactory.new(self._manager, self)
-	self._manager:coStart(self._selfCo, function()
+	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
 		-- nCom:build(vGetInterface, vClassBuilder)
 		nCom:build(vRunner)
@@ -196,7 +196,7 @@ function Reference:setUnionAsync(vNode:clazz.IAstNode,
 )
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	self._manager:coStart(self._selfCo, function()
+	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		const nCom = TypeReferCom.new(self._manager, self)
 		self:_setComAndWakeup(nCom)
 		nCom:build(vGetList, vLaterCall)
@@ -306,7 +306,7 @@ function Reference:getContext():Ret(OrFalse(clazz.BodyContext))
 end
 
 function Reference:makeEvent():Ret(clazz.ScheduleEvent)
-	return ScheduleEvent.new(self._manager, self._selfCo)
+	return self._manager:getScheduleManager():makeEvent(self._selfCo)
 end
 
 function Reference:mayRecursive()
