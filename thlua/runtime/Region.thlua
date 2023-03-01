@@ -428,6 +428,13 @@ function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
 	self:topBranch():setStop()
 end
 
+function Region:RUN_AFTER_IF(vNode:clazz.IAstNode, vFunc:Fn())
+	if self:topBranch():getStop() then
+		self._context:getRuntime():nodeError(vNode, "unreachable code")
+	end
+	vFunc()
+end
+
 function Region:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	local re = self:_bodyEnd(vNode, self._retList)
 	self._context:getNamespace():close()

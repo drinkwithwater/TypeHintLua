@@ -33,9 +33,35 @@ local TagToVisiting:RealTraverser = {
 		}
 	end,
 	Block=function(self, node)
-		return self:concatList@<node.IAstNode>(node, function(i, vStatNode)
-			return self:visit(vStatNode)
-		end, " ")
+		const nStatUntilIf:List(node.Stat) = {}
+		const nStatAfterIf:List(node.Stat) = {}
+		local nMeetIf = false
+		for i, nStatNode in ipairs(node) do
+			if not nMeetIf then
+				nStatUntilIf[#nStatUntilIf + 1] = nStatNode
+			else
+				nStatAfterIf[#nStatAfterIf + 1] = nStatNode
+			end
+			if nStatNode.tag == "If" then
+				nMeetIf = true
+			end
+		end
+		if #nStatAfterIf == 0 then
+			return self:concatList@<node.Stat>(node, function(i, vStatNode)
+					return self:visit(vStatNode)
+			end, " ")
+		else
+			return {
+				self:concatList@<node.Stat>(nStatUntilIf, function(i, vStatNode)
+						return self:visit(vStatNode)
+				end, " "),
+				self:rgnWrap(nStatAfterIf[1]!).RUN_AFTER_IF(self:fnWrap()(
+					self:concatList@<node.Stat>(nStatAfterIf, function(i, vStatNode)
+							return self:visit(vStatNode)
+					end, " ")
+				))
+			}
+		end
 	end,
 	Do=function(self, node)
 		return self:rgnWrap(node).DO(
@@ -545,6 +571,7 @@ end
 		"FOR_IN",
 		"FOR_NUM",
 		"IF",
+		"RUN_AFTER_IF",
 		"BREAK",
 		"SYMBOL_NEW",
 		"SYMBOL_GET",
