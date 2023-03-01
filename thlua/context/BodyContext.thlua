@@ -185,7 +185,7 @@ function BodyContext:META_GET(
 	vKeyTerm:clazz.RefineTerm,
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
-	const nGetContext = self:newLocalContext(vNode)
+	const nGetContext = self:newOperContext(vNode)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	const nOkay = self:nodePcall(vNode, function()
 		vSelfTerm:foreach(function(vType, vVariableCase)
@@ -225,6 +225,7 @@ end
 (@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
 (@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.UTermTuple})
 function BodyContext:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
+	const nNewContext = self:newOperContext(vNode)
 	const ok, err = self:nodePcall(vNode, function():Ret(clazz.UTermTuple)
 		const nListLen = #vFuncArgCaseList
 		const nOpenPair = vOpenPair
@@ -243,7 +244,6 @@ function BodyContext:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFu
 			-- step 2. call function
 			for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
 				local f,nArgs,nCase,nSelf = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3], nFuncArgCase.self
-				const nNewContext = self:newLocalContext(vNode)
 				const nRetTuples = vPolyArgs
 					and f:meta_invoke(nNewContext, assert(nSelf, "self must exist here"), vPolyArgs, nArgs)
 					or f:meta_call(nNewContext, nArgs)
@@ -308,7 +308,6 @@ function BodyContext:META_CALL(
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
-	const nNewContext = self:newLocalContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
@@ -348,7 +347,7 @@ function BodyContext:META_INVOKE(
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
-	const nGetContext = self:newLocalContext(vNode)
+	const nGetContext = self:newOperContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
@@ -429,19 +428,19 @@ function BodyContext:META_BOP_SOME(
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
 			const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm})
-			const nRetTuples = nLeftFunc:meta_call(self:newLocalContext(vNode), nTermTuple)
+			const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
 					const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
-					const nRetTuples = nRightFunc:meta_call(self:newLocalContext(vNode), nTermTuple)
+					const nRetTuples = nRightFunc:meta_call(nBopContext, nTermTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
-						const nRetTuples = nLeftFunc:meta_call(self:newLocalContext(vNode), nTermTuple)
+						const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
@@ -528,12 +527,13 @@ function BodyContext:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnio
 end
 
 function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
+	const nCastContext = self:newOperContext(vNode)
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
 		const nTemplateList:List(clazz.UAllType) = self._manager:easyToTypeList(...)
 		vTerm:foreach(function(vType, vVariableCase)
-			const nAfterType = vType:castPoly(self, nTemplateList)
+			const nAfterType = vType:castPoly(nCastContext, nTemplateList)
 			if nAfterType then
 				nTypeCaseList[#nTypeCaseList + 1] = {nAfterType, vVariableCase}
 			else
@@ -665,10 +665,6 @@ end
 
 function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
 	return OperContext.new(self._runtime, vNode, self)
-end
-
-function BodyContext:newLocalContext(vNode:clazz.IAstNode):Ret(clazz.BodyContext)
-	return self._runtime:newContext(vNode, self)
 end
 
 function BodyContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)

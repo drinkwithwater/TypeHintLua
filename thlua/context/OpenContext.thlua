@@ -8,8 +8,21 @@ end)
 
 const OpenContext = class@<clazz.OpenContext, false>(BodyContext)
 
+function.open OpenContext:ctor(...)
+	self._inplaceOperContext = false @ OrFalse(clazz.OperContext)
+end
+
 function OpenContext:getSealContext():Ret(clazz.SealContext)
 	return assert(self._parentContext, "open context's parent can't be nil"):getSealContext()
+end
+
+function OpenContext:operContext():Ret(clazz.OperContext)
+	local nInplace = self._inplaceOperContext
+	if not nInplace then
+		nInplace = self:newOperContext(self._node)
+		self._inplaceOperContext = nInplace
+	end
+	return nInplace
 end
 
 return OpenContext

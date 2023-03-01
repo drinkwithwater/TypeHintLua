@@ -70,9 +70,10 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 			return nTypeTuple:makeTermTuple(vContext)
 		end),
 		pairs=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nType1 = vTermTuple:get(vContext, 1):getType()
+			const nType1 = vTermTuple:get(vContext, 1):getType()
 			assert(not nType1:isUnion(), "pairs for union type TODO")
-			local nTypeTuple = nType1:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, nType1, nManager.type.Nil)
+			const nPairContext = vContext:newOperContext(vContext:getNode())
+			const nTypeTuple = nType1:meta_pairs(nPairContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, nType1, nManager.type.Nil)
 			return nTypeTuple:makeTermTuple(vContext)
 		end),
 		rawequal=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -337,7 +338,7 @@ function native.make_string(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 end
 
 function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
-	const function checkList(vContext:clazz.BodyContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
+	const function checkList(vContext:clazz.OpenContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
 		const nLenContext = vContext:newOperContext(vContext:getNode())
@@ -347,7 +348,7 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 				vContext:error("table."..vKey.." must take list-like variable")
 				return
 			end
-			const nValue = vSubType:meta_get(vContext, nNumber)
+			const nValue = vSubType:meta_get(vContext:operContext(), nNumber)
 			nElementCollection:put(nValue)
 		end)
 		return nElementCollection:mergeToAtomUnion()
@@ -389,7 +390,7 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 					vContext:error("__len must return number when concat")
 					return
 				end
-				local nValueType = vSubType:meta_get(vContext, nNumber)
+				local nValueType = vSubType:meta_get(vContext:operContext(), nNumber)
 				nCollection:put(nValueType)
 			end)
 			local nRetType = nCollection:mergeToAtomUnion()
@@ -415,7 +416,7 @@ function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 		if nType1:isUnion() then
 			error(Exception.new("TODO: next Union type"))
 		else
-			local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
+			local nNotNilValue = nType1:meta_get(vContext:operContext(), nNumber):notnilType()
 			local nValueTerm = vManager:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
 			local nKeyValue:Dict(clazz.IAtomType, clazz.UAtomUnion) = {
 				[nNumber]=nNotNilValue,
