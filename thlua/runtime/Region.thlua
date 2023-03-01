@@ -60,8 +60,8 @@ end
 function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
 	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
 	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
-	const nAssignContext = self._context:newOpenContext(vNode)
-	self:topBranch():mutSet(nAssignContext, vSymbol, vTerm)
+	const nSymbolContext = self._context:newOperContext(vNode)
+	self:topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
 end
 
 function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
@@ -113,7 +113,7 @@ function Region:PARAM_UNPACK(
 			end
 		end
 		-- TODO check type match here...
-		return self._context:RefineTerm(vHintType)
+		return nHeadContext:RefineTerm(vHintType)
 	end
 end
 
@@ -145,6 +145,7 @@ function Region:PARAM_DOTS_UNPACK(
 end
 
 function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+	const nSymbolContext = self._context:newOperContext(vNode)
 	if AutoHolder.is(vTerm) then
 		const nAutoRefineTerm = vTerm:getRefineTerm()
 		if not nAutoRefineTerm then
@@ -156,33 +157,32 @@ function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vMod
 			vTerm = nAutoRefineTerm
 		end
 	end
-	const nAssignContext = self._context:newOpenContext(vNode)
 	if not vTerm then
-		vTerm = nAssignContext:NilTerm()
+		vTerm = nSymbolContext:NilTerm()
 	end
 	if vHintType then
 		local nSrcType = vTerm:getType()
-		if not nAssignContext:castLuaType(nSrcType, vHintType) then
+		if not nSymbolContext:castLuaType(nSrcType, vHintType) then
 			if not vHintType:includeAll(nSrcType) then
-				nAssignContext:error("symbol init but type not match")
+				nSymbolContext:error("symbol init but type not match")
 			end
 		end
-		vTerm = nAssignContext:RefineTerm(vHintType)
+		vTerm = nSymbolContext:RefineTerm(vHintType)
 	else
 		-- convert string literal to string, number literal to number, boolean literal to boolean
 		if vModify and vKind == Enum.SymbolKind_LOCAL then
 			const nFromType = vTerm:getType()
-			const nToType = nAssignContext:getTypeManager():literal2Primitive(nFromType)
+			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
-				vTerm = nAssignContext:RefineTerm(nToType)
+				vTerm = nSymbolContext:RefineTerm(nToType)
 			end
 		end
-		nAssignContext:getTypeManager():basingByDefault(vTerm:getType())
+		nSymbolContext:getTypeManager():basingByDefault(vTerm:getType())
 	end
 	const nImmutVariable = vTerm:attachImmutVariable()
 	if vModify then
-		local nLocalSymbol = LocalSymbol.new(nAssignContext, vNode, vTerm:getType(), vTerm)
-		nAssignContext:getRuntime():recordSymbol(nLocalSymbol)
+		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, vTerm:getType(), vTerm)
+		nSymbolContext:getRuntime():recordSymbol(nLocalSymbol)
 		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
 		return nLocalSymbol
 	else
@@ -202,20 +202,20 @@ function Region:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:F
 			const nFalseBranch = self:withBranch(nFalseCase, function()
 				vFalseFunction()
 			end)
-			nBeforeBranch:merge_from(self._context, nTrueBranch, nFalseBranch)
+			nBeforeBranch:mergeTwoBranch(nTrueBranch, nFalseBranch)
 		else
-			nBeforeBranch:mergeOneBranch(self._context, nTrueBranch, nFalseCase)
+			nBeforeBranch:mergeOneBranch(nTrueBranch, nFalseCase)
 		end
 	elseif nFalseCase and vFalseFunction then
 		const nFalseBranch = self:withBranch(nFalseCase, function()
 			vFalseFunction()
 		end)
-		nBeforeBranch:mergeOneBranch(self._context, nFalseBranch, nTrueCase)
+		nBeforeBranch:mergeOneBranch(nFalseBranch, nTrueCase)
 	end
 end
 
 function Region:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
-	local nTrueCase = vTerm:caseTrue()
+	const nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
 		self:withBranch(nTrueCase, function()
 			vTrueFunction()
@@ -237,7 +237,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 	const nForContext = self._context:newOperContext(vNode)
 	const nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
-		self._context:getRuntime():nodeError(vNode, "FOR_IN iterator error, arguments number must be 1 or 2 or 3")
+		nForContext:error("FOR_IN iterator error, arguments number must be 1 or 2 or 3")
 		return
 	end
 	const nNext = vNextSelfInit:get(self._context, 1)
@@ -306,8 +306,8 @@ function Region:FOR_NUM(
 end
 
 function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
-	local nLeftTrueTerm = vLeftTerm:trueTerm()
-	local nLeftFalseCase = vLeftTerm:caseFalse()
+	const nLeftTrueTerm = vLeftTerm:trueTerm()
+	const nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
 		return nLeftTrueTerm
 	else
@@ -322,8 +322,8 @@ function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRigh
 end
 
 function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
-	local nLeftFalseTerm = vLeftTerm:falseTerm()
-	local nLeftTrueCase = vLeftTerm:caseTrue()
+	const nLeftFalseTerm = vLeftTerm:falseTerm()
+	const nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
 		return nLeftFalseTerm
 	else

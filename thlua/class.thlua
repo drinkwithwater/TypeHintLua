@@ -1,4 +1,5 @@
-const _class={}
+const class2meta={}
+const meta2class={}
 
 (@do
 	let.clazz = namespace()
@@ -37,10 +38,20 @@ const function.open class@<C, I>(super)
 		__index=vtbl
 	}
 	class_type.is=function.open(v):isguard(C)
-		return getmetatable(vType) == vtbl
+		const nCurMeta = getmetatable(v)
+		local nCurClassType = nCurMeta and meta2class[nCurMeta]
+		while nCurClassType do
+			if nCurClassType == class_type then
+				return true
+			else
+				nCurClassType = class_type.super
+			end
+		end
+		return false
 	end
 	class_type.meta=meta
-	_class[class_type]=meta
+	class2meta[class_type]=meta
+	meta2class[meta]=class_type
 
 	setmetatable(class_type,{__newindex=
 		function.open(t,k,v)
@@ -53,7 +64,7 @@ const function.open class@<C, I>(super)
 	})
 
 	if super then
-		const super_meta = _class[super]
+		const super_meta = class2meta[super]
 		for k,v in pairs(super_meta.__index) do
 			vtbl[k] = v
 		end
