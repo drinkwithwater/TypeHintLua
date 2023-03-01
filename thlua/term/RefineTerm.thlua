@@ -15,7 +15,7 @@ RefineTerm.__bor=function(vLeft:clazz.RefineTerm, vRight:clazz.RefineTerm):Ret(c
 	vRight:foreach(function(vType, vCase)
 			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
 	end)
-	return vLeft._manager:mergeToRefineTerm(nTypeCaseList)
+	return vLeft:getContext():mergeToRefineTerm(nTypeCaseList)
 end
 RefineTerm.__tostring=function(self:clazz.RefineTerm):Ret(String)
 	const l:List(String) = {}
@@ -26,11 +26,11 @@ RefineTerm.__tostring=function(self:clazz.RefineTerm):Ret(String)
 end
 
 function:class(clazz.RefineTerm) RefineTerm.new(
-	vManager:clazz.TypeManager,
+	vContext:clazz.BaseContext,
 	vType:clazz.UAtomUnion,
 	vTypeToCase:OrNil(Dict(clazz.IAtomType, clazz.VariableCase)))
 	const self = setmetatable({.class
-		_manager=vManager,
+		_context=vContext,
 		_typeToCase=vTypeToCase or {}@Dict(clazz.IAtomType, clazz.VariableCase),
 		_type=vType,
 		_symbolVariable=false @ Union(False, clazz.ImmutVariable),
@@ -110,7 +110,7 @@ function RefineTerm:notnilTerm():Ret(clazz.RefineTerm)
 	nNotnilType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
-	return self._manager:mergeToRefineTerm(nTypeCaseList)
+	return self._context:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:caseNotnil():Ret(OrNil(clazz.VariableCase))
@@ -148,7 +148,7 @@ function RefineTerm:falseTerm():Ret(clazz.RefineTerm)
 	nFalseType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
-	return self._manager:mergeToRefineTerm(nTypeCaseList)
+	return self._context:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:trueTerm():Ret(clazz.RefineTerm)
@@ -157,24 +157,27 @@ function RefineTerm:trueTerm():Ret(clazz.RefineTerm)
 	nTrueType:foreach(function(vType)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
 	end)
-	return self._manager:mergeToRefineTerm(nTypeCaseList)
+	return self._context:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:notTerm():Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	self._type:falseType():foreach(function(vType)
-	nTypeCaseList[#nTypeCaseList + 1] = {
-		self._manager.type.True,
-		self._typeToCase[vType]!
-	}
+	const nSelfType = self._type
+	const nTypeToCase = self._typeToCase
+	const nBuiltinType = self._context:getTypeManager().type
+	nSelfType:falseType():foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			nBuiltinType.True,
+			nTypeToCase[vType]!
+		}
 	end)
-	self._type:trueType():foreach(function(vType)
-	nTypeCaseList[#nTypeCaseList + 1] = {
-		self._manager.type.False,
-		self._typeToCase[vType]!
-	}
+	nSelfType:trueType():foreach(function(vType)
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			nBuiltinType.False,
+			nTypeToCase[vType]!
+		}
 	end)
-	return self._manager:mergeToRefineTerm(nTypeCaseList)
+	return self._context:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:getType():Ret(clazz.UAtomUnion)
@@ -211,7 +214,7 @@ function RefineTerm:filter(vType:clazz.UAtomUnion):Ret(clazz.RefineTerm)
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, VariableCase.new()}
 		end
 	end)
-	return self._manager:mergeToRefineTerm(nTypeCaseList)
+	return self._context:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:attachImmutVariable():Ret(clazz.ImmutVariable)
@@ -221,6 +224,10 @@ function RefineTerm:attachImmutVariable():Ret(clazz.ImmutVariable)
 		self:initVariable(nImmutVariable)
 	end
 	return nImmutVariable
+end
+
+function RefineTerm:getContext()
+	return self._context
 end
 
 return RefineTerm

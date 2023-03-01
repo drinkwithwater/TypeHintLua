@@ -7,9 +7,9 @@ const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = {}
 AutoTail.__index = AutoTail
 
-function:class(clazz.AutoTail) AutoTail.new(vManager:clazz.TypeManager, vInit:OrNil(List(clazz.AutoHolder)))
+function:class(clazz.AutoTail) AutoTail.new(vContext:clazz.OperContext, vInit:OrNil(List(clazz.AutoHolder)))
 	const self = setmetatable({.class
-		_manager=vManager,
+		_context=vContext,
 		_holderList=vInit or {}@List(clazz.AutoHolder),
 		_sealTail=false@OrFalse(True, clazz.AutoTail, clazz.DotsTail),
 	}, AutoTail)
@@ -25,7 +25,7 @@ function AutoTail:getMore(vContext:clazz.BaseContext, vMore:Integer):Ret(clazz.U
 		const nSealTail = self._sealTail
 		if not nSealTail then
 			for i=#nList + 1, vMore do
-				nList[i] = AutoHolder.new()
+				nList[i] = self._context:AutoHolder()
 			end
 			return nList[vMore]!
 		else
@@ -49,7 +49,7 @@ function AutoTail:openTailFrom(vContext:clazz.BaseContext, vFrom:Integer):Ret(cl
 			nNewHolderList[#nNewHolderList + 1] = nSelfHolderList[i]
 			nSelfHolderList[i] = nil
 		end
-		const nNewAutoTail = AutoTail.new(self._manager, nNewHolderList)
+		const nNewAutoTail = AutoTail.new(self._context, nNewHolderList)
 		self._sealTail = nNewAutoTail
 		return nNewAutoTail
 	else
@@ -118,7 +118,7 @@ function AutoTail:checkTypeTuple(vContext:clazz.OperContext):Ret(OrFalse(clazz.U
 	if not nDotsType then
 		return false
 	else
-		const nTuple = self._manager:TypeTuple(vContext:getNode(), table.unpack(nList))
+		const nTuple = self._context:getTypeManager():TypeTuple(vContext:getNode(), table.unpack(nList))
 		if nDotsType == true then
 			return nTuple
 		else
