@@ -18,7 +18,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
 	clazz.ULuaInnerFn = Union(clazz.UBodyFunction, clazz.PolyFunction, clazz.MemberFunction)
 
-	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
+	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
 	clazz.GenMaker = Fn(clazz.UBodyFunction, OrFalse(clazz.VariableCase), clazz.BodyContext, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple)
 
@@ -149,7 +149,7 @@ function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.M
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vAutoFn, self._uvCase, nNewContext, vPolyParList, vSelfType)
 			-- make par
 			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewContext)
-			const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(nCastArgs))
+			const nParTermTuple = nGenParam(nCastArgs)
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
 			const nCastRet = vCastTypeFn and vCastTypeFn:getRetTuples()
@@ -327,7 +327,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewContext, vPolyParList, false)
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements, function()
-				const nParTermTuple = nNewContext:UTermTupleByAppend(nGenParam(false))
+				const nParTermTuple = nGenParam(false)
 				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassRefer))
 				const nParTuple = nParTermTuple:checkTypeTuple()
 				const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false

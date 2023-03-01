@@ -87,6 +87,7 @@ function BodyContext:EXPRLIST_REPACK(
 	vLazy:Boolean,
 	l:List(Union(clazz.UTermTuple, clazz.UAutoTerm, Fn():Ret(clazz.UAutoTerm)))
 ):Ret(clazz.UTermTuple):Ret(Fn():Ret(clazz.UTermTuple))
+	const nPackContext = self:newOperContext(vNode)
 	local reFunc:OrNil(Fn():Ret(clazz.UTermTuple))
 	const nLastIndex = #l
 	const nLast = l[nLastIndex]
@@ -117,7 +118,7 @@ function BodyContext:EXPRLIST_REPACK(
 		-- force cast
 		if TermTuple.is(nLast) then
 			reFunc = function()
-				return self:UTermTupleByAppend(repackWithoutLast(), nLast)
+				return nPackContext:UTermTupleByAppend(repackWithoutLast(), nLast)
 			end
 		else
 			reFunc = function()
@@ -129,7 +130,7 @@ function BodyContext:EXPRLIST_REPACK(
 				else
 					error("unexcept branch")
 				end
-				return self:UTermTupleByAppend(nTermList, false)
+				return nPackContext:UTermTupleByAppend(nTermList, false)
 			end
 		end
 	end
@@ -347,7 +348,7 @@ function BodyContext:META_INVOKE(
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
-	const nGetContext = self:newOperContext(vNode)
+	const nInvokeContext = self:newOperContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
 	const nFuncArgCaseList:FuncArgCaseList = {}
 	const nNil = self._manager.type.Nil
@@ -355,8 +356,8 @@ function BodyContext:META_INVOKE(
 		if vSelfType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
-			const nNewArgTuple = self:UTermTupleByAppend({self:RefineTerm(vSelfType)}, vArgTuple)
-			const nFuncType = vSelfType:meta_get_invoke(nGetContext, self:Literal(vName))
+			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({self:RefineTerm(vSelfType)}, vArgTuple)
+			const nFuncType = vSelfType:meta_get_invoke(nInvokeContext, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
@@ -554,103 +555,6 @@ function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCa
 	end
 end
 
-function BodyContext:matchParToDots(
-	vNode:clazz.IAstNode,
-	vTermTuple:clazz.UTermTuple,
-	vParNum:Integer,
-	vHintDots:OrFalse(clazz.AutoFlag, clazz.UAllType)
-):Ret(OrFalse(clazz.UTermTuple))
-	const nTailTermList:List(clazz.UAutoTerm) = {}
-	for i=vParNum + 1, #vTermTuple do
-		nTailTermList[#nTailTermList + 1] = vTermTuple:get(self, i)
-	end
-	const nTermTail = vTermTuple:getTail()
-	if not AutoTail.is(nTermTail) then
-		if vHintDots == AutoFlag then
-			if nTermTail then
-				return self:UTermTupleByTail(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
-			else
-				return self:UTermTupleByTail(nTailTermList)
-			end
-		elseif vHintDots then
-			return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
-		else
-			if nTermTail then
-				self:getRuntime():nodeError(vNode, "args dots not match par")
-			end
-			return false
-		end
-	else
-		const nMore = vParNum - #vTermTuple
-		if vHintDots == AutoFlag then
-			if nMore <= 0 then
-				return self:UTermTupleByTail(nTailTermList, nTermTail)
-			else
-				return self:UTermTupleByTail(nTailTermList, nTermTail:openTailFrom(self, nMore + 1))
-			end
-		elseif vHintDots then
-			if nMore <= 0 then
-				nTermTail:sealTailFrom(self, 1, vHintDots)
-			else
-				nTermTail:sealTailFrom(self, nMore + 1, vHintDots)
-			end
-			return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
-		else
-			if nMore <= 0 then
-				nTermTail:sealTailFrom(self, 1, true)
-			else
-				nTermTail:sealTailFrom(self, nMore + 1, true)
-			end
-			return false
-		end
-	end
-end
-
-function BodyContext:matchToParHintStruct(
-	vNode:clazz.IAstNode,
-	vTermTuple:clazz.UTermTuple,
-	vParHintStruct:clazz.ParHintStruct
-):Ret(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
-	const nHintDots = vParHintStruct.dots
-	const nNamedTermList:List(clazz.UAutoTerm) = {}
-	for i=1, #vTermTuple do
-		const nAutoTerm = vTermTuple:get(self, i)
-		local nHintType = vParHintStruct[i]
-		const nMore = i-#vParHintStruct
-		if nMore > 0 then
-			if nHintDots then
-				if nHintDots ~= AutoFlag then
-					nHintType = nHintDots
-				end
-			else
-				nHintType = self._manager.type.Nil
-			end
-		end
-		const nPut = (nHintType and nHintType ~= AutoFlag) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
-		if nMore <= 0 then
-			nNamedTermList[i] = nPut
-		end
-	end
-	for i=#vTermTuple + 1, #vParHintStruct do
-		const nAutoTerm = vTermTuple:get(self, i)
-		const nHintType = vParHintStruct[i]!
-		nNamedTermList[i] = (nHintType ~= AutoFlag) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
-	end
-	return nNamedTermList, self:matchParToDots(vNode, vTermTuple, #vParHintStruct, vParHintStruct.dots or false)
-end
-
-function BodyContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.UAutoTerm)
-	const nSrcType = vAutoTerm:getType()
-	if not nSrcType then
-		vAutoTerm:setAutoCastType(self, vDstType)
-	else
-		if not self:castLuaType(nSrcType, vDstType) and not vDstType:includeAll(nSrcType) then
-			self:error("assign but type not match")
-		end
-	end
-	return self:RefineTerm(vDstType)
-end
-
 function BodyContext:castLuaType(...)
 	return self:newOperContext(self:getNode()):castLuaType(...)
 end
@@ -665,22 +569,6 @@ end
 
 function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
 	return OperContext.new(self._runtime, vNode, self)
-end
-
-function BodyContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
-	if vTermTuple then
-		for i=1, #vTermTuple do
-			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
-			vTermList[#vTermList + 1] = nTerm
-		end
-		return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
-	else
-		return self:UTermTupleByTail(vTermList, false)
-	end
-end
-
-function BodyContext:UTermTupleByTail(...)
-	return self:newOperContext(self:getNode()):UTermTupleByTail(...)
 end
 
 function BodyContext:FixedTermTuple(...)

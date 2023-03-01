@@ -30,6 +30,7 @@ function:class(clazz.Region) Region.new(vContext:clazz.BodyContext, vBodyFn:claz
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
 	const self = setmetatable({.class
 		_context=vContext,
+		_headContext=vContext:newOperContext(vContext:getNode()),
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(clazz.Branch),
 		_bodyFn=vBodyFn,
@@ -82,23 +83,32 @@ function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAu
 	end
 end
 
+function Region:PARAM_PACKOUT(
+	vNode:clazz.IAstNode,
+	vList:List(clazz.UAutoTerm),
+	vDots:OrFalse(clazz.UTermTuple)
+):Ret(clazz.UTermTuple)
+	return self._headContext:UTermTupleByAppend(vList, vDots)
+end
+
 function Region:PARAM_UNPACK(
 	vNode:clazz.IAstNode,
 	vTermTuple:OrFalse(clazz.UTermTuple),
 	vIndex:Integer,
 	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
 ):Ret(clazz.UAutoTerm)
+	const nHeadContext = self._headContext
 	if vHintType == AutoFlag then
 		if vTermTuple then
-			return vTermTuple:get(self._context, vIndex)
+			return vTermTuple:get(nHeadContext, vIndex)
 		else
 			return AutoHolder.new()
 		end
 	else
 		if vTermTuple then
-			const nAutoTerm = vTermTuple:get(self._context, vIndex)
+			const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
 			if not nAutoTerm:getType() then
-				nAutoTerm:setAutoCastType(self._context, vHintType)
+				nAutoTerm:setAutoCastType(nHeadContext, vHintType)
 			end
 		end
 		-- TODO check type match here...
@@ -112,7 +122,7 @@ function Region:PARAM_NODOTS_UNPACK(
 	vParNum:Integer
 )
 	if vTermTuple then
-		self._context:matchParToDots(vNode, vTermTuple, vParNum, false)
+		self._headContext:matchParToDots(vNode, vTermTuple, vParNum, false)
 	end
 end
 
@@ -123,12 +133,12 @@ function Region:PARAM_DOTS_UNPACK(
 	vHintDots:Union(clazz.AutoFlag, clazz.UAllType)
 ):Ret(OrFalse(clazz.UTermTuple))
 	if vTermTuple then
-		return self._context:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
+		return self._headContext:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
 	else
 		if vHintDots == AutoFlag then
-			return self._context:UTermTupleByTail({}, AutoTail.new(self._context:getTypeManager()))
+			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._context:getTypeManager()))
 		else
-			return self._context:UTermTupleByTail({}, DotsTail.new(self._context, vHintDots))
+			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._context, vHintDots))
 		end
 	end
 end
