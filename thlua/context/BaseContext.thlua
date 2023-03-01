@@ -28,7 +28,7 @@ function.open BaseContext:ctor(
 end
 
 function BaseContext:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
-	return self._manager:RefineTerm(vType)
+	return RefineTerm.new(self._manager, vType:checkAtomUnion())
 end
 
 function BaseContext:NumberTerm():Ret(clazz.RefineTerm)
@@ -53,6 +53,11 @@ end
 
 function BaseContext:LiteralTerm(v:Union(String, Number)):Ret(clazz.RefineTerm)
 	return RefineTerm.new(self._manager, self:Literal(v))
+end
+
+function BaseContext:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair)):Ret(clazz.RefineTerm)
+	const nKeyUnion, nTypeDict = self._manager:mergePairList@<clazz.VariableCase>(vTypeCasePairList)
+	return RefineTerm.new(self._manager, nKeyUnion, nTypeDict)
 end
 
 function BaseContext:Literal(vValue:Union(String, Number)):Ret(Union(clazz.StringLiteral, clazz.NumberLiteral))
