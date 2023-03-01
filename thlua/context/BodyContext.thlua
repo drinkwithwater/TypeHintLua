@@ -21,12 +21,10 @@ const Truth = require "thlua.type.Truth"
 
 const FunctionBuilder = require "thlua.builder.FunctionBuilder"
 const TableBuilder = require "thlua.builder.TableBuilder"
-const DotsTail = require "thlua.tuple.DotsTail"
-const AutoTail = require "thlua.auto.AutoTail"
 const class = require "thlua.class"
 
-const BaseContext = require "thlua.context.BaseContext"
 const OperContext = require "thlua.context.OperContext"
+const BaseContext = require "thlua.context.BaseContext"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -37,12 +35,14 @@ const BodyContext = class@<clazz.BodyContext, false>(BaseContext)
 
 function.open BodyContext:ctor(
 	vRuntime:clazz.Runtime,
-	vApplyNode:clazz.IAstNode,
+	vNode:clazz.IAstNode,
 	vParentContext:OrFalse(clazz.BodyContext)
 )
 	self._region=false@OrFalse(clazz.Region)
 	self._classTable=false @ OrFalse(clazz.LuaTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
+	self._headOper=vRuntime:OperContext(vNode, self)
+	self._tailOper=vRuntime:OperContext(vNode, self)
 end
 
 --[[
@@ -93,7 +93,7 @@ function BodyContext:EXPRLIST_REPACK(
 	const nLast = l[nLastIndex]
 	if not nLast then
 		reFunc = function()
-			return self:FixedTermTuple({})
+			return nPackContext:FixedTermTuple({})
 		end
 	else
 		const repackWithoutLast = function():Ret(List(clazz.UAutoTerm))
@@ -233,7 +233,7 @@ function BodyContext:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFu
 		if nOpenPair then
 			if nListLen ~= 0 then
 				self._runtime:nodeError(vNode, "can't mix call native function & not-native function")
-				return self:FixedTermTuple({})
+				return nNewContext:FixedTermTuple({})
 			end
 			return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
 		elseif nListLen >= 1 then
@@ -265,7 +265,7 @@ function BodyContext:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFu
 			const nRepeatType:clazz.UAtomUnion = nRepeatCollection:mergeToAtomUnion()
 			const nTail = (not nRepeatType:isNever()) and nRepeatType or false
 			if nMaxLength <= 0 then
-				return self:FixedTermTuple({}, nTail)
+				return nNewContext:FixedTermTuple({}, nTail)
 			end
 			const nTermList:List(clazz.RefineTerm) = {}
 			-- step 3. merge 2 ~ nMaxLength
@@ -291,16 +291,16 @@ function BodyContext:_apply(vNode:clazz.IAstNode, vOpenPair:OrNil(OpenPair), vFu
 				}
 			end
 			nTermList[1] = self._manager:mergeToRefineTerm(nTypeCaseList)
-			return self:FixedTermTuple(nTermList, nTail)
+			return nNewContext:FixedTermTuple(nTermList, nTail)
 		else
 			self._runtime:nodeError(vNode, "meta_call function can't be Never")
-			return self:FixedTermTuple({})
+			return nNewContext:FixedTermTuple({})
 		end
 	end)
 	if ok then
 		return err
 	else
-		return self:FixedTermTuple({})
+		return nNewContext:FixedTermTuple({})
 	end
 end
 
@@ -428,19 +428,19 @@ function BodyContext:META_BOP_SOME(
 		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
-			const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm})
+			const nTermTuple = nBopContext:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm})
 			const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
-					const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
+					const nTermTuple = nBopContext:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
 					const nRetTuples = nRightFunc:meta_call(nBopContext, nTermTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
-						const nTermTuple = self:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
+						const nTermTuple = nBopContext:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
 						const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
@@ -568,11 +568,7 @@ function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
 end
 
 function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
-	return OperContext.new(self._runtime, vNode, self)
-end
-
-function BodyContext:FixedTermTuple(...)
-	return self:newOperContext(self:getNode()):FixedTermTuple(...)
+	return self._runtime:OperContext(vNode, self)
 end
 
 function.pass BodyContext:getSealContext():Ret(clazz.SealContext)
@@ -588,6 +584,14 @@ function BodyContext:recordAutoFunction(vFunc:clazz.AutoFunction)
 end
 
 function BodyContext:seal()
+end
+
+function BodyContext:getHeadContext():Ret(clazz.OperContext)
+	return self._headOper
+end
+
+function BodyContext:getTailContext():Ret(clazz.OperContext)
+	return self._tailOper
 end
 
 function BodyContext:getNamespace():Ret(clazz.Namespace)

@@ -67,14 +67,14 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 			local nType1 = vTermTuple:get(vContext, 1):getType()
 			assert(not nType1:isUnion(), "ipairs for union type TODO")
 			local nTypeTuple = nType1:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.inext, nType1, nManager:Literal(0))
-			return nTypeTuple:makeTermTuple(vContext)
+			return nTypeTuple:makeTermTuple(vContext:getTailContext())
 		end),
 		pairs=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			const nType1 = vTermTuple:get(vContext, 1):getType()
 			assert(not nType1:isUnion(), "pairs for union type TODO")
 			const nPairContext = vContext:newOperContext(vContext:getNode())
 			const nTypeTuple = nType1:meta_pairs(nPairContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, nType1, nManager.type.Nil)
-			return nTypeTuple:makeTermTuple(vContext)
+			return nTypeTuple:makeTermTuple(vContext:getTailContext())
 		end),
 		rawequal=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			--self:argnum_warn(2, vTermTuple)
@@ -93,7 +93,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 			--self:argnum_warn(3, vTermTuple)
 			--return self:check_call(vTermTuple)
 			print("rawset TODO")
-			return vContext:FixedTermTuple({})
+			return vContext:getTailContext():FixedTermTuple({})
 		end),
 		tostring=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			return nManager:RefineTerm(nManager.type.String)
@@ -116,7 +116,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 			assert(nRegion, "error in a context without region")
 			local nFirst = vTermTuple:get(vContext, 1)
 			nRegion:nativeAssert(nFirst)
-			return vContext:FixedTermTuple({nFirst:trueTerm()})
+			return vContext:getTailContext():FixedTermTuple({nFirst:trueTerm()})
 		end),
 		select=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			const nFirstType = vTermTuple:get(vContext, 1):getType()
@@ -129,10 +129,10 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 						return vTermTuple:select(vContext, nStart + 1)
 					elseif nStart < 0 then
 						vContext:error("select first < 0 TODO")
-						return vContext:FixedTermTuple({})
+						return vContext:getTailContext():FixedTermTuple({})
 					else
 						vContext:error("select's first arguments is zero")
-						return vContext:FixedTermTuple({})
+						return vContext:getTailContext():FixedTermTuple({})
 					end
 				else
 					if Number.is(nFirstType) then
@@ -147,31 +147,31 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 						end
 						const nFinalType = nCollection:mergeToAtomUnion()
 						if nRepeatType then
-							return nManager:TypeTuple(vContext:getNode()):Dots(nRepeatType):makeTermTuple(vContext)
+							return nManager:TypeTuple(vContext:getNode()):Dots(nRepeatType):makeTermTuple(vContext:getTailContext())
 						else
 							const nReList:List(clazz.UAtomUnion) = {}
 							for i=2, #vTermTuple do
 								nReList[#nReList + 1] = nFinalType
 							end
-							return nManager:TypeTuple(vContext:getNode(), table.unpack(nReList)):makeTermTuple(vContext)
+							return nManager:TypeTuple(vContext:getNode(), table.unpack(nReList)):makeTermTuple(vContext:getTailContext())
 						end
 					else
 						vContext:error("select's first value must be number or number-literal")
-						return vContext:FixedTermTuple({})
+						return vContext:getTailContext():FixedTermTuple({})
 					end
 				end
 			end
 		end),
 		print=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			return vContext:FixedTermTuple({})
+			return vContext:getTailContext():FixedTermTuple({})
 		end),
 		tprint=nManager:autoNativeOpenFunction(function(vContext, vTermTuple)
 			vContext:info(vTermTuple)
-			return vContext:FixedTermTuple({})
+			return vContext:getTailContext():FixedTermTuple({})
 		end),
 		ttprint=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			vContext:info(vTermTuple:checkTypeTuple())
-			return vContext:FixedTermTuple({})
+			return vContext:getTailContext():FixedTermTuple({})
 		end),
 		tonumber=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			--self:argnum_warn(1, vTermTuple)
@@ -212,7 +212,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 			const nRegion = nParentContext:getRegion()
 			assert(nRegion, "error in a context without region")
 			nRegion:nativeError()
-			return vContext:FixedTermTuple({})
+			return vContext:getTailContext():FixedTermTuple({})
 		end),
 	}
 	for k,v in pairs(global @ Dict(String, clazz.OpenFunction)) do
@@ -358,25 +358,25 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			checkList(vContext, nType, "sort")
-			return vManager:TypeTuple(vContext:getNode()):makeTermTuple(vContext)
+			return vManager:TypeTuple(vContext:getNode()):makeTermTuple(vContext:getTailContext())
 		end),
 		concat=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			checkList(vContext, nType, "concat")
-			return vContext:FixedTermTuple({vManager:RefineTerm(vManager.type.String)})
+			return vContext:getTailContext():FixedTermTuple({vManager:RefineTerm(vManager.type.String)})
 		end),
 		insert=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			checkList(vContext, nType, "insert")
-			return vContext:FixedTermTuple({})
+			return vContext:getTailContext():FixedTermTuple({})
 		end),
 		remove=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			const nRetType = checkList(vContext, nType, "remove")
-			return vContext:FixedTermTuple({vManager:RefineTerm(nRetType)})
+			return vContext:getTailContext():FixedTermTuple({vManager:RefineTerm(nRetType)})
 		end),
 		unpack=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
@@ -394,7 +394,7 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 				nCollection:put(nValueType)
 			end)
 			local nRetType = nCollection:mergeToAtomUnion()
-			return vManager:TypeTuple(vContext:getNode()):Dots(nRetType:notnilType()):makeTermTuple(vContext)
+			return vManager:TypeTuple(vContext:getNode()):Dots(nRetType:notnilType()):makeTermTuple(vContext:getTailContext())
 		end),
 		move=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			-- move TODO
@@ -431,7 +431,7 @@ function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 				}
 			end
 			local nKeyTerm = vManager:mergeToRefineTerm(nTypeCaseList)
-			return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
+			return vContext:getTailContext():FixedTermTuple({nKeyTerm, nValueTerm})
 		end
 	end)
 end
@@ -455,7 +455,7 @@ function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 				}
 			end
 			local nKeyTerm = vManager:mergeToRefineTerm(nTypeCaseList)
-			return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
+			return vContext:getTailContext():FixedTermTuple({nKeyTerm, nValueTerm})
 		end
 	end)
 end

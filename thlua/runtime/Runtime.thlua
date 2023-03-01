@@ -13,6 +13,7 @@ const VariableCase = require "thlua.term.VariableCase"
 
 const BodyContext = require "thlua.context.BodyContext"
 const OpenContext = require "thlua.context.OpenContext"
+const OperContext = require "thlua.context.OperContext"
 const SealContext = require "thlua.context.SealContext"
 
 (@do
@@ -105,7 +106,7 @@ function Runtime:main2():Ret(Boolean, Nil)
 		self._rootContext = nRootContext
 		nRootContext:rootSetNamespace(self:RootNamespace())
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
-		local nTermTuple = self._rootContext:FixedTermTuple({})
+		local nTermTuple = self._rootContext:getHeadContext():FixedTermTuple({})
 		nLuaFunc:meta_open_call(self._rootContext:newOpenContext(self._node), nTermTuple)
 		self._rootContext:seal()
 	end)
@@ -123,7 +124,7 @@ function Runtime:main():Ret(Boolean, Nil)
 		const nAutoFn = self._manager:SealReference(nRootContext):setAutoFunction(self._node, function()
 			return false, function(vAutoFn)
 				const nLuaFunc = self:cacheLoadFile(self._mainFileName)
-				const nTermTuple = self._rootContext:FixedTermTuple({})
+				const nTermTuple = self._rootContext:getHeadContext():FixedTermTuple({})
 				nLuaFunc:meta_open_call(self._rootContext:newOpenContext(self._node), nTermTuple)
 				self._rootContext:seal()
 				const nParTuple = self._manager:TypeTuple(self._node)
@@ -146,6 +147,10 @@ end
 
 function Runtime:OpenContext(vApplyNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext)):Ret(clazz.OpenContext)
 	return OpenContext.new(self, vApplyNode, vParentContext)
+end
+
+function Runtime:OperContext(vApplyNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext)):Ret(clazz.OperContext)
+	return OperContext.new(self, vApplyNode, vParentContext)
 end
 
 function Runtime:newContext(vApplyNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext)):Ret(clazz.BodyContext)
@@ -171,20 +176,20 @@ end
 function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
 	local nLoadedState = self._loadedDict[vPath]
 	if not nLoadedState then
-		local nOkay, nFileName = self._loader:thluaSearch(vPath)
+		const nOkay, nFileName = self._loader:thluaSearch(vPath)
 		if not nOkay then
 			error(nFileName)
 		end
-		local nLuaFunc = self:cacheLoadFile(nFileName)
+		const nLuaFunc = self:cacheLoadFile(nFileName)
 		nLoadedState = {
 			term=false,
 			fn=nLuaFunc,
 			context=false,
 		} @ LoadedState
 		self._loadedDict[vPath] = nLoadedState
-		local nTermTuple = self._rootContext:FixedTermTuple({})
-		local nContext = self._rootContext:newOpenContext(self._node)
-		local ret = nLuaFunc:meta_open_call(nContext, nTermTuple)
+		const nTermTuple = self._rootContext:getHeadContext():FixedTermTuple({})
+		const nContext = self._rootContext:newOpenContext(self._node)
+		const ret = nLuaFunc:meta_open_call(nContext, nTermTuple)
 		nLoadedState.term = ret:checkFixed(nContext, 1)
 		nLoadedState.context = nContext
 	end

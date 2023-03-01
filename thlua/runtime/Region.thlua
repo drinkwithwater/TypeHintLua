@@ -30,7 +30,8 @@ function:class(clazz.Region) Region.new(vContext:clazz.BodyContext, vBodyFn:claz
 	const nRootBranch = Branch.new(vContext, nil, vUpCase)
 	const self = setmetatable({.class
 		_context=vContext,
-		_headContext=vContext:newOperContext(vContext:getNode()),
+		_headContext=vContext:getHeadContext(),
+		_tailContext=vContext:getTailContext(),
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(clazz.Branch),
 		_bodyFn=vBodyFn,
@@ -233,6 +234,7 @@ function Region:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDo
 end
 
 function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
+	const nForContext = self._context:newOperContext(vNode)
 	const nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN iterator error, arguments number must be 1 or 2 or 3")
@@ -241,15 +243,15 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 	const nNext = vNextSelfInit:get(self._context, 1)
 	const nTuple = self._context:META_CALL(vNode, nNext, function ()
 		if nLenNext == 1 then
-			return self._context:FixedTermTuple({})
+			return nForContext:FixedTermTuple({})
 		else
 			const nSelf = vNextSelfInit:get(self._context, 2)
 			if nLenNext == 2 then
-				return self._context:FixedTermTuple({nSelf})
+				return nForContext:FixedTermTuple({nSelf})
 			else
 				if nLenNext == 3 then
 					const nInit = vNextSelfInit:get(self._context, 3)
-					return self._context:FixedTermTuple({nSelf, nInit})
+					return nForContext:FixedTermTuple({nSelf, nInit})
 				else
 					error("NextSelfInit tuple must be 3, this branch is impossible")
 				end
@@ -286,7 +288,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 			end
 			nTermList[i] = nTerm
 		end
-		local nNewTuple = self._context:FixedTermTuple(nTermList)
+		local nNewTuple = nForContext:FixedTermTuple(nTermList)
 		self:withBranch(vCase, function()
 			vFunc(nNewTuple)
 		end)
@@ -385,7 +387,7 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTe
 	if OpenFunction.is(nBodyFn) or (AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples()) then
 		local nLen = #vTermTupleList
 		if nLen == 0 then
-			return self._context:FixedTermTuple({})
+			return self._tailContext:FixedTermTuple({})
 		elseif nLen == 1 then
 			return vTermTupleList[1]!
 		else
@@ -398,7 +400,7 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTe
 			return retTermTuple]]
 		end
 	end
-	return self._context:FixedTermTuple({})
+	return self._tailContext:FixedTermTuple({})
 end
 
 function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
