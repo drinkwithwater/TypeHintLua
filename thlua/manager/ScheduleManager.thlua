@@ -28,6 +28,13 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNi
 		if not nWaitingRefer then
 			const nDependRefer = self._coToRefer[vDependCo]
 			error("can only call coWait in Reference's coroutine, try to get:"..tostring(nDependRefer))
+		else
+			const nDependRefer = self._coToRefer[vDependCo]
+			if nDependRefer then
+				if not nWaitingRefer:canWaitType() and not nDependRefer:getContext() then
+					error("type not setted"..tostring(nDependRefer))
+				end
+			end
 		end
 		local nCurCo:OrNil(Thread) = vDependCo
 		while nCurCo do
@@ -118,12 +125,12 @@ function ScheduleManager:coInterrupt()
 			const com = nWaitingRefer:getComNowait()
 			if not com then
 				-- TODO set error com
-				print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
+				--print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
 			else
-				print("TODO, unknown error?")
+				--print("TODO, unknown error?")
 			end
 		else
-			print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
+			-- print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
 		end
 	end
 end

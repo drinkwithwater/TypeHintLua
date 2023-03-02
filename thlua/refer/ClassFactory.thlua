@@ -10,12 +10,12 @@ function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, 
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
-		_startEvent=vManager:getScheduleManager():makeEvent(),
+		_buildStartEvent=vManager:getScheduleManager():makeEvent(),
 		_namedRefer=vRefer,
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_classType=false@OrFalse(clazz.LuaTable),
 		_classEvent=vRefer:makeEvent(),
-		_buildEvent=vRefer:makeEvent(),
+		_buildFinishEvent=vRefer:makeEvent(),
 		_funcEvent=vRefer:makeEvent(),
 	}, ClassFactory)
 	return self
@@ -91,23 +91,23 @@ function ClassFactory:build(
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
-	self._startEvent:wait()
+	self._buildStartEvent:wait()
 	-- step 3. run build
 	const nTypeFn = nLateRunner(nNewTable)
 	if not self._typeFn then
 		self._typeFn = nTypeFn
 	end
-	self._buildEvent:wakeup()
+	self._buildFinishEvent:wakeup()
 	-- step 4. wake up fn
 	self._funcEvent:wakeup()
 end
 
 function ClassFactory:startBuild()
-	self._startEvent:wakeup()
+	self._buildStartEvent:wakeup()
 end
 
 function ClassFactory:onSetMetaTable()
-	self._buildEvent:wakeup()
+	self._buildFinishEvent:wakeup()
 end
 
 function ClassFactory:waitBuild()
@@ -115,7 +115,7 @@ function ClassFactory:waitBuild()
 	const nCurCo = coroutine.running()
 	const nSelfCo = self._refer:getSelfCo()
 	if nCurCo ~= nSelfCo then
-		self._buildEvent:wait()
+		self._buildFinishEvent:wait()
 	end
 end
 
