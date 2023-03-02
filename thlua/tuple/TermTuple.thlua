@@ -69,12 +69,12 @@ function TermTuple:rawget(i:Number):Ret($self._list[1])
 	return self._list[i]
 end
 
-function TermTuple:checkFixed(vContext:clazz.BaseContext, i:Number):Ret(clazz.RefineTerm)
+function TermTuple:checkFixed(vContext:clazz.OperContext, i:Number):Ret(clazz.RefineTerm)
 	const nTerm = self:get(vContext, i)
 	return nTerm:checkRefineTerm(vContext)
 end
 
-function TermTuple:get(vContext:clazz.BaseContext, i:Number):Ret($self._list[1]!)
+function TermTuple:get(vContext:clazz.OperContext, i:Number):Ret($self._list[1]!)
 	const nMore = i - #self
 	if nMore <= 0 then
 		return self._list[i]!
@@ -104,14 +104,14 @@ function TermTuple:checkTypeTuple():Ret(Cond($self._auto, OrFalse(clazz.UTypeTup
 		end
 		const nTail = self._tail
 		if AutoTail.is(nTail) then
-			const nTailTuple = nTail:checkTypeTuple(self:getContext())
+			const nTailTuple = nTail:checkTypeTuple(self._context)
 			if not nTailTuple then
 				return false
 			else
 				for i=1,#nTailTuple do
 					nTypeList[#nTypeList + 1] = nTailTuple:get(i)
 				end
-				const nFinalTuple = self._manager:TypeTuple(self:getContext():getNode(), table.unpack(nTypeList))
+				const nFinalTuple = self._manager:TypeTuple(self._context:getNode(), table.unpack(nTypeList))
 				const nRepeatType = nTailTuple:getRepeatType()
 				if nRepeatType then
 					return nFinalTuple:Dots(nRepeatType)
@@ -120,7 +120,7 @@ function TermTuple:checkTypeTuple():Ret(Cond($self._auto, OrFalse(clazz.UTypeTup
 				end
 			end
 		else
-			const nTuple = self._manager:TypeTuple(self:getContext():getNode(), table.unpack(nTypeList))
+			const nTuple = self._manager:TypeTuple(self._context:getNode(), table.unpack(nTypeList))
 			if not nTail then
 				return nTuple
 			else

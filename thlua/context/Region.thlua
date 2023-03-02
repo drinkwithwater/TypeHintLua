@@ -139,7 +139,7 @@ function Region:PARAM_DOTS_UNPACK(
 		if vHintDots == AutoFlag then
 			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._headContext))
 		else
-			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._context, vHintDots))
+			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, vHintDots))
 		end
 	end
 end
@@ -240,17 +240,17 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 		nForContext:error("FOR_IN iterator error, arguments number must be 1 or 2 or 3")
 		return
 	end
-	const nNext = vNextSelfInit:get(self._context, 1)
+	const nNext = vNextSelfInit:get(nForContext, 1)
 	const nTuple = self._context:META_CALL(vNode, nNext, function ()
 		if nLenNext == 1 then
 			return nForContext:FixedTermTuple({})
 		else
-			const nSelf = vNextSelfInit:get(self._context, 2)
+			const nSelf = vNextSelfInit:get(nForContext, 2)
 			if nLenNext == 2 then
 				return nForContext:FixedTermTuple({nSelf})
 			else
 				if nLenNext == 3 then
-					const nInit = vNextSelfInit:get(self._context, 3)
+					const nInit = vNextSelfInit:get(nForContext, 3)
 					return nForContext:FixedTermTuple({nSelf, nInit})
 				else
 					error("NextSelfInit tuple must be 3, this branch is impossible")
@@ -263,7 +263,7 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 		return
 	end
 	assert(TermTuple.isFixed(nTuple), "iter func can't return auto term")
-	local nFirstTerm = nTuple:get(self._context, 1)
+	local nFirstTerm = nTuple:get(nForContext, 1)
 	const nFirstType = nFirstTerm:getType()
 	if not nFirstType:isNilable() then
 		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : still run logic?? ")
@@ -276,15 +276,15 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 		if vAtomType:isNilable() then
 			return
 		end
-		const nTermList:List(clazz.RefineTerm) = {self._context:RefineTerm(vAtomType)}
+		const nTermList:List(clazz.RefineTerm) = {nForContext:RefineTerm(vAtomType)}
 		--[[for i=2, #nTuple do
 			nTermList[i] = nTuple:get(i)
 		end]]
 		for i=2, #nTuple do
-			local nTerm = nTuple:get(self._context, i)
+			local nTerm = nTuple:get(nForContext, i)
 			const nType = vCase[nTerm:attachImmutVariable()]
 			if nType then
-				nTerm = self._context:RefineTerm(nType)
+				nTerm = nForContext:RefineTerm(nType)
 			end
 			nTermList[i] = nTerm
 		end
@@ -404,16 +404,17 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTe
 end
 
 function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
+	const nRetContext = self._context:newOperContext(vNode)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getTail() then
 		self:_bodyReturn(vNode, vTermTuple:checkTypeTuple())
 	else
 		const nManager = self._context:getTypeManager()
-		const nFirstTerm = vTermTuple:get(self._context, 1)
+		const nFirstTerm = vTermTuple:get(nRetContext, 1)
 		nFirstTerm:foreach(function(vAtomType, vCase)
 			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
 			for i=2, #vTermTuple do
-				local nTerm = vTermTuple:get(self._context, i)
+				local nTerm = vTermTuple:get(nRetContext, i)
 				const nType = vCase[nTerm:attachImmutVariable()]
 				if not nType then
 					nTypeList[i] = nTerm:getType()
