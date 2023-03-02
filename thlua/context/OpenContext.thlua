@@ -8,12 +8,17 @@ end)
 
 const OpenContext = class@<clazz.OpenContext, false>(BodyContext)
 
-function.open OpenContext:ctor(...)
+function.open OpenContext:ctor(
+	vRuntime:clazz.Runtime,
+	vApplyNode:clazz.IAstNode,
+	vParentContext:clazz.BodyContext
+)
 	self._inplaceOperContext = false @ OrFalse(clazz.OperContext)
+	self._parentContext = vParentContext
 end
 
 function OpenContext:getSealContext():Ret(clazz.SealContext)
-	return assert(self._parentContext, "open context's parent can't be nil"):getSealContext()
+	return self._parentContext:getSealContext()
 end
 
 function OpenContext:operContext():Ret(clazz.OperContext)
@@ -23,6 +28,10 @@ function OpenContext:operContext():Ret(clazz.OperContext)
 		self._inplaceOperContext = nInplace
 	end
 	return nInplace
+end
+
+function OpenContext:getParentContext():Ret(clazz.BodyContext)
+	return self._parentContext
 end
 
 return OpenContext
