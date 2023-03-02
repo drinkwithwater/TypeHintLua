@@ -10,13 +10,15 @@ function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, 
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
+		_classEvent=vRefer:makeEvent(),
+		_headStartEvent=vManager:getScheduleManager():makeEvent(),
+		_headFinishEvent=vRefer:makeEvent(),
 		_buildStartEvent=vManager:getScheduleManager():makeEvent(),
+		_buildFinishEvent=vRefer:makeEvent(),
+		_funcEvent=vRefer:makeEvent(),
 		_namedRefer=vRefer,
 		_typeFn=false@OrFalse(clazz.TypeFunction),
 		_classType=false@OrFalse(clazz.LuaTable),
-		_classEvent=vRefer:makeEvent(),
-		_buildFinishEvent=vRefer:makeEvent(),
-		_funcEvent=vRefer:makeEvent(),
 	}, ClassFactory)
 	return self
 end
@@ -43,9 +45,12 @@ end
 
 function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
-		self:getTypeAwait()
+		self._classEvent:wait()
+		self._headStartEvent:wakeup()
+		self._headFinishEvent:wait()
 		if not self._typeFn then
-			self:startBuild()
+			self._buildStartEvent:wakeup()
+			self._buildFinishEvent:wait()
 			if not self._typeFn then
 				self._funcEvent:wait()
 			end
@@ -86,11 +91,14 @@ function ClassFactory:build(
 	nNewTable:initByClassCom(self, nBaseClass, nInterface)
 	self._classType = nNewTable
 	self._classEvent:wakeup()
+	self._headStartEvent:wait()
+	self._refer:stopWaitType()
 	-- nClassType:linkNamedReference(self)
 	const nTypeFn, nLateRunner = nPreRunner()
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
+	self._headFinishEvent:wakeup()
 	self._buildStartEvent:wait()
 	-- step 3. run build
 	const nTypeFn = nLateRunner(nNewTable)
@@ -103,6 +111,7 @@ function ClassFactory:build(
 end
 
 function ClassFactory:startBuild()
+	self._headStartEvent:wakeup()
 	self._buildStartEvent:wakeup()
 end
 
