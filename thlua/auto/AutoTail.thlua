@@ -91,7 +91,7 @@ function AutoTail:recurPutTermWithTail(vList:List(clazz.UAutoTerm)):Ret(OrFalse(
 end
 
 -- false means has auto part, true or type means seal success
-function AutoTail:_recurPutTypeWhenCheckout(vList:List(clazz.UAllType)):Ret(OrFalse(True, clazz.UAllType))
+function AutoTail:_recurPutTypeWhenCheckout(vList:List(clazz.UAllType), vSeal:Boolean):Ret(OrFalse(True, clazz.UAllType))
 	for i,v in ipairs(self._holderList) do
 		const nType = v:getType()
 		if nType then
@@ -102,23 +102,29 @@ function AutoTail:_recurPutTypeWhenCheckout(vList:List(clazz.UAllType)):Ret(OrFa
 	end
 	const nTail = self._sealTail
 	if not nTail then
-		return false
+		if vSeal then
+			self._sealTail = true
+			return true
+		else
+			return false
+		end
 	elseif nTail == true then
 		return true
 	elseif AutoTail.is(nTail) then
-		return nTail:_recurPutTypeWhenCheckout(vList)
+		return nTail:_recurPutTypeWhenCheckout(vList, vSeal)
 	else
 		return nTail:getRepeatType()
 	end
 end
 
-function AutoTail:checkTypeTuple(vContext:clazz.OperContext):Ret(OrFalse(clazz.UTypeTuple))
+function AutoTail:checkTypeTuple(vSeal:OrNil(True)):Ret(OrFalse(clazz.UTypeTuple))
 	const nList:List(clazz.UAllType) = {}
-	const nDotsType = self:_recurPutTypeWhenCheckout(nList)
+	const nDotsType = self:_recurPutTypeWhenCheckout(nList, vSeal or false)
 	if not nDotsType then
 		return false
 	else
-		const nTuple = self._context:getTypeManager():TypeTuple(vContext:getNode(), table.unpack(nList))
+		const nContext = self._context
+		const nTuple = nContext:getTypeManager():TypeTuple(nContext:getNode(), table.unpack(nList))
 		if nDotsType == true then
 			return nTuple
 		else
