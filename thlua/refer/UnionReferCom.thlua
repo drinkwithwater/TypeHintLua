@@ -3,10 +3,10 @@ const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const TypeReferCom = {}
-TypeReferCom.__index=TypeReferCom
+const UnionReferCom = {}
+UnionReferCom.__index=UnionReferCom
 
-function:class(clazz.TypeReferCom) TypeReferCom.new(vManager:clazz.TypeManager, vRefer:clazz.Reference)
+function:class(clazz.UnionReferCom) UnionReferCom.new(vManager:clazz.TypeManager, vRefer:clazz.TypeReference)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_refer=vRefer,
@@ -16,43 +16,43 @@ function:class(clazz.TypeReferCom) TypeReferCom.new(vManager:clazz.TypeManager, 
 		_resultType=false@OrFalse(clazz.UAtomUnion),
 		_listBuildEvent=vRefer:makeEvent(),
 		_resultBuildEvent=vRefer:makeEvent(),
-	}, TypeReferCom)
+	}, UnionReferCom)
 	return self
 end
 
-function TypeReferCom:addReference(vRefer:clazz.Reference)
+function UnionReferCom:addReference(vRefer:clazz.TypeReference)
 	if vRefer:getKey() and not self._namedRefer:getKey() then
 		self._namedRefer = vRefer
 	end
 end
 
-function TypeReferCom:getToString():Ret(String)
+function UnionReferCom:getToString():Ret(String)
 	return tostring(self._refer)
 end
 
-function TypeReferCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+function UnionReferCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
 	return self._resultType
 end
 
-function TypeReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
+function UnionReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
 	if not self._resultType then
 		self._resultBuildEvent:wait()
 	end
 	return (assert(self._resultType, "result type not setted"))
 end
 
-function TypeReferCom:getMayRecursive():Ret(Boolean)
+function UnionReferCom:getMayRecursive():Ret(Boolean)
 	return self._mayRecursive
 end
 
-function TypeReferCom:getListAwait():Ret(List(clazz.IAtomType))
+function UnionReferCom:getListAwait():Ret(List(clazz.IAtomType))
 	if not self._typeList then
 		self._listBuildEvent:wait()
 	end
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function TypeReferCom:build(
+function UnionReferCom:build(
 	vGetList:Fn():Ret(List(clazz.IAtomType)),
 	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
 ):Ret()
@@ -89,8 +89,8 @@ function TypeReferCom:build(
 	end
 end
 
-function.open TypeReferCom.is(self):isguard(clazz.TypeReferCom)
-	return getmetatable(self) == TypeReferCom
+function.open UnionReferCom.is(self):isguard(clazz.UnionReferCom)
+	return getmetatable(self) == UnionReferCom
 end
 
-return TypeReferCom
+return UnionReferCom

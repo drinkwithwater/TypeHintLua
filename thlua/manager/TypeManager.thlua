@@ -66,8 +66,8 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 			String = String.new(vManager),
 			Truth = Truth.new(vManager),
 			AnyFunction = AnyFunction.new(vManager),
-			Boolean = nil @ clazz.Reference,
-			Any = nil @ clazz.Reference,
+			Boolean = nil @ clazz.TypeReference,
+			Any = nil @ clazz.TypeReference,
 			AnyObject = nil @ clazz.MetaObject,
 		}
 		for k, nType in pairs(self @!! Dict(String, clazz.UAtomUnion)) do
@@ -96,8 +96,8 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		-- type items
 		type=nil @ let.BuiltinType,
 		builtin=nil @ let.BuiltinFunc,
-		generic={} @ Dict(String, clazz.Reference),
-		_pairToInclude={} @ Dict(Integer, clazz.Reference),
+		generic={} @ Dict(String, clazz.TypeReference),
+		_pairToInclude={} @ Dict(Integer, clazz.TypeReference),
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
@@ -183,10 +183,10 @@ for k, v in pairs(AtomMetatableSet) do
 	AtomUnionMetatableSet[k] = v
 end
 
-function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(clazz.Reference, clazz.IAtomType)):Ret(False, String)
+function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(clazz.TypeReference, clazz.IAtomType)):Ret(False, String)
 	local meta = getmetatable(vData)
 	if meta and (AtomMetatableSet[meta] or meta == Reference) then
-		return true, vData @!! Union(clazz.Reference, clazz.IAtomType)
+		return true, vData @!! Union(clazz.TypeReference, clazz.IAtomType)
 	else
 		return false, "not atom or reference"
 	end
@@ -273,7 +273,7 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Boolean, vObjectList:List(clazz.UAllType)):Ret(clazz.Reference)
+function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Boolean, vObjectList:List(clazz.UAllType)):Ret(clazz.TypeReference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setUnionAsync(vNode, function()
 		if vIsInterface then
@@ -349,13 +349,13 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 end
 
 function TypeManager:buildStructExtend(vNode:clazz.IAstNode, vFirst:Union(Dict(Truth, Truth), clazz.UAllType),
-	...:Union(clazz.Reference, clazz.MetaObject)):Ret(clazz.Reference)
+	...:Union(clazz.TypeReference, clazz.MetaObject)):Ret(clazz.TypeReference)
 	const nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst @ Dict(Truth, Truth))
 	const l:List(clazz.UAllType) = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end
 
-function TypeManager:buildIntersect(vNode:clazz.IAstNode, ...:Union(clazz.Reference, clazz.MetaObject)):Ret(clazz.Reference)
+function TypeManager:buildIntersect(vNode:clazz.IAstNode, ...:Union(clazz.TypeReference, clazz.MetaObject)):Ret(clazz.TypeReference)
 	const l:List(clazz.UAllType) = {...}
 	return self:_buildCombineObject(vNode, true, l)
 end
@@ -371,7 +371,7 @@ function TypeManager:checkedUnion(...:clazz.UAllType):Ret(clazz.UAtomUnion)
 	return nCollection:mergeToAtomUnion()
 end
 
-function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Reference)
+function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeReference)
 	local l = {...}
 	const nLen = select("#", ...)
 	local nNewRefer = self:Reference(false)
@@ -465,11 +465,11 @@ function TypeManager:buildList(vNode:clazz.IAstNode, vValue:clazz.UAllType):Ret(
 	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __next=self.type.Integer})
 end
 
-function TypeManager:buildOrNil(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Reference)
+function TypeManager:buildOrNil(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeReference)
 	return self:buildUnion(vNode, self.type.Nil, ...)
 end
 
-function TypeManager:buildOrFalse(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.Reference)
+function TypeManager:buildOrFalse(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeReference)
 	return self:buildUnion(vNode, self.type.False, ...)
 end
 
@@ -641,7 +641,7 @@ function TypeManager:makeMetaEventCom(vObject:Union(clazz.LuaTable, clazz.MetaOb
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:buildTemplate(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.Reference)
+function TypeManager:buildTemplate(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.TypeReference)
 	const nInfo = debug.getinfo(vFunc)
 	const nParNum = nInfo.nparams
 	if nInfo.isvararg then
@@ -650,19 +650,19 @@ function TypeManager:buildTemplate(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(
 	return self:buildTemplateWithParNum(vNode, vFunc, nParNum)
 end
 
-function TypeManager:buildTemplateWithParNum(vNode:clazz.IAstNode, vFunc:AnyFunction, vParNum:Integer):Ret(clazz.Reference)
+function TypeManager:buildTemplateWithParNum(vNode:clazz.IAstNode, vFunc:AnyFunction, vParNum:Integer):Ret(clazz.TypeReference)
 	const nRefer = self:Reference(false)
 	nRefer:setTemplateAsync(vNode, vFunc, vParNum)
 	return nRefer
 end
 
-function TypeManager:SealReference(vContext:clazz.SealContext):Ret(clazz.Reference)
+function TypeManager:SealReference(vContext:clazz.SealContext):Ret(clazz.TypeReference)
 	const nRefer = Reference.new(self, false, vContext)
 	self._scheduleManager:markReference(nRefer)
 	return nRefer
 end
 
-function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.Reference)
+function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReference)
 	const nRefer = Reference.new(self, vName, false)
 	self._scheduleManager:markReference(nRefer)
 	return nRefer
@@ -715,7 +715,7 @@ function TypeManager:makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):R
 	end
 end
 
-function TypeManager:getTypePairInclude(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(OrNil(clazz.Reference))
+function TypeManager:getTypePairInclude(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(OrNil(clazz.TypeReference))
 	const nPair = self:makePair(vLeft, vRight)
 	return self._pairToInclude[nPair]
 end

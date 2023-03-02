@@ -4,7 +4,7 @@ const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
 
-const TypeReferCom = require "thlua.refer.TypeReferCom"
+const UnionReferCom = require "thlua.refer.UnionReferCom"
 const ClassFactory = require "thlua.refer.ClassFactory"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
@@ -13,12 +13,12 @@ const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom, clazz.ClassFactory, clazz.AutoFunction)
+	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom, clazz.ClassFactory, clazz.AutoFunction)
 end)
 
 const Reference = TypeClass()
 
-Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.Reference)
+Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
 	-- TODO, cast
 	const nNode = Node.getDebugNode(3)
 	const nArgList:List(clazz.UAllType) = self._manager:easyToTypeList(...)
@@ -42,11 +42,11 @@ Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.Reference)
 	return nRefer
 end
 
-function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.SealContext)):impl(clazz.IType)
+function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.SealContext)):impl(clazz.IType)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_key=vKeyOrFalse,
-		_callDict={}@Dict(String, clazz.Reference),
+		_callDict={}@Dict(String, clazz.TypeReference),
 		_assignNode=false@OrFalse(clazz.IAstNode),
 		_referNodes={}@List(clazz.IAstNode),
 		_com=false@OrFalse(UReferCom),
@@ -111,7 +111,7 @@ function Reference:getComAwait():Ret(UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom, clazz.ClassFactory))
+function Reference:waitTypeCom():Ret(Union(clazz.UnionReferCom, clazz.ClassFactory))
 	const nCom = self:getComAwait()
 	assert(not TemplateReferCom.is(nCom) and not AutoFunction.is(nCom), "type reference expected, but get template reference")
 	return nCom
@@ -141,7 +141,7 @@ function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 			self:_setComAndWakeup(nCom)
 		else
 			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
-			const nCom = TypeReferCom.new(self._manager, self)
+			const nCom = UnionReferCom.new(self._manager, self)
 			self:_setComAndWakeup(nCom)
 			nCom:build(function()
 				return {nAssignValue}
@@ -198,7 +198,7 @@ function Reference:setUnionAsync(vNode:clazz.IAstNode,
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	self._manager:getScheduleManager():coStart(self._selfCo, function()
-		const nCom = TypeReferCom.new(self._manager, self)
+		const nCom = UnionReferCom.new(self._manager, self)
 		self:_setComAndWakeup(nCom)
 		nCom:build(vGetList, vLaterCall)
 	end)
@@ -324,7 +324,7 @@ function Reference:mayRecursive()
 	return nTypeCom:getMayRecursive()
 end
 
-function.open Reference.is(v):isguard(clazz.Reference)
+function.open Reference.is(v):isguard(clazz.TypeReference)
 	return getmetatable(v) == Reference
 end
 
