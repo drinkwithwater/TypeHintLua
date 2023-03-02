@@ -357,19 +357,19 @@ function Region:BREAK(vNode:clazz.IAstNode)
 end
 
 function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
+	const nRetContext = self._context:newOperContext(vNode)
 	const nBodyFn = assert(self._bodyFn)
 	if AutoFunction.is(nBodyFn) then
-		const nContext = self._context
 		local nOneOkay = false
 		local nRetTuples = nBodyFn:getRetTuples()
 		if nRetTuples then
 			nRetTuples:foreachWithFirst(function(vDstTuple, _)
-				if vTypeTuple:castOrIn(nContext, vDstTuple) then
+				if vTypeTuple:castOrIn(nRetContext, vDstTuple) then
 					nOneOkay = true
 				end
 			end)
 			if not nOneOkay then
-				nContext:getRuntime():nodeError(vNode, "return check failed")
+				nRetContext:error("return check failed")
 			end
 		else
 			-- error("auto return TODO")
@@ -377,7 +377,7 @@ function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 	elseif ClassFactory.is(nBodyFn) then
 		const nResultType = nBodyFn:getTypeAwait()
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
-			self._context:getRuntime():nodeError(vNode, "class return check failed")
+			nRetContext:error("class return check failed")
 		end
 	end
 end
