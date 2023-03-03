@@ -20,7 +20,7 @@ const class = require "thlua.class"
 	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom, clazz.ClassFactory, clazz.AutoFunction)
 end)
 
-const Reference = class@<clazz.TypeReference, clazz.IType>()
+const Reference = class@<clazz.TypeReference, clazz.IType>(BaseReference)
 
 Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
 	-- TODO, cast
@@ -64,7 +64,6 @@ function Reference.__band(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz
 end
 
 function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.SealContext))
-	self._manager=vManager
 	self._key=vKeyOrFalse
 	self._callDict={}@Dict(String, clazz.TypeReference)
 	self._assignNode=false@OrFalse(clazz.IAstNode)
@@ -75,37 +74,11 @@ function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(Str
 	self._stopWaitType=false@Boolean
 	self.id=vManager:genTypeId()
 	self.bits=false
-	self._selfCo=nil@Thread
-	const co = coroutine.create(function(vRunFn:Fn())
-		const ok, nExc = pcall(vRunFn)
-		if not ok then
-			if Exception.is(nExc) then
-				nExc:fixNode(self:getAssignNode())
-				if vContext then
-					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
-				else
-					error(nExc)
-				end
-			else
-				const nExc = Exception.new(tostring(nExc), self:getAssignNode())
-				if vContext then
-					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
-				else
-					error(nExc)
-				end
-			end
-		end
-	end)
-	self._selfCo = co
-	self._assignComEvent = vManager:getScheduleManager():makeEvent(co)
+	self._assignComEvent = vManager:getScheduleManager():makeEvent(self._selfCo)
 end
 
 function Reference:getKey():Ret(OrFalse(String))
 	return self._key
-end
-
-function Reference:getSelfCo():Ret(Thread)
-	return self._selfCo
 end
 
 function Reference:detailString(v, vVerbose)
@@ -195,7 +168,7 @@ function Reference:setClassFactory(
 	vNode:clazz.IAstNode,
 	vRunner:Fn(clazz.ClassFactory):Ret(
 		OrFalse(clazz.LuaTable), clazz.MetaObject,
-		Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.LuaTable):Ret(clazz.TypeFunction))
+		Fn(clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction))
 	)
 ):Ret(clazz.ClassFactory)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
@@ -352,10 +325,6 @@ end
 
 function Reference:stopWaitType()
 	self._stopWaitType = true
-end
-
-function Reference:makeEvent():Ret(clazz.ScheduleEvent)
-	return self._manager:getScheduleManager():makeEvent(self._selfCo)
 end
 
 return Reference

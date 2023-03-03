@@ -81,7 +81,7 @@ end
 function ClassFactory:build(
 	vRunner:Fn(clazz.ClassFactory):Ret(
 		OrFalse(clazz.LuaTable), clazz.MetaObject,
-		Fn():Ret(OrFalse(clazz.TypeFunction), Fn(clazz.LuaTable):Ret(clazz.TypeFunction))
+		Fn(clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction))
 	)
 )
 	-- step 1. wait inteface
@@ -94,14 +94,14 @@ function ClassFactory:build(
 	self._headStartEvent:wait()
 	self._refer:stopWaitType()
 	-- nClassType:linkNamedReference(self)
-	const nTypeFn, nLateRunner = nPreRunner()
+	const nTypeFn, nLateRunner = nPreRunner(nNewTable)
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
 	self._headFinishEvent:wakeup()
 	self._buildStartEvent:wait()
 	-- step 3. run build
-	const nTypeFn = nLateRunner(nNewTable)
+	const nTypeFn = nLateRunner()
 	if not self._typeFn then
 		self._typeFn = nTypeFn
 	end

@@ -14,7 +14,7 @@ end)
 const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
 function.open ScheduleManager:ctor()
-	self._coToRefer={} @ Dict(Thread, clazz.TypeReference)
+	self._coToRefer={} @ Dict(Thread, clazz.BaseReference)
 	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
 	self._coToWaitingInfo={}@Dict(Thread, WaitingInfo)
 	self._sessionIdCounter=0@Integer
@@ -117,6 +117,7 @@ function ScheduleManager:makeEvent(vThread:OrNil(Thread)):Ret(clazz.ScheduleEven
 end
 
 function ScheduleManager:coInterrupt()
+	--[[
 	const nWaitingInfo = self._coToWaitingInfo
 	for co, v in pairs(nWaitingInfo) do
 		const nDependCo = v.dependCo
@@ -132,10 +133,10 @@ function ScheduleManager:coInterrupt()
 		else
 			-- print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
 		end
-	end
+	end]]
 end
 
-function ScheduleManager:markReference(vRefer:clazz.TypeReference)
+function ScheduleManager:markReference(vRefer:clazz.BaseReference)
 	self._coToRefer[vRefer:getSelfCo()] = vRefer
 end
 
