@@ -1,33 +1,23 @@
 
+const BaseReference = require "thlua.refer.BaseReference"
+const class = require "thlua.class"
 const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const UnionReferCom = {}
-UnionReferCom.__index=UnionReferCom
+const UnionReferCom = class@<clazz.UnionReferCom, false>(BaseReference)
 
-function:class(clazz.UnionReferCom) UnionReferCom.new(vManager:clazz.TypeManager, vRefer:clazz.TypeReference)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_refer=vRefer,
-		_namedRefer=vRefer,
-		_mayRecursive=false@Boolean,
-		_typeList=false@OrFalse(List(clazz.IAtomType)),
-		_resultType=false@OrFalse(clazz.UAtomUnion),
-		_listBuildEvent=vRefer:makeEvent(),
-		_resultBuildEvent=vRefer:makeEvent(),
-	}, UnionReferCom)
-	return self
-end
-
-function UnionReferCom:addReference(vRefer:clazz.TypeReference)
-	if vRefer:getKey() and not self._namedRefer:getKey() then
-		self._namedRefer = vRefer
-	end
+function.open UnionReferCom:ctor(vManager:clazz.TypeManager)
+	const nScheduleManager = self._scheduleManager
+	self._mayRecursive=false@Boolean
+	self._typeList=false@OrFalse(List(clazz.IAtomType))
+	self._resultType=false@OrFalse(clazz.UAtomUnion)
+	self._listBuildEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._resultBuildEvent=nScheduleManager:makeEvent(self._selfCo)
 end
 
 function UnionReferCom:getToString():Ret(String)
-	return tostring(self._refer)
+	return tostring("union tostring TODO")
 end
 
 function UnionReferCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
@@ -52,10 +42,10 @@ function UnionReferCom:getListAwait():Ret(List(clazz.IAtomType))
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function UnionReferCom:build(
+function UnionReferCom:_build(
 	vGetList:Fn():Ret(List(clazz.IAtomType)),
 	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
-):Ret()
+)
 	-- step 1. get list
 	const nAtomList = vGetList()
 	self._typeList = nAtomList
@@ -87,6 +77,31 @@ function UnionReferCom:build(
 	if vLaterCall then
 		vLaterCall(nResultType)
 	end
+end
+
+function UnionReferCom:build(
+	vGetList:Fn():Ret(List(clazz.IAtomType)),
+	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
+)
+	self._manager:getScheduleManager():coStart(self._selfCo, function()
+		self:_build(vGetList, vLaterCall)
+	end)
+end
+
+function UnionReferCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
+	const nResultType = self._resultType
+	if nResultType then
+		nResultType:foreach(vFunc)
+	else
+		local nListType = self:getListAwait()
+		for _, v in ipairs(nListType) do
+			vFunc(v)
+		end
+	end
+end
+
+function UnionReferCom:getAssignNode():Ret(OrFalse(clazz.IAstNode))
+	return false
 end
 
 function.open UnionReferCom.is(self):isguard(clazz.UnionReferCom)

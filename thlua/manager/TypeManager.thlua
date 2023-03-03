@@ -42,6 +42,8 @@ const ScheduleManager = require "thlua.manager.ScheduleManager"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
+const UnionReferCom = require "thlua.refer.UnionReferCom"
+
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -145,7 +147,9 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 			error("key of can only worked on object function")
 		end
 		const nKeyRefer, _ = nObject:getKeyTypes()
-		return nKeyRefer
+		const nRefer = self:Reference(false)
+		nRefer:setUnionComAsync(nRootNode, nKeyRefer)
+		return nRefer
 	end)
 	return self
 end
@@ -273,6 +277,12 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
+function TypeManager:UnionReferCom():Ret(clazz.UnionReferCom)
+	const nCom = UnionReferCom.new(self)
+	self._scheduleManager:markReference(nCom)
+	return nCom
+end
+
 function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Boolean, vObjectList:List(clazz.UAllType)):Ret(clazz.TypeReference)
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setUnionAsync(vNode, function()
@@ -310,7 +320,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			end
 			local nValueDict = nMetaObject:getMemberDict()
 			const nKeyRefer, nNextKey = nMetaObject:getKeyTypes()
-			for _, nKeyType in ipairs(nKeyRefer:waitTypeCom():getListAwait()) do
+			for _, nKeyType in ipairs(nKeyRefer:getListAwait()) do
 				nKeyList[#nKeyList + 1] = nKeyType
 				nAllValueDict[nKeyType] = nValueDict[nKeyType]
 			end
@@ -328,7 +338,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 				end
 			end
 		end
-		const nKeyRefer = self:Reference(false)
+		const nKeyRefer = self:UnionReferCom()
 		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nIntersectNextKey)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
@@ -337,7 +347,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 		else
 			nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
 		end
-		nKeyRefer:setUnionAsync(vNode, function()
+		nKeyRefer:build(function()
 			return nKeyList
 		end, function(_)
 			nNewObject:lateCheck()
@@ -402,9 +412,9 @@ function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth),
 end
 
 function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:Boolean):Ret(clazz.MetaObject)
-	const nKeyRefer = self:Reference(false)
+	const nKeyRefer = self:UnionReferCom()
 	const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
-	nKeyRefer:setUnionAsync(vNode, function()
+	nKeyRefer:build(function()
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
 		local nKeyCount = 0
@@ -437,7 +447,7 @@ function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Tr
 		return nKeyList
 	end, function(vKeyAtomUnion)
 		nNewObject:lateCheck()
-		const nList = nKeyRefer:waitTypeCom():getListAwait()
+		const nList = nKeyRefer:getListAwait()
 		local nFinalCount = 0
 		vKeyAtomUnion:foreach(function(_)
 			nFinalCount = nFinalCount + 1

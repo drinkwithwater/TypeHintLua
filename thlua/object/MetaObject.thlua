@@ -13,10 +13,10 @@ const MetaObject = AtomTypeClass()
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-function:class(clazz.MetaObject) MetaObject.new(vManager:clazz.TypeManager, vIsInterface:Boolean, vKeyRefer:clazz.TypeReference, vNextKey:OrFalse(clazz.UAllType)):impl(clazz.IAtomType)
+function:class(clazz.MetaObject) MetaObject.new(vManager:clazz.TypeManager, vIsInterface:Boolean, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType)):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_keyRefer=vKeyRefer@clazz.TypeReference,
+		_keyRefer=vKeyRefer,
 		_memberDict=false@OrFalse(clazz.MemberDict),
 		_nextKey=vNextKey,
 		_nextValue=false@OrFalse(clazz.UAtomUnion),
@@ -108,8 +108,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 		end
 		return true
 	end
-	const nRightTypeCom = nRightKeyRefer:waitTypeCom()
-	const nRightResultType = nRightTypeCom:getResultType()
+	const nRightResultType = nRightKeyRefer:getResultType()
 	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue, _)
 		if nRightResultType then -- key is merged, just get one matched
 			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, nLeftKey)
@@ -126,7 +125,7 @@ function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRi
 			nRightValueDict[nRightKey] = nil
 		else -- key is not merged, iter for one matched
 			local nMatchedKey:OrNil(clazz.IAtomType) = nil
-			for _, nRightKey in ipairs(nRightTypeCom:getListAwait()) do
+			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightKey:assumeIncludeAtom(vAssumeSet, nLeftKey) then
 					const nRightValue = nRightValueDict[nRightKey]
 					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
@@ -154,8 +153,7 @@ function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), 
 	assert(self:isInterface(), vRightObject:isInterface(), "here must be interface")
 	const nRightValueDict = vRightObject:getMemberDict()
 	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
-	const nRightTypeCom = nRightKeyRefer:waitTypeCom()
-	const nRightResultType = nRightTypeCom:getResultType()
+	const nRightResultType = nRightKeyRefer:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
 		if nRightResultType then -- key is merged, just get one matched
 			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
@@ -172,7 +170,7 @@ function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), 
 				return false
 			end
 		else
-			for _, nRightKey in ipairs(nRightTypeCom:getListAwait()) do
+			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					local nRightValue = nRightValueDict[nRightKey]!
 					if MemberFunction.is(nRightValue) then
@@ -219,8 +217,7 @@ function MetaObject:_interfaceIncludeWithAssume(vAssumeSet:Dict(Integer, Boolean
 		return true
 	end
 	const nRightValueDict = vRightObject:getMemberDict()
-	const nRightTypeCom = nRightKeyRefer:waitTypeCom()
-	const nRightResultType = nRightTypeCom:getResultType()
+	const nRightResultType = nRightKeyRefer:getResultType()
 	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
 		if nRightResultType then -- key is merged, just get one matched
 			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
@@ -233,7 +230,7 @@ function MetaObject:_interfaceIncludeWithAssume(vAssumeSet:Dict(Integer, Boolean
 			end
 			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
 		else -- key is not merged, iter for one matched
-			for _, nRightMoreKey in ipairs(nRightTypeCom:getListAwait()) do
+			for _, nRightMoreKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightMoreKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					const nRightValue = nRightValueDict[nRightMoreKey]
 					if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
@@ -402,7 +399,7 @@ function MetaObject:isSingleton()
 end
 
 function MetaObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UMemberAllType):Ret(False)
-	const nKey = self._keyRefer:includeAtom(vType)
+	const nKey = self._keyRefer:getTypeAwait():includeAtom(vType)
 	if nKey then
 		return nKey, assert(self._memberDict)[nKey]!
 	else
@@ -523,7 +520,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 end
 
 function MetaObject:getMemberDict():Ret(clazz.MemberDict)
-	self._keyRefer:waitTypeCom():getListAwait()
+	self._keyRefer:getListAwait()
 	return (assert(self._memberDict, "member list is not setted after waiting"))
 end
 
@@ -541,11 +538,11 @@ function MetaObject:copyValueDict(vSelfObject:OrNil(clazz.LuaTable, clazz.MetaOb
 end
 
 function MetaObject:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
-	self._keyRefer:waitTypeCom():getListAwait()
+	self._keyRefer:getListAwait()
 	return self._metaEventCom
 end
 
-function MetaObject:getKeyTypes():Ret(clazz.TypeReference, OrFalse(clazz.UAllType))
+function MetaObject:getKeyTypes():Ret(clazz.UnionReferCom, OrFalse(clazz.UAllType))
 	return self._keyRefer, self._nextKey
 end
 
