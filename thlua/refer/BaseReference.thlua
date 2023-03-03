@@ -1,0 +1,52 @@
+
+const Exception = require "thlua.Exception"
+
+const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const BaseReference = class@<clazz.BaseReference, false>()
+
+function.open BaseReference:ctor(vManager:clazz.TypeManager, ...)
+	self._manager = vManager
+	self._selfCo = coroutine.create(function(vRunFn:Fn())
+		const ok, nExc = pcall(vRunFn)
+		if not ok then
+			if Exception.is(nExc) then
+				nExc:fixNode(self:getAssignNode())
+				--[[
+				if vContext then
+					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
+				else
+					error(nExc)
+				end]]
+				error(nExc)
+			else
+				const nExc = Exception.new(tostring(nExc), self:getAssignNode())
+				--[[if vContext then
+					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
+				else
+					error(nExc)
+				end]]
+				error(nExc)
+			end
+		end
+	end)
+end
+
+function BaseReference:getSelfCo():Ret(Thread)
+	return self._selfCo
+end
+
+function BaseReference:canWaitType()
+	return true
+end
+
+function BaseReference:makeEvent():Ret(clazz.ScheduleEvent)
+	return self._manager:getScheduleManager():makeEvent(self._selfCo)
+end
+
+return BaseReference

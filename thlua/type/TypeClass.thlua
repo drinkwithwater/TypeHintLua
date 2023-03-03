@@ -58,7 +58,6 @@ clazz.IType = Interface ({
 
 	mayRecursive=Mfn():Ret(Boolean),
 
-	same=Mfn(clazz.UAllType):Ret(Boolean),
 }, {
 	__bor=Fn(clazz.UAllType, clazz.UAllType):Ret(clazz.UAtomUnion),
 	__band=Fn(clazz.UAllType, clazz.UAllType):Ret(clazz.UAtomUnion),
@@ -190,7 +189,7 @@ const function.open TypeClass()
 		return self:assumeIncludeAll(nil, vRight)
 	end
 	function t:safeIntersect(vRight)
-		const nLeft = self:isReference() and self:checkAtomUnion() or self
+		const nLeft = self
 		const nRight = vRight:isReference() and vRight:checkAtomUnion() or vRight
 		if not nRight:isUnion() then
 			const nIntersect = nLeft:assumeIntersectAtom(nil, nRight)
@@ -233,17 +232,6 @@ const function.open TypeClass()
 	end
 	function t:mayRecursive()
 		return false
-	end
-	function t:same(vType):Ret(Boolean)
-		local nLeftType = vType
-		if vType:isReference() then
-			nLeftType = vType:checkAtomUnion()
-		end
-		if self:isReference() then
-			return self:checkAtomUnion() == vType
-		else
-			return self == vType
-		end
 	end
 	function t:getCompletion():Ret(clazz.LspCompletion)
 		return {}

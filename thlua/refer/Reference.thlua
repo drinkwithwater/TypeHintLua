@@ -11,12 +11,16 @@ const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 const AutoFunction = require "thlua.refer.AutoFunction"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 
+const BaseReference = require "thlua.refer.BaseReference"
+
+const class = require "thlua.class"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom, clazz.ClassFactory, clazz.AutoFunction)
 end)
 
-const Reference = TypeClass()
+const Reference = class@<clazz.TypeReference, clazz.IType>()
 
 Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
 	-- TODO, cast
@@ -42,21 +46,36 @@ Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeRefer
 	return nRefer
 end
 
-function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.SealContext)):impl(clazz.IType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_key=vKeyOrFalse,
-		_callDict={}@Dict(String, clazz.TypeReference),
-		_assignNode=false@OrFalse(clazz.IAstNode),
-		_referNodes={}@List(clazz.IAstNode),
-		_com=false@OrFalse(UReferCom),
-		_assignComEvent=nil@clazz.ScheduleEvent,
-		_context=vContext,
-		_stopWaitType=false@Boolean,
-		id=vManager:genTypeId(),
-		bits=false,
-		_selfCo=nil@Thread,
-	}, Reference)
+function Reference.__tostring(self:clazz.TypeReference):Ret(String)
+	return self:detailString({}, false)
+end
+
+function Reference.__bor(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
+	return vLeft._manager:checkedUnion(vLeft, vRight)
+end
+
+function Reference.__band(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
+	const nTypeOrFalse = vLeft:safeIntersect(vRight)
+	if nTypeOrFalse then
+		return nTypeOrFalse
+	else
+		error("unexpected intersect")
+	end
+end
+
+function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.SealContext))
+	self._manager=vManager
+	self._key=vKeyOrFalse
+	self._callDict={}@Dict(String, clazz.TypeReference)
+	self._assignNode=false@OrFalse(clazz.IAstNode)
+	self._referNodes={}@List(clazz.IAstNode)
+	self._com=false@OrFalse(UReferCom)
+	self._assignComEvent=nil@clazz.ScheduleEvent
+	self._context=vContext
+	self._stopWaitType=false@Boolean
+	self.id=vManager:genTypeId()
+	self.bits=false
+	self._selfCo=nil@Thread
 	const co = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
@@ -78,8 +97,7 @@ function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vK
 		end
 	end)
 	self._selfCo = co
-	self._assignComEvent = self:makeEvent()
-	return self
+	self._assignComEvent = vManager:getScheduleManager():makeEvent(co)
 end
 
 function Reference:getKey():Ret(OrFalse(String))
@@ -302,6 +320,28 @@ function Reference:assumeIncludeAll(vAssumeSet, vRight)
 	end
 end
 
+function Reference:unionSign()
+	return tostring(self.id)
+end
+
+function Reference:safeIntersect(vRight)
+	return self:checkAtomUnion():safeIntersect(vRight)
+end
+
+function Reference:includeAll(vRight)
+	return self:assumeIncludeAll(nil, vRight)
+end
+
+function Reference:intersectSome(vRight)
+	return self:assumeIntersectSome(nil, vRight)
+end
+
+function Reference:mayRecursive()
+	const nTypeCom = self:waitTypeCom()
+	nTypeCom:getListAwait()
+	return nTypeCom:getMayRecursive()
+end
+
 function Reference:getContext():Ret(OrFalse(clazz.SealContext))
 	return self._context
 end
@@ -316,16 +356,6 @@ end
 
 function Reference:makeEvent():Ret(clazz.ScheduleEvent)
 	return self._manager:getScheduleManager():makeEvent(self._selfCo)
-end
-
-function Reference:mayRecursive()
-	const nTypeCom = self:waitTypeCom()
-	nTypeCom:getListAwait()
-	return nTypeCom:getMayRecursive()
-end
-
-function.open Reference.is(v):isguard(clazz.TypeReference)
-	return getmetatable(v) == Reference
 end
 
 return Reference
