@@ -130,8 +130,7 @@ function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 			self:_setComAndWakeup(nCom)
 		else
 			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
-			const nCom = UnionReferCom.new(self._manager)
-			self._manager:getScheduleManager():markReference(nCom)
+			const nCom = self._manager:UnionReferCom(vNode)
 			self:_setComAndWakeup(nCom)
 			nCom:build(function()
 				return {nAssignValue}
@@ -164,8 +163,7 @@ function Reference:setUnionAsync(vNode:clazz.IAstNode,
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	self._manager:getScheduleManager():coStart(self._selfCo, function()
-		const nCom = UnionReferCom.new(self._manager)
-		self._manager:getScheduleManager():markReference(nCom)
+		const nCom = self._manager:UnionReferCom(vNode)
 		self:_setComAndWakeup(nCom)
 		nCom:build(vGetList, vLaterCall)
 	end)

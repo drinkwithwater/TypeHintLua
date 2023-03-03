@@ -44,7 +44,6 @@ const native = require "thlua.native"
 
 const UnionReferCom = require "thlua.refer.UnionReferCom"
 
-
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.WaitingInfo = Struct {
@@ -277,9 +276,8 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:UnionReferCom():Ret(clazz.UnionReferCom)
-	const nCom = UnionReferCom.new(self)
-	self._scheduleManager:markReference(nCom)
+function TypeManager:UnionReferCom(vNode:clazz.IAstNode):Ret(clazz.UnionReferCom)
+	const nCom = UnionReferCom.new(self, vNode)
 	return nCom
 end
 
@@ -338,7 +336,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 				end
 			end
 		end
-		const nKeyRefer = self:UnionReferCom()
+		const nKeyRefer = self:UnionReferCom(vNode)
 		const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, nIntersectNextKey)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
@@ -412,7 +410,7 @@ function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth),
 end
 
 function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:Boolean):Ret(clazz.MetaObject)
-	const nKeyRefer = self:UnionReferCom()
+	const nKeyRefer = self:UnionReferCom(vNode)
 	const nNewObject = MetaObject.new(self, vIsInterface, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
 	nKeyRefer:build(function()
 		const nKeyList:List(clazz.IAtomType) = {}
@@ -668,7 +666,6 @@ end
 
 function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReference)
 	const nRefer = Reference.new(self, vName, false)
-	self._scheduleManager:markReference(nRefer)
 	return nRefer
 end
 
