@@ -144,8 +144,8 @@ end
 function FunctionBuilder:_buildInnerFn():Ret(OrFalse(clazz.AutoFunction, clazz.MemberFunction, clazz.PolyFunction))
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
-		const nNewContext = self._context:newSealContext(self._node)
-		const nAutoFn = nNewContext:AutoFunction()
+		const nAutoFn = self._context:newAutoFunction(self._node)
+		const nNewContext = nAutoFn:getContext()
 		nAutoFn:build(function(vAutoFn, vCastTypeFn)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vAutoFn, self._uvCase, nNewContext, vPolyParList, vSelfType)
 			-- make par
@@ -322,8 +322,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			end
 			return nExtendsTable, nImplementsInterface
 		end
-		const nNewContext = self._context:newSealContext(self._node)
-		const nFactory = nNewContext:ClassFactory()
+		const nFactory = self._context:newClassFactory(self._node)
+		const nNewContext = nFactory:getContext()
 		nFactory:build(function(vFactory)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewContext, vPolyParList, false)
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)

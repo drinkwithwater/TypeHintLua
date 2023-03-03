@@ -1,8 +1,6 @@
 
 const class = require "thlua.class"
 const BodyContext = require "thlua.context.BodyContext"
-const ClassFactory = require "thlua.refer.ClassFactory"
-const AutoFunction = require "thlua.refer.AutoFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -12,12 +10,14 @@ const SealContext = class@<clazz.SealContext, false>(BodyContext)
 
 function.open SealContext:ctor(
 	vRuntime:clazz.Runtime,
-	vApplyNode:clazz.IAstNode,
-	vParentContext:OrFalse(clazz.BodyContext)
+	vNode:clazz.IAstNode,
+	vParentContext:OrFalse(clazz.BodyContext),
+	vBodyFn:Union(clazz.ClassFactory, clazz.AutoFunction)
 )
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
 	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
 	self._parentContext = vParentContext
+	self._bodyFn = vBodyFn
 end
 
 function SealContext:seal()
@@ -31,16 +31,6 @@ function SealContext:seal()
 	for fn, v in pairs(nFuncMakerSet) do
 		fn:startBuild()
 	end
-end
-
-function SealContext:ClassFactory():Ret(clazz.ClassFactory)
-	const nFactory = ClassFactory.new(self._manager, self)
-	return nFactory
-end
-
-function SealContext:AutoFunction():Ret(clazz.AutoFunction)
-	const nAutoFn = AutoFunction.new(self._manager, self)
-	return nAutoFn
 end
 
 function SealContext:getSealContext():Ret(clazz.SealContext)
@@ -67,6 +57,10 @@ end
 
 function SealContext:getParentContext():Ret(OrFalse(clazz.BodyContext))
 	return self._parentContext
+end
+
+function SealContext:getBodyFn()
+	return self._bodyFn
 end
 
 return SealContext

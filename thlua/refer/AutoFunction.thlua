@@ -17,10 +17,12 @@ AutoFunction.__tostring=function(self:clazz.AutoFunction)
 	return "auto-fn"
 end
 
-function.open AutoFunction:ctor(vManager:clazz.TypeManager, vContext:clazz.SealContext)
+function.open AutoFunction:ctor(vManager:clazz.TypeManager, vNode, vParentContext:OrFalse(clazz.BodyContext))
 	const nScheduleManager = self._scheduleManager
 	self._castList={}@List(clazz.TypeFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
+	const nRuntime = vManager:getRuntime()
+	self._context = nRuntime:SealContext(vNode, vParentContext, self)
 end
 
 function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.TypeFunction):Ret(Boolean)
@@ -84,6 +86,10 @@ end
 function AutoFunction:startBuild()
 	self._headStartEvent:wakeup()
 	self._bodyStartEvent:wakeup()
+end
+
+function AutoFunction:getContext()
+	return self._context
 end
 
 return AutoFunction

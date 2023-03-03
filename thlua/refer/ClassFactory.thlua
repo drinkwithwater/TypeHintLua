@@ -19,11 +19,13 @@ function ClassFactory.__tostring(self:clazz.ClassFactory)
 	return "class@"..tostring(self._context:getNode())
 end
 
-function.open ClassFactory:ctor(vManager:clazz.TypeManager, vContext:clazz.SealContext)
+function.open ClassFactory:ctor(vManager:clazz.TypeManager, vNode, vParentContext:clazz.BodyContext)
 	const nScheduleManager = self._scheduleManager
 	self._classStartEvent=nScheduleManager:makeEvent(self._selfCo)
 	self._classFinishEvent=nScheduleManager:makeEvent(self._selfCo)
 	self._classType=false@OrFalse(clazz.LuaTable)
+	const nRuntime = vManager:getRuntime()
+	self._context = nRuntime:SealContext(vNode, vParentContext, self)
 end
 
 function ClassFactory:getToString():Ret(String)
@@ -100,6 +102,10 @@ function ClassFactory:waitBuild()
 	if coroutine.running() ~= self._selfCo then
 		self._classFinishEvent:wait()
 	end
+end
+
+function ClassFactory:getContext()
+	return self._context
 end
 
 return ClassFactory
