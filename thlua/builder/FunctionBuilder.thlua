@@ -322,8 +322,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			return nExtendsTable, nImplementsInterface
 		end
 		const nNewContext = self._context:newSealContext(self._node)
-		const nClassRefer = self._manager:SealReference(nNewContext)
-		const nFactory = nClassRefer:setClassFactory(self._node, function(vFactory)
+		const nFactory = nNewContext:ClassFactory()
+		nFactory:build(function(vFactory)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewContext, vPolyParList, false)
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements, function(vLuaTable)
@@ -349,7 +349,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	if nPolyParNum <= 0 then
 		const nFactory = nFnMaker({})
 		nRefer:setAssignAsync(self._node, function()
-			return nFactory:getTypeAwait()
+			return nFactory:getClassAwait()
 		end)
 		return nFactory
 	else
@@ -359,7 +359,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		nRefer:setTemplateAsync(self._node, function(...:clazz.UAllType)
 			const nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
-			return nFactory:getTypeAwait()
+			return nFactory:getClassAwait()
 		end, nPolyParNum)
 		return nPolyFn
 	end

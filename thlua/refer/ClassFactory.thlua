@@ -1,40 +1,38 @@
 
+const BaseReference = require "thlua.refer.BaseReference"
 const Exception = require "thlua.Exception"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+const class = require "thlua.class"
 
-const ClassFactory = {}
-ClassFactory.__index=ClassFactory
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.BuildRunner = Fn(clazz.ClassFactory):Ret(
+		OrFalse(clazz.LuaTable), clazz.MetaObject,
+		Fn(clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction))
+	)
+end)
 
-function:class(clazz.ClassFactory) ClassFactory.new(vManager:clazz.TypeManager, vRefer:clazz.TypeReference)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_refer=vRefer,
-		_classEvent=vRefer:makeEvent(),
-		_headStartEvent=vManager:getScheduleManager():makeEvent(),
-		_headFinishEvent=vRefer:makeEvent(),
-		_buildStartEvent=vManager:getScheduleManager():makeEvent(),
-		_buildFinishEvent=vRefer:makeEvent(),
-		_funcEvent=vRefer:makeEvent(),
-		_namedRefer=vRefer,
-		_typeFn=false@OrFalse(clazz.TypeFunction),
-		_classType=false@OrFalse(clazz.LuaTable),
-	}, ClassFactory)
-	return self
+const ClassFactory = class@<clazz.ClassFactory, false>(BaseReference)
+function ClassFactory.__tostring(self:clazz.ClassFactory)
+	return "class@"..tostring(self._context:getNode())
 end
 
-function ClassFactory:addReference(vRefer:clazz.TypeReference)
-	if vRefer:getKey() and not self._namedRefer:getKey() then
-		self._namedRefer = vRefer
-	end
+function.open ClassFactory:ctor(vManager:clazz.TypeManager, vContext:clazz.SealContext)
+	const nScheduleManager = self._scheduleManager
+	self._classEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._headStartEvent=nScheduleManager:makeEvent()
+	self._headFinishEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._buildStartEvent=nScheduleManager:makeEvent()
+	self._buildFinishEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._funcEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._typeFn=false@OrFalse(clazz.TypeFunction)
+	self._classType=false@OrFalse(clazz.LuaTable)
+	self._context = vContext
+	self._stopWaitType=false@Boolean
 end
 
 function ClassFactory:getToString():Ret(String)
-	return tostring(self._refer)
-end
-
-function ClassFactory:getResultType():Ret(OrFalse(clazz.LuaTable))
-	return self._classType
+	return tostring(self._context:getNode())
 end
 
 function ClassFactory:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
@@ -59,31 +57,20 @@ function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 	return (assert(self._typeFn, "type function not setted after wait"))
 end
 
-function ClassFactory:getTypeAwait():Ret(clazz.UAtomUnion)
+function ClassFactory:getClassAwait():Ret(clazz.UAtomUnion)
 	if not self._classType then
 		self._classEvent:wait()
 	end
 	return (assert(self._classType, "result type not setted"))
 end
 
-function ClassFactory:getMayRecursive():Ret(Boolean)
-	return true
+function ClassFactory:build(vRunner:BuildRunner)
+	self._scheduleManager:coStart(self._selfCo, function()
+		self:_build(vRunner)
+	end)
 end
 
-function ClassFactory:getListAwait():Ret(List(clazz.IAtomType))
-	if not self._classType then
-		self._classEvent:wait()
-	end
-	const nClassType = assert(self._classType, "clazz type is not setted")
-	return {nClassType}
-end
-
-function ClassFactory:build(
-	vRunner:Fn(clazz.ClassFactory):Ret(
-		OrFalse(clazz.LuaTable), clazz.MetaObject,
-		Fn(clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction))
-	)
-)
+function ClassFactory:_build(vRunner:BuildRunner)
 	-- step 1. wait inteface
 	const nBaseClass, nInterface, nPreRunner = vRunner(self)
 	-- step 2. create table
@@ -92,7 +79,7 @@ function ClassFactory:build(
 	self._classType = nNewTable
 	self._classEvent:wakeup()
 	self._headStartEvent:wait()
-	self._refer:stopWaitType()
+	self._stopWaitType = true
 	-- nClassType:linkNamedReference(self)
 	const nTypeFn, nLateRunner = nPreRunner(nNewTable)
 	if nTypeFn then
@@ -121,15 +108,21 @@ end
 
 function ClassFactory:waitBuild()
 	self:startBuild()
-	const nCurCo = coroutine.running()
-	const nSelfCo = self._refer:getSelfCo()
-	if nCurCo ~= nSelfCo then
+	if coroutine.running() ~= self._selfCo then
 		self._buildFinishEvent:wait()
 	end
 end
 
-function.open ClassFactory.is(self):isguard(clazz.ClassFactory)
-	return getmetatable(self) == ClassFactory
+function ClassFactory:canWaitType()
+	return not self._stopWaitType
+end
+
+function ClassFactory:getContext()
+	return self._context
+end
+
+function ClassFactory:getAssignNode()
+	return self._context:getNode()
 end
 
 return ClassFactory

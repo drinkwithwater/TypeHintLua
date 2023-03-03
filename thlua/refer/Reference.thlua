@@ -5,7 +5,6 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
 
 const UnionReferCom = require "thlua.refer.UnionReferCom"
-const ClassFactory = require "thlua.refer.ClassFactory"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 const AutoFunction = require "thlua.refer.AutoFunction"
@@ -17,7 +16,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom, clazz.ClassFactory, clazz.AutoFunction)
+	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom, clazz.AutoFunction)
 end)
 
 const Reference = class@<clazz.TypeReference, clazz.IType>(BaseReference)
@@ -74,7 +73,7 @@ function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(Str
 	self._stopWaitType=false@Boolean
 	self.id=vManager:genTypeId()
 	self.bits=false
-	self._assignComEvent = vManager:getScheduleManager():makeEvent(self._selfCo)
+	self._assignComEvent = self._scheduleManager:makeEvent(self._selfCo)
 end
 
 function Reference:getKey():Ret(OrFalse(String))
@@ -102,7 +101,7 @@ function Reference:getComAwait():Ret(UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(clazz.UnionReferCom, clazz.ClassFactory))
+function Reference:waitTypeCom():Ret(Union(clazz.UnionReferCom))
 	const nCom = self:getComAwait()
 	assert(not TemplateReferCom.is(nCom) and not AutoFunction.is(nCom), "type reference expected, but get template reference")
 	return nCom
@@ -159,24 +158,6 @@ function Reference:setAutoFunction(
 	const nCom = AutoFunction.new(self._manager, self)
 	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
-		nCom:build(vRunner)
-	end)
-	return nCom
-end
-
-function Reference:setClassFactory(
-	vNode:clazz.IAstNode,
-	vRunner:Fn(clazz.ClassFactory):Ret(
-		OrFalse(clazz.LuaTable), clazz.MetaObject,
-		Fn(clazz.LuaTable):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction))
-	)
-):Ret(clazz.ClassFactory)
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._assignNode = vNode
-	const nCom = ClassFactory.new(self._manager, self)
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
-		self:_setComAndWakeup(nCom)
-		-- nCom:build(vGetInterface, vClassBuilder)
 		nCom:build(vRunner)
 	end)
 	return nCom

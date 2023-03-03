@@ -1,6 +1,7 @@
 
 const class = require "thlua.class"
 const BodyContext = require "thlua.context.BodyContext"
+const ClassFactory = require "thlua.refer.ClassFactory"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -29,6 +30,12 @@ function SealContext:seal()
 	for fn, v in pairs(nFuncMakerSet) do
 		fn:startBuild()
 	end
+end
+
+function SealContext:ClassFactory():Ret(clazz.ClassFactory)
+	const nFactory = ClassFactory.new(self._manager, self)
+	self._manager:getScheduleManager():markReference(nFactory)
+	return nFactory
 end
 
 function SealContext:getSealContext():Ret(clazz.SealContext)
