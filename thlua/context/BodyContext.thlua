@@ -24,6 +24,7 @@ const TableBuilder = require "thlua.builder.TableBuilder"
 const class = require "thlua.class"
 
 const OperContext = require "thlua.context.OperContext"
+const ApplyContext = require "thlua.context.ApplyContext"
 const BaseContext = require "thlua.context.BaseContext"
 
 (@do
@@ -41,8 +42,8 @@ function.open BodyContext:ctor(
 	self._region=false@OrFalse(clazz.Region)
 	self._classTable=false @ OrFalse(clazz.LuaTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
-	self._headOper=vRuntime:OperContext(vNode, self)
-	self._tailOper=vRuntime:OperContext(vNode, self)
+	self._headOper=OperContext.new(vRuntime, vNode, self)
+	self._tailOper=OperContext.new(vRuntime, vNode, self)
 end
 
 --[[
@@ -224,87 +225,10 @@ function BodyContext:META_SET(
 	end)
 end
 
-(@let.FirstRetCaseList= List(Struct {clazz.UAtomUnion, clazz.UTypeTuple, clazz.VariableCase}))
-function BodyContext:_mergeReturn(vNode:clazz.IAstNode, vRetList:FirstRetCaseList, vMaxLength:Integer, vRepeatType:OrFalse(clazz.UAtomUnion)):Ret(clazz.FixedTermTuple)
-	const nNewContext = self:newOperContext(vNode)
-	if vMaxLength <= 0 then
-		return nNewContext:FixedTermTuple({}, vRepeatType)
-	end
-	const nTermList:List(clazz.RefineTerm) = {}
-	-- step 3. merge 2 ~ nMaxLength
-	for i=2,vMaxLength do
-		const nCollection = self._manager:TypeCollection()
-		for _, nType1TupleCase in pairs(vRetList) do
-			nCollection:put(nType1TupleCase[2]:get(i))
-		end
-		const nTypeI = nCollection:mergeToAtomUnion()
-		nTermList[i] = self:RefineTerm(nTypeI)
-	end
-	-- step 4. merge 1
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	for _, nType1TupleCase in pairs(vRetList) do
-		const nType1 = nType1TupleCase[1]
-		const nTypeTuple = nType1TupleCase[2]
-		const nCase = nType1TupleCase[3]
-		for i=2,vMaxLength do
-			nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
-		end
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			nType1, nCase
-		}
-	end
-	nTermList[1] = self:mergeToRefineTerm(nTypeCaseList)
-	return nNewContext:FixedTermTuple(nTermList, vRepeatType)
-end
-
-(@let.FuncArgCaseList = List(Struct {clazz.IAtomType, clazz.UTermTuple, clazz.VariableCase, self=OrNil(clazz.IAtomType)}))
-function BodyContext:_applySeal(vNode:clazz.IAstNode, vFuncArgCaseList:FuncArgCaseList, vPolyArgs:OrNil(List(clazz.UAllType)), vRetList:FirstRetCaseList):Ret(Integer, OrFalse(clazz.UAtomUnion))
-	const nNewContext = self:newOperContext(vNode)
-	const nListLen = #vFuncArgCaseList
-	if nListLen >= 1 then
-		-- step 1. prepare for return
-		const nNil = self._manager.type.Nil
-		local nMaxLength = 0
-		const nRepeatCollection = self._manager:TypeCollection()
-		-- step 2. call function
-		for i, nFuncArgCase in ipairs(vFuncArgCaseList) do
-			local f,nArgs,nCase,nSelf = nFuncArgCase[1], nFuncArgCase[2], nFuncArgCase[3], nFuncArgCase.self
-			const nRetTuples = vPolyArgs
-				and f:meta_invoke(nNewContext, assert(nSelf, "self must exist here"), vPolyArgs, nArgs)
-				or f:meta_call(nNewContext, nArgs)
-			nRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
-				local nLength = #vTypeTuple
-				if nLength > nMaxLength then
-					nMaxLength = nLength
-				end
-				vRetList[#vRetList + 1] = {
-					vFirst:checkAtomUnion(), vTypeTuple, VariableCase.new() & nCase
-				}
-				const nRepeatType = vTypeTuple:getRepeatType()
-				if nRepeatType then
-					nRepeatCollection:put(nRepeatType)
-				end
-			end)
-		end
-		const nRepeatType:clazz.UAtomUnion = nRepeatCollection:mergeToAtomUnion()
-		const nTail = (not nRepeatType:isNever()) and nRepeatType or false
-		return nMaxLength, nTail
-	else
-		self._runtime:nodeError(vNode, "meta_call function can't be Never")
-		return 0, false
-	end
-end
-
 (@let.OpenPair = Struct {Union(clazz.OpenFunction, clazz.LuaFunction), clazz.UTermTuple})
-function BodyContext:_applyOpen(vNode:clazz.IAstNode, vOpenPair:OpenPair, vSealFnNum:Integer, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
+function BodyContext:_applyOpen(vNode:clazz.IAstNode, vOpenPair:OpenPair, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
 	const nOpenPair = vOpenPair
-	if vSealFnNum > 0 then
-		const nNewContext = self:newOperContext(vNode)
-		nNewContext:error(vNode, "can't mix call open function & seal function")
-		return nNewContext:FixedTermTuple({})
-	else
-		return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
-	end
+	return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
 end
 
 function BodyContext:META_CALL(
@@ -313,9 +237,10 @@ function BodyContext:META_CALL(
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
 	local nOpenPair:OrNil(OpenPair) = nil
-	const nFuncArgCaseList:FuncArgCaseList = {}
+	local nHasSeal = false
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
+	const nCallContext = self:newApplyContext(vNode)
 	vFuncTerm:foreach(function(vFuncType, vVariableCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
 		nRegion:withBranch(vVariableCase, function()
@@ -327,25 +252,25 @@ function BodyContext:META_CALL(
 		elseif Truth.is(vFuncType) or TypeFunction.is(vFuncType) or OpenFunction.is(vFuncType) or LuaFunction.is(vFuncType) or PolyFunction.is(vFuncType) or AnyFunction.is(vFuncType) then
 			if vFuncType:isOpen() then
 				if not nOpenPair then
-					nOpenPair = {vFuncType, nArgTermTuple}
+					if not nHasSeal then
+						nOpenPair = {vFuncType, nArgTermTuple}
+					else
+						error("can't mix open function & type function")
+					end
 				else
-					error("can't mix use native function")
+					error("can't mix use open function")
 				end
 			else
-				nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-					vFuncType, nArgTermTuple, vVariableCase
-				}
+				nCallContext:applyCall(vFuncType, nArgTermTuple, vVariableCase)
 			end
 		else
 			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end
 	end)
 	if nOpenPair then
-		return self:_applyOpen(vNode, nOpenPair, #nFuncArgCaseList)
+		return self:_applyOpen(vNode, nOpenPair)
 	else
-		const nRetList:FirstRetCaseList = {}
-		const nMaxLength, nRepeatType = self:_applySeal(vNode, nFuncArgCaseList, nil, nRetList)
-		return self:_mergeReturn(vNode, nRetList, nMaxLength, nRepeatType)
+		return nCallContext:mergeReturn()
 	end
 end
 
@@ -357,9 +282,9 @@ function BodyContext:META_INVOKE(
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
-	const nInvokeContext = self:newOperContext(vNode)
+	const nInvokeContext = self:newApplyContext(vNode)
 	local nOpenPair:OrNil(OpenPair) = nil
-	const nFuncArgCaseList:FuncArgCaseList = {}
+	local nHasSeal = false
 	const nNil = self._manager.type.Nil
 	vSelfTerm:foreach(function(vSelfType, vVariableCase)
 		if vSelfType == nNil then
@@ -373,15 +298,16 @@ function BodyContext:META_INVOKE(
 				elseif Truth.is(vSingleFuncType) or TypeFunction.is(vSingleFuncType) or OpenFunction.is(vSingleFuncType) or LuaFunction.is(vSingleFuncType) or PolyFunction.is(vSingleFuncType) or AnyFunction.is(vSingleFuncType) then
 					if vSingleFuncType:isOpen() then
 						if not nOpenPair then
-							nOpenPair = {vSingleFuncType, nNewArgTuple}
+							if not nHasSeal then
+								nOpenPair = {vSingleFuncType, nNewArgTuple}
+							else
+								error("can't mix open function & type function")
+							end
 						else
 							error("can't mix use native function")
 						end
 					else
-						nFuncArgCaseList[#nFuncArgCaseList + 1] = {
-							vSingleFuncType, nNewArgTuple, vVariableCase,
-							self=vSelfType,
-						}
+						nInvokeContext:applyInvoke(vSingleFuncType, nNewArgTuple, vVariableCase, vPolyArgs, vSelfType)
 					end
 				else
 					self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vSingleFuncType))
@@ -390,11 +316,11 @@ function BodyContext:META_INVOKE(
 		end
 	end)
 	if nOpenPair then
-		return self:_applyOpen(vNode, nOpenPair, #nFuncArgCaseList, vPolyArgs)
+		return self:_applyOpen(vNode, nOpenPair, vPolyArgs)
 	else
-		const nRetList:FirstRetCaseList = {}
-		const nMaxLength, nRepeatType = self:_applySeal(vNode, nFuncArgCaseList, vPolyArgs, nRetList)
-		return self:_mergeReturn(vNode, nRetList, nMaxLength, nRepeatType)
+		-- const nRetList:FirstRetCaseList = {}
+		-- const nMaxLength, nRepeatType = self:_applySeal(vNode, nFuncArgCaseList, vPolyArgs, nRetList)
+		return nInvokeContext:mergeReturn()
 	end
 end
 
@@ -582,8 +508,12 @@ function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
 	return self._runtime:OpenContext(vNode, self)
 end
 
+function BodyContext:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)
+	return ApplyContext.new(self._runtime, vNode, self)
+end
+
 function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
-	return self._runtime:OperContext(vNode, self)
+	return OperContext.new(self._runtime, vNode, self)
 end
 
 function.pass BodyContext:getSealContext():Ret(clazz.SealContext)
