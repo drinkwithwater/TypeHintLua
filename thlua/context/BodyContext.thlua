@@ -553,11 +553,15 @@ function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCa
 end
 
 function BodyContext:newAutoFunction(vNode:clazz.IAstNode):Ret(clazz.AutoFunction)
-	return self._runtime:AutoFunction(vNode, self)
+	const nAutoFn = self._runtime:AutoFunction(vNode, self)
+	self:getSealContext():recordAutoFunction(nAutoFn)
+	return nAutoFn
 end
 
 function BodyContext:newClassFactory(vNode:clazz.IAstNode):Ret(clazz.ClassFactory)
-	return self._runtime:ClassFactory(vNode, self)
+	const nFactory = self._runtime:ClassFactory(vNode, self)
+	self:getSealContext():recordClassFactory(nFactory)
+	return nFactory
 end
 
 function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
@@ -570,14 +574,6 @@ end
 
 function.pass BodyContext:getSealContext():Ret(clazz.SealContext)
 	error("use body context")
-end
-
-function BodyContext:recordClassFactory(vFunc:clazz.ClassFactory)
-	self:getSealContext():recordClassFactory(vFunc)
-end
-
-function BodyContext:recordAutoFunction(vFunc:clazz.AutoFunction)
-	self:getSealContext():recordAutoFunction(vFunc)
 end
 
 function BodyContext:seal()

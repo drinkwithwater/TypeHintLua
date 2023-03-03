@@ -16,22 +16,22 @@ function.open BaseReference:ctor(vManager:clazz.TypeManager, ...)
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
+			const nContext = self:getContext()
 			if Exception.is(nExc) then
 				nExc:fixNode(self:getAssignNode())
-				--[[
-				if vContext then
-					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
+				if nContext then
+					nContext:getRuntime():nodeError(nExc.node, nExc.msg)
 				else
 					error(nExc)
-				end]]
+				end
 				error(nExc)
 			else
 				const nExc = Exception.new(tostring(nExc), self:getAssignNode())
-				--[[if vContext then
-					vContext:getRuntime():nodeError(nExc.node, nExc.msg)
+				if nContext then
+					nContext:getRuntime():nodeError(nExc.node, nExc.msg)
 				else
 					error(nExc)
-				end]]
+				end
 				error(nExc)
 			end
 		end
