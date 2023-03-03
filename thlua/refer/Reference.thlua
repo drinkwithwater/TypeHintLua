@@ -7,7 +7,6 @@ const Node = require "thlua.code.Node"
 const UnionReferCom = require "thlua.refer.UnionReferCom"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
-const AutoFunction = require "thlua.refer.AutoFunction"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 
 const BaseReference = require "thlua.refer.BaseReference"
@@ -16,7 +15,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom, clazz.AutoFunction)
+	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom)
 end)
 
 const Reference = class@<clazz.TypeReference, clazz.IType>(BaseReference)
@@ -103,7 +102,7 @@ end
 
 function Reference:waitTypeCom():Ret(Union(clazz.UnionReferCom))
 	const nCom = self:getComAwait()
-	assert(not TemplateReferCom.is(nCom) and not AutoFunction.is(nCom), "type reference expected, but get template reference")
+	assert(not TemplateReferCom.is(nCom), "type reference expected, but get template reference")
 	return nCom
 end
 
@@ -147,20 +146,6 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 	self._manager:getScheduleManager():coStart(self._selfCo, function()
 		self:_setComAndWakeup(nCom)
 	end)
-end
-
-function Reference:setAutoFunction(
-	vNode:clazz.IAstNode,
-	vRunner:Fn(clazz.AutoFunction, OrFalse(clazz.TypeFunction)):Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction))
-):Ret(clazz.AutoFunction)
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._assignNode = vNode
-	const nCom = AutoFunction.new(self._manager, self)
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
-		self:_setComAndWakeup(nCom)
-		nCom:build(vRunner)
-	end)
-	return nCom
 end
 
 function Reference:setUnionAsync(vNode:clazz.IAstNode,
