@@ -1,0 +1,46 @@
+
+const BaseReference = require "thlua.refer.BaseReference"
+const Exception = require "thlua.Exception"
+
+const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const ISealFunction = class@<clazz.ISealFunction, false>(BaseReference)
+
+function.open ISealFunction:ctor(vManager:clazz.TypeManager, vContext:clazz.SealContext)
+	const nScheduleManager = self._scheduleManager
+	self._headStartEvent=nScheduleManager:makeEvent()
+	self._headFinishEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._bodyStartEvent=nScheduleManager:makeEvent()
+	self._bodyFinishEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._typeFn=false@OrFalse(clazz.TypeFunction)
+	self._context = vContext
+	self._stopWaitType=false@Boolean
+end
+
+function ISealFunction:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
+	const nTypeFn = self:getFnAwait()
+	return nTypeFn:meta_call(vContext, vTermTuple)
+end
+
+function.pass ISealFunction:getFnAwait():Ret(clazz.TypeFunction)
+	error("ISealFunction.getFnAwait is virtual function")
+end
+
+function ISealFunction:canWaitType()
+	return not self._stopWaitType
+end
+
+function ISealFunction:getAssignNode()
+	return self._context:getNode()
+end
+
+function ISealFunction:getContext()
+	return self._context
+end
+
+return ISealFunction

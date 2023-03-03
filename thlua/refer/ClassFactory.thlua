@@ -1,5 +1,5 @@
 
-const BaseReference = require "thlua.refer.BaseReference"
+const ISealFunction = require "thlua.refer.ISealFunction"
 const Exception = require "thlua.Exception"
 
 const class = require "thlua.class"
@@ -14,45 +14,32 @@ const class = require "thlua.class"
 	)
 end)
 
-const ClassFactory = class@<clazz.ClassFactory, false>(BaseReference)
+const ClassFactory = class@<clazz.ClassFactory, false>(ISealFunction)
 function ClassFactory.__tostring(self:clazz.ClassFactory)
 	return "class@"..tostring(self._context:getNode())
 end
 
 function.open ClassFactory:ctor(vManager:clazz.TypeManager, vContext:clazz.SealContext)
 	const nScheduleManager = self._scheduleManager
-	self._classEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._headStartEvent=nScheduleManager:makeEvent()
-	self._headFinishEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._buildStartEvent=nScheduleManager:makeEvent()
-	self._buildFinishEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._funcEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._typeFn=false@OrFalse(clazz.TypeFunction)
+	self._classStartEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._classFinishEvent=nScheduleManager:makeEvent(self._selfCo)
 	self._classType=false@OrFalse(clazz.LuaTable)
-	self._context = vContext
-	self._stopWaitType=false@Boolean
 end
 
 function ClassFactory:getToString():Ret(String)
 	return tostring(self._context:getNode())
 end
 
-function ClassFactory:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
-	self:waitBuild()
-	const nTypeFn = self:getFnAwait()
-	return nTypeFn:meta_call(vContext, vTermTuple)
-end
-
 function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
-		self._classEvent:wait()
+		self._classStartEvent:wait()
 		self._headStartEvent:wakeup()
 		self._headFinishEvent:wait()
 		if not self._typeFn then
-			self._buildStartEvent:wakeup()
-			self._buildFinishEvent:wait()
+			self._bodyStartEvent:wakeup()
+			self._classFinishEvent:wait()
 			if not self._typeFn then
-				self._funcEvent:wait()
+				self._bodyFinishEvent:wait()
 			end
 		end
 	end
@@ -61,7 +48,7 @@ end
 
 function ClassFactory:getClassAwait():Ret(clazz.UAtomUnion)
 	if not self._classType then
-		self._classEvent:wait()
+		self._classStartEvent:wait()
 	end
 	return (assert(self._classType, "result type not setted"))
 end
@@ -79,7 +66,7 @@ function ClassFactory:_build(vRunner:BuildRunner)
 	const nNewTable = self._manager:LuaTable()
 	nNewTable:initByClassCom(self, nBaseClass, nInterface)
 	self._classType = nNewTable
-	self._classEvent:wakeup()
+	self._classStartEvent:wakeup()
 	self._headStartEvent:wait()
 	self._stopWaitType = true
 	-- nClassType:linkNamedReference(self)
@@ -88,43 +75,31 @@ function ClassFactory:_build(vRunner:BuildRunner)
 		self._typeFn = nTypeFn
 	end
 	self._headFinishEvent:wakeup()
-	self._buildStartEvent:wait()
+	self._bodyStartEvent:wait()
 	-- step 3. run build
 	const nTypeFn = nLateRunner()
 	if not self._typeFn then
 		self._typeFn = nTypeFn
 	end
-	self._buildFinishEvent:wakeup()
-	-- step 4. wake up fn
-	self._funcEvent:wakeup()
+	-- step 4. wakeup fn
+	self._classFinishEvent:wakeup()
+	self._bodyFinishEvent:wakeup()
 end
 
 function ClassFactory:startBuild()
 	self._headStartEvent:wakeup()
-	self._buildStartEvent:wakeup()
+	self._bodyStartEvent:wakeup()
 end
 
 function ClassFactory:onSetMetaTable()
-	self._buildFinishEvent:wakeup()
+	self._classFinishEvent:wakeup()
 end
 
 function ClassFactory:waitBuild()
 	self:startBuild()
 	if coroutine.running() ~= self._selfCo then
-		self._buildFinishEvent:wait()
+		self._classFinishEvent:wait()
 	end
-end
-
-function ClassFactory:canWaitType()
-	return not self._stopWaitType
-end
-
-function ClassFactory:getContext()
-	return self._context
-end
-
-function ClassFactory:getAssignNode()
-	return self._context:getNode()
 end
 
 return ClassFactory

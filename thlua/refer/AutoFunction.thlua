@@ -1,6 +1,6 @@
 
 const TypeFunction = require "thlua.func.TypeFunction"
-const BaseReference = require "thlua.refer.BaseReference"
+const ISealFunction = require "thlua.refer.ISealFunction"
 const Exception = require "thlua.Exception"
 
 const class = require "thlua.class"
@@ -12,22 +12,15 @@ const class = require "thlua.class"
 	)
 end)
 
-const AutoFunction = class@<clazz.AutoFunction, false>(BaseReference)
+const AutoFunction = class@<clazz.AutoFunction, false>(ISealFunction)
 AutoFunction.__tostring=function(self:clazz.AutoFunction)
 	return "auto-fn"
 end
 
 function.open AutoFunction:ctor(vManager:clazz.TypeManager, vContext:clazz.SealContext)
 	const nScheduleManager = self._scheduleManager
-	self._headStartEvent=nScheduleManager:makeEvent()
-	self._headFinishEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._bodyStartEvent=nScheduleManager:makeEvent()
-	self._bodyFinishEvent=nScheduleManager:makeEvent(self._selfCo)
 	self._castList={}@List(clazz.TypeFunction)
-	self._typeFn=false@OrFalse(clazz.TypeFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
-	self._context = vContext
-	self._stopWaitType=true@Boolean
 end
 
 function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.TypeFunction):Ret(Boolean)
@@ -76,11 +69,6 @@ function AutoFunction:_build(vRunner:BuildRunner)
 	self._bodyFinishEvent:wakeup()
 end
 
-function AutoFunction:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
-	const nTypeFn = self:getFnAwait()
-	return nTypeFn:meta_call(vContext, vTermTuple)
-end
-
 function AutoFunction:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
 		self._headStartEvent:wakeup()
@@ -96,18 +84,6 @@ end
 function AutoFunction:startBuild()
 	self._headStartEvent:wakeup()
 	self._bodyStartEvent:wakeup()
-end
-
-function AutoFunction:canWaitType()
-	return not self._stopWaitType
-end
-
-function AutoFunction:getContext()
-	return self._context
-end
-
-function AutoFunction:getAssignNode()
-	return self._context:getNode()
 end
 
 return AutoFunction
