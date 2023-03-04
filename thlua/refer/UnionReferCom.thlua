@@ -1,20 +1,22 @@
 
-const BaseReference = require "thlua.refer.BaseReference"
+const BaseTask = require "thlua.refer.BaseTask"
 const class = require "thlua.class"
 const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const UnionReferCom = class@<clazz.UnionReferCom, false>(BaseReference)
+const UnionReferCom = class@<clazz.UnionReferCom, false>()
 
 function.open UnionReferCom:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode)
-	const nScheduleManager = self._scheduleManager
+	const nTask = BaseTask.new(vManager)
+	self._manager=vManager
+	self._task = nTask
 	self._node = vNode
 	self._mayRecursive=false@Boolean
 	self._typeList=false@OrFalse(List(clazz.IAtomType))
 	self._resultType=false@OrFalse(clazz.UAtomUnion)
-	self._listBuildEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._resultBuildEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._listBuildEvent=nTask:makeEvent()
+	self._resultBuildEvent=nTask:makeEvent()
 end
 
 function UnionReferCom:getToString():Ret(String)
@@ -84,7 +86,7 @@ function UnionReferCom:build(
 	vGetList:Fn():Ret(List(clazz.IAtomType)),
 	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
 )
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
+	self._task:runAsync(function()
 		self:_build(vGetList, vLaterCall)
 	end)
 end

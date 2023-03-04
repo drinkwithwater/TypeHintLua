@@ -9,7 +9,7 @@ const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 
-const BaseReference = require "thlua.refer.BaseReference"
+const BaseTask = require "thlua.refer.BaseTask"
 
 const class = require "thlua.class"
 
@@ -18,7 +18,7 @@ const class = require "thlua.class"
 	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom)
 end)
 
-const Reference = class@<clazz.TypeReference, clazz.IType>(BaseReference)
+const Reference = class@<clazz.TypeReference, clazz.IType>()
 
 Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
 	-- TODO, cast
@@ -61,18 +61,19 @@ function Reference.__band(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz
 	end
 end
 
-function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String), vContext:OrFalse(clazz.SealContext))
+function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String))
+	const nTask = BaseTask.new(vManager)
+	self._manager = vManager
+	self._task = nTask
 	self._key=vKeyOrFalse
 	self._callDict={}@Dict(String, clazz.TypeReference)
 	self._assignNode=false@OrFalse(clazz.IAstNode)
 	self._referNodes={}@List(clazz.IAstNode)
 	self._com=false@OrFalse(UReferCom)
-	self._assignComEvent=nil@clazz.ScheduleEvent
-	self._context=vContext
 	self._stopWaitType=false@Boolean
 	self.id=vManager:genTypeId()
 	self.bits=false
-	self._assignComEvent = self._scheduleManager:makeEvent(self._selfCo)
+	self._assignComEvent = nTask:makeEvent()
 end
 
 function Reference:getKey():Ret(OrFalse(String))
@@ -80,12 +81,7 @@ function Reference:getKey():Ret(OrFalse(String))
 end
 
 function Reference:detailString(v, vVerbose)
-	const nContext = self._context
-	if not nContext then
-		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
-	else
-		return "ISealFunction("..tostring(nContext:getNode())..")"
-	end
+	return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
 end
 
 function Reference:getComNowait():Ret(OrFalse(UReferCom))
@@ -120,7 +116,7 @@ end
 function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
+	self._task:runAsync(function()
 		const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(vGetFunc())
 		if not nOkay then
 			error("namespace assign a non-type value")
@@ -143,7 +139,7 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = TemplateReferCom.new(self._manager, self, vFunc, vParNum)
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
+	self._task:runAsync(function()
 		self:_setComAndWakeup(nCom)
 	end)
 end
@@ -151,7 +147,7 @@ end
 function Reference:setUnionComAsync(vNode:clazz.IAstNode, vUnionReferCom:clazz.UnionReferCom)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
+	self._task:runAsync(function()
 		self:_setComAndWakeup(vUnionReferCom)
 	end)
 end
@@ -162,7 +158,7 @@ function Reference:setUnionAsync(vNode:clazz.IAstNode,
 )
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	self._manager:getScheduleManager():coStart(self._selfCo, function()
+	self._task:runAsync(function()
 		const nCom = self._manager:UnionReferCom(vNode)
 		self:_setComAndWakeup(nCom)
 		nCom:build(vGetList, vLaterCall)
@@ -287,10 +283,6 @@ function Reference:mayRecursive()
 	const nTypeCom = self:waitTypeCom()
 	nTypeCom:getListAwait()
 	return nTypeCom:getMayRecursive()
-end
-
-function Reference:getContext():Ret(OrFalse(clazz.SealContext))
-	return self._context
 end
 
 function Reference:canWaitType()

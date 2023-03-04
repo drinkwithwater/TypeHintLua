@@ -8,14 +8,22 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const BaseReference = class@<clazz.BaseReference, false>()
+const BaseTask = class@<clazz.BaseTask, false>()
 
-function.open BaseReference:ctor(vManager:clazz.TypeManager, ...)
+function.open BaseTask:ctor(vManager:clazz.TypeManager, vContext:OrNil(clazz.SealContext))
 	self._manager = vManager
 	self._scheduleManager = vManager:getScheduleManager()
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
+			const nContext = self:getContext()
+			if nContext then
+				nContext:error(nExc)
+			else
+				error(nExc)
+			end
+		end
+		--[[if not ok then
 			const nContext = self:getContext()
 			if Exception.is(nExc) then
 				nExc:fixNode(self:getAssignNode())
@@ -34,25 +42,39 @@ function.open BaseReference:ctor(vManager:clazz.TypeManager, ...)
 				end
 				error(nExc)
 			end
-		end
+		end]]
 	end)
+	self._context = vContext or false
+	self._stopWaitType=false@Boolean
 	self._scheduleManager:markReference(self._selfCo, self)
 end
 
-function BaseReference:getSelfCo():Ret(Thread)
+function BaseTask:getSelfCo():Ret(Thread)
 	return self._selfCo
 end
 
-function BaseReference:canWaitType()
-	return true
+function BaseTask:stopWaitType()
+	self._stopWaitType = true
 end
 
-function BaseReference:getContext():Ret(OrFalse(clazz.SealContext))
-	return false
+function BaseTask:canWaitType()
+	return not self._stopWaitType
 end
 
-function BaseReference:makeEvent():Ret(clazz.ScheduleEvent)
+function BaseTask:runAsync(vFunc:Fn())
+	self._scheduleManager:coStart(self._selfCo, vFunc)
+end
+
+function BaseTask:getContext():Ret(OrFalse(clazz.SealContext))
+	return self._context
+end
+
+function BaseTask:makeEvent():Ret(clazz.ScheduleEvent)
 	return self._manager:getScheduleManager():makeEvent(self._selfCo)
 end
 
-return BaseReference
+function BaseTask:makeWildEvent():Ret(clazz.ScheduleEvent)
+	return self._manager:getScheduleManager():makeEvent()
+end
+
+return BaseTask

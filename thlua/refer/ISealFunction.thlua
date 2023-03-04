@@ -1,5 +1,5 @@
 
-const BaseReference = require "thlua.refer.BaseReference"
+const BaseTask = require "thlua.refer.BaseTask"
 const Exception = require "thlua.Exception"
 
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
@@ -9,17 +9,21 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const ISealFunction = class@<clazz.ISealFunction, false>(BaseReference)
+const ISealFunction = class@<clazz.ISealFunction, false>()
 
-function.open ISealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, ...)
-	const nScheduleManager = self._scheduleManager
+function.open ISealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vParentContext:OrFalse(clazz.BodyContext))
+	self._manager = vManager
+	const nRuntime = vManager:getRuntime()
+	const nNewContext = nRuntime:SealContext(vNode, vParentContext)
+	self._context = nNewContext
+	const nTask = BaseTask.new(vManager, nNewContext)
+	self._task = nTask
 	self._node = vNode
-	self._headStartEvent=nScheduleManager:makeEvent()
-	self._headFinishEvent=nScheduleManager:makeEvent(self._selfCo)
-	self._bodyStartEvent=nScheduleManager:makeEvent()
-	self._bodyFinishEvent=nScheduleManager:makeEvent(self._selfCo)
+	self._headStartEvent=nTask:makeWildEvent()
+	self._headFinishEvent=nTask:makeEvent()
+	self._bodyStartEvent=nTask:makeWildEvent()
+	self._bodyFinishEvent=nTask:makeEvent()
 	self._typeFn=false@OrFalse(clazz.TypeFunction)
-	self._stopWaitType=false@Boolean
 end
 
 function ISealFunction:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
@@ -31,16 +35,8 @@ function.pass ISealFunction:getFnAwait():Ret(clazz.TypeFunction)
 	error("ISealFunction.getFnAwait is virtual function")
 end
 
-function ISealFunction:canWaitType()
-	return not self._stopWaitType
-end
-
 function ISealFunction:getAssignNode()
 	return self._node
-end
-
-function.pass ISealFunction:getContext():Ret(clazz.SealContext)
-	error("ISealFunction.getContext is virtual function")
 end
 
 return ISealFunction

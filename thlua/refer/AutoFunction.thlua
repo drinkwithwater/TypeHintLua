@@ -17,12 +17,9 @@ AutoFunction.__tostring=function(self:clazz.AutoFunction)
 	return "autofn@"..tostring(self._node)
 end
 
-function.open AutoFunction:ctor(vManager:clazz.TypeManager, vNode, vParentContext:OrFalse(clazz.BodyContext))
-	const nScheduleManager = self._scheduleManager
+function.open AutoFunction:ctor(vManager:clazz.TypeManager, ...)
 	self._castList={}@List(clazz.TypeFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
-	const nRuntime = vManager:getRuntime()
-	self._context = nRuntime:SealContext(vNode, vParentContext, self)
 end
 
 function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.TypeFunction):Ret(Boolean)
@@ -44,14 +41,14 @@ function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 end
 
 function AutoFunction:build(vRunner:BuildRunner)
-	self._scheduleManager:coStart(self._selfCo, function()
+	self._task:runAsync(function()
 		self:_build(vRunner)
 	end)
 end
 
 function AutoFunction:_build(vRunner:BuildRunner)
 	self._headStartEvent:wait()
-	self._stopWaitType = true
+	self._task:stopWaitType()
 	local nCastFn:OrFalse(clazz.TypeFunction) = false
 	for k,v in pairs(self._castList) do
 		nCastFn = v
