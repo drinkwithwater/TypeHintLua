@@ -5,27 +5,20 @@ const Exception = require "thlua.Exception"
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
-
-const MemberFunction = {}
-MemberFunction.__index=MemberFunction
+const BaseFunction = require "thlua.func.BaseFunction"
+const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-function MemberFunction.__tostring(self:clazz.MemberFunction):Ret(String)
-	return self:detailString({}, true)
-end
+const MemberFunction = class@<clazz.MemberFunction, false>(BaseFunction)
 
-function:class(clazz.MemberFunction) MemberFunction.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
+function.open MemberFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
 	vPolyFn:clazz.PolyFunction, vWildFn:OrFalse(clazz.TypeFunction))
-	const self = setmetatable({.class
-		_manager=vManager,
-		_node=vNode,
-		_wildFn=vWildFn,
-		_polyFn=vPolyFn,
-	}, MemberFunction)
-	return self
+	self._node = vNode
+	self._wildFn = vWildFn
+	self._polyFn = vPolyFn
 end
 
 function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
@@ -43,7 +36,7 @@ function MemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbos
 		vToStringCache[self] = nResult
 		return nResult
 	else
-		return "MemberFunction("..tostring(self._node)..")"
+		return "MemberFunction@"..tostring(self._node)
 	end
 end
 
@@ -110,8 +103,16 @@ function MemberFunction:mayRecursive():Ret(True)
 	return true
 end
 
-function.open MemberFunction.is(vType):isguard(clazz.MemberFunction)
-	return getmetatable(vType) == MemberFunction
+function MemberFunction:assumeIncludeAtom(vAssumeSet, vRight)
+	return self == vRight and self
+end
+
+function MemberFunction:assumeIntersectAtom(vAssumeSet, vRight)
+	return self == vRight and self
+end
+
+function MemberFunction:isMember():Ret(True)
+	return true
 end
 
 return MemberFunction

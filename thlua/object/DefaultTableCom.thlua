@@ -4,6 +4,7 @@ const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
+const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 
@@ -145,9 +146,9 @@ function DefaultTableCom:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrF
 		assert(type(nSelfInter) == "table")
 		assert(type(nMetaInter) == "table")
 		local nSetter = false
-		local nLuaFnCount = 0
-		local nLuaMfnCount = 0
-		local nNotLuaFnCount = 0
+		local nFnCount = 0
+		local nMfnCount = 0
+		local nNotFnCount = 0
 		local nSelfIsNilable = false
 		const nCollection = self._manager:TypeCollection()
 		nSelfInter:foreach(function(vAtom)
@@ -155,13 +156,13 @@ function DefaultTableCom:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrF
 			nCollection:put(nValue)
 			nSelfIsNilable = nSelfIsNilable or nValue:isNilable()
 			nSetter = true
-			if LuaFunction.is(nValue) then
-				nLuaFnCount = nLuaFnCount + 1
+			if BaseFunction.is(nValue) then
+				nFnCount = nFnCount + 1
 				if nValue:isMember() then
-					nLuaMfnCount = nLuaMfnCount + 1
+					nMfnCount = nMfnCount + 1
 				end
 			else
-				nNotLuaFnCount = nNotLuaFnCount + 1
+				nNotFnCount = nNotFnCount + 1
 			end
 		end)
 		if not nSelfInter:includeAll(nMetaInter) or nSelfIsNilable then
@@ -170,13 +171,13 @@ function DefaultTableCom:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrF
 				const nValue = nMetaIndexValueDict[vAtom]!
 				nMetaIsNilable = nMetaIsNilable or nValue:isNilable()
 				nCollection:put(nValue)
-				if LuaFunction.is(nValue) then
-					nLuaFnCount = nLuaFnCount + 1
+				if BaseFunction.is(nValue) then
+					nFnCount = nFnCount + 1
 					if nValue:isMember() then
-						nLuaMfnCount = nLuaMfnCount + 1
+						nMfnCount = nMfnCount + 1
 					end
 				else
-					nNotLuaFnCount = nNotLuaFnCount + 1
+					nNotFnCount = nNotFnCount + 1
 				end
 			end)
 			const nFinalNilable = nMetaIsNilable or not nMetaInter:includeAll(nSelfInter)
@@ -193,11 +194,11 @@ function DefaultTableCom:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrF
 				kind = nSetter and "property" or "getter",
 			}
 		end
-		if nLuaFnCount > 0 then
-			if nNotLuaFnCount > 0 then
-				vContext:error("mix lua function and other type when setmetatable, key="..tostring(vKeyAtom))
-			elseif nLuaMfnCount > 0 and nLuaFnCount ~= nLuaMfnCount then
-				vContext:error("mix member lua function and normal lua function when setmetatable, key="..tostring(vKeyAtom))
+		if nFnCount > 0 then
+			if nNotFnCount > 0 then
+				vContext:error("mix function and other type when setmetatable, key="..tostring(vKeyAtom))
+			elseif nMfnCount > 0 and nFnCount ~= nMfnCount then
+				vContext:error("mix member function and normal function when setmetatable, key="..tostring(vKeyAtom))
 			end
 		end
 	end)
