@@ -1,20 +1,17 @@
 
 local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local AtomTypeClass = require "thlua.type.AtomTypeClass"
 
-local StringLiteral = AtomTypeClass()
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.StringLiteral) StringLiteral.new(vManager:clazz.TypeManager, vLiteral:String):impl(clazz.IAtomType)
-	local self = setmetatable({.class
-		_manager=vManager,
-		literal=vLiteral,
-		id=vManager:genTypeId(),
-		bits=TYPE_BITS.STRING,
-	}, StringLiteral)
-	return self
+const StringLiteral = class@<clazz.StringLiteral, false>(BaseAtomType)
+
+function.open StringLiteral:ctor(vManager:clazz.TypeManager, vLiteral:String)
+	self.literal=vLiteral
+	self.bits=TYPE_BITS.STRING
 end
 
 function StringLiteral:getLiteral():Ret(String)
@@ -51,10 +48,6 @@ end
 
 function StringLiteral:meta_len(vContext)
 	return self._manager.type.Number
-end
-
-function.open StringLiteral.is(v):isguard(clazz.StringLiteral)
-	return getmetatable(v) == StringLiteral
 end
 
 return StringLiteral

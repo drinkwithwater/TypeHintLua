@@ -2,19 +2,15 @@
 const NumberLiteral = require "thlua.type.NumberLiteral"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
-const AtomTypeClass = require "thlua.type.AtomTypeClass"
-
-const Number = AtomTypeClass()
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.Number) Number.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
-	const self = setmetatable({.class
-		_manager = vManager,
-		id=vManager:genTypeId(),
-		bits=TYPE_BITS.NUMBER,
-	}, Number)
-	return self
+const Number = class@<clazz.Number, false>(BaseAtomType)
+
+function.open Number:ctor(vManager:clazz.TypeManager)
+	self.bits=TYPE_BITS.NUMBER
 end
 
 function Number:detailString(v, vVerbose)
@@ -55,10 +51,6 @@ end
 
 function Number:isSingleton()
 	return false
-end
-
-function.open Number.is(v):isguard(clazz.Number)
-	return getmetatable(v) == Number
 end
 
 return Number

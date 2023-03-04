@@ -1,20 +1,17 @@
 
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
-const AtomTypeClass = require "thlua.type.AtomTypeClass"
 
-const BooleanLiteral = AtomTypeClass()
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.BooleanLiteral) BooleanLiteral.new(vManager:clazz.TypeManager, vLiteral:Boolean):impl(clazz.IAtomType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		literal=vLiteral,
-		id=vManager:genTypeId(),
-		bits=vLiteral and TYPE_BITS.TRUE or TYPE_BITS.FALSE,
-	}, BooleanLiteral)
-	return self
+const BooleanLiteral = class@<clazz.BooleanLiteral, false>(BaseAtomType)
+
+function.open BooleanLiteral:ctor(vManager:clazz.TypeManager, vLiteral:Boolean)
+	self.literal=vLiteral
+	self.bits=vLiteral and TYPE_BITS.TRUE or TYPE_BITS.FALSE
 end
 
 function BooleanLiteral:detailString(v, vVerbose)
@@ -65,10 +62,6 @@ function BooleanLiteral:falseType()
 	else
 		return self
 	end
-end
-
-function.open BooleanLiteral.is(v):isguard(clazz.BooleanLiteral)
-	return getmetatable(v) == BooleanLiteral
 end
 
 return BooleanLiteral
