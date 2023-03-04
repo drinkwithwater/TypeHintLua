@@ -39,6 +39,7 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 
+const BaseReadyType = require "thlua.type.BaseReadyType"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
@@ -188,7 +189,7 @@ end
 
 function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(clazz.TypeReference, clazz.IAtomType)):Ret(False, String)
 	local meta = getmetatable(vData)
-	if meta and (AtomMetatableSet[meta] or Reference.is(vData)) then
+	if meta and (AtomMetatableSet[meta] or Reference.is(vData) or BaseReadyType.is(vData)) then
 		return true, vData @!! Union(clazz.TypeReference, clazz.IAtomType)
 	else
 		return false, "not atom or reference"
@@ -216,7 +217,7 @@ end
 
 function TypeManager:assertAllType(vData:Truth):Ret(clazz.UAllType)
 	local meta = getmetatable(vData)
-	if meta and (AtomUnionMetatableSet[meta] or Reference.is(vData)) then
+	if meta and (AtomUnionMetatableSet[meta] or Reference.is(vData) or BaseReadyType.is(vData)) then
 		return vData @!! clazz.UAllType
 	else
 		error("assertAllType failed, type="..type(vData)..tostring(debug.traceback()))
@@ -249,7 +250,7 @@ function.pass TypeManager:peasyToType(vData:Any):Ret(False, String):Ret(True, cl
 	local t = type(vData)
 	if t == "table" then
 		local meta = getmetatable(vData)
-		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] or Reference.is(vData) then
+		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] or Reference.is(vData) or BaseReadyType.is(vData) then
 			return true, vData
 		else
 			return false, "to type failed"

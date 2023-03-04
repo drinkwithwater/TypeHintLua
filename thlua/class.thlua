@@ -38,17 +38,27 @@ const function.open class@<C, I>(super)
 	const meta={.open
 		__index=vtbl
 	}
-	class_type.is=function.open(v):isguard(C)
-		const nCurMeta = getmetatable(v)
-		local nCurClassType = nCurMeta and meta2class[nCurMeta]
-		while nCurClassType do
-			if nCurClassType == class_type then
-				return true
-			else
-				nCurClassType = nCurClassType.super
+	do.pass
+		class_type.isDict = (setmetatable({}, {
+			__index=function.pass(type2is:Dict(Truth, Boolean), if_type:Truth):Ret(Boolean)
+				local cur_type = class_type
+				while cur_type do
+					if cur_type == if_type then
+						type2is[if_type] = true
+						return true
+					else
+						cur_type = cur_type.super
+					end
+				end
+				type2is[if_type] = false
+				return false
 			end
-		end
-		return false
+		}) @ Dict(Truth, Boolean))
+	end
+	class_type.is=function.open(v):isguard(C)
+		const nClassType = meta2class[getmetatable(v) or 1]
+		const nIsDict = nClassType and nClassType.isDict
+		return nIsDict and nIsDict[class_type] or false
 	end
 	class_type.meta=meta
 	class2meta[class_type]=meta
