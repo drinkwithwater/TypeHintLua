@@ -4,6 +4,7 @@ const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
+const AutoFunction = require "thlua.func.AutoFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
@@ -279,6 +280,8 @@ function DefaultTableCom:implInterface(vContext:clazz.OperContext, vInterface:cl
 				if nSelfValue:isMember() and TypeFunction.is(nValue) then
 					nField.castValueType = nSelfValue:cast(vContext, nValue)
 				end
+			elseif AutoFunction.is(nSelfValue) then
+				vContext:error("interface function map to a auto function TODO")
 			else
 				if not nValue:includeAll(nSelfValue) then
 					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
@@ -298,6 +301,7 @@ function DefaultTableCom:implInterface(vContext:clazz.OperContext, vInterface:cl
 						nFn:indexAutoFn(self._luaTable)
 					end
 				end
+			elseif AutoFunction.is(nSelfValue) then
 			end
 		end
 	end

@@ -55,7 +55,7 @@ function MetaEventCom:getPairsFunc():Ret(OrFalse(clazz.TypeFunction))
 end
 
 const function buildFieldFromFn(vContext:clazz.OperContext, vEvent:String, vMethodFn:clazz.UAtomUnion,
-	vSelfOrTypeFn:OrNil(clazz.TypeFunction, clazz.LuaTable)):Ret(OrNil(MetaFnField))
+	vTypeFnOrNil:OrNil(clazz.TypeFunction)):Ret(OrNil(MetaFnField))
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
 		return nil
@@ -65,20 +65,28 @@ const function buildFieldFromFn(vContext:clazz.OperContext, vEvent:String, vMeth
 			typeFn=vMethodFn
 		}
 	elseif LuaFunction.is(vMethodFn) then
-		if TypeFunction.is(vSelfOrTypeFn) then
+		if vTypeFnOrNil then
 			return {
 				luaFn=vMethodFn,
-				typeFn=vMethodFn:cast(vContext, vSelfOrTypeFn)
-			}
-		elseif vSelfOrTypeFn then
-			return {
-				luaFn=vMethodFn,
-				autoFn=vMethodFn:autoSpecialize(vContext, vSelfOrTypeFn)
+				typeFn=vMethodFn:cast(vContext, vTypeFnOrNil)
 			}
 		else
 			return {
 				luaFn=vMethodFn,
 				autoFn=vMethodFn:autoSpecialize(vContext, nil)
+			}
+		end
+	elseif AutoFunction.is(vMethodFn) then
+		if vTypeFnOrNil then
+			vMethodFn:checkWhenCast(vContext, vTypeFnOrNil)
+			return {
+				luaFn=vMethodFn,
+				typeFn=vTypeFnOrNil,
+			}
+		else
+			return {
+				luaFn=vMethodFn,
+				autoFn=vMethodFn
 			}
 		end
 	elseif not Nil.is(vMethodFn) then
@@ -115,7 +123,7 @@ function MetaEventCom:initByLuaTable(vContext:clazz.OperContext, vMetaTable:claz
 	self._tostring = buildFieldFromFn(vContext, "__tostring", nStringFn, nStringTypeFn) or false
 	-- 2) __pairs
 	const nPairsFn = vMetaTable:native_rawget(vContext, nManager:Literal("__pairs"))
-	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn, nSelfType @ clazz.LuaTable) or false
+	self._pairs = buildFieldFromFn(vContext, "__pairs", nPairsFn) or false
 end
 
 const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UAllType)):Ret(OrNil(MetaFnField))

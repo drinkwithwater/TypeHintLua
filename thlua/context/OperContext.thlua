@@ -6,6 +6,7 @@ const AutoHolder = require "thlua.auto.AutoHolder"
 const TypeFunction = require "thlua.func.TypeFunction"
 const LuaTable = require "thlua.object.LuaTable"
 const LuaFunction = require "thlua.func.LuaFunction"
+const AutoFunction = require "thlua.func.AutoFunction"
 
 const TermTuple = require "thlua.tuple.TermTuple"
 const AutoFlag = require "thlua.auto.AutoFlag"
@@ -81,10 +82,17 @@ end
 function OperContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
 	const nSrcType = vRawSrcType:checkAtomUnion()
 	const nDstType = vRawDstType:checkAtomUnion()
-	if LuaFunction.is(nSrcType) then
+	if AutoFunction.is(nSrcType) then
 		const nFnPartType = nDstType:fnPartType()
 		if TypeFunction.is(nFnPartType) then
-			return nSrcType:cast(self, nFnPartType)
+			nSrcType:checkWhenCast(self, nFnPartType)
+			return nFnPartType
+		end
+	elseif LuaFunction.is(nSrcType) then
+		const nFnPartType = nDstType:fnPartType()
+		if TypeFunction.is(nFnPartType) then
+			nSrcType:cast(self, nFnPartType)
+			return nFnPartType
 		end
 	else
 		const nSrcTable = nSrcType:objectPartType()
