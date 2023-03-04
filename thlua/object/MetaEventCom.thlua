@@ -4,12 +4,11 @@ const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 const TypeFunction = require "thlua.func.TypeFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
-const LuaFunction = require "thlua.func.LuaFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.MetaFnField = Struct {
-		luaFn=OrFalse(clazz.LuaFunction),
 		typeFn=OrNil(clazz.TypeFunction),
 		autoFn=OrNil(clazz.AutoFunction),
 	}
@@ -61,31 +60,28 @@ const function buildFieldFromFn(vContext:clazz.OperContext, vEvent:String, vMeth
 		return nil
 	elseif TypeFunction.is(vMethodFn) then
 		return {
-			luaFn=false,
 			typeFn=vMethodFn
 		}
-	elseif LuaFunction.is(vMethodFn) then
+	elseif MemberFunction.is(vMethodFn) then
 		if vTypeFnOrNil then
+			const nSelfType = vTypeFnOrNil:getParTuple():get(1)
+			const nAutoFn = vMethodFn:indexAutoFn(nSelfType)
+			nAutoFn:checkWhenCast(vContext, vTypeFnOrNil)
 			return {
-				luaFn=vMethodFn,
-				typeFn=vMethodFn:cast(vContext, vTypeFnOrNil)
+				typeFn=vTypeFnOrNil,
 			}
 		else
-			return {
-				luaFn=vMethodFn,
-				autoFn=vMethodFn:autoSpecialize(vContext, nil)
-			}
+			vContext:error("member function cast to type fn in meta field TODO")
+			return nil
 		end
 	elseif AutoFunction.is(vMethodFn) then
 		if vTypeFnOrNil then
 			vMethodFn:checkWhenCast(vContext, vTypeFnOrNil)
 			return {
-				luaFn=vMethodFn,
 				typeFn=vTypeFnOrNil,
 			}
 		else
 			return {
-				luaFn=vMethodFn,
 				autoFn=vMethodFn
 			}
 		end
@@ -137,7 +133,6 @@ const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UAllType
 		error("meta field "..vEvent.." must be single type-function")
 	else
 		return {
-			luaFn=false,
 			typeFn=vTypeFn
 		}
 	end

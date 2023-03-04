@@ -365,7 +365,6 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 end
 
 function FunctionBuilder:build():Ret(clazz.BaseFunction)
-	const nLuaFunc = self._manager:LuaFunction()
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
 		return self:_buildOpen()
@@ -373,17 +372,10 @@ function FunctionBuilder:build():Ret(clazz.BaseFunction)
 		if self._member then
 			error(Exception.new("class factory can't be member-function-like", self._node))
 		end
-		-- nLuaFunc:lateInit(self._node, self, self:_buildClass())
 		return self:_buildClass()
 	else
-		if self._member then
-			nLuaFunc:setMember()
-			nLuaFunc:lateInit(self._node, self, self:_buildInnerFn())
-		else
-			return self:_buildInnerFn()
-		end
+		return self:_buildInnerFn()
 	end
-	return nLuaFunc
 end
 
 return FunctionBuilder

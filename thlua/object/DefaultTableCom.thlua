@@ -3,7 +3,6 @@ const StringLiteral = require "thlua.type.StringLiteral"
 const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
-const LuaFunction = require "thlua.func.LuaFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
@@ -276,12 +275,11 @@ function DefaultTableCom:implInterface(vContext:clazz.OperContext, vInterface:cl
 		if nSelfKeyAtom then
 			const nField = nSelfFieldDict[nSelfKeyAtom]!
 			const nSelfValue = nField.rawValueType
-			if LuaFunction.is(nSelfValue) then
-				if nSelfValue:isMember() and TypeFunction.is(nValue) then
-					nField.castValueType = nSelfValue:cast(vContext, nValue)
+			if MemberFunction.is(nSelfValue) then
+				if TypeFunction.is(nValue) then
+					nSelfValue:indexAutoFn(self._luaTable):checkWhenCast(vContext, nValue)
+					nField.castValueType = nValue
 				end
-			elseif AutoFunction.is(nSelfValue) then
-				vContext:error("interface function map to a auto function TODO")
 			else
 				if not nValue:includeAll(nSelfValue) then
 					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
@@ -294,12 +292,9 @@ function DefaultTableCom:implInterface(vContext:clazz.OperContext, vInterface:cl
 	for _, nField in pairs(nSelfFieldDict) do
 		if not nField.castValueType then
 			const nSelfValue = nField.rawValueType
-			if LuaFunction.is(nSelfValue) then
-				if nSelfValue:isMember() then
-					const nFn = nSelfValue:getInnerFn()
-					if MemberFunction.is(nFn) and not nFn:needPolyArgs() then
-						nFn:indexAutoFn(self._luaTable)
-					end
+			if MemberFunction.is(nSelfValue) then
+				if not nSelfValue:needPolyArgs() then
+					nSelfValue:indexAutoFn(self._luaTable)
 				end
 			elseif AutoFunction.is(nSelfValue) then
 			end
