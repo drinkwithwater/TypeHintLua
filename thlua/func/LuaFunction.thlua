@@ -4,29 +4,26 @@ const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
 
-const AutoFunction = require "thlua.refer.AutoFunction"
-const ClassFactory = require "thlua.refer.ClassFactory"
+const AutoFunction = require "thlua.func.AutoFunction"
+const ClassFactory = require "thlua.func.ClassFactory"
 const OpenFunction = require "thlua.func.OpenFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 
-const LuaFunction = AtomTypeClass()
+const BaseFunction = require "thlua.func.BaseFunction"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.LuaFunction) LuaFunction.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
-	local self = setmetatable({.class
-		_manager=vManager,
-		_node=false@clazz.IAstNode,
-		_isMember=false@Boolean,
-		_innerFn=false@OrFalse(clazz.ULuaInnerFn),
-		_hintCom=nil@clazz.FunctionBuilder,
-		bits=TYPE_BITS.FUNCTION,
-		name="unknown"@String,
-		id=vManager:genTypeId(),
-	}, LuaFunction)
-	return self
+const LuaFunction = class@<clazz.LuaFunction, false>(BaseFunction)
+
+function.open LuaFunction:ctor(vManager:clazz.TypeManager)
+	self._node=false@clazz.IAstNode
+	self._isMember=false@Boolean
+	self._innerFn=false@OrFalse(clazz.ULuaInnerFn)
+	self._hintCom=nil@clazz.FunctionBuilder
+	self.name="unknown"@String
 end
 
 function LuaFunction:setMember()
@@ -188,10 +185,6 @@ end
 
 function LuaFunction:mayRecursive()
 	return true
-end
-
-function.open LuaFunction.is(vType):isguard(clazz.LuaFunction)
-	return getmetatable(vType) == LuaFunction
 end
 
 return LuaFunction

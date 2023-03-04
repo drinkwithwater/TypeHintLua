@@ -5,23 +5,20 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const Exception = require "thlua.Exception"
 const TermTuple = require "thlua.tuple.TermTuple"
 
-const TypeFunction = AtomTypeClass()
+const BaseFunction = require "thlua.func.BaseFunction"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.TypeFunction) TypeFunction.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
+const TypeFunction = class@<clazz.TypeFunction, false>(BaseFunction)
+
+function.open TypeFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
 	vParTuple:clazz.UTypeTuple, vRetTuples:OrFalse(clazz.RetTuples)
-):impl(clazz.IAtomType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_node=vNode,
-		_buildingRetTuples=vRetTuples,
-		_retTuples=vRetTuples,
-		_parTuple=vParTuple,
-		id=vManager:genTypeId(),
-		bits=TYPE_BITS.FUNCTION,
-	}, TypeFunction)
-	return self
+)
+	self._node=vNode
+	self._buildingRetTuples=vRetTuples
+	self._parTuple=vParTuple
+	self._retTuples=vRetTuples
 end
 
 function TypeFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypeFunction)
@@ -178,10 +175,6 @@ end
 
 function TypeFunction:isSingleton()
 	return false
-end
-
-function.open TypeFunction.is(vType):isguard(clazz.TypeFunction)
-	return getmetatable(vType) == TypeFunction
 end
 
 return TypeFunction

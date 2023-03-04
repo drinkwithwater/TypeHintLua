@@ -4,22 +4,17 @@ const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const TermTuple = require "thlua.tuple.TermTuple"
 const Exception = require "thlua.Exception"
 
-const OpenFunction = AtomTypeClass()
+const BaseFunction = require "thlua.func.BaseFunction"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.OpenFunction) OpenFunction.new(
-	vManager:clazz.TypeManager
-):impl(clazz.IAtomType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_func=nil@OrNil(clazz.OpenCaller),
-		_polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction)),
-		name="unknown"@String,
-		bits=TYPE_BITS.FUNCTION,
-		id=vManager:genTypeId(),
-	}, OpenFunction)
-	return self
+const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
+
+function.open OpenFunction:ctor(vManager:clazz.TypeManager)
+	self._func=nil@OrNil(clazz.OpenCaller)
+	self._polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction))
+	self.name="unknown"@String
 end
 
 function OpenFunction:lateInitFromAutoNative(vNativeFunc:clazz.OpenCaller):Ret(clazz.OpenFunction)
@@ -149,11 +144,7 @@ function OpenFunction:isSingleton()
 end
 
 function OpenFunction:mayRecursive()
-	return true
-end
-
-function.open OpenFunction.is(vType):isguard(clazz.OpenFunction)
-	return getmetatable(vType) == OpenFunction
+	return false
 end
 
 return OpenFunction

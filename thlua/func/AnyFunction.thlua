@@ -6,18 +6,12 @@ const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const LuaFunction = require "thlua.func.LuaFunction"
 
-const AnyFunction = AtomTypeClass()
+const BaseFunction = require "thlua.func.BaseFunction"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.AnyFunction) AnyFunction.new(vManager:clazz.TypeManager):impl(clazz.IAtomType)
-	local self = setmetatable({.class
-		_manager=vManager,
-		bits=TYPE_BITS.FUNCTION,
-		id=vManager:genTypeId(),
-	}, AnyFunction)
-	return self
-end
+const AnyFunction = class@<clazz.AnyFunction, false>(BaseFunction)
 
 function AnyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	return "AnyFunction"
@@ -27,22 +21,12 @@ function AnyFunction:isOpen():Ret(False)
 	return false
 end
 
-function AnyFunction:native_type()
-	return self._manager:Literal("function")
-end
-
 function AnyFunction:meta_call(vContext, vTypeTuple)
 	return self._manager:VoidRetTuples()
 end
 
 function AnyFunction:assumeIncludeAtom(vAssumeSet, vRight)
-	if vRight == self then
-		return self
-	elseif PolyFunction.is(vRight) then
-		return self
-	elseif TypeFunction.is(vRight) then
-		return self
-	elseif LuaFunction.is(vRight) and not vRight:isOpen() then
+	if BaseFunction.is(vRight) then
 		return self
 	else
 		return false
@@ -50,33 +34,15 @@ function AnyFunction:assumeIncludeAtom(vAssumeSet, vRight)
 end
 
 function AnyFunction:assumeIntersectAtom(vAssumeSet, vRight)
-	if vRight == self then
-		return self
-	elseif PolyFunction.is(vRight) then
-		return vRight
-	elseif TypeFunction.is(vRight) then
-		return vRight
-	elseif LuaFunction.is(vRight) and not vRight:isOpen() then
+	if BaseFunction.is(vRight) then
 		return vRight
 	else
 		return false
 	end
 end
 
-function AnyFunction:fnPartType()
-	return self
-end
-
 function AnyFunction:mayRecursive()
 	return false
-end
-
-function AnyFunction:isSingleton()
-	return false
-end
-
-function.open AnyFunction.is(vType):isguard(clazz.AnyFunction)
-	return getmetatable(vType) == AnyFunction
 end
 
 return AnyFunction

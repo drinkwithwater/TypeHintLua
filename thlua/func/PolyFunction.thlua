@@ -3,23 +3,20 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const TypeFunction = require "thlua.func.TypeFunction"
-const AutoFunction = require "thlua.refer.AutoFunction"
-const ClassFactory = require "thlua.refer.ClassFactory"
+const AutoFunction = require "thlua.func.AutoFunction"
+const ClassFactory = require "thlua.func.ClassFactory"
 
-const PolyFunction = AtomTypeClass()
+const BaseFunction = require "thlua.func.BaseFunction"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.PolyFunction) PolyFunction.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer):impl(clazz.IAtomType)
-	local self = setmetatable({.class
-		_manager=vManager,
-		_polyParNum=vPolyParNum,
-		_makerFn=vFunc,
-		_fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory)),
-		bits=TYPE_BITS.FUNCTION,
-		id=vManager:genTypeId(),
-	}, PolyFunction)
-	return self
+const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
+
+function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer)
+	self._polyParNum=vPolyParNum
+	self._makerFn=vFunc
+	self._fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory))
 end
 
 function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
@@ -90,10 +87,6 @@ end
 
 function PolyFunction:isSingleton()
 	return false
-end
-
-function.open PolyFunction.is(vType):isguard(clazz.PolyFunction)
-	return getmetatable(vType) == PolyFunction
 end
 
 return PolyFunction
