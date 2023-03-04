@@ -205,7 +205,7 @@ end
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	const nMakerContext = self._context:newOpenContext(self._node)
 	if self._hasSuffixHint then
-		const nGuardFn = self._manager:OpenFunction()
+		const nGuardFn = self._manager:OpenFunction(self._node)
 		local nSetted = false
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nGuardFn, self._uvCase, nMakerContext, {}, false)
 		const ok, err = pcall(nSuffixHint.caller, {
@@ -236,7 +236,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._manager:OpenFunction():lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
+		return self._manager:OpenFunction(self._node):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, self._uvCase, vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)
 			return nGenFunc()
@@ -364,16 +364,17 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	end
 end
 
-function FunctionBuilder:build():Ret(clazz.LuaFunction)
+function FunctionBuilder:build():Ret(clazz.BaseFunction)
 	const nLuaFunc = self._manager:LuaFunction()
 	const nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		nLuaFunc:lateInit(self._node, self, self:_buildOpen())
+		return self:_buildOpen()
 	elseif nAttrSet.class then
 		if self._member then
 			error(Exception.new("class factory can't be member-function-like", self._node))
 		end
-		nLuaFunc:lateInit(self._node, self, self:_buildClass())
+		-- nLuaFunc:lateInit(self._node, self, self:_buildClass())
+		return self:_buildClass()
 	else
 		if self._member then
 			nLuaFunc:setMember()

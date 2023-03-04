@@ -11,9 +11,10 @@ const class = require "thlua.class"
 
 const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
 
-function.open OpenFunction:ctor(vManager:clazz.TypeManager)
+function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode)
 	self._func=nil@OrNil(clazz.OpenCaller)
 	self._polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction))
+	self._node = vNode
 	self.name="unknown"@String
 end
 
@@ -56,7 +57,7 @@ function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.Op
 		end
 	end
 	const nPolyWrapper:$self._polyWrapper = function(vList)
-		return self._manager:OpenFunction():lateInitFromAutoNative(function(vContext, vTermTuple)
+		return self._manager:OpenFunction(self._node):lateInitFromAutoNative(function(vContext, vTermTuple)
 			if #vList ~= vPolyParNum then
 				vContext:error("poly args number not match")
 			end

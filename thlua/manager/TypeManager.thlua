@@ -104,6 +104,7 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
 		_scheduleManager=nil@clazz.ScheduleManager,
+		_rootNode=vRuntime:getNode(),
 	}, TypeManager)
 	const nRootNode = vRuntime:getNode()
 	self._scheduleManager = ScheduleManager.new()
@@ -501,19 +502,19 @@ function.open TypeManager:_recordTypeUnionSign(vType)
 end
 
 function TypeManager:fixedNativeOpenFunction(vNativeFn:clazz.FixedNativeFunc):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self)
+	const nOpenFn = OpenFunction.new(self, self._rootNode)
 	nOpenFn:lateInitFromFixedNative(vNativeFn)
 	return self:_recordTypeUnionSign(nOpenFn)
 end
 
 function TypeManager:autoNativeOpenFunction(vNativeFn:clazz.OpenCaller):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self)
+	const nOpenFn = OpenFunction.new(self, self._rootNode)
 	nOpenFn:lateInitFromAutoNative(vNativeFn)
 	return self:_recordTypeUnionSign(nOpenFn)
 end
 
-function TypeManager:OpenFunction():Ret(clazz.OpenFunction)
-	return self:_recordTypeUnionSign(OpenFunction.new(self))
+function TypeManager:OpenFunction(vNode:clazz.IAstNode):Ret(clazz.OpenFunction)
+	return self:_recordTypeUnionSign(OpenFunction.new(self, vNode))
 end
 
 function TypeManager:LuaFunction():Ret(clazz.LuaFunction)
