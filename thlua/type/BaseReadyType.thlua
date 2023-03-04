@@ -1,0 +1,171 @@
+
+
+const Exception = require "thlua.Exception"
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+
+const class = require "thlua.class"
+
+(@let.clazz = import("thlua.class").clazz)
+
+const BaseReadyType = class@<clazz.BaseReadyType, clazz.IReadyType>()
+
+function.open BaseReadyType:ctor(vManager:clazz.TypeManager, ...)
+	self._manager = vManager
+	self.id = vManager:genTypeId()
+end
+
+function BaseReadyType:detailString(_, _)
+	return "detailString not implement"
+end
+
+function BaseReadyType.__tostring(self)
+	return self:detailString({}, false)
+end
+
+function BaseReadyType.__bor(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
+	return vLeft._manager:checkedUnion(vLeft, vRight)
+end
+
+function BaseReadyType.__band(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
+	const nTypeOrFalse = vLeft:safeIntersect(vRight)
+	if nTypeOrFalse then
+		return nTypeOrFalse
+	else
+		error("unexpected intersect")
+	end
+end
+
+function BaseReadyType:unionSign()
+	return tostring(self.id)
+end
+
+function BaseReadyType:mayRecursive()
+	return false
+end
+
+function BaseReadyType:getCompletion():Ret(clazz.LspCompletion)
+	return {}
+end
+
+function.pass BaseReadyType:foreach(vFunc)
+	error("foreach not implement")
+end
+
+function BaseReadyType:foreachAwait(vFunc)
+	self:foreach(vFunc)
+end
+
+function BaseReadyType:isReference()
+	return false
+end
+
+------------------------------------
+------------------------------------
+-- relation functions --------------
+------------------------------------
+------------------------------------
+
+function BaseReadyType:intersectAtom(vRight)
+	return self:assumeIntersectAtom(nil, vRight)
+end
+
+function BaseReadyType:includeAtom(vRight)
+	return self:assumeIncludeAtom(nil, vRight)
+end
+
+function BaseReadyType:assumeIntersectSome(vAssumeSet, vRight)
+	local nSomeIntersect:Boolean = false
+	vRight:foreachAwait(function(vSubType)
+		if not nSomeIntersect and self:assumeIntersectAtom(vAssumeSet, vSubType) then
+			nSomeIntersect = true
+		end
+	end)
+	return nSomeIntersect
+end
+
+function BaseReadyType:assumeIncludeAll(vAssumeSet, vRight)
+	local nAllInclude:Boolean = true
+	vRight:foreachAwait(function(vSubType)
+		if nAllInclude and not self:assumeIncludeAtom(vAssumeSet, vSubType) then
+			nAllInclude = false
+		end
+	end)
+	return nAllInclude
+end
+
+function BaseReadyType:intersectSome(vRight)
+	return self:assumeIntersectSome(nil, vRight)
+end
+
+function BaseReadyType:includeAll(vRight)
+	return self:assumeIncludeAll(nil, vRight)
+end
+
+function BaseReadyType:safeIntersect(vRight)
+	const nLeft = self
+	const nRight = vRight:isReference() and vRight:checkAtomUnion() or vRight
+	if not nRight:isUnion() then
+		const nIntersect = nLeft:assumeIntersectAtom(nil, nRight)
+		if nIntersect == true then
+			return false
+		else
+			return nIntersect or self._manager.type.Never
+		end
+	else
+		const nCollection = self._manager:TypeCollection()
+		nRight:foreach(function(vSubType)
+			local nIntersect = nLeft:assumeIntersectAtom(nil, vSubType)
+			if nIntersect then
+				if nIntersect == true then
+					return
+				else
+					nCollection:put(nIntersect)
+				end
+			end
+		end)
+		return nCollection:mergeToAtomUnion()
+	end
+end
+
+function.pass BaseReadyType:assumeIncludeAtom(_, _)
+	error("not implement")
+end
+
+function.pass BaseReadyType:assumeIntersectAtom(_, _)
+	error("not implement")
+end
+
+------------------------------------
+------------------------------------
+-- part type functions -------------
+------------------------------------
+------------------------------------
+function.pass BaseReadyType:isNever()
+	error("not implement")
+end
+
+function.pass BaseReadyType:notnilType()
+	error("not implement")
+end
+
+function.pass BaseReadyType:isNilable()
+	error("not implement")
+end
+
+function.pass BaseReadyType:objectPartType()
+	error("not implement")
+end
+
+function.pass BaseReadyType:fnPartType()
+	error("not implement")
+end
+
+function.pass BaseReadyType:falseType()
+	error("not implement")
+end
+
+function.pass BaseReadyType:trueType()
+	error("not implement")
+end
+
+return BaseReadyType
