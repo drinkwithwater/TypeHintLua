@@ -2,11 +2,11 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
 const Truth = require "thlua.type.Truth"
+
 const AnyFunction = require "thlua.func.AnyFunction"
 const OpenFunction = require "thlua.func.OpenFunction"
-const PolyFunction = require "thlua.func.PolyFunction"
-const LuaFunction = require "thlua.func.LuaFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
+const BaseFunction = require "thlua.func.BaseFunction"
 
 const FuncUnion = UnionClass()
 
@@ -15,10 +15,9 @@ const FuncUnion = UnionClass()
 function:class(clazz.FuncUnion) FuncUnion.new(vManager:clazz.TypeManager):impl(clazz.IUnionType)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_openFnDict={} @Dict(clazz.OpenFunction, True),
+		_notTypeFnDict={} @Dict(clazz.BaseFunction, True),
 		_typeFnDict={} @Dict(clazz.TypeFunction, True),
-		_polyFnDict={} @Dict(clazz.PolyFunction, True),
-		_luaFnDict={} @Dict(clazz.LuaFunction, True),
+		_openFnDict={} @Dict(clazz.OpenFunction, True),
 		_anyFn=false@OrFalse(clazz.AnyFunction),
 		bits=TYPE_BITS.FUNCTION,
 		id=0@Integer,
@@ -35,10 +34,7 @@ function FuncUnion:foreach(vFunc)
 		for nType, _ in pairs(self._typeFnDict) do
 			vFunc(nType)
 		end
-		for nType, _ in pairs(self._polyFnDict) do
-			vFunc(nType)
-		end
-		for nType, _ in pairs(self._luaFnDict) do
+		for nType, _ in pairs(self._notTypeFnDict) do
 			vFunc(nType)
 		end
 	else
@@ -55,20 +51,10 @@ function FuncUnion:putAwait(vType)
 	elseif AnyFunction.is(vType) then
 		self._anyFn = vType
 		do.pass
-			self._polyFnDict = {}
-			self._luaFnDict = {}
+			self._notTypeFnDict = {}
 			self._typeFnDict = {}
 		end
 	-- TODO lua fn may be typefn or polyfn or openfn, deal by case TODO
-	elseif PolyFunction.is(vType) then
-		self._polyFnDict[vType] = true
-	elseif LuaFunction.is(vType) then
-		for nTypeFn, _ in pairs(self._typeFnDict) do
-			if nTypeFn:includeAtom(vType) then
-				return
-			end
-		end
-		self._luaFnDict[vType] = true
 	elseif TypeFunction.is(vType) then
 		-- delete small struct
 		const nDeleteList:List(clazz.TypeFunction) = {}
@@ -86,6 +72,8 @@ function FuncUnion:putAwait(vType)
 			self._typeFnDict[nTypeFn] = nil
 		end
 		self._typeFnDict[vType] = true
+	elseif BaseFunction.is(vType) then
+		self._notTypeFnDict[vType] = true
 	else
 		error("fn-type unexpected")
 	end
@@ -117,22 +105,17 @@ function FuncUnion:assumeIncludeAtom(vAssumeSet, vType)
 		else
 			return false
 		end
-	elseif PolyFunction.is(vType) then
-		if self._polyFnDict[vType] then
+	elseif TypeFunction.is(vType) then
+		for nTypeFn, _ in pairs(self._typeFnDict) do
+			if nTypeFn:assumeIncludeAtom(vAssumeSet, vType) then
+				return nTypeFn
+			end
+		end
+	elseif BaseFunction.is(vType) then
+		if self._notTypeFnDict[vType] then
 			return vType
 		else
 			return false
-		end
-	elseif LuaFunction.is(vType) then
-		if self._luaFnDict[vType] then
-			return vType
-		else
-			return false
-		end
-	end
-	for nTypeFn, _ in pairs(self._typeFnDict) do
-		if nTypeFn:assumeIncludeAtom(vAssumeSet, vType) then
-			return nTypeFn
 		end
 	end
 	return false

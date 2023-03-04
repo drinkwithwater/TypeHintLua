@@ -2,10 +2,8 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 const AtomTypeClass = require "thlua.type.AtomTypeClass"
-const TypeFunction = require "thlua.func.TypeFunction"
-const AutoFunction = require "thlua.func.AutoFunction"
-const ClassFactory = require "thlua.func.ClassFactory"
 
+const MonoFunction = require "thlua.func.MonoFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const class = require "thlua.class"
 
@@ -16,7 +14,7 @@ const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
 function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer)
 	self._polyParNum=vPolyParNum
 	self._makerFn=vFunc
-	self._fnDict = {} @ Dict(String, Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory))
+	self._fnDict = {} @ Dict(String, clazz.MonoFunction)
 end
 
 function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
@@ -31,7 +29,7 @@ function PolyFunction:getPolyParNum():Ret(Integer)
 	return self._polyParNum
 end
 
-function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.TypeFunction, clazz.AutoFunction, clazz.ClassFactory))
+function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.MonoFunction)
 	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
 	for i=1, #vTypeList do
@@ -41,11 +39,12 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(cl
 	const nFn = self._fnDict[nKey]
 	if not nFn then
 		const nResult = (self._makerFn(table.unpack(vTypeList)) @ Any)
-		if (not TypeFunction.is(nResult)) and (not AutoFunction.is(nResult)) and (not ClassFactory.is(nResult)) then
-			error("poly function must return Fn type but got:"..tostring(nResult))
+		if MonoFunction.is(nResult) then
+			self._fnDict[nKey] = nResult
+			return nResult
+		else
+			error("poly function must return mono-function type but got:"..tostring(nResult))
 		end
-		self._fnDict[nKey] = nResult
-		return nResult
 	else
 		return nFn
 	end
@@ -53,11 +52,7 @@ end
 
 function PolyFunction:castPoly(vContext, vTypeList)
 	const nFn = self:noCtxCastPoly(vTypeList)
-	if TypeFunction.is(nFn) then
-		return nFn
-	else
-		return nFn:getFnAwait()
-	end
+	return nFn:getFnAwait()
 end
 
 function PolyFunction:native_type()
