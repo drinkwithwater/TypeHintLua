@@ -18,28 +18,28 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const LuaTable = class@<clazz.LuaTable, false>(BaseAtomType)
+const BaseTable = class@<clazz.BaseTable, false>(BaseAtomType)
 
-function.open LuaTable:ctor(vManager:clazz.TypeManager, vIsOpen:OrNil(Boolean))
+function.open BaseTable:ctor(vManager:clazz.TypeManager)
 	self._name="Table"@String
-	self._metaTable=false@OrFalse(clazz.LuaTable)
+	self._metaTable=false@OrFalse(clazz.BaseTable)
 	self.bits=TYPE_BITS.OBJECT
 	self._metaEventCom=false@OrFalse(clazz.MetaEventCom)
 	self._classCom=false@OrFalse(clazz.ClassFactory)
-	self._baseClass=false@OrFalse(clazz.LuaTable)
+	self._baseClass=false@OrFalse(clazz.BaseTable)
 	self._objectType=false@OrFalse(clazz.MetaObject)
 	self._tableCom = DefaultTableCom.new(self._manager, self)
 end
 
-function LuaTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
+function BaseTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._tableCom:initByKeyValue(vKeyType, vValueDict)
 end
 
-function LuaTable:getInterface()
+function BaseTable:getInterface()
 	return self._objectType
 end
 
-function LuaTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(clazz.LuaTable), vInterface:clazz.MetaObject)
+function BaseTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(clazz.BaseTable), vInterface:clazz.MetaObject)
 	const nTableCom = self._tableCom
 	if DefaultTableCom.is(nTableCom) then
 		self._classCom = vFnCom
@@ -51,11 +51,11 @@ function LuaTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(c
 	end
 end
 
-function LuaTable:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
+function BaseTable:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
 end
 
-function LuaTable:_lockOrWaitClass(vContext:clazz.OperContext)
+function BaseTable:_lockOrWaitClass(vContext:clazz.OperContext)
 	const nClassCom = self._classCom
 	if nClassCom then
 		nClassCom:waitBuild()
@@ -68,15 +68,15 @@ function LuaTable:_lockOrWaitClass(vContext:clazz.OperContext)
 	end
 end
 
-function LuaTable:detailString(v, vVerbose)
-	return "LuaTable-"..self._name
+function BaseTable:detailString(v, vVerbose)
+	return "BaseTable-"..self._name
 end
 
-function LuaTable:setName(vName:String)
+function BaseTable:setName(vName:String)
 	self._name = vName
 end
 
-function LuaTable:meta_pairs(vContext)
+function BaseTable:meta_pairs(vContext)
 	self:_lockOrWaitClass(vContext)
 	const nCom = self._metaEventCom
 	if nCom then
@@ -98,16 +98,16 @@ function LuaTable:meta_pairs(vContext)
 	end
 end
 
-function LuaTable:meta_ipairs(vContext)
+function BaseTable:meta_ipairs(vContext)
 	self:_lockOrWaitClass(vContext)
 	return false
 end
 
-function LuaTable:native_next(vContext, vInitType)
+function BaseTable:native_next(vContext, vInitType)
 	return self:_checkComOrStruct(vContext):native_next(vContext, vInitType)
 end
 
-function LuaTable:native_setmetatable(vContext, vMetaTableType)
+function BaseTable:native_setmetatable(vContext, vMetaTableType)
 	if self._metaTable then
 		vContext:error("can only setmetatable once for one table")
 		return
@@ -116,7 +116,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- 1. copyout meta event items
 	assert(not self._metaEventCom, "meta event has been setted")
 	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	nMetaEventCom:initByLuaTable(vContext, vMetaTableType)
+	nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
 	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager
@@ -136,34 +136,34 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	return
 end
 
-function LuaTable:lockAsMetaIndex()
+function BaseTable:lockAsMetaIndex()
 	return self._tableCom:lockAndGet()
 end
 
-function LuaTable:lockAsMetaNewIndex()
+function BaseTable:lockAsMetaNewIndex()
 	return self._tableCom:lockAndGet()
 end
 
-function LuaTable:native_getmetatable(vContext)
+function BaseTable:native_getmetatable(vContext)
 	self:_lockOrWaitClass(vContext)
 	return self._metaTable or self._manager.type.Nil
 end
 
-function LuaTable:native_type()
+function BaseTable:native_type()
 	return self._manager:Literal("table")
 end
 
-function LuaTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
+function BaseTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	self:_lockOrWaitClass(vContext)
 	return self._tableCom:native_rawget(vContext, vKeyType)
 end
 
-function LuaTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
+function BaseTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
 	self:_lockOrWaitClass(vContext)
 	return self._tableCom:native_rawset(vContext, vKeyType, vValueType)
 end
 
-function LuaTable:_checkComOrStruct(vContext:clazz.OperContext):Ret(clazz.IMetaNative)
+function BaseTable:_checkComOrStruct(vContext:clazz.OperContext):Ret(clazz.IMetaNative)
 	self:_lockOrWaitClass(vContext)
 	if self._classCom then
 		return self._tableCom
@@ -178,26 +178,26 @@ function LuaTable:_checkComOrStruct(vContext:clazz.OperContext):Ret(clazz.IMetaN
 	end
 end
 
-function LuaTable:meta_get(vContext, vKeyType)
+function BaseTable:meta_get(vContext, vKeyType)
 	return self:_checkComOrStruct(vContext):meta_get(vContext, vKeyType)
 end
 
-function LuaTable:meta_set(vContext, vKeyType, vValueType)
+function BaseTable:meta_set(vContext, vKeyType, vValueType)
 	self:_checkComOrStruct(vContext):meta_set(vContext, vKeyType, vValueType)
 end
 
-function LuaTable:meta_len(vContext)
+function BaseTable:meta_len(vContext)
 	-- TODO
 	return self._manager.type.Number
 end
 
-function LuaTable:meta_uop_some(vContext, vOper)
+function BaseTable:meta_uop_some(vContext, vOper)
 	self:_lockOrWaitClass(vContext)
 	vContext:error("meta uop TODO:"..tostring(vOper))
 	return self._manager.type.Never
 end
 
-function LuaTable:meta_bop_func(vContext, vOper)
+function BaseTable:meta_bop_func(vContext, vOper)
 	self:_lockOrWaitClass(vContext)
 	const nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
 	const nCom = self._metaEventCom
@@ -210,16 +210,16 @@ function LuaTable:meta_bop_func(vContext, vOper)
 	return false, nil
 end
 
-function LuaTable:isSingleton()
+function BaseTable:isSingleton()
 	return false
 end
 
-function LuaTable:getBaseClass()
+function BaseTable:getBaseClass()
 	return self._baseClass
 end
 
-function LuaTable:assumeIncludeAtom(vAssumeSet, vType)
-	if LuaTable.is(vType) then
+function BaseTable:assumeIncludeAtom(vAssumeSet, vType)
+	if BaseTable.is(vType) then
 		local nMatchTable = vType
 		while nMatchTable ~= self do
 			const nBaseClass = nMatchTable:getBaseClass()
@@ -236,7 +236,7 @@ function LuaTable:assumeIncludeAtom(vAssumeSet, vType)
 	end
 end
 
-function LuaTable:assumeIntersectAtom(vAssumeSet, vType)
+function BaseTable:assumeIntersectAtom(vAssumeSet, vType)
 	if vType:assumeIncludeAtom(nil, self) then
 		return self
 	elseif self:assumeIncludeAtom(nil, vType) then
@@ -246,7 +246,7 @@ function LuaTable:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function LuaTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
+function BaseTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
 	if self._classCom then
 		return false
 	end
@@ -273,16 +273,16 @@ function LuaTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjec
 	return nMatchStruct
 end
 
-function LuaTable:objectPartType()
+function BaseTable:objectPartType()
 	return self
 end
 
-function LuaTable:mayRecursive()
+function BaseTable:mayRecursive()
 	return true
 end
 
 -- called when struct include
-function LuaTable:checkBaseObjectType()
+function BaseTable:checkBaseObjectType()
 	if self._classCom then
 		return (assert(self._objectType))
 	end
@@ -294,8 +294,8 @@ function LuaTable:checkBaseObjectType()
 	return self._manager.type.AnyObject
 end
 
-function LuaTable:getCompletion():Ret(clazz.LspCompletion)
+function BaseTable:getCompletion():Ret(clazz.LspCompletion)
 	return self._tableCom:getCompletion()
 end
 
-return LuaTable
+return BaseTable

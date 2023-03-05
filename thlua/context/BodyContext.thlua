@@ -15,7 +15,7 @@ const TypeFunction = require "thlua.func.TypeFunction"
 const OpenFunction = require "thlua.func.OpenFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const AnyFunction = require "thlua.func.AnyFunction"
-const LuaTable = require "thlua.object.LuaTable"
+const BaseTable = require "thlua.object.BaseTable"
 const MetaObject = require "thlua.object.MetaObject"
 const Truth = require "thlua.type.Truth"
 
@@ -40,7 +40,7 @@ function.open BodyContext:ctor(
 	...
 )
 	self._region=false@OrFalse(clazz.Region)
-	self._classTable=false @ OrFalse(clazz.LuaTable)
+	self._classTable=false @ OrFalse(clazz.BaseTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headOper=OperContext.new(vRuntime, vNode, self)
 	self._tailOper=OperContext.new(vRuntime, vNode, self)
@@ -59,11 +59,11 @@ function BodyContext:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
 	return AutoFlag
 end
 
-function BodyContext:setClassTable(vClassTable:clazz.LuaTable)
+function BodyContext:setClassTable(vClassTable:clazz.BaseTable)
 	self._classTable = vClassTable
 end
 
-function BodyContext:getClassTable():Ret(OrFalse(clazz.LuaTable))
+function BodyContext:getClassTable():Ret(OrFalse(clazz.BaseTable))
 	return self._classTable
 end
 
@@ -450,7 +450,7 @@ function BodyContext:FUNC_NEW(vNode:clazz.IAstNode,
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function BodyContext:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.LuaTable)
+function BodyContext:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.BaseTable)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	return nBuilder:build()
 end

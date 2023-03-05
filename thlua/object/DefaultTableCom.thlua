@@ -21,14 +21,14 @@ const DefaultTableCom = {}
 DefaultTableCom.__index = DefaultTableCom
 
 function:class(clazz.DefaultTableCom) DefaultTableCom.new(vManager:clazz.TypeManager,
-	vLuaTable:clazz.LuaTable):impl(clazz.IMetaNative)
+	vBaseTable:clazz.BaseTable):impl(clazz.IMetaNative)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_keyType=vManager.type.Never @clazz.UAtomUnion,
 		_fieldDict={}@Dict(clazz.IAtomType, TableField),
 		_nextValue=false@Union(False, clazz.UAtomUnion),
 		_nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion)),
-		_luaTable=vLuaTable,
+		_luaTable=vBaseTable,
 		_isBasingDefault=false@Boolean,
 		_interface=false@OrFalse(clazz.MetaObject),
 	}, DefaultTableCom)
@@ -307,13 +307,13 @@ function DefaultTableCom:castStruct(vContext:clazz.OperContext, vObjectAtomUnion
 		return false
 	end
 	local nFinalMatchStruct:OrFalse(clazz.MetaObject) = false
-	local nFinalMatchCastList:List(Struct {clazz.LuaTable, clazz.UAllType}) = {}
+	local nFinalMatchCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
 	vObjectAtomUnion:foreach(function(vAtomType)
 		if not MetaObject.is(vAtomType) then return end
 		if vAtomType:isInterface() then return end
 		const nCopyValueDict = vAtomType:copyValueDict()
 		local nMatchSucc = true
-		const nCastList:List(Struct {clazz.LuaTable, clazz.UAllType}) = {}
+		const nCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
 		self:foreachGetPair(function(vTableKey, vTableValue)
 			if not nMatchSucc then
 				return
@@ -323,7 +323,7 @@ function DefaultTableCom:castStruct(vContext:clazz.OperContext, vObjectAtomUnion
 				nMatchSucc = false
 				return
 			end
-			const nIsTable, nTableToCast = self._manager:tryLuaTable(vTableValue)
+			const nIsTable, nTableToCast = self._manager:tryBaseTable(vTableValue)
 			if not nIsTable then
 				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:includeAll(vTableValue)
 				if not nOneMatchSucc then

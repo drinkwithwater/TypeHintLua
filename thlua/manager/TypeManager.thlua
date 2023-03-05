@@ -14,7 +14,7 @@ const Nil = require "thlua.type.Nil"
 const Thread = require "thlua.type.Thread"
 const Truth = require "thlua.type.Truth"
 const MetaObject = require "thlua.object.MetaObject"
-const LuaTable = require "thlua.object.LuaTable"
+const BaseTable = require "thlua.object.BaseTable"
 const OpenTable = require "thlua.object.OpenTable"
 const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
@@ -165,7 +165,7 @@ const AtomMetatableSet:Dict(Truth, String) = {
 	[BooleanLiteral]="BooleanLiteral",
 	[Thread]="Thread",
 	[Truth]="Truth",
-	[LuaTable]="LuaTable",
+	[BaseTable]="BaseTable",
 	[MetaObject]="MetaObject",
 	[TypeFunction]="TypeFunction",
 	[PolyFunction]="PolyFunction",
@@ -196,11 +196,11 @@ function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(clazz.
 	end
 end
 
-function TypeManager:tryLuaTable(vType:clazz.UAllType):Ret(False):Ret(True, clazz.LuaTable)
+function TypeManager:tryBaseTable(vType:clazz.UAllType):Ret(False):Ret(True, clazz.BaseTable)
 	if Reference.is(vType) then
 		vType = vType:checkAtomUnion()
 	end
-	if not LuaTable.is(vType) then
+	if not BaseTable.is(vType) then
 		return false
 	else
 		return true, vType
@@ -209,7 +209,7 @@ end
 
 function TypeManager:basingByDefault(vType:clazz.UAtomUnion)
 	vType:foreach(function(vAtomType)
-		if LuaTable.is(vAtomType) then
+		if BaseTable.is(vAtomType) then
 			vAtomType:checkBaseObjectType()
 		end
 	end)
@@ -516,8 +516,8 @@ function TypeManager:OpenFunction(vNode:clazz.IAstNode):Ret(clazz.OpenFunction)
 	return self:_recordTypeUnionSign(OpenFunction.new(self, vNode))
 end
 
-function TypeManager:LuaTable(vIsOpen:OrNil(Boolean)):Ret(clazz.LuaTable)
-	return self:_recordTypeUnionSign(LuaTable.new(self, vIsOpen))
+function TypeManager:BaseTable():Ret(clazz.BaseTable)
+	return self:_recordTypeUnionSign(BaseTable.new(self))
 end
 
 function TypeManager:OpenTable():Ret(clazz.OpenTable)
@@ -646,7 +646,7 @@ function TypeManager:TypeFunction(vNode:clazz.IAstNode, vParTuple:clazz.UTypeTup
 	return self:_recordTypeUnionSign(nFunc)
 end
 
-function TypeManager:makeMetaEventCom(vObject:Union(clazz.LuaTable, clazz.MetaObject)):Ret(clazz.MetaEventCom)
+function TypeManager:makeMetaEventCom(vObject:Union(clazz.BaseTable, clazz.MetaObject)):Ret(clazz.MetaEventCom)
 	return MetaEventCom.new(self, vObject)
 end
 

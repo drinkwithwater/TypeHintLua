@@ -7,8 +7,8 @@ const class = require "thlua.class"
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.BuildRunner = Fn(clazz.ClassFactory):Ret(
-		OrFalse(clazz.LuaTable), clazz.MetaObject,
-		Fn(clazz.LuaTable):Ret(
+		OrFalse(clazz.BaseTable), clazz.MetaObject,
+		Fn(clazz.BaseTable):Ret(
 			OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)
 		)
 	)
@@ -23,7 +23,7 @@ function.open ClassFactory:ctor(vManager:clazz.TypeManager, ...)
 	const nTask = self._task
 	self._classStartEvent=nTask:makeEvent()
 	self._classFinishEvent=nTask:makeEvent()
-	self._classType=false@OrFalse(clazz.LuaTable)
+	self._classType=false@OrFalse(clazz.BaseTable)
 end
 
 function ClassFactory:getToString():Ret(String)
@@ -63,7 +63,7 @@ function ClassFactory:_build(vRunner:BuildRunner)
 	-- step 1. wait inteface
 	const nBaseClass, nInterface, nPreRunner = vRunner(self)
 	-- step 2. create table
-	const nNewTable = self._manager:LuaTable()
+	const nNewTable = self._manager:BaseTable()
 	nNewTable:initByClassCom(self, nBaseClass, nInterface)
 	self._classType = nNewTable
 	self._classStartEvent:wakeup()

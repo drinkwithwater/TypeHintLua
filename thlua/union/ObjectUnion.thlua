@@ -1,7 +1,7 @@
 
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
-const LuaTable = require "thlua.object.LuaTable"
+const BaseTable = require "thlua.object.BaseTable"
 const MetaObject = require "thlua.object.MetaObject"
 const Truth = require "thlua.type.Truth"
 
@@ -13,7 +13,7 @@ function:class(clazz.ObjectUnion) ObjectUnion.new(vManager:clazz.TypeManager):im
 	const self = setmetatable({.class
 		_manager=vManager,
 		_structDict={} @Dict(clazz.MetaObject, True),
-		_luaTableDict={} @Dict(clazz.LuaTable, True),
+		_luaTableDict={} @Dict(clazz.BaseTable, True),
 		bits=TYPE_BITS.OBJECT,
 		id=0@Integer,
 	}, ObjectUnion)
@@ -35,14 +35,14 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 	end
 	if MetaObject.is(vType) then
 		-- delete small lua table
-		const nDeleteList1:List(clazz.LuaTable) = {}
-		for nLuaTable, _ in pairs(self._luaTableDict) do
-			if vType:includeAtom(nLuaTable) then
-				nDeleteList1[#nDeleteList1 + 1] = nLuaTable
+		const nDeleteList1:List(clazz.BaseTable) = {}
+		for nBaseTable, _ in pairs(self._luaTableDict) do
+			if vType:includeAtom(nBaseTable) then
+				nDeleteList1[#nDeleteList1 + 1] = nBaseTable
 			end
 		end
-		for _, nLuaTable in pairs(nDeleteList1) do
-			self._luaTableDict[nLuaTable] = nil
+		for _, nBaseTable in pairs(nDeleteList1) do
+			self._luaTableDict[nBaseTable] = nil
 		end
 		-- delete small struct
 		const nDeleteList2:List(clazz.MetaObject) = {}
@@ -60,7 +60,7 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 			self._structDict[nStruct] = nil
 		end
 		self._structDict[vType] = true
-	elseif LuaTable.is(vType) then
+	elseif BaseTable.is(vType) then
 		for nStructType, _ in pairs(self._structDict) do
 			if nStructType:includeAtom(vType) then
 				return
@@ -76,7 +76,7 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
 		return self
 	end
-	if not MetaObject.is(vType) and not LuaTable.is(vType) then
+	if not MetaObject.is(vType) and not BaseTable.is(vType) then
 		return false
 	end
 	const nCollection = self._manager:TypeCollection()
@@ -108,7 +108,7 @@ function ObjectUnion:mayRecursive()
 end
 
 function ObjectUnion:assumeIncludeAtom(vAssumeSet, vType)
-	if LuaTable.is(vType) then
+	if BaseTable.is(vType) then
 		for nTable, _ in pairs(self._luaTableDict) do
 			if nTable:assumeIncludeAtom(vAssumeSet, vType) then
 				return nTable

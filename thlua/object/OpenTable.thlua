@@ -4,7 +4,7 @@ const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 
-const LuaTable = require "thlua.object.LuaTable"
+const BaseTable = require "thlua.object.BaseTable"
 const class = require "thlua.class"
 
 (@do
@@ -15,7 +15,7 @@ const class = require "thlua.class"
 	}
 end)
 
-const OpenTable = class@<clazz.OpenTable, false>(LuaTable)
+const OpenTable = class@<clazz.OpenTable, false>(BaseTable)
 
 function.open OpenTable:ctor(vManager:clazz.TypeManager)
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
@@ -57,7 +57,7 @@ function OpenTable:native_setmetatable(vContext, vMetaTableType)
 	-- 1. copyout meta event items
 	assert(not self._metaEventCom, "meta event has been setted")
 	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	nMetaEventCom:initByLuaTable(vContext, vMetaTableType)
+	nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
 	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager

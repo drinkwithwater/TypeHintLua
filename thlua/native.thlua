@@ -1,6 +1,6 @@
 
 local TypeFunction = require "thlua.func.TypeFunction"
-local LuaTable = require "thlua.object.LuaTable"
+local BaseTable = require "thlua.object.BaseTable"
 local Truth = require "thlua.type.Truth"
 local StringLiteral = require "thlua.type.StringLiteral"
 local NumberLiteral = require "thlua.type.NumberLiteral"
@@ -15,7 +15,7 @@ local native = {}
 	let.StringToAtomUnion = Dict(String, clazz.UAtomUnion)
 end)
 
-function native._toTable(vManager:clazz.TypeManager, vTable:StringToAtomUnion):Ret(clazz.LuaTable)
+function native._toTable(vManager:clazz.TypeManager, vTable:StringToAtomUnion):Ret(clazz.BaseTable)
 	local nPairList:List(Struct{clazz.UAtomUnion, clazz.UAtomUnion}) = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
@@ -23,12 +23,12 @@ function native._toTable(vManager:clazz.TypeManager, vTable:StringToAtomUnion):R
 		}
 	end
   local nKeyUnion, nTypeDict = vManager:mergePairList@<clazz.UAtomUnion>(nPairList)
-	local nTable = vManager:LuaTable()
+	local nTable = vManager:BaseTable()
 	nTable:initByKeyValue(nKeyUnion, nTypeDict)
 	return nTable
 end
 
-function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
+function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 	const nManager = vRuntime:getTypeManager()
 	const global:StringToAtomUnion = {
 		--- meta_native
@@ -41,7 +41,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 			else
 				nType1 = nType1:checkAtomUnion()
 				nType2 = nType2:checkAtomUnion()
-				if LuaTable.is(nType2) then
+				if BaseTable.is(nType2) then
 					nManager:basingByDefault(nType2)
 					nType1:native_setmetatable(vContext, nType2)
 				else
@@ -231,7 +231,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.LuaTable)
 	return nGlobalTable
 end
 
-function native.make_math(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_math(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const type = vManager.type
 	const math:StringToAtomUnion = {
 		random=vManager:checkedFn():Dots(type.Number):Ret(type.Number),
@@ -244,7 +244,7 @@ function native.make_math(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	return nTable
 end
 
-function native.make_debug(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_debug(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	-- debug.traceback's arguments TODO
 	const type = vManager.type
 	const nInfo = vManager:buildStruct(vManager:getRuntime():getNode(), {
@@ -272,7 +272,7 @@ function native.make_debug(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	return nTable
 end
 
-function native.make_io(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_io(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const type = vManager.type
 	const io:StringToAtomUnion = {
 		read=vManager:checkedFn(vManager:checkedUnion(type.String, type.Number)):Ret(vManager:checkedUnion(type.String, type.Nil)),
@@ -284,7 +284,7 @@ function native.make_io(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	return nTable
 end
 
-function native.make_coroutine(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_coroutine(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const type = vManager.type
 	const nStatusUnion = vManager:checkedUnion(
 		vManager:Literal("running"),
@@ -304,7 +304,7 @@ function native.make_coroutine(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	return nTable
 end
 
-function native.make_os(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_os(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const type = vManager.type
 	const string:StringToAtomUnion = {
 		clock=vManager:checkedFn():Ret(type.Number),
@@ -314,7 +314,7 @@ function native.make_os(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	return nTable
 end
 
-function native.make_string(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_string(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const type = vManager.type
 	const string:StringToAtomUnion = {
 		rep=vManager:checkedFn(type.String, type.Integer, vManager:checkedUnion(type.String, type.Integer, type.Nil)):Ret(type.String),
@@ -333,7 +333,7 @@ function native.make_string(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
 	return nTable
 end
 
-function native.make_table(vManager:clazz.TypeManager):Ret(clazz.LuaTable)
+function native.make_table(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const function checkList(vContext:clazz.OperContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
