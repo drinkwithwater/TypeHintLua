@@ -10,35 +10,25 @@ const MetaEventCom = require "thlua.object.MetaEventCom"
 const MetaObject = require "thlua.object.MetaObject"
 
 const DefaultTableCom = require "thlua.object.DefaultTableCom"
-const OpenTableCom = require "thlua.object.OpenTableCom"
 
-const LuaTable = AtomTypeClass()
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	clazz.UTableCom = Union(clazz.DefaultTableCom, clazz.OpenTableCom)
 end)
 
-function:class(clazz.LuaTable) LuaTable.new(vManager:clazz.TypeManager, vIsOpen:OrNil(Boolean)):impl(clazz.IAtomType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_name="Table"@String,
-		_unionSign=false,
-		_metaTable=false@OrFalse(clazz.LuaTable),
-		bits=TYPE_BITS.OBJECT,
-		id=vManager:genTypeId(),
-		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
-		_tableCom=nil@clazz.UTableCom,
-		_classCom=false@OrFalse(clazz.ClassFactory),
-		_baseClass=false@OrFalse(clazz.LuaTable),
-		_objectType=false@OrFalse(clazz.MetaObject),
-	}, LuaTable)
-	if vIsOpen then
-		self._tableCom=OpenTableCom.new(self._manager, self)
-	else
-		self._tableCom=DefaultTableCom.new(self._manager, self)
-	end
-	return self
+const LuaTable = class@<clazz.LuaTable, false>(BaseAtomType)
+
+function.open LuaTable:ctor(vManager:clazz.TypeManager, vIsOpen:OrNil(Boolean))
+	self._name="Table"@String
+	self._metaTable=false@OrFalse(clazz.LuaTable)
+	self.bits=TYPE_BITS.OBJECT
+	self._metaEventCom=false@OrFalse(clazz.MetaEventCom)
+	self._classCom=false@OrFalse(clazz.ClassFactory)
+	self._baseClass=false@OrFalse(clazz.LuaTable)
+	self._objectType=false@OrFalse(clazz.MetaObject)
+	self._tableCom = DefaultTableCom.new(self._manager, self)
 end
 
 function LuaTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
@@ -63,10 +53,6 @@ end
 
 function LuaTable:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
-end
-
-function LuaTable:getTableCom():Ret(clazz.UTableCom)
-	return self._tableCom
 end
 
 function LuaTable:_lockOrWaitClass(vContext:clazz.OperContext)
@@ -130,7 +116,7 @@ function LuaTable:native_setmetatable(vContext, vMetaTableType)
 	-- 1. copyout meta event items
 	assert(not self._metaEventCom, "meta event has been setted")
 	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	nMetaEventCom:initByLuaTable(vContext, vMetaTableType:getTableCom())
+	nMetaEventCom:initByLuaTable(vContext, vMetaTableType)
 	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager
@@ -225,11 +211,7 @@ function LuaTable:meta_bop_func(vContext, vOper)
 end
 
 function LuaTable:isSingleton()
-	if OpenTableCom.is(self._tableCom) then
-		return true
-	else
-		return false
-	end
+	return false
 end
 
 function LuaTable:getBaseClass()
@@ -314,10 +296,6 @@ end
 
 function LuaTable:getCompletion():Ret(clazz.LspCompletion)
 	return self._tableCom:getCompletion()
-end
-
-function.open LuaTable.is(v):isguard(clazz.LuaTable)
-	return getmetatable(v) == LuaTable
 end
 
 return LuaTable

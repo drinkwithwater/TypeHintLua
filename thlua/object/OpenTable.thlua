@@ -4,6 +4,9 @@ const MetaObject = require "thlua.object.MetaObject"
 const TypeFunction = require "thlua.func.TypeFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 
+const LuaTable = require "thlua.object.LuaTable"
+const class = require "thlua.class"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.OpenTableField = Struct {
@@ -12,25 +15,18 @@ const MemberFunction = require "thlua.func.MemberFunction"
 	}
 end)
 
-const OpenTableCom = {}
-OpenTableCom.__index = OpenTableCom
+const OpenTable = class@<clazz.OpenTable, false>(LuaTable)
 
-function:class(clazz.OpenTableCom) OpenTableCom.new(vManager:clazz.TypeManager,
-	vLuaTable:clazz.LuaTable):impl(clazz.IMetaNative)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_keyType=vManager.type.Never @clazz.UAtomUnion,
-		_fieldDict={}@Dict(clazz.IAtomType, OpenTableField),
-		_indexType=false@OrFalse(clazz.IAtomType),
-		_newIndexType=false@OrFalse(clazz.IAtomType),
-		_nextValue=false@Union(False, clazz.UAtomUnion),
-		_nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion)),
-		_luaTable=vLuaTable,
-	}, OpenTableCom)
-	return self
+function.open OpenTable:ctor(vManager:clazz.TypeManager)
+	self._keyType=vManager.type.Never @clazz.UAtomUnion
+	self._fieldDict={}@Dict(clazz.IAtomType, OpenTableField)
+	self._indexType=false@OrFalse(clazz.IAtomType)
+	self._newIndexType=false@OrFalse(clazz.IAtomType)
+	self._nextValue=false@Union(False, clazz.UAtomUnion)
+	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 end
 
-function OpenTableCom:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
+function OpenTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
@@ -40,13 +36,41 @@ function OpenTableCom:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(
 	end
 end
 
-function OpenTableCom:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
-	self._keyType:foreach(function(vType)
-		vFunc(vType, self._fieldDict[vType]!.valueType)
-	end)
+function OpenTable:lockAsMetaIndex()
+	return self:lockAndGet()
 end
 
-function OpenTableCom:meta_set(vContext, vKeyType, vValueType)
+function OpenTable:lockAsMetaNewIndex()
+	return self:lockAndGet()
+end
+
+function OpenTable:native_getmetatable(vContext)
+	return self._metaTable or self._manager.type.Nil
+end
+
+function OpenTable:native_setmetatable(vContext, vMetaTableType)
+	if self._metaTable then
+		vContext:error("can only setmetatable once for one table")
+		return
+	end
+	self._metaTable = vMetaTableType
+	-- 1. copyout meta event items
+	assert(not self._metaEventCom, "meta event has been setted")
+	const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	nMetaEventCom:initByLuaTable(vContext, vMetaTableType)
+	self._metaEventCom = nMetaEventCom
+	-- 2. copyout index/newindex event items
+	local nManager = self._manager
+	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
+	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	-- 3. set default com
+	self:setMetaIndex(
+		vContext,
+		not nIndexType:isNever() and nIndexType or false,
+		not nNewIndexType:isNever() and nNewIndexType or false)
+end
+
+function OpenTable:meta_set(vContext, vKeyType, vValueType)
 	if not vKeyType:isSingleton() then
 		vContext:error("open table's key must be singleton type")
 		return
@@ -66,7 +90,7 @@ function OpenTableCom:meta_set(vContext, vKeyType, vValueType)
 	else
 		const nNewIndexType = self._newIndexType
 		if nNewIndexType then
-			nNewIndexType:triggerAsMetaNewIndex(vContext, vContext:RefineTerm(self._luaTable),
+			nNewIndexType:triggerAsMetaNewIndex(vContext, vContext:RefineTerm(self),
 				vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType))
 			return
 		end
@@ -74,7 +98,7 @@ function OpenTableCom:meta_set(vContext, vKeyType, vValueType)
 	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
-function OpenTableCom:meta_get(vContext, vKeyType)
+function OpenTable:meta_get(vContext, vKeyType)
 	-- TODO trigger meta index
 	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
@@ -84,14 +108,14 @@ function OpenTableCom:meta_get(vContext, vKeyType)
 	else
 		const nIndexType = self._indexType
 		if nIndexType then
-			const nType = nIndexType:triggerAsMetaIndex(vContext, vContext:RefineTerm(self._luaTable), vContext:RefineTerm(vKeyType)):getType()
+			const nType = nIndexType:triggerAsMetaIndex(vContext, vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)):getType()
 			return assert(nType):checkAtomUnion()
 		end
 		return self:native_rawget(vContext, vKeyType)
 	end
 end
 
-function OpenTableCom:native_rawset(vContext, vKeyType, vValueType)
+function OpenTable:native_rawset(vContext, vKeyType, vValueType)
 	const nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
@@ -112,7 +136,7 @@ function OpenTableCom:native_rawset(vContext, vKeyType, vValueType)
 	end
 end
 
-function OpenTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
+function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
@@ -128,7 +152,7 @@ function OpenTableCom:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	end
 end
 
-function OpenTableCom:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(clazz.UAtomUnion), vNewIndexType:OrFalse(clazz.UAtomUnion))
+function OpenTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(clazz.UAtomUnion), vNewIndexType:OrFalse(clazz.UAtomUnion))
 	if vIndexType then
 		if not vIndexType:isUnion() then
 			self._indexType = vIndexType
@@ -145,7 +169,7 @@ function OpenTableCom:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFals
 	end
 end
 
-function OpenTableCom:native_next(vContext, vInitType)
+function OpenTable:native_next(vContext, vInitType)
 	local nNextDict = self._nextDict
 	local nValueType = self._nextValue
 	if not nNextDict or not nValueType then
@@ -171,7 +195,7 @@ function OpenTableCom:native_next(vContext, vInitType)
 	return nValueType, nNextDict
 end
 
-function OpenTableCom:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
+function OpenTable:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
 		nDict[k] = nField.valueType
@@ -179,14 +203,22 @@ function OpenTableCom:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, c
 	return self._keyType, nDict
 end
 
-function OpenTableCom:basingByDefault()
+function OpenTable:basingByDefault()
 end
 
-function OpenTableCom:castStruct(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
+function OpenTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
 	return false
 end
 
-function OpenTableCom:getCompletion():Ret(clazz.LspCompletion)
+function OpenTable:checkBaseObjectType()
+	return self._manager.type.AnyObject
+end
+
+function OpenTable:castStruct(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
+	return false
+end
+
+function OpenTable:getCompletion():Ret(clazz.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
 		if StringLiteral.is(vType) then
@@ -196,8 +228,8 @@ function OpenTableCom:getCompletion():Ret(clazz.LspCompletion)
 	return nDict
 end
 
-function.open OpenTableCom.is(v):isguard(clazz.OpenTableCom)
-	return getmetatable(v) == OpenTableCom
+function OpenTable:isSingleton()
+	return true
 end
 
-return OpenTableCom
+return OpenTable
