@@ -31,6 +31,9 @@ function.open SealTable:ctor(vManager:clazz.TypeManager)
 	self._interface=false@OrFalse(clazz.MetaObject)
 end
 
+function SealTable:ctxWait(vContext:clazz.OperContext)
+end
+
 function SealTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
@@ -57,6 +60,7 @@ function SealTable:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
 end
 
 function SealTable:meta_set(vContext, vKeyType, vValueType)
+	self:ctxWait(vContext)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
@@ -73,6 +77,7 @@ function SealTable:meta_set(vContext, vKeyType, vValueType)
 end
 
 function SealTable:meta_get(vContext, vKeyType:clazz.IAtomType)
+	self:ctxWait(vContext)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
@@ -84,6 +89,7 @@ function SealTable:meta_get(vContext, vKeyType:clazz.IAtomType)
 end
 
 function SealTable:native_rawset(vContext, vKeyType, vValueType)
+	self:ctxWait(vContext)
 	if self._isBasingDefault then
 		self._manager:basingByDefault(vValueType)
 	end
@@ -110,6 +116,7 @@ function SealTable:native_rawset(vContext, vKeyType, vValueType)
 end
 
 function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
+	self:ctxWait(vContext)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
@@ -211,6 +218,7 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 end
 
 function SealTable:native_next(vContext, vInitType)
+	self:ctxWait(vContext)
 	local nNextDict = self._nextDict
 	local nValueType = self._nextValue
 	if not nNextDict or not nValueType then
@@ -237,14 +245,6 @@ function SealTable:native_next(vContext, vInitType)
 		self._nextDict = nNextDict
 	end
 	return nValueType, nNextDict
-end
-
-function SealTable:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
-	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
-	for k, nField in pairs(self._fieldDict) do
-		nDict[k] = nField.castValueType or nField.rawValueType
-	end
-	return self._keyType, nDict
 end
 
 function SealTable:basingByDefault()
@@ -392,15 +392,8 @@ function SealTable:checkBaseObjectType()
 end
 
 function SealTable:native_getmetatable(vContext)
+	self:ctxWait(vContext)
 	return self._metaTable or self._manager.type.Nil
-end
-
-function SealTable:lockAsMetaIndex()
-	return self:lockAndGet()
-end
-
-function SealTable:lockAsMetaNewIndex()
-	return self:lockAndGet()
 end
 
 return SealTable

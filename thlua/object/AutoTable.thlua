@@ -1,0 +1,39 @@
+
+const StringLiteral = require "thlua.type.StringLiteral"
+const MetaObject = require "thlua.object.MetaObject"
+const TypeFunction = require "thlua.func.TypeFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
+const AutoFunction = require "thlua.func.AutoFunction"
+const BaseFunction = require "thlua.func.BaseFunction"
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const Nil = require "thlua.type.Nil"
+
+const SealTable = require "thlua.object.SealTable"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const AutoTable = class@<clazz.AutoTable, false>(SealTable)
+
+function.open AutoTable:ctor(vManager:clazz.TypeManager)
+end
+
+function AutoTable:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
+	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	for k, nField in pairs(self._fieldDict) do
+		nDict[k] = nField.castValueType or nField.rawValueType
+	end
+	return self._keyType, nDict
+end
+
+function AutoTable:lockAsMetaIndex()
+	return self:lockAndGet()
+end
+
+function AutoTable:lockAsMetaNewIndex()
+	return self:lockAndGet()
+end
+
+return AutoTable

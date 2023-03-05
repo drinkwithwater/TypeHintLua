@@ -1,0 +1,50 @@
+
+const StringLiteral = require "thlua.type.StringLiteral"
+const MetaObject = require "thlua.object.MetaObject"
+const TypeFunction = require "thlua.func.TypeFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
+const AutoFunction = require "thlua.func.AutoFunction"
+const BaseFunction = require "thlua.func.BaseFunction"
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const Nil = require "thlua.type.Nil"
+
+const SealTable = require "thlua.object.SealTable"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const ClassTable = class@<clazz.ClassTable, false>(SealTable)
+
+function.open ClassTable:ctor(vManager:clazz.TypeManager)
+end
+
+function ClassTable:ctxWait(vContext:clazz.OperContext)
+end
+
+function ClassTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(clazz.BaseTable), vInterface:clazz.MetaObject)
+	self._classCom = vFnCom
+	self._baseClass = vBaseClass
+	self._objectType = vInterface
+end
+
+function ClassTable:assumeIncludeAtom(vAssumeSet, vType)
+	if ClassTable.is(vType) then
+		local nMatchTable = vType
+		while nMatchTable ~= self do
+			const nBaseClass = nMatchTable:getBaseClass()
+			if not nBaseClass then
+				break
+			else
+				nMatchTable = nBaseClass
+			end
+		end
+		return nMatchTable == self and self or false
+	else
+		-- TODO check struct
+		return false
+	end
+end
+
+return ClassTable
