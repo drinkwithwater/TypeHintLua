@@ -49,6 +49,34 @@ function SealTable:setInterface(vInterface:clazz.MetaObject)
 	self._interface = vInterface
 end
 
+function SealTable:native_setmetatable(vContext, vMetaTableType)
+	if self._metaTable then
+		vContext:error("can only setmetatable once for one table")
+		return
+	end
+	self._metaTable = vMetaTableType
+	-- 1. copyout meta event items
+	assert(not self._metaEventCom, "meta event has been setted")
+	const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
+	self._metaEventCom = nMetaEventCom
+	-- 2. copyout index/newindex event items
+	local nManager = self._manager
+	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
+	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	-- 3. set default com
+	self:setMetaIndex(
+		vContext,
+		not nIndexType:isNever() and nIndexType or false,
+		not nNewIndexType:isNever() and nNewIndexType or false)
+	-- 4. set clazz com
+	const nClassCom = self._classCom
+	if nClassCom then
+		nClassCom:onSetMetaTable()
+	end
+	return
+end
+
 function SealTable:getInterface()
 	return self._interface
 end
@@ -123,6 +151,33 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 		return nField.castValueType or nField.rawValueType
 	else
 		return self._manager.type.Nil
+	end
+end
+
+function SealTable:meta_ipairs(vContext)
+	self:ctxWait(vContext)
+	return false
+end
+
+function SealTable:meta_pairs(vContext)
+	self:ctxWait(vContext)
+	const nCom = self._metaEventCom
+	if nCom then
+		const nPairsFn = nCom:getPairsFunc()
+		if nPairsFn then
+			const nManager = self._manager
+			const nRetTuples = nPairsFn:meta_call(vContext, vContext:FixedTermTuple({self}))
+			local nRetOneTuple:OrFalse(clazz.UTypeTuple) = false
+			nRetTuples:foreachWithFirst(function(vTuple, _)
+				nRetOneTuple = vTuple
+			end)
+			if nRetTuples:getTupleCount() ~= 1 then
+				vContext:error("__pairs must return only one tuple")
+			end
+			return nRetOneTuple
+		end
+	else
+		return false
 	end
 end
 
@@ -245,6 +300,30 @@ function SealTable:native_next(vContext, vInitType)
 		self._nextDict = nNextDict
 	end
 	return nValueType, nNextDict
+end
+
+function SealTable:native_getmetatable(vContext)
+	self:ctxWait(vContext)
+	return self._metaTable or self._manager.type.Nil
+end
+
+function SealTable:meta_uop_some(vContext, vOper)
+	self:ctxWait(vContext)
+	vContext:error("meta uop TODO:"..tostring(vOper))
+	return self._manager.type.Never
+end
+
+function SealTable:meta_bop_func(vContext, vOper)
+	self:ctxWait(vContext)
+	const nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
+	const nCom = self._metaEventCom
+	if nCom then
+		const nMethodFn = nCom:getBopFunc(nMethodEvent)
+		if nMethodFn then
+			return true, nMethodFn
+		end
+	end
+	return false, nil
 end
 
 function SealTable:basingByDefault()
@@ -389,11 +468,6 @@ function SealTable:checkBaseObjectType()
 		self:basingByDefault()
 		return self._manager.type.AnyObject
 	end
-end
-
-function SealTable:native_getmetatable(vContext)
-	self:ctxWait(vContext)
-	return self._metaTable or self._manager.type.Nil
 end
 
 return SealTable

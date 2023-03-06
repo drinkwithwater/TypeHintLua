@@ -32,30 +32,11 @@ function.open BaseTable:ctor(vManager:clazz.TypeManager)
 end
 
 function BaseTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
-	self._tableCom:initByKeyValue(vKeyType, vValueDict)
-end
-
-function BaseTable:getInterface()
-	return self._objectType
-end
-
-function BaseTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(clazz.BaseTable), vInterface:clazz.MetaObject)
-	const nTableCom = self._tableCom
-	if DefaultTableCom.is(nTableCom) then
-		self._classCom = vFnCom
-		self._baseClass = vBaseClass
-		self._objectType = vInterface
-		nTableCom:setInterface(vInterface)
-	else
-		error("open table can't be class")
-	end
+	error("base table init by key value not implement")
 end
 
 function BaseTable:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
-end
-
-function BaseTable:_lockOrWaitClass(vContext:clazz.OperContext)
 end
 
 function BaseTable:detailString(v, vVerbose)
@@ -66,66 +47,6 @@ function BaseTable:setName(vName:String)
 	self._name = vName
 end
 
-function BaseTable:meta_pairs(vContext)
-	self:_lockOrWaitClass(vContext)
-	const nCom = self._metaEventCom
-	if nCom then
-		const nPairsFn = nCom:getPairsFunc()
-		if nPairsFn then
-			const nManager = self._manager
-			const nRetTuples = nPairsFn:meta_call(vContext, vContext:FixedTermTuple({self}))
-			local nRetOneTuple:OrFalse(clazz.UTypeTuple) = false
-			nRetTuples:foreachWithFirst(function(vTuple, _)
-				nRetOneTuple = vTuple
-			end)
-			if nRetTuples:getTupleCount() ~= 1 then
-				vContext:error("__pairs must return only one tuple")
-			end
-			return nRetOneTuple
-		end
-	else
-		return false
-	end
-end
-
-function BaseTable:meta_ipairs(vContext)
-	self:_lockOrWaitClass(vContext)
-	return false
-end
-
-function BaseTable:native_next(vContext, vInitType)
-	return self:_checkComOrStruct(vContext):native_next(vContext, vInitType)
-end
-
-function BaseTable:native_setmetatable(vContext, vMetaTableType)
-	if self._metaTable then
-		vContext:error("can only setmetatable once for one table")
-		return
-	end
-	self._metaTable = vMetaTableType
-	-- 1. copyout meta event items
-	assert(not self._metaEventCom, "meta event has been setted")
-	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
-	self._metaEventCom = nMetaEventCom
-	-- 2. copyout index/newindex event items
-	local nManager = self._manager
-	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
-	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
-	-- 3. set default com
-	const nDefaultCom = self._tableCom
-	nDefaultCom:setMetaIndex(
-		vContext,
-		not nIndexType:isNever() and nIndexType or false,
-		not nNewIndexType:isNever() and nNewIndexType or false)
-	-- 4. set clazz com
-	const nClassCom = self._classCom
-	if nClassCom then
-		nClassCom:onSetMetaTable()
-	end
-	return
-end
-
 function BaseTable:lockAsMetaIndex()
 	return self._tableCom:lockAndGet()
 end
@@ -134,34 +55,8 @@ function BaseTable:lockAsMetaNewIndex()
 	return self._tableCom:lockAndGet()
 end
 
-function BaseTable:native_getmetatable(vContext)
-	self:_lockOrWaitClass(vContext)
-	return self._metaTable or self._manager.type.Nil
-end
-
 function BaseTable:native_type()
 	return self._manager:Literal("table")
-end
-
-function BaseTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
-	self:_lockOrWaitClass(vContext)
-	return self._tableCom:native_rawget(vContext, vKeyType)
-end
-
-function BaseTable:native_rawset(vContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
-	self:_lockOrWaitClass(vContext)
-	return self._tableCom:native_rawset(vContext, vKeyType, vValueType)
-end
-
-function.pass BaseTable:_checkComOrStruct(vContext:clazz.OperContext):Ret(clazz.IMetaNative)
-end
-
-function BaseTable:meta_get(vContext, vKeyType)
-	return self:_checkComOrStruct(vContext):meta_get(vContext, vKeyType)
-end
-
-function BaseTable:meta_set(vContext, vKeyType, vValueType)
-	self:_checkComOrStruct(vContext):meta_set(vContext, vKeyType, vValueType)
 end
 
 function BaseTable:meta_len(vContext)
@@ -170,21 +65,12 @@ function BaseTable:meta_len(vContext)
 end
 
 function BaseTable:meta_uop_some(vContext, vOper)
-	self:_lockOrWaitClass(vContext)
-	vContext:error("meta uop TODO:"..tostring(vOper))
+	vContext:error("meta uop not implement:")
 	return self._manager.type.Never
 end
 
 function BaseTable:meta_bop_func(vContext, vOper)
-	self:_lockOrWaitClass(vContext)
-	const nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
-	const nCom = self._metaEventCom
-	if nCom then
-		const nMethodFn = nCom:getBopFunc(nMethodEvent)
-		if nMethodFn then
-			return true, nMethodFn
-		end
-	end
+	vContext:error("meta bop not implement:")
 	return false, nil
 end
 
@@ -224,56 +110,12 @@ function BaseTable:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function BaseTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
-	if self._classCom then
-		return false
-	end
-	const nOldStruct = self._objectType
-	if nOldStruct then
-		local nMatchStruct:OrNil(clazz.MetaObject) = nil
-		vObjectAtomUnion:foreach(function(vAtomType)
-			if not nMatchStruct and MetaObject.is(vAtomType)
-				and vAtomType:includeAll(nOldStruct) and nOldStruct:includeAll(vAtomType) then
-				nMatchStruct = vAtomType
-			end
-		end)
-		if not nMatchStruct then
-			vContext:error("table can't cast to multi struct type")
-			return false
-		end
-		return nMatchStruct
-	end
-	const nMatchStruct = self._tableCom:castStruct(vContext, vObjectAtomUnion)
-	if not nMatchStruct then
-		return false
-	end
-	self._objectType = nMatchStruct
-	return nMatchStruct
-end
-
 function BaseTable:objectPartType()
 	return self
 end
 
 function BaseTable:mayRecursive()
 	return true
-end
-
--- called when struct include
-function BaseTable:checkBaseObjectType()
-	if self._classCom then
-		return (assert(self._objectType))
-	end
-	const nStruct = self._objectType
-	if nStruct then
-		return nStruct
-	end
-	self._tableCom:basingByDefault()
-	return self._manager.type.AnyObject
-end
-
-function BaseTable:getCompletion():Ret(clazz.LspCompletion)
-	return self._tableCom:getCompletion()
 end
 
 return BaseTable

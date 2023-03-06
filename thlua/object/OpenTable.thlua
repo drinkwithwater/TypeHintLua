@@ -195,6 +195,22 @@ function OpenTable:native_next(vContext, vInitType)
 	return nValueType, nNextDict
 end
 
+function OpenTable:meta_pairs(vContext)
+	const nCom = self._metaEventCom
+	if nCom then
+		const nPairsFn = nCom:getPairsFunc()
+		if nPairsFn then
+			vContext:error("TODO:open table use __pairs as meta field")
+		end
+	end
+	return false
+end
+
+function OpenTable:meta_ipairs(vContext)
+	vContext:error("TODO:open table use __ipairs as meta field")
+	return false
+end
+
 function OpenTable:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	const nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for k, nField in pairs(self._fieldDict) do
@@ -203,19 +219,8 @@ function OpenTable:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, claz
 	return self._keyType, nDict
 end
 
-function OpenTable:basingByDefault()
-end
-
-function OpenTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
-	return false
-end
-
 function OpenTable:checkBaseObjectType()
 	return self._manager.type.AnyObject
-end
-
-function OpenTable:castStruct(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
-	return false
 end
 
 function OpenTable:getCompletion():Ret(clazz.LspCompletion)
