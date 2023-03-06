@@ -29,9 +29,50 @@ function.open ClassTable:ctor(
 	self._interface = vInterface
 end
 
-function ClassTable:onSetMetaTable()
+function ClassTable:onSetMetaTable(vContext:clazz.OperContext)
 	self._classCom:onSetMetaTable()
+	const nInterface = self._interface
+	if nInterface then
+		self:implInterface(vContext, nInterface)
+	end
 end
+
+function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.MetaObject)
+	const nInterfaceKeyValue = vInterface:copyValueDict(self)
+	const nSelfKey = self._keyType
+	const nSelfFieldDict = self._fieldDict
+	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
+		const nSelfKeyAtom = nSelfKey:includeAtom(nKeyAtom)
+		if nSelfKeyAtom then
+			const nField = nSelfFieldDict[nSelfKeyAtom]!
+			const nSelfValue = nField.rawValueType
+			if MemberFunction.is(nSelfValue) then
+				if TypeFunction.is(nValue) then
+					nSelfValue:indexAutoFn(self):checkWhenCast(vContext, nValue)
+					nField.castValueType = nValue
+				end
+			else
+				if not nValue:includeAll(nSelfValue) then
+					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
+				end
+			end
+		else
+			vContext:error("interface has field not implement, key="..tostring(nKeyAtom))
+		end
+	end
+	for _, nField in pairs(nSelfFieldDict) do
+		if not nField.castValueType then
+			const nSelfValue = nField.rawValueType
+			if MemberFunction.is(nSelfValue) then
+				if not nSelfValue:needPolyArgs() then
+					nSelfValue:indexAutoFn(self)
+				end
+			elseif AutoFunction.is(nSelfValue) then
+			end
+		end
+	end
+end
+
 
 function ClassTable:ctxWait(vContext:clazz.OperContext)
 	assert(self._classCom):waitBuild()
@@ -39,6 +80,10 @@ end
 
 function ClassTable:getBaseClass()
 	return self._baseClass
+end
+
+function ClassTable:getInterface()
+	return self._interface
 end
 
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType)

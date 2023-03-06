@@ -45,11 +45,7 @@ function SealTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(cla
 	end
 end
 
-function SealTable:onSetMetaTable()
-end
-
-function SealTable:setInterface(vInterface:clazz.MetaObject)
-	self._interface = vInterface
+function SealTable:onSetMetaTable(vContext:clazz.OperContext)
 end
 
 function SealTable:native_setmetatable(vContext, vMetaTableType)
@@ -73,11 +69,7 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 		not nIndexType:isNever() and nIndexType or false,
 		not nNewIndexType:isNever() and nNewIndexType or false)
 	-- 4. trigger on set
-	self:onSetMetaTable()
-end
-
-function SealTable:getInterface()
-	return self._interface
+	self:onSetMetaTable(vContext)
 end
 
 function SealTable:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
@@ -265,10 +257,6 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 	end)
 	self._fieldDict = nFinalFieldDict
 	self._keyType = nMergedKeyType
-	const nInterface = self._interface
-	if nInterface then
-		self:implInterface(vContext, nInterface)
-	end
 end
 
 function SealTable:native_next(vContext, vInitType)
@@ -342,121 +330,6 @@ function SealTable:getCompletion():Ret(clazz.LspCompletion)
 		end
 	end)
 	return nDict
-end
-
-function SealTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.MetaObject)
-	const nInterfaceKeyValue = vInterface:copyValueDict(self)
-	const nSelfKey = self._keyType
-	const nSelfFieldDict = self._fieldDict
-	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
-		const nSelfKeyAtom = nSelfKey:includeAtom(nKeyAtom)
-		if nSelfKeyAtom then
-			const nField = nSelfFieldDict[nSelfKeyAtom]!
-			const nSelfValue = nField.rawValueType
-			if MemberFunction.is(nSelfValue) then
-				if TypeFunction.is(nValue) then
-					nSelfValue:indexAutoFn(self):checkWhenCast(vContext, nValue)
-					nField.castValueType = nValue
-				end
-			else
-				if not nValue:includeAll(nSelfValue) then
-					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
-				end
-			end
-		else
-			vContext:error("interface has field not implement, key="..tostring(nKeyAtom))
-		end
-	end
-	for _, nField in pairs(nSelfFieldDict) do
-		if not nField.castValueType then
-			const nSelfValue = nField.rawValueType
-			if MemberFunction.is(nSelfValue) then
-				if not nSelfValue:needPolyArgs() then
-					nSelfValue:indexAutoFn(self)
-				end
-			elseif AutoFunction.is(nSelfValue) then
-			end
-		end
-	end
-end
-
-function SealTable:cast(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
-	const nOldStruct = self._interface
-	if nOldStruct then
-		local nMatchStruct:OrNil(clazz.MetaObject) = nil
-		vObjectAtomUnion:foreach(function(vAtomType)
-			if not nMatchStruct and MetaObject.is(vAtomType)
-				and vAtomType:includeAll(nOldStruct) and nOldStruct:includeAll(vAtomType) then
-				nMatchStruct = vAtomType
-			end
-		end)
-		if not nMatchStruct then
-			vContext:error("table can't cast to multi struct type")
-			return false
-		end
-		return nMatchStruct
-	end
-	const nMatchStruct = self:castStruct(vContext, vObjectAtomUnion)
-	if not nMatchStruct then
-		return false
-	end
-	self._interface = nMatchStruct
-	return nMatchStruct
-end
-
-function SealTable:castStruct(vContext:clazz.OperContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.MetaObject))
-	if self._isBasingDefault then
-		return false
-	end
-	local nFinalMatchStruct:OrFalse(clazz.MetaObject) = false
-	local nFinalMatchCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
-	vObjectAtomUnion:foreach(function(vAtomType)
-		if not MetaObject.is(vAtomType) then return end
-		if vAtomType:isInterface() then return end
-		const nCopyValueDict = vAtomType:copyValueDict()
-		local nMatchSucc = true
-		const nCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
-		self:foreachGetPair(function(vTableKey, vTableValue)
-			if not nMatchSucc then
-				return
-			end
-			local nMatchKey, nMatchValue = vAtomType:indexKeyValue(vTableKey)
-			if not nMatchKey then
-				nMatchSucc = false
-				return
-			end
-			const nIsTable, nTableToCast = self._manager:tryBaseTable(vTableValue)
-			if not nIsTable then
-				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:includeAll(vTableValue)
-				if not nOneMatchSucc then
-					nMatchSucc = false
-					return
-				end
-			else
-				nCastList[#nCastList + 1] = {nTableToCast, nMatchValue}
-			end
-			nCopyValueDict[nMatchKey] = nil
-		end)
-		if not nMatchSucc then
-			return
-		end
-		for k,v in pairs(nCopyValueDict) do
-			if not v:checkAtomUnion():isNilable() then
-				nMatchSucc = false
-				break
-			end
-		end
-		if nMatchSucc and not nFinalMatchStruct then
-			nFinalMatchStruct = vAtomType
-			nFinalMatchCastList = nCastList
-		else
-			vContext:error("table cast error, table may match more than one struct")
-		end
-	end)
-	for _, nPair in ipairs(nFinalMatchCastList) do
-		vContext:castLuaType(nPair[1], nPair[2])
-	end
-	return nFinalMatchStruct
 end
 
 function SealTable:checkBaseObjectType()
