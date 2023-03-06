@@ -31,15 +31,15 @@ function:class(clazz.Branch) Branch.new(vContext:clazz.BodyContext, vPreBranch:O
 	return self
 end
 
-function Branch:immutGet(vImmutVariable:clazz.ImmutVariable):Ret(clazz.RefineTerm)
+function Branch:immutGet(vContext:clazz.OperContext, vImmutVariable:clazz.ImmutVariable):Ret(clazz.RefineTerm)
 	local nType = self._case[vImmutVariable]
 	if nType then
 		if not nType:isNever() then
-			const nTerm = vImmutVariable:getTerm():filter(nType)
+			const nTerm = vImmutVariable:getTerm():filter(vContext, nType)
 			nTerm:initVariable(vImmutVariable)
 			return nTerm
 		else
-			print("TODO type is never when get symbol"..tostring(vImmutVariable))
+			vContext:error("TODO type is never when get symbol"..tostring(vImmutVariable))
 			return self._context:NeverTerm()
 		end
 	else
@@ -47,14 +47,14 @@ function Branch:immutGet(vImmutVariable:clazz.ImmutVariable):Ret(clazz.RefineTer
 	end
 end
 
-function Branch:mutGet(vLocalSymbol:clazz.LocalSymbol):Ret(clazz.RefineTerm)
+function Branch:mutGet(vContext:clazz.OperContext, vLocalSymbol:clazz.LocalSymbol):Ret(clazz.RefineTerm)
 	local nImmutVariable = self.symbolToVariable[vLocalSymbol]
 	if not nImmutVariable then
 		-- TODO, consider upvalue symbol??
 		nImmutVariable = vLocalSymbol:makeVariable()
 		self.symbolToVariable[vLocalSymbol] = nImmutVariable
 	end
-	return self:immutGet(nImmutVariable)
+	return self:immutGet(vContext, nImmutVariable)
 end
 
 function Branch:mutMark(vSymbol:clazz.LocalSymbol, vImmutVariable:clazz.ImmutVariable)
@@ -80,7 +80,7 @@ function Branch:mutSet(vContext:clazz.OperContext, vSymbol:clazz.LocalSymbol, vV
 	end
 end
 
-function Branch:mergeOneBranch(vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.VariableCase))
+function Branch:mergeOneBranch(vContext:clazz.OperContext, vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.VariableCase))
 	if vOneBranch:getStop() then
 		if vOtherCase then
 			self._case = self._case & vOtherCase
@@ -91,7 +91,7 @@ function Branch:mergeOneBranch(vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.V
 		for nLocalSymbol, nOneVariable in pairs(vOneBranch.symbolToVariable) do
 			const nBeforeVariable = nSymbolToVariable[nLocalSymbol]
 			if nBeforeVariable then
-				const nOneType = vOneBranch:mutGet(nLocalSymbol):getType()
+				const nOneType = vOneBranch:mutGet(vContext, nLocalSymbol):getType()
 				if not vOtherCase then
 					nSymbolToVariable[nLocalSymbol] = nLocalSymbol:makeVariable(nOneType)
 				else
@@ -104,9 +104,9 @@ function Branch:mergeOneBranch(vOneBranch:clazz.Branch, vOtherCase:OrNil(clazz.V
 	end
 end
 
-function Branch:mergeTwoBranch(vTrueBranch:clazz.Branch, vFalseBranch:clazz.Branch)
-	local nTrueStop = vTrueBranch:getStop()
-	local nFalseStop = vFalseBranch:getStop()
+function Branch:mergeTwoBranch(vContext:clazz.OperContext, vTrueBranch:clazz.Branch, vFalseBranch:clazz.Branch)
+	const nTrueStop = vTrueBranch:getStop()
+	const nFalseStop = vFalseBranch:getStop()
 	if nTrueStop and nFalseStop then
 		self._stop = true
 		return
@@ -122,12 +122,12 @@ function Branch:mergeTwoBranch(vTrueBranch:clazz.Branch, vFalseBranch:clazz.Bran
 		if self.symbolToVariable[nLocalSymbol] then
 			local nType:OrNil(clazz.UAtomUnion)
 			if nFalseStop then
-				nType = vTrueBranch:mutGet(nLocalSymbol):getType()
+				nType = vTrueBranch:mutGet(vContext, nLocalSymbol):getType()
 			elseif nTrueStop then
-				nType = vFalseBranch:mutGet(nLocalSymbol):getType()
+				nType = vFalseBranch:mutGet(vContext, nLocalSymbol):getType()
 			else
-				const nTrueType = vTrueBranch:mutGet(nLocalSymbol):getType()
-				const nFalseType = vFalseBranch:mutGet(nLocalSymbol):getType()
+				const nTrueType = vTrueBranch:mutGet(vContext, nLocalSymbol):getType()
+				const nFalseType = vFalseBranch:mutGet(vContext, nLocalSymbol):getType()
 				nType = nTrueType | nFalseType
 			end
 			local nImmutVariable = nLocalSymbol:makeVariable(nType)

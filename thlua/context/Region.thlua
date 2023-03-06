@@ -65,15 +65,16 @@ function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTer
 end
 
 function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
-	local nBranch = self:topBranch()
+	const nSymbolContext = self._context:newOperContext(vNode)
+	const nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
-		return nBranch:mutGet(vSymbol)
+		return nBranch:mutGet(nSymbolContext, vSymbol)
 	elseif ImmutVariable.is(vSymbol) then
-		return nBranch:immutGet(vSymbol)
+		return nBranch:immutGet(nSymbolContext, vSymbol)
 	else
 		const nTerm = vSymbol:getRefineTerm()
 		if nTerm then
-			return nBranch:immutGet(nTerm:attachImmutVariable())
+			return nBranch:immutGet(nSymbolContext, nTerm:attachImmutVariable())
 		else
 			if not vAllowAuto then
 				error(Exception.new("auto term can't be used when it's undeduced", vNode))
@@ -191,6 +192,7 @@ function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vMod
 end
 
 function Region:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
+	const nIfContext = self._context:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
 	const nBeforeBranch = self:topBranch()
@@ -202,15 +204,15 @@ function Region:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:F
 			const nFalseBranch = self:withBranch(nFalseCase, function()
 				vFalseFunction()
 			end)
-			nBeforeBranch:mergeTwoBranch(nTrueBranch, nFalseBranch)
+			nBeforeBranch:mergeTwoBranch(nIfContext, nTrueBranch, nFalseBranch)
 		else
-			nBeforeBranch:mergeOneBranch(nTrueBranch, nFalseCase)
+			nBeforeBranch:mergeOneBranch(nIfContext, nTrueBranch, nFalseCase)
 		end
 	elseif nFalseCase and vFalseFunction then
 		const nFalseBranch = self:withBranch(nFalseCase, function()
 			vFalseFunction()
 		end)
-		nBeforeBranch:mergeOneBranch(nFalseBranch, nTrueCase)
+		nBeforeBranch:mergeOneBranch(nIfContext, nFalseBranch, nTrueCase)
 	end
 end
 
@@ -306,7 +308,8 @@ function Region:FOR_NUM(
 end
 
 function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
-	const nLeftTrueTerm = vLeftTerm:trueTerm()
+	const nOrContext = self._context:newLogicContext(vNode)
+	const nLeftTrueTerm = nOrContext:trueTerm(vLeftTerm)
 	const nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
 		return nLeftTrueTerm
@@ -317,12 +320,13 @@ function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRigh
 		end)
 		assert(nRightTerm, "term must be true value here")
 		nRightTerm:and_case(nLeftFalseCase)
-		return nLeftTrueTerm | nRightTerm
+		return nOrContext:orTerm(nLeftTrueTerm, nRightTerm)
 	end
 end
 
 function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
-	const nLeftFalseTerm = vLeftTerm:falseTerm()
+	const nAndContext = self._context:newLogicContext(vNode)
+	const nLeftFalseTerm = nAndContext:falseTerm(vLeftTerm)
 	const nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
 		return nLeftFalseTerm
@@ -333,12 +337,13 @@ function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRig
 		end)
 		assert(nRightTerm, "term must be true value here")
 		nRightTerm:and_case(nLeftTrueCase)
-		return nLeftFalseTerm | nRightTerm
+		return nAndContext:orTerm(nLeftFalseTerm, nRightTerm)
 	end
 end
 
 function Region:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
-	return vData:notTerm()
+	const nNotContext = self._context:newLogicContext(vNode)
+	return nNotContext:notTerm(vData)
 end
 
 function Region:nativeError()

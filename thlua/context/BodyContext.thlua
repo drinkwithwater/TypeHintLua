@@ -21,6 +21,7 @@ const class = require "thlua.class"
 
 const OperContext = require "thlua.context.OperContext"
 const ApplyContext = require "thlua.context.ApplyContext"
+const LogicContext = require "thlua.context.LogicContext"
 const BaseContext = require "thlua.context.BaseContext"
 
 (@do
@@ -154,13 +155,13 @@ function BodyContext:EXPRLIST_UNPACK(
 				local value = last:get(nUnpackContext, i - #l + 1)
 				if not value then
 					self._runtime:nodeError(vNode, "exprlist_unpack but right tuple value not enough")
-					re[i] = self:RefineTerm(self._manager.type.Nil)
+					re[i] = nUnpackContext:RefineTerm(self._manager.type.Nil)
 				else
 					re[i] = value
 				end
 			else
 				self._runtime:nodeError(vNode, "exprlist_unpack but right value not enough")
-				re[i] = self:RefineTerm(self._manager.type.Nil)
+				re[i] = nUnpackContext:RefineTerm(self._manager.type.Nil)
 			end
 		else
 			local cur = l[i]
@@ -198,7 +199,7 @@ function BodyContext:META_GET(
 		end)
 	end)
 	if nOkay then
-		return self:mergeToRefineTerm(nTypeCaseList)
+		return nGetContext:mergeToRefineTerm(nTypeCaseList)
 	else
 		return self:TruthTerm()
 	end
@@ -260,7 +261,7 @@ function BodyContext:META_INVOKE(
 		if vSelfType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
-			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({self:RefineTerm(vSelfType)}, vArgTuple)
+			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({nInvokeContext:RefineTerm(vSelfType)}, vArgTuple)
 			const nFuncType = vSelfType:meta_get_invoke(nInvokeContext, self:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
@@ -282,6 +283,7 @@ function BodyContext:META_EQ_NE(
 	vLeftTerm:clazz.RefineTerm,
 	vRightTerm:clazz.RefineTerm
 ):Ret(clazz.RefineTerm)
+	const nCmpContext = self:newOperContext(vNode)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
 		vRightTerm:foreach(function(vRightType, vRightVariableCase)
@@ -306,7 +308,7 @@ function BodyContext:META_EQ_NE(
 			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vLeftVariableCase & vRightVariableCase}
 		end)
 	end)
-	return self:mergeToRefineTerm(nTypeCaseList)
+	return nCmpContext:mergeToRefineTerm(nTypeCaseList)
 end
 
 function BodyContext:META_BOP_SOME(
@@ -321,19 +323,27 @@ function BodyContext:META_BOP_SOME(
 		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
 		if nLeftHigh then
 			const nRightType = vRightTerm:getType()
-			const nTermTuple = nBopContext:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm})
+			const nTermTuple = nBopContext:FixedTermTuple({
+				vLeftTerm:filter(nBopContext, vLeftType), vRightTerm
+			})
 			const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
 			nCollection:put(nRetTuples:getFirstType())
 		else
 			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
 				if nRightHigh then
-					const nTermTuple = nBopContext:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
+					const nTermTuple = nBopContext:FixedTermTuple({
+						vLeftTerm:filter(nBopContext, vLeftType),
+						vRightTerm:filter(nBopContext, vRightType)
+					})
 					const nRetTuples = nRightFunc:meta_call(nBopContext, nTermTuple)
 					nCollection:put(nRetTuples:getFirstType())
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
-						const nTermTuple = nBopContext:FixedTermTuple({vLeftTerm:filter(vLeftType), vRightTerm:filter(vRightType)})
+						const nTermTuple = nBopContext:FixedTermTuple({
+							vLeftTerm:filter(nBopContext, vLeftType),
+							vRightTerm:filter(nBopContext, vRightType)
+						})
 						const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
 						nCollection:put(nRetTuples:getFirstType())
 					else
@@ -343,7 +353,7 @@ function BodyContext:META_BOP_SOME(
 			end)
 		end
 	end)
-	return self:RefineTerm(nCollection:mergeToAtomUnion())
+	return nBopContext:RefineTerm(nCollection:mergeToAtomUnion())
 end
 
 function BodyContext:META_UOP(
@@ -368,7 +378,7 @@ function BodyContext:META_UOP(
 			}
 		end)
 	end
-	return self:mergeToRefineTerm(nTypeCaseList)
+	return nUopContext:mergeToRefineTerm(nTypeCaseList)
 end
 
 function.open BodyContext:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
@@ -430,7 +440,7 @@ function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCa
 				nTypeCaseList[#nTypeCaseList + 1] = {vType, vVariableCase}
 			end
 		end)
-		return self:mergeToRefineTerm(nTypeCaseList)
+		return nCastContext:mergeToRefineTerm(nTypeCaseList)
 	else
 		if not vCastKind then
 			vContext:error("unexcepted castkind:"..tostring(vCastKind))
@@ -440,7 +450,7 @@ function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCa
 		if not nDstType:includeAll(vTerm:getType()) then
 			-- self:getRuntime():nodeError(vNode, "@ cast fail")
 		end
-		return self:RefineTerm(nDstType)
+		return nCastContext:RefineTerm(nDstType)
 	end
 end
 
@@ -462,6 +472,10 @@ end
 
 function BodyContext:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)
 	return ApplyContext.new(self._runtime, vNode, self)
+end
+
+function BodyContext:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)
+	return LogicContext.new(self._runtime, vNode, self)
 end
 
 function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)

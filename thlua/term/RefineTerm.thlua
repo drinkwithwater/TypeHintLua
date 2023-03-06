@@ -7,16 +7,6 @@ const Nil = require "thlua.type.Nil"
 
 const RefineTerm = {}
 RefineTerm.__index=RefineTerm
-RefineTerm.__bor=function(vLeft:clazz.RefineTerm, vRight:clazz.RefineTerm):Ret(clazz.RefineTerm)
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	vLeft:foreach(function(vType, vCase)
-			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
-	end)
-	vRight:foreach(function(vType, vCase)
-			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
-	end)
-	return vLeft:getContext():mergeToRefineTerm(nTypeCaseList)
-end
 RefineTerm.__tostring=function(self:clazz.RefineTerm):Ret(String)
 	const l:List(String) = {}
 	for nType, nVariableCase in pairs(self._typeToCase) do
@@ -104,15 +94,6 @@ function RefineTerm:caseTrue():Ret(OrNil(clazz.VariableCase))
 	return reCase
 end
 
-function RefineTerm:notnilTerm():Ret(clazz.RefineTerm)
-	const nNotnilType = self._type:notnilType()
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	nNotnilType:foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
-	end)
-	return self._context:mergeToRefineTerm(nTypeCaseList)
-end
-
 function RefineTerm:caseNotnil():Ret(OrNil(clazz.VariableCase))
 	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:foreach(function(vType)
@@ -142,42 +123,18 @@ function RefineTerm:caseFalse():Ret(OrNil(clazz.VariableCase))
 	return reCase
 end
 
-function RefineTerm:falseTerm():Ret(clazz.RefineTerm)
-	const nFalseType = self._type:falseType()
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	nFalseType:foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
-	end)
-	return self._context:mergeToRefineTerm(nTypeCaseList)
-end
-
-function RefineTerm:trueTerm():Ret(clazz.RefineTerm)
-	const nTrueType = self._type:trueType()
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	nTrueType:foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {vType, self._typeToCase[vType]!}
-	end)
-	return self._context:mergeToRefineTerm(nTypeCaseList)
-end
-
-function RefineTerm:notTerm():Ret(clazz.RefineTerm)
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	const nSelfType = self._type
+function RefineTerm:falseEach(vFunc:Fn(clazz.IAtomType, clazz.VariableCase))
 	const nTypeToCase = self._typeToCase
-	const nBuiltinType = self._context:getTypeManager().type
-	nSelfType:falseType():foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			nBuiltinType.True,
-			nTypeToCase[vType]!
-		}
+	self._type:falseType():foreach(function(vType)
+		vFunc(vType, nTypeToCase[vType]!)
 	end)
-	nSelfType:trueType():foreach(function(vType)
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			nBuiltinType.False,
-			nTypeToCase[vType]!
-		}
+end
+
+function RefineTerm:trueEach(vFunc:Fn(clazz.IAtomType, clazz.VariableCase))
+	const nTypeToCase = self._typeToCase
+	self._type:trueType():foreach(function(vType)
+		vFunc(vType, nTypeToCase[vType]!)
 	end)
-	return self._context:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:getType():Ret(clazz.UAtomUnion)
@@ -203,7 +160,16 @@ function RefineTerm:initVariable(vImmutVariable:clazz.ImmutVariable)
 	end
 end
 
-function RefineTerm:filter(vType:clazz.UAtomUnion):Ret(clazz.RefineTerm)
+function RefineTerm:includeAtomCase(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.VariableCase):Ret(False, Nil)
+	const nIncludeType = self._type:includeAtom(vType)
+	if nIncludeType then
+		return nIncludeType, self._typeToCase[nIncludeType]!
+	else
+		return false, nil
+	end
+end
+
+function RefineTerm:filter(vContext:clazz.OperContext, vType:clazz.UAtomUnion):Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vType:foreach(function(vSubType)
 		const nIncludeType = self._type:includeAtom(vSubType)
@@ -214,7 +180,7 @@ function RefineTerm:filter(vType:clazz.UAtomUnion):Ret(clazz.RefineTerm)
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, VariableCase.new()}
 		end
 	end)
-	return self._context:mergeToRefineTerm(nTypeCaseList)
+	return vContext:mergeToRefineTerm(nTypeCaseList)
 end
 
 function RefineTerm:attachImmutVariable():Ret(clazz.ImmutVariable)
@@ -224,10 +190,6 @@ function RefineTerm:attachImmutVariable():Ret(clazz.ImmutVariable)
 		self:initVariable(nImmutVariable)
 	end
 	return nImmutVariable
-end
-
-function RefineTerm:getContext()
-	return self._context
 end
 
 return RefineTerm
