@@ -7,7 +7,7 @@ const Enum = require "thlua.Enum"
 const MetaObject = require "thlua.object.MetaObject"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.func.ClassFactory"
-const BaseTable = require "thlua.object.BaseTable"
+const ClassTable = require "thlua.object.ClassTable"
 const TermTuple = require "thlua.tuple.TermTuple"
 
 (@do
@@ -260,7 +260,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
-		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.BaseTable), clazz.MetaObject)
+		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.MetaObject)
 			local nImplementsArg:OrNil(clazz.UAllType) = nil
 			local nExtendsArg:OrNil(clazz.UAllType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
@@ -287,19 +287,19 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			if not ok then
 				error(Exception.new(tostring(err), self._node))
 			end
-			local nExtendsTable:OrFalse(clazz.BaseTable) = false
+			local nExtendsTable:OrFalse(clazz.ClassTable) = false
 			if nExtendsArg then
 				const nType = nExtendsArg:checkAtomUnion()
 				if nType:isUnion() then
 					error("base class can't be union")
 				end
-				if BaseTable.is(nType) then
+				if ClassTable.is(nType) then
 					nExtendsTable = nType
 				else
 					if nType == self._manager.type.False or nType == self._manager.type.Nil then
 						-- false or nil means no base class
 					else
-						error("base class type must be BaseTable")
+						error("base class type must be ClassTable")
 					end
 				end
 			end
@@ -326,13 +326,13 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		nFactory:build(function(vFactory)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewContext, vPolyParList, false)
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
-			return nExtends, nImplements, function(vBaseTable)
+			return nExtends, nImplements, function(vClassTable)
 				const nParTermTuple = nGenParam(false)
-				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, vBaseTable))
+				const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, vClassTable))
 				const nParTuple = nParTermTuple:checkTypeTuple()
 				const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
 				return nPreTypeFn, function()
-					nNewContext:setClassTable(vBaseTable)
+					nNewContext:setClassTable(vClassTable)
 					nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
