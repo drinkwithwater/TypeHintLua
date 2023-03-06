@@ -18,21 +18,29 @@ end)
 
 const ClassTable = class@<clazz.ClassTable, false>(SealTable)
 
-function.open ClassTable:ctor(vManager:clazz.TypeManager)
-end
-
-function ClassTable:initByClassCom(vFnCom:clazz.ClassFactory, vBaseClass:OrFalse(clazz.BaseTable), vInterface:clazz.MetaObject)
+function.open ClassTable:ctor(
+	vManager:clazz.TypeManager,
+	vFnCom:clazz.ClassFactory,
+	vBaseClass:OrFalse(clazz.ClassTable),
+	vInterface:clazz.MetaObject
+)
 	self._classCom = vFnCom
 	self._baseClass = vBaseClass
-	self._objectType = vInterface
-	self:setInterface(vInterface)
+	self._interface = vInterface
+end
+
+function ClassTable:onSetMetaTable()
+	self._classCom:onSetMetaTable()
 end
 
 function ClassTable:ctxWait(vContext:clazz.OperContext)
 	assert(self._classCom):waitBuild()
 end
 
---[[
+function ClassTable:getBaseClass()
+	return self._baseClass
+end
+
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType)
 	if ClassTable.is(vType) then
 		local nMatchTable = vType
@@ -50,6 +58,5 @@ function ClassTable:assumeIncludeAtom(vAssumeSet, vType)
 		return false
 	end
 end
-]]
 
 return ClassTable

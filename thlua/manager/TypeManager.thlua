@@ -17,7 +17,6 @@ const MetaObject = require "thlua.object.MetaObject"
 const BaseTable = require "thlua.object.BaseTable"
 const OpenTable = require "thlua.object.OpenTable"
 const AutoTable = require "thlua.object.AutoTable"
-const ClassTable = require "thlua.object.ClassTable"
 const OpenFunction = require "thlua.func.OpenFunction"
 const TypeFunction = require "thlua.func.TypeFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
@@ -502,6 +501,10 @@ function.open TypeManager:_recordTypeUnionSign(vType)
 	return vType
 end
 
+function TypeManager:atomRecordTypeUnionSign(vType:clazz.BaseAtomType)
+	self._unionSignToType[tostring(vType.id)] = vType
+end
+
 function TypeManager:fixedNativeOpenFunction(vNativeFn:clazz.FixedNativeFunc):Ret(clazz.OpenFunction)
 	const nOpenFn = OpenFunction.new(self, self._rootNode)
 	nOpenFn:lateInitFromFixedNative(vNativeFn)
@@ -520,10 +523,6 @@ end
 
 function TypeManager:BaseTable():Ret(clazz.BaseTable)
 	return self:_recordTypeUnionSign(BaseTable.new(self))
-end
-
-function TypeManager:ClassTable():Ret(clazz.ClassTable)
-	return self:_recordTypeUnionSign(ClassTable.new(self))
 end
 
 function TypeManager:OpenTable():Ret(clazz.OpenTable)

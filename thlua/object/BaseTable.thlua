@@ -20,15 +20,11 @@ end)
 
 const BaseTable = class@<clazz.BaseTable, false>(BaseAtomType)
 
-function.open BaseTable:ctor(vManager:clazz.TypeManager)
+function.open BaseTable:ctor(vManager:clazz.TypeManager, ...)
 	self._name="Table"@String
 	self._metaTable=false@OrFalse(clazz.BaseTable)
 	self.bits=TYPE_BITS.OBJECT
 	self._metaEventCom=false@OrFalse(clazz.MetaEventCom)
-	self._classCom=false@OrFalse(clazz.ClassFactory)
-	self._baseClass=false@OrFalse(clazz.BaseTable)
-	self._objectType=false@OrFalse(clazz.MetaObject)
-	self._tableCom = DefaultTableCom.new(self._manager, self)
 end
 
 function BaseTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
@@ -45,14 +41,6 @@ end
 
 function BaseTable:setName(vName:String)
 	self._name = vName
-end
-
-function BaseTable:lockAsMetaIndex()
-	return self._tableCom:lockAndGet()
-end
-
-function BaseTable:lockAsMetaNewIndex()
-	return self._tableCom:lockAndGet()
 end
 
 function BaseTable:native_type()
@@ -78,22 +66,9 @@ function BaseTable:isSingleton()
 	return false
 end
 
-function BaseTable:getBaseClass()
-	return self._baseClass
-end
-
 function BaseTable:assumeIncludeAtom(vAssumeSet, vType)
 	if BaseTable.is(vType) then
-		local nMatchTable = vType
-		while nMatchTable ~= self do
-			const nBaseClass = nMatchTable:getBaseClass()
-			if not nBaseClass then
-				break
-			else
-				nMatchTable = nBaseClass
-			end
-		end
-		return nMatchTable == self and self or false
+		return vType == self and self or false
 	else
 		-- TODO check struct
 		return false

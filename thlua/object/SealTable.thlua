@@ -22,7 +22,7 @@ end)
 
 const SealTable = class@<clazz.SealTable, false>(BaseTable)
 
-function.open SealTable:ctor(vManager:clazz.TypeManager)
+function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
 	self._fieldDict={}@Dict(clazz.IAtomType, TableField)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
@@ -43,6 +43,9 @@ function SealTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(cla
 			kind = "property",
 		}
 	end
+end
+
+function SealTable:onSetMetaTable()
 end
 
 function SealTable:setInterface(vInterface:clazz.MetaObject)
@@ -69,12 +72,8 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 		vContext,
 		not nIndexType:isNever() and nIndexType or false,
 		not nNewIndexType:isNever() and nNewIndexType or false)
-	-- 4. set clazz com
-	const nClassCom = self._classCom
-	if nClassCom then
-		nClassCom:onSetMetaTable()
-	end
-	return
+	-- 4. trigger on set
+	self:onSetMetaTable()
 end
 
 function SealTable:getInterface()
