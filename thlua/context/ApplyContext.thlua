@@ -1,7 +1,9 @@
 
 const class = require "thlua.class"
+const OpenFunction = require "thlua.func.OpenFunction"
 const OperContext = require "thlua.context.OperContext"
 const VariableCase = require "thlua.term.VariableCase"
+const Exception = require "thlua.Exception"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -13,6 +15,8 @@ const ApplyContext = class@<clazz.ApplyContext, false>(OperContext)
 function.open ApplyContext:ctor(
 	...
 )
+	self._openForbid = false@Boolean
+	self._openReturn = false@clazz.UTermTuple
 	self._retMaxLength = 0@Integer
 	self._retRepCollection = self._manager:TypeCollection()
 	self._retList = {} @FirstRetCaseList
@@ -35,26 +39,53 @@ function ApplyContext:_putRetTuples(vRetTuples:clazz.RetTuples, vCase:clazz.Vari
 end
 
 function ApplyContext:applyCall(
-	vFunc:clazz.IAtomType,
+	vFunc:Union(clazz.BaseFunction, clazz.Truth),
 	vArgTuple:clazz.UTermTuple,
 	vCase:clazz.VariableCase
 )
-	const nRetTuples = vFunc:meta_call(self, vArgTuple)
-	self:_putRetTuples(nRetTuples, vCase)
+	if OpenFunction.is(vFunc) then
+		if self._openReturn or self._openForbid then
+			error(Exception.new("can't mix use open table", self._node))
+		end
+		self._openReturn = vFunc:meta_open_call(self:newOpenContext(self._node), vArgTuple)
+	else
+		if self._openReturn then
+			error(Exception.new("can't mix use open table", self._node))
+		end
+		self._openForbid = true
+		const nRetTuples = vFunc:meta_call(self, vArgTuple)
+		self:_putRetTuples(nRetTuples, vCase)
+	end
 end
 
 function ApplyContext:applyInvoke(
-	vFunc:clazz.IAtomType,
+	vFunc:Union(clazz.BaseFunction, clazz.Truth),
 	vArgTuple:clazz.UTermTuple,
 	vCase:clazz.VariableCase,
 	vPolyArgs:List(clazz.UAllType),
 	vSelfType:clazz.IAtomType
 )
-	const nRetTuples = vFunc:meta_invoke(self, vSelfType, vPolyArgs, vArgTuple)
-	self:_putRetTuples(nRetTuples, vCase)
+	if OpenFunction.is(vFunc) then
+		if self._openReturn or self._openForbid then
+			error(Exception.new("can't mix use open table", self._node))
+		end
+		self._openReturn = vFunc:meta_open_call(self:newOpenContext(self._node), vArgTuple)
+	else
+		if self._openReturn then
+			error(Exception.new("can't mix use open table", self._node))
+		end
+		self._openForbid = true
+		const nRetTuples = vFunc:meta_invoke(self, vSelfType, vPolyArgs, vArgTuple)
+		self:_putRetTuples(nRetTuples, vCase)
+	end
 end
 
-function ApplyContext:mergeReturn():Ret(clazz.FixedTermTuple)
+function ApplyContext:mergeReturn():Ret(clazz.UTermTuple)
+	const nOpenReturn = self._openReturn
+	if nOpenReturn then
+		return nOpenReturn
+	end
+	-- merge seal call return
 	const nRetList = self._retList
 	const nMaxLength = self._retMaxLength
 	const nRepeatType = self._retRepCollection:mergeToAtomUnion()

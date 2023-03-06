@@ -18,7 +18,12 @@ function.open BaseTask:ctor(vManager:clazz.TypeManager, vContext:OrNil(clazz.Sea
 		if not ok then
 			const nContext = self:getContext()
 			if nContext then
-				nContext:error(nExc)
+				const nNode = nExc.node
+				if not nNode then
+					nContext:error(tostring(nExc))
+				else
+					nContext:getRuntime():nodeError(nNode, nExc.msg)
+				end
 			else
 				error(nExc)
 			end

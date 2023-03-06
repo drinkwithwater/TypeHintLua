@@ -221,19 +221,11 @@ function BodyContext:META_SET(
 	end)
 end
 
-(@let.OpenPair = Struct {clazz.OpenFunction, clazz.UTermTuple})
-function BodyContext:_applyOpen(vNode:clazz.IAstNode, vOpenPair:OpenPair, vPolyArgs:OrNil(List(clazz.UAllType))):Ret(clazz.UTermTuple)
-	const nOpenPair = vOpenPair
-	return nOpenPair[1]:meta_open_call(self:newOpenContext(vNode), nOpenPair[2])
-end
-
 function BodyContext:META_CALL(
 	vNode:clazz.IAstNode,
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
-	local nOpenPair:OrNil(OpenPair) = nil
-	local nHasSeal = false
 	const nNil = self._manager.type.Nil
 	const nRegion = assert(self._region, "region not setted")
 	const nCallContext = self:newApplyContext(vNode)
@@ -246,28 +238,12 @@ function BodyContext:META_CALL(
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
 		elseif BaseFunction.is(vFuncType) or Truth.is(vFuncType) then
-			if vFuncType:isOpen() then
-				if not nOpenPair then
-					if not nHasSeal then
-						nOpenPair = {vFuncType, nArgTermTuple}
-					else
-						error("can't mix open function & type function")
-					end
-				else
-					error("can't mix use open function")
-				end
-			else
-				nCallContext:applyCall(vFuncType, nArgTermTuple, vVariableCase)
-			end
+			nCallContext:applyCall(vFuncType, nArgTermTuple, vVariableCase)
 		else
 			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end
 	end)
-	if nOpenPair then
-		return self:_applyOpen(vNode, nOpenPair)
-	else
-		return nCallContext:mergeReturn()
-	end
+	return nCallContext:mergeReturn()
 end
 
 function BodyContext:META_INVOKE(
@@ -279,8 +255,6 @@ function BodyContext:META_INVOKE(
 ):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
 	const nInvokeContext = self:newApplyContext(vNode)
-	local nOpenPair:OrNil(OpenPair) = nil
-	local nHasSeal = false
 	const nNil = self._manager.type.Nil
 	vSelfTerm:foreach(function(vSelfType, vVariableCase)
 		if vSelfType == nNil then
@@ -292,32 +266,14 @@ function BodyContext:META_INVOKE(
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
-					if vSingleFuncType:isOpen() then
-						if not nOpenPair then
-							if not nHasSeal then
-								nOpenPair = {vSingleFuncType, nNewArgTuple}
-							else
-								error("can't mix open function & type function")
-							end
-						else
-							error("can't mix use native function")
-						end
-					else
-						nInvokeContext:applyInvoke(vSingleFuncType, nNewArgTuple, vVariableCase, vPolyArgs, vSelfType)
-					end
+					nInvokeContext:applyInvoke(vSingleFuncType, nNewArgTuple, vVariableCase, vPolyArgs, vSelfType)
 				else
 					self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vSingleFuncType))
 				end
 			end)
 		end
 	end)
-	if nOpenPair then
-		return self:_applyOpen(vNode, nOpenPair, vPolyArgs)
-	else
-		-- const nRetList:FirstRetCaseList = {}
-		-- const nMaxLength, nRepeatType = self:_applySeal(vNode, nFuncArgCaseList, vPolyArgs, nRetList)
-		return nInvokeContext:mergeReturn()
-	end
+	return nInvokeContext:mergeReturn()
 end
 
 function BodyContext:META_EQ_NE(
