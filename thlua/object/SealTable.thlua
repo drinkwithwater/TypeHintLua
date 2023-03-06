@@ -29,6 +29,7 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._isBasingDefault=false@Boolean
 	self._interface=false@OrFalse(clazz.MetaObject)
+	self._metaTable=false@OrFalse(clazz.BaseTable)
 end
 
 function SealTable:ctxWait(vContext:clazz.OperContext)
@@ -70,12 +71,6 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 		not nNewIndexType:isNever() and nNewIndexType or false)
 	-- 4. trigger on set
 	self:onSetMetaTable(vContext)
-end
-
-function SealTable:foreachGetPair(vFunc:Fn(clazz.IAtomType, clazz.UAtomUnion))
-	self._keyType:foreach(function(vType)
-		vFunc(vType, self._fieldDict[vType]!.rawValueType)
-	end)
 end
 
 function SealTable:meta_set(vContext, vKeyType, vValueType)
