@@ -2,7 +2,7 @@
 const ImmutVariable = {}
 ImmutVariable.__index=ImmutVariable
 ImmutVariable.__tostring=function(self)
-	return "const-"..tostring(next(self._symbolSet))
+	return "const-"..tostring(next(self._symbolSet) or self._node)
 end
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
@@ -10,8 +10,13 @@ end
 function:class(clazz.ImmutVariable) ImmutVariable.new(vTerm:clazz.RefineTerm)
 	return setmetatable({.class
 		_term=vTerm,
-		_symbolSet={} @ Dict(clazz.LocalSymbol, True),
+		_symbolSet={}@ Dict(clazz.LocalSymbol, True),
+		_node=false@OrFalse(clazz.IAstNode)
 	}, ImmutVariable)
+end
+
+function ImmutVariable:setNode(vNode:clazz.IAstNode)
+	self._node = vNode
 end
 
 function ImmutVariable:addSymbol(vSymbol:clazz.LocalSymbol)

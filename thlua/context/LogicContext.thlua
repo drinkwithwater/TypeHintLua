@@ -16,18 +16,18 @@ function.open LogicContext:ctor(
 )
 end
 
-function LogicContext:orTerm(vLeft:clazz.RefineTerm, vRight:clazz.RefineTerm):Ret(clazz.RefineTerm)
+function LogicContext:logicCombineTerm(vLeft:clazz.RefineTerm, vRight:clazz.RefineTerm, vRightAndCase:clazz.VariableCase):Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vLeft:foreach(function(vType, vCase)
-			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
 	end)
 	vRight:foreach(function(vType, vCase)
-			nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
+		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase & vRightAndCase}
 	end)
 	return self:mergeToRefineTerm(nTypeCaseList)
 end
 
-function LogicContext:notTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
+function LogicContext:logicNotTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	const nBuiltinType = self._manager.type
 	vTerm:trueEach(function(vType, vCase)
@@ -39,7 +39,7 @@ function LogicContext:notTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	return self:mergeToRefineTerm(nTypeCaseList)
 end
 
-function LogicContext:trueTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
+function LogicContext:logicTrueTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vTerm:trueEach(function(vType, vCase)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
@@ -47,7 +47,7 @@ function LogicContext:trueTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	return self:mergeToRefineTerm(nTypeCaseList)
 end
 
-function LogicContext:falseTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
+function LogicContext:logicFalseTerm(vTerm:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vTerm:falseEach(function(vType, vCase)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}

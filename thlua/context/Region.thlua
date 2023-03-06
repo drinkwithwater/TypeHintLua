@@ -187,6 +187,7 @@ function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vMod
 		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
 		return nLocalSymbol
 	else
+		nImmutVariable:setNode(vNode)
 		return nImmutVariable
 	end
 end
@@ -309,7 +310,7 @@ end
 
 function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	const nOrContext = self._context:newLogicContext(vNode)
-	const nLeftTrueTerm = nOrContext:trueTerm(vLeftTerm)
+	const nLeftTrueTerm = nOrContext:logicTrueTerm(vLeftTerm)
 	const nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
 		return nLeftTrueTerm
@@ -319,14 +320,13 @@ function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRigh
 			nRightTerm = vRightFunction()
 		end)
 		assert(nRightTerm, "term must be true value here")
-		nRightTerm:and_case(nLeftFalseCase)
-		return nOrContext:orTerm(nLeftTrueTerm, nRightTerm)
+		return nOrContext:logicCombineTerm(nLeftTrueTerm, nRightTerm, nLeftFalseCase)
 	end
 end
 
 function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	const nAndContext = self._context:newLogicContext(vNode)
-	const nLeftFalseTerm = nAndContext:falseTerm(vLeftTerm)
+	const nLeftFalseTerm = nAndContext:logicFalseTerm(vLeftTerm)
 	const nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
 		return nLeftFalseTerm
@@ -336,14 +336,13 @@ function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRig
 			nRightTerm = vRightFunction()
 		end)
 		assert(nRightTerm, "term must be true value here")
-		nRightTerm:and_case(nLeftTrueCase)
-		return nAndContext:orTerm(nLeftFalseTerm, nRightTerm)
+		return nAndContext:logicCombineTerm(nLeftFalseTerm, nRightTerm, nLeftTrueCase)
 	end
 end
 
 function Region:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nNotContext = self._context:newLogicContext(vNode)
-	return nNotContext:notTerm(vData)
+	return nNotContext:logicNotTerm(vData)
 end
 
 function Region:nativeError()
