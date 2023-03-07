@@ -1,6 +1,5 @@
 
 const class = require "thlua.class"
-const BaseContext = require "thlua.context.BaseContext"
 
 const RefineTerm = require "thlua.term.RefineTerm"
 const VariableCase = require "thlua.term.VariableCase"
@@ -21,13 +20,16 @@ const AutoTail = require "thlua.auto.AutoTail"
 	let.node = import("thlua.code.Node").node
 end)
 
-const OperContext = class@<clazz.OperContext, false>(BaseContext)
+const OperContext = class@<clazz.OperContext, false>()
 
 function.open OperContext:ctor(
 	vRuntime:clazz.Runtime,
-	vApplyNode:clazz.IAstNode,
+	vNode:clazz.IAstNode,
 	vParentContext:clazz.BodyContext
 )
+	self._runtime=vRuntime
+	self._manager=vRuntime:getTypeManager()
+	self._node=vNode
 	self._parentContext = vParentContext
 end
 
@@ -225,6 +227,30 @@ end
 
 function OperContext:NilTerm():Ret(clazz.RefineTerm)
 	return RefineTerm.new(self._node, self._manager.type.Nil)
+end
+
+function OperContext:error(...:Truth)
+	self._runtime:nodeError(self._node, ...)
+end
+
+function OperContext:warn(...:Truth)
+	self._runtime:nodeWarn(self._node, ...)
+end
+
+function OperContext:info(...:Truth)
+	self._runtime:nodeInfo(self._node, ...)
+end
+
+function OperContext:getNode():Ret(clazz.IAstNode)
+	return self._node
+end
+
+function OperContext:getRuntime():Ret(clazz.Runtime)
+	return self._runtime
+end
+
+function OperContext:getTypeManager():Ret(clazz.TypeManager)
+	return self._manager
 end
 
 return OperContext

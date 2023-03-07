@@ -246,11 +246,10 @@ local TagToVisiting:RealTraverser = {
 		return self:ctxWrap(node).LITERAL_TERM("false")
 	end,
 	Number=function(self, node)
-		return self:ctxWrap(node).LITERAL_TERM(tostring(node[1]))
+		return self:ctxWrap(node).LITERAL_TERM(self:codeNodeValue(node))
 	end,
 	String=function(self, node)
-		const s = node[1]
-		return self:ctxWrap(node).LITERAL_TERM(node.isLong and '([[' .. s .. ']])' or string.format("%q", s))
+		return self:ctxWrap(node).LITERAL_TERM(self:codeNodeValue(node))
 	end,
 	Function=function(self, node)
 		return self:visitFunc(node)
@@ -439,6 +438,10 @@ end
 (@do
 	let.UFormatList = List(Union(Integer, String, node.IAstNode, Fn():Ret(let.UFormatList)))
 end)
+
+function HintGener:codeNodeValue(vNode:Union(node.String, node.Number)):Ret(String)
+	return "____nodes["..vNode.index.."][1]"
+end
 
 function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 	return "____nodes["..vNode.index.."]"

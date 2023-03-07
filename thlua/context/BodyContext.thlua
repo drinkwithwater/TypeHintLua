@@ -22,20 +22,22 @@ const class = require "thlua.class"
 const OperContext = require "thlua.context.OperContext"
 const ApplyContext = require "thlua.context.ApplyContext"
 const LogicContext = require "thlua.context.LogicContext"
-const BaseContext = require "thlua.context.BaseContext"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 end)
 
-const BodyContext = class@<clazz.BodyContext, false>(BaseContext)
+const BodyContext = class@<clazz.BodyContext, false>()
 
 function.open BodyContext:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
 	...
 )
+	self._runtime=vRuntime
+	self._manager=vRuntime:getTypeManager()
+	self._node=vNode
 	self._region=false@OrFalse(clazz.Region)
 	self._classTable=false @ OrFalse(clazz.BaseTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
@@ -513,6 +515,30 @@ end
 function BodyContext:getNamespace():Ret(clazz.Namespace)
 	local nSpace = self._namespace
 	return assert(nSpace, "space is false when get")
+end
+
+function BodyContext:error(...:Truth)
+	self._runtime:nodeError(self._node, ...)
+end
+
+function BodyContext:warn(...:Truth)
+	self._runtime:nodeWarn(self._node, ...)
+end
+
+function BodyContext:info(...:Truth)
+	self._runtime:nodeInfo(self._node, ...)
+end
+
+function BodyContext:getNode():Ret(clazz.IAstNode)
+	return self._node
+end
+
+function BodyContext:getRuntime():Ret(clazz.Runtime)
+	return self._runtime
+end
+
+function BodyContext:getTypeManager():Ret(clazz.TypeManager)
+	return self._manager
 end
 
 return BodyContext
