@@ -10,6 +10,9 @@ const Reference = require "thlua.refer.Reference"
 const Node = require "thlua.code.Node"
 const Enum = require "thlua.Enum"
 
+const ClassFactory = require "thlua.func.ClassFactory"
+const AutoFunction = require "thlua.func.AutoFunction"
+const OpenFunction = require "thlua.func.OpenFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const BaseTable = require "thlua.object.BaseTable"
 const MetaObject = require "thlua.object.MetaObject"
@@ -458,15 +461,20 @@ function BaseStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 end
 
 function BaseStack:newAutoFunction(vNode:clazz.IAstNode):Ret(clazz.AutoFunction)
-	const nAutoFn = self._runtime:AutoFunction(vNode, self)
+	const nAutoFn = AutoFunction.new(self._manager, vNode, self)
 	self:getSealStack():recordAutoFunction(nAutoFn)
 	return nAutoFn
 end
 
 function BaseStack:newClassFactory(vNode:clazz.IAstNode):Ret(clazz.ClassFactory)
-	const nFactory = self._runtime:ClassFactory(vNode, self)
+	const nFactory = ClassFactory.new(self._manager, vNode, self)
 	self:getSealStack():recordClassFactory(nFactory)
 	return nFactory
+end
+
+function BaseStack:newOpenFunction(vNode:clazz.IAstNode):Ret(clazz.OpenFunction)
+	const nOpenFn = OpenFunction.new(self._manager, vNode)
+	return nOpenFn
 end
 
 function BaseStack:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)

@@ -16,7 +16,6 @@ const TermTuple = require "thlua.tuple.TermTuple"
 
 	clazz.AutoFlag = $AutoFlag
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
-	clazz.ULuaInnerFn = Union(clazz.UBodyFunction, clazz.PolyFunction, clazz.MemberFunction)
 
 	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
 	clazz.GenMaker = Fn(clazz.UBodyFunction, OrFalse(clazz.VariableCase), clazz.BaseStack, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
@@ -204,7 +203,7 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	if self._hasSuffixHint then
-		const nGuardFn = self._manager:OpenFunction(self._node)
+		const nGuardFn = self._stack:newOpenFunction(self._node)
 		const nMakerContext = self._stack:getRuntime():OpenStack(self._node, self._stack, nGuardFn)
 		local nSetted = false
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nGuardFn, self._uvCase, nMakerContext, {}, false)
@@ -236,8 +235,9 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._manager:OpenFunction(self._node):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
+		return self._stack:newOpenFunction(self._node):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, self._uvCase, vContext, vPolyArgs, false)
+			--const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, false, vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)
 			return nGenFunc()
 		end)
