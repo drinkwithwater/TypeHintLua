@@ -203,10 +203,10 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	if self._hasSuffixHint then
-		const nGuardFn = self._stack:newOpenFunction(self._node)
-		const nMakerContext = self._stack:getRuntime():OpenStack(self._node, self._stack, nGuardFn)
+		const nGuardFn = self._stack:newOpenFunction(self._node, self._uvCase)
+		const nMakerStack = nGuardFn:newStack(self._stack:newOperContext(self._node))
 		local nSetted = false
-		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nGuardFn, self._uvCase, nMakerContext, {}, false)
+		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nGuardFn, self._uvCase, nMakerStack, {}, false)
 		const ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
 				error("extends can only be used with function:class")
@@ -235,7 +235,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
+		return self._stack:newOpenFunction(self._node, self._uvCase):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, self._uvCase, vContext, vPolyArgs, false)
 			--const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, false, vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)

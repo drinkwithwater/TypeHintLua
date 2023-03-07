@@ -11,11 +11,12 @@ const class = require "thlua.class"
 
 const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
 
-function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vParentStack:clazz.BaseStack)
+function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vParentStack:clazz.BaseStack, vUpValueCase:OrNil(False, clazz.VariableCase))
 	self._func=nil@OrNil(clazz.OpenCaller)
 	self._polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction))
 	self._node = vNode
 	self._lexStack = vParentStack
+	self._uvCase = vUpValueCase or false
 	self.name="unknown"@String
 end
 
@@ -112,8 +113,12 @@ function OpenFunction:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValu
 	self:meta_open_call(vContext, nTermTuple)
 end
 
+function OpenFunction:newStack(vContext:clazz.OperContext)
+	return self._lexStack:getRuntime():OpenStack(vContext:getNode(), vContext:getStack(), self)
+end
+
 function OpenFunction:meta_open_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple, clazz.OpenStack)
-	const nNewStack = vContext:newOpenStack(self)
+	const nNewStack = self:newStack(vContext)
 	return self._func!(nNewStack, vTermTuple), nNewStack
 end
 
