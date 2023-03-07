@@ -72,12 +72,12 @@ function BaseStack:rootSetNamespace(vRootSpace:clazz.Namespace)
 	self._namespace = vRootSpace
 end
 
-function BaseStack:BEGIN(vLexContext:clazz.BaseStack, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
+function BaseStack:BEGIN(vLexStack:clazz.BaseStack, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
 	self._region = nRegion
-	const nSpace = self._runtime:LetNamespace(vLexContext:getNamespace(), vRegionNode)
+	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vRegionNode)
 	self._namespace = nSpace
 	return nRegion, nSpace.localExport, nSpace.globalExport
 end
@@ -486,7 +486,7 @@ function BaseStack:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
 end
 
 function.pass BaseStack:getSealStack():Ret(clazz.SealStack)
-	error("use body context")
+	error("getSealStack not implement in BaseStack")
 end
 
 function BaseStack:seal()
