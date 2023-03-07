@@ -1,4 +1,8 @@
 
+const DoBuilder = require "thlua.builder.DoBuilder"
+const Branch = require "thlua.runtime.Branch"
+const DotsTail = require "thlua.tuple.DotsTail"
+const AutoTail = require "thlua.auto.AutoTail"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const AutoFlag = require "thlua.auto.AutoFlag"
 const TermTuple = require "thlua.tuple.TermTuple"
@@ -8,6 +12,8 @@ const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
 const Node = require "thlua.code.Node"
 const Enum = require "thlua.Enum"
+const LocalSymbol = require "thlua.term.LocalSymbol"
+const ImmutVariable = require "thlua.term.ImmutVariable"
 
 const ClassFactory = require "thlua.func.ClassFactory"
 const AutoFunction = require "thlua.func.AutoFunction"
@@ -41,21 +47,20 @@ function.open BaseStack:ctor(
 	self._runtime=vRuntime
 	self._manager=nManager
 	self._node=vNode
-	self._region=nil@clazz.Region
 	self._classTable=false@OrFalse(clazz.BaseTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
-	self._headOper=OperContext.new(vNode, self, nManager)
-	self._tailOper=OperContext.new(vNode, self, nManager)
-end
-
---[[
-function.pass Context:testLine(vNode:clazz.IAstNode, vName:String):Ret(clazz.IAstNode)
-	local nInfo = debug.getinfo(2)
-	if nInfo.currentline ~= vNode.l then
-		print(nInfo.currentline, vNode.l, vName, vNode.tag, vNode.kind)
+	self._headContext=OperContext.new(vNode, self, nManager)
+	self._tailContext=OperContext.new(vNode, self, nManager)
+	self._curBranch=nil@clazz.Branch
+	do.pass
+		const case = select(3, ...)
+		const nRootBranch = Branch.new(self, nil, case or VariableCase.new())-- vUpCase or VariableCase.new())
+		self._curBranch=nRootBranch
 	end
-	return vNode
-end]]
+	self._branchStack={self._curBranch}@List(clazz.Branch)
+	self._bodyFn=nil@clazz.UBodyFunction
+	self._retList={} @ List(clazz.FixedTermTuple)
+end
 
 function BaseStack:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
 	return AutoFlag
@@ -75,11 +80,11 @@ function BaseStack:rootSetNamespace(vRootSpace:clazz.Namespace)
 end
 
 function BaseStack:BEGIN(vLexStack:clazz.BaseStack, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
-):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
+):Ret(clazz.BaseStack, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._namespace, "context can only begin once")
 	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vRegionNode)
 	self._namespace = nSpace
-	return self._region, nSpace.localExport, nSpace.globalExport
+	return self, nSpace.localExport, nSpace.globalExport
 end
 
 -- pack explist to termtuple or lazyfunc
@@ -225,11 +230,10 @@ function BaseStack:META_CALL(
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
 	const nNil = self._manager.type.Nil
-	const nRegion = assert(self._region, "region not setted")
 	const nCallContext = self:newApplyContext(vNode)
 	vFuncTerm:foreach(function(vFuncType, vVariableCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
-		nRegion:withBranch(vVariableCase, function()
+		self:withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
 		assert(nArgTermTuple, "must be true here")
@@ -394,8 +398,8 @@ function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 	return ok, err
 end
 
-function BaseStack:getRegion():Ret(clazz.Region)
-	return (assert(self._region, "region not create when context getRegion"))
+function BaseStack:getRegion():Ret(clazz.BaseStack)
+	return self
 end
 
 function BaseStack:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
@@ -407,8 +411,7 @@ function BaseStack:FUNC_NEW(vNode:clazz.IAstNode,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 ):Ret(clazz.RefineTerm)
-	const nRegion = self._region
-	const nUpValueCase = nRegion and nRegion:topBranch():getCase()
+	const nUpValueCase = self:topBranch():getCase()
 	const nFnType = FunctionBuilder.new(self, vNode, nUpValueCase, vFnNewInfo, vPrefixHint, vParRetMaker):build()
 	return self:nodeRefineTerm(vNode, nFnType)
 end
@@ -507,11 +510,11 @@ function BaseStack:nodeRefineTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
 end
 
 function BaseStack:getHeadContext():Ret(clazz.OperContext)
-	return self._headOper
+	return self._headContext
 end
 
 function BaseStack:getTailContext():Ret(clazz.OperContext)
-	return self._tailOper
+	return self._tailContext
 end
 
 function BaseStack:getNamespace():Ret(clazz.Namespace)
@@ -541,6 +544,416 @@ end
 
 function BaseStack:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
+end
+
+--
+
+function BaseStack:withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(clazz.Branch)
+	const nStack = self._branchStack
+	const nNewLen = #nStack + 1
+	const nOldBranch = self._curBranch
+	const nNewBranch = Branch.new(self, nOldBranch, vVariableCase)
+	nStack[nNewLen] = nNewBranch
+	self._curBranch = nNewBranch
+	vFunc()
+	nStack[nNewLen] = nil
+	self._curBranch = nOldBranch
+	return nNewBranch
+end
+
+function BaseStack:topBranch():Ret(clazz.Branch)
+	return self._curBranch
+end
+
+function BaseStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
+	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
+	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
+	const nSymbolContext = self:newOperContext(vNode)
+	self:topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
+end
+
+function BaseStack:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
+	const nSymbolContext = self:newOperContext(vNode)
+	const nBranch = self:topBranch()
+	if LocalSymbol.is(vSymbol) then
+		return nBranch:mutGet(nSymbolContext, vSymbol)
+	elseif ImmutVariable.is(vSymbol) then
+		return nBranch:immutGet(nSymbolContext, vSymbol)
+	else
+		const nTerm = vSymbol:getRefineTerm()
+		if nTerm then
+			return nBranch:immutGet(nSymbolContext, nTerm:attachImmutVariable())
+		else
+			if not vAllowAuto then
+				error(Exception.new("auto term can't be used when it's undeduced", vNode))
+			else
+				return vSymbol
+			end
+		end
+	end
+end
+
+function BaseStack:PARAM_PACKOUT(
+	vNode:clazz.IAstNode,
+	vList:List(clazz.UAutoTerm),
+	vDots:OrFalse(clazz.UTermTuple)
+):Ret(clazz.UTermTuple)
+	return self._headContext:UTermTupleByAppend(vList, vDots)
+end
+
+function BaseStack:PARAM_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:OrFalse(clazz.UTermTuple),
+	vIndex:Integer,
+	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
+):Ret(clazz.UAutoTerm)
+	const nHeadContext = self._headContext
+	if vHintType == AutoFlag then
+		if vTermTuple then
+			return vTermTuple:get(nHeadContext, vIndex)
+		else
+			return AutoHolder.new(nHeadContext)
+		end
+	else
+		if vTermTuple then
+			const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
+			if not nAutoTerm:getType() then
+				nAutoTerm:setAutoCastType(nHeadContext, vHintType)
+			end
+		end
+		-- TODO check type match here...
+		return nHeadContext:RefineTerm(vHintType)
+	end
+end
+
+function BaseStack:PARAM_NODOTS_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:OrFalse(clazz.UTermTuple),
+	vParNum:Integer
+)
+	if vTermTuple then
+		self._headContext:matchParToDots(vNode, vTermTuple, vParNum, false)
+	end
+end
+
+function BaseStack:PARAM_DOTS_UNPACK(
+	vNode:clazz.IAstNode,
+	vTermTuple:OrFalse(clazz.UTermTuple),
+	vParNum:Integer,
+	vHintDots:Union(clazz.AutoFlag, clazz.UAllType)
+):Ret(OrFalse(clazz.UTermTuple))
+	if vTermTuple then
+		return self._headContext:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
+	else
+		if vHintDots == AutoFlag then
+			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._headContext))
+		else
+			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, vHintDots))
+		end
+	end
+end
+
+function BaseStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+	const nSymbolContext = self:newOperContext(vNode)
+	if AutoHolder.is(vTerm) then
+		const nAutoRefineTerm = vTerm:getRefineTerm()
+		if not nAutoRefineTerm then
+			if vKind ~= Enum.SymbolKind_PARAM then
+				error(Exception.new("undeduced auto variable can't be assigned to other variable", vNode))
+			end
+			return vTerm
+		else
+			vTerm = nAutoRefineTerm
+		end
+	end
+	if not vTerm then
+		vTerm = nSymbolContext:NilTerm()
+	end
+	if vHintType then
+		local nSrcType = vTerm:getType()
+		if not nSymbolContext:castLuaType(nSrcType, vHintType) then
+			if not vHintType:includeAll(nSrcType) then
+				nSymbolContext:error("symbol init but type not match")
+			end
+		end
+		vTerm = nSymbolContext:RefineTerm(vHintType)
+	else
+		-- convert string literal to string, number literal to number, boolean literal to boolean
+		if vModify and vKind == Enum.SymbolKind_LOCAL then
+			const nFromType = vTerm:getType()
+			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
+			if nFromType ~= nToType then
+				vTerm = nSymbolContext:RefineTerm(nToType)
+			end
+		end
+		nSymbolContext:getTypeManager():basingByDefault(vTerm:getType())
+	end
+	const nImmutVariable = vTerm:attachImmutVariable()
+	if vModify then
+		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, vTerm:getType(), vTerm)
+		self:getRuntime():recordSymbol(nLocalSymbol)
+		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
+		return nLocalSymbol
+	else
+		nImmutVariable:setNode(vNode)
+		return nImmutVariable
+	end
+end
+
+function BaseStack:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
+	const nIfContext = self:newOperContext(vNode)
+	const nTrueCase = vTerm:caseTrue()
+	const nFalseCase = vTerm:caseFalse()
+	const nBeforeBranch = self:topBranch()
+	if nTrueCase then
+		const nTrueBranch = self:withBranch(nTrueCase, function()
+			vTrueFunction()
+		end)
+		if nFalseCase and vFalseFunction then
+			const nFalseBranch = self:withBranch(nFalseCase, function()
+				vFalseFunction()
+			end)
+			nBeforeBranch:mergeTwoBranch(nIfContext, nTrueBranch, nFalseBranch)
+		else
+			nBeforeBranch:mergeOneBranch(nIfContext, nTrueBranch, nFalseCase)
+		end
+	elseif nFalseCase and vFalseFunction then
+		const nFalseBranch = self:withBranch(nFalseCase, function()
+			vFalseFunction()
+		end)
+		nBeforeBranch:mergeOneBranch(nIfContext, nFalseBranch, nTrueCase)
+	end
+end
+
+function BaseStack:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
+	const nTrueCase = vTerm:caseTrue()
+	if nTrueCase then
+		self:withBranch(nTrueCase, function()
+			vTrueFunction()
+		end)
+	else
+		self:getRuntime():nodeWarn(vNode, "while loop is unreachable scope")
+	end
+end
+
+function BaseStack:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
+	const nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if not nBuilder.pass then
+		vDoFunc()
+	end
+end
+
+function BaseStack:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
+	const nForContext = self:newOperContext(vNode)
+	const nLenNext = #vNextSelfInit
+	if nLenNext < 1 or nLenNext > 3 then
+		nForContext:error("FOR_IN iterator error, arguments number must be 1 or 2 or 3")
+		return
+	end
+	const nNext = vNextSelfInit:get(nForContext, 1)
+	const nTuple = self:META_CALL(vNode, nNext, function ()
+		if nLenNext == 1 then
+			return nForContext:FixedTermTuple({})
+		else
+			const nSelf = vNextSelfInit:get(nForContext, 2)
+			if nLenNext == 2 then
+				return nForContext:FixedTermTuple({nSelf})
+			else
+				if nLenNext == 3 then
+					const nInit = vNextSelfInit:get(nForContext, 3)
+					return nForContext:FixedTermTuple({nSelf, nInit})
+				else
+					error("NextSelfInit tuple must be 3, this branch is impossible")
+				end
+			end
+		end
+	end)
+	if #nTuple <= 0 then
+		self:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value when iterator")
+		return
+	end
+	assert(TermTuple.isFixed(nTuple), "iter func can't return auto term")
+	local nFirstTerm = nTuple:get(nForContext, 1)
+	const nFirstType = nFirstTerm:getType()
+	if not nFirstType:isNilable() then
+		self:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : still run logic?? ")
+		return
+	end
+	if nFirstType:notnilType():isNever() then
+		return
+	end
+	nFirstTerm:foreach(function(vAtomType, vCase)
+		if vAtomType:isNilable() then
+			return
+		end
+		const nTermList:List(clazz.RefineTerm) = {nForContext:RefineTerm(vAtomType)}
+		--[[for i=2, #nTuple do
+			nTermList[i] = nTuple:get(i)
+		end]]
+		for i=2, #nTuple do
+			local nTerm = nTuple:get(nForContext, i)
+			const nType = vCase[nTerm:attachImmutVariable()]
+			if nType then
+				nTerm = nForContext:RefineTerm(nType)
+			end
+			nTermList[i] = nTerm
+		end
+		local nNewTuple = nForContext:FixedTermTuple(nTermList)
+		self:withBranch(vCase, function()
+			vFunc(nNewTuple)
+		end)
+	end)
+end
+
+function BaseStack:FOR_NUM(
+	vNode:clazz.IAstNode,
+	vStart:clazz.RefineTerm,
+	vStop:clazz.RefineTerm,
+	vStepOrNil:OrNil(clazz.RefineTerm),
+	vFunc:Fn(clazz.RefineTerm)
+)
+	const nForContext = self:newOperContext(vNode)
+	vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+end
+
+function BaseStack:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
+	const nOrContext = self:newLogicContext(vNode)
+	const nLeftTrueTerm = nOrContext:logicTrueTerm(vLeftTerm)
+	const nLeftFalseCase = vLeftTerm:caseFalse()
+	if not nLeftFalseCase then
+		return nLeftTrueTerm
+	else
+		local nRightTerm:OrNil(clazz.RefineTerm) = nil
+		self:withBranch(nLeftFalseCase, function()
+			nRightTerm = vRightFunction()
+		end)
+		assert(nRightTerm, "term must be true value here")
+		return nOrContext:logicCombineTerm(nLeftTrueTerm, nRightTerm, nLeftFalseCase)
+	end
+end
+
+function BaseStack:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
+	const nAndContext = self:newLogicContext(vNode)
+	const nLeftFalseTerm = nAndContext:logicFalseTerm(vLeftTerm)
+	const nLeftTrueCase = vLeftTerm:caseTrue()
+	if not nLeftTrueCase then
+		return nLeftFalseTerm
+	else
+		local nRightTerm:OrNil(clazz.RefineTerm) = nil
+		self:withBranch(nLeftTrueCase, function()
+			nRightTerm = vRightFunction()
+		end)
+		assert(nRightTerm, "term must be true value here")
+		return nAndContext:logicCombineTerm(nLeftFalseTerm, nRightTerm, nLeftTrueCase)
+	end
+end
+
+function BaseStack:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
+	const nNotContext = self:newLogicContext(vNode)
+	return nNotContext:logicNotTerm(vData)
+end
+
+function BaseStack:nativeError()
+	self:topBranch():setStop()
+end
+
+function BaseStack:nativeAssert(vTerm:clazz.RefineTerm)
+	local nTrueCase = vTerm:caseTrue()
+	if nTrueCase then
+		self:topBranch():assertCase(nTrueCase)
+	end
+end
+
+function BaseStack:BREAK(vNode:clazz.IAstNode)
+	self:topBranch():setStop()
+end
+
+function BaseStack:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
+	const nRetContext = self:newOperContext(vNode)
+	const nBodyFn = assert(self._bodyFn)
+	if AutoFunction.is(nBodyFn) then
+		local nOneOkay = false
+		local nRetTuples = nBodyFn:getRetTuples()
+		if nRetTuples then
+			nRetTuples:foreachWithFirst(function(vDstTuple, _)
+				if vTypeTuple:castOrIn(nRetContext, vDstTuple) then
+					nOneOkay = true
+				end
+			end)
+			if not nOneOkay then
+				nRetContext:error("return check failed")
+			end
+		else
+			-- error("auto return TODO")
+		end
+	elseif ClassFactory.is(nBodyFn) then
+		const nResultType = nBodyFn:getClassAwait()
+		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
+			nRetContext:error("class return check failed")
+		end
+	end
+end
+
+function BaseStack:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTermTuple)):Ret(clazz.FixedTermTuple)
+	const nBodyFn = assert(self._bodyFn)
+	if OpenFunction.is(nBodyFn) or (AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples()) then
+		local nLen = #vTermTupleList
+		if nLen == 0 then
+			return self._tailContext:FixedTermTuple({})
+		elseif nLen == 1 then
+			return vTermTupleList[1]!
+		else
+			error("TODO : open-function or auto-return-function has more than one return")
+			--[[
+			local retTermTuple = vTermTupleList[1]!
+			for i=2,nLen do
+				retTermTuple = retTermTuple | vTermTupleList[i]!
+			end
+			return retTermTuple]]
+		end
+	end
+	return self._tailContext:FixedTermTuple({})
+end
+
+function BaseStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
+	const nRetContext = self:newOperContext(vNode)
+	table.insert(self._retList, vTermTuple)
+	if #vTermTuple <= 0 or vTermTuple:getTail() then
+		self:_bodyReturn(vNode, vTermTuple:checkTypeTuple())
+	else
+		const nManager = self:getTypeManager()
+		const nFirstTerm = vTermTuple:get(nRetContext, 1)
+		nFirstTerm:foreach(function(vAtomType, vCase)
+			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
+			for i=2, #vTermTuple do
+				local nTerm = vTermTuple:get(nRetContext, i)
+				const nType = vCase[nTerm:attachImmutVariable()]
+				if not nType then
+					nTypeList[i] = nTerm:getType()
+				else
+					nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
+				end
+			end
+			const nTypeTuple = nManager:TypeTuple(vNode, table.unpack(nTypeList))
+			self:_bodyReturn(vNode, nTypeTuple)
+		end)
+	end
+	self:topBranch():setStop()
+end
+
+function BaseStack:RUN_AFTER_IF(vNode:clazz.IAstNode, vFunc:Fn())
+	if self:topBranch():getStop() then
+		self:getRuntime():nodeError(vNode, "unreachable code")
+	end
+	vFunc()
+end
+
+function BaseStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
+	local re = self:_bodyEnd(vNode, self._retList)
+	self:getNamespace():close()
+	self:seal()
+	return re
 end
 
 return BaseStack
