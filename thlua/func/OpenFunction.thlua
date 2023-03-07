@@ -24,9 +24,9 @@ function OpenFunction:lateInitFromAutoNative(vNativeFunc:clazz.OpenCaller):Ret(c
 end
 
 function OpenFunction:lateInitFromFixedNative(vNativeFunc:clazz.FixedNativeFunc):Ret(clazz.OpenFunction)
-	const nFn:clazz.OpenCaller = function(vContext, vTermTuple)
-		const nInplaceContext = vContext:getHeadContext()
-		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vContext:getNode()))
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vStack:getNode()))
+		const nInplaceContext = vStack:getHeadContext()
 		const re = vNativeFunc(nInplaceContext, vTermTuple)
 		if TermTuple.is(re) then
 			return re
@@ -49,19 +49,19 @@ function OpenFunction:castPoly(vContext, vTypeList)
 end
 
 function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
-	const nNoPolyFn:$self._func = function(vContext, vTermTuple)
+	const nNoPolyFn:$self._func = function(vStack, vTermTuple)
 		if vPolyParNum == 0 then
-			return vFunc(self, vContext, {}, vTermTuple)
+			return vFunc(self, vStack, {}, vTermTuple)
 		else
-			vContext:error("this open function need poly args")
+			vStack:error("this open function need poly args")
 		end
 	end
 	const nPolyWrapper:$self._polyWrapper = function(vList)
-		return self._manager:OpenFunction(self._node):lateInitFromAutoNative(function(vContext, vTermTuple)
+		return self._manager:OpenFunction(self._node):lateInitFromAutoNative(function(vStack, vTermTuple)
 			if #vList ~= vPolyParNum then
-				vContext:error("poly args number not match")
+				vStack:error("poly args number not match")
 			end
-			return vFunc(self, vContext, vList, vTermTuple)
+			return vFunc(self, vStack, vList, vTermTuple)
 		end)
 	end
 	self._func = nNoPolyFn
@@ -72,8 +72,8 @@ end
 function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunction)
 	const nTrue = self._manager.type.True
 	const nFalse = self._manager.type.False
-	const nFn:clazz.OpenCaller = function(vContext, vTermTuple)
-		const nHeadContext = vContext:getHeadContext()
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		const nHeadContext = vStack:getHeadContext()
 		const nIsBaseTable, nTableType = self._manager:tryBaseTable(vType)
 		assert(nIsBaseTable, "assert lua table failed")
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
@@ -87,7 +87,7 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 		if caseFalse then
 			nTypeCaseList[#nTypeCaseList + 1] = {nFalse, caseFalse}
 		end
-		return vContext:getTailContext():FixedTermTuple({nHeadContext:mergeToRefineTerm(nTypeCaseList)})
+		return vStack:getTailContext():FixedTermTuple({nHeadContext:mergeToRefineTerm(nTypeCaseList)})
 	end
 	self._func = nFn
 	return self
@@ -102,19 +102,19 @@ function OpenFunction:set_name(name:String)
 end
 
 function OpenFunction:triggerAsMetaIndex(vContext, vSelfTerm, vKeyTerm)
-	const nNewContext = vContext:newOpenStack(vContext:getNode())
+	const nNewStack = vContext:newOpenStack(vContext:getNode())
 	const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm})
-	return self:meta_open_call(nNewContext, nTermTuple):get(vContext, 1)
+	return self:meta_open_call(nNewStack, nTermTuple):get(vContext, 1)
 end
 
 function OpenFunction:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValueTerm)
-	const nNewContext = vContext:newOpenStack(vContext:getNode())
+	const nNewStack = vContext:newOpenStack(vContext:getNode())
 	const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm, vValueTerm})
-	self:meta_open_call(nNewContext, nTermTuple)
+	self:meta_open_call(nNewStack, nTermTuple)
 end
 
-function OpenFunction:meta_open_call(vContext:clazz.OpenStack, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple)
-	return self._func!(vContext, vTermTuple)
+function OpenFunction:meta_open_call(vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple)
+	return self._func!(vStack, vTermTuple)
 end
 
 function OpenFunction:assumeIntersectAtom(vAssumeSet, vType)

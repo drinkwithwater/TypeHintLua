@@ -154,9 +154,10 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 		print=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			return vContext:FixedTermTuple({})
 		end),
-		tprint=nManager:autoNativeOpenFunction(function(vContext, vTermTuple)
-			vContext:info(vTermTuple)
-			return vContext:getTailContext():FixedTermTuple({})
+		tprint=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+			const nTailContext = vStack:getTailContext()
+			nTailContext:info(vTermTuple)
+			return nTailContext:FixedTermTuple({})
 		end),
 		ttprint=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			vContext:info(vTermTuple:checkTypeTuple())
@@ -178,38 +179,38 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 			end
 		end),
 		-- function take open context, not oper context
-		pcall=nManager:autoNativeOpenFunction(function(vContext, vTermTuple)
-			const nHeadContext = vContext:getHeadContext()
+		pcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+			const nHeadContext = vStack:getHeadContext()
 			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 2)
-			const nTermTuple = vContext:getParentStack():META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
+			const nTermTuple = vStack:getParentStack():META_CALL(vStack:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nHeadContext:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
-			return vContext:operContext():UTermTupleByAppend({nRetFirst}, nTermTuple)
+			return vStack:operContext():UTermTupleByAppend({nRetFirst}, nTermTuple)
 		end),
-		xpcall=nManager:autoNativeOpenFunction(function(vContext, vTermTuple)
-			const nHeadContext = vContext:getHeadContext()
+		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+			const nHeadContext = vStack:getHeadContext()
 			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 3)
-			const nTermTuple = vContext:getParentStack():META_CALL(vContext:getNode(), nFunc, function() return nArgs end)
+			const nTermTuple = vStack:getParentStack():META_CALL(vStack:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nHeadContext:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
-			return vContext:operContext():UTermTupleByAppend({nRetFirst}, nTermTuple)
+			return vStack:operContext():UTermTupleByAppend({nRetFirst}, nTermTuple)
 		end),
-		error=nManager:autoNativeOpenFunction(function(vContext, vTermTuple)
-			const nRegion = vContext:getParentStack():getRegion()
+		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+			const nRegion = vStack:getParentStack():getRegion()
 			assert(nRegion, "error in a context without region")
 			nRegion:nativeError()
-			return vContext:getTailContext():FixedTermTuple({})
+			return vStack:getTailContext():FixedTermTuple({})
 		end),
-		assert=nManager:autoNativeOpenFunction(function(vContext, vTermTuple)
-			const nRegion = vContext:getParentStack():getRegion()
+		assert=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+			const nRegion = vStack:getParentStack():getRegion()
 			assert(nRegion, "error in a context without region")
-			const nHeadContext = vContext:getHeadContext()
+			const nHeadContext = vStack:getHeadContext()
 			const nFirst = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			nRegion:nativeAssert(nFirst)
-			const nLogicContext = vContext:newLogicContext(vContext:getNode())
-			return vContext:getTailContext():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
+			const nLogicContext = vStack:newLogicContext(vStack:getNode())
+			return vStack:getTailContext():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
 		end),
 	}
 	for k,v in pairs(global @ Dict(String, clazz.OpenFunction)) do
