@@ -26,10 +26,10 @@ end)
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
 		return {
-			'local ____rt, ____ctx, ____nodes=... ',
+			'local ____rt, ____stk, ____nodes=... ',
 			"local ____s__ENV"..node[1].index.."=____rt:makeSymbol_ENV(",self:codeNode(node[1]),") ",
 			"return ",
-			self:ctxWrap(node).CHUNK_TYPE(self:visitFunc(node))
+			self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 		}
 	end,
 	Block=function(self, node)
@@ -74,7 +74,7 @@ local TagToVisiting:RealTraverser = {
 			" local ", self:concatList@<node.IAstNode>(node[1], function(i,v)
 				return "____set_a"..i
 			end, ","),
-			"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
+			"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
 			self:concatList@<node.Lhs>(node[1], function(i, vVarNode)
 				if vVarNode.tag == "Ident" then
 					return self:rgnWrap(vVarNode).SYMBOL_SET(
@@ -82,7 +82,7 @@ local TagToVisiting:RealTraverser = {
 						"____set_a"..i
 					)
 				else
-					return self:ctxWrap(node).META_SET(
+					return self:stkWrap(node).META_SET(
 						self:visit(vVarNode[1]),
 						self:visit(vVarNode[2]),
 						"____set_a"..i
@@ -145,12 +145,12 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Forin=function(self, node)
 		return {
-			"local ____n_t_i=", self:ctxWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
+			"local ____n_t_i=", self:stkWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
 			self:rgnWrap(node).FOR_IN(self:fnWrap("____iterTuple")(
 				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 					return "____forin"..i
 				end, ","),
-				"=", self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
+				"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
 				self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
 					return self:visitIdentDef(vIdent, "____forin"..i)
 				end, " "),
@@ -164,7 +164,7 @@ local TagToVisiting:RealTraverser = {
 			"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 				return "____lo"..i
 			end, ","), "=",
-			#node[2] > 0 and self:ctxWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
+			#node[2] > 0 and self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
 			self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
 				return self:visitIdentDef(vIdent, "____lo"..i)
 			end, " ")
@@ -192,7 +192,7 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Return=function(self, node)
 		return self:rgnWrap(node).RETURN(
-			self:ctxWrap(node).EXPRLIST_REPACK(
+			self:stkWrap(node).EXPRLIST_REPACK(
 				"false",
 				self:listWrap(self:visit(node[1]))
 			)
@@ -202,10 +202,10 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).BREAK()
 	end,
 	Call=function(self, node)
-		return self:ctxAutoUnpack(node,
-			self:ctxWrap(node).META_CALL(
+		return self:stkAutoUnpack(node,
+			self:stkWrap(node).META_CALL(
 				self:visit(node[1]),
-				self:ctxWrap(node).EXPRLIST_REPACK(
+				self:stkWrap(node).EXPRLIST_REPACK(
 					"true",
 					self:listWrap(#node[2] > 0 and self:visit(node[2]) or "")
 				)
@@ -214,12 +214,12 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Invoke=function(self, node)
 		const nHintPolyArgs = node.hintPolyArgs
-		return self:ctxAutoUnpack(node,
-			self:ctxWrap(node).META_INVOKE(
+		return self:stkAutoUnpack(node,
+			self:stkWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
 				self:listWrap(nHintPolyArgs and self:fixIHintInfo(nHintPolyArgs) or ""),
-				self:ctxWrap(node).EXPRLIST_REPACK(
+				self:stkWrap(node).EXPRLIST_REPACK(
 					"false",
 					self:listWrap(#node[3] > 0 and self:visit(node[3]) or "")
 				)
@@ -234,22 +234,22 @@ local TagToVisiting:RealTraverser = {
 		}
 	end,
 	Dots=function(self, node)
-		return self:ctxAutoUnpack(node, "____vDOTS")
+		return self:stkAutoUnpack(node, "____vDOTS")
 	end,
 	Nil=function(self, node)
-		return self:ctxWrap(node).NIL_TERM()
+		return self:stkWrap(node).NIL_TERM()
 	end,
 	True=function(self, node)
-		return self:ctxWrap(node).LITERAL_TERM("true")
+		return self:stkWrap(node).LITERAL_TERM("true")
 	end,
 	False=function(self, node)
-		return self:ctxWrap(node).LITERAL_TERM("false")
+		return self:stkWrap(node).LITERAL_TERM("false")
 	end,
 	Number=function(self, node)
-		return self:ctxWrap(node).LITERAL_TERM(self:codeNodeValue(node))
+		return self:stkWrap(node).LITERAL_TERM(self:codeNodeValue(node))
 	end,
 	String=function(self, node)
-		return self:ctxWrap(node).LITERAL_TERM(self:codeNodeValue(node))
+		return self:stkWrap(node).LITERAL_TERM(self:codeNodeValue(node))
 	end,
 	Function=function(self, node)
 		return self:visitFunc(node)
@@ -268,7 +268,7 @@ local TagToVisiting:RealTraverser = {
 				end
 			end
 		end
-		return self:ctxWrap(node).TABLE_NEW(
+		return self:stkWrap(node).TABLE_NEW(
 			self:visitLongHint(node.hintLong),
 			self:fnRetWrap(self:listWrap(self:concatList@<Union(node.Pair, node.Expr)>(node, function(i, vTableItem)
 				if vTableItem.tag ~= "Pair" then
@@ -276,7 +276,7 @@ local TagToVisiting:RealTraverser = {
 						return "nil"
 					else
 						return self:listWrap(
-							self:ctxWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
+							self:stkWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
 							self:visit(vTableItem)
 						)
 					end
@@ -308,24 +308,24 @@ local TagToVisiting:RealTraverser = {
 		else
 			const nRight = node[3]
 			if not nRight then
-				return self:ctxWrap(node).META_UOP(
+				return self:stkWrap(node).META_UOP(
 					"\""..node[1].."\"",
 					self:visit(node[2])
 				)
 			elseif node[1] == "==" then
-				return self:ctxWrap(node).META_EQ_NE(
+				return self:stkWrap(node).META_EQ_NE(
 					"true",
 					self:visit(node[2]),
 					self:visit(nRight)
 				)
 			elseif node[1] == "~=" then
-				return self:ctxWrap(node).META_EQ_NE(
+				return self:stkWrap(node).META_EQ_NE(
 					"false",
 					self:visit(node[2]),
 					self:visit(nRight)
 				)
 			else
-				return self:ctxWrap(node).META_BOP_SOME(
+				return self:stkWrap(node).META_BOP_SOME(
 					"\""..node[1].."\"",
 					self:visit(node[2]),
 					self:visit(nRight)
@@ -336,7 +336,7 @@ local TagToVisiting:RealTraverser = {
 	Paren=function(self, node)
 		local nHintShort = node.hintShort
 		if nHintShort then
-			return self:ctxWrap(node).CAST_HINT(
+			return self:stkWrap(node).CAST_HINT(
 				{"(", self:visit(node[1]), ")"},
 				string.format("%q", nHintShort.castKind),
 				self:fixIHintInfo(nHintShort)
@@ -372,7 +372,7 @@ local TagToVisiting:RealTraverser = {
 		end
 	end,
 	Index=function(self, node)
-		return self:ctxWrap(node).META_GET(
+		return self:stkWrap(node).META_GET(
 			self:visit(node[1]), self:visit(node[2]),
 			tostring(node.notnil or false)
 		)
@@ -429,7 +429,7 @@ function HintGener:fixIHintInfo(vHintInfo:node.IHintInfo):Ret(GenResult)
 				nLast.line = nil
 			end
 		else
-			nResult[#nResult + 1] = self:ctxWrap(v).EVAL(self:visit(v[1]))
+			nResult[#nResult + 1] = self:stkWrap(v).EVAL(self:visit(v[1]))
 		end
 	end
 	return nResult
@@ -521,7 +521,7 @@ function HintGener:listWrap(...:UGenResult):Ret(GenResult)
 end
 
 (@do
-	let.CtxNameEnum = Union(
+	let.StkNameEnum = Union(
 		"AUTO", -- just a flag
 
 		"CHUNK_TYPE",
@@ -546,11 +546,11 @@ end
 		"META_SET"
 	)
 end)
-function.pass HintGener:ctxWrap(vNode:node.IAstNode):Ret(Dict(CtxNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))
+function.pass HintGener:stkWrap(vNode:node.IAstNode):Ret(Dict(StkNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))
 	return setmetatable({}, {
 		__index=function(t,vName)
 			return function(...)
-				return self:prefixInvoke("____ctx", vName, vNode, ...)
+				return self:prefixInvoke("____stk", vName, vNode, ...)
 			end
 		end,
 	})
@@ -604,7 +604,7 @@ function HintGener:prefixInvoke(vPrefix:String, vName:String, vNode:node.IAstNod
 	return nResult
 end
 
-function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:UGenResult):Ret(UGenResult)
+function HintGener:stkAutoUnpack(vNode:node.UTupleExpr, vInner:UGenResult):Ret(UGenResult)
 	const nParent = vNode.parent!
 	local nAutoUnpack = true
 	if nParent.tag == "ExprList" or nParent.tag == "ParList" or nParent.tag == "Block" then
@@ -614,7 +614,7 @@ function HintGener:ctxAutoUnpack(vNode:node.UTupleExpr, vInner:UGenResult):Ret(U
 		nAutoUnpack = false
 	end
 	if nAutoUnpack then
-		return self:ctxWrap(vNode).EXPRLIST_UNPACK("1", vInner)
+		return self:stkWrap(vNode).EXPRLIST_UNPACK("1", vInner)
 	else
 		return vInner
 	end
@@ -665,7 +665,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			end, ",")
 		}
 	end
-	return self:ctxWrap(vNode).FUNC_NEW(self:dictWrap({
+	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
 		_polyParNum=tostring(nPolyParNum),
@@ -673,8 +673,8 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 		_member=tostring(nIsMember),
 	}), nHintPrefix,
 	-- par ret maker
-		self:fnWrap("____bodyFn", "____uv", "____newCtx","____polyArgs", "____self")(
-			"local ____ctx,____rgn,let,_ENV=____newCtx,____newCtx:BEGIN(____ctx,", self:codeNode(vNode), ",____bodyFn,____uv) ",
+		self:fnWrap("____bodyFn", "____uv", "____newStk","____polyArgs", "____self")(
+			"local ____stk,____rgn,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(vNode), ",____bodyFn,____uv) ",
 			nPolyUnpack,
 			-- pre declare param
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
@@ -686,7 +686,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			" return ", self:fnWrap("____termArgs")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
-					local nHintType = nHintShort and self:fixIHintInfo(nHintShort) or self:ctxWrap(vParNode).AUTO()
+					local nHintType = nHintShort and self:fixIHintInfo(nHintShort) or self:stkWrap(vParNode).AUTO()
 					if vParNode.tag ~= "Dots" then
 						if i == 1 then
 							-- if i == 1 then use ____self as first type if setted
