@@ -211,16 +211,20 @@ function OperContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
 end
 
 function OperContext:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
-	return RefineTerm.new(self, vType:checkAtomUnion())
+	return RefineTerm.new(self._node, vType:checkAtomUnion())
 end
 
 function OperContext:NeverTerm():Ret(clazz.RefineTerm)
-	return RefineTerm.new(self, self._manager.type.Never)
+	return RefineTerm.new(self._node, self._manager.type.Never)
 end
 
 function OperContext:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair)):Ret(clazz.RefineTerm)
 	const nKeyUnion, nTypeDict = self._manager:mergePairList@<clazz.VariableCase>(vTypeCasePairList)
-	return RefineTerm.new(self, nKeyUnion, nTypeDict)
+	return RefineTerm.new(self._node, nKeyUnion, nTypeDict)
+end
+
+function OperContext:NilTerm():Ret(clazz.RefineTerm)
+	return RefineTerm.new(self._node, self._manager.type.Nil)
 end
 
 return OperContext

@@ -256,7 +256,7 @@ function BodyContext:META_INVOKE(
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
 			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({nInvokeContext:RefineTerm(vSelfType)}, vArgTuple)
-			const nFuncType = vSelfType:meta_get_invoke(nInvokeContext, self:Literal(vName))
+			const nFuncType = vSelfType:meta_get_invoke(nInvokeContext, self._manager:Literal(vName))
 			nFuncType:foreach(function(vSingleFuncType)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
@@ -395,20 +395,26 @@ function BodyContext:getRegion():Ret(clazz.Region)
 	return (assert(self._region, "region not create when context getRegion"))
 end
 
+function BodyContext:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
+	return vTerm:getType()
+end
+
 function BodyContext:FUNC_NEW(vNode:clazz.IAstNode,
 	vFnNewInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
-):Ret(clazz.BaseFunction)
+):Ret(clazz.RefineTerm)
 	const nRegion = self._region
 	const nUpValueCase = nRegion and nRegion:topBranch():getCase()
-	return FunctionBuilder.new(self, vNode, nUpValueCase, vFnNewInfo, vPrefixHint, vParRetMaker):build()
+	const nFnType = FunctionBuilder.new(self, vNode, nUpValueCase, vFnNewInfo, vPrefixHint, vParRetMaker):build()
+	return self:nodeRefineTerm(vNode, nFnType)
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function BodyContext:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.BaseTable)
+function BodyContext:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
-	return nBuilder:build()
+	const nTableType = nBuilder:build()
+	return self:nodeRefineTerm(vNode, nTableType)
 end
 
 function BodyContext:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
@@ -481,6 +487,19 @@ function.pass BodyContext:getSealContext():Ret(clazz.SealContext)
 end
 
 function BodyContext:seal()
+end
+
+function BodyContext:NIL_TERM(vNode:clazz.IAstNode)
+	return self:nodeRefineTerm(vNode, self._manager.type.Nil)
+end
+
+function BodyContext:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Number, Boolean))
+	const nType = self._manager:Literal(vValue)
+	return self:nodeRefineTerm(vNode, nType)
+end
+
+function BodyContext:nodeRefineTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
+	return RefineTerm.new(vNode, vType:checkAtomUnion())
 end
 
 function BodyContext:getHeadContext():Ret(clazz.OperContext)

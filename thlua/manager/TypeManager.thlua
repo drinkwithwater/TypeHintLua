@@ -98,7 +98,7 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		builtin=nil @ let.BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
 		_pairToInclude={} @ Dict(Integer, clazz.TypeReference),
-		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral},
+		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=clazz.BooleanLiteral},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
 		_scheduleManager=nil@clazz.ScheduleManager,
@@ -253,10 +253,8 @@ function.pass TypeManager:peasyToType(vData:Any):Ret(False, String):Ret(True, cl
 		else
 			return false, "to type failed"
 		end
-	elseif t == "number" or t == "string" then
+	elseif t == "number" or t == "string" or t == "boolean"then
 		return true, self:Literal(vData)
-	elseif t == "boolean" then
-		return true, self:Boolean(vData)
 	else
 		return false, "easyToType("..t..") invalid"
 	end
@@ -522,29 +520,29 @@ function TypeManager:AutoTable():Ret(clazz.AutoTable)
 	return self:_recordTypeUnionSign(AutoTable.new(self))
 end
 
-function TypeManager:Boolean(vValue:Boolean):Ret(clazz.BooleanLiteral)
-	if vValue then
-		return self.type.True
-	else
-		return self.type.False
-	end
-end
-
-function TypeManager:Literal(vValue:Union(String, Number)):Ret(Union(clazz.NumberLiteral,clazz.StringLiteral))
+function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(clazz.NumberLiteral, clazz.StringLiteral, clazz.BooleanLiteral))
 	const nLiteralDict = self._literalDict
 	local nLiteralType = nLiteralDict[vValue]
 	if not nLiteralType then
-		local t = type(vValue)
+		const t = type(vValue)
 		if t == "number" then
 			nLiteralType = NumberLiteral.new(self, vValue)
 			nLiteralDict[vValue] = nLiteralType
+			self:_recordTypeUnionSign(nLiteralType)
 		elseif t == "string" then
 			nLiteralType = StringLiteral.new(self, vValue)
+			nLiteralDict[vValue] = nLiteralType
+			self:_recordTypeUnionSign(nLiteralType)
+		elseif t == "boolean" then
+			if vValue then
+				nLiteralType = self.type.True
+			else
+				nLiteralType = self.type.False
+			end
 			nLiteralDict[vValue] = nLiteralType
 		else
 			error("literal must take number or string value"..t)
 		end
-		self:_recordTypeUnionSign(nLiteralType)
 	end
 	return nLiteralType
 end

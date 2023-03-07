@@ -29,7 +29,7 @@ local TagToVisiting:RealTraverser = {
 			'local ____rt, ____ctx, ____nodes=... ',
 			"local ____s__ENV"..node[1].index.."=____rt:makeSymbol_ENV(",self:codeNode(node[1]),") ",
 			"return ",
-			self:visitFunc(node)
+			self:ctxWrap(node).CHUNK_TYPE(self:visitFunc(node))
 		}
 	end,
 	Block=function(self, node)
@@ -233,36 +233,27 @@ local TagToVisiting:RealTraverser = {
 			self:fixIHintInfo(node)
 		}
 	end,
-	Nil=function(self, node)
-		return "____ctx:NilTerm()"
-	end,
 	Dots=function(self, node)
 		return self:ctxAutoUnpack(node, "____vDOTS")
 	end,
+	Nil=function(self, node)
+		return self:ctxWrap(node).NIL_TERM()
+	end,
 	True=function(self, node)
-		return "____ctx:BooleanTerm(true)"
+		return self:ctxWrap(node).LITERAL_TERM("true")
 	end,
 	False=function(self, node)
-		return "____ctx:BooleanTerm(false)"
+		return self:ctxWrap(node).LITERAL_TERM("false")
 	end,
 	Number=function(self, node)
-		return {
-			"____ctx:LiteralTerm(", tostring(node[1]), ")"
-		}
+		return self:ctxWrap(node).LITERAL_TERM(tostring(node[1]))
 	end,
 	String=function(self, node)
 		const s = node[1]
-		return {
-			"____ctx:LiteralTerm",
-			node.isLong and '([[' .. s .. ']])' or '(' .. string.format("%q", s),
-			')'
-		}
+		return self:ctxWrap(node).LITERAL_TERM(node.isLong and '([[' .. s .. ']])' or string.format("%q", s))
 	end,
 	Function=function(self, node)
-		-- TODO
-		return {
-			"____ctx:RefineTerm(", self:visitFunc(node) , ")",
-		}
+		return self:visitFunc(node)
 	end,
 	Table=function(self, node)
 		local count = 0
@@ -278,22 +269,23 @@ local TagToVisiting:RealTraverser = {
 				end
 			end
 		end
-		return {
-			"____ctx:RefineTerm(", self:ctxWrap(node).TABLE_NEW(
-				self:visitLongHint(node.hintLong),
-				self:fnRetWrap(self:listWrap(self:concatList@<Union(node.Pair, node.Expr)>(node, function(i, vTableItem)
-					if vTableItem.tag ~= "Pair" then
-						if i==#node and tailDots then
-							return "nil"
-						else
-							return self:listWrap("____ctx:LiteralTerm("..i2i[i]!..")", self:visit(vTableItem))
-						end
+		return self:ctxWrap(node).TABLE_NEW(
+			self:visitLongHint(node.hintLong),
+			self:fnRetWrap(self:listWrap(self:concatList@<Union(node.Pair, node.Expr)>(node, function(i, vTableItem)
+				if vTableItem.tag ~= "Pair" then
+					if i==#node and tailDots then
+						return "nil"
 					else
-						return self:listWrap(self:visit(vTableItem[1]), self:visit(vTableItem[2]))
+						return self:listWrap(
+							self:ctxWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
+							self:visit(vTableItem)
+						)
 					end
-				end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
-			), ")"
-		}
+				else
+					return self:listWrap(self:visit(vTableItem[1]), self:visit(vTableItem[2]))
+				end
+			end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
+		)
 	end,
 	Op=function(self, node)
 		const nLogicOpSet:Dict(String, Integer) = {["or"]=1,["not"]=1,["and"]=1}
@@ -527,9 +519,13 @@ end
 
 (@do
 	let.CtxNameEnum = Union(
-		"AUTO",
+		"AUTO", -- just a flag
+
+		"CHUNK_TYPE",
 		"FUNC_NEW",
 		"TABLE_NEW",
+		"NIL_TERM",
+		"LITERAL_TERM",
 
 		"EXPRLIST_UNPACK",
 		"EXPRLIST_REPACK",
