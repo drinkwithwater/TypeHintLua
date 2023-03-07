@@ -38,7 +38,6 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
-const ScheduleManager = require "thlua.manager.ScheduleManager"
 
 const BaseReadyType = require "thlua.type.BaseReadyType"
 const MetaEventCom = require "thlua.object.MetaEventCom"
@@ -101,11 +100,9 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=clazz.BooleanLiteral},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
-		_scheduleManager=nil@clazz.ScheduleManager,
 		_rootNode=vRuntime:getNode(),
 	}, TypeManager)
 	const nRootNode = vRuntime:getNode()
-	self._scheduleManager = ScheduleManager.new()
 	self.type = makeBuiltinType(self)
 	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
@@ -692,10 +689,6 @@ function TypeManager:mergePairList@<TValue>(vTypePairList:List(Struct {clazz.UAt
 		end)
 	end
 	return nKeyUnion, nTypeDict
-end
-
-function TypeManager:getScheduleManager()
-	return self._scheduleManager
 end
 
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)

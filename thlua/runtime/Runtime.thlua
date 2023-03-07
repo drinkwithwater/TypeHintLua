@@ -15,6 +15,8 @@ const OpenStack = require "thlua.runtime.OpenStack"
 const SealStack = require "thlua.runtime.SealStack"
 const AutoFunction = require "thlua.func.AutoFunction"
 
+const ScheduleManager = require "thlua.manager.ScheduleManager"
+
 (@do
 	import("thlua.code.CodeEnv")
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -55,10 +57,11 @@ function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 		_loadedDict={}@Dict(String, LoadedState),
 		_nodeToSymbolSet={}@Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True)),
 		_fileStateDict={}@Dict(String, FileState),
+		_lineToExpectResult=false @ OrFalse(Dict(Integer, Union(String, Integer))),
+		_scheduleManager=ScheduleManager.new(),
 		_manager=nil@clazz.TypeManager,
 		_globalTable=nil@clazz.BaseTable,
 		_rootStack=nil@clazz.SealStack,
-		_lineToExpectResult=false @ OrFalse(Dict(Integer, Union(String, Integer)))
 	}, Runtime)
 	self._manager = TypeManager.new(self)
 	self._globalTable = native.make(self)
@@ -136,7 +139,6 @@ function Runtime:main():Ret(Boolean, Nil)
 			end
 		end)
 		nAutoFn:startBuild()
-		self._manager:getScheduleManager():coInterrupt()
 	end)
 	const t2 = os.clock()
 	print(t2-t1)
@@ -364,6 +366,10 @@ end
 
 function Runtime:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
+end
+
+function Runtime:getScheduleManager():Ret(clazz.ScheduleManager)
+	return self._scheduleManager
 end
 
 function Runtime:getRootStack():Ret(clazz.SealStack)

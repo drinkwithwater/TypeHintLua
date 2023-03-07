@@ -3,6 +3,8 @@ const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const Exception = require "thlua.Exception"
 const class = require "thlua.class"
 
+const ScheduleTask = require "thlua.manager.ScheduleTask"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.WaitingInfo = Struct {
@@ -14,11 +16,15 @@ end)
 const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
 function.open ScheduleManager:ctor()
-	self._coToRefer={} @ Dict(Thread, clazz.BaseTask)
+	self._coToRefer={} @ Dict(Thread, clazz.ScheduleTask)
 	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
 	self._coToWaitingInfo={}@Dict(Thread, WaitingInfo)
 	self._sessionIdCounter=0@Integer
 	self._selfCo=coroutine.running()
+end
+
+function ScheduleManager:newTask(vStack:OrNil(clazz.SealStack))
+	return ScheduleTask.new(self, vStack)
 end
 
 function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
@@ -136,7 +142,7 @@ function ScheduleManager:coInterrupt()
 	end]]
 end
 
-function ScheduleManager:markReference(vThread:Thread, vRefer:clazz.BaseTask)
+function ScheduleManager:markReference(vThread:Thread, vRefer:clazz.ScheduleTask)
 	self._coToRefer[vThread] = vRefer
 end
 
