@@ -19,7 +19,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 	clazz.ULuaInnerFn = Union(clazz.UBodyFunction, clazz.PolyFunction, clazz.MemberFunction)
 
 	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
-	clazz.GenMaker = Fn(clazz.UBodyFunction, OrFalse(clazz.VariableCase), clazz.BodyContext, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	clazz.GenMaker = Fn(clazz.UBodyFunction, OrFalse(clazz.VariableCase), clazz.BaseStack, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple)
 
 	clazz.FnPrefixHint = Struct {
@@ -57,7 +57,7 @@ const FunctionBuilder = {}
 FunctionBuilder.__index=FunctionBuilder
 
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
-	vContext:clazz.BodyContext,
+	vContext:clazz.BaseStack,
 	vNode:clazz.IAstNode,
 	vUpValueCase:OrFalse(clazz.VariableCase),
 	vInfo:clazz.FuncNewInfo,
@@ -203,7 +203,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
-	const nMakerContext = self._context:newOpenContext(self._node)
+	const nMakerContext = self._context:newOpenStack(self._node)
 	if self._hasSuffixHint then
 		const nGuardFn = self._manager:OpenFunction(self._node)
 		local nSetted = false

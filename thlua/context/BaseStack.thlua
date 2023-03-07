@@ -28,9 +28,9 @@ const LogicContext = require "thlua.context.LogicContext"
 	let.node = import("thlua.code.Node").node
 end)
 
-const BodyContext = class@<clazz.BodyContext, false>()
+const BaseStack = class@<clazz.BaseStack, false>()
 
-function.open BodyContext:ctor(
+function.open BaseStack:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
 	...
@@ -54,24 +54,24 @@ function.pass Context:testLine(vNode:clazz.IAstNode, vName:String):Ret(clazz.IAs
 	return vNode
 end]]
 
-function BodyContext:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
+function BaseStack:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
 	return AutoFlag
 end
 
-function BodyContext:setClassTable(vClassTable:clazz.BaseTable)
+function BaseStack:setClassTable(vClassTable:clazz.BaseTable)
 	self._classTable = vClassTable
 end
 
-function BodyContext:getClassTable():Ret(OrFalse(clazz.BaseTable))
+function BaseStack:getClassTable():Ret(OrFalse(clazz.BaseTable))
 	return self._classTable
 end
 
-function BodyContext:rootSetNamespace(vRootSpace:clazz.Namespace)
+function BaseStack:rootSetNamespace(vRootSpace:clazz.Namespace)
 	assert(not self._namespace, "namespace has been setted")
 	self._namespace = vRootSpace
 end
 
-function BodyContext:BEGIN(vLexContext:clazz.BodyContext, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
+function BaseStack:BEGIN(vLexContext:clazz.BaseStack, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._region, "context can only begin once")
 	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
@@ -82,7 +82,7 @@ function BodyContext:BEGIN(vLexContext:clazz.BodyContext, vRegionNode:clazz.IAst
 end
 
 -- pack explist to termtuple or lazyfunc
-function BodyContext:EXPRLIST_REPACK(
+function BaseStack:EXPRLIST_REPACK(
 	vNode:clazz.IAstNode,
 	vLazy:Boolean,
 	l:List(Union(clazz.UTermTuple, clazz.UAutoTerm, Fn():Ret(clazz.UAutoTerm)))
@@ -142,7 +142,7 @@ function BodyContext:EXPRLIST_REPACK(
 end
 
 -- unpack explist to vNum term | termtuple
-function BodyContext:EXPRLIST_UNPACK(
+function BaseStack:EXPRLIST_UNPACK(
 	vNode:clazz.IAstNode,
 	vNum:Number,
 	...:Union(clazz.RefineTerm, clazz.FixedTermTuple)
@@ -181,7 +181,7 @@ function BodyContext:EXPRLIST_UNPACK(
 end
 
 -- meta items
-function BodyContext:META_GET(
+function BaseStack:META_GET(
 	vNode:clazz.IAstNode,
 	vSelfTerm:clazz.RefineTerm,
 	vKeyTerm:clazz.RefineTerm,
@@ -201,7 +201,7 @@ function BodyContext:META_GET(
 	return nGetContext:mergeToRefineTerm(nTypeCaseList)
 end
 
-function BodyContext:META_SET(
+function BaseStack:META_SET(
 	vNode:clazz.IAstNode,
 	vSelfTerm:clazz.RefineTerm,
 	vKeyTerm:clazz.RefineTerm,
@@ -218,7 +218,7 @@ function BodyContext:META_SET(
 	end)
 end
 
-function BodyContext:META_CALL(
+function BaseStack:META_CALL(
 	vNode:clazz.IAstNode,
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
@@ -243,7 +243,7 @@ function BodyContext:META_CALL(
 	return nCallContext:mergeReturn()
 end
 
-function BodyContext:META_INVOKE(
+function BaseStack:META_INVOKE(
 	vNode:clazz.IAstNode,
 	vSelfTerm:clazz.RefineTerm,
 	vName:String,
@@ -273,7 +273,7 @@ function BodyContext:META_INVOKE(
 	return nInvokeContext:mergeReturn()
 end
 
-function BodyContext:META_EQ_NE(
+function BaseStack:META_EQ_NE(
 	vNode:clazz.IAstNode,
 	vIsEq:Boolean,
 	vLeftTerm:clazz.RefineTerm,
@@ -307,7 +307,7 @@ function BodyContext:META_EQ_NE(
 	return nCmpContext:mergeToRefineTerm(nTypeCaseList)
 end
 
-function BodyContext:META_BOP_SOME(
+function BaseStack:META_BOP_SOME(
 	vNode:clazz.IAstNode,
 	vOper:String,
 	vLeftTerm:clazz.RefineTerm,
@@ -352,7 +352,7 @@ function BodyContext:META_BOP_SOME(
 	return nBopContext:RefineTerm(nCollection:mergeToAtomUnion())
 end
 
-function BodyContext:META_UOP(
+function BaseStack:META_UOP(
 	vNode:clazz.IAstNode,
 	vOper:String,
 	vData:clazz.RefineTerm
@@ -377,7 +377,7 @@ function BodyContext:META_UOP(
 	return nUopContext:mergeToRefineTerm(nTypeCaseList)
 end
 
-function.open BodyContext:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
+function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 	const ok, err = xpcall(vFunc, function(exc:Union(String, clazz.Exception)):Ret(clazz.Exception)
 		if Exception.is(exc) then
 			return exc
@@ -393,15 +393,15 @@ function.open BodyContext:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 	return ok, err
 end
 
-function BodyContext:getRegion():Ret(clazz.Region)
+function BaseStack:getRegion():Ret(clazz.Region)
 	return (assert(self._region, "region not create when context getRegion"))
 end
 
-function BodyContext:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
+function BaseStack:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
 	return vTerm:getType()
 end
 
-function BodyContext:FUNC_NEW(vNode:clazz.IAstNode,
+function BaseStack:FUNC_NEW(vNode:clazz.IAstNode,
 	vFnNewInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
@@ -413,13 +413,13 @@ function BodyContext:FUNC_NEW(vNode:clazz.IAstNode,
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function BodyContext:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
+function BaseStack:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
 	return self:nodeRefineTerm(vNode, nTableType)
 end
 
-function BodyContext:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
+function BaseStack:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	if RefineTerm.is(vTerm) then
 		return vTerm:getType()
 	else
@@ -428,7 +428,7 @@ function BodyContext:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnio
 	end
 end
 
-function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
+function BaseStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
 	const nCastContext = self:newOperContext(vNode)
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
@@ -456,89 +456,89 @@ function BodyContext:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCa
 	end
 end
 
-function BodyContext:newAutoFunction(vNode:clazz.IAstNode):Ret(clazz.AutoFunction)
+function BaseStack:newAutoFunction(vNode:clazz.IAstNode):Ret(clazz.AutoFunction)
 	const nAutoFn = self._runtime:AutoFunction(vNode, self)
-	self:getSealContext():recordAutoFunction(nAutoFn)
+	self:getSealStack():recordAutoFunction(nAutoFn)
 	return nAutoFn
 end
 
-function BodyContext:newClassFactory(vNode:clazz.IAstNode):Ret(clazz.ClassFactory)
+function BaseStack:newClassFactory(vNode:clazz.IAstNode):Ret(clazz.ClassFactory)
 	const nFactory = self._runtime:ClassFactory(vNode, self)
-	self:getSealContext():recordClassFactory(nFactory)
+	self:getSealStack():recordClassFactory(nFactory)
 	return nFactory
 end
 
-function BodyContext:newOpenContext(vNode:clazz.IAstNode):Ret(clazz.OpenContext)
-	return self._runtime:OpenContext(vNode, self)
+function BaseStack:newOpenStack(vNode:clazz.IAstNode):Ret(clazz.OpenStack)
+	return self._runtime:OpenStack(vNode, self)
 end
 
-function BodyContext:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)
+function BaseStack:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)
 	return ApplyContext.new(self._runtime, vNode, self)
 end
 
-function BodyContext:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)
+function BaseStack:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)
 	return LogicContext.new(self._runtime, vNode, self)
 end
 
-function BodyContext:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
+function BaseStack:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
 	return OperContext.new(self._runtime, vNode, self)
 end
 
-function.pass BodyContext:getSealContext():Ret(clazz.SealContext)
+function.pass BaseStack:getSealStack():Ret(clazz.SealStack)
 	error("use body context")
 end
 
-function BodyContext:seal()
+function BaseStack:seal()
 end
 
-function BodyContext:NIL_TERM(vNode:clazz.IAstNode)
+function BaseStack:NIL_TERM(vNode:clazz.IAstNode)
 	return self:nodeRefineTerm(vNode, self._manager.type.Nil)
 end
 
-function BodyContext:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Number, Boolean))
+function BaseStack:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Number, Boolean))
 	const nType = self._manager:Literal(vValue)
 	return self:nodeRefineTerm(vNode, nType)
 end
 
-function BodyContext:nodeRefineTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
+function BaseStack:nodeRefineTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
 	return RefineTerm.new(vNode, vType:checkAtomUnion())
 end
 
-function BodyContext:getHeadContext():Ret(clazz.OperContext)
+function BaseStack:getHeadContext():Ret(clazz.OperContext)
 	return self._headOper
 end
 
-function BodyContext:getTailContext():Ret(clazz.OperContext)
+function BaseStack:getTailContext():Ret(clazz.OperContext)
 	return self._tailOper
 end
 
-function BodyContext:getNamespace():Ret(clazz.Namespace)
+function BaseStack:getNamespace():Ret(clazz.Namespace)
 	local nSpace = self._namespace
 	return assert(nSpace, "space is false when get")
 end
 
-function BodyContext:error(...:Truth)
+function BaseStack:error(...:Truth)
 	self._runtime:nodeError(self._node, ...)
 end
 
-function BodyContext:warn(...:Truth)
+function BaseStack:warn(...:Truth)
 	self._runtime:nodeWarn(self._node, ...)
 end
 
-function BodyContext:info(...:Truth)
+function BaseStack:info(...:Truth)
 	self._runtime:nodeInfo(self._node, ...)
 end
 
-function BodyContext:getNode():Ret(clazz.IAstNode)
+function BaseStack:getNode():Ret(clazz.IAstNode)
 	return self._node
 end
 
-function BodyContext:getRuntime():Ret(clazz.Runtime)
+function BaseStack:getRuntime():Ret(clazz.Runtime)
 	return self._runtime
 end
 
-function BodyContext:getTypeManager():Ret(clazz.TypeManager)
+function BaseStack:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
 end
 
-return BodyContext
+return BaseStack

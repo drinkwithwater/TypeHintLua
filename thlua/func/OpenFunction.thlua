@@ -48,7 +48,7 @@ function OpenFunction:castPoly(vContext, vTypeList)
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BodyContext, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
 	const nNoPolyFn:$self._func = function(vContext, vTermTuple)
 		if vPolyParNum == 0 then
 			return vFunc(self, vContext, {}, vTermTuple)
@@ -102,18 +102,18 @@ function OpenFunction:set_name(name:String)
 end
 
 function OpenFunction:triggerAsMetaIndex(vContext, vSelfTerm, vKeyTerm)
-	const nNewContext = vContext:newOpenContext(vContext:getNode())
+	const nNewContext = vContext:newOpenStack(vContext:getNode())
 	const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm})
 	return self:meta_open_call(nNewContext, nTermTuple):get(vContext, 1)
 end
 
 function OpenFunction:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValueTerm)
-	const nNewContext = vContext:newOpenContext(vContext:getNode())
+	const nNewContext = vContext:newOpenStack(vContext:getNode())
 	const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm, vValueTerm})
 	self:meta_open_call(nNewContext, nTermTuple)
 end
 
-function OpenFunction:meta_open_call(vContext:clazz.OpenContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple)
+function OpenFunction:meta_open_call(vContext:clazz.OpenStack, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple)
 	return self._func!(vContext, vTermTuple)
 end
 

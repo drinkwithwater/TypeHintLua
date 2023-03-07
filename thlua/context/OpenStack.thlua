@@ -1,27 +1,27 @@
 
 const class = require "thlua.class"
-const BodyContext = require "thlua.context.BodyContext"
+const BaseStack = require "thlua.context.BaseStack"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const OpenContext = class@<clazz.OpenContext, false>(BodyContext)
+const OpenStack = class@<clazz.OpenStack, false>(BaseStack)
 
-function.open OpenContext:ctor(
+function.open OpenStack:ctor(
 	vRuntime:clazz.Runtime,
 	vApplyNode:clazz.IAstNode,
-	vParentContext:clazz.BodyContext
+	vParentContext:clazz.BaseStack
 )
 	self._inplaceOperContext = false @ OrFalse(clazz.OperContext)
 	self._parentContext = vParentContext
 end
 
-function OpenContext:getSealContext():Ret(clazz.SealContext)
-	return self._parentContext:getSealContext()
+function OpenStack:getSealStack():Ret(clazz.SealStack)
+	return self._parentContext:getSealStack()
 end
 
-function OpenContext:operContext():Ret(clazz.OperContext)
+function OpenStack:operContext():Ret(clazz.OperContext)
 	local nInplace = self._inplaceOperContext
 	if not nInplace then
 		nInplace = self:newOperContext(self._node)
@@ -30,8 +30,8 @@ function OpenContext:operContext():Ret(clazz.OperContext)
 	return nInplace
 end
 
-function OpenContext:getParentContext():Ret(clazz.BodyContext)
+function OpenStack:getParentContext():Ret(clazz.BaseStack)
 	return self._parentContext
 end
 
-return OpenContext
+return OpenStack

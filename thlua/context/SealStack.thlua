@@ -1,24 +1,24 @@
 
 const class = require "thlua.class"
-const BodyContext = require "thlua.context.BodyContext"
+const BaseStack = require "thlua.context.BaseStack"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const SealContext = class@<clazz.SealContext, false>(BodyContext)
+const SealStack = class@<clazz.SealStack, false>(BaseStack)
 
-function.open SealContext:ctor(
+function.open SealStack:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
-	vParentContext:OrFalse(clazz.BodyContext)
+	vParentContext:OrFalse(clazz.BaseStack)
 )
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
 	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
 	self._parentContext = vParentContext
 end
 
-function SealContext:seal()
+function SealStack:seal()
 	const nClassFnSet = assert(self._classFnSet, "class set must be true here")
 	self._classFnSet = false
 	for fn, v in pairs(nClassFnSet) do
@@ -31,11 +31,11 @@ function SealContext:seal()
 	end
 end
 
-function SealContext:getSealContext():Ret(clazz.SealContext)
+function SealStack:getSealStack():Ret(clazz.SealStack)
 	return self
 end
 
-function SealContext:recordClassFactory(vFunc:clazz.ClassFactory)
+function SealStack:recordClassFactory(vFunc:clazz.ClassFactory)
 	const nSet = self._classFnSet
 	if nSet then
 		nSet[vFunc] = true
@@ -44,7 +44,7 @@ function SealContext:recordClassFactory(vFunc:clazz.ClassFactory)
 	end
 end
 
-function SealContext:recordAutoFunction(vFunc:clazz.AutoFunction)
+function SealStack:recordAutoFunction(vFunc:clazz.AutoFunction)
 	const nSet = self._funcMakerSet
 	if nSet then
 		nSet[vFunc] = true
@@ -53,8 +53,8 @@ function SealContext:recordAutoFunction(vFunc:clazz.AutoFunction)
 	end
 end
 
-function SealContext:getParentContext():Ret(OrFalse(clazz.BodyContext))
+function SealStack:getParentContext():Ret(OrFalse(clazz.BaseStack))
 	return self._parentContext
 end
 
-return SealContext
+return SealStack
