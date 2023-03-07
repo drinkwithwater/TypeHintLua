@@ -126,8 +126,9 @@ function Runtime:main():Ret(Boolean, Nil)
 		nAutoFn:build(function(vAutoFn)
 			return false, function()
 				const nLuaFunc = self:cacheLoadFile(self._mainFileName)
-				const nTermTuple = self._rootStack:getHeadContext():FixedTermTuple({})
-				nLuaFunc:meta_open_call(self._rootStack:newOpenStack(self._node), nTermTuple)
+				const nHeadContext = self._rootStack:getHeadContext()
+				const nTermTuple = nHeadContext:FixedTermTuple({})
+				nLuaFunc:meta_open_call(nHeadContext, nTermTuple)
 				self._rootStack:seal()
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples()
@@ -147,16 +148,16 @@ function Runtime:SealStack(vNode:clazz.IAstNode, vParentStack:OrFalse(clazz.Base
 	return SealStack.new(self, vNode, vParentStack, vBodyFn)
 end
 
+function Runtime:OpenStack(vNode:clazz.IAstNode, vParentStack:clazz.BaseStack, vBodyFn:clazz.OpenFunction):Ret(clazz.OpenStack)
+	return OpenStack.new(self, vNode, vParentStack, vBodyFn)
+end
+
 function Runtime:AutoFunction(vNode:clazz.IAstNode, vParentStack:OrFalse(clazz.BaseStack)):Ret(clazz.AutoFunction)
 	return AutoFunction.new(self._manager, vNode, vParentStack)
 end
 
 function Runtime:ClassFactory(vNode:clazz.IAstNode, vParentStack:clazz.BaseStack):Ret(clazz.ClassFactory)
 	return ClassFactory.new(self._manager, vNode, vParentStack)
-end
-
-function Runtime:OpenStack(vNode:clazz.IAstNode, vParentStack:clazz.BaseStack):Ret(clazz.OpenStack)
-	return OpenStack.new(self, vNode, vParentStack)
 end
 
 function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
@@ -189,10 +190,10 @@ function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
 			stack=false,
 		} @ LoadedState
 		self._loadedDict[vPath] = nLoadedState
-		const nTermTuple = self._rootStack:getHeadContext():FixedTermTuple({})
-		const nStack = self._rootStack:newOpenStack(self._node)
-		const ret = nLuaFunc:meta_open_call(nStack, nTermTuple)
-		nLoadedState.term = ret:checkFixed(nStack:getHeadContext(), 1)
+		const nHeadContext = self._rootStack:getHeadContext()
+		const nTermTuple = nHeadContext:FixedTermTuple({})
+		const nRet, nStack = nLuaFunc:meta_open_call(nHeadContext, nTermTuple)
+		nLoadedState.term = nRet:checkFixed(nHeadContext, 1)
 		nLoadedState.stack = nStack
 	end
 	local nTerm = nLoadedState.term

@@ -102,19 +102,18 @@ function OpenFunction:set_name(name:String)
 end
 
 function OpenFunction:triggerAsMetaIndex(vContext, vSelfTerm, vKeyTerm)
-	const nNewStack = vContext:newOpenStack(vContext:getNode())
 	const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm})
-	return self:meta_open_call(nNewStack, nTermTuple):get(vContext, 1)
+	return self:meta_open_call(vContext, nTermTuple):get(vContext, 1)
 end
 
 function OpenFunction:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValueTerm)
-	const nNewStack = vContext:newOpenStack(vContext:getNode())
 	const nTermTuple = vContext:FixedTermTuple({vSelfTerm, vKeyTerm, vValueTerm})
-	self:meta_open_call(nNewStack, nTermTuple)
+	self:meta_open_call(vContext, nTermTuple)
 end
 
-function OpenFunction:meta_open_call(vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple)
-	return self._func!(vStack, vTermTuple)
+function OpenFunction:meta_open_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple, clazz.OpenStack)
+	const nNewStack = vContext:newOpenStack(self)
+	return self._func!(nNewStack, vTermTuple), nNewStack
 end
 
 function OpenFunction:assumeIntersectAtom(vAssumeSet, vType)
