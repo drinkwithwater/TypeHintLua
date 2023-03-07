@@ -73,10 +73,11 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 	const nTrue = self._manager.type.True
 	const nFalse = self._manager.type.False
 	const nFn:clazz.OpenCaller = function(vContext, vTermTuple)
+		const nHeadContext = vContext:getHeadContext()
 		const nIsBaseTable, nTableType = self._manager:tryBaseTable(vType)
 		assert(nIsBaseTable, "assert lua table failed")
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
-		const nTerm = vTermTuple:get(vContext:getHeadContext(), 1)
+		const nTerm = vTermTuple:get(nHeadContext, 1)
 		const caseTrue = nTerm:caseIsType(nTableType)
 		const caseFalse = nTerm:caseIsNotType(nTableType)
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
@@ -86,7 +87,7 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 		if caseFalse then
 			nTypeCaseList[#nTypeCaseList + 1] = {nFalse, caseFalse}
 		end
-		return vContext:getTailContext():FixedTermTuple({vContext:mergeToRefineTerm(nTypeCaseList)})
+		return vContext:getTailContext():FixedTermTuple({nHeadContext:mergeToRefineTerm(nTypeCaseList)})
 	end
 	self._func = nFn
 	return self

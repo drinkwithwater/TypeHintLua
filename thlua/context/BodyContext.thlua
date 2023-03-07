@@ -187,22 +187,16 @@ function BodyContext:META_GET(
 ):Ret(clazz.RefineTerm)
 	const nGetContext = self:newOperContext(vNode)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	const nOkay = self:nodePcall(vNode, function()
-		vSelfTerm:foreach(function(vType, vVariableCase)
-			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
-				local nReType = vType:meta_get(nGetContext, vKeyType)
-				if vNotnil then
-					nReType = nReType:notnilType()
-				end
-				nTypeCaseList[#nTypeCaseList + 1] = {nReType, vVariableCase & vKeyVariableCase}
-			end)
+	vSelfTerm:foreach(function(vType, vVariableCase)
+		vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
+			local nReType = vType:meta_get(nGetContext, vKeyType)
+			if vNotnil then
+				nReType = nReType:notnilType()
+			end
+			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vVariableCase & vKeyVariableCase}
 		end)
 	end)
-	if nOkay then
-		return nGetContext:mergeToRefineTerm(nTypeCaseList)
-	else
-		return self:TruthTerm()
-	end
+	return nGetContext:mergeToRefineTerm(nTypeCaseList)
 end
 
 function BodyContext:META_SET(
