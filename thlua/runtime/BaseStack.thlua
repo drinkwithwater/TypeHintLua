@@ -2,7 +2,6 @@
 const AutoHolder = require "thlua.auto.AutoHolder"
 const AutoFlag = require "thlua.auto.AutoFlag"
 const TermTuple = require "thlua.tuple.TermTuple"
-const Region = require "thlua.runtime.Region"
 const RefineTerm = require "thlua.term.RefineTerm"
 const VariableCase = require "thlua.term.VariableCase"
 const Exception = require "thlua.Exception"
@@ -42,7 +41,7 @@ function.open BaseStack:ctor(
 	self._runtime=vRuntime
 	self._manager=nManager
 	self._node=vNode
-	self._region=false@OrFalse(clazz.Region)
+	self._region=nil@clazz.Region
 	self._classTable=false@OrFalse(clazz.BaseTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headOper=OperContext.new(vNode, self, nManager)
@@ -77,12 +76,10 @@ end
 
 function BaseStack:BEGIN(vLexStack:clazz.BaseStack, vRegionNode:clazz.IAstNode, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase)
 ):Ret(clazz.Region, clazz.SpaceTable, clazz.SpaceTable)
-	assert(not self._region, "context can only begin once")
-	const nRegion = Region.new(self, vBodyFn, vUpCase or VariableCase.new())
-	self._region = nRegion
+	assert(not self._namespace, "context can only begin once")
 	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vRegionNode)
 	self._namespace = nSpace
-	return nRegion, nSpace.localExport, nSpace.globalExport
+	return self._region, nSpace.localExport, nSpace.globalExport
 end
 
 -- pack explist to termtuple or lazyfunc
@@ -460,14 +457,14 @@ function BaseStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 	end
 end
 
-function BaseStack:newAutoFunction(vNode:clazz.IAstNode):Ret(clazz.AutoFunction)
-	const nAutoFn = AutoFunction.new(self._manager, vNode, self)
+function BaseStack:newAutoFunction(vNode:clazz.IAstNode, vUpValueCase:OrFalse(clazz.VariableCase)):Ret(clazz.AutoFunction)
+	const nAutoFn = AutoFunction.new(self._manager, vNode, self, vUpValueCase)
 	self:getSealStack():recordAutoFunction(nAutoFn)
 	return nAutoFn
 end
 
-function BaseStack:newClassFactory(vNode:clazz.IAstNode):Ret(clazz.ClassFactory)
-	const nFactory = ClassFactory.new(self._manager, vNode, self)
+function BaseStack:newClassFactory(vNode:clazz.IAstNode, vUpValueCase:OrFalse(clazz.VariableCase)):Ret(clazz.ClassFactory)
+	const nFactory = ClassFactory.new(self._manager, vNode, self, vUpValueCase)
 	self:getSealStack():recordClassFactory(nFactory)
 	return nFactory
 end

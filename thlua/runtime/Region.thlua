@@ -26,12 +26,12 @@ Region.__tostring = function(self):Ret(String)
 	return "Region-"..tostring(self._stack:getNode())
 end
 
-function:class(clazz.Region) Region.new(vStack:clazz.BaseStack, vBodyFn:clazz.UBodyFunction, vUpCase:clazz.VariableCase)
-	const nRootBranch = Branch.new(vStack, nil, vUpCase)
+function:class(clazz.Region) Region.new(vStack:clazz.BaseStack, vBodyFn:clazz.UBodyFunction, vUpCase:OrFalse(clazz.VariableCase))
+	const nRootBranch = Branch.new(vStack, nil, vUpCase or VariableCase.new())
 	const self = setmetatable({.class
 		_stack=vStack,
-		_headContext=vStack:getHeadContext(),
-		_tailContext=vStack:getTailContext(),
+		_headContext=vStack._headOper,
+		_tailContext=vStack._tailOper,
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(clazz.Branch),
 		_bodyFn=vBodyFn,

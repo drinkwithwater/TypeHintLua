@@ -1,4 +1,5 @@
 
+const Region = require "thlua.runtime.Region"
 const class = require "thlua.class"
 const BaseStack = require "thlua.runtime.BaseStack"
 
@@ -12,12 +13,14 @@ function.open SealStack:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
 	vParentStack:OrFalse(clazz.BaseStack),
-	vBodyFn:Union(clazz.ClassFactory, clazz.AutoFunction)
+	vBodyFn:Union(clazz.ClassFactory, clazz.AutoFunction),
+	vUpValueCase:OrFalse(clazz.VariableCase)
 )
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
 	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
 	self._parentStack = vParentStack
 	self._bodyFn = vBodyFn
+	self._region = Region.new(self, vBodyFn, vUpValueCase)
 end
 
 function SealStack:seal()
