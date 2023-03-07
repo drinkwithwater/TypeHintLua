@@ -64,7 +64,6 @@ function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 		_rootStack=nil@clazz.SealStack,
 	}, Runtime)
 	self._manager = TypeManager.new(self)
-	self._globalTable = native.make(self)
 	return self
 end
 
@@ -124,6 +123,7 @@ function Runtime:main():Ret(Boolean, Nil)
 		const nAutoFn = AutoFunction.new(self._manager, self._node, false)
 		const nRootStack = nAutoFn:getStack()
 		self._rootStack = nRootStack
+		self._manager:lateInit()
 		self._globalTable = native.make(self)
 		nRootStack:rootSetNamespace(self:RootNamespace())
 		nAutoFn:build(function(vAutoFn)

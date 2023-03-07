@@ -56,6 +56,21 @@ end)
 const TypeManager = {}
 TypeManager.__index=TypeManager
 
+const function:class(let.BuiltinFunc) makeBuiltinFunc(vManager:clazz.TypeManager)
+	const self = {.class
+		string=native.make_string(vManager),
+		next=native.make_next(vManager),
+		inext=native.make_inext(vManager),
+		bop={
+			mathematic=native.make_mathematic(vManager),
+			comparison=native.make_comparison(vManager),
+			bitwise=native.make_bitwise(vManager),
+			concat=native.make_concat(vManager),
+		},
+	}
+	return self
+end
+
 function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 	const function:class(let.BuiltinType) makeBuiltinType(vManager:clazz.TypeManager)
 		const self = {.class
@@ -73,28 +88,13 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 			AnyObject = nil @ clazz.MetaObject,
 		}
 		self.Integer = self.Number
-		const nRootNode = vRuntime:getNode()
-		return self
-	end
-	const function:class(let.BuiltinFunc) makeBuiltinFunc(vManager:clazz.TypeManager)
-		const self = {.class
-			string=native.make_string(vManager),
-			next=native.make_next(vManager),
-			inext=native.make_inext(vManager),
-			bop={
-				mathematic=native.make_mathematic(vManager),
-				comparison=native.make_comparison(vManager),
-				bitwise=native.make_bitwise(vManager),
-				concat=native.make_concat(vManager),
-			},
-		}
 		return self
 	end
 	const self = setmetatable({.class
 		_runtime=vRuntime,
 		-- type items
-		type=nil @ let.BuiltinType,
-		builtin=nil @ let.BuiltinFunc,
+		type=nil @ BuiltinType,
+		builtin=nil @ BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
 		_pairToInclude={} @ Dict(Integer, clazz.TypeReference),
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=clazz.BooleanLiteral},
@@ -107,7 +107,6 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(nRootNode, {})
-	self.builtin = makeBuiltinFunc(self)
 	self.generic.Dict = self:buildTemplate(nRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
@@ -148,6 +147,10 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		return nRefer
 	end)
 	return self
+end
+
+function TypeManager:lateInit()
+	self.builtin = makeBuiltinFunc(self)
 end
 
 const AtomMetatableSet:Dict(Truth, String) = {
@@ -498,19 +501,15 @@ function TypeManager:atomRecordTypeUnionSign(vType:clazz.BaseAtomType)
 end
 
 function TypeManager:fixedNativeOpenFunction(vNativeFn:clazz.FixedNativeFunc):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self, self._rootNode)
+	const nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
 	nOpenFn:lateInitFromFixedNative(vNativeFn)
 	return nOpenFn
 end
 
 function TypeManager:stackNativeOpenFunction(vNativeFn:clazz.OpenCaller):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self, self._rootNode)
+	const nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
 	nOpenFn:lateInitFromAutoNative(vNativeFn)
 	return nOpenFn
-end
-
-function TypeManager:OpenFunction(vNode:clazz.IAstNode):Ret(clazz.OpenFunction)
-	return OpenFunction.new(self, vNode)
 end
 
 function TypeManager:AutoTable():Ret(clazz.AutoTable)
