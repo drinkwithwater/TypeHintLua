@@ -23,14 +23,13 @@ end)
 const OperContext = class@<clazz.OperContext, false>()
 
 function.open OperContext:ctor(
-	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
-	vParentStack:clazz.BaseStack
+	vStack:clazz.BaseStack,
+	vManager:clazz.TypeManager
 )
-	self._runtime=vRuntime
-	self._manager=vRuntime:getTypeManager()
 	self._node=vNode
-	self._parentStack = vParentStack
+	self._manager=vManager
+	self._stack = vStack
 end
 
 function OperContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
@@ -129,7 +128,7 @@ function OperContext:matchParToDots(
 			return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
 		else
 			if nTermTail then
-				self:getRuntime():nodeError(vNode, "args dots not match par")
+				self:error("args dots not match par")
 			end
 			return false
 		end
@@ -209,7 +208,7 @@ function OperContext:AutoHolder():Ret(clazz.AutoHolder)
 end
 
 function OperContext:newOpenStack(vNode:clazz.IAstNode):Ret(clazz.OpenStack)
-	return self._runtime:OpenStack(vNode, self._parentStack)
+	return self._stack:getRuntime():OpenStack(vNode, self._stack)
 end
 
 function OperContext:RefineTerm(vType:clazz.UAllType):Ret(clazz.RefineTerm)
@@ -230,15 +229,15 @@ function OperContext:NilTerm():Ret(clazz.RefineTerm)
 end
 
 function OperContext:error(...:Truth)
-	self._runtime:nodeError(self._node, ...)
+	self._stack:getRuntime():nodeError(self._node, ...)
 end
 
 function OperContext:warn(...:Truth)
-	self._runtime:nodeWarn(self._node, ...)
+	self._stack:getRuntime():nodeWarn(self._node, ...)
 end
 
 function OperContext:info(...:Truth)
-	self._runtime:nodeInfo(self._node, ...)
+	self._stack:getRuntime():nodeInfo(self._node, ...)
 end
 
 function OperContext:getNode():Ret(clazz.IAstNode)
@@ -246,7 +245,7 @@ function OperContext:getNode():Ret(clazz.IAstNode)
 end
 
 function OperContext:getRuntime():Ret(clazz.Runtime)
-	return self._runtime
+	return self._stack:getRuntime()
 end
 
 function OperContext:getTypeManager():Ret(clazz.TypeManager)

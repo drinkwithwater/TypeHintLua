@@ -35,14 +35,15 @@ function.open BaseStack:ctor(
 	vNode:clazz.IAstNode,
 	...
 )
+	const nManager = vRuntime:getTypeManager()
 	self._runtime=vRuntime
-	self._manager=vRuntime:getTypeManager()
+	self._manager=nManager
 	self._node=vNode
 	self._region=false@OrFalse(clazz.Region)
-	self._classTable=false @ OrFalse(clazz.BaseTable)
+	self._classTable=false@OrFalse(clazz.BaseTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
-	self._headOper=OperContext.new(vRuntime, vNode, self)
-	self._tailOper=OperContext.new(vRuntime, vNode, self)
+	self._headOper=OperContext.new(vNode, self, nManager)
+	self._tailOper=OperContext.new(vNode, self, nManager)
 end
 
 --[[
@@ -473,15 +474,15 @@ function BaseStack:newOpenStack(vNode:clazz.IAstNode):Ret(clazz.OpenStack)
 end
 
 function BaseStack:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)
-	return ApplyContext.new(self._runtime, vNode, self)
+	return ApplyContext.new(vNode, self, self._manager)
 end
 
 function BaseStack:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)
-	return LogicContext.new(self._runtime, vNode, self)
+	return LogicContext.new(vNode, self, self._manager)
 end
 
 function BaseStack:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
-	return OperContext.new(self._runtime, vNode, self)
+	return OperContext.new(vNode, self, self._manager)
 end
 
 function.pass BaseStack:getSealStack():Ret(clazz.SealStack)
