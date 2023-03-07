@@ -41,6 +41,7 @@ const BaseStack = class@<clazz.BaseStack, false>()
 function.open BaseStack:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
+	vUpValueCase:OrFalse(clazz.VariableCase),
 	...
 )
 	const nManager = vRuntime:getTypeManager()
@@ -51,12 +52,8 @@ function.open BaseStack:ctor(
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headContext=OperContext.new(vNode, self, nManager)
 	self._tailContext=OperContext.new(vNode, self, nManager)
-	self._curBranch=nil@clazz.Branch
-	do.pass
-		const case = select(3, ...)
-		const nRootBranch = Branch.new(self, nil, case or VariableCase.new())-- vUpCase or VariableCase.new())
-		self._curBranch=nRootBranch
-	end
+	const nRootBranch = Branch.new(self, nil, vUpValueCase or VariableCase.new())-- vUpCase or VariableCase.new())
+	self._curBranch=nRootBranch
 	self._branchStack={self._curBranch}@List(clazz.Branch)
 	self._bodyFn=nil@clazz.UBodyFunction
 	self._retList={} @ List(clazz.FixedTermTuple)
@@ -396,10 +393,6 @@ function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
 		error(err)
 	end
 	return ok, err
-end
-
-function BaseStack:getRegion():Ret(clazz.BaseStack)
-	return self
 end
 
 function BaseStack:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
