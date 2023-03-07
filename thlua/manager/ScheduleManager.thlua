@@ -31,7 +31,7 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNi
 		else
 			const nDependRefer = self._coToRefer[vDependCo]
 			if nDependRefer then
-				if not nWaitingRefer:canWaitType() and not nDependRefer:getContext() then
+				if not nWaitingRefer:canWaitType() and not nDependRefer:getStack() then
 					error("type not setted"..tostring(nDependRefer))
 				end
 			end
@@ -79,7 +79,7 @@ function ScheduleManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
 	self._coToWaitingInfo[vWaitCo] = nil
 	self._coToScheduleParam[vWaitCo] = true
 	const nRefer = self._coToRefer[coroutine.running()]
-	if not nRefer or nRefer:getContext() then
+	if not nRefer or nRefer:getStack() then
 		self:_schedule()
 	end
 end
@@ -87,7 +87,7 @@ end
 function ScheduleManager:coStart(vCo:Thread, vFunc:Fn())
 	self._coToScheduleParam[vCo] = vFunc
 	const nRefer = self._coToRefer[coroutine.running()]
-	if not nRefer or nRefer:getContext() then
+	if not nRefer or nRefer:getStack() then
 		self:_schedule()
 	end
 end

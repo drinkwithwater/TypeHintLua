@@ -23,15 +23,15 @@ const ClassFactory = require "thlua.func.ClassFactory"
 const Region = {}
 Region.__index = Region
 Region.__tostring = function(self):Ret(String)
-	return "Region-"..tostring(self._context:getNode())
+	return "Region-"..tostring(self._stack:getNode())
 end
 
-function:class(clazz.Region) Region.new(vContext:clazz.BaseStack, vBodyFn:clazz.UBodyFunction, vUpCase:clazz.VariableCase)
-	const nRootBranch = Branch.new(vContext, nil, vUpCase)
+function:class(clazz.Region) Region.new(vStack:clazz.BaseStack, vBodyFn:clazz.UBodyFunction, vUpCase:clazz.VariableCase)
+	const nRootBranch = Branch.new(vStack, nil, vUpCase)
 	const self = setmetatable({.class
-		_context=vContext,
-		_headContext=vContext:getHeadContext(),
-		_tailContext=vContext:getTailContext(),
+		_stack=vStack,
+		_headContext=vStack:getHeadContext(),
+		_tailContext=vStack:getTailContext(),
 		_curBranch=nRootBranch,
 		_branchStack={nRootBranch}@List(clazz.Branch),
 		_bodyFn=vBodyFn,
@@ -44,7 +44,7 @@ function Region:withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(cla
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
-	const nNewBranch = Branch.new(self._context, nOldBranch, vVariableCase)
+	const nNewBranch = Branch.new(self._stack, nOldBranch, vVariableCase)
 	nStack[nNewLen] = nNewBranch
 	self._curBranch = nNewBranch
 	vFunc()
@@ -60,12 +60,12 @@ end
 function Region:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
 	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
 	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
-	const nSymbolContext = self._context:newOperContext(vNode)
+	const nSymbolContext = self._stack:newOperContext(vNode)
 	self:topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
 end
 
 function Region:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
-	const nSymbolContext = self._context:newOperContext(vNode)
+	const nSymbolContext = self._stack:newOperContext(vNode)
 	const nBranch = self:topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(nSymbolContext, vSymbol)
@@ -146,7 +146,7 @@ function Region:PARAM_DOTS_UNPACK(
 end
 
 function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
-	const nSymbolContext = self._context:newOperContext(vNode)
+	const nSymbolContext = self._stack:newOperContext(vNode)
 	if AutoHolder.is(vTerm) then
 		const nAutoRefineTerm = vTerm:getRefineTerm()
 		if not nAutoRefineTerm then
@@ -193,7 +193,7 @@ function Region:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vMod
 end
 
 function Region:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn(), vFalseFunction:OrNil(Fn()))
-	const nIfContext = self._context:newOperContext(vNode)
+	const nIfContext = self._stack:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
 	const nBeforeBranch = self:topBranch()
@@ -224,12 +224,12 @@ function Region:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunctio
 			vTrueFunction()
 		end)
 	else
-		self._context:getRuntime():nodeWarn(vNode, "while loop is unreachable scope")
+		self._stack:getRuntime():nodeWarn(vNode, "while loop is unreachable scope")
 	end
 end
 
 function Region:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
-	const nBuilder = DoBuilder.new(self._context, vNode)
+	const nBuilder = DoBuilder.new(self._stack, vNode)
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
 		vDoFunc()
@@ -237,14 +237,14 @@ function Region:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDo
 end
 
 function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
-	const nForContext = self._context:newOperContext(vNode)
+	const nForContext = self._stack:newOperContext(vNode)
 	const nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
 		nForContext:error("FOR_IN iterator error, arguments number must be 1 or 2 or 3")
 		return
 	end
 	const nNext = vNextSelfInit:get(nForContext, 1)
-	const nTuple = self._context:META_CALL(vNode, nNext, function ()
+	const nTuple = self._stack:META_CALL(vNode, nNext, function ()
 		if nLenNext == 1 then
 			return nForContext:FixedTermTuple({})
 		else
@@ -262,14 +262,14 @@ function Region:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNe
 		end
 	end)
 	if #nTuple <= 0 then
-		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value when iterator")
+		self._stack:getRuntime():nodeError(vNode, "FOR_IN must receive at least 1 value when iterator")
 		return
 	end
 	assert(TermTuple.isFixed(nTuple), "iter func can't return auto term")
 	local nFirstTerm = nTuple:get(nForContext, 1)
 	const nFirstType = nFirstTerm:getType()
 	if not nFirstType:isNilable() then
-		self._context:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : still run logic?? ")
+		self._stack:getRuntime():nodeError(vNode, "FOR_IN must receive nilable type, TODO : still run logic?? ")
 		return
 	end
 	if nFirstType:notnilType():isNever() then
@@ -305,12 +305,12 @@ function Region:FOR_NUM(
 	vStepOrNil:OrNil(clazz.RefineTerm),
 	vFunc:Fn(clazz.RefineTerm)
 )
-	const nForContext = self._context:newOperContext(vNode)
-	vFunc(nForContext:RefineTerm(self._context:getTypeManager().type.Integer))
+	const nForContext = self._stack:newOperContext(vNode)
+	vFunc(nForContext:RefineTerm(self._stack:getTypeManager().type.Integer))
 end
 
 function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
-	const nOrContext = self._context:newLogicContext(vNode)
+	const nOrContext = self._stack:newLogicContext(vNode)
 	const nLeftTrueTerm = nOrContext:logicTrueTerm(vLeftTerm)
 	const nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
@@ -326,7 +326,7 @@ function Region:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRigh
 end
 
 function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
-	const nAndContext = self._context:newLogicContext(vNode)
+	const nAndContext = self._stack:newLogicContext(vNode)
 	const nLeftFalseTerm = nAndContext:logicFalseTerm(vLeftTerm)
 	const nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
@@ -342,7 +342,7 @@ function Region:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRig
 end
 
 function Region:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
-	const nNotContext = self._context:newLogicContext(vNode)
+	const nNotContext = self._stack:newLogicContext(vNode)
 	return nNotContext:logicNotTerm(vData)
 end
 
@@ -362,7 +362,7 @@ function Region:BREAK(vNode:clazz.IAstNode)
 end
 
 function Region:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
-	const nRetContext = self._context:newOperContext(vNode)
+	const nRetContext = self._stack:newOperContext(vNode)
 	const nBodyFn = assert(self._bodyFn)
 	if AutoFunction.is(nBodyFn) then
 		local nOneOkay = false
@@ -409,12 +409,12 @@ function Region:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTe
 end
 
 function Region:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
-	const nRetContext = self._context:newOperContext(vNode)
+	const nRetContext = self._stack:newOperContext(vNode)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getTail() then
 		self:_bodyReturn(vNode, vTermTuple:checkTypeTuple())
 	else
-		const nManager = self._context:getTypeManager()
+		const nManager = self._stack:getTypeManager()
 		const nFirstTerm = vTermTuple:get(nRetContext, 1)
 		nFirstTerm:foreach(function(vAtomType, vCase)
 			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
@@ -436,15 +436,15 @@ end
 
 function Region:RUN_AFTER_IF(vNode:clazz.IAstNode, vFunc:Fn())
 	if self:topBranch():getStop() then
-		self._context:getRuntime():nodeError(vNode, "unreachable code")
+		self._stack:getRuntime():nodeError(vNode, "unreachable code")
 	end
 	vFunc()
 end
 
 function Region:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	local re = self:_bodyEnd(vNode, self._retList)
-	self._context:getNamespace():close()
-	self._context:seal()
+	self._stack:getNamespace():close()
+	self._stack:seal()
 	return re
 end
 

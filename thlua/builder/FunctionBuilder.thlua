@@ -57,7 +57,7 @@ const FunctionBuilder = {}
 FunctionBuilder.__index=FunctionBuilder
 
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
-	vContext:clazz.BaseStack,
+	vStack:clazz.BaseStack,
 	vNode:clazz.IAstNode,
 	vUpValueCase:OrFalse(clazz.VariableCase),
 	vInfo:clazz.FuncNewInfo,
@@ -65,8 +65,8 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vParRetMaker:clazz.GenMaker
 )
 	const self = {.class
-		_context=vContext,
-		_manager=vContext:getTypeManager(),
+		_stack=vStack,
+		_manager=vStack:getTypeManager(),
 		_node=vNode,
 		_uvCase=vUpValueCase,
 		_prefixHint=vPrefixHint,
@@ -82,7 +82,7 @@ end
 
 function FunctionBuilder:error(...:Truth)
 	if not self._pass then
-		self._context:getRuntime():nodeError(self._node, ...)
+		self._stack:getRuntime():nodeError(self._node, ...)
 	end
 end
 
@@ -144,12 +144,12 @@ end
 function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.MemberFunction, clazz.PolyFunction))
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
-		const nAutoFn = self._context:newAutoFunction(self._node)
-		const nNewContext = nAutoFn:getContext()
+		const nAutoFn = self._stack:newAutoFunction(self._node)
+		const nNewStack = nAutoFn:getStack()
 		nAutoFn:build(function(vAutoFn, vCastTypeFn)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vAutoFn, self._uvCase, nNewContext, vPolyParList, vSelfType)
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vAutoFn, self._uvCase, nNewStack, vPolyParList, vSelfType)
 			-- make par
-			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewContext:getHeadContext())
+			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewStack:getHeadContext())
 			const nParTermTuple = nGenParam(nCastArgs)
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
@@ -157,7 +157,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 			const nHintRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType)
 			if nHintRetTuples and nCastRet then
 				if not nCastRet:includeTuples(nHintRetTuples) then
-					nNewContext:error("hint return not match when cast")
+					nNewStack:error("hint return not match when cast")
 				end
 			end
 			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples())
@@ -172,12 +172,12 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 					const nRetTermTuple = nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
-						nNewContext:error("auto parameter deduce failed")
+						nNewStack:error("auto parameter deduce failed")
 						error("auto parameter deduce failed")
 					end
 					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(nRetTermTuple:checkTypeTuple())
 					if not nRetTuples then
-						nNewContext:error("auto return deduce failed")
+						nNewStack:error("auto return deduce failed")
 						error("auto return deduce failed")
 					end
 					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
@@ -203,7 +203,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
-	const nMakerContext = self._context:newOpenStack(self._node)
+	const nMakerContext = self._stack:newOpenStack(self._node)
 	if self._hasSuffixHint then
 		const nGuardFn = self._manager:OpenFunction(self._node)
 		local nSetted = false
@@ -321,10 +321,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			end
 			return nExtendsTable, nImplementsInterface
 		end
-		const nFactory = self._context:newClassFactory(self._node)
-		const nNewContext = nFactory:getContext()
+		const nFactory = self._stack:newClassFactory(self._node)
+		const nNewStack = nFactory:getStack()
 		nFactory:build(function(vFactory)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewContext, vPolyParList, false)
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewStack, vPolyParList, false)
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements, function(vClassTable)
 				const nParTermTuple = nGenParam(false)
@@ -332,11 +332,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				const nParTuple = nParTermTuple:checkTypeTuple()
 				const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
 				return nPreTypeFn, function()
-					nNewContext:setClassTable(vClassTable)
+					nNewStack:setClassTable(vClassTable)
 					nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
-						nNewContext:error("auto parameter deduce failed")
+						nNewStack:error("auto parameter deduce failed")
 						error("auto parameter deduce failed")
 					end
 					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)

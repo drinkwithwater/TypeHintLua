@@ -17,13 +17,13 @@ end)
 
 TableBuilder.__index=TableBuilder
 
-function:class(let.TableBuilder) TableBuilder.new(vContext:clazz.BaseStack,
+function:class(let.TableBuilder) TableBuilder.new(vStack:clazz.BaseStack,
 	vNode:clazz.IAstNode,
 	vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint),
 	vPairMaker:PairMaker
 )
 	return setmetatable({.class
-		_context=vContext,
+		_stack=vStack,
 		_node=vNode,
 		_hintInfo=vHintInfo,
 		_pairMaker=vPairMaker,
@@ -41,8 +41,8 @@ function:class(clazz.TableLongHint) TableBuilder._makeLongHint(self:TableBuilder
 end
 
 function TableBuilder:_build(vNewTable:clazz.BaseTable)
-	const nContext = self._context
-	const nManager = nContext:getTypeManager()
+	const nStack = self._stack
+	const nManager = nStack:getTypeManager()
 	vNewTable:setName("("..tostring(self._node)..")")
 	const vList, vDotsStart, vDotsTuple = self._pairMaker()
 	const nTypePairList:List(Struct {clazz.UAtomUnion, clazz.UAtomUnion}) = {}
@@ -89,11 +89,11 @@ function TableBuilder:build():Ret(clazz.BaseTable)
 	if not ok then
 		error(Exception.new(tostring(result), self._node))
 	end
-	const nContext = self._context
-	const nManager = nContext:getTypeManager()
+	const nStack = self._stack
+	const nManager = nStack:getTypeManager()
 	const nAttrSet = self._hintInfo.attrSet
 	if nAttrSet.class then
-		const nNewTable = assert(nContext:getClassTable(), "only function:class(clazz.) can build table hint with {.class")
+		const nNewTable = assert(nStack:getClassTable(), "only function:class(clazz.) can build table hint with {.class")
 		self:_build(nNewTable)
 		return nNewTable
 	else

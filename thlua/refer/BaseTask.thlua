@@ -10,19 +10,19 @@ end)
 
 const BaseTask = class@<clazz.BaseTask, false>()
 
-function.open BaseTask:ctor(vManager:clazz.TypeManager, vContext:OrNil(clazz.SealStack))
+function.open BaseTask:ctor(vManager:clazz.TypeManager, vStack:OrNil(clazz.SealStack))
 	self._manager = vManager
 	self._scheduleManager = vManager:getScheduleManager()
 	self._selfCo = coroutine.create(function(vRunFn:Fn())
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
-			const nContext = self:getContext()
-			if nContext then
+			const nStack = self:getStack()
+			if nStack then
 				const nNode = nExc.node
 				if not nNode then
-					nContext:error(tostring(nExc))
+					nStack:error(tostring(nExc))
 				else
-					nContext:getRuntime():nodeError(nNode, nExc.msg)
+					nStack:getRuntime():nodeError(nNode, nExc.msg)
 				end
 			else
 				error(nExc)
@@ -49,7 +49,7 @@ function.open BaseTask:ctor(vManager:clazz.TypeManager, vContext:OrNil(clazz.Sea
 			end
 		end]]
 	end)
-	self._context = vContext or false
+	self._stack = vStack or false
 	self._stopWaitType=false@Boolean
 	self._scheduleManager:markReference(self._selfCo, self)
 end
@@ -70,8 +70,8 @@ function BaseTask:runAsync(vFunc:Fn())
 	self._scheduleManager:coStart(self._selfCo, vFunc)
 end
 
-function BaseTask:getContext():Ret(OrFalse(clazz.SealStack))
-	return self._context
+function BaseTask:getStack():Ret(OrFalse(clazz.SealStack))
+	return self._stack
 end
 
 function BaseTask:makeEvent():Ret(clazz.ScheduleEvent)
