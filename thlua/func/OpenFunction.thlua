@@ -20,6 +20,10 @@ function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode
 	self.name="unknown"@String
 end
 
+function OpenFunction:getStack()
+	return self._lexStack
+end
+
 function OpenFunction:lateInitFromAutoNative(vNativeFunc:clazz.OpenCaller):Ret(clazz.OpenFunction)
 	self._func = vNativeFunc
 	return self
@@ -114,7 +118,7 @@ function OpenFunction:triggerAsMetaNewIndex(vContext, vSelfTerm, vKeyTerm, vValu
 end
 
 function OpenFunction:newStack(vContext:clazz.OperContext)
-	return self._lexStack:getRuntime():OpenStack(vContext:getNode(), self._uvCase, vContext:getStack(), self)
+	return self._lexStack:getRuntime():OpenStack(vContext:getNode(), self._uvCase, self, vContext:getStack())
 end
 
 function OpenFunction:meta_open_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple, clazz.OpenStack)

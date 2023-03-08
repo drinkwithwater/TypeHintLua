@@ -12,12 +12,10 @@ function.open SealStack:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
 	vUpValueCase:OrFalse(clazz.VariableCase),
-	vParentStack:OrFalse(clazz.BaseStack),
 	vBodyFn:Union(clazz.ClassFactory, clazz.AutoFunction)
 )
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
 	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
-	self._parentStack = vParentStack
 	self._bodyFn = vBodyFn
 end
 
@@ -56,8 +54,9 @@ function SealStack:recordAutoFunction(vFunc:clazz.AutoFunction)
 	end
 end
 
-function SealStack:getParentStack():Ret(OrFalse(clazz.BaseStack))
-	return self._parentStack
+function SealStack:rootSetNamespace(vRootSpace:clazz.Namespace)
+	assert(not self._namespace, "namespace has been setted")
+	self._namespace = vRootSpace
 end
 
 return SealStack

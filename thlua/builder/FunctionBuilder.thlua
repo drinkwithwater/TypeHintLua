@@ -18,7 +18,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
 
 	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
-	clazz.GenMaker = Fn(clazz.UBodyFunction, OrFalse(clazz.VariableCase), clazz.BaseStack, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	clazz.GenMaker = Fn(clazz.BaseStack, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple)
 
 	clazz.FnPrefixHint = Struct {
@@ -146,7 +146,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 		const nAutoFn = self._stack:newAutoFunction(self._node, self._uvCase)
 		const nNewStack = nAutoFn:getStack()
 		nAutoFn:build(function(vAutoFn, vCastTypeFn)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vAutoFn, self._uvCase, nNewStack, vPolyParList, vSelfType)
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, vSelfType)
 			-- make par
 			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewStack:getHeadContext())
 			const nParTermTuple = nGenParam(nCastArgs)
@@ -206,7 +206,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		const nGuardFn = self._stack:newOpenFunction(self._node, self._uvCase)
 		const nMakerStack = nGuardFn:newStack(self._stack:newOperContext(self._node))
 		local nSetted = false
-		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nGuardFn, self._uvCase, nMakerStack, {}, false)
+		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, {}, false)
 		const ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
 				error("extends can only be used with function:class")
@@ -236,8 +236,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		return nGuardFn
 	else
 		return self._stack:newOpenFunction(self._node, self._uvCase):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, self._uvCase, vContext, vPolyArgs, false)
-			--const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vOpenFn, false, vContext, vPolyArgs, false)
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)
 			return nGenFunc()
 		end)
@@ -324,7 +323,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		const nFactory = self._stack:newClassFactory(self._node, self._uvCase)
 		const nNewStack = nFactory:getStack()
 		nFactory:build(function(vFactory)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vFactory, self._uvCase, nNewStack, vPolyParList, false)
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, false)
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements, function(vClassTable)
 				const nParTermTuple = nGenParam(false)
