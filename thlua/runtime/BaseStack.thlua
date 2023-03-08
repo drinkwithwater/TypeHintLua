@@ -47,23 +47,14 @@ function.open BaseStack:ctor(
 	self._runtime=vRuntime
 	self._manager=nManager
 	self._node=vNode
-	self._classTable=false@OrFalse(clazz.BaseTable)
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headContext=OperContext.new(vNode, self, nManager)
 	self._tailContext=OperContext.new(vNode, self, nManager)
-	const nRootBranch = Branch.new(self, nil, vUpValueCase or VariableCase.new())
+	const nRootBranch = Branch.new(self, vUpValueCase or VariableCase.new())
 	self._curBranch=nRootBranch
 	self._branchStack={self._curBranch}@List(clazz.Branch)
 	self._bodyFn=nil@clazz.UBodyFunction
 	self._retList={} @ List(clazz.FixedTermTuple)
-end
-
-function BaseStack:setClassTable(vClassTable:clazz.BaseTable)
-	self._classTable = vClassTable
-end
-
-function BaseStack:getClassTable():Ret(OrFalse(clazz.BaseTable))
-	return self._classTable
 end
 
 function BaseStack:META_CALL(
@@ -75,7 +66,7 @@ function BaseStack:META_CALL(
 	const nCallContext = self:newApplyContext(vNode)
 	vFuncTerm:foreach(function(vFuncType, vVariableCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
-		self:withBranch(vVariableCase, function()
+		self:_withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
 		assert(nArgTermTuple, "must be true here")
@@ -105,6 +96,10 @@ end
 	end
 	return ok, err
 end]]
+
+function BaseStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
+	return self:getSealStack():getClassTable()
+end
 
 function BaseStack:newAutoFunction(vNode:clazz.IAstNode, vUpValueCase:OrFalse(clazz.VariableCase)):Ret(clazz.AutoFunction)
 	const nAutoFn = AutoFunction.new(self._manager, vNode, self, vUpValueCase)
@@ -142,7 +137,7 @@ end
 function BaseStack:seal()
 end
 
-function BaseStack:nodeRefineTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
+function BaseStack:_nodeTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
 	return RefineTerm.new(vNode, vType:checkAtomUnion())
 end
 
@@ -183,11 +178,11 @@ function BaseStack:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
 end
 
-function BaseStack:withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(clazz.Branch)
+function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(clazz.Branch)
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
-	const nNewBranch = Branch.new(self, nOldBranch, vVariableCase)
+	const nNewBranch = Branch.new(self, vVariableCase, nOldBranch)
 	nStack[nNewLen] = nNewBranch
 	self._curBranch = nNewBranch
 	vFunc()
@@ -196,24 +191,24 @@ function BaseStack:withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(
 	return nNewBranch
 end
 
-function BaseStack:topBranch():Ret(clazz.Branch)
+function BaseStack:_topBranch():Ret(clazz.Branch)
 	return self._curBranch
 end
 
 function BaseStack:nativeError()
-	self:topBranch():setStop()
+	self:_topBranch():setStop()
 end
 
 function BaseStack:nativeAssert(vTerm:clazz.RefineTerm)
 	local nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
-		self:topBranch():assertCase(nTrueCase)
+		self:_topBranch():assertCase(nTrueCase)
 	end
 end
 
 function BaseStack:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
 	const nRetContext = self:newOperContext(vNode)
-	const nBodyFn = assert(self._bodyFn)
+	const nBodyFn = self._bodyFn
 	if AutoFunction.is(nBodyFn) then
 		local nOneOkay = false
 		local nRetTuples = nBodyFn:getRetTuples()
@@ -238,7 +233,7 @@ function BaseStack:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple
 end
 
 function BaseStack:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.FixedTermTuple)):Ret(clazz.FixedTermTuple)
-	const nBodyFn = assert(self._bodyFn)
+	const nBodyFn = self._bodyFn
 	if OpenFunction.is(nBodyFn) or (AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples()) then
 		local nLen = #vTermTupleList
 		if nLen == 0 then

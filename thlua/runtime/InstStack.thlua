@@ -324,16 +324,16 @@ function InstStack:FUNC_NEW(vNode:clazz.IAstNode,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 ):Ret(clazz.RefineTerm)
-	const nUpValueCase = self:topBranch():getCase()
+	const nUpValueCase = self:_topBranch():getCase()
 	const nFnType = FunctionBuilder.new(self, vNode, nUpValueCase, vFnNewInfo, vPrefixHint, vParRetMaker):build()
-	return self:nodeRefineTerm(vNode, nFnType)
+	return self:_nodeTerm(vNode, nFnType)
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
 function InstStack:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
-	return self:nodeRefineTerm(vNode, nTableType)
+	return self:_nodeTerm(vNode, nTableType)
 end
 
 function InstStack:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
@@ -374,24 +374,24 @@ function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 end
 
 function InstStack:NIL_TERM(vNode:clazz.IAstNode)
-	return self:nodeRefineTerm(vNode, self._manager.type.Nil)
+	return self:_nodeTerm(vNode, self._manager.type.Nil)
 end
 
 function InstStack:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Number, Boolean))
 	const nType = self._manager:Literal(vValue)
-	return self:nodeRefineTerm(vNode, nType)
+	return self:_nodeTerm(vNode, nType)
 end
 
 function InstStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
 	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
 	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
 	const nSymbolContext = self:newOperContext(vNode)
-	self:topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
+	self:_topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
 end
 
 function InstStack:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
 	const nSymbolContext = self:newOperContext(vNode)
-	const nBranch = self:topBranch()
+	const nBranch = self:_topBranch()
 	if LocalSymbol.is(vSymbol) then
 		return nBranch:mutGet(nSymbolContext, vSymbol)
 	elseif ImmutVariable.is(vSymbol) then
@@ -509,7 +509,7 @@ function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, v
 	if vModify then
 		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, vTerm:getType(), vTerm)
 		self:getRuntime():recordSymbol(nLocalSymbol)
-		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
+		self:_topBranch():mutMark(nLocalSymbol, nImmutVariable)
 		return nLocalSymbol
 	else
 		nImmutVariable:setNode(vNode)
@@ -521,13 +521,13 @@ function InstStack:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunctio
 	const nIfContext = self:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
-	const nBeforeBranch = self:topBranch()
+	const nBeforeBranch = self:_topBranch()
 	if nTrueCase then
-		const nTrueBranch = self:withBranch(nTrueCase, function()
+		const nTrueBranch = self:_withBranch(nTrueCase, function()
 			vTrueFunction()
 		end)
 		if nFalseCase and vFalseFunction then
-			const nFalseBranch = self:withBranch(nFalseCase, function()
+			const nFalseBranch = self:_withBranch(nFalseCase, function()
 				vFalseFunction()
 			end)
 			nBeforeBranch:mergeTwoBranch(nIfContext, nTrueBranch, nFalseBranch)
@@ -535,7 +535,7 @@ function InstStack:IF(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunctio
 			nBeforeBranch:mergeOneBranch(nIfContext, nTrueBranch, nFalseCase)
 		end
 	elseif nFalseCase and vFalseFunction then
-		const nFalseBranch = self:withBranch(nFalseCase, function()
+		const nFalseBranch = self:_withBranch(nFalseCase, function()
 			vFalseFunction()
 		end)
 		nBeforeBranch:mergeOneBranch(nIfContext, nFalseBranch, nTrueCase)
@@ -545,7 +545,7 @@ end
 function InstStack:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
 	const nTrueCase = vTerm:caseTrue()
 	if nTrueCase then
-		self:withBranch(nTrueCase, function()
+		self:_withBranch(nTrueCase, function()
 			vTrueFunction()
 		end)
 	else
@@ -617,7 +617,7 @@ function InstStack:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), 
 			nTermList[i] = nTerm
 		end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
-		self:withBranch(vCase, function()
+		self:_withBranch(vCase, function()
 			vFunc(nNewTuple)
 		end)
 	end)
@@ -642,7 +642,7 @@ function InstStack:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vR
 		return nLeftTrueTerm
 	else
 		local nRightTerm:OrNil(clazz.RefineTerm) = nil
-		self:withBranch(nLeftFalseCase, function()
+		self:_withBranch(nLeftFalseCase, function()
 			nRightTerm = vRightFunction()
 		end)
 		assert(nRightTerm, "term must be true value here")
@@ -658,7 +658,7 @@ function InstStack:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, v
 		return nLeftFalseTerm
 	else
 		local nRightTerm:OrNil(clazz.RefineTerm) = nil
-		self:withBranch(nLeftTrueCase, function()
+		self:_withBranch(nLeftTrueCase, function()
 			nRightTerm = vRightFunction()
 		end)
 		assert(nRightTerm, "term must be true value here")
@@ -672,7 +672,7 @@ function InstStack:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(c
 end
 
 function InstStack:BREAK(vNode:clazz.IAstNode)
-	self:topBranch():setStop()
+	self:_topBranch():setStop()
 end
 
 function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
@@ -698,11 +698,11 @@ function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
 			self:_bodyReturn(vNode, nTypeTuple)
 		end)
 	end
-	self:topBranch():setStop()
+	self:_topBranch():setStop()
 end
 
 function InstStack:RUN_AFTER_IF(vNode:clazz.IAstNode, vFunc:Fn())
-	if self:topBranch():getStop() then
+	if self:_topBranch():getStop() then
 		self:getRuntime():nodeError(vNode, "unreachable code")
 	end
 	vFunc()
