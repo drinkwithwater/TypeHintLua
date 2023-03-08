@@ -449,7 +449,7 @@ function InstStack:PARAM_NODOTS_UNPACK(
 	vParNum:Integer
 )
 	if vTermTuple then
-		self._headContext:matchParToDots(vNode, vTermTuple, vParNum, false)
+		self._headContext:matchArgsToNoDots(vNode, vTermTuple, vParNum)
 	end
 end
 
@@ -460,7 +460,11 @@ function InstStack:PARAM_DOTS_UNPACK(
 	vHintDots:Union(clazz.AutoFlag, clazz.UAllType)
 ):Ret(OrFalse(clazz.UTermTuple))
 	if vTermTuple then
-		return self._headContext:matchParToDots(vNode, vTermTuple, vParNum, vHintDots)
+		if vHintDots == AutoFlag then
+			return self._headContext:matchArgsToAutoDots(vNode, vTermTuple, vParNum)
+		else
+			return self._headContext:matchArgsToTypeDots(vNode, vTermTuple, vParNum, vHintDots)
+		end
 	else
 		if vHintDots == AutoFlag then
 			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._headContext))

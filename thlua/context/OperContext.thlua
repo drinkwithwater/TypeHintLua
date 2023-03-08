@@ -106,89 +106,97 @@ function OperContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.U
 	return false
 end
 
-function OperContext:matchParToDots(
+function OperContext:matchArgsToTypeDots(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
 	vParNum:Integer,
-	vHintDots:OrFalse(clazz.AutoFlag, clazz.UAllType)
-):Ret(OrFalse(clazz.UTermTuple))
+	vHintDots:clazz.UAllType
+):Ret(clazz.UTermTuple)
+	const nTailTermList:List(clazz.UAutoTerm) = {}
+	for i=vParNum + 1, #vTermTuple do
+		const nTerm = vTermTuple:get(self, i)
+		nTailTermList[#nTailTermList + 1] = self:assignTermToType(nTerm, vHintDots)
+	end
+	const nTermTail = vTermTuple:getTail()
+	if AutoTail.is(nTermTail) then
+		const nMore = vParNum - #vTermTuple
+		if nMore <= 0 then
+			nTermTail:sealTailFrom(self, 1, vHintDots)
+		else
+			nTermTail:sealTailFrom(self, nMore + 1, vHintDots)
+		end
+	end
+	return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
+end
+
+function OperContext:matchArgsToAutoDots(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vParNum:Integer
+):Ret(clazz.UTermTuple)
 	const nTailTermList:List(clazz.UAutoTerm) = {}
 	for i=vParNum + 1, #vTermTuple do
 		nTailTermList[#nTailTermList + 1] = vTermTuple:get(self, i)
 	end
 	const nTermTail = vTermTuple:getTail()
 	if not AutoTail.is(nTermTail) then
-		if vHintDots == AutoFlag then
-			if nTermTail then
-				return self:UTermTupleByTail(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
-			else
-				return self:UTermTupleByTail(nTailTermList)
-			end
-		elseif vHintDots then
-			return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
+		if nTermTail then
+			return self:UTermTupleByTail(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
 		else
-			if nTermTail then
-				self:error("args dots not match par")
-			end
-			return false
+			return self:UTermTupleByTail(nTailTermList)
 		end
 	else
 		const nMore = vParNum - #vTermTuple
-		if vHintDots == AutoFlag then
-			if nMore <= 0 then
-				return self:UTermTupleByTail(nTailTermList, nTermTail)
-			else
-				return self:UTermTupleByTail(nTailTermList, nTermTail:openTailFrom(self, nMore + 1))
-			end
-		elseif vHintDots then
-			if nMore <= 0 then
-				nTermTail:sealTailFrom(self, 1, vHintDots)
-			else
-				nTermTail:sealTailFrom(self, nMore + 1, vHintDots)
-			end
-			return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
+		if nMore <= 0 then
+			return self:UTermTupleByTail(nTailTermList, nTermTail)
 		else
-			if nMore <= 0 then
-				nTermTail:sealTailFrom(self, 1, true)
-			else
-				nTermTail:sealTailFrom(self, nMore + 1, true)
-			end
-			return false
+			return self:UTermTupleByTail(nTailTermList, nTermTail:openTailFrom(self, nMore + 1))
 		end
 	end
 end
 
-function OperContext:matchToParHintStruct(
+function OperContext:matchArgsToNoDots(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
-	vParHintStruct:clazz.ParHintStruct
-):Ret(List(clazz.UAutoTerm), OrFalse(clazz.UTermTuple))
-	const nHintDots = vParHintStruct.dots
-	const nNamedTermList:List(clazz.UAutoTerm) = {}
+	vParNum:Integer
+)
+	const nTailTermList:List(clazz.UAutoTerm) = {}
+	for i=vParNum + 1, #vTermTuple do
+		nTailTermList[#nTailTermList + 1] = vTermTuple:get(self, i)
+	end
+	const nTermTail = vTermTuple:getTail()
+	if AutoTail.is(nTermTail) then
+		const nMore = vParNum - #vTermTuple
+		if nMore <= 0 then
+			nTermTail:sealTailFrom(self, 1, true)
+		else
+			nTermTail:sealTailFrom(self, nMore + 1, true)
+		end
+	end
+end
+
+function OperContext:matchArgsToTypeTuple(
+	vNode:clazz.IAstNode,
+	vTermTuple:clazz.UTermTuple,
+	vTypeTuple:clazz.UTypeTuple
+)
+	const nParNum = #vTypeTuple
 	for i=1, #vTermTuple do
 		const nAutoTerm = vTermTuple:get(self, i)
-		local nHintType = vParHintStruct[i]
-		const nMore = i-#vParHintStruct
-		if nMore > 0 then
-			if nHintDots then
-				if nHintDots ~= AutoFlag then
-					nHintType = nHintDots
-				end
-			else
-				nHintType = self._manager.type.Nil
-			end
-		end
-		const nPut = (nHintType and nHintType ~= AutoFlag) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
-		if nMore <= 0 then
-			nNamedTermList[i] = nPut
-		end
+		const nHintType = vTypeTuple:get(i)
+		self:assignTermToType(nAutoTerm, nHintType)
 	end
-	for i=#vTermTuple + 1, #vParHintStruct do
+	for i=#vTermTuple + 1, nParNum do
 		const nAutoTerm = vTermTuple:get(self, i)
-		const nHintType = vParHintStruct[i]!
-		nNamedTermList[i] = (nHintType ~= AutoFlag) and self:assignTermToType(nAutoTerm, nHintType) or nAutoTerm
+		const nHintType = vTypeTuple:get(i)
+		self:assignTermToType(nAutoTerm, nHintType)
 	end
-	return nNamedTermList, self:matchParToDots(vNode, vTermTuple, #vParHintStruct, vParHintStruct.dots or false)
+	const nDotsType = vTypeTuple:getRepeatType()
+	if nDotsType then
+		self:matchArgsToTypeDots(vNode, vTermTuple, nParNum, nDotsType)
+	else
+		self:matchArgsToNoDots(vNode, vTermTuple, nParNum)
+	end
 end
 
 function OperContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.UAutoTerm)
