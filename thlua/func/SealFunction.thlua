@@ -14,10 +14,9 @@ end)
 const SealFunction = class@<clazz.SealFunction, false>(MonoFunction)
 
 function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vParentStack:OrFalse(clazz.BaseStack), vUpValueCase:OrFalse(clazz.VariableCase))
-	const nRuntime = vManager:getRuntime()
-	const nNewStack = nRuntime:SealStack(vNode, vUpValueCase, self @ Union(clazz.AutoFunction, clazz.ClassFactory))
+	const nNewStack = vManager:getRuntime():SealStack(vNode, vUpValueCase, self @ Union(clazz.AutoFunction, clazz.ClassFactory))
 	self._stack = nNewStack
-	const nTask = nRuntime:getScheduleManager():newTask(nNewStack)
+	const nTask = vManager:getScheduleManager():newTask(nNewStack)
 	self._task = nTask
 	self._node = vNode
 	self._headStartEvent=nTask:makeWildEvent()
@@ -32,7 +31,7 @@ function SealFunction:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTe
 	return nTypeFn:meta_call(vContext, vTermTuple)
 end
 
-function SealFunction:getAssignNode()
+function SealFunction:getNode()
 	return self._node
 end
 
@@ -54,6 +53,11 @@ end
 
 function SealFunction:getStack()
 	return self._stack
+end
+
+function SealFunction:startBuild()
+	self._headStartEvent:wakeup()
+	self._bodyStartEvent:wakeup()
 end
 
 return SealFunction

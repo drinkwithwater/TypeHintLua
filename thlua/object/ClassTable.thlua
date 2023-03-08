@@ -20,13 +20,25 @@ const ClassTable = class@<clazz.ClassTable, false>(SealTable)
 
 function.open ClassTable:ctor(
 	vManager:clazz.TypeManager,
-	vFnCom:clazz.ClassFactory,
-	vBaseClass:OrFalse(clazz.ClassTable),
-	vInterface:clazz.MetaObject
+	vFnCom:clazz.ClassFactory
 )
 	self._classCom = vFnCom
-	self._baseClass = vBaseClass
-	self._interface = vInterface
+	const nTask = self._manager:getScheduleManager():newTask()
+	self._task = nTask
+	self._initEvent = nTask:makeEvent()
+	self._baseClass = false@OrFalse(clazz.ClassTable)
+	self._interface = nil@clazz.MetaObject
+end
+
+function ClassTable:waitInit()
+	self._initEvent:wait()
+end
+
+function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), clazz.MetaObject))
+	self._task:runAsync(function()
+		self._baseClass, self._interface = vBaseGetter()
+		self._initEvent:wakeup()
+	end)
 end
 
 function ClassTable:onSetMetaTable(vContext:clazz.OperContext)

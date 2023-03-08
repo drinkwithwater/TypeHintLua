@@ -7,11 +7,8 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.BuildRunner = Fn(clazz.ClassFactory):Ret(
-		OrFalse(clazz.ClassTable), clazz.MetaObject,
-		Fn(clazz.ClassTable):Ret(
-			OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)
-		)
+	let.BuildRunner = Fn(clazz.ClassTable):Ret(
+		OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)
 	)
 end)
 
@@ -22,9 +19,8 @@ end
 
 function.open ClassFactory:ctor(vManager:clazz.TypeManager, ...)
 	const nTask = self._task
-	self._classStartEvent=nTask:makeEvent()
 	self._classFinishEvent=nTask:makeEvent()
-	self._classType=false@OrFalse(clazz.ClassTable)
+	self._classTable=ClassTable.new(self._manager, self)
 end
 
 function ClassFactory:getToString():Ret(String)
@@ -33,7 +29,7 @@ end
 
 function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 	if not self._typeFn then
-		self._classStartEvent:wait()
+		self._classTable:waitInit()
 		self._headStartEvent:wakeup()
 		self._headFinishEvent:wait()
 		if not self._typeFn then
@@ -48,10 +44,8 @@ function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
 end
 
 function ClassFactory:getClassAwait():Ret(clazz.UAtomUnion)
-	if not self._classType then
-		self._classStartEvent:wait()
-	end
-	return (assert(self._classType, "result type not setted"))
+	self._classTable:waitInit()
+	return self._classTable
 end
 
 function ClassFactory:build(vRunner:BuildRunner)
@@ -60,17 +54,11 @@ function ClassFactory:build(vRunner:BuildRunner)
 	end)
 end
 
-function ClassFactory:_build(vRunner:BuildRunner)
-	-- step 1. wait inteface
-	const nBaseClass, nInterface, nPreRunner = vRunner(self)
-	-- step 2. create table
-	const nNewTable = ClassTable.new(self._manager, self, nBaseClass, nInterface)
-	self._classType = nNewTable
-	self._classStartEvent:wakeup()
+function ClassFactory:_build(vPreRunner:BuildRunner)
 	self._headStartEvent:wait()
-	self._task:stopWaitType()
+	self._classTable:waitInit()
 	-- nClassType:linkNamedReference(self)
-	const nTypeFn, nLateRunner = nPreRunner(nNewTable)
+	const nTypeFn, nLateRunner = vPreRunner(self._classTable)
 	if nTypeFn then
 		self._typeFn = nTypeFn
 	end
@@ -84,11 +72,6 @@ function ClassFactory:_build(vRunner:BuildRunner)
 	-- step 4. wakeup fn
 	self._classFinishEvent:wakeup()
 	self._bodyFinishEvent:wakeup()
-end
-
-function ClassFactory:startBuild()
-	self._headStartEvent:wakeup()
-	self._bodyStartEvent:wakeup()
 end
 
 function ClassFactory:onSetMetaTable()
