@@ -101,14 +101,14 @@ function BaseStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 	return self:getSealStack():getClassTable()
 end
 
-function BaseStack:newAutoFunction(vNode:clazz.IAstNode, vUpValueCase:OrFalse(clazz.VariableCase)):Ret(clazz.AutoFunction)
-	const nAutoFn = AutoFunction.new(self._manager, vNode, self, vUpValueCase)
+function BaseStack:newAutoFunction(vNode:clazz.IAstNode, ...):Ret(clazz.AutoFunction)
+	const nAutoFn = AutoFunction.new(self._manager, vNode, self, ...)
 	self:getSealStack():recordAutoFunction(nAutoFn)
 	return nAutoFn
 end
 
-function BaseStack:newClassFactory(vNode:clazz.IAstNode, vUpValueCase:OrFalse(clazz.VariableCase)):Ret(clazz.ClassFactory)
-	const nFactory = ClassFactory.new(self._manager, vNode, self, vUpValueCase)
+function BaseStack:newClassFactory(vNode:clazz.IAstNode, ...):Ret(clazz.ClassFactory)
+	const nFactory = ClassFactory.new(self._manager, vNode, self, ...)
 	self:getSealStack():recordClassFactory(nFactory)
 	return nFactory
 end
@@ -225,7 +225,7 @@ function BaseStack:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple
 			-- error("auto return TODO")
 		end
 	elseif ClassFactory.is(nBodyFn) then
-		const nResultType = nBodyFn:getClassAwait()
+		const nResultType = nBodyFn:getClassTable(true)
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
 			nRetContext:error("class return check failed")
 		end

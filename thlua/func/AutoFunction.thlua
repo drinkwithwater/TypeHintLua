@@ -7,7 +7,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.BuildRunner = Fn(clazz.AutoFunction, OrFalse(clazz.TypeFunction)):Ret(
+	let.BuildRunner = Fn():Ret(
 		OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)
 	)
 end)
@@ -19,7 +19,6 @@ end
 
 function.open AutoFunction:ctor(vManager:clazz.TypeManager, ...)
 	self._castList={}@List(clazz.TypeFunction)
-	self._retTuples=false@OrFalse(clazz.RetTuples)
 end
 
 function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.TypeFunction):Ret(Boolean)
@@ -32,51 +31,12 @@ function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.Ty
 	end
 end
 
-function AutoFunction:setRetTuples(vRetTuples:clazz.RetTuples)
-	self._retTuples = vRetTuples
-end
-
-function AutoFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
-	return self._retTuples
-end
-
-function AutoFunction:build(vRunner:BuildRunner)
-	self._task:runAsync(function()
-		self:_build(vRunner)
-	end)
-end
-
-function AutoFunction:_build(vRunner:BuildRunner)
-	self._headStartEvent:wait()
+function AutoFunction:pickCastTypeFn():Ret(OrFalse(clazz.TypeFunction))
 	local nCastFn:OrFalse(clazz.TypeFunction) = false
 	for k,v in pairs(self._castList) do
 		nCastFn = v
 	end
-	const nTypeFn, nLateRunner = vRunner(self, nCastFn)
-	if nTypeFn then
-		self._typeFn = nTypeFn
-		self._retTuples = nTypeFn:getRetTuples()
-	end
-	self._headFinishEvent:wakeup()
-	self._bodyStartEvent:wait()
-	const nTypeFn = nLateRunner()
-	if not self._typeFn then
-		self._typeFn = nTypeFn
-		self._retTuples = nTypeFn:getRetTuples()
-	end
-	self._bodyFinishEvent:wakeup()
-end
-
-function AutoFunction:getFnAwait():Ret(clazz.TypeFunction)
-	if not self._typeFn then
-		self._headStartEvent:wakeup()
-		self._headFinishEvent:wait()
-		if not self._typeFn then
-			self._bodyStartEvent:wakeup()
-			self._bodyFinishEvent:wait()
-		end
-	end
-	return (assert(self._typeFn, "_typeFn must existed here"))
+	return nCastFn
 end
 
 return AutoFunction

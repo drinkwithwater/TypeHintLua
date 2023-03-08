@@ -145,14 +145,15 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
 		const nAutoFn = self._stack:newAutoFunction(self._node, self._uvCase)
 		const nNewStack = nAutoFn:getStack()
-		nAutoFn:build(function(vAutoFn, vCastTypeFn)
+		nAutoFn:buildAsync(function()
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, vSelfType)
+			const nCastTypeFn = nAutoFn:pickCastTypeFn()
 			-- make par
-			const nCastArgs = vCastTypeFn and vCastTypeFn:getParTuple():makeTermTuple(nNewStack:getHeadContext())
+			const nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:getHeadContext())
 			const nParTermTuple = nGenParam(nCastArgs)
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
-			const nCastRet = vCastTypeFn and vCastTypeFn:getRetTuples()
+			const nCastRet = nCastTypeFn and nCastTypeFn:getRetTuples()
 			const nHintRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType)
 			if nHintRetTuples and nCastRet then
 				if not nCastRet:includeTuples(nHintRetTuples) then
@@ -321,30 +322,34 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			return nExtendsTable, nImplementsInterface
 		end
 		const nFactory = self._stack:newClassFactory(self._node, self._uvCase)
+		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getStack()
 		local nGenParam:OrNil(clazz.GenParam) = nil
 		local nGenFunc:OrNil(clazz.GenFunc) = nil
-		nFactory._classTable:initAsync(function()
+		nClassTable:initAsync(function()
 			const nGenParam_, nSuffixHint, nGenFunc_ = self._parRetMaker(nNewStack, vPolyParList, false)
 			nGenParam = nGenParam_
 			nGenFunc = nGenFunc_
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
-		nFactory:build(function(vClassTable)
+		nFactory:buildAsync(function()
+			nClassTable:waitInit()
 			const nParTermTuple = nGenParam(false)
-			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, vClassTable))
+			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassTable))
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
-				nNewStack:setClassTable(vClassTable)
+				nNewStack:setClassTable(nClassTable)
 				nGenFunc()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:error("auto parameter deduce failed")
 					error("auto parameter deduce failed")
 				end
-				return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+				const nRetTypeFn = nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+				nFactory:wakeupTableBuild()
+				return nRetTypeFn
 			end
 		end)
 		return nFactory
@@ -352,7 +357,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	if nPolyParNum <= 0 then
 		const nFactory = nFnMaker({})
 		nRefer:setAssignAsync(self._node, function()
-			return nFactory:getClassAwait()
+			return nFactory:getClassTable(true)
 		end)
 		return nFactory
 	else
@@ -362,7 +367,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		nRefer:setTemplateAsync(self._node, function(...:clazz.UAllType)
 			const nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
-			return nFactory:getClassAwait()
+			return nFactory:getClassTable(true)
 		end, nPolyParNum)
 		return nPolyFn
 	end

@@ -24,11 +24,24 @@ function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode
 	self._bodyStartEvent=nTask:makeWildEvent()
 	self._bodyFinishEvent=nTask:makeEvent()
 	self._typeFn=false@OrFalse(clazz.TypeFunction)
+	self._retTuples=false@OrFalse(clazz.RetTuples)
 end
 
 function SealFunction:meta_call(vContext:clazz.OperContext, vTermTuple:clazz.UTermTuple):Ret(clazz.RetTuples)
 	const nTypeFn = self:getFnAwait()
 	return nTypeFn:meta_call(vContext, vTermTuple)
+end
+
+function SealFunction:getFnAwait():Ret(clazz.TypeFunction)
+	if not self._typeFn then
+		self._headStartEvent:wakeup()
+		self._headFinishEvent:wait()
+		if not self._typeFn then
+			self._bodyStartEvent:wakeup()
+			self._bodyFinishEvent:wait()
+		end
+	end
+	return (assert(self._typeFn, "_typeFn must existed here"))
 end
 
 function SealFunction:getNode()
@@ -55,7 +68,30 @@ function SealFunction:getStack()
 	return self._stack
 end
 
-function SealFunction:startBuild()
+function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
+	return self._retTuples
+end
+
+function SealFunction:buildAsync(vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)))
+	self._task:runAsync(function()
+		self._headStartEvent:wait()
+		const nTypeFn, nLateRunner = vRunner()
+		if nTypeFn then
+			self._typeFn = nTypeFn
+			self._retTuples = nTypeFn:getRetTuples()
+		end
+		self._headFinishEvent:wakeup()
+		self._bodyStartEvent:wait()
+		const nTypeFn = nLateRunner()
+		if not self._typeFn then
+			self._typeFn = nTypeFn
+			self._retTuples = nTypeFn:getRetTuples()
+		end
+		self._bodyFinishEvent:wakeup()
+	end)
+end
+
+function SealFunction:startTask()
 	self._headStartEvent:wakeup()
 	self._bodyStartEvent:wakeup()
 end

@@ -7,7 +7,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.BuildRunner = Fn(clazz.ClassTable):Ret(
+	let.BuildRunner = Fn():Ret(
 		OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)
 	)
 end)
@@ -19,7 +19,7 @@ end
 
 function.open ClassFactory:ctor(vManager:clazz.TypeManager, ...)
 	const nTask = self._task
-	self._classFinishEvent=nTask:makeEvent()
+	self._classBuildEvent=nTask:makeEvent()
 	self._classTable=ClassTable.new(self._manager, self)
 end
 
@@ -27,61 +27,22 @@ function ClassFactory:getToString():Ret(String)
 	return tostring(self._node)
 end
 
-function ClassFactory:getFnAwait():Ret(clazz.TypeFunction)
-	if not self._typeFn then
-		self._classTable:waitInit()
-		self._headStartEvent:wakeup()
-		self._headFinishEvent:wait()
-		if not self._typeFn then
-			self._bodyStartEvent:wakeup()
-			self._classFinishEvent:wait()
-			if not self._typeFn then
-				self._bodyFinishEvent:wait()
-			end
-		end
+function ClassFactory:getClassTable(vWaitInit:OrNil(True)):Ret(clazz.ClassTable)
+	const nTable = self._classTable
+	if vWaitInit then
+		nTable:waitInit()
 	end
-	return (assert(self._typeFn, "type function not setted after wait"))
+	return nTable
 end
 
-function ClassFactory:getClassAwait():Ret(clazz.UAtomUnion)
-	self._classTable:waitInit()
-	return self._classTable
+function ClassFactory:wakeupTableBuild()
+	self._classBuildEvent:wakeup()
 end
 
-function ClassFactory:build(vRunner:BuildRunner)
-	self._task:runAsync(function()
-		self:_build(vRunner)
-	end)
-end
-
-function ClassFactory:_build(vPreRunner:BuildRunner)
-	self._headStartEvent:wait()
-	self._classTable:waitInit()
-	-- nClassType:linkNamedReference(self)
-	const nTypeFn, nLateRunner = vPreRunner(self._classTable)
-	if nTypeFn then
-		self._typeFn = nTypeFn
-	end
-	self._headFinishEvent:wakeup()
-	self._bodyStartEvent:wait()
-	-- step 3. run build
-	const nTypeFn = nLateRunner()
-	if not self._typeFn then
-		self._typeFn = nTypeFn
-	end
-	-- step 4. wakeup fn
-	self._classFinishEvent:wakeup()
-	self._bodyFinishEvent:wakeup()
-end
-
-function ClassFactory:onSetMetaTable()
-	self._classFinishEvent:wakeup()
-end
-
-function ClassFactory:waitBuild()
-	self:startBuild()
+function ClassFactory:waitTableBuild()
+	self:startTask()
 	if coroutine.running() ~= self._task:getSelfCo() then
-		self._classFinishEvent:wait()
+		self._classBuildEvent:wait()
 	end
 end
 

@@ -22,7 +22,7 @@ function.open ClassTable:ctor(
 	vManager:clazz.TypeManager,
 	vFnCom:clazz.ClassFactory
 )
-	self._classCom = vFnCom
+	self._factory = vFnCom
 	const nTask = self._manager:getScheduleManager():newTask()
 	self._task = nTask
 	self._initEvent = nTask:makeEvent()
@@ -42,7 +42,7 @@ function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), cl
 end
 
 function ClassTable:onSetMetaTable(vContext:clazz.OperContext)
-	self._classCom:onSetMetaTable()
+	self._factory:wakeupTableBuild()
 	const nInterface = self._interface
 	if nInterface then
 		self:implInterface(vContext, nInterface)
@@ -87,7 +87,7 @@ end
 
 
 function ClassTable:ctxWait(vContext:clazz.OperContext)
-	assert(self._classCom):waitBuild()
+	self._factory:waitTableBuild()
 end
 
 function ClassTable:getBaseClass()
