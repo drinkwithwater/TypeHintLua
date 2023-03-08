@@ -161,10 +161,14 @@ local TagToVisiting:RealTraverser = {
 	Local=function(self, node)
 		return {
 			line=node.l,
-			"local ", self:concatList@<Truth>(node[1], function(i, vNode)
+			"local ", self:concatList@<node.Ident_def>(node[1], function(i, vNode)
 				return "____lo"..i
 			end, ","), "=",
-			#node[2] > 0 and self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])) or "nil ",
+			#node[2] > 0
+				and self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2]))
+				or self:concatList@<node.Ident_def>(node[1], function(i, vNode)
+					return self:stkWrap(vNode).NIL_TERM()
+				end, ", "),
 			self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
 				return self:visitIdentDef(vIdent, "____lo"..i)
 			end, " ")

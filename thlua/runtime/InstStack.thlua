@@ -474,40 +474,30 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:clazz.UAutoTerm, vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	const nSymbolContext = self:newOperContext(vNode)
-	if AutoHolder.is(vTerm) then
-		const nAutoRefineTerm = vTerm:getRefineTerm()
-		if not nAutoRefineTerm then
-			if vKind ~= Enum.SymbolKind_PARAM then
-				error(Exception.new("undeduced auto variable can't be assigned to other variable", vNode))
+	if vHintType then
+		vTerm = nSymbolContext:assignTermToType(vTerm, vHintType)
+	else
+		const nTermInHolder = vTerm:getRefineTerm()
+		if not nTermInHolder then
+			if vModify then
+				error(Exception.new("auto variable can't be modified", vNode))
+			elseif vKind == Enum.SymbolKind_LOCAL then
+				error(Exception.new("auto variable can't be defined as local", vNode))
 			end
 			return vTerm
-		else
-			vTerm = nAutoRefineTerm
 		end
-	end
-	if not vTerm then
-		vTerm = nSymbolContext:NilTerm()
-	end
-	if vHintType then
-		local nSrcType = vTerm:getType()
-		if not nSymbolContext:castLuaType(nSrcType, vHintType) then
-			if not vHintType:includeAll(nSrcType) then
-				nSymbolContext:error("symbol init but type not match")
-			end
-		end
-		vTerm = nSymbolContext:RefineTerm(vHintType)
-	else
+		vTerm = nTermInHolder
+		const nFromType = vTerm:getType()
 		-- convert string literal to string, number literal to number, boolean literal to boolean
 		if vModify and vKind == Enum.SymbolKind_LOCAL then
-			const nFromType = vTerm:getType()
 			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
 				vTerm = nSymbolContext:RefineTerm(nToType)
 			end
 		end
-		nSymbolContext:getTypeManager():basingByDefault(vTerm:getType())
+		nSymbolContext:getTypeManager():basingByDefault(nFromType)
 	end
 	const nImmutVariable = vTerm:attachImmutVariable()
 	if vModify then
