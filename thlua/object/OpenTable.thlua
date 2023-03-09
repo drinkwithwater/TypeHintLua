@@ -90,9 +90,14 @@ function OpenTable:meta_set(vContext, vKeyType, vValueType)
 		end
 	else
 		const nNewIndexType = self._newIndexType
-		if nNewIndexType then
-			nNewIndexType:triggerAsMetaNewIndex(vContext, vContext:RefineTerm(self),
-				vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType))
+		if BaseFunction.is(nNewIndexType) then
+			const nTermTuple = vContext:FixedTermTuple({
+				vContext:RefineTerm(self), vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType)
+			})
+			vContext:applyCall(nNewIndexType, nTermTuple)
+			return
+		elseif BaseTable.is(nNewIndexType) then
+			nNewIndexType:meta_set(vContext, vKeyType, vValueType)
 			return
 		end
 	end
@@ -108,9 +113,12 @@ function OpenTable:meta_get(vContext, vKeyType)
 		return nField.valueType
 	else
 		const nIndexType = self._indexType
-		if nIndexType then
-			const nType = nIndexType:triggerAsMetaIndex(vContext, vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)):getType()
-			return assert(nType):checkAtomUnion()
+		if BaseFunction.is(nIndexType) then
+			const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
+			vContext:applyCall(nIndexType, nTermTuple)
+			return vContext:mergeReturn():checkFixed(vContext, 1):getType()
+		elseif BaseTable.is(nIndexType) then
+			return nIndexType:meta_get(vContext, vKeyType)
 		end
 		return self:native_rawget(vContext, vKeyType)
 	end

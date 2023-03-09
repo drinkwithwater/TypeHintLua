@@ -11,7 +11,7 @@ end)
 
 const ApplyContext = class@<clazz.ApplyContext, false>(AssignContext)
 
-(@let.FirstRetCaseList= List(Struct {clazz.UAtomUnion, clazz.UTypeTuple, clazz.VariableCase}))
+(@let.FirstRetCaseList = List(Struct {clazz.UAtomUnion, clazz.UTypeTuple, clazz.VariableCase}))
 function.open ApplyContext:ctor(
 	...
 )
@@ -22,14 +22,14 @@ function.open ApplyContext:ctor(
 	self._retList = {} @FirstRetCaseList
 end
 
-function ApplyContext:_putRetTuples(vRetTuples:clazz.RetTuples, vCase:clazz.VariableCase)
+function ApplyContext:_putRetTuples(vRetTuples:clazz.RetTuples, vCase:OrNil(clazz.VariableCase))
 	vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
 		local nLength = #vTypeTuple
 		if nLength > self._retMaxLength then
 			self._retMaxLength = nLength
 		end
 		self._retList[#self._retList + 1] = {
-			vFirst:checkAtomUnion(), vTypeTuple, VariableCase.new() & vCase
+			vFirst:checkAtomUnion(), vTypeTuple, vCase and vCase:copy() or VariableCase.new()
 		}
 		const nRepeatType = vTypeTuple:getRepeatType()
 		if nRepeatType then
@@ -41,7 +41,7 @@ end
 function ApplyContext:applyCall(
 	vFunc:Union(clazz.BaseFunction, clazz.Truth),
 	vArgTuple:clazz.UTermTuple,
-	vCase:clazz.VariableCase
+	vCase:OrNil(clazz.VariableCase)
 )
 	if OpenFunction.is(vFunc) then
 		if self._openReturn or self._openForbid then
