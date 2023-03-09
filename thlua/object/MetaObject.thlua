@@ -434,15 +434,19 @@ end
 
 function MetaObject:native_rawset(vContext, vKeyType, vValueType)
 	vContext:warn("abstract object take rawset")
-	return self:meta_set(vContext, vKeyType, vValueType)
+	return self:_meta_set(vContext, vKeyType, vValueType)
 end
 
 function MetaObject:native_rawget(vContext, vKeyType)
 	vContext:warn("abstract object take rawget")
-	return self:meta_get(vContext, vKeyType)
+	return self:_meta_get(vContext, vKeyType, false)
 end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
+	self:_meta_set(vContext, vKeyType, vValueType)
+end
+
+function MetaObject:_meta_set(vContext:clazz.OperContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
 	if self:isInterface() then
 		vContext:error("interface's field is readonly")
 		return
