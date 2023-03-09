@@ -11,7 +11,7 @@ end)
 
 const ApplyContext = class@<clazz.ApplyContext, false>(AssignContext)
 
-(@let.FirstRetCaseList = List(Struct {clazz.UAtomUnion, clazz.UTypeTuple, clazz.VariableCase}))
+(@let.TypeCaseTupleList = List(Struct {clazz.UAtomUnion, clazz.VariableCase, OrNil(clazz.UTypeTuple)}))
 function.open ApplyContext:ctor(
 	...
 )
@@ -19,22 +19,50 @@ function.open ApplyContext:ctor(
 	self._openReturn = false@clazz.UTermTuple
 	self._retMaxLength = 0@Integer
 	self._retRepCollection = self._manager:TypeCollection()
-	self._retList = {} @FirstRetCaseList
+	self._retList = {} @TypeCaseTupleList
+	self._curCase = false @ OrFalse(clazz.VariableCase)
 end
 
-function ApplyContext:_putRetTuples(vRetTuples:clazz.RetTuples, vCase:OrNil(clazz.VariableCase))
-	vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
+function ApplyContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
+	if self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	assert(not self._curCase, "apply context case in case error")
+	self._curCase = vCase or VariableCase.new()
+	vFunc()
+	self._curCase = false
+	self._openForbid = true
+end
+
+function ApplyContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
+	if self._openForbid or self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	self._openReturn = vTermTuple
+end
+
+function ApplyContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
+	const nCase = assert(self._curCase, "[FATAL] apply used with withCase first")
+	self._retList[#self._retList + 1] = {
+		vFirstType, nCase, vTypeTuple
+	}
+	if vTypeTuple then
 		local nLength = #vTypeTuple
 		if nLength > self._retMaxLength then
 			self._retMaxLength = nLength
 		end
-		self._retList[#self._retList + 1] = {
-			vFirst:checkAtomUnion(), vTypeTuple, vCase and vCase:copy() or VariableCase.new()
-		}
 		const nRepeatType = vTypeTuple:getRepeatType()
 		if nRepeatType then
 			self._retRepCollection:put(nRepeatType)
 		end
+	end
+end
+
+function ApplyContext:_putRetTuples(vRetTuples:clazz.RetTuples, vCase:OrNil(clazz.VariableCase))
+	self:withCase(vCase, function()
+		vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
+			self:pushNormalReturn(vFirst:checkAtomUnion(), vTypeTuple)
+		end)
 	end)
 end
 
@@ -44,15 +72,8 @@ function ApplyContext:applyCall(
 	vCase:OrNil(clazz.VariableCase)
 )
 	if OpenFunction.is(vFunc) then
-		if self._openReturn or self._openForbid then
-			error(Exception.new("can't mix use open table", self._node))
-		end
 		self._openReturn = vFunc:meta_open_call(self, vArgTuple)
 	else
-		if self._openReturn then
-			error(Exception.new("can't mix use open table", self._node))
-		end
-		self._openForbid = true
 		const nRetTuples = vFunc:meta_call(self, vArgTuple)
 		self:_putRetTuples(nRetTuples, vCase)
 	end
@@ -66,15 +87,8 @@ function ApplyContext:applyInvoke(
 	vSelfType:clazz.IAtomType
 )
 	if OpenFunction.is(vFunc) then
-		if self._openReturn or self._openForbid then
-			error(Exception.new("can't mix use open table", self._node))
-		end
 		self._openReturn = vFunc:meta_open_call(self, vArgTuple)
 	else
-		if self._openReturn then
-			error(Exception.new("can't mix use open table", self._node))
-		end
-		self._openForbid = true
 		const nRetTuples = vFunc:meta_invoke(self, vSelfType, vPolyArgs, vArgTuple)
 		self:_putRetTuples(nRetTuples, vCase)
 	end
@@ -98,7 +112,7 @@ function ApplyContext:mergeReturn():Ret(clazz.UTermTuple)
 	for i=2,nMaxLength do
 		const nCollection = self._manager:TypeCollection()
 		for _, nType1TupleCase in pairs(nRetList) do
-			nCollection:put(nType1TupleCase[2]:get(i))
+			nCollection:put(nType1TupleCase[3]!:get(i))
 		end
 		const nTypeI = nCollection:mergeToAtomUnion()
 		nTermList[i] = self:RefineTerm(nTypeI)
@@ -107,8 +121,8 @@ function ApplyContext:mergeReturn():Ret(clazz.UTermTuple)
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	for _, nType1TupleCase in pairs(nRetList) do
 		const nType1 = nType1TupleCase[1]
-		const nTypeTuple = nType1TupleCase[2]
-		const nCase = nType1TupleCase[3]
+		const nCase = nType1TupleCase[2]:copy()
+		const nTypeTuple = nType1TupleCase[3]!
 		for i=2,nMaxLength do
 			nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
 		end
