@@ -13,9 +13,10 @@ const MetaObject = AtomTypeClass()
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-function:class(clazz.MetaObject) MetaObject.new(vManager:clazz.TypeManager, vIsInterface:Boolean, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType)):impl(clazz.IAtomType)
+function:class(clazz.MetaObject) MetaObject.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIsInterface:Boolean, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType)):impl(clazz.IAtomType)
 	const self = setmetatable({.class
 		_manager=vManager,
+		_node=vNode,
 		_keyRefer=vKeyRefer,
 		_memberDict=false@OrFalse(clazz.MemberDict),
 		_nextKey=vNextKey,
@@ -24,18 +25,11 @@ function:class(clazz.MetaObject) MetaObject.new(vManager:clazz.TypeManager, vIsI
 		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
 		_intersectSet={}@Dict(clazz.MetaObject, True),
 		_unionSign=false,
-		_referCom=false@OrFalse(clazz.UnionReferCom),
 		_isInterface=vIsInterface,
 		bits=TYPE_BITS.OBJECT,
 		id=vManager:genTypeId(),
 	}, MetaObject)
 	return self
-end
-
-function MetaObject:linkNamedReference(vRefer:clazz.UnionReferCom)
-	if not self._referCom then
-		self._referCom = vRefer
-	end
 end
 
 function MetaObject:lateInit(vIntersectSet:Dict(clazz.MetaObject,True), vMemberDict:clazz.MemberDict, vMetaEventCom:OrFalse(clazz.MetaEventCom))
@@ -495,6 +489,12 @@ function MetaObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz
 end
 
 function MetaObject:detailString(vToStringCache, vVerbose)
+	if self._isInterface then
+		return "interface@"..tostring(self._node)
+	else
+		return "struct@"..tostring(self._node)
+	end
+	--[[
 	local nRefer = self._referCom
 	if nRefer then
 		return "Object ("..nRefer:getToString()..")"
@@ -520,7 +520,7 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	end
 	local nResult = "Object {"..table.concat(l, ",").."}"
 	vToStringCache[self] = nResult
-	return nResult
+	return nResult]]
 end
 
 function MetaObject:getMemberDict():Ret(clazz.MemberDict)
