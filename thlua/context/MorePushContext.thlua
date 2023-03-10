@@ -9,10 +9,10 @@ const Exception = require "thlua.Exception"
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const PushContext = class@<clazz.PushContext, false>(ApplyContext)
+const MorePushContext = class@<clazz.MorePushContext, false>(ApplyContext)
 
 (@let.TypeCaseTupleList = List(Struct {clazz.UAtomUnion, clazz.VariableCase, OrNil(clazz.UTypeTuple)}))
-function.open PushContext:ctor(
+function.open MorePushContext:ctor(
 	...
 )
 	self._openForbid = false@Boolean
@@ -23,13 +23,13 @@ function.open PushContext:ctor(
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 end
 
-function PushContext:pushNothing()
+function MorePushContext:pushNothing()
 	if self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
 end
 
-function PushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
+function MorePushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
 	assert(not self._curCase, "apply context case in case error")
 	self._curCase = vCase or VariableCase.new()
 	vFunc()
@@ -37,19 +37,19 @@ function PushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
 	self._openForbid = true
 end
 
-function PushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
-	assert(self._curCase, "[FATAL] PushContext push value without case")
+function MorePushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
+	assert(self._curCase, "[FATAL] MorePushContext push value without case")
 	if self._openForbid or self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
 	self._openReturn = vTermTuple
 end
 
-function PushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
+function MorePushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
 	if self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
-	const nCase = assert(self._curCase, "[FATAL] PushContext push value without case")
+	const nCase = assert(self._curCase, "[FATAL] MorePushContext push value without case")
 	self._retList[#self._retList + 1] = {
 		vFirstType, nCase, vTypeTuple
 	}
@@ -65,13 +65,13 @@ function PushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:Or
 	end
 end
 
-function PushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
+function MorePushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
 	vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
 		self:pushNormalReturn(vFirst:checkAtomUnion(), vTypeTuple)
 	end)
 end
 
-function PushContext:mergeReturn():Ret(clazz.UTermTuple)
+function MorePushContext:mergeReturn():Ret(clazz.UTermTuple)
 	const nOpenReturn = self._openReturn
 	if nOpenReturn then
 		return nOpenReturn
@@ -111,7 +111,7 @@ function PushContext:mergeReturn():Ret(clazz.UTermTuple)
 	return self:FixedTermTuple(nTermList, nRepeatType)
 end
 
-function PushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
+function MorePushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
 	const nOpenReturn = self._openReturn
 	if nOpenReturn then
 		return nOpenReturn:checkFixed(self, 1)
@@ -127,12 +127,12 @@ function PushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
 	return self:mergeToRefineTerm(nTypeCaseList)
 end
 
-function PushContext:mergeFirst():Ret(clazz.RefineTerm)
+function MorePushContext:mergeFirst():Ret(clazz.RefineTerm)
 	return self:_mergeFirstIfNotnil(false)
 end
 
-function PushContext:mergeFirstNotnil():Ret(clazz.RefineTerm)
+function MorePushContext:mergeFirstNotnil():Ret(clazz.RefineTerm)
 	return self:_mergeFirstIfNotnil(true)
 end
 
-return PushContext
+return MorePushContext
