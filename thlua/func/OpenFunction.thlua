@@ -30,10 +30,25 @@ function OpenFunction:lateInitFromAutoNative(vNativeFunc:clazz.OpenCaller):Ret(c
 	return self
 end
 
-function OpenFunction:lateInitFromFixedNative(vNativeFunc:clazz.FixedNativeFunc):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromMetaNative(
+	vNativeFunc:Fn(clazz.ApplyContext, clazz.IAtomType)
+):Ret(clazz.OpenFunction)
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vStack:getNode()))
-		const nInplaceContext = vStack:getHeadContext()
+		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
+			vNativeFunc(vContext, vType)
+		end)
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:lateInitFromOperNative(
+	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(clazz.FixedTermTuple):Ret(clazz.RefineTerm)
+):Ret(clazz.OpenFunction)
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vStack:getNode()))
+		const nInplaceContext = vStack:newOperContext(vStack:getNode())
 		const re = vNativeFunc(nInplaceContext, vTermTuple)
 		if TermTuple.is(re) then
 			return re
@@ -89,12 +104,12 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 			const caseFalse = nTerm:caseIsNotType(nTableType)
 			if caseTrue then
 				vContext:withCase(caseTrue, function()
-					vContext:pushRetType(nTrue)
+					vContext:pushFirstAndTuple(nTrue)
 				end)
 			end
 			if caseFalse then
 				vContext:withCase(caseFalse, function()
-					vContext:pushRetType(nFalse)
+					vContext:pushFirstAndTuple(nFalse)
 				end)
 			end
 		end)

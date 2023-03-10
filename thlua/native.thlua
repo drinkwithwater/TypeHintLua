@@ -62,17 +62,13 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
 		next=nManager.builtin.next,
-		ipairs=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nType1 = vTermTuple:get(vContext, 1):getType()
-			assert(not nType1:isUnion(), "ipairs for union type TODO")
-			local nTypeTuple = nType1:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.inext, nType1, nManager:Literal(0))
-			return nTypeTuple:makeTermTuple(vContext)
+		ipairs=nManager:metaNativeOpenFunction(function(vContext, vType)
+			const nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.inext, vType, nManager:Literal(0))
+			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
-		pairs=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			const nType1 = vTermTuple:get(vContext, 1):getType()
-			assert(not nType1:isUnion(), "pairs for union type TODO")
-			const nTypeTuple = nType1:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, nType1, nManager.type.Nil)
-			return nTypeTuple:makeTermTuple(vContext)
+		pairs=nManager:metaNativeOpenFunction(function(vContext, vType)
+			const nTypeTuple = vType:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, vType, nManager.type.Nil)
+			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
 		rawequal=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			--self:argnum_warn(2, vTermTuple)
@@ -332,7 +328,7 @@ function native.make_string(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 end
 
 function native.make_table(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
-	const function checkList(vContext:clazz.ApplyContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
+	const function checkList(vContext:clazz.OperContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
 		--[[
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
