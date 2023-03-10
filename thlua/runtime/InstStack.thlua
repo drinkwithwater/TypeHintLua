@@ -153,17 +153,18 @@ function InstStack:META_GET(
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
 	const nGetContext = self:newApplyContext(vNode)
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	vSelfTerm:foreach(function(vType, vVariableCase)
 		vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
-			local nReType = vType:meta_get(nGetContext, vKeyType)
-			if vNotnil then
-				nReType = nReType:notnilType()
-			end
-			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vVariableCase & vKeyVariableCase}
+			nGetContext:withCase(vVariableCase & vKeyVariableCase, function()
+				vType:meta_get(nGetContext, vKeyType)
+			end)
 		end)
 	end)
-	return nGetContext:mergeToRefineTerm(nTypeCaseList)
+	if vNotnil then
+		return nGetContext:mergeFirstNotnil()
+	else
+		return nGetContext:mergeFirst()
+	end
 end
 
 function InstStack:META_SET(
@@ -195,9 +196,10 @@ function InstStack:META_INVOKE(
 		if vSelfType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
-			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({nInvokeContext:RefineTerm(vSelfType)}, vArgTuple)
-			const nFuncType = vSelfType:meta_get_invoke(nInvokeContext, self._manager:Literal(vName))
-			nFuncType:foreach(function(vSingleFuncType)
+			const nFilterSelfTerm = nInvokeContext:RefineTerm(vSelfType)
+			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({nFilterSelfTerm}, vArgTuple)
+			const nFuncTerm = self:META_GET(vNode, nFilterSelfTerm, nInvokeContext:RefineTerm(self._manager:Literal(vName)), false)
+			nFuncTerm:foreach(function(vSingleFuncType, _)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then

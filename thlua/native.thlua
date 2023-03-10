@@ -333,6 +333,7 @@ end
 
 function native.make_table(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 	const function checkList(vContext:clazz.ApplyContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
+		--[[
 		const nNumber = vManager.type.Number
 		const nElementCollection = vManager:TypeCollection()
 		vType:foreach(function(vSubType)
@@ -344,7 +345,9 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 			const nValue = vSubType:meta_get(vContext, nNumber)
 			nElementCollection:put(nValue)
 		end)
-		return nElementCollection:mergeToAtomUnion()
+		return nElementCollection:mergeToAtomUnion()]]
+		-- checkList TODO
+		return vContext:getTypeManager().type.Never
 	end
 	const table:StringToAtomUnion = {
 		sort=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -368,11 +371,12 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 		remove=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
-			const nRetType = checkList(vContext, nType, "remove")
-			return vContext:FixedTermTuple({vContext:RefineTerm(nRetType)})
+			-- const nRetType = checkList(vContext, nType, "remove")
+			-- return vContext:FixedTermTuple({vContext:RefineTerm(nRetType)})
+			return vContext:FixedTermTuple({})
 		end),
 		unpack=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nFirstTerm = vTermTuple:get(vContext, 1)
+			--[[local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			local nNumber = vManager.type.Number
 			local nCollection = vManager:TypeCollection()
@@ -386,7 +390,8 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.BaseTable)
 				nCollection:put(nValueType)
 			end)
 			local nRetType = nCollection:mergeToAtomUnion()
-			return vManager:TypeTuple(vContext:getNode()):Dots(nRetType:notnilType()):makeTermTuple(vContext)
+			return vManager:TypeTuple(vContext:getNode()):Dots(nRetType:notnilType()):makeTermTuple(vContext)]]
+			return vContext:FixedTermTuple({})
 		end),
 		move=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			-- move TODO
@@ -403,28 +408,24 @@ function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	local nNumber = vManager.type.Number
 	local nNil = vManager.type.Nil
 	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-		local nType1 = vTermTuple:get(vContext, 1):getType()
-		nType1 = nType1:trueType()
-		if nType1:isUnion() then
-			error(Exception.new("TODO: next Union type"))
-		else
-			local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
-			local nValueTerm = vContext:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
-			local nKeyValue:Dict(clazz.IAtomType, clazz.UAtomUnion) = {
-				[nNumber]=nNotNilValue,
-				[nNil]=nNil,
+		const nFirstTerm = vTermTuple:get(vContext, 1)
+		--local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
+		local nNotNilValue = vContext:getInstStack():META_GET(vContext:getNode(), nFirstTerm, vContext:RefineTerm(nNumber), true):getType()
+		local nValueTerm = vContext:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
+		local nKeyValue:Dict(clazz.IAtomType, clazz.UAtomUnion) = {
+			[nNumber]=nNotNilValue,
+			[nNil]=nNil,
+		}
+		local nTypeCaseList:List(clazz.TypeCasePair) = {}
+		for nOneKey, nOneValue in pairs(nKeyValue) do
+			local nCase = VariableCase.new()
+			nCase:put_and(nValueTerm:attachImmutVariable(), nOneValue)
+			nTypeCaseList[#nTypeCaseList + 1] = {
+				nOneKey, nCase
 			}
-			local nTypeCaseList:List(clazz.TypeCasePair) = {}
-			for nOneKey, nOneValue in pairs(nKeyValue) do
-				local nCase = VariableCase.new()
-				nCase:put_and(nValueTerm:attachImmutVariable(), nOneValue)
-				nTypeCaseList[#nTypeCaseList + 1] = {
-					nOneKey, nCase
-				}
-			end
-			local nKeyTerm = vContext:mergeToRefineTerm(nTypeCaseList)
-			return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
 		end
+		local nKeyTerm = vContext:mergeToRefineTerm(nTypeCaseList)
+		return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
 	end)
 end
 

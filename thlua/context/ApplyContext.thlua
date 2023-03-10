@@ -112,7 +112,7 @@ function ApplyContext:mergeReturn():Ret(clazz.UTermTuple)
 	return self:FixedTermTuple(nTermList, nRepeatType)
 end
 
-function ApplyContext:mergeFirst():Ret(clazz.RefineTerm)
+function ApplyContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
 	const nOpenReturn = self._openReturn
 	if nOpenReturn then
 		return nOpenReturn:checkFixed(self, 1)
@@ -122,10 +122,18 @@ function ApplyContext:mergeFirst():Ret(clazz.RefineTerm)
 		const nType1 = nType1TupleCase[1]
 		const nCase = nType1TupleCase[2]
 		nTypeCaseList[#nTypeCaseList + 1] = {
-			nType1, nCase
+			vNotnil and nType1:notnilType() or nType1, nCase
 		}
 	end
 	return self:mergeToRefineTerm(nTypeCaseList)
+end
+
+function ApplyContext:mergeFirst():Ret(clazz.RefineTerm)
+	return self:_mergeFirstIfNotnil(false)
+end
+
+function ApplyContext:mergeFirstNotnil():Ret(clazz.RefineTerm)
+	return self:_mergeFirstIfNotnil(true)
 end
 
 return ApplyContext

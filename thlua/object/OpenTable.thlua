@@ -110,17 +110,16 @@ function OpenTable:meta_get(vContext, vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
 		nField.lockCtx = vContext
-		return nField.valueType
+		vContext:pushNormalReturn(nField.valueType)
 	else
 		const nIndexType = self._indexType
 		if BaseFunction.is(nIndexType) then
 			const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
 			nIndexType:meta_call(vContext, nTermTuple)
-			return vContext:mergeReturn():checkFixed(vContext, 1):getType()
 		elseif BaseTable.is(nIndexType) then
-			return nIndexType:meta_get(vContext, vKeyType)
+			nIndexType:meta_get(vContext, vKeyType)
 		end
-		return self:native_rawget(vContext, vKeyType)
+		vContext:pushNormalReturn(self:native_rawget(vContext, vKeyType))
 	end
 end
 
