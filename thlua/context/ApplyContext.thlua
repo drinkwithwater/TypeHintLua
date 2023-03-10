@@ -58,40 +58,18 @@ function ApplyContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:O
 	end
 end
 
+function ApplyContext:pushRetTuples(vRetTuples:clazz.RetTuples)
+	vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
+		self:pushNormalReturn(vFirst:checkAtomUnion(), vTypeTuple)
+	end)
+end
+
 function ApplyContext:_putRetTuples(vRetTuples:clazz.RetTuples, vCase:OrNil(clazz.VariableCase))
 	self:withCase(vCase, function()
 		vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
 			self:pushNormalReturn(vFirst:checkAtomUnion(), vTypeTuple)
 		end)
 	end)
-end
-
-function ApplyContext:applyCall(
-	vFunc:Union(clazz.BaseFunction, clazz.Truth),
-	vArgTuple:clazz.UTermTuple,
-	vCase:OrNil(clazz.VariableCase)
-)
-	if OpenFunction.is(vFunc) then
-		self._openReturn = vFunc:meta_open_call(self, vArgTuple)
-	else
-		const nRetTuples = vFunc:meta_call(self, vArgTuple)
-		self:_putRetTuples(nRetTuples, vCase)
-	end
-end
-
-function ApplyContext:applyInvoke(
-	vFunc:Union(clazz.BaseFunction, clazz.Truth),
-	vArgTuple:clazz.UTermTuple,
-	vCase:clazz.VariableCase,
-	vPolyArgs:List(clazz.UAllType),
-	vSelfType:clazz.IAtomType
-)
-	if OpenFunction.is(vFunc) then
-		self._openReturn = vFunc:meta_open_call(self, vArgTuple)
-	else
-		const nRetTuples = vFunc:meta_invoke(self, vSelfType, vPolyArgs, vArgTuple)
-		self:_putRetTuples(nRetTuples, vCase)
-	end
 end
 
 function ApplyContext:mergeReturn():Ret(clazz.UTermTuple)
@@ -132,6 +110,22 @@ function ApplyContext:mergeReturn():Ret(clazz.UTermTuple)
 	end
 	nTermList[1] = self:mergeToRefineTerm(nTypeCaseList)
 	return self:FixedTermTuple(nTermList, nRepeatType)
+end
+
+function ApplyContext:mergeFirst():Ret(clazz.RefineTerm)
+	const nOpenReturn = self._openReturn
+	if nOpenReturn then
+		return nOpenReturn:checkFixed(self, 1)
+	end
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
+	for _, nType1TupleCase in pairs(self._retList) do
+		const nType1 = nType1TupleCase[1]
+		const nCase = nType1TupleCase[2]
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			nType1, nCase
+		}
+	end
+	return self:mergeToRefineTerm(nTypeCaseList)
 end
 
 return ApplyContext

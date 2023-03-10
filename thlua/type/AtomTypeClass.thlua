@@ -33,16 +33,16 @@ const function.open AtomTypeClass()
 	function t:meta_get_invoke(vContext, vKeyType)
 		return self:meta_get(vContext, vKeyType)
 	end
-	function t:meta_call(vContext, vTypeTuple):Ret(clazz.RetTuples)
+	function t:meta_call(vContext, vTypeTuple)
 		vContext:error(tostring(self).." can't take call")
-		return self._manager:VoidRetTuples()
+		vContext:pushRetTuples(self._manager:VoidRetTuples())
 	end
-	function t:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple):Ret(clazz.RetTuples)
+	function t:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 		if #vPolyArgs > 0 then
 			const nCast = self:castPoly(vContext, vPolyArgs) or self
-			return nCast:meta_call(vContext, vTypeTuple)
+			nCast:meta_call(vContext, vTypeTuple)
 		else
-			return self:meta_call(vContext, vTypeTuple)
+			self:meta_call(vContext, vTypeTuple)
 		end
 	end
 	function t:meta_bop_func(vContext, vOper)

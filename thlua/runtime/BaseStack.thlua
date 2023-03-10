@@ -69,11 +69,12 @@ function BaseStack:META_CALL(
 		self:_withBranch(vVariableCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
-		assert(nArgTermTuple, "must be true here")
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
 		elseif BaseFunction.is(vFuncType) or Truth.is(vFuncType) then
-			nCallContext:applyCall(vFuncType, nArgTermTuple, vVariableCase)
+			nCallContext:withCase(vVariableCase, function()
+				vFuncType:meta_call(nCallContext, assert(nArgTermTuple))
+			end)
 		else
 			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end

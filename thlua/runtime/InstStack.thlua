@@ -201,7 +201,9 @@ function InstStack:META_INVOKE(
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
-					nInvokeContext:applyInvoke(vSingleFuncType, nNewArgTuple, vVariableCase, vPolyArgs, vSelfType)
+					nInvokeContext:withCase(vVariableCase, function()
+						vSingleFuncType:meta_invoke(nInvokeContext, vSelfType, vPolyArgs, nNewArgTuple)
+					end)
 				else
 					self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vSingleFuncType))
 				end
@@ -260,8 +262,9 @@ function InstStack:META_BOP_SOME(
 			const nTermTuple = nBopContext:FixedTermTuple({
 				vLeftTerm:filter(nBopContext, vLeftType), vRightTerm
 			})
-			const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
-			nCollection:put(nRetTuples:getFirstType())
+			nBopContext:withCase(vLeftVariableCase, function()
+				nLeftFunc:meta_call(nBopContext, nTermTuple)
+			end)
 		else
 			vRightTerm:foreach(function(vRightType, vRightVariableCase)
 				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
@@ -270,16 +273,18 @@ function InstStack:META_BOP_SOME(
 						vLeftTerm:filter(nBopContext, vLeftType),
 						vRightTerm:filter(nBopContext, vRightType)
 					})
-					const nRetTuples = nRightFunc:meta_call(nBopContext, nTermTuple)
-					nCollection:put(nRetTuples:getFirstType())
+					nBopContext:withCase(vLeftVariableCase & vRightVariableCase, function()
+						nRightFunc:meta_call(nBopContext, nTermTuple)
+					end)
 				else
 					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
 						const nTermTuple = nBopContext:FixedTermTuple({
 							vLeftTerm:filter(nBopContext, vLeftType),
 							vRightTerm:filter(nBopContext, vRightType)
 						})
-						const nRetTuples = nLeftFunc:meta_call(nBopContext, nTermTuple)
-						nCollection:put(nRetTuples:getFirstType())
+						nBopContext:withCase(vLeftVariableCase & vRightVariableCase, function()
+							nRightFunc:meta_call(nBopContext, nTermTuple)
+						end)
 					else
 						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
 					end
@@ -287,7 +292,7 @@ function InstStack:META_BOP_SOME(
 			end)
 		end
 	end)
-	return nBopContext:RefineTerm(nCollection:mergeToAtomUnion())
+	return nBopContext:mergeFirst()
 end
 
 function InstStack:META_UOP(
