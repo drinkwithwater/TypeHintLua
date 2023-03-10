@@ -11,7 +11,7 @@ end)
 
 const MorePushContext = class@<clazz.MorePushContext, false>(ApplyContext)
 
-(@let.TypeCaseTupleList = List(Struct {clazz.UAtomUnion, clazz.VariableCase, OrNil(clazz.UTypeTuple)}))
+(@let.TypeCaseTupleList = List(Struct {clazz.UAtomUnion, clazz.VariableCase, clazz.UTypeTuple}))
 function.open MorePushContext:ctor(
 	...
 )
@@ -49,19 +49,18 @@ function MorePushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTupl
 	if self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
+	const nTypeTuple = assert(vTypeTuple)
 	const nCase = assert(self._curCase, "[FATAL] MorePushContext push value without case")
 	self._retList[#self._retList + 1] = {
-		vFirstType, nCase, vTypeTuple
+		vFirstType, nCase, nTypeTuple
 	}
-	if vTypeTuple then
-		local nLength = #vTypeTuple
-		if nLength > self._retMaxLength then
-			self._retMaxLength = nLength
-		end
-		const nRepeatType = vTypeTuple:getRepeatType()
-		if nRepeatType then
-			self._retRepCollection:put(nRepeatType)
-		end
+	const nLength = #nTypeTuple
+	if nLength > self._retMaxLength then
+		self._retMaxLength = nLength
+	end
+	const nRepeatType = nTypeTuple:getRepeatType()
+	if nRepeatType then
+		self._retRepCollection:put(nRepeatType)
 	end
 end
 
@@ -89,7 +88,7 @@ function MorePushContext:mergeReturn():Ret(clazz.UTermTuple)
 	for i=2,nMaxLength do
 		const nCollection = self._manager:TypeCollection()
 		for _, nType1TupleCase in pairs(nRetList) do
-			nCollection:put(nType1TupleCase[3]!:get(i))
+			nCollection:put(nType1TupleCase[3]:get(i))
 		end
 		const nTypeI = nCollection:mergeToAtomUnion()
 		nTermList[i] = self:RefineTerm(nTypeI)
@@ -99,7 +98,7 @@ function MorePushContext:mergeReturn():Ret(clazz.UTermTuple)
 	for _, nType1TupleCase in pairs(nRetList) do
 		const nType1 = nType1TupleCase[1]
 		const nCase = nType1TupleCase[2]:copy()
-		const nTypeTuple = nType1TupleCase[3]!
+		const nTypeTuple = nType1TupleCase[3]
 		for i=2,nMaxLength do
 			nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
 		end
@@ -109,30 +108,6 @@ function MorePushContext:mergeReturn():Ret(clazz.UTermTuple)
 	end
 	nTermList[1] = self:mergeToRefineTerm(nTypeCaseList)
 	return self:FixedTermTuple(nTermList, nRepeatType)
-end
-
-function MorePushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
-	const nOpenReturn = self._openReturn
-	if nOpenReturn then
-		return nOpenReturn:checkFixed(self, 1)
-	end
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	for _, nType1TupleCase in pairs(self._retList) do
-		const nType1 = nType1TupleCase[1]
-		const nCase = nType1TupleCase[2]
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			vNotnil and nType1:notnilType() or nType1, nCase
-		}
-	end
-	return self:mergeToRefineTerm(nTypeCaseList)
-end
-
-function MorePushContext:mergeFirst():Ret(clazz.RefineTerm)
-	return self:_mergeFirstIfNotnil(false)
-end
-
-function MorePushContext:mergeFirstNotnil():Ret(clazz.RefineTerm)
-	return self:_mergeFirstIfNotnil(true)
 end
 
 return MorePushContext

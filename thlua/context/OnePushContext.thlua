@@ -17,9 +17,7 @@ function.open OnePushContext:ctor(
 )
 	self._openForbid = false@Boolean
 	self._openReturn = false@clazz.UTermTuple
-	self._retMaxLength = 0@Integer
-	self._retRepCollection = self._manager:TypeCollection()
-	self._retList = {} @TypeCaseTupleList
+	self._retList = {} @ List(clazz.TypeCasePair)
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 end
 
@@ -51,64 +49,12 @@ function OnePushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple
 	end
 	const nCase = assert(self._curCase, "[FATAL] OnePushContext push value without case")
 	self._retList[#self._retList + 1] = {
-		vFirstType, nCase, vTypeTuple
+		vFirstType, nCase
 	}
-	if vTypeTuple then
-		local nLength = #vTypeTuple
-		if nLength > self._retMaxLength then
-			self._retMaxLength = nLength
-		end
-		const nRepeatType = vTypeTuple:getRepeatType()
-		if nRepeatType then
-			self._retRepCollection:put(nRepeatType)
-		end
-	end
 end
 
 function OnePushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
-	vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
-		self:pushNormalReturn(vFirst:checkAtomUnion(), vTypeTuple)
-	end)
-end
-
-function OnePushContext:mergeReturn():Ret(clazz.UTermTuple)
-	const nOpenReturn = self._openReturn
-	if nOpenReturn then
-		return nOpenReturn
-	end
-	-- merge seal call return
-	const nRetList = self._retList
-	const nMaxLength = self._retMaxLength
-	const nRepeatType = self._retRepCollection:mergeToAtomUnion()
-	const nRepeatType = (not nRepeatType:isNever()) and nRepeatType or false
-	if nMaxLength <= 0 then
-		return self:FixedTermTuple({}, nRepeatType)
-	end
-	const nTermList:List(clazz.RefineTerm) = {}
-	-- step 3. merge 2 ~ nMaxLength
-	for i=2,nMaxLength do
-		const nCollection = self._manager:TypeCollection()
-		for _, nType1TupleCase in pairs(nRetList) do
-			nCollection:put(nType1TupleCase[3]!:get(i))
-		end
-		const nTypeI = nCollection:mergeToAtomUnion()
-		nTermList[i] = self:RefineTerm(nTypeI)
-	end
-	-- step 4. merge 1
-	const nTypeCaseList:List(clazz.TypeCasePair) = {}
-	for _, nType1TupleCase in pairs(nRetList) do
-		const nType1 = nType1TupleCase[1]
-		const nCase = nType1TupleCase[2]:copy()
-		const nTypeTuple = nType1TupleCase[3]!
-		for i=2,nMaxLength do
-			nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
-		end
-		nTypeCaseList[#nTypeCaseList + 1] = {
-			nType1, nCase
-		}
-	end
-	nTermList[1] = self:mergeToRefineTerm(nTypeCaseList)
-	return self:FixedTermTuple(nTermList, nRepeatType)
+	self:pushNormalReturn(vRetTuples:getFirstType():checkAtomUnion())
 end
 
 function OnePushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
