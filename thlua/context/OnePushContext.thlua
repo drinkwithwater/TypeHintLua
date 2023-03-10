@@ -35,7 +35,7 @@ function OnePushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
 	self._openForbid = true
 end
 
-function OnePushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
+function OnePushContext:openPushTuple(vTermTuple:clazz.UTermTuple)
 	assert(self._curCase, "[FATAL] OnePushContext push value without case")
 	if self._openForbid or self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
@@ -43,7 +43,7 @@ function OnePushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
 	self._openReturn = vTermTuple
 end
 
-function OnePushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
+function OnePushContext:pushRetType(vFirstType:clazz.UAtomUnion)
 	if self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
@@ -54,7 +54,7 @@ function OnePushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple
 end
 
 function OnePushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
-	self:pushNormalReturn(vRetTuples:getFirstType():checkAtomUnion())
+	self:pushRetType(vRetTuples:getFirstType():checkAtomUnion())
 end
 
 function OnePushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
