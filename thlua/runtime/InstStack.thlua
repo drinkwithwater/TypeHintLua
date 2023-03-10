@@ -152,11 +152,12 @@ function InstStack:META_GET(
 	vKeyTerm:clazz.RefineTerm,
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
-	const nGetContext = self:newApplyContext(vNode)
-	vSelfTerm:foreach(function(vType, vVariableCase)
-		vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
-			nGetContext:withCase(vVariableCase & vKeyVariableCase, function()
-				vType:meta_get(nGetContext, vKeyType)
+	const nGetContext = self:_withPushContext(vNode, function(vContext)
+		vSelfTerm:foreach(function(vType, vVariableCase)
+			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
+				vContext:withCase(vVariableCase & vKeyVariableCase, function()
+					vType:meta_get(vContext, vKeyType)
+				end)
 			end)
 		end)
 	end)
@@ -173,11 +174,12 @@ function InstStack:META_SET(
 	vKeyTerm:clazz.RefineTerm,
 	vValueTerm:clazz.RefineTerm
 )
-	const nSetContext = self:newApplyContext(vNode)
 	const nNil = self._manager.type.Nil
-	vSelfTerm:foreach(function(vType, _)
-		vKeyTerm:foreach(function(vKeyType, _)
-			vType:meta_set(nSetContext, vKeyType, vValueTerm:getType())
+	self:_withNoPushContext(vNode, function(vContext)
+		vSelfTerm:foreach(function(vType, _)
+			vKeyTerm:foreach(function(vKeyType, _)
+				vType:meta_set(vContext, vKeyType, vValueTerm:getType())
+			end)
 		end)
 	end)
 end
@@ -190,22 +192,19 @@ function InstStack:META_INVOKE(
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UTermTuple)
 	assert(vPolyArgs, "poly args can't be nil here")
-	const nInvokeContext = self:newApplyContext(vNode)
 	const nNil = self._manager.type.Nil
-	vSelfTerm:foreach(function(vSelfType, vVariableCase)
+	const nInvokeContext = self:_withPushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType)
 		if vSelfType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as invoke self")
 		else
-			const nFilterSelfTerm = nInvokeContext:RefineTerm(vSelfType)
-			const nNewArgTuple = nInvokeContext:UTermTupleByAppend({nFilterSelfTerm}, vArgTuple)
-			const nFuncTerm = self:META_GET(vNode, nFilterSelfTerm, nInvokeContext:RefineTerm(self._manager:Literal(vName)), false)
+			const nFilterSelfTerm = vContext:RefineTerm(vSelfType)
+			const nNewArgTuple = vContext:UTermTupleByAppend({nFilterSelfTerm}, vArgTuple)
+			const nFuncTerm = self:META_GET(vNode, nFilterSelfTerm, vContext:RefineTerm(self._manager:Literal(vName)), false)
 			nFuncTerm:foreach(function(vSingleFuncType, _)
 				if vSingleFuncType == nNil then
 					self._runtime:nodeWarn(vNode, "nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
-					nInvokeContext:withCase(vVariableCase, function()
-						vSingleFuncType:meta_invoke(nInvokeContext, vSelfType, vPolyArgs, nNewArgTuple)
-					end)
+					vSingleFuncType:meta_invoke(vContext, vSelfType, vPolyArgs, nNewArgTuple)
 				else
 					self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vSingleFuncType))
 				end
@@ -255,44 +254,44 @@ function InstStack:META_BOP_SOME(
 	vLeftTerm:clazz.RefineTerm,
 	vRightTerm:clazz.RefineTerm
 ):Ret(clazz.RefineTerm)
-	const nBopContext = self:newApplyContext(vNode)
-	const nCollection = self._manager:TypeCollection()
-	vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
-		const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(nBopContext, vOper)
-		if nLeftHigh then
-			const nRightType = vRightTerm:getType()
-			const nTermTuple = nBopContext:FixedTermTuple({
-				vLeftTerm:filter(nBopContext, vLeftType), vRightTerm
-			})
-			nBopContext:withCase(vLeftVariableCase, function()
-				nLeftFunc:meta_call(nBopContext, nTermTuple)
-			end)
-		else
-			vRightTerm:foreach(function(vRightType, vRightVariableCase)
-				const nRightHigh, nRightFunc = vRightType:meta_bop_func(nBopContext, vOper)
-				if nRightHigh then
-					const nTermTuple = nBopContext:FixedTermTuple({
-						vLeftTerm:filter(nBopContext, vLeftType),
-						vRightTerm:filter(nBopContext, vRightType)
-					})
-					nBopContext:withCase(vLeftVariableCase & vRightVariableCase, function()
-						nRightFunc:meta_call(nBopContext, nTermTuple)
-					end)
-				else
-					if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
-						const nTermTuple = nBopContext:FixedTermTuple({
-							vLeftTerm:filter(nBopContext, vLeftType),
-							vRightTerm:filter(nBopContext, vRightType)
+	const nBopContext = self:_withPushContext(vNode, function(vContext)
+		vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
+			const nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(vContext, vOper)
+			if nLeftHigh then
+				const nRightType = vRightTerm:getType()
+				const nTermTuple = vContext:FixedTermTuple({
+					vLeftTerm:filter(vContext, vLeftType), vRightTerm
+				})
+				vContext:withCase(vLeftVariableCase, function()
+					nLeftFunc:meta_call(vContext, nTermTuple)
+				end)
+			else
+				vRightTerm:foreach(function(vRightType, vRightVariableCase)
+					const nRightHigh, nRightFunc = vRightType:meta_bop_func(vContext, vOper)
+					if nRightHigh then
+						const nTermTuple = vContext:FixedTermTuple({
+							vLeftTerm:filter(vContext, vLeftType),
+							vRightTerm:filter(vContext, vRightType)
 						})
-						nBopContext:withCase(vLeftVariableCase & vRightVariableCase, function()
-							nRightFunc:meta_call(nBopContext, nTermTuple)
+						vContext:withCase(vLeftVariableCase & vRightVariableCase, function()
+							nRightFunc:meta_call(vContext, nTermTuple)
 						end)
 					else
-						self._runtime:nodeError(vNode, "invalid bop:"..vOper)
+						if nLeftFunc and nRightFunc and nLeftFunc == nRightFunc then
+							const nTermTuple = vContext:FixedTermTuple({
+								vLeftTerm:filter(vContext, vLeftType),
+								vRightTerm:filter(vContext, vRightType)
+							})
+							vContext:withCase(vLeftVariableCase & vRightVariableCase, function()
+								nRightFunc:meta_call(vContext, nTermTuple)
+							end)
+						else
+							self._runtime:nodeError(vNode, "invalid bop:"..vOper)
+						end
 					end
-				end
-			end)
-		end
+				end)
+			end
+		end)
 	end)
 	return nBopContext:mergeFirst()
 end

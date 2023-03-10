@@ -1,0 +1,131 @@
+
+const class = require "thlua.class"
+const OpenFunction = require "thlua.func.OpenFunction"
+const ApplyContext = require "thlua.context.ApplyContext"
+const VariableCase = require "thlua.term.VariableCase"
+const Exception = require "thlua.Exception"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const PushContext = class@<clazz.PushContext, false>(ApplyContext)
+
+(@let.TypeCaseTupleList = List(Struct {clazz.UAtomUnion, clazz.VariableCase, OrNil(clazz.UTypeTuple)}))
+function.open PushContext:ctor(
+	...
+)
+	self._openForbid = false@Boolean
+	self._openReturn = false@clazz.UTermTuple
+	self._retMaxLength = 0@Integer
+	self._retRepCollection = self._manager:TypeCollection()
+	self._retList = {} @TypeCaseTupleList
+	self._curCase = false @ OrFalse(clazz.VariableCase)
+end
+
+function PushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
+	if self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	assert(not self._curCase, "apply context case in case error")
+	self._curCase = vCase or VariableCase.new()
+	vFunc()
+	self._curCase = false
+	self._openForbid = true
+end
+
+function PushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
+	if self._openForbid or self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	self._openReturn = vTermTuple
+end
+
+function PushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
+	const nCase = assert(self._curCase, "[FATAL] apply used with withCase first")
+	self._retList[#self._retList + 1] = {
+		vFirstType, nCase, vTypeTuple
+	}
+	if vTypeTuple then
+		local nLength = #vTypeTuple
+		if nLength > self._retMaxLength then
+			self._retMaxLength = nLength
+		end
+		const nRepeatType = vTypeTuple:getRepeatType()
+		if nRepeatType then
+			self._retRepCollection:put(nRepeatType)
+		end
+	end
+end
+
+function PushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
+	vRetTuples:foreachWithFirst(function(vTypeTuple, vFirst)
+		self:pushNormalReturn(vFirst:checkAtomUnion(), vTypeTuple)
+	end)
+end
+
+function PushContext:mergeReturn():Ret(clazz.UTermTuple)
+	const nOpenReturn = self._openReturn
+	if nOpenReturn then
+		return nOpenReturn
+	end
+	-- merge seal call return
+	const nRetList = self._retList
+	const nMaxLength = self._retMaxLength
+	const nRepeatType = self._retRepCollection:mergeToAtomUnion()
+	const nRepeatType = (not nRepeatType:isNever()) and nRepeatType or false
+	if nMaxLength <= 0 then
+		return self:FixedTermTuple({}, nRepeatType)
+	end
+	const nTermList:List(clazz.RefineTerm) = {}
+	-- step 3. merge 2 ~ nMaxLength
+	for i=2,nMaxLength do
+		const nCollection = self._manager:TypeCollection()
+		for _, nType1TupleCase in pairs(nRetList) do
+			nCollection:put(nType1TupleCase[3]!:get(i))
+		end
+		const nTypeI = nCollection:mergeToAtomUnion()
+		nTermList[i] = self:RefineTerm(nTypeI)
+	end
+	-- step 4. merge 1
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
+	for _, nType1TupleCase in pairs(nRetList) do
+		const nType1 = nType1TupleCase[1]
+		const nCase = nType1TupleCase[2]:copy()
+		const nTypeTuple = nType1TupleCase[3]!
+		for i=2,nMaxLength do
+			nCase:put_and(nTermList[i]!:attachImmutVariable(), nTypeTuple:get(i):checkAtomUnion())
+		end
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			nType1, nCase
+		}
+	end
+	nTermList[1] = self:mergeToRefineTerm(nTypeCaseList)
+	return self:FixedTermTuple(nTermList, nRepeatType)
+end
+
+function PushContext:_mergeFirstIfNotnil(vNotnil:Boolean):Ret(clazz.RefineTerm)
+	const nOpenReturn = self._openReturn
+	if nOpenReturn then
+		return nOpenReturn:checkFixed(self, 1)
+	end
+	const nTypeCaseList:List(clazz.TypeCasePair) = {}
+	for _, nType1TupleCase in pairs(self._retList) do
+		const nType1 = nType1TupleCase[1]
+		const nCase = nType1TupleCase[2]
+		nTypeCaseList[#nTypeCaseList + 1] = {
+			vNotnil and nType1:notnilType() or nType1, nCase
+		}
+	end
+	return self:mergeToRefineTerm(nTypeCaseList)
+end
+
+function PushContext:mergeFirst():Ret(clazz.RefineTerm)
+	return self:_mergeFirstIfNotnil(false)
+end
+
+function PushContext:mergeFirstNotnil():Ret(clazz.RefineTerm)
+	return self:_mergeFirstIfNotnil(true)
+end
+
+return PushContext

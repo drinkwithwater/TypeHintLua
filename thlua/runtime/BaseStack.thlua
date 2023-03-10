@@ -28,6 +28,8 @@ const class = require "thlua.class"
 
 const OperContext = require "thlua.context.OperContext"
 const ApplyContext = require "thlua.context.ApplyContext"
+const PushContext = require "thlua.context.PushContext"
+const NoPushContext = require "thlua.context.NoPushContext"
 const LogicContext = require "thlua.context.LogicContext"
 
 (@do
@@ -63,7 +65,7 @@ function BaseStack:META_CALL(
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
 	const nNil = self._manager.type.Nil
-	const nCallContext = self:newApplyContext(vNode)
+	const nCallContext = self:newPushContext(vNode)
 	vFuncTerm:foreach(function(vFuncType, vVariableCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
 		self:_withBranch(vVariableCase, function()
@@ -119,8 +121,29 @@ function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpValueCase:OrNil(Fals
 	return nOpenFn
 end
 
-function BaseStack:newApplyContext(vNode:clazz.IAstNode):Ret(clazz.ApplyContext)
-	return ApplyContext.new(vNode, self, self._manager)
+function BaseStack:_withPushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.PushContext)):Ret(clazz.PushContext)
+	const nCtx = PushContext.new(vNode, self, self._manager)
+	vFunc(nCtx)
+	nCtx:finish()
+	return nCtx
+end
+
+function BaseStack:_withPushContextWithCase(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vFunc:Fn(clazz.PushContext, clazz.IAtomType)):Ret(clazz.PushContext)
+	const nCtx = PushContext.new(vNode, self, self._manager)
+	vTerm:foreach(function(vType, vCase)
+		nCtx:withCase(vCase, function()
+			vFunc(nCtx, vType)
+		end)
+	end)
+	nCtx:finish()
+	return nCtx
+end
+
+function BaseStack:_withNoPushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.NoPushContext)):Ret(clazz.NoPushContext)
+	const nCtx = NoPushContext.new(vNode, self, self._manager)
+	vFunc(nCtx)
+	nCtx:finish()
+	return nCtx
 end
 
 function BaseStack:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)

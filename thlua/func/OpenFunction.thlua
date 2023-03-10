@@ -107,8 +107,8 @@ function OpenFunction:set_name(name:String)
 	self.name = name
 end
 
-function OpenFunction:newStack(vContext:clazz.ApplyContext)
-	return self._lexStack:getRuntime():OpenStack(vContext:getNode(), self._uvCase, self, vContext:getStack())
+function OpenFunction:newStack(vNode:clazz.IAstNode, vApplyStack:clazz.BaseStack)
+	return self._lexStack:getRuntime():OpenStack(vNode, self._uvCase, self, vApplyStack)
 end
 
 function OpenFunction:meta_call(vContext, vTermTuple)
@@ -117,7 +117,7 @@ function OpenFunction:meta_call(vContext, vTermTuple)
 end
 
 function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple, clazz.OpenStack)
-	const nNewStack = self:newStack(vContext)
+	const nNewStack = self:newStack(vContext:getNode(), vContext:getStack())
 	return self._func!(nNewStack, vTermTuple), nNewStack
 end
 
