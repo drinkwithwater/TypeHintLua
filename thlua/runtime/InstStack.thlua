@@ -160,12 +160,8 @@ function InstStack:META_GET(
 				end)
 			end)
 		end)
-	end)
-	if vNotnil then
-		return nGetContext:mergeFirstNotnil()
-	else
-		return nGetContext:mergeFirst()
-	end
+	end, vNotnil)
+	return nGetContext:mergeFirst()
 end
 
 function InstStack:META_SET(
@@ -190,7 +186,7 @@ function InstStack:META_INVOKE(
 	vName:String,
 	vPolyArgs:List(clazz.UAllType),
 	vArgTuple:clazz.FixedTermTuple
-):Ret(clazz.UTermTuple)
+):Ret(clazz.UOpenReturn)
 	assert(vPolyArgs, "poly args can't be nil here")
 	const nNil = self._manager.type.Nil
 	const nInvokeContext = self:_withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
@@ -440,9 +436,7 @@ function InstStack:PARAM_UNPACK(
 	else
 		if vTermTuple then
 			const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
-			if not nAutoTerm:getType() then
-				nAutoTerm:setAutoCastType(nHeadContext, vHintType)
-			end
+			nHeadContext:assignTermToType(nAutoTerm, vHintType)
 		end
 		-- TODO check type match here...
 		return nHeadContext:RefineTerm(vHintType)

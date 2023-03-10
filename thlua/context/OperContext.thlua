@@ -25,21 +25,25 @@ const OperContext = class@<clazz.OperContext, false>()
 function.open OperContext:ctor(
 	vNode:clazz.IAstNode,
 	vStack:clazz.BaseStack,
-	vManager:clazz.TypeManager
+	vManager:clazz.TypeManager,
+	...
 )
 	self._node=vNode
 	self._manager=vManager
 	self._stack = vStack
 end
 
-function OperContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UTermTuple)):Ret(clazz.UTermTuple)
-	if vTermTuple then
+function OperContext:UTermTupleByAppend(vTermList:List(clazz.UAutoTerm), vTermTuple:OrNil(False, clazz.UOpenReturn)):Ret(clazz.UTermTuple)
+	if TermTuple.is(vTermTuple) then
 		for i=1, #vTermTuple do
-			const nTerm = (assert(vTermTuple:rawget(i), "term tuple length error"))
+			const nTerm = vTermTuple:rawget(i)
 			vTermList[#vTermList + 1] = nTerm
 		end
 		return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
 	else
+		if vTermTuple then
+			vTermList[#vTermList + 1] = vTermTuple
+		end
 		return self:UTermTupleByTail(vTermList, false)
 	end
 end
