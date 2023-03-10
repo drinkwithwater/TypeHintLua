@@ -28,6 +28,7 @@ const class = require "thlua.class"
 
 const OperContext = require "thlua.context.OperContext"
 const ApplyContext = require "thlua.context.ApplyContext"
+const AssignContext = require "thlua.context.AssignContext"
 const MorePushContext = require "thlua.context.MorePushContext"
 const OnePushContext = require "thlua.context.OnePushContext"
 const NoPushContext = require "thlua.context.NoPushContext"
@@ -52,7 +53,7 @@ function.open BaseStack:ctor(
 	self._node=vNode
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headContext=ApplyContext.new(vNode, self, nManager)
-	self._tailContext=OperContext.new(vNode, self, nManager)
+	self._fastOper=OperContext.new(vNode, self, nManager)
 	const nRootBranch = Branch.new(self, vUpValueCase or VariableCase.new())
 	self._curBranch=nRootBranch
 	self._branchStack={self._curBranch}@List(clazz.Branch)
@@ -159,6 +160,10 @@ function BaseStack:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
 	return OperContext.new(vNode, self, self._manager)
 end
 
+function BaseStack:newAssignContext(vNode:clazz.IAstNode):Ret(clazz.AssignContext)
+	return AssignContext.new(vNode, self, self._manager)
+end
+
 function.pass BaseStack:getSealStack():Ret(clazz.SealStack)
 	error("getSealStack not implement in BaseStack")
 end
@@ -170,12 +175,8 @@ function BaseStack:_nodeTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
 	return RefineTerm.new(vNode, vType:checkAtomUnion())
 end
 
-function BaseStack:getHeadContext()
-	return self._headContext
-end
-
-function BaseStack:getTailContext()
-	return self._tailContext
+function BaseStack:inplaceOper()
+	return self._fastOper
 end
 
 function BaseStack:getNamespace():Ret(clazz.Namespace)
@@ -266,7 +267,7 @@ function BaseStack:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.Fixe
 	if OpenFunction.is(nBodyFn) or (AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples()) then
 		local nLen = #vTermTupleList
 		if nLen == 0 then
-			return self._tailContext:FixedTermTuple({})
+			return self._fastOper:FixedTermTuple({})
 		elseif nLen == 1 then
 			return vTermTupleList[1]!
 		else
@@ -279,7 +280,7 @@ function BaseStack:_bodyEnd(vNode:clazz.IAstNode, vTermTupleList:List(clazz.Fixe
 			return retTermTuple]]
 		end
 	end
-	return self._tailContext:FixedTermTuple({})
+	return self._fastOper:FixedTermTuple({})
 end
 
 return BaseStack

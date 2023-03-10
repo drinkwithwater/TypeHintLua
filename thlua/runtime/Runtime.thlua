@@ -108,7 +108,7 @@ function.pass Runtime:main2():Ret(Boolean, Nil)
 		self._rootStack = nRootStack
 		nRootStack:rootSetNamespace(self:RootNamespace())
 		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
-		local nTermTuple = self._rootStack:getHeadContext():FixedTermTuple({})
+		local nTermTuple = self._rootStack:inplaceOper():FixedTermTuple({})
 		nLuaFunc:meta_open_call(self._rootStack:newOpenStack(self._node), nTermTuple)
 		self._rootStack:seal()
 	end)
@@ -317,7 +317,7 @@ function Runtime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAst
 end
 
 function Runtime:makeSymbol_ENV(vNode:clazz.IAstNode):Ret(clazz.LocalSymbol)
-	const nHeadContext = self._rootStack:getHeadContext()
+	const nHeadContext = self._rootStack:inplaceOper()
 	local nTerm = nHeadContext:RefineTerm(self._globalTable)
 	return LocalSymbol.new(nHeadContext, vNode, self._globalTable, nTerm)
 end

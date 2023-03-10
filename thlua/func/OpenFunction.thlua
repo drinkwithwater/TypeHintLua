@@ -48,13 +48,7 @@ function OpenFunction:lateInitFromOperNative(
 ):Ret(clazz.OpenFunction)
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vStack:getNode()))
-		const nInplaceContext = vStack:newOperContext(vStack:getNode())
-		const re = vNativeFunc(nInplaceContext, vTermTuple)
-		if TermTuple.is(re) then
-			return re
-		else
-			return nInplaceContext:UTermTupleByAppend({re}, false)
-		end
+		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
 	end
 	self._func = nFn
 	return self

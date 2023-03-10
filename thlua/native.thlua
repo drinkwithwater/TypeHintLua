@@ -151,7 +151,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 			return vContext:FixedTermTuple({})
 		end),
 		tprint=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			const nTailContext = vStack:getTailContext()
+			const nTailContext = vStack:inplaceOper()
 			nTailContext:info(vTermTuple)
 			return nTailContext:FixedTermTuple({})
 		end),
@@ -176,7 +176,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 		end),
 		-- function take open context, not oper context
 		pcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			const nHeadContext = vStack:getHeadContext()
+			const nHeadContext = vStack:inplaceOper()
 			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 2)
 			const nTermTuple = vStack:getApplyStack():META_CALL(vStack:getNode(), nFunc, function() return nArgs end)
@@ -185,7 +185,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 			return nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
 		end),
 		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			const nHeadContext = vStack:getHeadContext()
+			const nHeadContext = vStack:inplaceOper()
 			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 3)
 			const nTermTuple = vStack:getApplyStack():META_CALL(vStack:getNode(), nFunc, function() return nArgs end)
@@ -195,14 +195,14 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.BaseTable)
 		end),
 		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			vStack:getApplyStack():nativeError()
-			return vStack:getTailContext():FixedTermTuple({})
+			return vStack:inplaceOper():FixedTermTuple({})
 		end),
 		assert=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			const nHeadContext = vStack:getHeadContext()
+			const nHeadContext = vStack:inplaceOper()
 			const nFirst = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			vStack:getApplyStack():nativeAssert(nFirst)
 			const nLogicContext = vStack:newLogicContext(vStack:getNode())
-			return vStack:getTailContext():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
+			return vStack:inplaceOper():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
 		end),
 	}
 	for k,v in pairs(global @ Dict(String, clazz.OpenFunction)) do
