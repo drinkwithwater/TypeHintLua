@@ -24,6 +24,10 @@ end)
 
 const AssignContext = class@<clazz.AssignContext, false>(OperContext)
 
+function.open AssignContext:ctor(...)
+	self._finish = false @ Boolean
+end
+
 function AssignContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
 	const nSrcType = vRawSrcType:checkAtomUnion()
 	const nDstType = vRawDstType:checkAtomUnion()
@@ -152,6 +156,11 @@ function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:claz
 	end
 	-- TODO, maybe add some case here?
 	return self:RefineTerm(vDstType)
+end
+
+function AssignContext:finish()
+	assert(not self._finish, "context finish can only called once")
+	self._finish = true
 end
 
 return AssignContext

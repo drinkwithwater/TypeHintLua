@@ -23,10 +23,13 @@ function.open PushContext:ctor(
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 end
 
-function PushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
+function PushContext:pushNothing()
 	if self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
+end
+
+function PushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
 	assert(not self._curCase, "apply context case in case error")
 	self._curCase = vCase or VariableCase.new()
 	vFunc()
@@ -35,6 +38,7 @@ function PushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
 end
 
 function PushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
+	assert(self._curCase, "[FATAL] PushContext push value without case")
 	if self._openForbid or self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
@@ -42,7 +46,10 @@ function PushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
 end
 
 function PushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
-	const nCase = assert(self._curCase, "[FATAL] apply used with withCase first")
+	if self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	const nCase = assert(self._curCase, "[FATAL] PushContext push value without case")
 	self._retList[#self._retList + 1] = {
 		vFirstType, nCase, vTypeTuple
 	}

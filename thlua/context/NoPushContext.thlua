@@ -15,16 +15,30 @@ function.open NoPushContext:ctor(
 	...
 )
 	self._openForbid = false@Boolean
-	self._openReturn = false@clazz.UTermTuple
+	self._openCalled = false@Boolean
+end
+
+function NoPushContext:pushNothing()
+	if self._openCalled then
+		error(Exception.new("can't mix use open function or open table and other type", self._node))
+	end
+	self._openForbid = true
 end
 
 function NoPushContext:pushOpenReturn(vTermTuple:clazz.UTermTuple)
+	if self._openForbid then
+		error(Exception.new("can't mix use open function or open table and other type ", self._node))
+	end
+	self._openCalled = true
+	self._openForbid = true
 end
 
 function NoPushContext:pushNormalReturn(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
+	self:pushNothing()
 end
 
 function NoPushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
+	self:pushNothing()
 end
 
 return NoPushContext

@@ -65,18 +65,15 @@ function BaseStack:META_CALL(
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
 	const nNil = self._manager.type.Nil
-	const nCallContext = self:newPushContext(vNode)
-	vFuncTerm:foreach(function(vFuncType, vVariableCase)
+	const nCallContext = self:_withPushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
-		self:_withBranch(vVariableCase, function()
+		self:_withBranch(vCase, function()
 			nArgTermTuple = vLazyFunc()
 		end)
 		if vFuncType == nNil then
 			self._runtime:nodeWarn(vNode, "nil as call func")
 		elseif BaseFunction.is(vFuncType) or Truth.is(vFuncType) then
-			nCallContext:withCase(vVariableCase, function()
-				vFuncType:meta_call(nCallContext, assert(nArgTermTuple))
-			end)
+			vFuncType:meta_call(vContext, assert(nArgTermTuple))
 		else
 			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end
@@ -121,18 +118,18 @@ function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpValueCase:OrNil(Fals
 	return nOpenFn
 end
 
-function BaseStack:_withPushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.PushContext)):Ret(clazz.PushContext)
+function BaseStack:withPushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.PushContext)):Ret(clazz.PushContext)
 	const nCtx = PushContext.new(vNode, self, self._manager)
 	vFunc(nCtx)
 	nCtx:finish()
 	return nCtx
 end
 
-function BaseStack:_withPushContextWithCase(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vFunc:Fn(clazz.PushContext, clazz.IAtomType)):Ret(clazz.PushContext)
+function BaseStack:_withPushContextWithCase(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vFunc:Fn(clazz.PushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.PushContext)
 	const nCtx = PushContext.new(vNode, self, self._manager)
 	vTerm:foreach(function(vType, vCase)
 		nCtx:withCase(vCase, function()
-			vFunc(nCtx, vType)
+			vFunc(nCtx, vType, vCase)
 		end)
 	end)
 	nCtx:finish()
