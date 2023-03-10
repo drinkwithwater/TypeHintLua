@@ -80,21 +80,24 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 	const nTrue = self._manager.type.True
 	const nFalse = self._manager.type.False
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
-		const nHeadContext = vStack:getHeadContext()
 		const nIsBaseTable, nTableType = self._manager:tryBaseTable(vType)
 		assert(nIsBaseTable, "assert lua table failed")
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
-		const nTerm = vTermTuple:get(nHeadContext, 1)
-		const caseTrue = nTerm:caseIsType(nTableType)
-		const caseFalse = nTerm:caseIsNotType(nTableType)
-		const nTypeCaseList:List(clazz.TypeCasePair) = {}
-		if caseTrue then
-			nTypeCaseList[#nTypeCaseList + 1] = {nTrue, caseTrue}
-		end
-		if caseFalse then
-			nTypeCaseList[#nTypeCaseList + 1] = {nFalse, caseFalse}
-		end
-		return vStack:getTailContext():FixedTermTuple({nHeadContext:mergeToRefineTerm(nTypeCaseList)})
+		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+			const nTerm = vTermTuple:get(vContext, 1)
+			const caseTrue = nTerm:caseIsType(nTableType)
+			const caseFalse = nTerm:caseIsNotType(nTableType)
+			if caseTrue then
+				vContext:withCase(caseTrue, function()
+					vContext:pushRetType(nTrue)
+				end)
+			end
+			if caseFalse then
+				vContext:withCase(caseFalse, function()
+					vContext:pushRetType(nFalse)
+				end)
+			end
+		end)
 	end
 	self._func = nFn
 	return self
@@ -117,7 +120,7 @@ function OpenFunction:meta_call(vContext, vTermTuple)
 	vContext:openPushReturn(nRet)
 end
 
-function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UTermTuple, clazz.OpenStack)
+function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UOpenReturn, clazz.OpenStack)
 	const nNewStack = self:newStack(vContext:getNode(), vContext:getStack())
 	return self._func!(nNewStack, vTermTuple), nNewStack
 end

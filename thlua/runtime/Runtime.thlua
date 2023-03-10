@@ -28,8 +28,8 @@ const ScheduleManager = require "thlua.manager.ScheduleManager"
 
 	let.LoadedState = Struct {
 		fn=clazz.OpenFunction,
-		term=Union(False, clazz.RefineTerm),
-		stack=clazz.BaseStack,
+		term=OrNil(clazz.RefineTerm),
+		stack=OrNil(clazz.BaseStack),
 	}
 
 	let.Diagnostic = Struct {
@@ -95,7 +95,7 @@ end
 function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 	-- TODO better style
 	self:require(vPath)
-	const nStack = self._loadedDict[vPath]!.stack
+	const nStack = self._loadedDict[vPath]!.stack!
 	const nSpace = nStack:getNamespace()
 	return nSpace.localExport
 end
@@ -129,9 +129,10 @@ function Runtime:main():Ret(Boolean, Nil)
 		nAutoFn:buildAsync(function()
 			return false, function()
 				const nLuaFunc = self:cacheLoadFile(self._mainFileName)
-				const nHeadContext = self._rootStack:getHeadContext()
-				const nTermTuple = nHeadContext:FixedTermTuple({})
-				nLuaFunc:meta_open_call(nHeadContext, nTermTuple)
+				self._rootStack:withNoPushContext(self._node, function(vContext)
+					const nTermTuple = vContext:FixedTermTuple({})
+					nLuaFunc:meta_open_call(vContext, nTermTuple)
+				end)
 				self._rootStack:seal()
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples()
@@ -171,26 +172,24 @@ function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
 end
 
 function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
-	local nLoadedState = self._loadedDict[vPath]
-	if not nLoadedState then
+	if not self._loadedDict[vPath] then
 		const nOkay, nFileName = self._loader:thluaSearch(vPath)
 		if not nOkay then
 			error(nFileName)
 		end
 		const nLuaFunc = self:cacheLoadFile(nFileName)
-		nLoadedState = {
-			term=false,
+		const nLoadedState:LoadedState = {
 			fn=nLuaFunc,
-			stack=false,
-		} @ LoadedState
+		}
 		self._loadedDict[vPath] = nLoadedState
-		const nHeadContext = self._rootStack:getHeadContext()
-		const nTermTuple = nHeadContext:FixedTermTuple({})
-		const nRet, nStack = nLuaFunc:meta_open_call(nHeadContext, nTermTuple)
-		nLoadedState.term = nRet:checkFixed(nHeadContext, 1)
-		nLoadedState.stack = nStack
+		self._rootStack:withNoPushContext(self._node, function(vContext)
+			const nTermTuple = vContext:FixedTermTuple({})
+			const nRet, nStack = nLuaFunc:meta_open_call(vContext, nTermTuple)
+			nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(vContext, 1) or nRet:checkRefineTerm(vContext)
+			nLoadedState.stack = nStack
+		end)
 	end
-	local nTerm = nLoadedState.term
+	const nTerm = self._loadedDict[vPath]!.term
 	if not nTerm then
 		error("recursive require:"..vPath)
 	end
