@@ -66,7 +66,7 @@ function BaseStack:META_CALL(
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UOpenReturn)
 	const nNil = self._manager.type.Nil
-	const nCallContext = self:_withMorePushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
+	return self:_withMorePushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
 		self:_withBranch(vCase, function()
 			nArgTermTuple = vLazyFunc()
@@ -79,7 +79,6 @@ function BaseStack:META_CALL(
 			self._runtime:nodeError(vNode, "TODO call by a not-function value, type="..tostring(vFuncType))
 		end
 	end)
-	return nCallContext:mergeReturn()
 end
 
 --[[function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
@@ -119,11 +118,11 @@ function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpValueCase:OrNil(Fals
 	return nOpenFn
 end
 
-function BaseStack:withOnePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.OnePushContext)
+function BaseStack:withOnePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.RefineTerm)
 	const nCtx = OnePushContext.new(vNode, self, self._manager, vNotnil or false)
 	vFunc(nCtx)
 	nCtx:finish()
-	return nCtx
+	return nCtx:mergeFirst()
 end
 
 function BaseStack:withMorePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.MorePushContext)
@@ -133,7 +132,7 @@ function BaseStack:withMorePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.More
 	return nCtx
 end
 
-function BaseStack:_withMorePushContextWithCase(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.MorePushContext)
+function BaseStack:_withMorePushContextWithCase(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.UOpenReturn)
 	const nCtx = MorePushContext.new(vNode, self, self._manager)
 	vTerm:foreach(function(vType, vCase)
 		nCtx:withCase(vCase, function()
@@ -141,7 +140,7 @@ function BaseStack:_withMorePushContextWithCase(vNode:clazz.IAstNode, vTerm:claz
 		end)
 	end)
 	nCtx:finish()
-	return nCtx
+	return nCtx:mergeReturn()
 end
 
 function BaseStack:_withNoPushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.NoPushContext)):Ret(clazz.NoPushContext)
