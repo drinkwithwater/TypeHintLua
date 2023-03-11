@@ -3,6 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const TermTuple = require "thlua.tuple.TermTuple"
 const Exception = require "thlua.Exception"
 const ClassTable = require "thlua.object.ClassTable"
+const SealTable = require "thlua.object.SealTable"
 
 const BaseFunction = require "thlua.func.BaseFunction"
 const class = require "thlua.class"
@@ -88,8 +89,10 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 	const nTrue = self._manager.type.True
 	const nFalse = self._manager.type.False
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
-		const nIsBaseTable, nTableType = self._manager:tryBaseTable(vType)
-		assert(nIsBaseTable, "assert lua table failed")
+		const nTableType = vType:checkAtomUnion()
+		if not ClassTable.is(nTableType) then
+			error("guard function must take a class table")
+		end
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
 		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 			const nTerm = vTermTuple:get(vContext, 1)

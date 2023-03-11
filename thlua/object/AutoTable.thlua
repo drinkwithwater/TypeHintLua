@@ -66,14 +66,14 @@ function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:cla
 		return false
 	end
 	local nFinalMatchStruct:OrFalse(clazz.MetaObject) = false
-	local nFinalMatchCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
+	local nFinalMatchCastList:List(Struct {clazz.AutoTable, clazz.UAllType}) = {}
 	vObjectAtomUnion:foreach(function(vAtomType)
 		if not Struct.is(vAtomType) then
 			return
 		end
 		const nCopyValueDict = vAtomType:copyValueDict()
 		local nMatchSucc = true
-		const nCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
+		const nCastList:List(Struct {clazz.AutoTable, clazz.UAllType}) = {}
 		self._keyType:foreach(function(vTableKey)
 			const vTableValue = self._fieldDict[vTableKey]!.rawValueType
 			if not nMatchSucc then
@@ -84,15 +84,14 @@ function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:cla
 				nMatchSucc = false
 				return
 			end
-			const nIsTable, nTableToCast = self._manager:tryBaseTable(vTableValue)
-			if not nIsTable then
+			if not AutoTable.is(vTableValue) then
 				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:includeAll(vTableValue)
 				if not nOneMatchSucc then
 					nMatchSucc = false
 					return
 				end
 			else
-				nCastList[#nCastList + 1] = {nTableToCast, nMatchValue}
+				nCastList[#nCastList + 1] = {vTableValue, nMatchValue}
 			end
 			nCopyValueDict[nMatchKey] = nil
 		end)
