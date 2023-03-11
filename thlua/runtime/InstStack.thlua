@@ -384,7 +384,7 @@ end
 function InstStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
 	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
 	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
-	const nSymbolContext = self:newOperContext(vNode)
+	const nSymbolContext = self:newAssignContext(vNode)
 	self:_topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
 end
 
@@ -667,10 +667,10 @@ function InstStack:BREAK(vNode:clazz.IAstNode)
 end
 
 function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
-	const nRetContext = self:newOperContext(vNode)
+	const nRetContext = self:newReturnContext(vNode)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getTail() then
-		self:_bodyReturn(vNode, vTermTuple:checkTypeTuple())
+		self:_bodyReturn(nRetContext, vTermTuple:checkTypeTuple())
 	else
 		const nManager = self:getTypeManager()
 		const nFirstTerm = vTermTuple:get(nRetContext, 1)
@@ -686,7 +686,7 @@ function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.FixedTermTuple)
 				end
 			end
 			const nTypeTuple = nManager:TypeTuple(vNode, table.unpack(nTypeList))
-			self:_bodyReturn(vNode, nTypeTuple)
+			self:_bodyReturn(nRetContext, nTypeTuple)
 		end)
 	end
 	self:_topBranch():setStop()

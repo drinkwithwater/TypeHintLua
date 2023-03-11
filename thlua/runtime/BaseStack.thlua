@@ -28,6 +28,7 @@ const class = require "thlua.class"
 
 const OperContext = require "thlua.context.OperContext"
 const ApplyContext = require "thlua.context.ApplyContext"
+const ReturnContext = require "thlua.context.ReturnContext"
 const AssignContext = require "thlua.context.AssignContext"
 const MorePushContext = require "thlua.context.MorePushContext"
 const OnePushContext = require "thlua.context.OnePushContext"
@@ -160,6 +161,10 @@ function BaseStack:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
 	return OperContext.new(vNode, self, self._manager)
 end
 
+function BaseStack:newReturnContext(vNode:clazz.IAstNode):Ret(clazz.ReturnContext)
+	return ReturnContext.new(vNode, self, self._manager)
+end
+
 function BaseStack:newAssignContext(vNode:clazz.IAstNode):Ret(clazz.AssignContext)
 	return AssignContext.new(vNode, self, self._manager)
 end
@@ -236,20 +241,19 @@ function BaseStack:nativeAssert(vTerm:clazz.RefineTerm)
 	end
 end
 
-function BaseStack:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple)
-	const nRetContext = self:newOperContext(vNode)
+function BaseStack:_bodyReturn(vContext:clazz.ReturnContext, vTypeTuple:clazz.UTypeTuple)
 	const nBodyFn = self._bodyFn
 	if AutoFunction.is(nBodyFn) then
 		local nOneOkay = false
 		local nRetTuples = nBodyFn:getRetTuples()
 		if nRetTuples then
 			nRetTuples:foreachWithFirst(function(vDstTuple, _)
-				if vTypeTuple:castOrIn(nRetContext, vDstTuple) then
+				if vTypeTuple:castOrIn(vContext, vDstTuple) then
 					nOneOkay = true
 				end
 			end)
 			if not nOneOkay then
-				nRetContext:error("return check failed")
+				vContext:error("return check failed")
 			end
 		else
 			-- error("auto return TODO")
@@ -257,7 +261,7 @@ function BaseStack:_bodyReturn(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple
 	elseif ClassFactory.is(nBodyFn) then
 		const nResultType = nBodyFn:getClassTable(true)
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
-			nRetContext:error("class return check failed")
+			vContext:error("class return check failed")
 		end
 	end
 end

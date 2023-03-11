@@ -425,7 +425,18 @@ end
 
 function MetaObject:native_rawset(vContext, vKeyType, vValueType)
 	vContext:warn("abstract object take rawset")
-	return self:_meta_set(vContext, vKeyType, vValueType)
+	if self:isInterface() then
+		vContext:error("interface's field is readonly")
+		return
+	end
+	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		if not nSetValue:includeAll(vValueType) then
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+		end
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
+	end
 end
 
 function MetaObject:native_rawget(vContext, vKeyType)
@@ -435,10 +446,6 @@ end
 
 function MetaObject:meta_set(vContext, vKeyType, vValueType)
 	vContext:pushNothing()
-	self:_meta_set(vContext, vKeyType, vValueType)
-end
-
-function MetaObject:_meta_set(vContext:clazz.OperContext, vKeyType:clazz.IAtomType, vValueType:clazz.UAtomUnion)
 	if self:isInterface() then
 		vContext:error("interface's field is readonly")
 		return

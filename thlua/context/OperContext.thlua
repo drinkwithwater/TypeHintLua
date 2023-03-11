@@ -86,30 +86,6 @@ function OperContext:FixedTermTuple(vTermList:List(clazz.RefineTerm), vDotsType:
 	end
 end
 
-function OperContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
-	const nSrcType = vRawSrcType:checkAtomUnion()
-	const nDstType = vRawDstType:checkAtomUnion()
-	if AutoFunction.is(nSrcType) then
-		const nFnPartType = nDstType:fnPartType()
-		if TypeFunction.is(nFnPartType) then
-			nSrcType:checkWhenCast(self, nFnPartType)
-			return nFnPartType
-		end
-	else
-		const nSrcTable = nSrcType:objectPartType()
-		const nDstObjectPart = nDstType:objectPartType()
-		if AutoTable.is(nSrcTable) and not nDstObjectPart:isNever() then
-			const nCastResult = nSrcTable:cast(self, nDstType:objectPartType())
-			if nCastResult then
-				return self._manager:checkedUnion(nSrcTable, nCastResult)
-			else
-				return false
-			end
-		end
-	end
-	return false
-end
-
 function OperContext:AutoHolder():Ret(clazz.AutoHolder)
 	return AutoHolder.new(self)
 end
