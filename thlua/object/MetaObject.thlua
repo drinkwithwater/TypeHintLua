@@ -71,177 +71,8 @@ function MetaObject:_everyWith(vRightObject:clazz.MetaObject, vFunc:Fn(clazz.IAt
 	return true
 end
 
-function MetaObject:_structSameWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
-	const nRightValueDict = vRightObject:copyValueDict()
-	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
-	const nLeftNextKey = self._nextKey
-	if nLeftNextKey and nRightNextKey then
-		const nLR = nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey)
-		const nRL = nRightNextKey:assumeIncludeAll(vAssumeSet, nLeftNextKey)
-		if not (nLR and nRL) then
-			return false
-		end
-	elseif nLeftNextKey or nRightNextKey then
-		return false
-	end
-	const function isMatchedKeyValue(
-		vLeftKey:clazz.IAtomType, vLeftValue:clazz.UAllType,
-		vRightKey:clazz.IAtomType, vRightValue:clazz.UAllType):Ret(Boolean)
-		if not vRightValue:assumeIncludeAll(vAssumeSet, vLeftValue) then
-			return false
-		end
-		if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
-			return false
-		end
-		if not vLeftKey:assumeIncludeAtom(vAssumeSet, vRightKey) then
-			return false
-		end
-		return true
-	end
-	const nRightResultType = nRightKeyRefer:getResultType()
-	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue, _)
-		if nRightResultType then -- key is merged, just get one matched
-			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, nLeftKey)
-			if not nRightKey then
-				return false
-			end
-			const nRightValue = nRightValueDict[nRightKey]
-			if not nRightValue then
-				return false
-			end
-			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
-				return false
-			end
-			nRightValueDict[nRightKey] = nil
-		else -- key is not merged, iter for one matched
-			local nMatchedKey:OrNil(clazz.IAtomType) = nil
-			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
-				if nRightKey:assumeIncludeAtom(vAssumeSet, nLeftKey) then
-					const nRightValue = nRightValueDict[nRightKey]
-					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
-						nMatchedKey = nRightKey
-						break
-					end
-				end
-			end
-			if not nMatchedKey then
-				return false
-			end
-			nRightValueDict[nMatchedKey] = nil
-		end
-		return true
-	end) then
-		return false
-	end
-	if next(nRightValueDict) then
-		return false
-	end
-	return true
-end
-
-function MetaObject:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
-	assert(self:isInterface(), vRightObject:isInterface(), "here must be interface")
-	const nRightValueDict = vRightObject:getMemberDict()
-	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
-	const nRightResultType = nRightKeyRefer:getResultType()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
-		if nRightResultType then -- key is merged, just get one matched
-			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
-			if not nRightKey then
-				return true
-			end
-			local nRightValue = nRightValueDict[nRightKey]!
-			if MemberFunction.is(nRightValue) then
-				nRightValue = nRightValue:indexTypeFn(vRightObject)
-			end
-			if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
-				return true
-			else
-				return false
-			end
-		else
-			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
-				if nRightKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
-					local nRightValue = nRightValueDict[nRightKey]!
-					if MemberFunction.is(nRightValue) then
-						nRightValue = nRightValue:indexTypeFn(vRightObject)
-					end
-					if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
-						return true
-					end
-				end
-			end
-			return false
-		end
-	end)
-end
-
-function MetaObject:_interfaceIncludeWithAssume(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
-	if vRightObject._intersectSet[self] then
-		return true
-	end
-	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
-	const nLeftNextKey = self._nextKey
-	if nLeftNextKey then
-		if not nRightNextKey then
-			return false
-		end
-		if not nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey) then
-			return false
-		end
-	end
-	const function isMatchedValue(vLeftValue:clazz.UAllType, vRightValue:clazz.UMemberAllType, vLeftIsMfn:Boolean):Ret(Boolean)
-		if MemberFunction.is(vRightValue) then
-			if not vLeftIsMfn then
-				return false
-			end
-			const nRightTypeFn = vRightValue:indexTypeFn(vRightObject)
-			if not vLeftValue:assumeIncludeAll(vAssumeSet, nRightTypeFn) then
-				return false
-			end
-		else
-			if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
-				return false
-			end
-		end
-		return true
-	end
-	const nRightValueDict = vRightObject:getMemberDict()
-	const nRightResultType = nRightKeyRefer:getResultType()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
-		if nRightResultType then -- key is merged, just get one matched
-			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
-			if not nRightKey then
-				return false
-			end
-			const nRightValue = nRightValueDict[nRightKey]
-			if not nRightValue then
-				return false
-			end
-			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
-		else -- key is not merged, iter for one matched
-			for _, nRightMoreKey in ipairs(nRightKeyRefer:getListAwait()) do
-				if nRightMoreKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
-					const nRightValue = nRightValueDict[nRightMoreKey]
-					if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
-						return true
-					end
-				end
-			end
-			return false
-		end
-	end)
-end
-
-function MetaObject:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
-	local nAssumeInclude:Boolean = false
-	if self:isInterface() then
-		return self:_interfaceIncludeWithAssume(vAssumeSet, vRightObject)
-	elseif vRightObject:isInterface() then
-		return false
-	else
-		return self:_structSameWithAssume(vAssumeSet, vRightObject)
-	end
+function.pass MetaObject:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
+	error("assume include Object not implement")
 end
 
 function MetaObject:assumeIncludeAtom(vAssumeSet, vRightType)
@@ -278,53 +109,8 @@ function MetaObject:assumeIncludeAtom(vAssumeSet, vRightType)
 	end
 end
 
-function MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
-	if (not (MetaObject.is(vRightType) and vRightType:isInterface())) or (not self:isInterface()) then
-		if self == vRightType then
-			return self
-		elseif vRightType:assumeIncludeAtom(nil, self) then
-			return self
-		elseif self:assumeIncludeAtom(nil, vRightType) then
-			return vRightType
-		else
-			return false
-		end
-	end
-	if self == vRightType then
-		return self
-	end
-	const nRightStruct = vRightType
-	const nMgr = self._manager
-	const nRelation = nMgr:attachPairInclude(self, nRightStruct, not vAssumeSet)
-	if nRelation then
-		if nRelation == ">" then
-			return vRightType
-		elseif nRelation == "<" then
-			return self
-		elseif nRelation == "=" then
-			return self
-		elseif nRelation == "&" then
-			return true
-		else
-			return false
-		end
-	end
-	assert(vAssumeSet, "assume set must be existed here")
-	const _, nLRPair, nRLPair = self._manager:makeDuPair(self, nRightStruct)
-	const nAssumeResult = vAssumeSet[nLRPair]
-	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
-	vAssumeSet[nLRPair] = true
-	vAssumeSet[nRLPair] = true
-	local nAssumeIntersect = self:assumeIntersectInterface(vAssumeSet, nRightStruct)
-	if not nAssumeIntersect then
-		vAssumeSet[nLRPair] = false
-		vAssumeSet[nRLPair] = false
-		return false
-	else
-		return true
-	end
+function.pass MetaObject:assumeIntersectAtom(vAssumeSet, vRightType)
+	error("MetaObject's assumeIntersectAtom not implement")
 end
 
 function MetaObject:meta_len(vContext)
@@ -490,11 +276,7 @@ function MetaObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz
 end
 
 function MetaObject:detailString(vToStringCache, vVerbose)
-	if self._isInterface then
-		return "interface@"..tostring(self._node)
-	else
-		return "struct@"..tostring(self._node)
-	end
+	return "MetaObject..."
 	--[[
 	local nRefer = self._referCom
 	if nRefer then

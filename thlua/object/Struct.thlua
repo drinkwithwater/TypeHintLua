@@ -20,7 +20,78 @@ function Struct:detailString(vToStringCache, vVerbose)
 	return "struct@"..tostring(self._node)
 end
 
---[[
+function Struct:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
+	local nAssumeInclude:Boolean = false
+	if not Struct.is(vRightObject) then
+		return false
+	end
+	const nRightValueDict = vRightObject:copyValueDict()
+	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
+	const nLeftNextKey = self._nextKey
+	if nLeftNextKey and nRightNextKey then
+		const nLR = nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey)
+		const nRL = nRightNextKey:assumeIncludeAll(vAssumeSet, nLeftNextKey)
+		if not (nLR and nRL) then
+			return false
+		end
+	elseif nLeftNextKey or nRightNextKey then
+		return false
+	end
+	const function isMatchedKeyValue(
+		vLeftKey:clazz.IAtomType, vLeftValue:clazz.UAllType,
+		vRightKey:clazz.IAtomType, vRightValue:clazz.UAllType):Ret(Boolean)
+		if not vRightValue:assumeIncludeAll(vAssumeSet, vLeftValue) then
+			return false
+		end
+		if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
+			return false
+		end
+		if not vLeftKey:assumeIncludeAtom(vAssumeSet, vRightKey) then
+			return false
+		end
+		return true
+	end
+	const nRightResultType = nRightKeyRefer:getResultType()
+	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue, _)
+		if nRightResultType then -- key is merged, just get one matched
+			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, nLeftKey)
+			if not nRightKey then
+				return false
+			end
+			const nRightValue = nRightValueDict[nRightKey]
+			if not nRightValue then
+				return false
+			end
+			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
+				return false
+			end
+			nRightValueDict[nRightKey] = nil
+		else -- key is not merged, iter for one matched
+			local nMatchedKey:OrNil(clazz.IAtomType) = nil
+			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
+				if nRightKey:assumeIncludeAtom(vAssumeSet, nLeftKey) then
+					const nRightValue = nRightValueDict[nRightKey]
+					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
+						nMatchedKey = nRightKey
+						break
+					end
+				end
+			end
+			if not nMatchedKey then
+				return false
+			end
+			nRightValueDict[nMatchedKey] = nil
+		end
+		return true
+	end) then
+		return false
+	end
+	if next(nRightValueDict) then
+		return false
+	end
+	return true
+end
+
 function Struct:assumeIntersectAtom(vAssumeSet, vRightType)
 	if self == vRightType then
 		return self
@@ -32,7 +103,6 @@ function Struct:assumeIntersectAtom(vAssumeSet, vRightType)
 		return false
 	end
 end
-]]
 
 
 return Struct
