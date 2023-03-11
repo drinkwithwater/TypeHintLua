@@ -1,0 +1,108 @@
+
+const TestCase = require "test.TestCase"
+
+TestCase.go([[
+const function.open openWithDots(a,...)
+	a(...)
+end
+const function auto1(...)
+	openWithDots(function(a:Integer, b:Integer) end, ...)
+end
+auto1(321, 321)
+
+const function auto2(a, ...)
+	openWithDots(function(a:Integer, b:Integer) end, ...)
+	openWithDots(function(a:Integer, b:Integer) end, a,a)
+end
+auto2(321, 321) --E
+
+const function auto3(...)
+	openWithDots(function(a:Integer, b:Integer, c:Integer) end, 1,2,...)
+end
+auto3(321)
+auto3("fsfs", 321, 321) --E
+
+]])
+
+
+TestCase.go([[
+
+const function.open openWithDots(...)
+	const function a(a:Integer, b:Integer) end
+	a(...)
+	a(21, ...) --E
+end
+
+const function auto(...)
+	openWithDots(...)
+end
+auto(321, 321)
+auto("fsfs") --E
+
+]])
+
+TestCase.go([[
+const function.open openWithDots(...)
+	const function a(a:Integer, b:Integer) end
+	a(21, ...)
+	a(...) --E
+end
+const function auto(...)
+	openWithDots(...)
+end
+auto(321,321) --E
+auto(321)
+]])
+
+TestCase.go([[
+const function.open openWithDots(...)
+	const function a(a:Integer, b:Integer) end
+	a(...)
+end
+const function auto(...)
+	openWithDots(321, ...)
+end
+auto(321,321) --E
+auto(321)
+]])
+
+TestCase.go([[
+const function.open openWithDots(x, ...)
+	const function a(a:Integer, b:Integer) end
+	a(...)
+end
+const function auto(...)
+	openWithDots(321, 321, ...)
+end
+auto(321,321) --E
+auto(321)
+]])
+
+TestCase.go([[
+const function.open openWithDots(x, y, ...)
+	const function a(a:Integer, b:Integer) end
+	a(...)
+	a(x,y)
+end
+const function auto(...)
+	openWithDots(...)
+end
+auto(321,321) --E
+auto(1,2,3,4)
+]])
+
+TestCase.go([[
+const function.open a(i, a:Integer, b:Integer)
+end
+const function:class(let.Dosth) dosth(...)
+	const function.open create(...)
+		a(321, ...)
+	end
+	create(...)
+	return {.class}
+end
+
+
+dosth(1,"fdsfs") --E
+dosth(1,321)
+]])
