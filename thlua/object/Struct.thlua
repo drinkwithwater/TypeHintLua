@@ -1,0 +1,38 @@
+
+const MetaObject = require "thlua.object.MetaObject"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const Struct = class@<clazz.Struct, false>(MetaObject)
+
+function.open Struct:ctor(...)
+	self._isInterface=false
+end
+
+function Struct:isInterface():Ret(Boolean)
+	return false
+end
+
+function Struct:detailString(vToStringCache, vVerbose)
+	return "struct@"..tostring(self._node)
+end
+
+--[[
+function Struct:assumeIntersectAtom(vAssumeSet, vRightType)
+	if self == vRightType then
+		return self
+	elseif vRightType:assumeIncludeAtom(nil, self) then
+		return self
+	elseif self:assumeIncludeAtom(nil, vRightType) then
+		return vRightType
+	else
+		return false
+	end
+end
+]]
+
+
+return Struct

@@ -1,0 +1,71 @@
+
+const MemberFunction = require "thlua.func.MemberFunction"
+const MetaObject = require "thlua.object.MetaObject"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const Interface = class@<clazz.Interface, false>(MetaObject)
+
+function.open Interface:ctor(...)
+	self._isInterface=true
+end
+
+function Interface:isInterface()
+	return true
+end
+
+function Interface:detailString(vToStringCache, vVerbose)
+	return "interface@"..tostring(self._node)
+end
+
+--[[
+function Interface:assumeIntersectAtom(vAssumeSet, vRightType)
+	if not Interface.is(vRightType) then
+		if vRightType:assumeIncludeAtom(nil, self) then
+			return self
+		else
+			return false
+		end
+	end
+	if self == vRightType then
+		return self
+	end
+	const nRightStruct = vRightType
+	const nMgr = self._manager
+	const nRelation = nMgr:attachPairInclude(self, nRightStruct, not vAssumeSet)
+	if nRelation then
+		if nRelation == ">" then
+			return vRightType
+		elseif nRelation == "<" then
+			return self
+		elseif nRelation == "=" then
+			return self
+		elseif nRelation == "&" then
+			return true
+		else
+			return false
+		end
+	end
+	assert(vAssumeSet, "assume set must be existed here")
+	const _, nLRPair, nRLPair = self._manager:makeDuPair(self, nRightStruct)
+	const nAssumeResult = vAssumeSet[nLRPair]
+	if nAssumeResult ~= nil then
+		return nAssumeResult and self
+	end
+	vAssumeSet[nLRPair] = true
+	vAssumeSet[nRLPair] = true
+	local nAssumeIntersect = self:assumeIntersectInterface(vAssumeSet, nRightStruct)
+	if not nAssumeIntersect then
+		vAssumeSet[nLRPair] = false
+		vAssumeSet[nRLPair] = false
+		return false
+	else
+		return true
+	end
+end
+]]
+
+return Interface

@@ -14,6 +14,8 @@ const Nil = require "thlua.type.Nil"
 const Thread = require "thlua.type.Thread"
 const Truth = require "thlua.type.Truth"
 const MetaObject = require "thlua.object.MetaObject"
+const Struct = require "thlua.object.Struct"
+const Interface = require "thlua.object.Interface"
 const BaseTable = require "thlua.object.BaseTable"
 const OpenTable = require "thlua.object.OpenTable"
 const AutoTable = require "thlua.object.AutoTable"
@@ -334,7 +336,9 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			end
 		end
 		const nKeyRefer = self:UnionReferCom(vNode)
-		const nNewObject = MetaObject.new(self, vNode, vIsInterface, nKeyRefer, nIntersectNextKey)
+		const nNewObject = vIsInterface
+			and Interface.new(self, vNode, nKeyRefer, nIntersectNextKey)
+			or Struct.new(self, vNode, nKeyRefer, nIntersectNextKey)
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
@@ -398,17 +402,19 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeR
 	return nNewRefer
 end
 
-function TypeManager:buildInterface(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.MetaObject)
-	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, true)
+function TypeManager:buildInterface(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.Interface)
+	return self:_buildMetaObject@<True>(vNode, vTable, vMetaEventDict, true)
 end
 
-function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.MetaObject)
-	return self:_buildMetaObject(vNode, vTable, vMetaEventDict, false)
+function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.Struct)
+	return self:_buildMetaObject@<False>(vNode, vTable, vMetaEventDict, false)
 end
 
-function TypeManager:_buildMetaObject(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:Boolean):Ret(clazz.MetaObject)
+function TypeManager:_buildMetaObject@<IsInterface>(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
 	const nKeyRefer = self:UnionReferCom(vNode)
-	const nNewObject = MetaObject.new(self, vNode, vIsInterface, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
+	const nNewObject = vIsInterface
+	and Interface.new(self, vNode, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
+	or Struct.new(self, vNode, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
 	nKeyRefer:build(function()
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
