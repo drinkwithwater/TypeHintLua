@@ -1,5 +1,4 @@
 
-const AtomTypeClass = require "thlua.type.AtomTypeClass"
 const MemberFunction = require "thlua.func.MemberFunction"
 const StringLiteral = require "thlua.type.StringLiteral"
 const Exception = require "thlua.Exception"
@@ -7,29 +6,26 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 
-const MetaObject = AtomTypeClass()
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-function:class(clazz.MetaObject) MetaObject.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIsInterface:Boolean, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType)):impl(clazz.IAtomType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_node=vNode,
-		_keyRefer=vKeyRefer,
-		_memberDict=false@OrFalse(clazz.MemberDict),
-		_nextKey=vNextKey,
-		_nextValue=false@OrFalse(clazz.UAtomUnion),
-		_nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion),
-		_metaEventCom=false@OrFalse(clazz.MetaEventCom),
-		_intersectSet={}@Dict(clazz.MetaObject, True),
-		_unionSign=false,
-		_isInterface=vIsInterface,
-		bits=TYPE_BITS.OBJECT,
-		id=vManager:genTypeId(),
-	}, MetaObject)
-	return self
+const MetaObject = class@<clazz.MetaObject, false>(BaseAtomType)
+
+function.open MetaObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIsInterface:Boolean, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType))
+	self._node=vNode
+	self._keyRefer=vKeyRefer
+	self._memberDict=false@OrFalse(clazz.MemberDict)
+	self._nextKey=vNextKey
+	self._nextValue=false@OrFalse(clazz.UAtomUnion)
+	self._nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion)
+	self._metaEventCom=false@OrFalse(clazz.MetaEventCom)
+	self._intersectSet={}@Dict(clazz.MetaObject, True)
+	self._isInterface=vIsInterface
+	self.bits=TYPE_BITS.OBJECT
 end
 
 function MetaObject:lateInit(vIntersectSet:Dict(clazz.MetaObject,True), vMemberDict:clazz.MemberDict, vMetaEventCom:OrFalse(clazz.MetaEventCom))
@@ -583,10 +579,6 @@ function MetaObject:getCompletion():Ret(clazz.LspCompletion)
 		end
 	end)
 	return nDict
-end
-
-function.open MetaObject.is(v):isguard(clazz.MetaObject)
-	return getmetatable(v) == MetaObject
 end
 
 return MetaObject
