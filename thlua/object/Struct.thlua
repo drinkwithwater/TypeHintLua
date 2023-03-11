@@ -1,4 +1,5 @@
 
+const MemberFunction = require "thlua.func.MemberFunction"
 const MetaObject = require "thlua.object.MetaObject"
 const class = require "thlua.class"
 
@@ -9,11 +10,6 @@ end)
 const Struct = class@<clazz.Struct, false>(MetaObject)
 
 function.open Struct:ctor(...)
-	self._isInterface=false
-end
-
-function Struct:isInterface():Ret(Boolean)
-	return false
 end
 
 function Struct:detailString(vToStringCache, vVerbose)
@@ -104,5 +100,36 @@ function Struct:assumeIntersectAtom(vAssumeSet, vRightType)
 	end
 end
 
+function Struct:meta_set(vContext, vKeyType, vValueType)
+	vContext:pushNothing()
+	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		if MemberFunction.is(nSetValue) then
+			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
+			return
+		end
+		local nSetType = nSetValue:checkAtomUnion()
+		if vContext:castLuaType(vValueType, nSetType) then
+			return
+		elseif nSetType:includeAll(vValueType) then
+			return
+		else
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+		end
+	end
+	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
+end
+
+function Struct:native_rawset(vContext, vKeyType, vValueType)
+	vContext:warn("abstract object take rawset")
+	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		if not nSetValue:includeAll(vValueType) then
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+		end
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
+	end
+end
 
 return Struct

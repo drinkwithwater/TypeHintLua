@@ -24,7 +24,6 @@ function.open MetaObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, 
 	self._nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion)
 	self._metaEventCom=false@OrFalse(clazz.MetaEventCom)
 	self._intersectSet={}@Dict(clazz.MetaObject, True)
-	self._isInterface=false@Boolean
 	self.bits=TYPE_BITS.OBJECT
 end
 
@@ -205,49 +204,9 @@ function MetaObject:_meta_get(vContext:clazz.OperContext, vType:clazz.IAtomType,
 	end
 end
 
-function MetaObject:native_rawset(vContext, vKeyType, vValueType)
-	vContext:warn("abstract object take rawset")
-	if self:isInterface() then
-		vContext:error("interface's field is readonly")
-		return
-	end
-	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
-	if nKey then
-		if not nSetValue:includeAll(vValueType) then
-			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
-		end
-	else
-		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
-	end
-end
-
 function MetaObject:native_rawget(vContext, vKeyType)
 	vContext:warn("abstract object take rawget")
 	return self:_meta_get(vContext, vKeyType, false)
-end
-
-function MetaObject:meta_set(vContext, vKeyType, vValueType)
-	vContext:pushNothing()
-	if self:isInterface() then
-		vContext:error("interface's field is readonly")
-		return
-	end
-	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
-	if nKey then
-		if MemberFunction.is(nSetValue) then
-			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
-			return
-		end
-		local nSetType = nSetValue:checkAtomUnion()
-		if vContext:castLuaType(vValueType, nSetType) then
-			return
-		elseif nSetType:includeAll(vValueType) then
-			return
-		else
-			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
-		end
-	end
-	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
 function MetaObject:meta_bop_func(vContext, vOper)
@@ -335,10 +294,6 @@ end
 
 function MetaObject:checkBaseObjectType()
 	return self
-end
-
-function MetaObject:isInterface():Ret(Boolean)
-	return self._isInterface
 end
 
 function MetaObject:native_type()

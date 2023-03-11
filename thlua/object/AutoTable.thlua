@@ -1,6 +1,7 @@
 
 const StringLiteral = require "thlua.type.StringLiteral"
 const MetaObject = require "thlua.object.MetaObject"
+const Struct = require "thlua.object.Struct"
 const TypeFunction = require "thlua.func.TypeFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
@@ -67,8 +68,9 @@ function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:cla
 	local nFinalMatchStruct:OrFalse(clazz.MetaObject) = false
 	local nFinalMatchCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
 	vObjectAtomUnion:foreach(function(vAtomType)
-		if not MetaObject.is(vAtomType) then return end
-		if vAtomType:isInterface() then return end
+		if not Struct.is(vAtomType) then
+			return
+		end
 		const nCopyValueDict = vAtomType:copyValueDict()
 		local nMatchSucc = true
 		const nCastList:List(Struct {clazz.BaseTable, clazz.UAllType}) = {}
