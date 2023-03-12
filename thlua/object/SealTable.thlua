@@ -101,8 +101,13 @@ function SealTable:meta_get(vContext, vKeyType)
 		const nField = self._fieldDict[nKeyIncludeType]!
 		vContext:pushFirstAndTuple(nField.castValueType or nField.rawValueType)
 	else
-		vContext:error("index error, key=", tostring(vKeyType))
-		vContext:pushFirstAndTuple(self._manager.type.Nil)
+		const nIndexType = self._indexType
+		if nIndexType then
+			nIndexType:meta_get(vContext, vKeyType)
+		else
+			vContext:error("index error, key=", tostring(vKeyType))
+		end
+		--vContext:pushFirstAndTuple(self._manager.type.Nil)
 	end
 end
 
@@ -188,6 +193,7 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 		return
 	end
 	self._indexType = vIndexType
+	--[[
 	const nNever = self._manager.type.Never
 	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
 	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKeyType, nSelfKey)
@@ -255,7 +261,7 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 		end
 	end)
 	self._fieldDict = nFinalFieldDict
-	self._keyType = nMergedKeyType
+	self._keyType = nMergedKeyType]]
 end
 
 function SealTable:native_next(vContext, vInitType)

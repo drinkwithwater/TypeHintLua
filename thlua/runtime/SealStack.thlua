@@ -1,6 +1,8 @@
 
 const class = require "thlua.class"
 const InstStack = require "thlua.runtime.InstStack"
+const ClassFactory = require "thlua.func.ClassFactory"
+const AutoFunction = require "thlua.func.AutoFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -45,21 +47,21 @@ function SealStack:getSealStack():Ret(clazz.SealStack)
 	return self
 end
 
-function SealStack:recordClassFactory(vFunc:clazz.ClassFactory)
-	const nSet = self._classFnSet
-	if nSet then
-		nSet[vFunc] = true
-	else
-		vFunc:startTask()
-	end
-end
-
-function SealStack:recordAutoFunction(vFunc:clazz.AutoFunction)
-	const nSet = self._funcMakerSet
-	if nSet then
-		nSet[vFunc] = true
-	else
-		vFunc:startTask()
+function SealStack:scheduleSealType(vType:clazz.SealFunction)
+	if ClassFactory.is(vType) then
+		const nSet = self._classFnSet
+		if nSet then
+			nSet[vType] = true
+		else
+			vType:startTask()
+		end
+	elseif AutoFunction.is(vType) then
+		const nSet = self._funcMakerSet
+		if nSet then
+			nSet[vType] = true
+		else
+			vType:startTask()
+		end
 	end
 end
 

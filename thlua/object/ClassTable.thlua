@@ -66,20 +66,15 @@ function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.I
 	const nSelfKey = self._keyType
 	const nSelfFieldDict = self._fieldDict
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
-		const nSelfKeyAtom = nSelfKey:includeAtom(nKeyAtom)
-		if nSelfKeyAtom then
-			const nSelfValue = self:getWhenImplement(vContext, nSelfKeyAtom)
-			if MemberFunction.is(nSelfValue) then
-				if TypedFunction.is(nValue) then
-					nSelfValue:indexAutoFn(self):checkWhenCast(vContext, nValue)
-				end
-			else
-				if not nValue:includeAll(nSelfValue) then
-					vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
-				end
+		const nSelfValue = self:getWhenImplement(vContext, nKeyAtom)
+		if MemberFunction.is(nSelfValue) then
+			if TypedFunction.is(nValue) then
+				nSelfValue:indexAutoFn(self):checkWhenCast(vContext, nValue)
 			end
 		else
-			vContext:error("interface has field not implement, key="..tostring(nKeyAtom))
+			if not nValue:includeAll(nSelfValue) then
+				vContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
+			end
 		end
 	end
 	for _, nField in pairs(nSelfFieldDict) do
@@ -94,7 +89,6 @@ function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.I
 		end
 	end
 end
-
 
 function ClassTable:ctxWait(vContext:clazz.OperContext)
 	self._factory:waitTableBuild()

@@ -180,16 +180,18 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 	end
 	if not self._member then
 		if nPolyParNum <= 0 then
-			return nFnMaker({}, false)
+			const ret = nFnMaker({}, false)
+			self._stack:getSealStack():scheduleSealType(ret)
+			return ret
 		else
 			return self._manager:PolyFunction(self._node, function(...:clazz.UAllType)
 				return nFnMaker({...}, false)
-			end, nPolyParNum)
+			end, nPolyParNum, self._stack)
 		end
 	else
 		const nPolyFn = self._manager:PolyFunction(self._node, function(self:clazz.UAllType, ...:clazz.UAllType)
 			return nFnMaker({...}, self)
-		end, nPolyParNum + 1)
+		end, nPolyParNum + 1, self._stack)
 		return self._manager:MemberFunction(self._node, nPolyFn)
 	end
 end
@@ -351,11 +353,12 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		nRefer:setAssignAsync(self._node, function()
 			return nFactory:getClassTable(true)
 		end)
+		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
 	else
 		const nPolyFn = self._manager:PolyFunction(self._node, function(...:clazz.UAllType)
 			return nFnMaker({...})
-		end, nPolyParNum)
+		end, nPolyParNum, self._stack)
 		nRefer:setTemplateAsync(self._node, function(...:clazz.UAllType)
 			const nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")

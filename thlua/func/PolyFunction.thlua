@@ -11,11 +11,12 @@ const class = require "thlua.class"
 
 const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
 
-function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer)
+function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vStack:OrNil(clazz.BaseStack))
 	self._polyParNum=vPolyParNum
 	self._makerFn=vFunc
 	self._fnDict = {} @ Dict(String, Union(clazz.SealFunction, clazz.TypedFunction))
 	self._node = vNode
+	self._stack = vStack or false
 end
 
 function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
@@ -38,6 +39,9 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(cl
 		const nResult = (self._makerFn(table.unpack(vTypeList)) @ Any)
 		if TypedFunction.is(nResult) or SealFunction.is(nResult) then
 			self._fnDict[nKey] = nResult
+			if SealFunction.is(nResult) then
+				assert(self._stack):getSealStack():scheduleSealType(nResult)
+			end
 			return nResult
 		else
 			error("poly function must return mono-function type but got:"..tostring(nResult))
