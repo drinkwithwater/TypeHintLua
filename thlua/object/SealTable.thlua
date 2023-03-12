@@ -27,8 +27,6 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._fieldDict={}@Dict(clazz.IAtomType, TableField)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
-	self._isBasingDefault=false@Boolean
-	self._interface=false@OrFalse(clazz.TypedObject)
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
 end
 
@@ -81,9 +79,7 @@ end
 function SealTable:meta_set(vContext, vKeyType, vValueType)
 	self:ctxWait(vContext)
 	vContext:pushNothing()
-	if self._isBasingDefault then
-		self._manager:basingByDefault(vValueType)
-	end
+	self._manager:basingByDefault(vValueType)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nTableField = self._fieldDict[nKeyIncludeType]!
@@ -110,9 +106,7 @@ end
 
 function SealTable:native_rawset(vContext, vKeyType, vValueType)
 	self:ctxWait(vContext)
-	if self._isBasingDefault then
-		self._manager:basingByDefault(vValueType)
-	end
+	self._manager:basingByDefault(vValueType)
 	local nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
@@ -315,15 +309,6 @@ function SealTable:meta_bop_func(vContext, vOper)
 	return false, nil
 end
 
-function SealTable:basingByDefault()
-	if not self._isBasingDefault then
-		self._isBasingDefault = true
-		for k, v in pairs(self._fieldDict) do
-			self._manager:basingByDefault(v.rawValueType)
-		end
-	end
-end
-
 function SealTable:getCompletion():Ret(clazz.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)
@@ -332,16 +317,6 @@ function SealTable:getCompletion():Ret(clazz.LspCompletion)
 		end
 	end)
 	return nDict
-end
-
-function SealTable:checkTypedObject()
-	const nInterface = self._interface
-	if nInterface then
-		return nInterface
-	else
-		self:basingByDefault()
-		return self._manager.type.AnyObject
-	end
 end
 
 return SealTable

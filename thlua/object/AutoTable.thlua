@@ -18,12 +18,14 @@ end)
 
 const AutoTable = class@<clazz.AutoTable, false>(SealTable)
 
-function AutoTable:detailString(v, vVerbose)
-	return "AutoTable@"..tostring(self._node)
+function.open AutoTable:ctor(...)
+	self._typedObject=false@OrFalse(clazz.TypedObject)
+	self._name = false @OrFalse(String)
+	self._isBasingDefault=false@Boolean
 end
 
-function.open AutoTable:ctor(...)
-	self._name = false @OrFalse(String)
+function AutoTable:detailString(v, vVerbose)
+	return "AutoTable@"..tostring(self._node)
 end
 
 function AutoTable:lockAndGet():Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion))
@@ -47,7 +49,7 @@ function AutoTable:lockAsMetaNewIndex()
 end
 
 function AutoTable:cast(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.TypedObject))
-	const nOldStruct = self._interface
+	const nOldStruct = self._typedObject
 	if nOldStruct then
 		local nMatchStruct:OrNil(clazz.TypedObject) = nil
 		vObjectAtomUnion:foreach(function(vAtomType)
@@ -66,7 +68,7 @@ function AutoTable:cast(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UOb
 	if not nMatchStruct then
 		return false
 	end
-	self._interface = nMatchStruct
+	self._typedObject = nMatchStruct
 	return nMatchStruct
 end
 
@@ -124,6 +126,25 @@ function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:cla
 		vContext:castLuaType(nPair[1], nPair[2])
 	end
 	return nFinalMatchStruct
+end
+
+function AutoTable:checkTypedObject()
+	const nInterface = self._typedObject
+	if nInterface then
+		return nInterface
+	else
+		self:basingByDefault()
+		return self._manager.type.AnyObject
+	end
+end
+
+function AutoTable:basingByDefault()
+	if not self._isBasingDefault then
+		self._isBasingDefault = true
+		for k, v in pairs(self._fieldDict) do
+			self._manager:basingByDefault(v.rawValueType)
+		end
+	end
 end
 
 return AutoTable

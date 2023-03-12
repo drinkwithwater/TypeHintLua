@@ -1,6 +1,5 @@
 
 const StringLiteral = require "thlua.type.StringLiteral"
-const TypedObject = require "thlua.object.TypedObject"
 const TypedFunction = require "thlua.func.TypedFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
@@ -27,7 +26,7 @@ function.open ClassTable:ctor(
 	self._task = nTask
 	self._initEvent = nTask:makeEvent()
 	self._baseClass = false@OrFalse(clazz.ClassTable)
-	self._interface = nil@clazz.TypedObject
+	self._interface = nil@clazz.Interface
 end
 
 function ClassTable:detailString(v, vVerbose)
@@ -38,7 +37,7 @@ function ClassTable:waitInit()
 	self._initEvent:wait()
 end
 
-function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), clazz.TypedObject))
+function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), clazz.Interface))
 	self._task:runAsync(function()
 		self._baseClass, self._interface = vBaseGetter()
 		self._initEvent:wakeup()
@@ -53,7 +52,7 @@ function ClassTable:onSetMetaTable(vContext:clazz.OperContext)
 	end
 end
 
-function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.TypedObject)
+function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.Interface)
 	const nInterfaceKeyValue = vInterface:copyValueDict(self)
 	const nSelfKey = self._keyType
 	const nSelfFieldDict = self._fieldDict
@@ -99,6 +98,10 @@ function ClassTable:getBaseClass()
 end
 
 function ClassTable:getInterface()
+	return self._interface
+end
+
+function ClassTable:checkTypedObject()
 	return self._interface
 end
 

@@ -4,7 +4,7 @@ const AutoFunction = require "thlua.func.AutoFunction"
 const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
-const TypedObject = require "thlua.object.TypedObject"
+const Interface = require "thlua.object.Interface"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.func.ClassFactory"
 const ClassTable = require "thlua.object.ClassTable"
@@ -252,7 +252,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
-		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.TypedObject)
+		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface)
 			local nImplementsArg:OrNil(clazz.UAllType) = nil
 			local nExtendsArg:OrNil(clazz.UAllType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
@@ -301,7 +301,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				if nType:isUnion() then
 					error("interface can't be union")
 				end
-				if TypedObject.is(nType) then
+				if Interface.is(nType) then
 					nImplementsInterface = nType
 				else
 					if nType == self._manager.type.False or nType == self._manager.type.Nil then
