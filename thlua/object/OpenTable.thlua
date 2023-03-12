@@ -106,6 +106,9 @@ function OpenTable:meta_set(vContext, vKeyType, vValueType)
 			nNewIndexType:meta_call(vContext, nTermTuple)
 			return
 		elseif BaseObject.is(nNewIndexType) then
+			if vContext:testAndSetRecursiveChain(self, nNewIndexType) then
+				error("opentable's __newindex chain recursive")
+			end
 			nNewIndexType:meta_set(vContext, vKeyType, vValueType)
 			return
 		end
@@ -126,6 +129,9 @@ function OpenTable:meta_get(vContext, vKeyType)
 			const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
 			nIndexType:meta_call(vContext, nTermTuple)
 		elseif BaseObject.is(nIndexType) then
+			if vContext:testAndSetRecursiveChain(self, nIndexType) then
+				error("opentable's __index chain recursive")
+			end
 			nIndexType:meta_get(vContext, vKeyType)
 		end
 		vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))

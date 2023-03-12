@@ -15,12 +15,10 @@ const MorePushContext = class@<clazz.MorePushContext, false>(ApplyContext)
 function.open MorePushContext:ctor(
 	...
 )
-	self._openForbid = false@Boolean
 	self._openReturn = false@clazz.UOpenReturn
 	self._retMaxLength = 0@Integer
 	self._retRepCollection = self._manager:TypeCollection()
 	self._retList = {} @TypeCaseTupleList
-	self._curCase = false @ OrFalse(clazz.VariableCase)
 end
 
 function MorePushContext:pushNothing()
@@ -29,17 +27,9 @@ function MorePushContext:pushNothing()
 	end
 end
 
-function MorePushContext:withCase(vCase:OrNil(clazz.VariableCase), vFunc:Fn())
-	assert(not self._curCase, "apply context case in case error")
-	self._curCase = vCase or VariableCase.new()
-	vFunc()
-	self._curCase = false
-	self._openForbid = true
-end
-
 function MorePushContext:openPushReturn(vTermTuple:clazz.UOpenReturn)
 	assert(self._curCase, "[FATAL] MorePushContext push value without case")
-	if self._openForbid or self._openReturn then
+	if self._once or self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
 	end
 	self._openReturn = vTermTuple
