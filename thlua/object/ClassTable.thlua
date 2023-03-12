@@ -1,4 +1,5 @@
 
+const VariableCase = require "thlua.term.VariableCase"
 const StringLiteral = require "thlua.type.StringLiteral"
 const TypedFunction = require "thlua.func.TypedFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
@@ -52,6 +53,14 @@ function ClassTable:onSetMetaTable(vContext:clazz.OperContext)
 	end
 end
 
+function ClassTable:getWhenImplement(vOperCtx:clazz.OperContext, vKeyType:clazz.IAtomType):Ret(clazz.UAtomUnion)
+	return vOperCtx:getStack():withOnePushContext(vOperCtx:getNode(), function(vContext)
+		vContext:withSelfCase(self, VariableCase.new(), function()
+			self:meta_get(vContext, vKeyType)
+		end)
+	end):getType()
+end
+
 function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.Interface)
 	const nInterfaceKeyValue = vInterface:copyValueDict(self)
 	const nSelfKey = self._keyType
@@ -59,12 +68,10 @@ function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.I
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
 		const nSelfKeyAtom = nSelfKey:includeAtom(nKeyAtom)
 		if nSelfKeyAtom then
-			const nField = nSelfFieldDict[nSelfKeyAtom]!
-			const nSelfValue = nField.rawValueType
+			const nSelfValue = self:getWhenImplement(vContext, nSelfKeyAtom)
 			if MemberFunction.is(nSelfValue) then
 				if TypedFunction.is(nValue) then
 					nSelfValue:indexAutoFn(self):checkWhenCast(vContext, nValue)
-					nField.castValueType = nValue
 				end
 			else
 				if not nValue:includeAll(nSelfValue) then

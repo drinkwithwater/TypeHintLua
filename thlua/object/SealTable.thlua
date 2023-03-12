@@ -28,6 +28,8 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
+	self._indexType=false@OrFalse(clazz.IAtomType)
+	self._newIndexType=false@OrFalse(clazz.IAtomType)
 end
 
 function SealTable:meta_len(vContext)
@@ -92,9 +94,9 @@ function SealTable:meta_set(vContext, vKeyType, vValueType)
 	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
-function SealTable:meta_get(vContext, vKeyType:clazz.IAtomType)
+function SealTable:meta_get(vContext, vKeyType)
 	self:ctxWait(vContext)
-	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
 		vContext:pushFirstAndTuple(nField.castValueType or nField.rawValueType)
@@ -185,6 +187,7 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 		vContext:info("use type.."..tostring(vIndexType).." as __index TODO")
 		return
 	end
+	self._indexType = vIndexType
 	const nNever = self._manager.type.Never
 	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
 	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKeyType, nSelfKey)
