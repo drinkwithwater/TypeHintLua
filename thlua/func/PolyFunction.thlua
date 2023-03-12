@@ -2,7 +2,8 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 
-const MonoFunction = require "thlua.func.MonoFunction"
+const SealFunction = require "thlua.func.SealFunction"
+const TypedFunction = require "thlua.func.TypedFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const class = require "thlua.class"
 
@@ -13,7 +14,7 @@ const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
 function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer)
 	self._polyParNum=vPolyParNum
 	self._makerFn=vFunc
-	self._fnDict = {} @ Dict(String, clazz.MonoFunction)
+	self._fnDict = {} @ Dict(String, Union(clazz.SealFunction, clazz.TypedFunction))
 	self._node = vNode
 end
 
@@ -25,7 +26,7 @@ function PolyFunction:getPolyParNum():Ret(Integer)
 	return self._polyParNum
 end
 
-function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.MonoFunction)
+function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
 	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
 	for i=1, #vTypeList do
@@ -35,7 +36,7 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(clazz.Mo
 	const nFn = self._fnDict[nKey]
 	if not nFn then
 		const nResult = (self._makerFn(table.unpack(vTypeList)) @ Any)
-		if MonoFunction.is(nResult) then
+		if TypedFunction.is(nResult) or SealFunction.is(nResult) then
 			self._fnDict[nKey] = nResult
 			return nResult
 		else
