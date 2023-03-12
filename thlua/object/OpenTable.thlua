@@ -4,7 +4,6 @@ const TypedObject = require "thlua.object.TypedObject"
 const BaseFunction = require "thlua.func.BaseFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 
-const BaseTable = require "thlua.object.BaseTable"
 const BaseObject = require "thlua.object.BaseObject"
 const class = require "thlua.class"
 
@@ -16,7 +15,7 @@ const class = require "thlua.class"
 	}
 end)
 
-const OpenTable = class@<clazz.OpenTable, false>(BaseTable)
+const OpenTable = class@<clazz.OpenTable, false>(BaseObject)
 
 function.open OpenTable:ctor(vManager:clazz.TypeManager)
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
@@ -26,6 +25,20 @@ function.open OpenTable:ctor(vManager:clazz.TypeManager)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
+	self._name="Table"@String
+end
+
+function OpenTable:detailString(v, vVerbose)
+	return "OpenTable@"..self._name
+end
+
+function OpenTable:meta_len(vContext)
+	-- TODO
+	return self._manager.type.Number
+end
+
+function OpenTable:setName(vName:String)
+	self._name = vName
 end
 
 function OpenTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))

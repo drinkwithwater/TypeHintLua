@@ -1,7 +1,9 @@
 
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
-const BaseTable = require "thlua.object.BaseTable"
+const OpenTable = require "thlua.object.OpenTable"
+const SealTable = require "thlua.object.SealTable"
+const BaseObject = require "thlua.object.BaseObject"
 const TypedObject = require "thlua.object.TypedObject"
 const Truth = require "thlua.type.Truth"
 
@@ -12,8 +14,9 @@ const ObjectUnion = UnionClass()
 function:class(clazz.ObjectUnion) ObjectUnion.new(vManager:clazz.TypeManager):impl(clazz.IUnionType)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_structDict={} @Dict(clazz.TypedObject, True),
-		_luaTableDict={} @Dict(clazz.BaseTable, True),
+		_typedObjectDict={} @Dict(clazz.TypedObject, True),
+		_sealTableDict={} @Dict(clazz.SealTable, True),
+		_openTableDict={} @Dict(clazz.OpenTable, True),
 		bits=TYPE_BITS.OBJECT,
 		id=0@Integer,
 	}, ObjectUnion)
@@ -21,10 +24,13 @@ function:class(clazz.ObjectUnion) ObjectUnion.new(vManager:clazz.TypeManager):im
 end
 
 function ObjectUnion:foreach(vFunc)
-	for nType, _ in pairs(self._structDict) do
+	for nType, _ in pairs(self._typedObjectDict) do
 		vFunc(nType)
 	end
-	for nType, _ in pairs(self._luaTableDict) do
+	for nType, _ in pairs(self._sealTableDict) do
+		vFunc(nType)
+	end
+	for nType, _ in pairs(self._openTableDict) do
 		vFunc(nType)
 	end
 end
@@ -33,42 +39,44 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 	if self:includeAtom(vType) then
 		return
 	end
-	if TypedObject.is(vType) then
-		-- delete small lua table
-		const nDeleteList1:List(clazz.BaseTable) = {}
-		for nBaseTable, _ in pairs(self._luaTableDict) do
-			if vType:includeAtom(nBaseTable) then
-				nDeleteList1[#nDeleteList1 + 1] = nBaseTable
-			end
+	if not BaseObject.is(vType) then
+		error("object-type unexpected")
+	end
+	if OpenTable.is(vType) then
+		self._openTableDict[vType] = true
+		return
+	end
+	-- delete smaller sealtable
+	const nDeleteList1:List(clazz.SealTable) = {}
+	for nSealTable, _ in pairs(self._sealTableDict) do
+		if vType:includeAtom(nSealTable) then
+			nDeleteList1[#nDeleteList1 + 1] = nSealTable
 		end
-		for _, nBaseTable in pairs(nDeleteList1) do
-			self._luaTableDict[nBaseTable] = nil
-		end
-		-- delete small struct
+	end
+	for _, nSealTable in pairs(nDeleteList1) do
+		self._sealTableDict[nSealTable] = nil
+	end
+	if SealTable.is(vType) then
+		self._sealTableDict[vType] = true
+	elseif TypedObject.is(vType) then
+		-- delete smaller typedObject
 		const nDeleteList2:List(clazz.TypedObject) = {}
-		for nStruct, _ in pairs(self._structDict) do
-			if vType:includeAtom(nStruct) then
-				nDeleteList2[#nDeleteList2 + 1] = nStruct
+		for nTypedObject, _ in pairs(self._typedObjectDict) do
+			if vType:includeAtom(nTypedObject) then
+				nDeleteList2[#nDeleteList2 + 1] = nTypedObject
 			else
-				const nIntersect = vType:intersectAtom(nStruct)
+				const nIntersect = vType:intersectAtom(nTypedObject)
 				if nIntersect then
 					error("unexpected intersect when union object")
 				end
 			end
 		end
-		for _, nStruct in pairs(nDeleteList2) do
-			self._structDict[nStruct] = nil
+		for _, nTypedObject in pairs(nDeleteList2) do
+			self._typedObjectDict[nTypedObject] = nil
 		end
-		self._structDict[vType] = true
-	elseif BaseTable.is(vType) then
-		for nStructType, _ in pairs(self._structDict) do
-			if nStructType:includeAtom(vType) then
-				return
-			end
-		end
-		self._luaTableDict[vType] = true
+		self._typedObjectDict[vType] = true
 	else
-		error("object-type unexpected")
+		error("object-type unexpected???")
 	end
 end
 
@@ -76,7 +84,7 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
 		return self
 	end
-	if not TypedObject.is(vType) and not BaseTable.is(vType) then
+	if not BaseObject.is(vType) then
 		return false
 	end
 	const nCollection = self._manager:TypeCollection()
@@ -108,16 +116,19 @@ function ObjectUnion:mayRecursive()
 end
 
 function ObjectUnion:assumeIncludeAtom(vAssumeSet, vType)
-	if BaseTable.is(vType) then
-		for nTable, _ in pairs(self._luaTableDict) do
+	if OpenTable.is(vType) then
+		return self._openTableDict[vType] and vType or false
+	end
+	if SealTable.is(vType) then
+		for nTable, _ in pairs(self._sealTableDict) do
 			if nTable:assumeIncludeAtom(vAssumeSet, vType) then
 				return nTable
 			end
 		end
 	end
-	for nStructType, _ in pairs(self._structDict) do
-		if nStructType:assumeIncludeAtom(vAssumeSet, vType) then
-			return nStructType
+	for nObject, _ in pairs(self._typedObjectDict) do
+		if nObject:assumeIncludeAtom(vAssumeSet, vType) then
+			return nObject
 		end
 	end
 	return false

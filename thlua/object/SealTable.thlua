@@ -8,7 +8,7 @@ const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 
-const BaseTable = require "thlua.object.BaseTable"
+const BaseObject = require "thlua.object.BaseObject"
 const class = require "thlua.class"
 
 (@do
@@ -20,7 +20,7 @@ const class = require "thlua.class"
 	}
 end)
 
-const SealTable = class@<clazz.SealTable, false>(BaseTable)
+const SealTable = class@<clazz.SealTable, false>(BaseObject)
 
 function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
@@ -30,6 +30,16 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._isBasingDefault=false@Boolean
 	self._interface=false@OrFalse(clazz.TypedObject)
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
+	self._name="Table"@String
+end
+
+function SealTable:setName(vName:String)
+	self._name = vName
+end
+
+function SealTable:meta_len(vContext)
+	-- TODO
+	return self._manager.type.Number
 end
 
 function SealTable:ctxWait(vContext:clazz.OperContext)
