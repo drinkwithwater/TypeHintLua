@@ -2,7 +2,7 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 
-const TypeFunction = require "thlua.func.TypeFunction"
+const TypedFunction = require "thlua.func.TypedFunction"
 const PolyFunction = require "thlua.func.PolyFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
@@ -15,7 +15,7 @@ end)
 const MemberFunction = class@<clazz.MemberFunction, false>(BaseFunction)
 
 function.open MemberFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
-	vPolyFn:clazz.PolyFunction, vWildFn:OrFalse(clazz.TypeFunction))
+	vPolyFn:clazz.PolyFunction, vWildFn:OrFalse(clazz.TypedFunction))
 	self._node = vNode
 	self._wildFn = vWildFn
 	self._polyFn = vPolyFn
@@ -83,11 +83,11 @@ function MemberFunction:indexAutoFn(vType:clazz.UAllType):Ret(clazz.AutoFunction
 	end
 end
 
-function MemberFunction:indexTypeFn(vType:clazz.UAllType):Ret(clazz.TypeFunction)
+function MemberFunction:indexTypeFn(vType:clazz.UAllType):Ret(clazz.TypedFunction)
 	const nFn = self._polyFn:noCtxCastPoly({vType})
 	if AutoFunction.is(nFn) then
 		return nFn:getFnAwait()
-	elseif TypeFunction.is(nFn) then
+	elseif TypedFunction.is(nFn) then
 		return nFn
 	else
 		error("class factory can't member function")

@@ -5,7 +5,7 @@ const Truth = require "thlua.type.Truth"
 
 const AnyFunction = require "thlua.func.AnyFunction"
 const OpenFunction = require "thlua.func.OpenFunction"
-const TypeFunction = require "thlua.func.TypeFunction"
+const TypedFunction = require "thlua.func.TypedFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 
 const FuncUnion = UnionClass()
@@ -16,7 +16,7 @@ function:class(clazz.FuncUnion) FuncUnion.new(vManager:clazz.TypeManager):impl(c
 	const self = setmetatable({.class
 		_manager=vManager,
 		_notTypeFnDict={} @Dict(clazz.BaseFunction, True),
-		_typeFnDict={} @Dict(clazz.TypeFunction, True),
+		_typeFnDict={} @Dict(clazz.TypedFunction, True),
 		_openFnDict={} @Dict(clazz.OpenFunction, True),
 		_anyFn=false@OrFalse(clazz.AnyFunction),
 		bits=TYPE_BITS.FUNCTION,
@@ -55,9 +55,9 @@ function FuncUnion:putAwait(vType)
 			self._typeFnDict = {}
 		end
 	-- TODO lua fn may be typefn or polyfn or openfn, deal by case TODO
-	elseif TypeFunction.is(vType) then
+	elseif TypedFunction.is(vType) then
 		-- delete small struct
-		const nDeleteList:List(clazz.TypeFunction) = {}
+		const nDeleteList:List(clazz.TypedFunction) = {}
 		for nTypeFn, _ in pairs(self._typeFnDict) do
 			if vType:includeAtom(nTypeFn) then
 				nDeleteList[#nDeleteList + 1] = nTypeFn
@@ -86,7 +86,7 @@ function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if self:includeAtom(vType) then
 		return vType
 	end
-	if TypeFunction.is(vType) then
+	if TypedFunction.is(vType) then
 		const nCollection = self._manager:TypeCollection()
 		self:foreach(function(vSubType)
 			if vType:includeAtom(vSubType) then
@@ -105,7 +105,7 @@ function FuncUnion:assumeIncludeAtom(vAssumeSet, vType)
 		else
 			return false
 		end
-	elseif TypeFunction.is(vType) then
+	elseif TypedFunction.is(vType) then
 		for nTypeFn, _ in pairs(self._typeFnDict) do
 			if nTypeFn:assumeIncludeAtom(vAssumeSet, vType) then
 				return nTypeFn

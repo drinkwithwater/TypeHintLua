@@ -9,9 +9,9 @@ const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const TypeFunction = class@<clazz.TypeFunction, false>(MonoFunction)
+const TypedFunction = class@<clazz.TypedFunction, false>(MonoFunction)
 
-function.open TypeFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
+function.open TypedFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
 	vParTuple:clazz.UTypeTuple, vRetTuples:OrFalse(clazz.RetTuples)
 )
 	self._node=vNode
@@ -20,7 +20,7 @@ function.open TypeFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode
 	self._retTuples=vRetTuples
 end
 
-function TypeFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypeFunction)
+function TypedFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypedFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Dots")
 	local nParTuple = self._parTuple
 	if TypeTupleDots.is(nParTuple) then
@@ -30,7 +30,7 @@ function TypeFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypeFunction)
 	return self
 end
 
-function TypeFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.TypeFunction)
+function TypedFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.TypedFunction)
 	-- TODO check ... is type
 	assert(not self._retTuples, "fn building is finish, can't call RetDots")
 	const nTypeList:List(clazz.UAllType) = {vFirst, ...}
@@ -49,7 +49,7 @@ function TypeFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(cla
 	return self
 end
 
-function TypeFunction:Ret(...:clazz.UAllType):Ret(clazz.TypeFunction)
+function TypedFunction:Ret(...:clazz.UAllType):Ret(clazz.TypedFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Ret")
 	local nTypeTuple = self._manager:TypeTuple(self._node, ...)
 	local nPreRetTuples = self._buildingRetTuples
@@ -62,12 +62,12 @@ function TypeFunction:Ret(...:clazz.UAllType):Ret(clazz.TypeFunction)
 	return self
 end
 
-function TypeFunction:finish():Ret(clazz.TypeFunction)
+function TypedFunction:finish():Ret(clazz.TypedFunction)
 	self:_buildRetTuples()
 	return self
 end
 
-function TypeFunction:_buildRetTuples():Ret(clazz.RetTuples)
+function TypedFunction:_buildRetTuples():Ret(clazz.RetTuples)
 	local nRetTuples = self._retTuples
 	if not nRetTuples then
 		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
@@ -76,11 +76,11 @@ function TypeFunction:_buildRetTuples():Ret(clazz.RetTuples)
 	return nRetTuples
 end
 
-function TypeFunction:native_type()
+function TypedFunction:native_type()
 	return self._manager:Literal("function")
 end
 
-function TypeFunction:detailString(vToStringCache, vVerbose)
+function TypedFunction:detailString(vToStringCache, vVerbose)
 	const nRetTuples = self:_buildRetTuples()
 	local nCache = vToStringCache[self]
 	if nCache then
@@ -93,14 +93,14 @@ function TypeFunction:detailString(vToStringCache, vVerbose)
 	return nResult
 end
 
-function TypeFunction:meta_call(vContext, vTermTuple)
+function TypedFunction:meta_call(vContext, vTermTuple)
 	const nRetTuples = self:_buildRetTuples()
 	const nTypeTuple = self._parTuple
 	vContext:matchArgsToTypeTuple(vContext:getNode(), vTermTuple, nTypeTuple)
 	vContext:pushRetTuples(nRetTuples)
 end
 
-function TypeFunction:assumeIntersectAtom(vAssumeSet, vType)
+function TypedFunction:assumeIntersectAtom(vAssumeSet, vType)
 	const nLeftRetFirst = self:_buildRetTuples():getFirstType()
 	if vType == self then
 		return self
@@ -113,7 +113,7 @@ function TypeFunction:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function TypeFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypeFunction):Ret(Boolean)
+function TypedFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypedFunction):Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
 	if not vRight:getParTuple():assumeIncludeTuple(vAssumeSet, self._parTuple) then
@@ -125,11 +125,11 @@ function TypeFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:
 	return true
 end
 
-function TypeFunction:assumeIncludeAtom(vAssumeSet, vRight)
+function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight)
 	if self == vRight then
 		return self
 	end
-	if not TypeFunction.is(vRight) then
+	if not TypedFunction.is(vRight) then
 		-- TODO
 		return false
 	end
@@ -152,29 +152,29 @@ function TypeFunction:assumeIncludeAtom(vAssumeSet, vRight)
 	end
 end
 
-function TypeFunction:getParTuple():Ret(clazz.UTypeTuple)
+function TypedFunction:getParTuple():Ret(clazz.UTypeTuple)
 	self:_buildRetTuples()
 	return self._parTuple
 end
 
-function TypeFunction:getRetTuples():Ret(clazz.RetTuples)
+function TypedFunction:getRetTuples():Ret(clazz.RetTuples)
 	return self:_buildRetTuples()
 end
 
-function TypeFunction:fnPartType()
+function TypedFunction:fnPartType()
 	return self
 end
 
-function TypeFunction:mayRecursive()
+function TypedFunction:mayRecursive()
 	return true
 end
 
-function TypeFunction:isSingleton()
+function TypedFunction:isSingleton()
 	return false
 end
 
-function TypeFunction:getFnAwait():Ret(clazz.TypeFunction)
+function TypedFunction:getFnAwait():Ret(clazz.TypedFunction)
 	return self
 end
 
-return TypeFunction
+return TypedFunction

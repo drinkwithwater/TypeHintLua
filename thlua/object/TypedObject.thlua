@@ -13,9 +13,9 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const MetaObject = class@<clazz.MetaObject, false>(BaseObject)
+const TypedObject = class@<clazz.TypedObject, false>(BaseObject)
 
-function.open MetaObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType))
+function.open TypedObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vKeyRefer:clazz.UnionReferCom, vNextKey:OrFalse(clazz.UAllType))
 	self._node=vNode
 	self._keyRefer=vKeyRefer
 	self._memberDict=false@OrFalse(clazz.MemberDict)
@@ -23,17 +23,17 @@ function.open MetaObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, 
 	self._nextValue=false@OrFalse(clazz.UAtomUnion)
 	self._nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion)
 	self._metaEventCom=false@OrFalse(clazz.MetaEventCom)
-	self._intersectSet={}@Dict(clazz.MetaObject, True)
+	self._intersectSet={}@Dict(clazz.TypedObject, True)
 	self.bits=TYPE_BITS.OBJECT
 end
 
-function MetaObject:lateInit(vIntersectSet:Dict(clazz.MetaObject,True), vMemberDict:clazz.MemberDict, vMetaEventCom:OrFalse(clazz.MetaEventCom))
+function TypedObject:lateInit(vIntersectSet:Dict(clazz.TypedObject,True), vMemberDict:clazz.MemberDict, vMetaEventCom:OrFalse(clazz.MetaEventCom))
 	self._intersectSet = vIntersectSet
 	self._metaEventCom = vMetaEventCom
 	self._memberDict = vMemberDict
 end
 
-function MetaObject:lateCheck()
+function TypedObject:lateCheck()
 	const nNextKey = self._nextKey
 	const nMemberDict = assert(self._memberDict, "member dict must existed here")
 	if nNextKey then
@@ -48,7 +48,7 @@ function MetaObject:lateCheck()
 	end
 end
 
-function MetaObject:_everyWith(vRightObject:clazz.MetaObject, vFunc:Fn(clazz.IAtomType, clazz.UAllType, Boolean):Ret(Boolean)):Ret(Boolean)
+function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.IAtomType, clazz.UAllType, Boolean):Ret(Boolean)):Ret(Boolean)
 	const nMemberDict = self:getMemberDict()
 	for nLeftKey, nLeftValue in pairs(nMemberDict) do
 		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue, false) then
@@ -70,11 +70,11 @@ function MetaObject:_everyWith(vRightObject:clazz.MetaObject, vFunc:Fn(clazz.IAt
 	return true
 end
 
-function.pass MetaObject:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.MetaObject):Ret(Boolean)
+function.pass TypedObject:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.TypedObject):Ret(Boolean)
 	error("assume include Object not implement")
 end
 
-function MetaObject:assumeIncludeAtom(vAssumeSet, vRightType)
+function TypedObject:assumeIncludeAtom(vAssumeSet, vRightType)
 	local nRightStruct = vRightType:checkBaseObjectType()
 	if not nRightStruct then
 		return false
@@ -108,7 +108,7 @@ function MetaObject:assumeIncludeAtom(vAssumeSet, vRightType)
 	end
 end
 
-function MetaObject:meta_len(vContext)
+function TypedObject:meta_len(vContext)
 	const nCom = self:getMetaEventCom()
 	if nCom then
 		const nType = nCom:getLenType()
@@ -120,20 +120,20 @@ function MetaObject:meta_len(vContext)
 	return self._manager.type.Integer
 end
 
-function MetaObject:meta_uop_some(vContext, vOper)
+function TypedObject:meta_uop_some(vContext, vOper)
 	vContext:error("other oper invalid:"..tostring(vOper))
 	return self._manager.type.Never
 end
 
-function MetaObject:meta_pairs(vContext)
+function TypedObject:meta_pairs(vContext)
 	return false
 end
 
-function MetaObject:meta_ipairs(vContext)
+function TypedObject:meta_ipairs(vContext)
 	return false
 end
 
-function MetaObject:native_next(vContext, vInitType)
+function TypedObject:native_next(vContext, vInitType)
 	const nMemberDict = self:getMemberDict()
 	const nNextKey = self._nextKey
 	const nNil = self._manager.type.Nil
@@ -165,11 +165,11 @@ function MetaObject:native_next(vContext, vInitType)
 	return nNextValue, nNextDict
 end
 
-function MetaObject:isSingleton()
+function TypedObject:isSingleton()
 	return false
 end
 
-function MetaObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UMemberAllType):Ret(False)
+function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UMemberAllType):Ret(False)
 	const nKey = self._keyRefer:getTypeAwait():includeAtom(vType)
 	if nKey then
 		return nKey, assert(self._memberDict)[nKey]!
@@ -178,12 +178,12 @@ function MetaObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, 
 	end
 end
 
-function MetaObject:meta_get(vContext, vType)
+function TypedObject:meta_get(vContext, vType)
 	const nRet = self:_meta_get(vContext, vType, false)
 	vContext:pushFirstAndTuple(nRet)
 end
 
-function MetaObject:_meta_get(vContext:clazz.OperContext, vType:clazz.IAtomType, vIsInvoke:Boolean):Ret(clazz.UAtomUnion)
+function TypedObject:_meta_get(vContext:clazz.OperContext, vType:clazz.IAtomType, vIsInvoke:Boolean):Ret(clazz.UAtomUnion)
 	const nKey, nGetValue = self:_keyIncludeAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
@@ -200,12 +200,12 @@ function MetaObject:_meta_get(vContext:clazz.OperContext, vType:clazz.IAtomType,
 	end
 end
 
-function MetaObject:native_rawget(vContext, vKeyType)
+function TypedObject:native_rawget(vContext, vKeyType)
 	vContext:warn("abstract object take rawget")
 	return self:_meta_get(vContext, vKeyType, false)
 end
 
-function MetaObject:meta_bop_func(vContext, vOper)
+function TypedObject:meta_bop_func(vContext, vOper)
 	local nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
 	const nCom = self:getMetaEventCom()
 	if nCom then
@@ -217,7 +217,7 @@ function MetaObject:meta_bop_func(vContext, vOper)
 	return false, nil
 end
 
-function MetaObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
+function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
 	const nKey, nValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
 		if MemberFunction.is(nValue) then
@@ -230,8 +230,8 @@ function MetaObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz
 	end
 end
 
-function MetaObject:detailString(vToStringCache, vVerbose)
-	return "MetaObject..."
+function TypedObject:detailString(vToStringCache, vVerbose)
+	return "TypedObject..."
 	--[[
 	local nRefer = self._referCom
 	if nRefer then
@@ -261,12 +261,12 @@ function MetaObject:detailString(vToStringCache, vVerbose)
 	return nResult]]
 end
 
-function MetaObject:getMemberDict():Ret(clazz.MemberDict)
+function TypedObject:getMemberDict():Ret(clazz.MemberDict)
 	self._keyRefer:getListAwait()
 	return (assert(self._memberDict, "member list is not setted after waiting"))
 end
 
-function MetaObject:copyValueDict(vSelfObject:OrNil(clazz.SealTable, clazz.MetaObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
+function TypedObject:copyValueDict(vSelfObject:OrNil(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
 	const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 	for k,v in pairs(self:getMemberDict()) do
 		if not MemberFunction.is(v) then
@@ -279,32 +279,32 @@ function MetaObject:copyValueDict(vSelfObject:OrNil(clazz.SealTable, clazz.MetaO
 	return nValueDict
 end
 
-function MetaObject:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
+function TypedObject:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	self._keyRefer:getListAwait()
 	return self._metaEventCom
 end
 
-function MetaObject:getKeyTypes():Ret(clazz.UnionReferCom, OrFalse(clazz.UAllType))
+function TypedObject:getKeyTypes():Ret(clazz.UnionReferCom, OrFalse(clazz.UAllType))
 	return self._keyRefer, self._nextKey
 end
 
-function MetaObject:checkBaseObjectType()
+function TypedObject:checkBaseObjectType()
 	return self
 end
 
-function MetaObject:native_type()
+function TypedObject:native_type()
 	return self._manager:Literal("table")
 end
 
-function MetaObject:objectPartType()
+function TypedObject:objectPartType()
 	return self
 end
 
-function MetaObject:mayRecursive()
+function TypedObject:mayRecursive()
 	return true
 end
 
-function MetaObject:getCompletion():Ret(clazz.LspCompletion)
+function TypedObject:getCompletion():Ret(clazz.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyRefer:foreachAwait(function(vType)
 		if StringLiteral.is(vType) then
@@ -314,4 +314,4 @@ function MetaObject:getCompletion():Ret(clazz.LspCompletion)
 	return nDict
 end
 
-return MetaObject
+return TypedObject

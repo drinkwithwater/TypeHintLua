@@ -2,14 +2,14 @@
 const Reference = require "thlua.refer.Reference"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
-const TypeFunction = require "thlua.func.TypeFunction"
+const TypedFunction = require "thlua.func.TypedFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.MetaFnField = Struct {
-		typeFn=OrNil(clazz.TypeFunction),
+		typeFn=OrNil(clazz.TypedFunction),
 		autoFn=OrNil(clazz.AutoFunction),
 	}
 end)
@@ -17,7 +17,7 @@ end)
 const MetaEventCom = {}
 MetaEventCom.__index=MetaEventCom
 
-function:class(clazz.MetaEventCom) MetaEventCom.new(vManager:clazz.TypeManager, vSelfType:Union(clazz.SealTable, clazz.MetaObject))
+function:class(clazz.MetaEventCom) MetaEventCom.new(vManager:clazz.TypeManager, vSelfType:Union(clazz.SealTable, clazz.TypedObject))
 	const self = setmetatable({.class
 		_manager=vManager,
 		_selfType=vSelfType,
@@ -39,7 +39,7 @@ function:class(clazz.MetaEventCom) MetaEventCom.new(vManager:clazz.TypeManager, 
 	return self
 end
 
-function MetaEventCom:getBopFunc(vBopEvent:String):Ret(OrNil(clazz.TypeFunction))
+function MetaEventCom:getBopFunc(vBopEvent:String):Ret(OrNil(clazz.TypedFunction))
 	const nField = self._bopDict[vBopEvent]
 	return nField and (nField.typeFn or nField.autoFn!:getFnAwait())
 end
@@ -48,17 +48,17 @@ function MetaEventCom:getLenType():Ret(OrFalse(clazz.UAtomUnion))
 	return self._uopLen
 end
 
-function MetaEventCom:getPairsFunc():Ret(OrFalse(clazz.TypeFunction))
+function MetaEventCom:getPairsFunc():Ret(OrFalse(clazz.TypedFunction))
 	const nField = self._pairs
 	return nField and (nField.typeFn or nField.autoFn!:getFnAwait())
 end
 
 const function buildFieldFromFn(vContext:clazz.OperContext, vEvent:String, vMethodFn:clazz.UAtomUnion,
-	vTypeFnOrNil:OrNil(clazz.TypeFunction)):Ret(OrNil(MetaFnField))
+	vTypeFnOrNil:OrNil(clazz.TypedFunction)):Ret(OrNil(MetaFnField))
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
 		return nil
-	elseif TypeFunction.is(vMethodFn) then
+	elseif TypedFunction.is(vMethodFn) then
 		return {
 			typeFn=vMethodFn
 		}
@@ -129,7 +129,7 @@ const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UAllType
 	if Reference.is(vTypeFn) then
 		vTypeFn = vTypeFn:waitTypeCom():getTypeAwait()
 	end
-	if not TypeFunction.is(vTypeFn) then
+	if not TypedFunction.is(vTypeFn) then
 		error("meta field "..vEvent.." must be single type-function")
 	else
 		return {

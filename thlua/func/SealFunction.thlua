@@ -23,7 +23,7 @@ function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode
 	self._headFinishEvent=nTask:makeEvent()
 	self._bodyStartEvent=nTask:makeWildEvent()
 	self._bodyFinishEvent=nTask:makeEvent()
-	self._typeFn=false@OrFalse(clazz.TypeFunction)
+	self._typeFn=false@OrFalse(clazz.TypedFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
 end
 
@@ -32,7 +32,7 @@ function SealFunction:meta_call(vContext, vTermTuple)
 	return nTypeFn:meta_call(vContext, vTermTuple)
 end
 
-function SealFunction:getFnAwait():Ret(clazz.TypeFunction)
+function SealFunction:getFnAwait():Ret(clazz.TypedFunction)
 	if not self._typeFn then
 		self._headStartEvent:wakeup()
 		self._headFinishEvent:wait()
@@ -56,7 +56,7 @@ function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function SealFunction:buildAsync(vRunner:Fn():Ret(OrFalse(clazz.TypeFunction), Fn():Ret(clazz.TypeFunction)))
+function SealFunction:buildAsync(vRunner:Fn():Ret(OrFalse(clazz.TypedFunction), Fn():Ret(clazz.TypedFunction)))
 	self._task:runAsync(function()
 		self._headStartEvent:wait()
 		const nTypeFn, nLateRunner = vRunner()

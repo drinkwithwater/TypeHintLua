@@ -2,7 +2,7 @@
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
 const BaseTable = require "thlua.object.BaseTable"
-const MetaObject = require "thlua.object.MetaObject"
+const TypedObject = require "thlua.object.TypedObject"
 const Truth = require "thlua.type.Truth"
 
 const ObjectUnion = UnionClass()
@@ -12,7 +12,7 @@ const ObjectUnion = UnionClass()
 function:class(clazz.ObjectUnion) ObjectUnion.new(vManager:clazz.TypeManager):impl(clazz.IUnionType)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_structDict={} @Dict(clazz.MetaObject, True),
+		_structDict={} @Dict(clazz.TypedObject, True),
 		_luaTableDict={} @Dict(clazz.BaseTable, True),
 		bits=TYPE_BITS.OBJECT,
 		id=0@Integer,
@@ -33,7 +33,7 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 	if self:includeAtom(vType) then
 		return
 	end
-	if MetaObject.is(vType) then
+	if TypedObject.is(vType) then
 		-- delete small lua table
 		const nDeleteList1:List(clazz.BaseTable) = {}
 		for nBaseTable, _ in pairs(self._luaTableDict) do
@@ -45,7 +45,7 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 			self._luaTableDict[nBaseTable] = nil
 		end
 		-- delete small struct
-		const nDeleteList2:List(clazz.MetaObject) = {}
+		const nDeleteList2:List(clazz.TypedObject) = {}
 		for nStruct, _ in pairs(self._structDict) do
 			if vType:includeAtom(nStruct) then
 				nDeleteList2[#nDeleteList2 + 1] = nStruct
@@ -76,7 +76,7 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
 		return self
 	end
-	if not MetaObject.is(vType) and not BaseTable.is(vType) then
+	if not TypedObject.is(vType) and not BaseTable.is(vType) then
 		return false
 	end
 	const nCollection = self._manager:TypeCollection()

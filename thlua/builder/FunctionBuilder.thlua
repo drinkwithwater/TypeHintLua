@@ -4,7 +4,7 @@ const AutoFunction = require "thlua.func.AutoFunction"
 const Reference = require "thlua.refer.Reference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
-const MetaObject = require "thlua.object.MetaObject"
+const TypedObject = require "thlua.object.TypedObject"
 const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.func.ClassFactory"
 const ClassTable = require "thlua.object.ClassTable"
@@ -82,7 +82,7 @@ function FunctionBuilder:_makeRetTuples(
 	vTypeList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
 ):Ret(OrFalse(clazz.RetTuples))
-	local nFakeFn:OrFalse(clazz.TypeFunction) = false
+	local nFakeFn:OrFalse(clazz.TypedFunction) = false
 	const ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
 			error("extends can only be used with function:class")
@@ -153,13 +153,13 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 				end
 			end
 			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples())
-			const nPreTypeFn = nParTuple and nRetTuples and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
+			const nPreTypeFn = nParTuple and nRetTuples and self._manager:TypedFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
 				if self._pass then
 					if not nParTuple or not nRetTuples then
 						error("pass function can't take auto return or auto parameter")
 					end
-					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+					return nPreTypeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 				else
 					const nRetTermTuple = nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
@@ -172,7 +172,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 						nNewStack:error("auto return deduce failed")
 						error("auto return deduce failed")
 					end
-					return nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+					return nPreTypeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 				end
 			end
 		end)
@@ -252,7 +252,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
-		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.MetaObject)
+		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.TypedObject)
 			local nImplementsArg:OrNil(clazz.UAllType) = nil
 			local nExtendsArg:OrNil(clazz.UAllType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
@@ -301,13 +301,13 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 				if nType:isUnion() then
 					error("interface can't be union")
 				end
-				if MetaObject.is(nType) then
+				if TypedObject.is(nType) then
 					nImplementsInterface = nType
 				else
 					if nType == self._manager.type.False or nType == self._manager.type.Nil then
 						-- false or nil means no interface
 					else
-						error("interface type must be MetaObject")
+						error("interface type must be TypedObject")
 					end
 				end
 			end
@@ -330,7 +330,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			const nParTermTuple = nGenParam(false)
 			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassTable))
 			const nParTuple = nParTermTuple:checkTypeTuple()
-			const nPreTypeFn = nParTuple and self._manager:TypeFunction(self._node, nParTuple, nRetTuples) or false
+			const nPreTypeFn = nParTuple and self._manager:TypedFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
 				nNewStack:setClassTable(nClassTable)
 				nGenFunc()
@@ -339,7 +339,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 					nNewStack:error("auto parameter deduce failed")
 					error("auto parameter deduce failed")
 				end
-				const nRetTypeFn = nPreTypeFn or self._manager:TypeFunction(self._node, nParTuple, nRetTuples)
+				const nRetTypeFn = nPreTypeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 				nFactory:wakeupTableBuild()
 				return nRetTypeFn
 			end
