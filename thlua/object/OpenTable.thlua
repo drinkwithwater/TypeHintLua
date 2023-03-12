@@ -5,6 +5,7 @@ const BaseFunction = require "thlua.func.BaseFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 
 const BaseTable = require "thlua.object.BaseTable"
+const BaseObject = require "thlua.object.BaseObject"
 const class = require "thlua.class"
 
 (@do
@@ -24,7 +25,7 @@ function.open OpenTable:ctor(vManager:clazz.TypeManager)
 	self._newIndexType=false@OrFalse(clazz.IAtomType)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
-	self._metaTable=false@OrFalse(clazz.BaseTable)
+	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
 end
 
 function OpenTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
@@ -55,11 +56,11 @@ function OpenTable:native_setmetatable(vContext, vMetaTableType)
 		return
 	end
 	self._metaTable = vMetaTableType
-	-- 1. copyout meta event items
-	assert(not self._metaEventCom, "meta event has been setted")
-	const nMetaEventCom = self._manager:makeMetaEventCom(self)
-	nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
-	self._metaEventCom = nMetaEventCom
+	-- TODO, opentable don't allow meta event except index & newindex, check other fields
+	--assert(not self._metaEventCom, "meta event has been setted")
+	--const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	--nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
+	--self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
@@ -96,7 +97,7 @@ function OpenTable:meta_set(vContext, vKeyType, vValueType)
 			})
 			nNewIndexType:meta_call(vContext, nTermTuple)
 			return
-		elseif BaseTable.is(nNewIndexType) then
+		elseif BaseObject.is(nNewIndexType) then
 			nNewIndexType:meta_set(vContext, vKeyType, vValueType)
 			return
 		end
@@ -116,7 +117,7 @@ function OpenTable:meta_get(vContext, vKeyType)
 		if BaseFunction.is(nIndexType) then
 			const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
 			nIndexType:meta_call(vContext, nTermTuple)
-		elseif BaseTable.is(nIndexType) then
+		elseif BaseObject.is(nIndexType) then
 			nIndexType:meta_get(vContext, vKeyType)
 		end
 		vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
@@ -204,13 +205,14 @@ function OpenTable:native_next(vContext, vInitType)
 end
 
 function OpenTable:meta_pairs(vContext)
+	--[[
 	const nCom = self._metaEventCom
 	if nCom then
 		const nPairsFn = nCom:getPairsFunc()
 		if nPairsFn then
 			vContext:error("TODO:open table use __pairs as meta field")
 		end
-	end
+	end]]
 	return false
 end
 
