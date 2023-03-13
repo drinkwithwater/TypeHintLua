@@ -1,0 +1,61 @@
+
+	-- not open
+const function test()
+	const function dosth(a:Integer)
+	end
+	dosth("fdsfsd") --E
+end
+
+const function test()
+	const function dosth(a:String, b:Integer)
+	end
+	dosth("fdsfsd", "fdsfs") --E
+	const function outer(...:Integer)
+		dosth(...) --E
+	end
+end
+
+const function test()
+	const function dosth(...:Integer)
+	end
+	dosth()
+	dosth("fdsfs") --E
+	dosth(nil, 321) --E
+	dosth(321, 321, nil)
+	const function outer(...:Integer)
+		dosth(321, ...)
+		dosth(..., 321)
+	end
+end
+
+const function test()
+	const function dosth(a:String, b:Integer, ...:Integer)
+	end
+	dosth("fsfs", 321, 321, 321)
+	dosth(321, "fsfs", 321, 321) --E
+	const function outer(...:Integer)
+		dosth("fdfdsfs", ...)
+		dosth(...) --E
+		dosth("fdsfs", 321,321,321, ...)
+	end
+end
+
+	-- open
+
+const function test()
+	const function.open openfn(...)
+		const function dosth(a:Integer, b:Integer)
+		end
+		dosth(...) --E
+		const function dosth(a:Integer, b:Integer, c:Integer)
+		end
+		dosth(...)
+		const function dosth(a:Integer, b:Integer, c:Integer, d:Integer)
+		end
+		dosth(...) --E
+		const function dosth(a:Integer, b:Integer, c:Integer, d:OrNil(Integer))
+		end
+		dosth(...)
+	end
+	openfn(1,2,3)
+end

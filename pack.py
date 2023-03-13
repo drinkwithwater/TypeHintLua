@@ -86,6 +86,21 @@ class Packer(object):
             content = "".join(l)
             fo.write(content)
 
+    def buildForVSC(self):
+        l = [HEAD]
+        self.pathContentList.sort()
+        for path, content in self.pathContentList:
+            l.append(TEMPLATE.format(path=path,content=content))
+        l.append("""
+            local boot = require "thlua.boot"
+            local f = io.open("d:/log.txt", "w")
+            boot.runServer(f)
+        """)
+        with open("3rd/vscode-lsp/server/thlua.lua", "w") as fo:
+            content = "".join(l)
+            fo.write(content)
+
 packer = Packer()
 packer.scanRoot()
 packer.build()
+packer.buildForVSC()
