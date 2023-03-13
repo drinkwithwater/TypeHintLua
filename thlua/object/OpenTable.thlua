@@ -3,6 +3,7 @@ const StringLiteral = require "thlua.type.StringLiteral"
 const TypedObject = require "thlua.object.TypedObject"
 const BaseFunction = require "thlua.func.BaseFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
+const Nil = require "thlua.type.Nil"
 
 const BaseObject = require "thlua.object.BaseObject"
 const class = require "thlua.class"
@@ -20,8 +21,8 @@ const OpenTable = class@<clazz.OpenTable, false>(BaseObject)
 function.open OpenTable:ctor(vManager:clazz.TypeManager, ...)
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
 	self._fieldDict={}@Dict(clazz.IAtomType, OpenTableField)
-	self._indexType=false@OrFalse(clazz.IAtomType)
-	self._newIndexType=false@OrFalse(clazz.IAtomType)
+	self._metaIndex=false@OrFalse(clazz.BaseFunction, clazz.BaseObject)
+	self._metaNewIndex=false@OrFalse(clazz.BaseFunction, clazz.BaseObject)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
@@ -71,13 +72,28 @@ function OpenTable:native_setmetatable(vContext, vMetaTableType)
 	--self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
 	local nManager = self._manager
+	-- 3. meta index
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
+	if nIndexType:isUnion() then
+		vContext:error("open table's __index can't be union type")
+	else
+		if BaseFunction.is(nIndexType) or BaseObject.is(nIndexType) then
+			self._metaIndex = nIndexType
+		elseif not Nil.is(nIndexType) then
+			vContext:error("open table's __index must be object or function or nil")
+		end
+	end
+	-- 4. meta newindex
 	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
-	-- 3. set default com
-	self:setMetaIndex(
-		vContext,
-		not nIndexType:isNever() and nIndexType or false,
-		not nNewIndexType:isNever() and nNewIndexType or false)
+	if nNewIndexType:isUnion() then
+		vContext:error("open table's __newindex can't be union type")
+	else
+		if BaseFunction.is(nNewIndexType) or BaseObject.is(nNewIndexType) then
+			self._metaNewIndex = nNewIndexType
+		elseif not Nil.is(nNewIndexType) then
+			vContext:error("open table's __newindex must be object or function or nil")
+		end
+	end
 end
 
 function OpenTable:meta_set(vContext, vKeyType, vValueType)
@@ -96,14 +112,14 @@ function OpenTable:meta_set(vContext, vKeyType, vValueType)
 					nField.valueType = vValueType
 				end
 			else
-				const nNewIndexType = self._newIndexType
-				if BaseFunction.is(nNewIndexType) then
+				const nMetaNewIndex = self._metaNewIndex
+				if BaseFunction.is(nMetaNewIndex) then
 					const nTermTuple = vContext:FixedTermTuple({
 						vContext:RefineTerm(self), vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType)
 					})
-					nNewIndexType:meta_call(vContext, nTermTuple)
-				elseif BaseObject.is(nNewIndexType) then
-					nNewIndexType:meta_set(vContext, vKeyType, vValueType)
+					nMetaNewIndex:meta_call(vContext, nTermTuple)
+				elseif BaseObject.is(nMetaNewIndex) then
+					nMetaNewIndex:meta_set(vContext, vKeyType, vValueType)
 				else
 					self:native_rawset(vContext, vKeyType, vValueType)
 				end
@@ -127,12 +143,12 @@ function OpenTable:meta_get(vContext, vKeyType)
 			nField.lockCtx = vContext
 			vContext:pushFirstAndTuple(nField.valueType)
 		else
-			const nIndexType = self._indexType
-			if BaseFunction.is(nIndexType) then
+			const nMetaIndex = self._metaIndex
+			if BaseFunction.is(nMetaIndex) then
 				const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
-				nIndexType:meta_call(vContext, nTermTuple)
-			elseif BaseObject.is(nIndexType) then
-				nIndexType:meta_get(vContext, vKeyType)
+				nMetaIndex:meta_call(vContext, nTermTuple)
+			elseif BaseObject.is(nMetaIndex) then
+				nMetaIndex:meta_get(vContext, vKeyType)
 			else
 				vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
 			end
@@ -180,23 +196,6 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 			lockCtx=vContext
 		}
 		return nNil
-	end
-end
-
-function OpenTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(clazz.UAtomUnion), vNewIndexType:OrFalse(clazz.UAtomUnion))
-	if vIndexType then
-		if not vIndexType:isUnion() then
-			self._indexType = vIndexType
-		else
-			vContext:error("open table's __index can't be union type")
-		end
-	end
-	if vNewIndexType then
-		if not vNewIndexType:isUnion() then
-			self._newIndexType = vNewIndexType
-		else
-			vContext:error("open table's __newindex can't be union type")
-		end
 	end
 end
 

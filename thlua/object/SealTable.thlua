@@ -15,8 +15,6 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.TableField = Struct {
 		rawValueType = clazz.UAtomUnion,
-		castValueType = OrFalse(clazz.UAtomUnion),
-		kind = Union("property", "getter"),
 	}
 end)
 
@@ -28,7 +26,7 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
-	self._indexType=false@OrFalse(clazz.IAtomType)
+	self._metaIndex=false@OrFalse(clazz.IAtomType)
 	self._newIndexType=false@OrFalse(clazz.IAtomType)
 end
 
@@ -45,8 +43,6 @@ function SealTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(cla
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
 			rawValueType = v,
-			castValueType = false,
-			kind = "property",
 		}
 	end
 end
@@ -85,7 +81,7 @@ function SealTable:meta_set(vContext, vKeyType, vValueType)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nTableField = self._fieldDict[nKeyIncludeType]!
-		const nFieldType = nTableField.castValueType or nTableField.rawValueType
+		const nFieldType = nTableField.rawValueType
 		if not nFieldType:includeAll(vValueType) then
 			vContext:error("wrong value type when set key:"..tostring(nKeyIncludeType))
 		end
@@ -100,11 +96,11 @@ function SealTable:meta_get(vContext, vKeyType)
 	self:ctxWait(vContext)
 	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
 		const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
-		const nIndexType = self._indexType
+		const nIndexType = self._metaIndex
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
-			const nValueType = nField.castValueType or nField.rawValueType
+			const nValueType = nField.rawValueType
 			if nValueType:isNilable() then
 				nTrigger = NIL_TRIGGER
 				if nIndexType then
@@ -123,7 +119,7 @@ function SealTable:meta_get(vContext, vKeyType)
 			else
 				nInterType:foreach(function(vKeyAtom)
 					const nField = self._fieldDict[vKeyAtom]!
-					const nValueType = nField.castValueType or nField.rawValueType
+					const nValueType = nField.rawValueType
 					if nIndexType then
 						vContext:pushFirstAndTuple(nValueType:notnilType())
 					else
@@ -160,15 +156,13 @@ function SealTable:native_rawset(vContext, vKeyType, vValueType)
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
 				rawValueType = vValueType,
-				castValueType = false,
-				kind = "property",
 			}
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
 		end
 	else
 		const nTableField = self._fieldDict[nIncludeType]!
-		const nFieldType = nTableField.castValueType or nTableField.rawValueType
+		const nFieldType = nTableField.rawValueType
 		if not nFieldType:includeAll(vValueType) then
 			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
@@ -180,7 +174,7 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
-		return nField.castValueType or nField.rawValueType
+		return nField.rawValueType
 	else
 		return self._manager.type.Nil
 	end
@@ -226,76 +220,7 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 		vContext:info("TODO, impl interface if setmetatable without index")
 		return
 	end
-	self._indexType = vIndexType
-	--[[
-	const nNever = self._manager.type.Never
-	const nSelfKey, nSelfFieldDict = self._keyType, self._fieldDict
-	const nMergedKeyType = self._manager:checkedUnion(nMetaIndexKeyType, nSelfKey)
-	const nFinalFieldDict:Dict(clazz.IAtomType, TableField) = {}
-	nMergedKeyType:foreach(function(vKeyAtom)
-		const nSelfInter = nSelfKey:intersectAtom(vKeyAtom) or nNever
-		const nMetaInter = nMetaIndexKeyType:intersectAtom(vKeyAtom) or nNever
-		assert(type(nSelfInter) == "table")
-		assert(type(nMetaInter) == "table")
-		local nSetter = false
-		local nFnCount = 0
-		local nMfnCount = 0
-		local nNotFnCount = 0
-		local nSelfIsNilable = false
-		const nCollection = self._manager:TypeCollection()
-		nSelfInter:foreach(function(vAtom)
-			const nValue = nSelfFieldDict[vAtom]!.rawValueType
-			nCollection:put(nValue)
-			nSelfIsNilable = nSelfIsNilable or nValue:isNilable()
-			nSetter = true
-			if BaseFunction.is(nValue) then
-				nFnCount = nFnCount + 1
-				if nValue:isMember() then
-					nMfnCount = nMfnCount + 1
-				end
-			else
-				nNotFnCount = nNotFnCount + 1
-			end
-		end)
-		if not nSelfInter:includeAll(nMetaInter) or nSelfIsNilable then
-			local nMetaIsNilable = false
-			nMetaInter:foreach(function(vAtom)
-				const nValue = nMetaIndexValueDict[vAtom]!
-				nMetaIsNilable = nMetaIsNilable or nValue:isNilable()
-				nCollection:put(nValue)
-				if BaseFunction.is(nValue) then
-					nFnCount = nFnCount + 1
-					if nValue:isMember() then
-						nMfnCount = nMfnCount + 1
-					end
-				else
-					nNotFnCount = nNotFnCount + 1
-				end
-			end)
-			const nFinalNilable = nMetaIsNilable or not nMetaInter:includeAll(nSelfInter)
-			const nMergedValueType = nCollection:mergeToAtomUnion()
-			nFinalFieldDict[vKeyAtom] = {
-				rawValueType = nFinalNilable and nMergedValueType or nMergedValueType:notnilType(),
-				castValueType = false,
-				kind = nSetter and "property" or "getter",
-			}
-		else
-			nFinalFieldDict[vKeyAtom] = {
-				rawValueType = nCollection:mergeToAtomUnion(),
-				castValueType = false,
-				kind = nSetter and "property" or "getter",
-			}
-		end
-		if nFnCount > 0 then
-			if nNotFnCount > 0 then
-				vContext:error("mix function and other type when setmetatable, key="..tostring(vKeyAtom))
-			elseif nMfnCount > 0 and nFnCount ~= nMfnCount then
-				vContext:error("mix member function and normal function when setmetatable, key="..tostring(vKeyAtom))
-			end
-		end
-	end)
-	self._fieldDict = nFinalFieldDict
-	self._keyType = nMergedKeyType]]
+	self._metaIndex = vIndexType
 end
 
 function SealTable:native_next(vContext, vInitType)
@@ -305,19 +230,15 @@ function SealTable:native_next(vContext, vInitType)
 	if not nNextDict or not nValueType then
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
-			if nField.kind == "property" then
-				nNextDict[nKeyAtom] = nField.castValueType or nField.rawValueType
-			end
+			nNextDict[nKeyAtom] = nField.rawValueType
 		end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
-			if nOneField.kind == "property" then
-				const nValueType = nOneField.castValueType or nOneField.rawValueType
-				const nNotnilType = nValueType:notnilType()
-				nNextDict[nOneKey] = nNotnilType
-				nCollection:put(nNotnilType)
-			end
+			const nValueType = nOneField.rawValueType
+			const nNotnilType = nValueType:notnilType()
+			nNextDict[nOneKey] = nNotnilType
+			nCollection:put(nNotnilType)
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
