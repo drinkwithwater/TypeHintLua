@@ -81,62 +81,69 @@ function OpenTable:native_setmetatable(vContext, vMetaTableType)
 end
 
 function OpenTable:meta_set(vContext, vKeyType, vValueType)
-	if not vKeyType:isSingleton() then
-		vContext:error("open table's key must be singleton type")
-		return
-	end
-	if vKeyType:isNilable() then
-		vContext:error("open table's key can't be nil")
-		return
-	end
-	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
-	if nKeyIncludeType then
-		const nField = self._fieldDict[nKeyIncludeType]!
-		if nField.lockCtx then
-			vContext:error("field is locked"..tostring(vKeyType))
+	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
+		if not vKeyType:isSingleton() then
+			vContext:error("open table's key must be singleton type")
+		elseif vKeyType:isNilable() then
+			vContext:error("open table's key can't be nil")
 		else
-			nField.valueType = vValueType
-		end
-	else
-		const nNewIndexType = self._newIndexType
-		if BaseFunction.is(nNewIndexType) then
-			const nTermTuple = vContext:FixedTermTuple({
-				vContext:RefineTerm(self), vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType)
-			})
-			nNewIndexType:meta_call(vContext, nTermTuple)
-			return
-		elseif BaseObject.is(nNewIndexType) then
-			if vContext:testAndSetRecursiveChain(self, nNewIndexType) then
-				error("opentable's __newindex chain recursive")
+			const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+			if nKeyIncludeType then
+				const nField = self._fieldDict[nKeyIncludeType]!
+				if nField.lockCtx then
+					vContext:error("field is locked"..tostring(vKeyType))
+				else
+					nField.valueType = vValueType
+				end
+			else
+				const nNewIndexType = self._newIndexType
+				if BaseFunction.is(nNewIndexType) then
+					const nTermTuple = vContext:FixedTermTuple({
+						vContext:RefineTerm(self), vContext:RefineTerm(vKeyType), vContext:RefineTerm(vValueType)
+					})
+					nNewIndexType:meta_call(vContext, nTermTuple)
+				elseif BaseObject.is(nNewIndexType) then
+					nNewIndexType:meta_set(vContext, vKeyType, vValueType)
+				else
+					self:native_rawset(vContext, vKeyType, vValueType)
+				end
 			end
-			nNewIndexType:meta_set(vContext, vKeyType, vValueType)
-			return
 		end
+		return true
+	end)
+	if nNotRecursive then
+		-- return Boolean?
+	else
+		error("opentable's __newindex chain recursive")
 	end
-	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
 function OpenTable:meta_get(vContext, vKeyType)
-	-- TODO trigger meta index
-	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
-	if nKeyIncludeType then
-		const nField = self._fieldDict[nKeyIncludeType]!
-		nField.lockCtx = vContext
-		vContext:pushFirstAndTuple(nField.valueType)
-	else
-		const nIndexType = self._indexType
-		if BaseFunction.is(nIndexType) then
-			const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
-			nIndexType:meta_call(vContext, nTermTuple)
-		elseif BaseObject.is(nIndexType) then
-			if vContext:testAndSetRecursiveChain(self, nIndexType) then
-				error("opentable's __index chain recursive")
+	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
+		-- TODO trigger meta index
+		const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+		if nKeyIncludeType then
+			const nField = self._fieldDict[nKeyIncludeType]!
+			nField.lockCtx = vContext
+			vContext:pushFirstAndTuple(nField.valueType)
+		else
+			const nIndexType = self._indexType
+			if BaseFunction.is(nIndexType) then
+				const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
+				nIndexType:meta_call(vContext, nTermTuple)
+			elseif BaseObject.is(nIndexType) then
+				nIndexType:meta_get(vContext, vKeyType)
+			else
+				vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
 			end
-			nIndexType:meta_get(vContext, vKeyType)
 		end
-		vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
+		return true
+	end)
+	if nNotRecursive then
+		return nOkay
+	else
+		error("opentable's __index chain recursive")
 	end
-	return true
 end
 
 function OpenTable:native_rawset(vContext, vKeyType, vValueType)

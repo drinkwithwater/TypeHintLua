@@ -12,19 +12,23 @@ end)
 const ApplyContext = class@<clazz.ApplyContext, false>(AssignContext)
 
 function.open ApplyContext:ctor(...)
-	self._curSelfChain = false @ OrFalse(Dict(clazz.IAtomType, clazz.IAtomType))
+	self._curSelfChain = false @ OrFalse(Dict(clazz.IAtomType, True))
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
+	self._curPushChain = {} @ List(clazz.IAtomType)
 end
 
-function ApplyContext:testAndSetRecursiveChain(vSelfType:clazz.IAtomType, vTriggerType:clazz.IAtomType):Ret(Boolean)
-	const nChain = assert(self._curSelfChain)
-	if nChain[vSelfType] then
-		return true
-	else
-		nChain[vSelfType] = vTriggerType
-		return false
+function ApplyContext:recursiveChainTestAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)
+	const nChain = self._curPushChain
+	for i=1, #nChain do
+		if nChain[i] == vSelfType then
+			return false
+		end
 	end
+	nChain[#nChain + 1] = vSelfType
+	const nRet = vFunc()
+	nChain[#nChain] = nil
+	return true, nRet
 end
 
 function ApplyContext:withCase(vCase:clazz.VariableCase, vFunc:Fn())
@@ -32,21 +36,6 @@ function ApplyContext:withCase(vCase:clazz.VariableCase, vFunc:Fn())
 	self._curCase = vCase
 	vFunc()
 	self._curCase = false
-	self._once = true
-end
-
-function ApplyContext:withSelfCase(vSelfType:clazz.IAtomType, vCase:clazz.VariableCase, vFunc:Fn())
-	self:withSelf(vSelfType, function()
-		self:withCase(vCase, vFunc)
-	end)
-end
-
-function ApplyContext:withSelf(vSelfType:clazz.IAtomType, vFunc:Fn())
-	assert(not self._curSelfChain)
-	const nCurSelfChain:Dict(clazz.IAtomType, clazz.IAtomType) = {}
-	self._curSelfChain = nCurSelfChain
-	vFunc()
-	self._curSelfChain = false
 	self._once = true
 end
 

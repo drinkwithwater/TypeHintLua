@@ -98,53 +98,55 @@ const NIL_TRIGGER = 1
 const NONE_TRIGGER = 2
 function SealTable:meta_get(vContext, vKeyType)
 	self:ctxWait(vContext)
-	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
-	const nIndexType = self._indexType
-	local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
-	if nKeyIncludeType then
-		const nField = self._fieldDict[nKeyIncludeType]!
-		const nValueType = nField.castValueType or nField.rawValueType
-		if nValueType:isNilable() then
-			nTrigger = NIL_TRIGGER
-			if nIndexType then
-				vContext:pushFirstAndTuple(nValueType:notnilType())
-			else
-				vContext:pushFirstAndTuple(nValueType)
-			end
-		else
-			vContext:pushFirstAndTuple(nValueType)
-		end
-	else
-		nTrigger = NONE_TRIGGER
-		const nInterType = self._keyType:safeIntersect(vKeyType)
-		if not nInterType then
-			vContext:error("unexpected intersect when table get")
-		else
-			nInterType:foreach(function(vKeyAtom)
-				const nField = self._fieldDict[vKeyAtom]!
-				const nValueType = nField.castValueType or nField.rawValueType
+	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
+		const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+		const nIndexType = self._indexType
+		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
+		if nKeyIncludeType then
+			const nField = self._fieldDict[nKeyIncludeType]!
+			const nValueType = nField.castValueType or nField.rawValueType
+			if nValueType:isNilable() then
+				nTrigger = NIL_TRIGGER
 				if nIndexType then
 					vContext:pushFirstAndTuple(nValueType:notnilType())
 				else
 					vContext:pushFirstAndTuple(nValueType)
 				end
-			end)
-		end
-		if not nIndexType then
-			vContext:pushFirstAndTuple(self._manager.type.Nil)
-		end
-	end
-	if nTrigger and nIndexType then
-		const nOkay = nIndexType:meta_get(vContext, vKeyType)
-		if nTrigger == NONE_TRIGGER then
-			return nOkay
+			else
+				vContext:pushFirstAndTuple(nValueType)
+			end
 		else
-			return true
+			nTrigger = NONE_TRIGGER
+			const nInterType = self._keyType:safeIntersect(vKeyType)
+			if not nInterType then
+				vContext:error("unexpected intersect when table get")
+			else
+				nInterType:foreach(function(vKeyAtom)
+					const nField = self._fieldDict[vKeyAtom]!
+					const nValueType = nField.castValueType or nField.rawValueType
+					if nIndexType then
+						vContext:pushFirstAndTuple(nValueType:notnilType())
+					else
+						vContext:pushFirstAndTuple(nValueType)
+					end
+				end)
+			end
+			if not nIndexType then
+				vContext:pushFirstAndTuple(self._manager.type.Nil)
+			end
 		end
-	elseif nTrigger == NONE_TRIGGER then
-		return false
+		local nOkay = nTrigger ~= NONE_TRIGGER
+		if nTrigger and nIndexType then
+			const nNextOkay = nIndexType:meta_get(vContext, vKeyType)
+			nOkay = nOkay or nNextOkay
+		end
+		return nOkay
+	end)
+	if nNotRecursive then
+		return nOkay
 	else
-		return true
+		vContext:pushFirstAndTuple(self._manager.type.Nil)
+		return false
 	end
 end
 
@@ -222,11 +224,6 @@ function SealTable:setMetaIndex(vContext:clazz.OperContext, vIndexType:OrFalse(c
 	end
 	if vIndexType:isNilable() then
 		vContext:info("TODO, impl interface if setmetatable without index")
-		return
-	end
-	const nMetaIndexKeyType, nMetaIndexValueDict = vIndexType:lockAsMetaIndex()
-	if not nMetaIndexKeyType then
-		vContext:info("use type.."..tostring(vIndexType).." as __index TODO")
 		return
 	end
 	self._indexType = vIndexType
