@@ -146,15 +146,16 @@ end
 
 function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.RefineTerm)
 	const nSrcType = vAutoTerm:getType()
+	const nDstType = vDstType:checkAtomUnion()
 	if not nSrcType then
-		vAutoTerm:setAutoCastType(self, vDstType)
+		vAutoTerm:setAutoCastType(self, nDstType)
 	else
-		if not self:castLuaType(nSrcType, vDstType) and not vDstType:includeAll(nSrcType) then
-			self:error("assign but type not match")
+		if not self:castLuaType(nSrcType, nDstType) and not nDstType:includeAll(nSrcType) then
+		  self:error("assign but type not match")
 		end
 	end
 	-- TODO, maybe add some case here?
-	return self:RefineTerm(vDstType)
+	return self:RefineTerm(nDstType)
 end
 
 function AssignContext:finish()
