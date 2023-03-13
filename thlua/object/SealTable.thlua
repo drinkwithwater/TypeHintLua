@@ -47,7 +47,7 @@ function SealTable:initByKeyValue(vKeyType:clazz.UAtomUnion, vValueDict:Dict(cla
 	end
 end
 
-function SealTable:onSetMetaTable(vContext:clazz.OperContext)
+function SealTable:onSetMetaTable(vContext:clazz.ApplyContext)
 end
 
 function SealTable:native_setmetatable(vContext, vMetaTableType)
@@ -71,7 +71,9 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 		not nIndexType:isNever() and nIndexType or false,
 		not nNewIndexType:isNever() and nNewIndexType or false)
 	-- 4. trigger on set
-	self:onSetMetaTable(vContext)
+	vContext:getStack():withNoPushContext(vContext:getNode(), function(vApplyContext)
+		self:onSetMetaTable(vApplyContext)
+	end)
 end
 
 function SealTable:meta_set(vContext, vKeyType, vValueType)
@@ -271,6 +273,36 @@ function SealTable:meta_bop_func(vContext, vOper)
 		end
 	end
 	return false, nil
+end
+
+function SealTable:memberFunctionFillSelf(vContext:clazz.ApplyContext, vSelfTable:clazz.SealTable)
+	const nNotRecursive = vContext:recursiveChainTestAndRun(self, function()
+		for _, nField in pairs(self._fieldDict) do
+			const nSelfValue = nField.rawValueType
+			if MemberFunction.is(nSelfValue) then
+				if not nSelfValue:needPolyArgs() then
+					nSelfValue:indexAutoFn(vSelfTable)
+				end
+			end
+		end
+		return true
+	end)
+	if nNotRecursive then
+		const nMetaIndex = self._metaIndex
+		if nMetaIndex then
+			if BaseObject.is(nMetaIndex) then
+				nMetaIndex:memberFunctionFillSelf(vContext, vSelfTable)
+			end
+		end
+	end
+end
+
+function SealTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
+	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	self._keyType:foreach(function(vType)
+		nDict[vType] = self._fieldDict[vType]!.rawValueType
+	end)
+	return nDict
 end
 
 function SealTable:getCompletion():Ret(clazz.LspCompletion)

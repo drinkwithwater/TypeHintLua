@@ -45,7 +45,7 @@ function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), cl
 	end)
 end
 
-function ClassTable:onSetMetaTable(vContext:clazz.OperContext)
+function ClassTable:onSetMetaTable(vContext:clazz.ApplyContext)
 	self._factory:wakeupTableBuild()
 	const nInterface = self._interface
 	if nInterface then
@@ -53,7 +53,7 @@ function ClassTable:onSetMetaTable(vContext:clazz.OperContext)
 	end
 end
 
-function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.Interface)
+function ClassTable:implInterface(vContext:clazz.ApplyContext, vInterface:clazz.Interface)
 	const nInterfaceKeyValue = vInterface:copyValueDict(self)
 	const nSelfKey = self._keyType
 	const nSelfFieldDict = self._fieldDict
@@ -73,6 +73,9 @@ function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.I
 			end
 		end
 	end
+	self:memberFunctionFillSelf(vContext, self)
+	--[[
+	const nMetaIndex = self._metaIndex
 	for _, nField in pairs(nSelfFieldDict) do
 		const nSelfValue = nField.rawValueType
 		if MemberFunction.is(nSelfValue) then
@@ -81,7 +84,7 @@ function ClassTable:implInterface(vContext:clazz.OperContext, vInterface:clazz.I
 			end
 		elseif AutoFunction.is(nSelfValue) then
 		end
-	end
+	end]]
 end
 
 function ClassTable:ctxWait(vContext:clazz.OperContext)

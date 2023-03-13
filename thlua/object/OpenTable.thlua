@@ -234,6 +234,36 @@ function OpenTable:meta_ipairs(vContext)
 	return false
 end
 
+function OpenTable:memberFunctionFillSelf(vContext:clazz.ApplyContext, vSelfTable:clazz.SealTable)
+	const nNotRecursive = vContext:recursiveChainTestAndRun(self, function()
+		for _, nField in pairs(self._fieldDict) do
+			const nSelfValue = nField.valueType
+			if MemberFunction.is(nSelfValue) then
+				if not nSelfValue:needPolyArgs() then
+					nSelfValue:indexAutoFn(vSelfTable)
+				end
+			end
+		end
+		return true
+	end)
+	if nNotRecursive then
+		const nMetaIndex = self._metaIndex
+		if nMetaIndex then
+			if BaseObject.is(nMetaIndex) then
+				nMetaIndex:memberFunctionFillSelf(vContext, vSelfTable)
+			end
+		end
+	end
+end
+
+function OpenTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
+	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	self._keyType:foreach(function(vType)
+		nDict[vType] = self._fieldDict[vType]!.valueType
+	end)
+	return nDict
+end
+
 function OpenTable:getCompletion():Ret(clazz.LspCompletion)
 	local nDict:Dict(String, True) = {}
 	self._keyType:foreach(function(vType)

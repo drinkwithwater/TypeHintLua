@@ -21,11 +21,15 @@ const AutoTable = class@<clazz.AutoTable, false>(SealTable)
 function.open AutoTable:ctor(...)
 	self._typedObject=false@OrFalse(clazz.TypedObject)
 	self._name = false @OrFalse(String)
-	self._isBasingDefault=false@Boolean
+	self._assigned = false@Boolean
 end
 
 function AutoTable:detailString(v, vVerbose)
-	return "AutoTable@"..tostring(self._node)
+	if not self._assigned then
+		return "AutoTable@castable@"..tostring(self._node)
+	else
+		return "AutoTable@"..tostring(self._node)
+	end
 end
 
 function AutoTable:setName(vName:String)
@@ -57,7 +61,7 @@ function AutoTable:cast(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UOb
 end
 
 function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.TypedObject))
-	if self._isBasingDefault then
+	if self._assigned then
 		return false
 	end
 	local nFinalMatchStruct:OrFalse(clazz.TypedObject) = false
@@ -123,8 +127,8 @@ function AutoTable:checkTypedObject()
 end
 
 function AutoTable:basingByDefault()
-	if not self._isBasingDefault then
-		self._isBasingDefault = true
+	if not self._assigned then
+		self._assigned = true
 		for k, v in pairs(self._fieldDict) do
 			self._manager:basingByDefault(v.rawValueType)
 		end
