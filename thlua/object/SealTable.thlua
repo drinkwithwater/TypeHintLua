@@ -94,20 +94,57 @@ function SealTable:meta_set(vContext, vKeyType, vValueType)
 	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
+const NIL_TRIGGER = 1
+const NONE_TRIGGER = 2
 function SealTable:meta_get(vContext, vKeyType)
 	self:ctxWait(vContext)
 	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+	const nIndexType = self._indexType
+	local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
-		vContext:pushFirstAndTuple(nField.castValueType or nField.rawValueType)
-	else
-		const nIndexType = self._indexType
-		if nIndexType then
-			nIndexType:meta_get(vContext, vKeyType)
+		const nValueType = nField.castValueType or nField.rawValueType
+		if nValueType:isNilable() then
+			nTrigger = NIL_TRIGGER
+			if nIndexType then
+				vContext:pushFirstAndTuple(nValueType:notnilType())
+			else
+				vContext:pushFirstAndTuple(nValueType)
+			end
 		else
-			vContext:error("index error, key=", tostring(vKeyType))
+			vContext:pushFirstAndTuple(nValueType)
 		end
-		--vContext:pushFirstAndTuple(self._manager.type.Nil)
+	else
+		nTrigger = NONE_TRIGGER
+		const nInterType = self._keyType:safeIntersect(vKeyType)
+		if not nInterType then
+			vContext:error("unexpected intersect when table get")
+		else
+			nInterType:foreach(function(vKeyAtom)
+				const nField = self._fieldDict[vKeyAtom]!
+				const nValueType = nField.castValueType or nField.rawValueType
+				if nIndexType then
+					vContext:pushFirstAndTuple(nValueType:notnilType())
+				else
+					vContext:pushFirstAndTuple(nValueType)
+				end
+			end)
+		end
+		if not nIndexType then
+			vContext:pushFirstAndTuple(self._manager.type.Nil)
+		end
+	end
+	if nTrigger and nIndexType then
+		const nOkay = nIndexType:meta_get(vContext, vKeyType)
+		if nTrigger == NONE_TRIGGER then
+			return nOkay
+		else
+			return true
+		end
+	elseif nTrigger == NONE_TRIGGER then
+		return false
+	else
+		return true
 	end
 end
 
