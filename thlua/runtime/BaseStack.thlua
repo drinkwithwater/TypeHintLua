@@ -120,14 +120,12 @@ end
 function BaseStack:withOnePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.RefineTerm)
 	const nCtx = OnePushContext.new(vNode, self, self._manager, vNotnil or false)
 	vFunc(nCtx)
-	nCtx:finish()
 	return nCtx:mergeFirst()
 end
 
 function BaseStack:withMorePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.UOpenReturn)
 	const nCtx = MorePushContext.new(vNode, self, self._manager)
 	vFunc(nCtx)
-	nCtx:finish()
 	return nCtx:mergeReturn()
 end
 
@@ -139,15 +137,11 @@ function BaseStack:withMorePushContextWithCase(vNode:clazz.IAstNode, vTermOrTupl
 			vFunc(nCtx, vType, vCase)
 		end)
 	end)
-	nCtx:finish()
 	return nCtx:mergeReturn()
 end
 
-function BaseStack:withNoPushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.NoPushContext))
-	const nCtx = NoPushContext.new(vNode, self, self._manager)
-	vFunc(nCtx)
-	nCtx:finish()
-	return nCtx
+function BaseStack:newNoPushContext(vNode:clazz.IAstNode)
+	return NoPushContext.new(vNode, self, self._manager)
 end
 
 function BaseStack:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)

@@ -129,10 +129,9 @@ function Runtime:main():Ret(Boolean, Nil)
 		nAutoFn:buildAsync(function()
 			return false, function()
 				const nLuaFunc = self:cacheLoadFile(self._mainFileName)
-				self._rootStack:withNoPushContext(self._node, function(vContext)
-					const nTermTuple = vContext:FixedTermTuple({})
-					nLuaFunc:meta_open_call(vContext, nTermTuple)
-				end)
+				const nNoPushContext = self._rootStack:newNoPushContext(self._node)
+				const nTermTuple = nNoPushContext:FixedTermTuple({})
+				nLuaFunc:meta_open_call(nNoPushContext, nTermTuple)
 				self._rootStack:seal()
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples()
@@ -182,12 +181,11 @@ function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
 			fn=nLuaFunc,
 		}
 		self._loadedDict[vPath] = nLoadedState
-		self._rootStack:withNoPushContext(self._node, function(vContext)
-			const nTermTuple = vContext:FixedTermTuple({})
-			const nRet, nStack = nLuaFunc:meta_open_call(vContext, nTermTuple)
-			nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(vContext, 1) or nRet:checkRefineTerm(vContext)
-			nLoadedState.stack = nStack
-		end)
+		const nContext = self._rootStack:newNoPushContext(self._node)
+		const nTermTuple = nContext:FixedTermTuple({})
+		const nRet, nStack = nLuaFunc:meta_open_call(nContext, nTermTuple)
+		nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
+		nLoadedState.stack = nStack
 	end
 	const nTerm = self._loadedDict[vPath]!.term
 	if not nTerm then

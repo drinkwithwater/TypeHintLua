@@ -22,11 +22,14 @@ function.open AutoTable:ctor(...)
 	self._typedObject=false@OrFalse(clazz.TypedObject)
 	self._name = false @OrFalse(String)
 	self._firstAssign = false@OrFalse(clazz.AssignContext)
+	self._castDict = {} @ Dict(clazz.TypedObject, True)
 end
 
 function AutoTable:detailString(v, vVerbose)
 	if not self._firstAssign then
 		return "AutoTable@castable@"..tostring(self._node)
+	elseif next(self._castDict) then
+		return "AutoTable@casted@"..tostring(self._node)
 	else
 		return "AutoTable@"..tostring(self._node)
 	end
@@ -62,7 +65,7 @@ end
 
 function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UAtomUnion):Ret(OrFalse(clazz.TypedObject))
 	if self._firstAssign then
-		vContext:error("auto table is assigned")
+		vContext:error("can't cast assigned AutoTable")
 		return false
 	end
 	local nFinalMatchStruct:OrFalse(clazz.TypedObject) = false
@@ -118,14 +121,7 @@ function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:cla
 end
 
 function AutoTable:checkTypedObject()
-	const nInterface = self._typedObject
-	if nInterface then
-		return nInterface
-	else
-		const nObject = self._manager.type.AnyObject
-		self._typedObject = nObject
-		return nObject
-	end
+	return self._manager.type.AnyObject
 end
 
 function AutoTable:isCastable()
@@ -134,6 +130,9 @@ end
 
 function AutoTable:setAssigned(vContext)
 	if not self._firstAssign then
+		if next(self._castDict) then
+			vContext:error("AutoTable is casted to some TypedObject")
+		end
 		self._firstAssign = vContext
 		for k, v in pairs(self._fieldDict) do
 			v.rawValueType:setAssigned(vContext)

@@ -35,23 +35,24 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.AutoTable)
 	const global:StringToAtomUnion = {
 		--- meta_native
 		setmetatable=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			const vContext = vStack:newAssignContext(vStack:getNode())
-			const nTerm1 = vTermTuple:checkFixed(vContext, 1)
-			local nType1 = nTerm1:getType()
-			local nType2 = vTermTuple:checkFixed(vContext, 2):getType()
-			if nType1:isUnion() or nType2:isUnion() then
-				vContext:error("setmetatable can't take union type")
-			else
-				nType1 = nType1:checkAtomUnion()
-				nType2 = nType2:checkAtomUnion()
-				if SealTable.is(nType2) or OpenTable.is(nType2) then
-					nType2:setAssigned(vContext)
-					nType1:native_setmetatable(vContext, nType2)
+			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+				const nTerm1 = vTermTuple:checkFixed(vContext, 1)
+				local nType1 = nTerm1:getType()
+				local nType2 = vTermTuple:checkFixed(vContext, 2):getType()
+				if nType1:isUnion() or nType2:isUnion() then
+					vContext:error("setmetatable can't take union type")
 				else
-					vContext:error("metatable must be table")
+					nType1 = nType1:checkAtomUnion()
+					nType2 = nType2:checkAtomUnion()
+					if SealTable.is(nType2) or OpenTable.is(nType2) then
+						nType2:setAssigned(vContext)
+						nType1:native_setmetatable(vContext, nType2)
+					else
+						vContext:error("metatable must be table")
+					end
 				end
-			end
-			return nTerm1
+				vContext:openPushReturn(nTerm1)
+			end)
 		end),
 		getmetatable=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(vContext, 1)

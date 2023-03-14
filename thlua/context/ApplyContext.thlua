@@ -16,6 +16,7 @@ function.open ApplyContext:ctor(...)
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
 	self._curPushChain = {} @ List(clazz.IAtomType)
+	self._openReturn = false@clazz.UOpenReturn
 end
 
 function ApplyContext:recursiveChainTestAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)
@@ -40,11 +41,18 @@ function ApplyContext:withCase(vCase:clazz.VariableCase, vFunc:Fn())
 end
 
 function ApplyContext:pushNothing()
-	error("push nothing not implement in ApplyContext")
+	if self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	self._once = true
 end
 
 function ApplyContext:openPushReturn(vTermTuple:clazz.UOpenReturn)
-	error("push return not implement in ApplyContext")
+	if self._once or self._openReturn then
+		error(Exception.new("can't mix use open function or open table", self._node))
+	end
+	self._openReturn = vTermTuple
+	self._once = true
 end
 
 function ApplyContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTuple:OrNil(clazz.UTypeTuple))
