@@ -149,19 +149,38 @@ function AssignContext:matchArgsToTypeTuple(
 	end
 end
 
---[[
-function AssignContext:includeOrCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(OrFalse(clazz.UAtomUnion))
+function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(OrFalse(clazz.UAtomUnion))
 	const nCollection = self._manager:TypeCollection()
-	const nDstFnPartType = vDstType:partTypedFunction()
-	const nDstObjPartType = vDstType:partTypedObject()
+	const nDstFnPart = vDstType:partTypedFunction()
+	const nDstObjPart = vDstType:partTypedObject()
 	local nInclude = true
+	local nPutFnPart = false
+	local nPutObjPart = false
 	vSrcType:foreach(function(vSubType)
-		--[[
-		if AutoTable.is(vSubType) and vSubType:isCastable() and not nDstObjPartType:isNever() then
+		if AutoTable.is(vSubType) and vSubType:isCastable() and not nDstObjPart:isNever() then
+			nPutObjPart = true
+			self:castLuaType(vSubType, nDstObjPart)
+		elseif AutoFunction.is(vSubType) and vSubType:isCastable() and not nDstFnPart:isNever() then
+			nPutFnPart = true
+			self:castLuaType(vSubType, nDstFnPart)
+		elseif vDstType:includeAtom(vSubType) then
+			nCollection:put(vSubType)
+		else
+			nInclude = false
 		end
 	end)
+	if not nInclude then
+		return false
+	else
+		if nPutFnPart then
+			nCollection:put(nDstFnPart)
+		end
+		if nPutObjPart then
+			nCollection:put(nDstObjPart)
+		end
+		return nCollection:mergeToAtomUnion()
+	end
 end
-]]
 
 function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.RefineTerm)
 	const nSrcType = vAutoTerm:getType()
@@ -169,7 +188,8 @@ function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:claz
 	if not nSrcType then
 		vAutoTerm:setAutoCastType(self, nDstType)
 	else
-		if not self:castLuaType(nSrcType, nDstType) and not nDstType:includeAll(nSrcType) then
+		const nIncludeCastType = self:includeOrCastFrom(nDstType, nSrcType)
+		if not nIncludeCastType then
 		  self:error("assign but type not match")
 		end
 	end

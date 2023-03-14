@@ -65,14 +65,10 @@ end
 function Branch:mutSet(vContext:clazz.AssignContext, vSymbol:clazz.LocalSymbol, vValueTerm:clazz.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
-	const nCastType = vContext:castLuaType(nValueType, nDstType)
+	const nCastType = vContext:includeOrCastFrom(nDstType, nValueType)
 	if nCastType then
 		const nCastTerm = vContext:RefineTerm(nCastType)
 		const nImmutVariable = nCastTerm:attachImmutVariable()
-		self.symbolToVariable[vSymbol] = nImmutVariable
-		nImmutVariable:addSymbol(vSymbol)
-	elseif nDstType:includeAll(nValueType) then
-		const nImmutVariable = vValueTerm:attachImmutVariable()
 		self.symbolToVariable[vSymbol] = nImmutVariable
 		nImmutVariable:addSymbol(vSymbol)
 	else
