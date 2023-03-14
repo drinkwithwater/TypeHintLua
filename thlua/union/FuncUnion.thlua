@@ -15,10 +15,11 @@ const FuncUnion = UnionClass()
 function:class(clazz.FuncUnion) FuncUnion.new(vManager:clazz.TypeManager):impl(clazz.IUnionType)
 	const self = setmetatable({.class
 		_manager=vManager,
-		_notTypeFnDict={} @Dict(clazz.BaseFunction, True),
 		_typeFnDict={} @Dict(clazz.TypedFunction, True),
+		_notTypeFnDict={} @Dict(clazz.BaseFunction, True),
 		_openFnDict={} @Dict(clazz.OpenFunction, True),
 		_anyFn=false@OrFalse(clazz.AnyFunction),
+		_typedPart=false@OrFalse(clazz.UAtomUnion),
 		bits=TYPE_BITS.FUNCTION,
 		id=0@Integer,
 	}, FuncUnion)
@@ -121,8 +122,24 @@ function FuncUnion:assumeIncludeAtom(vAssumeSet, vType)
 	return false
 end
 
-function FuncUnion:fnPartType()
-	return self
+function FuncUnion:partTypedFunction()
+	const nTypedPart = self._typedPart
+	if nTypedPart then
+		return nTypedPart
+	else
+		if not next(self._notTypeFnDict) and not next(self._openFnDict) and not self._anyFn then
+			self._typedPart = self
+			return self
+		else
+			const nCollection = self._manager:TypeCollection()
+			for k,v in pairs(self._typeFnDict) do
+				nCollection:put(k)
+			end
+			const nTypedPart = nCollection:mergeToAtomUnion()
+			self._typedPart = nTypedPart
+			return nTypedPart
+		end
+	end
 end
 
 function FuncUnion:mayRecursive()

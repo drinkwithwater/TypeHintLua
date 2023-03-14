@@ -17,6 +17,7 @@ function:class(clazz.ObjectUnion) ObjectUnion.new(vManager:clazz.TypeManager):im
 		_typedObjectDict={} @Dict(clazz.TypedObject, True),
 		_sealTableDict={} @Dict(clazz.SealTable, True),
 		_openTableDict={} @Dict(clazz.OpenTable, True),
+		_typedPart=false@OrFalse(clazz.UAtomUnion),
 		bits=TYPE_BITS.OBJECT,
 		id=0@Integer,
 	}, ObjectUnion)
@@ -107,8 +108,24 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function ObjectUnion:objectPartType()
-	return self
+function ObjectUnion:partTypedObject()
+	const nTypedPart = self._typedPart
+	if nTypedPart then
+		return nTypedPart
+	else
+		if not next(self._openTableDict) and not next(self._sealTableDict) then
+			self._typedPart = self
+			return self
+		else
+			const nCollection = self._manager:TypeCollection()
+			for k,v in pairs(self._typedObjectDict) do
+				nCollection:put(k)
+			end
+			const nTypedPart = nCollection:mergeToAtomUnion()
+			self._typedPart = nTypedPart
+			return nTypedPart
+		end
+	end
 end
 
 function ObjectUnion:mayRecursive()
