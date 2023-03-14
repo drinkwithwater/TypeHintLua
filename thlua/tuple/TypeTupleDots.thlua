@@ -42,30 +42,6 @@ function TypeTupleDots:select(i:Integer):Ret(clazz.TypeTupleDots)
 	return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType, self._repeatTypeWithNil)
 end
 
-function TypeTupleDots:castOrIn(vContext:clazz.ReturnContext, vDstTypeTuple:clazz.UTypeTuple):Ret(Boolean)
-	const nRepeatDstType = vDstTypeTuple:getRepeatType()
-	if not nRepeatDstType then
-		return false
-	else
-		const nRepeatSrcType = self._repeatType
-		if not vContext:castLuaType(nRepeatSrcType, nRepeatDstType) then
-			if not nRepeatDstType:includeAll(nRepeatSrcType) then
-				return false
-			end
-		end
-	end
-	for i=1, #vDstTypeTuple do
-		const nDstType = vDstTypeTuple:get(i)
-		const nSrcType = self:get(i)
-		if not vContext:castLuaType(nSrcType, nDstType) then
-			if not nDstType:includeAll(nSrcType) then
-				return false
-			end
-		end
-	end
-	return true
-end
-
 function.open TypeTupleDots.is(t):isguard(clazz.TypeTupleDots)
 	return getmetatable(t) == TypeTupleDots
 end

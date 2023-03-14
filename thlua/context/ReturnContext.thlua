@@ -11,4 +11,34 @@ const ReturnContext = class@<clazz.ReturnContext, false>(AssignContext)
 function.open ReturnContext:ctor(...)
 end
 
+function ReturnContext:returnMatchTuple(
+	vSrcTuple:clazz.UTypeTuple,
+	vDstTuple:clazz.UTypeTuple
+):Ret(Boolean)
+	for i=1, #vSrcTuple do
+		const nDstType = vDstTuple:get(i):checkAtomUnion()
+		const nSrcType = vSrcTuple:get(i):checkAtomUnion()
+		if not self:includeOrCastFrom(nDstType, nSrcType) then
+			return false
+		end
+	end
+	for i=#vSrcTuple + 1, #vDstTuple do
+		const nDstType = vDstTuple:get(i):checkAtomUnion()
+		const nSrcType = vSrcTuple:get(i):checkAtomUnion()
+		if not nDstType:includeAll(nSrcType) then
+			return false
+		end
+	end
+	const nSrcRepeatType = vSrcTuple:getRepeatType()
+	if nSrcRepeatType then
+		const nDstRepeatType = vDstTuple:getRepeatType()
+		if not nDstRepeatType then
+			return false
+		elseif not nDstRepeatType:includeAll(nSrcRepeatType) then
+			return false
+		end
+	end
+	return true
+end
+
 return ReturnContext
