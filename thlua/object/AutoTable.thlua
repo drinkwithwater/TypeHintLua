@@ -21,11 +21,11 @@ const AutoTable = class@<clazz.AutoTable, false>(SealTable)
 function.open AutoTable:ctor(...)
 	self._typedObject=false@OrFalse(clazz.TypedObject)
 	self._name = false @OrFalse(String)
-	self._assigned = false@Boolean
+	self._firstAssign = false@OrFalse(clazz.AssignContext)
 end
 
 function AutoTable:detailString(v, vVerbose)
-	if not self._assigned then
+	if not self._firstAssign then
 		return "AutoTable@castable@"..tostring(self._node)
 	else
 		return "AutoTable@"..tostring(self._node)
@@ -61,7 +61,8 @@ function AutoTable:cast(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UOb
 end
 
 function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UObjectAtomUnion):Ret(OrFalse(clazz.TypedObject))
-	if self._assigned then
+	if self._firstAssign then
+		vContext:error("auto table is assigned")
 		return false
 	end
 	local nFinalMatchStruct:OrFalse(clazz.TypedObject) = false
@@ -121,18 +122,21 @@ function AutoTable:checkTypedObject()
 	if nInterface then
 		return nInterface
 	else
-		self:setAssigned()
 		const nObject = self._manager.type.AnyObject
 		self._typedObject = nObject
 		return nObject
 	end
 end
 
-function AutoTable:setAssigned()
-	if not self._assigned then
-		self._assigned = true
+function AutoTable:isCastable()
+	return not self._firstAssign
+end
+
+function AutoTable:setAssigned(vContext)
+	if not self._firstAssign then
+		self._firstAssign = vContext
 		for k, v in pairs(self._fieldDict) do
-			v.rawValueType:setAssigned()
+			v.rawValueType:setAssigned(vContext)
 		end
 	end
 end
