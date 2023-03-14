@@ -71,24 +71,23 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 		not nIndexType:isNever() and nIndexType or false,
 		not nNewIndexType:isNever() and nNewIndexType or false)
 	-- 4. trigger on set
-	const nContext = vContext:getStack():newNoPushContext(vContext:getNode())
-	self:onSetMetaTable(nContext)
+	self:onSetMetaTable(vContext)
 end
 
 function SealTable:meta_set(vContext, vKeyType, vValueType)
 	self:ctxWait(vContext)
-	vContext:pushNothing()
-	vValueType:setAssigned(vContext)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
+		vContext:pushNothing()
 		const nTableField = self._fieldDict[nKeyIncludeType]!
 		const nFieldType = nTableField.rawValueType
-		if not nFieldType:includeAll(vValueType) then
+		if not vContext:includeOrCastFrom(nFieldType, vValueType) then
 			vContext:error("wrong value type when set key:"..tostring(nKeyIncludeType))
 		end
 		return
+	else
+		self:native_rawset(vContext, vKeyType, vValueType)
 	end
-	self:native_rawset(vContext, vKeyType, vValueType)
 end
 
 const NIL_TRIGGER = 1
@@ -149,7 +148,7 @@ end
 
 function SealTable:native_rawset(vContext, vKeyType, vValueType)
 	self:ctxWait(vContext)
-	vValueType:setAssigned(vContext)
+	vContext:openAssign(vValueType)
 	local nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then

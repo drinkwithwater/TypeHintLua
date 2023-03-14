@@ -47,6 +47,15 @@ function ApplyContext:pushNothing()
 	self._once = true
 end
 
+function ApplyContext:openAssign(vType:clazz.UAtomUnion)
+	if self._once or self._openReturn then
+		error(Exception.new("table assign new field can't be mixed actions", self._node))
+	end
+	vType:setAssigned(self)
+	self._openReturn = self:RefineTerm(vType)
+	self._once = true
+end
+
 function ApplyContext:openPushReturn(vTermTuple:clazz.UOpenReturn)
 	if self._once or self._openReturn then
 		error(Exception.new("can't mix use open function or open table", self._node))
