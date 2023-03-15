@@ -22,7 +22,7 @@ function.open AutoTable:ctor(...)
 	self._typedObject=false@OrFalse(clazz.TypedObject)
 	self._name = false @OrFalse(String)
 	self._firstAssign = false@OrFalse(clazz.AssignContext)
-	self._castDict = {} @ Dict(clazz.TypedObject, True)
+	self._castDict = {} @ Dict(clazz.TypedObject, Boolean)
 end
 
 function AutoTable:detailString(v, vVerbose)
@@ -39,84 +39,68 @@ function AutoTable:setName(vName:String)
 	self._name = vName
 end
 
-function AutoTable:cast(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UAtomUnion):Ret(OrFalse(clazz.TypedObject))
-	const nOldStruct = self._typedObject
-	if nOldStruct then
-		local nMatchStruct:OrNil(clazz.TypedObject) = nil
-		vObjectAtomUnion:foreach(function(vAtomType)
-			if not nMatchStruct and TypedObject.is(vAtomType)
-				and vAtomType:includeAll(nOldStruct) and nOldStruct:includeAll(vAtomType) then
-				nMatchStruct = vAtomType
-			end
-		end)
-		if not nMatchStruct then
-			vContext:error("table can't cast to multi struct type")
-			return false
+function AutoTable:_castMatchOne(
+	vContext:clazz.AssignContext,
+	vStruct:clazz.Struct
+):Ret(OrFalse(Dict(clazz.AutoFunction, List(clazz.UAtomUnion))))
+	const nFnCastDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)) = {}
+	const nCopyValueDict = vStruct:copyValueDict()
+	local nMatchSucc = true
+	self._keyType:foreach(function(vTableKey)
+		const vTableValue = self._fieldDict[vTableKey]!.rawValueType
+		if not nMatchSucc then
+			return
 		end
-		return nMatchStruct
-	end
-	const nMatchStruct = self:castStruct(vContext, vObjectAtomUnion)
-	if not nMatchStruct then
+		local nMatchKey, nMatchValue = vStruct:indexKeyValue(vTableKey)
+		if not nMatchKey then
+			nMatchSucc = false
+			return
+		end
+		if not vContext:tryIncludeCast(nFnCastDict, nMatchValue:checkAtomUnion(), vTableValue) then
+			nMatchSucc = false
+			return
+		end
+		nCopyValueDict[nMatchKey] = nil
+	end)
+	if not nMatchSucc then
 		return false
 	end
-	self._typedObject = nMatchStruct
-	return nMatchStruct
+	for k,v in pairs(nCopyValueDict) do
+		if not v:checkAtomUnion():isNilable() then
+			return false
+		end
+	end
+	return nFnCastDict
 end
 
-function AutoTable:castStruct(vContext:clazz.AssignContext, vObjectAtomUnion:clazz.UAtomUnion):Ret(OrFalse(clazz.TypedObject))
+function AutoTable:tryCast(
+	vContext:clazz.AssignContext,
+	vFnCastDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)),
+	vObjectAtomUnion:clazz.UAtomUnion
+):Ret(OrFalse(clazz.TypedObject))
 	if self._firstAssign then
 		vContext:error("can't cast assigned AutoTable")
 		return false
 	end
 	local nFinalMatchStruct:OrFalse(clazz.TypedObject) = false
-	local nFinalMatchCastList:List(Struct {clazz.AutoTable, clazz.UAllType}) = {}
 	vObjectAtomUnion:foreach(function(vAtomType)
 		if not Struct.is(vAtomType) then
 			return
 		end
-		const nCopyValueDict = vAtomType:copyValueDict()
-		local nMatchSucc = true
-		const nCastList:List(Struct {clazz.AutoTable, clazz.UAllType}) = {}
-		self._keyType:foreach(function(vTableKey)
-			const vTableValue = self._fieldDict[vTableKey]!.rawValueType
-			if not nMatchSucc then
-				return
-			end
-			local nMatchKey, nMatchValue = vAtomType:indexKeyValue(vTableKey)
-			if not nMatchKey then
-				nMatchSucc = false
-				return
-			end
-			if not AutoTable.is(vTableValue) then
-				const nOneMatchSucc = vContext:castLuaType(vTableValue, nMatchValue) or nMatchValue:includeAll(vTableValue)
-				if not nOneMatchSucc then
-					nMatchSucc = false
-					return
+		const nCurFnCastDict = self:_castMatchOne(vContext, vAtomType)
+		if nCurFnCastDict then
+			for nAutoFn, nList in pairs(nCurFnCastDict) do
+				const nOldList = vFnCastDict[nAutoFn]
+				if nOldList then
+					for i=1,#nList do
+						nOldList[#nOldList + 1] = nList[i]
+					end
+				else
+					vFnCastDict[nAutoFn] = nList
 				end
-			else
-				nCastList[#nCastList + 1] = {vTableValue, nMatchValue}
 			end
-			nCopyValueDict[nMatchKey] = nil
-		end)
-		if not nMatchSucc then
-			return
-		end
-		for k,v in pairs(nCopyValueDict) do
-			if not v:checkAtomUnion():isNilable() then
-				nMatchSucc = false
-				break
-			end
-		end
-		if nMatchSucc and not nFinalMatchStruct then
-			nFinalMatchStruct = vAtomType
-			nFinalMatchCastList = nCastList
-		else
-			vContext:error("table cast error, table may match more than one struct")
 		end
 	end)
-	for _, nPair in ipairs(nFinalMatchCastList) do
-		vContext:castLuaType(nPair[1], nPair[2])
-	end
 	return nFinalMatchStruct
 end
 

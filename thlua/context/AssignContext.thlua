@@ -27,35 +27,6 @@ function.open AssignContext:ctor(...)
 	self._finish = false @ Boolean
 end
 
-function AssignContext:castLuaType(vRawSrcType:clazz.UAllType, vRawDstType:clazz.UAllType):Ret(OrFalse(clazz.UAtomUnion))
-	const nSrcType = vRawSrcType:checkAtomUnion()
-	const nDstType = vRawDstType:checkAtomUnion()
-	if AutoFunction.is(nSrcType) then
-		const nFnPartType = nDstType:partTypedFunction()
-		if TypedFunction.is(nFnPartType) then
-			nSrcType:checkWhenCast(self, nFnPartType)
-			return nFnPartType
-		end
-	else
-		local nSrcTable:OrNil(clazz.AutoTable) = nil
-		nSrcType:foreach(function(vType)
-			if AutoTable.is(vType) then
-				nSrcTable = vType
-			end
-		end)
-		const nDstObjectPart = nDstType:partTypedObject()
-		if nSrcTable and not nDstObjectPart:isNever() then
-			const nCastResult = nSrcTable:cast(self, nDstType:partTypedObject())
-			if nCastResult then
-				return self._manager:checkedUnion(nSrcTable, nCastResult)
-			else
-				return false
-			end
-		end
-	end
-	return false
-end
-
 function AssignContext:matchArgsToTypeDots(
 	vNode:clazz.IAstNode,
 	vTermTuple:clazz.UTermTuple,
@@ -149,7 +120,11 @@ function AssignContext:matchArgsToTypeTuple(
 	end
 end
 
-function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(OrFalse(clazz.UAtomUnion))
+function AssignContext:tryIncludeCast(
+	vFnCastDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)),
+	vDstType:clazz.UAtomUnion,
+	vSrcType:clazz.UAtomUnion
+):Ret(OrFalse(clazz.UAtomUnion))
 	const nCollection = self._manager:TypeCollection()
 	const nDstFnPart = vDstType:partTypedFunction()
 	const nDstObjPart = vDstType:partTypedObject()
@@ -159,10 +134,15 @@ function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:cla
 	vSrcType:foreach(function(vSubType)
 		if AutoTable.is(vSubType) and vSubType:isCastable() and not nDstObjPart:isNever() then
 			nPutObjPart = true
-			self:castLuaType(vSubType, nDstObjPart)
+			vSubType:tryCast(self, vFnCastDict, nDstObjPart)
 		elseif AutoFunction.is(vSubType) and vSubType:isCastable() and not nDstFnPart:isNever() then
+			local nList = vFnCastDict[vSubType]
+			if not nList then
+				nList = {}
+				vFnCastDict[vSubType] = nList
+			end
+			nList[#nList + 1] = nDstFnPart
 			nPutFnPart = true
-			self:castLuaType(vSubType, nDstFnPart)
 		elseif vDstType:includeAtom(vSubType) then
 			nCollection:put(vSubType)
 		else
@@ -180,6 +160,19 @@ function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:cla
 		end
 		return nCollection:mergeToAtomUnion()
 	end
+end
+
+function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(OrFalse(clazz.UAtomUnion))
+	const nFnLateDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)) = {}
+	const nRet = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
+	for nAutoFn, nList in pairs(nFnLateDict) do
+		for _, nTypeFn in ipairs(nList) do
+			if TypedFunction.is(nTypeFn) then
+				nAutoFn:checkWhenCast(self, nTypeFn)
+			end
+		end
+	end
+	return nRet
 end
 
 function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.RefineTerm)
