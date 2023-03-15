@@ -9,6 +9,7 @@ const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 
+const LateCastDict = require "thlua.context.LateCastDict"
 const SealTable = require "thlua.object.SealTable"
 const class = require "thlua.class"
 
@@ -42,8 +43,8 @@ end
 function AutoTable:_castMatchOne(
 	vContext:clazz.AssignContext,
 	vStruct:clazz.Struct
-):Ret(OrFalse(Dict(clazz.AutoFunction, List(clazz.UAtomUnion))))
-	const nFnCastDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)) = {}
+):Ret(OrFalse(clazz.LateCastDict))
+	const nFnCastDict = LateCastDict.new()
 	const nCopyValueDict = vStruct:copyValueDict()
 	local nMatchSucc = true
 	self._keyType:foreach(function(vTableKey)
@@ -75,7 +76,7 @@ end
 
 function AutoTable:tryCast(
 	vContext:clazz.AssignContext,
-	vFnCastDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)),
+	vFnCastDict:clazz.LateCastDict,
 	vObjectAtomUnion:clazz.UAtomUnion
 ):Ret(OrFalse(clazz.TypedObject))
 	if self._firstAssign then

@@ -1,0 +1,39 @@
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const LateCastDict = {}
+LateCastDict.__index=LateCastDict
+
+function:class(clazz.LateCastDict) LateCastDict.new()
+	return setmetatable({.class:Init({
+			[clazz.AutoFunction]=List(clazz.UAtomUnion)
+		})
+	}, LateCastDict)
+end
+
+function LateCastDict:putOne(vAutoFn:clazz.AutoFunction, vType:clazz.UAtomUnion)
+	local nList = self[vAutoFn]
+	if not nList then
+		nList = {}
+		self[vAutoFn] = nList
+	end
+	nList[#nList + 1] = vType
+end
+
+function LateCastDict:putAll(vDict:clazz.LateCastDict)
+	for nAutoFn, nList in pairs(vDict) do
+		const nOldList = self[nAutoFn]
+		if not nOldList then
+			self[nAutoFn] = nList
+		else
+			for i=1, #nList do
+				nOldList[#nOldList + 1] = nList[i]
+			end
+		end
+	end
+end
+
+return LateCastDict
+

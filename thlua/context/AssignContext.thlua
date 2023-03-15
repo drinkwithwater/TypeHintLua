@@ -14,6 +14,7 @@ const AutoHolder = require "thlua.auto.AutoHolder"
 const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = require "thlua.auto.AutoTail"
 
+const LateCastDict = require "thlua.context.LateCastDict"
 const OperContext = require "thlua.context.OperContext"
 
 (@do
@@ -121,7 +122,7 @@ function AssignContext:matchArgsToTypeTuple(
 end
 
 function AssignContext:tryIncludeCast(
-	vFnCastDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)),
+	vFnCastDict:clazz.LateCastDict,
 	vDstType:clazz.UAtomUnion,
 	vSrcType:clazz.UAtomUnion
 ):Ret(OrFalse(clazz.UAtomUnion))
@@ -136,12 +137,7 @@ function AssignContext:tryIncludeCast(
 			nPutObjPart = true
 			vSubType:tryCast(self, vFnCastDict, nDstObjPart)
 		elseif AutoFunction.is(vSubType) and vSubType:isCastable() and not nDstFnPart:isNever() then
-			local nList = vFnCastDict[vSubType]
-			if not nList then
-				nList = {}
-				vFnCastDict[vSubType] = nList
-			end
-			nList[#nList + 1] = nDstFnPart
+			vFnCastDict:putOne(vSubType, nDstFnPart)
 			nPutFnPart = true
 		elseif vDstType:includeAtom(vSubType) then
 			nCollection:put(vSubType)
@@ -163,7 +159,7 @@ function AssignContext:tryIncludeCast(
 end
 
 function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(OrFalse(clazz.UAtomUnion))
-	const nFnLateDict:Dict(clazz.AutoFunction, List(clazz.UAtomUnion)) = {}
+	const nFnLateDict = LateCastDict.new()
 	const nRet = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
 	for nAutoFn, nList in pairs(nFnLateDict) do
 		for _, nTypeFn in ipairs(nList) do
