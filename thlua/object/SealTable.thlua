@@ -133,8 +133,14 @@ function SealTable:meta_get(vContext, vKeyType)
 		end
 		local nOkay = nTrigger ~= NONE_TRIGGER
 		if nTrigger and nIndexType then
-			const nNextOkay = nIndexType:meta_get(vContext, vKeyType)
-			nOkay = nOkay or nNextOkay
+			if BaseObject.is(nIndexType) then
+				const nNextOkay = nIndexType:meta_get(vContext, vKeyType)
+				nOkay = nOkay or nNextOkay
+			elseif BaseFunction.is(nIndexType) then
+				const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
+				nIndexType:meta_call(vContext, nTermTuple)
+				nOkay = true
+			end
 		end
 		return nOkay
 	end)
@@ -283,16 +289,14 @@ function SealTable:memberFunctionFillSelf(vContext:clazz.ApplyContext, vSelfTabl
 				end
 			end
 		end
-		return true
-	end)
-	if nNotRecursive then
 		const nMetaIndex = self._metaIndex
 		if nMetaIndex then
 			if BaseObject.is(nMetaIndex) then
 				nMetaIndex:memberFunctionFillSelf(vContext, vSelfTable)
 			end
 		end
-	end
+		return true
+	end)
 end
 
 function SealTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
