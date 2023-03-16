@@ -79,8 +79,7 @@ local function kwA(str)
   return kw(str) + throw("expect keyword '"..str.."'")
 end
 
-local exprF
-exprF = {
+local exprF = {
 	binOp=function(e1, op, e2)
 		if not op then
 			return e1
@@ -90,20 +89,24 @@ exprF = {
 	end,
 	suffixed=function(e1, e2)
 		local e2tag = e2.tag
-		assert(e2tag == "Paren" or e2tag == "Call" or e2tag == "Invoke" or e2tag == "Index", "exprSuffixed args exception")
+		assert(e2tag == "HintAt" or e2tag == "Call" or e2tag == "Invoke" or e2tag == "Index", "exprSuffixed args exception")
 		e2.pos = e1.pos
 		e2[1] = e1
 		return e2
 	end,
-	paren=function(pos, e, hintShort, posEnd)
-		return { tag = "Paren", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
+	hintAt=function(pos, e, hintShort, posEnd)
+		return { tag = "HintAt", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
 	end,
-	hintExpr=function(pos, e, hintShort, posEnd)
+	hintExpr=function(pos, e, hintShort, posEnd, env)
 		if not hintShort then
 			return e
 		else
+			local eTag = e.tag
+			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
+				env:markParenWrap(pos, hintShort.pos-1)
+			end
 			-- TODO, use other tag
-			return { tag = "Paren", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
+			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
 		end
 	end
 }
@@ -232,7 +235,7 @@ local G = lpeg.P { "TypeHintLua";
 			env.hinting = true
 			return true
 		else
-			error(env:makeErrNode(i, "syntax error : hint script only allow normal lua syntax"))
+			error(env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
 			return false
 		end
 	end);
@@ -363,10 +366,9 @@ local G = lpeg.P { "TypeHintLua";
 								vv.Constructor +
 								vv.SuffixedExpr +
 								tagC.Dots(symb"...")
-							) * (vv.AtCastHint + cc(nil)) * Cpos /exprF.hintExpr;
+							) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv/ exprF.hintExpr;
 
-	PrimaryExpr = vv.IdentUse +
-			Cpos * symb"(" * vv.Expr * symb")" * cc(nil) * Cpos / exprF.paren;
+	PrimaryExpr = vv.IdentUse + tagC.Paren(symb"(" * vv.Expr * symb")");
 
 	SuffixedExpr = (function()
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
@@ -380,15 +382,27 @@ local G = lpeg.P { "TypeHintLua";
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
 		-- atPoly
-		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.paren
+		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
 		-- add completion case
 		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
-		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
+		return lpeg.Cmt(succPatt * Cenv * (Cpos*symb(".") + Cpos*symb(":")) ^-1, function(_, _, expr, env, predictPos)
 			if not predictPos then
-				return true, exp
+				if expr.tag == "HintAt" then
+					local hintAtExpr = expr
+					local curExpr = expr[1]
+					while curExpr.tag == "HintAt" do
+						hintAtExpr = curExpr
+						curExpr = curExpr[1]
+					end
+					-- if poly cast is after invoke or call, then add ()
+					if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
+						env:markParenWrap(curExpr.pos, curExpr.posEnd - 1)
+					end
+				end
+				return true, expr
 			else
 				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
-				nNode[2] = exp
+				nNode[2] = expr
 				nNode[3] = env.scopeTraceList
 				local l = {}
 				for k,v in pairs(env.scopeTraceList) do

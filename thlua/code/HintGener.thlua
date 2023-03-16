@@ -338,17 +338,16 @@ local TagToVisiting:RealTraverser = {
 			end
 		end
 	end,
+	HintAt=function(self, node)
+		const nHintShort = node.hintShort
+		return self:stkWrap(node).CAST_HINT(
+			{"(", self:visit(node[1]), ")"},
+			string.format("%q", nHintShort.castKind),
+			self:fixIHintInfo(nHintShort)
+		)
+	end,
 	Paren=function(self, node)
-		local nHintShort = node.hintShort
-		if nHintShort then
-			return self:stkWrap(node).CAST_HINT(
-				{"(", self:visit(node[1]), ")"},
-				string.format("%q", nHintShort.castKind),
-				self:fixIHintInfo(nHintShort)
-			)
-		else
-			return {"(", self:visit(node[1]), ")"}
-		end
+		return {"(", self:visit(node[1]), ")"}
 	end,
 	Ident=function(self, node)
 		assert(node.kind ~= "def")
@@ -357,7 +356,7 @@ local TagToVisiting:RealTraverser = {
 			return symbol
 		else
 			local nParent = node.parent!
-			while nParent.tag == "Paren" and not nParent.hintShort do
+			while nParent.tag == "Paren" do
 				nParent = nParent.parent!
 			end
 			const nParentTag = nParent.tag
@@ -408,7 +407,7 @@ local TagToVisiting:RealTraverser = {
 const HintGener = {}
 HintGener.__index = HintGener
 
-function HintGener:visit(vNode:node.IAstNode):Ret(UGenResult)
+function.pass HintGener:visit(vNode:node.IAstNode):Ret(UGenResult)
 	const nUnionNode = vNode @> node.UNodeType
 	const nFunc = TagToVisiting[nUnionNode.tag]
 	if nFunc then
