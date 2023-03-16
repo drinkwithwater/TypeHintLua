@@ -1,6 +1,8 @@
 
 const class = require "thlua.class"
 const AssignContext = require "thlua.context.AssignContext"
+const TypedFunction = require "thlua.func.TypedFunction"
+const AutoFnCastDict = require "thlua.context.AutoFnCastDict"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -15,10 +17,11 @@ function ReturnContext:returnMatchTuples(
 	vSrcTuple:clazz.UTypeTuple,
 	vRetTuples:clazz.RetTuples
 ):Ret(False):Ret(True, Boolean)
+	const nAutoFnCastDict = AutoFnCastDict.new()
 	local nOneMatchSucc = false
 	local nOneCastSucc = false
 	vRetTuples:foreachWithFirst(function(vDstTuple, _)
-		const nMatchSucc, nCastSucc = self:_returnMatchTuple(vSrcTuple, vDstTuple)
+		const nMatchSucc, nCastSucc = self:tryMatchCast(nAutoFnCastDict, vSrcTuple, vDstTuple)
 		if nMatchSucc then
 			nOneMatchSucc = true
 			if nCastSucc then
@@ -27,13 +30,15 @@ function ReturnContext:returnMatchTuples(
 		end
 	end)
 	if nOneMatchSucc then
+		nAutoFnCastDict:runLateCast(self)
 		return true, nOneCastSucc
 	else
 		return false
 	end
 end
 
-function ReturnContext:_returnMatchTuple(
+function ReturnContext:tryMatchCast(
+	vAutoFnCastDict:clazz.AutoFnCastDict,
 	vSrcTuple:clazz.UTypeTuple,
 	vDstTuple:clazz.UTypeTuple
 ):Ret(False):Ret(True, Boolean)
@@ -41,7 +46,7 @@ function ReturnContext:_returnMatchTuple(
 	for i=1, #vSrcTuple do
 		const nDstType = vDstTuple:get(i):checkAtomUnion()
 		const nSrcType = vSrcTuple:get(i):checkAtomUnion()
-		const nIncludeType, nCastSucc = self:includeAndCast(nDstType, nSrcType)
+		const nIncludeType, nCastSucc = self:tryIncludeCast(vAutoFnCastDict, nDstType, nSrcType)
 		if not nIncludeType then
 			return false
 		else
@@ -51,7 +56,7 @@ function ReturnContext:_returnMatchTuple(
 	for i=#vSrcTuple + 1, #vDstTuple do
 		const nDstType = vDstTuple:get(i):checkAtomUnion()
 		const nSrcType = vSrcTuple:get(i):checkAtomUnion()
-		const nIncludeType, nCastSucc = self:includeAndCast(nDstType, nSrcType)
+		const nIncludeType, nCastSucc = self:tryIncludeCast(vAutoFnCastDict, nDstType, nSrcType)
 		if not nIncludeType then
 			return false
 		else

@@ -9,7 +9,7 @@ const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.Nil"
 
-const LateCastDict = require "thlua.context.LateCastDict"
+const AutoFnCastDict = require "thlua.context.AutoFnCastDict"
 const SealTable = require "thlua.object.SealTable"
 const class = require "thlua.class"
 
@@ -43,8 +43,8 @@ end
 function AutoTable:castMatchOne(
 	vContext:clazz.AssignContext,
 	vStruct:clazz.Struct
-):Ret(OrFalse(clazz.LateCastDict))
-	const nFnCastDict = LateCastDict.new()
+):Ret(OrFalse(clazz.AutoFnCastDict))
+	const nAutoFnCastDict = AutoFnCastDict.new()
 	const nCopyValueDict = vStruct:copyValueDict()
 	local nMatchSucc = true
 	self._keyType:foreach(function(vTableKey)
@@ -57,7 +57,7 @@ function AutoTable:castMatchOne(
 			nMatchSucc = false
 			return
 		end
-		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nFnCastDict, nMatchValue:checkAtomUnion(), vTableValue)
+		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue:checkAtomUnion(), vTableValue)
 		if not nIncludeType or not nCastSucc then
 			nMatchSucc = false
 			return
@@ -72,7 +72,7 @@ function AutoTable:castMatchOne(
 			return false
 		end
 	end
-	return nFnCastDict
+	return nAutoFnCastDict
 end
 
 function AutoTable:checkTypedObject()
