@@ -179,13 +179,26 @@ function AssignContext:tryIncludeCast(
 	end
 end
 
-function AssignContext:includeAndCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(False):Ret(clazz.UAtomUnion, Boolean)
+function AssignContext:includeAndCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion, vWhen:OrNil(String)):Ret(OrFalse(clazz.UAtomUnion))
 	const nFnLateDict = AutoFnCastDict.new()
 	const nIncludeType, nCastSucc = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
 	if nIncludeType then
 		nFnLateDict:runLateCast(self)
+		if not nCastSucc then
+			if vWhen then
+				self:error("type cast fail when "..tostring(vWhen))
+			else
+				self:error("type cast fail")
+			end
+		end
+	else
+		if vWhen then
+			self:error("type not match when "..tostring(vWhen))
+		else
+			self:error("type not match")
+		end
 	end
-	return nIncludeType, nCastSucc
+	return nIncludeType
 end
 
 function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.RefineTerm)
@@ -194,12 +207,7 @@ function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:claz
 	if not nSrcType then
 		vAutoTerm:setAutoCastType(self, nDstType)
 	else
-		const nIncludeCastType, nCastSucc = self:includeAndCast(nDstType, nSrcType)
-		if not nIncludeCastType then
-		  self:error("assign but type not match")
-		elseif not nCastSucc then
-		  self:error("assign but type cast fail")
-		end
+		self:includeAndCast(nDstType, nSrcType)
 	end
 	-- TODO, maybe add some case here?
 	return self:RefineTerm(nDstType)

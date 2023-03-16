@@ -363,22 +363,13 @@ function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 	else
 		const nDst = assert(..., "hint type can't be nil")
 		const nDstType = self._manager:easyToType(nDst):checkAtomUnion()
+		const nSrcType = vTerm:getType()
 		if vCastKind == Enum.CastKind_CONIL then
-			const nMatchType, nCastSucc = nCastContext:includeAndCast(nDstType, vTerm:getType():notnilType())
-			if not nMatchType then
-				nCastContext:error("@! not match")
-			elseif not nCastSucc then
-				nCastContext:error("@! cast fail")
-			end
+			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), Enum.CastKind_CONIL)
 		elseif vCastKind == Enum.CastKind_COVAR then
-			const nMatchType, nCastSucc = nCastContext:includeAndCast(nDstType, vTerm:getType())
-			if not nMatchType then
-				nCastContext:error("@ not match")
-			elseif not nCastSucc then
-				nCastContext:error("@ cast fail")
-			end
+			nCastContext:includeAndCast(nDstType, nSrcType, Enum.CastKind_COVAR)
 		elseif vCastKind == Enum.CastKind_CONTRA then
-			if not vTerm:getType():includeAll(nDstType) then
+			if not (nSrcType:includeAll(nDstType) or nDstType:includeAll(nSrcType)) then
 				nCastContext:error("@> cast fail")
 			end
 		elseif vCastKind ~= Enum.CastKind_FORCE then
