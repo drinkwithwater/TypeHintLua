@@ -236,7 +236,7 @@ local G = lpeg.P { "TypeHintLua";
 			env.hinting = true
 			return true
 		else
-			error(env:makeErrNode(i, "syntax error : hint-in-hint syntax not allow"))
+			error(env:makeErrNode(i, "syntax error : hint script only allow normal lua syntax"))
 			return false
 		end
 	end);
@@ -269,13 +269,15 @@ local G = lpeg.P { "TypeHintLua";
 
 	HintExpr = vv.EvalExpr + vv.SimpleExpr;
 
-	AtHint = hintC.wrap(
+	AtHint = vv.AtCastHint + vv.AtPolyHint;
+
+	AtCastHint = hintC.wrap(
 		false,
 		symb("@") * cc("@") +
 		symb("@!") * cc("@!") +
 		symb("@>") * cc("@>") +
 		symb("@?") * cc("@?"),
-		vv.HintExpr) + vv.HintPolyArgs;
+		vv.HintExpr) ;
 
 	ColonHint = hintC.wrap(false, symb(":") * cc(false), vv.HintExpr);
 
@@ -293,7 +295,7 @@ local G = lpeg.P { "TypeHintLua";
 		return l
 	end;
 
-	HintPolyArgs = hintC.wrap(false, symb("@<") * cc("@<"),
+	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
 		vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
 
 	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
@@ -377,7 +379,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
-		local polyArgs = lpeg.Cg(vv.HintPolyArgs + cc(false), "hintPolyArgs")
+		local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
 		index1 = addAtHint(index1)
@@ -386,8 +388,10 @@ local G = lpeg.P { "TypeHintLua";
 		index2 = addAtHint(index2)
 		-- invoke
 		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * polyArgs * vvA.FuncArgs)
+		invoke = addAtHint(invoke)
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
+		call = addAtHint(call)
 		-- add completion case
 		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call)^0, exprF.suffixed);
 		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
@@ -450,7 +454,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
-				Cenv * Cpos * kw"const" * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
+				Cenv * Cpos * kw"const" * vv.HintBegin * vv.HintEnd * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
 					env:markConst(pos)
 					t.isConst = true
 					return t
@@ -542,6 +546,7 @@ function ParseEnv.new(vSubject, vChunkName)
 		_subject = vSubject,
 		_chunkName = vChunkName,
 		_posToChange = {},
+		_posToParenWrap = {},
 		_astOrErr = nil,
 	}, ParseEnv)
 	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
@@ -597,10 +602,21 @@ function ParseEnv:buildIHintInfo(vEvalList, vRealStartPos, vStartPos, vFinishPos
 	return nHintInfo
 end
 
+-- @ hint for invoke & call , need to add paren
+-- eg.
+--   aFunc() @ Integer -> (aFunc())
+-- so mark paren here
+function ParseEnv:markParenWrap(vStartPos, vFinishPos)
+	self._posToChange[vStartPos] = "("
+	self._posToChange[vFinishPos] = ")"
+end
+
+-- hint script to be delete
 function ParseEnv:markDel(vStartPos, vFinishPos)
 	self._posToChange[vStartPos] = vFinishPos
 end
 
+-- local convert to const
 function ParseEnv:markConst(vStartPos)
 	self._posToChange[vStartPos] = "const"
 end
@@ -666,6 +682,11 @@ function ParseEnv:genLuaCode()
 				nContents[#nContents + 1] = nLuaCode
 				nContents[#nContents + 1] = "local"
 				nPreFinishPos = nStartPos + 4
+			elseif nChange == "(" or nChange == ")" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = nChange
+				nPreFinishPos = nStartPos - 1
 			else
 				error("unexpected branch")
 			end
