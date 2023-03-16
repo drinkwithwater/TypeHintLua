@@ -90,14 +90,10 @@ exprF = {
 	end,
 	suffixed=function(e1, e2)
 		local e2tag = e2.tag
-		assert(e2tag == "Call" or e2tag == "Invoke" or e2tag == "Index", "exprSuffixed args exception")
+		assert(e2tag == "Paren" or e2tag == "Call" or e2tag == "Invoke" or e2tag == "Index", "exprSuffixed args exception")
 		e2.pos = e1.pos
 		e2[1] = e1
-		if e2.hintShort then
-			return exprF.hintExpr(e2.pos, e2, e2.hintShort, e2.posEnd)
-		else
-			return e2
-		end
+		return e2
 	end,
 	paren=function(pos, e, hintShort, posEnd)
 		return { tag = "Paren", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
@@ -269,8 +265,6 @@ local G = lpeg.P { "TypeHintLua";
 
 	HintExpr = vv.EvalExpr + vv.SimpleExpr;
 
-	AtHint = vv.AtCastHint + vv.AtPolyHint;
-
 	AtCastHint = hintC.wrap(
 		false,
 		symb("@") * cc("@") +
@@ -359,41 +353,36 @@ local G = lpeg.P { "TypeHintLua";
 		return vv.EvalExpr + OrExpr
 	end)();
 
-	SimpleExpr = Cpos * (vv.String +
-              tagC.Number(token(vv.Number)) +
-              tagC.Nil(kw"nil") +
-              tagC.False(kw"false") +
-              tagC.True(kw"true") +
-              vv.FuncDef +
-              vv.Constructor) * (vv.AtHint + cc(nil)) * Cpos /exprF.hintExpr +
-              vv.SuffixedExpr + tagC.Dots(symb"...");
+	SimpleExpr = Cpos * (
+								vv.String +
+								tagC.Number(token(vv.Number)) +
+								tagC.Nil(kw"nil") +
+								tagC.False(kw"false") +
+								tagC.True(kw"true") +
+								vv.FuncDef +
+								vv.Constructor +
+								vv.SuffixedExpr +
+								tagC.Dots(symb"...")
+							) * (vv.AtCastHint + cc(nil)) * Cpos /exprF.hintExpr;
 
-	PrimaryExpr = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
-			Cpos * symb"(" * vv.Expr * symb")" * (vv.AtHint + cc(nil)) * Cpos / exprF.paren;
+	PrimaryExpr = vv.IdentUse +
+			Cpos * symb"(" * vv.Expr * symb")" * cc(nil) * Cpos / exprF.paren;
 
 	SuffixedExpr = (function()
-		local function addAtHint(patt)
-			return patt * (vv.AtHint + cc(nil)) / function(expr, hintShort)
-				expr.hintShort = hintShort
-				return expr
-			end
-		end
 		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
 		local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
 		-- . index
 		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
-		index1 = addAtHint(index1)
 		-- [] index
 		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
-		index2 = addAtHint(index2)
 		-- invoke
 		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * polyArgs * vvA.FuncArgs)
-		invoke = addAtHint(invoke)
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
-		call = addAtHint(call)
+		-- atPoly
+		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.paren
 		-- add completion case
-		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call)^0, exprF.suffixed);
+		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
 		return lpeg.Cmt(succPatt * (Cenv*Cpos*symb(".") + Cenv*Cpos*symb(":")) ^-1, function(_, _, exp, env, predictPos)
 			if not predictPos then
 				return true, exp
