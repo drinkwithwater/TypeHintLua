@@ -367,16 +367,7 @@ local G = lpeg.P { "TypeHintLua";
               vv.SuffixedExpr + tagC.Dots(symb"...");
 
 	PrimaryExpr = Cpos * vv.IdentUse * (vv.AtHint + cc(nil)) * Cpos / exprF.hintExpr +
-			Cpos * symb"(" * (
-				vv.Expr * cc(nil) * symb")" +
-				vv.ApplyExpr * vv.AtHint * symb")" +
-				throw("invalid paren expression")
-			) * Cpos * (vv.AtHint + cc(nil)) * Cpos / function(pos, expr, innerHint, posMid, outerHint, posEnd)
-				if innerHint then
-					expr = exprF.paren(pos, expr, innerHint, posMid)
-				end
-				return exprF.paren(pos, expr, outerHint, posEnd)
-			end;
+			Cpos * symb"(" * vv.Expr * symb")" * (vv.AtHint + cc(nil)) * Cpos / exprF.paren;
 
 	SuffixedExpr = (function()
 		local function addAtHint(patt)
