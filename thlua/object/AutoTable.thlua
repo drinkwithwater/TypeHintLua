@@ -40,7 +40,7 @@ function AutoTable:setName(vName:String)
 	self._name = vName
 end
 
-function AutoTable:_castMatchOne(
+function AutoTable:castMatchOne(
 	vContext:clazz.AssignContext,
 	vStruct:clazz.Struct
 ):Ret(OrFalse(clazz.LateCastDict))
@@ -57,7 +57,8 @@ function AutoTable:_castMatchOne(
 			nMatchSucc = false
 			return
 		end
-		if not vContext:tryIncludeCast(nFnCastDict, nMatchValue:checkAtomUnion(), vTableValue) then
+		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nFnCastDict, nMatchValue:checkAtomUnion(), vTableValue)
+		if not nIncludeType or not nCastSucc then
 			nMatchSucc = false
 			return
 		end
@@ -72,37 +73,6 @@ function AutoTable:_castMatchOne(
 		end
 	end
 	return nFnCastDict
-end
-
-function AutoTable:tryCast(
-	vContext:clazz.AssignContext,
-	vFnCastDict:clazz.LateCastDict,
-	vObjectAtomUnion:clazz.UAtomUnion
-):Ret(OrFalse(clazz.TypedObject))
-	if self._firstAssign then
-		vContext:error("can't cast assigned AutoTable")
-		return false
-	end
-	local nFinalMatchStruct:OrFalse(clazz.TypedObject) = false
-	vObjectAtomUnion:foreach(function(vAtomType)
-		if not Struct.is(vAtomType) then
-			return
-		end
-		const nCurFnCastDict = self:_castMatchOne(vContext, vAtomType)
-		if nCurFnCastDict then
-			for nAutoFn, nList in pairs(nCurFnCastDict) do
-				const nOldList = vFnCastDict[nAutoFn]
-				if nOldList then
-					for i=1,#nList do
-						nOldList[#nOldList + 1] = nList[i]
-					end
-				else
-					vFnCastDict[nAutoFn] = nList
-				end
-			end
-		end
-	end)
-	return nFinalMatchStruct
 end
 
 function AutoTable:checkTypedObject()

@@ -65,9 +65,12 @@ end
 function Branch:mutSet(vContext:clazz.AssignContext, vSymbol:clazz.LocalSymbol, vValueTerm:clazz.RefineTerm)
 	const nValueType = vValueTerm:getType()
 	const nDstType = vSymbol:getType()
-	const nCastType = vContext:includeOrCastFrom(nDstType, nValueType)
-	if nCastType then
-		const nCastTerm = vContext:RefineTerm(nCastType)
+	const nIncludeType, nCastSucc = vContext:includeAndCast(nDstType, nValueType)
+	if nIncludeType then
+		if not nCastSucc then
+			vContext:error("assign but cast fail")
+		end
+		const nCastTerm = vContext:RefineTerm(nIncludeType)
 		const nImmutVariable = nCastTerm:attachImmutVariable()
 		self.symbolToVariable[vSymbol] = nImmutVariable
 		nImmutVariable:addSymbol(vSymbol)

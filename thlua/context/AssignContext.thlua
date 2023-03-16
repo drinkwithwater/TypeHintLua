@@ -1,6 +1,7 @@
 
 const class = require "thlua.class"
 
+const Struct = require "thlua.object.Struct"
 const RefineTerm = require "thlua.term.RefineTerm"
 const VariableCase = require "thlua.term.VariableCase"
 const AutoHolder = require "thlua.auto.AutoHolder"
@@ -121,54 +122,76 @@ function AssignContext:matchArgsToTypeTuple(
 	end
 end
 
+---------------------------------------------------------
+-- 1. castable auto-function always cast success -----
+-- 2. castable auto-table may cast failed -----
+-- 3. castable auto-function is saved for late cast -----
+-- 4. if table cast success, then table's field auto-function is saved for late cast ---------
+--------------------------------------------------------
 function AssignContext:tryIncludeCast(
 	vFnCastDict:clazz.LateCastDict,
 	vDstType:clazz.UAtomUnion,
 	vSrcType:clazz.UAtomUnion
-):Ret(OrFalse(clazz.UAtomUnion))
+):Ret(False):Ret(clazz.UAtomUnion, Boolean)
 	const nCollection = self._manager:TypeCollection()
 	const nDstFnPart = vDstType:partTypedFunction()
 	const nDstObjPart = vDstType:partTypedObject()
-	local nInclude = true
+	local nIncludeSucc = true
+	local nCastSucc = true
 	local nPutFnPart = false
 	local nPutObjPart = false
 	vSrcType:foreach(function(vSubType)
 		if AutoTable.is(vSubType) and vSubType:isCastable() and not nDstObjPart:isNever() then
 			nPutObjPart = true
-			vSubType:tryCast(self, vFnCastDict, nDstObjPart)
+			local nMatchOne = false
+			nDstObjPart:foreach(function(vAtomType)
+				if Struct.is(vAtomType) then
+					const nFnCastDict = vSubType:castMatchOne(self, vAtomType)
+					if nFnCastDict then
+						vFnCastDict:putAll(nFnCastDict)
+						nCollection:put(vAtomType)
+						nMatchOne = true
+					end
+				end
+			end)
+			if not nMatchOne then
+				nCastSucc = false
+			end
 		elseif AutoFunction.is(vSubType) and vSubType:isCastable() and not nDstFnPart:isNever() then
 			vFnCastDict:putOne(vSubType, nDstFnPart)
 			nPutFnPart = true
 		elseif vDstType:includeAtom(vSubType) then
 			nCollection:put(vSubType)
 		else
-			nInclude = false
+			nIncludeSucc = false
 		end
 	end)
-	if not nInclude then
+	if not nIncludeSucc then
 		return false
 	else
 		if nPutFnPart then
 			nCollection:put(nDstFnPart)
 		end
-		if nPutObjPart then
+		if not nCastSucc and nPutObjPart then
 			nCollection:put(nDstObjPart)
 		end
-		return nCollection:mergeToAtomUnion()
+		return nCollection:mergeToAtomUnion(), nCastSucc
 	end
 end
 
-function AssignContext:includeOrCastFrom(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(OrFalse(clazz.UAtomUnion))
+function AssignContext:includeAndCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion):Ret(False):Ret(clazz.UAtomUnion, Boolean)
 	const nFnLateDict = LateCastDict.new()
-	const nRet = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
-	for nAutoFn, nList in pairs(nFnLateDict) do
-		for _, nTypeFn in ipairs(nList) do
-			if TypedFunction.is(nTypeFn) then
-				nAutoFn:checkWhenCast(self, nTypeFn)
+	const nIncludeType, nCastSucc = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
+	if nIncludeType then
+		for nAutoFn, nList in pairs(nFnLateDict) do
+			for _, nTypeFn in ipairs(nList) do
+				if TypedFunction.is(nTypeFn) then
+					nAutoFn:checkWhenCast(self, nTypeFn)
+				end
 			end
 		end
 	end
-	return nRet
+	return nIncludeType, nCastSucc
 end
 
 function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:clazz.UAllType):Ret(clazz.RefineTerm)
@@ -177,9 +200,11 @@ function AssignContext:assignTermToType(vAutoTerm:clazz.UAutoTerm, vDstType:claz
 	if not nSrcType then
 		vAutoTerm:setAutoCastType(self, nDstType)
 	else
-		const nIncludeCastType = self:includeOrCastFrom(nDstType, nSrcType)
+		const nIncludeCastType, nCastSucc = self:includeAndCast(nDstType, nSrcType)
 		if not nIncludeCastType then
 		  self:error("assign but type not match")
+		elseif not nCastSucc then
+		  self:error("assign but type cast fail")
 		end
 	end
 	-- TODO, maybe add some case here?

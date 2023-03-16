@@ -81,8 +81,11 @@ function SealTable:meta_set(vContext, vKeyType, vValueType)
 		vContext:pushNothing()
 		const nTableField = self._fieldDict[nKeyIncludeType]!
 		const nFieldType = nTableField.rawValueType
-		if not vContext:includeOrCastFrom(nFieldType, vValueType) then
-			vContext:error("wrong value type when set key:"..tostring(nKeyIncludeType))
+		const nIncludeType, nCastSucc = vContext:includeAndCast(nFieldType, vValueType)
+		if not nIncludeType then
+			vContext:error("type not match when set key:"..tostring(nKeyIncludeType))
+		elseif not nCastSucc then
+			vContext:error("type cast fail when set key:"..tostring(nKeyIncludeType))
 		end
 		return
 	else

@@ -97,13 +97,15 @@ function Struct:meta_set(vContext, vKeyType, vValueType)
 			return
 		end
 		local nSetType = nSetValue:checkAtomUnion()
-		if vContext:includeOrCastFrom(nSetType, vValueType) then
-			return
-		else
+		const nIncludeType, nCastSucc = vContext:includeAndCast(nSetType, vValueType)
+		if not nIncludeType then
 			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+		elseif not nCastSucc then
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field cast fail")
 		end
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 	end
-	vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
 end
 
 function Struct:native_rawset(vContext, vKeyType, vValueType)

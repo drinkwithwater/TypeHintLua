@@ -472,34 +472,38 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTerm:clazz.UAutoTerm, vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	const nSymbolContext = self:newAssignContext(vNode)
+	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
+	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
+		nSymbolContext:warn("define a symbol without any type")
+	end
 	if vHintType then
-		vTerm = nSymbolContext:assignTermToType(vTerm, vHintType)
+		nTerm = nSymbolContext:assignTermToType(nTerm, vHintType)
 	else
-		const nTermInHolder = vTerm:getRefineTerm()
+		const nTermInHolder = nTerm:getRefineTerm()
 		if not nTermInHolder then
 			if vModify then
 				error(Exception.new("auto variable can't be modified", vNode))
 			elseif vKind == Enum.SymbolKind_LOCAL then
 				error(Exception.new("auto variable can't be defined as local", vNode))
 			end
-			return vTerm
+			return nTerm
 		end
-		vTerm = nTermInHolder
-		const nFromType = vTerm:getType()
+		nTerm = nTermInHolder
+		const nFromType = nTerm:getType()
 		-- convert string literal to string, number literal to number, boolean literal to boolean
 		if vModify and vKind == Enum.SymbolKind_LOCAL then
 			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
-				vTerm = nSymbolContext:RefineTerm(nToType)
+				nTerm = nSymbolContext:RefineTerm(nToType)
 			end
 		end
 		nFromType:setAssigned(nSymbolContext)
 	end
-	const nImmutVariable = vTerm:attachImmutVariable()
+	const nImmutVariable = nTerm:attachImmutVariable()
 	if vModify then
-		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, vTerm:getType(), vTerm)
+		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, nTerm:getType(), nTerm)
 		self:getRuntime():recordSymbol(nLocalSymbol)
 		self:_topBranch():mutMark(nLocalSymbol, nImmutVariable)
 		return nLocalSymbol
