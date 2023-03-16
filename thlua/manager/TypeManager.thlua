@@ -85,9 +85,9 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 			String = String.new(vManager),
 			Truth = Truth.new(vManager),
 			AnyFunction = AnyFunction.new(vManager),
-			Boolean = nil @ clazz.TypeReference,
-			Any = nil @ clazz.TypeReference,
-			AnyObject = nil @ clazz.Interface,
+			Boolean = nil @! clazz.TypeReference,
+			Any = nil @! clazz.TypeReference,
+			AnyObject = nil @! clazz.Interface,
 		}
 		self.Integer = self.Number
 		return self
@@ -95,11 +95,11 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 	const self = setmetatable({.class
 		_runtime=vRuntime,
 		-- type items
-		type=nil @ BuiltinType,
-		builtin=nil @ BuiltinFunc,
+		type=nil @! BuiltinType,
+		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
 		_pairToInclude={} @ Dict(Integer, clazz.TypeReference),
-		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=clazz.BooleanLiteral},
+		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=OrNil(clazz.BooleanLiteral)},
 		_unionSignToType=(setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion)),
 		_typeIdCounter=0@Integer,
 		_rootNode=vRuntime:getNode(),
@@ -326,7 +326,7 @@ end
 
 function TypeManager:buildStructExtend(vNode:clazz.IAstNode, vFirst:Union(Dict(Truth, Truth), clazz.UAllType),
 	...:Union(clazz.TypeReference, clazz.TypedObject)):Ret(clazz.TypeReference)
-	const nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst @ Dict(Truth, Truth))
+	const nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst @> Dict(Truth, Truth))
 	const l:List(clazz.UAllType) = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end

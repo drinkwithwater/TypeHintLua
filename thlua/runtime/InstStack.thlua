@@ -346,7 +346,7 @@ function InstStack:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 end
 
 function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
-	const nCastContext = self:newOperContext(vNode)
+	const nCastContext = self:newAssignContext(vNode)
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
@@ -361,13 +361,28 @@ function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 		end)
 		return nCastContext:mergeToRefineTerm(nTypeCaseList)
 	else
-		if not vCastKind then
-			vContext:error("unexcepted castkind:"..tostring(vCastKind))
-		end
 		const nDst = assert(..., "hint type can't be nil")
-		const nDstType = self._manager:easyToType(nDst)
-		if not nDstType:includeAll(vTerm:getType()) then
-			-- self:getRuntime():nodeError(vNode, "@ cast fail")
+		const nDstType = self._manager:easyToType(nDst):checkAtomUnion()
+		if vCastKind == Enum.CastKind_CONIL then
+			const nMatchType, nCastSucc = nCastContext:includeAndCast(nDstType, vTerm:getType():notnilType())
+			if not nMatchType then
+				nCastContext:error("@! not match")
+			elseif not nCastSucc then
+				nCastContext:error("@! cast fail")
+			end
+		elseif vCastKind == Enum.CastKind_COVAR then
+			const nMatchType, nCastSucc = nCastContext:includeAndCast(nDstType, vTerm:getType())
+			if not nMatchType then
+				nCastContext:error("@ not match")
+			elseif not nCastSucc then
+				nCastContext:error("@ cast fail")
+			end
+		elseif vCastKind == Enum.CastKind_CONTRA then
+			if not vTerm:getType():includeAll(nDstType) then
+				nCastContext:error("@> cast fail")
+			end
+		elseif vCastKind ~= Enum.CastKind_FORCE then
+			vContext:error("unexcepted castkind:"..tostring(vCastKind))
 		end
 		return nCastContext:RefineTerm(nDstType)
 	end
