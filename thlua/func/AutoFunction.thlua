@@ -15,7 +15,7 @@ AutoFunction.__tostring=function(self:clazz.AutoFunction)
 end
 
 function.open AutoFunction:ctor(vManager:clazz.TypeManager, ...)
-	self._castList={}@List(clazz.TypedFunction)
+	self._castTypeFn=false@OrFalse(clazz.TypedFunction)
 	self._firstAssign = false @OrFalse(clazz.AssignContext)
 end
 
@@ -31,8 +31,19 @@ end
 
 function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.TypedFunction):Ret(Boolean)
 	if not self._headStartEvent:isWaken() then
-		const nList = self._castList
-		nList[#nList + 1] = vTypeFn
+		const nOldTypeFn = self._castTypeFn
+		if not nOldTypeFn then
+			self._castTypeFn = vTypeFn
+		else
+			if vTypeFn:includeAll(nOldTypeFn) then
+				self._castTypeFn = vTypeFn
+			elseif nOldTypeFn:includeAll(vTypeFn) then
+				-- donothing
+			else
+				-- TODO
+				--vContext:error("auto-function cast to multi type", self._node)
+			end
+		end
 		return true
 	else
 		return false
@@ -40,11 +51,7 @@ function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.Ty
 end
 
 function AutoFunction:pickCastTypeFn():Ret(OrFalse(clazz.TypedFunction))
-	local nCastFn:OrFalse(clazz.TypedFunction) = false
-	for k,v in pairs(self._castList) do
-		nCastFn = v
-	end
-	return nCastFn
+	return self._castTypeFn
 end
 
 return AutoFunction

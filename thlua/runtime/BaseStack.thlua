@@ -238,19 +238,17 @@ function BaseStack:_bodyReturn(vContext:clazz.ReturnContext, vTypeTuple:clazz.UT
 		local nOneOkay = false
 		local nRetTuples = nBodyFn:getRetTuples()
 		if nRetTuples then
-			nRetTuples:foreachWithFirst(function(vDstTuple, _)
-				if vContext:returnMatchTuple(vTypeTuple, vDstTuple) then
-					nOneOkay = true
-				end
-			end)
-			if not nOneOkay then
-				vContext:error("return check failed")
+			const nMatchSucc, nCastSucc = vContext:returnMatchTuples(vTypeTuple, nRetTuples)
+			if not nMatchSucc then
+				vContext:error("return match failed")
+			elseif not nCastSucc then
+				vContext:error("return cast failed")
 			end
 		end
 	elseif ClassFactory.is(nBodyFn) then
 		const nResultType = nBodyFn:getClassTable(true)
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
-			vContext:error("class return check failed")
+			vContext:error("class return not match")
 		end
 	end
 end
