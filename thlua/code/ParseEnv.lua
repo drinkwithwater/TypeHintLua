@@ -60,9 +60,7 @@ local function symb(str)
 	elseif str == "~" then
 		return token(lpeg.P("~")*-lpeg.P("="))
 	elseif str == "@" then
-		return token(lpeg.P("@")*-lpeg.S("!<>"))
-	elseif str == "@!" then
-		return token(lpeg.P("@!")*-lpeg.P("!"))
+		return token(lpeg.P("@")*-lpeg.S("!<>?"))
 	elseif str == "(" then
 		return token(lpeg.P("(")*-lpeg.P("@"))
 	else
@@ -277,7 +275,7 @@ local G = lpeg.P { "TypeHintLua";
 		symb("@") * cc(Enum.CastKind_COVAR) +
 		symb("@!") * cc(Enum.CastKind_CONIL) +
 		symb("@>") * cc(Enum.CastKind_CONTRA) +
-		symb("@!!") * cc(Enum.CastKind_FORCE),
+		symb("@?") * cc(Enum.CastKind_FORCE),
 		vv.HintExpr) + vv.HintPolyArgs;
 
 	ColonHint = hintC.wrap(false, symb(":") * cc(false), vv.HintExpr);
