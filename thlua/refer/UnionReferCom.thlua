@@ -44,7 +44,7 @@ function UnionReferCom:getListAwait():Ret(List(clazz.IAtomType))
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function UnionReferCom:setListAwake(vAtomList:List(clazz.IAtomType), vResultType:OrNil(clazz.UAtomUnion)):Ret(clazz.UAtomUnion)
+function UnionReferCom:setAtomList(vAtomList:List(clazz.IAtomType), vLateRunner:OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion)))):Ret(clazz.UAtomUnion)
 	assert(not self._typeList, "type list has been setted")
 	-- step 1. set list
 	self._typeList = vAtomList
@@ -54,28 +54,30 @@ function UnionReferCom:setListAwake(vAtomList:List(clazz.IAtomType), vResultType
 		end
 	end
 	self._listBuildEvent:wakeup()
-	if not vResultType then
-		-- step 2. merge to result
-		local nResultType:OrNil(clazz.UAtomUnion) = nil
-		if #vAtomList == 0 then
-			nResultType = self._manager.type.Never
-		elseif #vAtomList == 1 then
-			nResultType = vAtomList[1]!
-		else
-			local nCollection = self._manager:TypeCollection()
-			for _, v in ipairs(vAtomList) do
-				nCollection:put(v)
-			end
-			nResultType = nCollection:mergeToAtomUnion()
+	if vLateRunner then
+		const nResultType = vLateRunner()
+		if nResultType then
+			self._resultType = nResultType
+			self._resultBuildEvent:wakeup()
+			return nResultType
 		end
-		self._resultType = nResultType
-		self._resultBuildEvent:wakeup()
-		return nResultType
-	else
-		self._resultType = vResultType
-		self._resultBuildEvent:wakeup()
-		return vResultType
 	end
+	-- step 2. merge to result type
+	local nResultType:OrNil(clazz.UAtomUnion) = nil
+	if #vAtomList == 0 then
+		nResultType = self._manager.type.Never
+	elseif #vAtomList == 1 then
+		nResultType = vAtomList[1]!
+	else
+		local nCollection = self._manager:TypeCollection()
+		for _, v in ipairs(vAtomList) do
+			nCollection:put(v)
+		end
+		nResultType = nCollection:mergeToAtomUnion()
+	end
+	self._resultType = nResultType
+	self._resultBuildEvent:wakeup()
+	return nResultType
 end
 
 function UnionReferCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
@@ -92,10 +94,6 @@ end
 
 function UnionReferCom:getAssignNode():Ret(OrFalse(clazz.IAstNode))
 	return self._node
-end
-
-function.open UnionReferCom.is(self):isguard(clazz.UnionReferCom)
-	return getmetatable(self) == UnionReferCom
 end
 
 return UnionReferCom

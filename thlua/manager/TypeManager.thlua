@@ -145,7 +145,11 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		end
 		const nKeyRefer, _ = nObject:getKeyTypes()
 		const nRefer = self:Reference(false)
-		nRefer:setUnionComAsync(nRootNode, nKeyRefer)
+		nRefer:setUnionAsync(nObject:getNode(), function()
+			return nKeyRefer:getListAwait(), function()
+				nKeyRefer:getTypeAwait()
+			end
+		end)
 		return nRefer
 	end)
 	return self
@@ -251,7 +255,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 	const nObjectRefer = self:Reference(false)
 	nObjectRefer:setUnionAsync(vNode, function()
 		if vIsInterface then
-			assert(#vObjectList>=1, "Interface must take at least one arguments")
+			assert(#vObjectList>=1, "Intersect must take at least one arguments")
 		else
 			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
@@ -259,7 +263,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 		const nAllValueDict:clazz.MemberDict = {}
 		const nIntersectSet:Dict(clazz.TypedObject, True) = {}
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
-		local nIntersectNextKey:OrFalse(clazz.UAllType) = self.type.Truth
+		local nIntersectNextKey:OrFalse(clazz.UAllType) = self.type.Any
 		for i=1,#vObjectList do
 			local nTypedObject = vObjectList[i]!
 			if Reference.is(nTypedObject) then
@@ -306,7 +310,6 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			and Interface.new(self, vNode, nIntersectNextKey)
 			or Struct.new(self, vNode, nIntersectNextKey)
 		nNewObject:buildAsync(function(vAsyncKey)
-			const nKeyAtomUnion = vAsyncKey:setListAwake(nKeyList)
 			if #nMetaEventComList > 0 then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				nNewEventCom:initByMerge(nMetaEventComList)
@@ -314,6 +317,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			else
 				nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
 			end
+			const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 			-- TODO check key's count and intersect valid
 			nNewObject:lateCheck()
 		end)
@@ -382,7 +386,6 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 	nNewObject:buildAsync(function(vAsyncKey)
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
-		local nKeyCount = 0
 		for nKey, nValue in pairs(vTable) do
 			local nValueType:OrNil(clazz.UAllType, clazz.MemberFunction) = nil
 			if MemberFunction.is(nValue) then
@@ -392,7 +395,6 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 			end
 			local nKeyType = self:easyToType(nKey)
 			nKeyType:foreachAwait(function(vAtomType)
-				nKeyCount = nKeyCount + 1
 				nKeyList[#nKeyList + 1] = vAtomType
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
@@ -409,7 +411,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 		else
 			nNewObject:lateInit({}, nValueDict, false)
 		end
-		const nKeyAtomUnion = vAsyncKey:setListAwake(nKeyList)
+		const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 		nNewObject:lateCheck()
 		local nFinalCount = 0
 		nKeyAtomUnion:foreach(function(_)
