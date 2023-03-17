@@ -1,0 +1,71 @@
+
+const RetTuples = require "thlua.tuple.RetTuples"
+const class = require "thlua.class"
+
+(@let.clazz = import("thlua.type.TypeClass").clazz)
+
+const RetBuilder = class@<clazz.RetBuilder, false>()
+
+function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode)
+	self._manager = vManager
+	self._tupleList = {} @ List(clazz.UTypeTuple)
+	self._node=vNode
+end
+
+function RetBuilder:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType)
+	-- TODO check ... is type
+	const nTypeList:List(clazz.UAllType) = {vFirst, ...}
+	const nLen = #nTypeList
+	assert(nLen > 0, "RetDots must take at least 1 value")
+	const nDotsType = nTypeList[nLen]!
+	nTypeList[#nTypeList] = nil
+	const nTypeTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList)):Dots(nDotsType)
+	const nTupleList = self._tupleList
+	nTupleList[#nTupleList + 1] = nTypeTuple
+end
+
+function RetBuilder:Ret(...:clazz.UAllType)
+	const nTypeTuple = self._manager:TypeTuple(self._node, ...)
+	const nTupleList = self._tupleList
+	nTupleList[#nTupleList + 1] = nTypeTuple
+end
+
+function RetBuilder:build():Ret(clazz.RetTuples)
+	const nTupleList = self._tupleList
+	if #nTupleList == 0 then
+		return self._manager:VoidRetTuples(self._node)
+	else
+		const nFirstToTuple:Dict(clazz.UAllType, clazz.UTypeTuple) = {}
+		for _, nTuple in ipairs(nTupleList) do
+			const nFirst = nTuple:get(1)
+			nFirstToTuple[nFirst] = nTuple
+		end
+		const nFirstRefer = self._manager:Reference(false)
+		const nFirstAtomList:List(clazz.IAtomType) = {}
+		nFirstRefer:setUnionAsync(self._node, function()
+			for _, nTuple in ipairs(nTupleList) do
+				const nFirst = nTuple:get(1)
+				local nCurCount = 0
+				nFirst:foreachAwait(function(vAtomType)
+					nFirstAtomList[#nFirstAtomList + 1] = vAtomType
+					nCurCount = nCurCount + 1
+				end)
+				if nCurCount == 0 then
+					error("can't return never")
+				end
+			end
+			return nFirstAtomList
+		end, function(vAtomUnion)
+			local nCount = 0
+			vAtomUnion:foreach(function(_)
+				nCount = nCount + 1
+			end)
+			if nCount ~= #nFirstAtomList then
+				error("return tuples' first type has intersect part")
+			end
+		end)
+		return RetTuples.new(self._manager, self._node, nFirstRefer, nFirstToTuple)
+	end
+end
+
+return RetBuilder

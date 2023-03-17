@@ -524,43 +524,14 @@ function TypeManager:TypeTuple(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeTu
 	return TypeTuple.new(self, vNode, nTypeList)
 end
 
-function TypeManager:VoidRetTuples():Ret(clazz.RetTuples)
+function TypeManager:VoidRetTuples(vNode:clazz.IAstNode):Ret(clazz.RetTuples)
 	const nFirst = self.type.Nil
-	return RetTuples.new(self, nFirst, {[nFirst]=self:TypeTuple(self._runtime:getNode())})
+	return RetTuples.new(self, vNode, nFirst, {[nFirst]=self:TypeTuple(self._runtime:getNode())})
 end
 
-function TypeManager:SingleRetTuples(vTypeTuple:clazz.UTypeTuple):Ret(clazz.RetTuples)
+function TypeManager:SingleRetTuples(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple):Ret(clazz.RetTuples)
 	const nFirst = vTypeTuple:get(1)
-	return RetTuples.new(self, nFirst, {[nFirst]=vTypeTuple})
-end
-
-function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples, vTypeTuple:clazz.UTypeTuple):Ret(clazz.RetTuples)
-	const nFirstToTuple:Dict(clazz.UAllType, clazz.UTypeTuple) = {}
-	vRetTuples:foreachWithFirst(function(vTuple, vFirst)
-		nFirstToTuple[vFirst] = vTuple
-	end)
-	const nAddFirst = vTypeTuple:get(1)
-	nFirstToTuple[nAddFirst] = vTypeTuple
-	const nFirstRefer = self:Reference(false)
-	local nTypeList:List(clazz.IAtomType) = {}
-	nFirstRefer:setUnionAsync(vNode, function()
-		vRetTuples:getFirstType():foreachAwait(function(vSubType)
-			nTypeList[#nTypeList + 1] = vSubType
-		end)
-		nAddFirst:foreachAwait(function(vSubType)
-			nTypeList[#nTypeList + 1] = vSubType
-		end)
-		return nTypeList
-	end, function(vAtomUnion)
-		local nCount = 0
-		vAtomUnion:foreach(function(_)
-			nCount = nCount + 1
-		end)
-		if nCount ~= #nTypeList then
-			error("return tuples' first type has intersect part")
-		end
-	end)
-	return RetTuples.new(self, nFirstRefer, nFirstToTuple)
+	return RetTuples.new(self, vNode, nFirst, {[nFirst]=vTypeTuple})
 end
 
 function TypeManager:buildMfn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.MemberFunction)

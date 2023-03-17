@@ -3,6 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const Exception = require "thlua.Exception"
 const TermTuple = require "thlua.tuple.TermTuple"
+const RetBuilder = require "thlua.tuple.RetBuilder"
 
 const BaseFunction = require "thlua.func.BaseFunction"
 const class = require "thlua.class"
@@ -15,7 +16,7 @@ function.open TypedFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNod
 	vParTuple:clazz.UTypeTuple, vRetTuples:OrFalse(clazz.RetTuples)
 )
 	self._node=vNode
-	self._buildingRetTuples=vRetTuples
+	self._retBuilder=RetBuilder.new(vManager, vNode)
 	self._parTuple=vParTuple
 	self._retTuples=vRetTuples
 end
@@ -30,35 +31,16 @@ function TypedFunction:Dots(vType:clazz.UAllType):Ret(clazz.TypedFunction)
 	return self
 end
 
-function TypedFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.TypedFunction)
+function TypedFunction:RetDots(...):Ret(clazz.TypedFunction)
 	-- TODO check ... is type
 	assert(not self._retTuples, "fn building is finish, can't call RetDots")
-	const nTypeList:List(clazz.UAllType) = {vFirst, ...}
-	const nLen = #nTypeList
-	assert(nLen > 0, "RetDots must take at least 1 value")
-	const nDotsType = nTypeList[nLen]!
-	nTypeList[#nTypeList] = nil
-	const nTypeTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList)):Dots(nDotsType)
-	local nPreRetTuples = self._buildingRetTuples
-	if not nPreRetTuples then
-		nPreRetTuples = self._manager:SingleRetTuples(nTypeTuple)
-	else
-		nPreRetTuples = self._manager:retConcat(self._node, nPreRetTuples, nTypeTuple)
-	end
-	self._buildingRetTuples = nPreRetTuples
+	self._retBuilder:RetDots(...)
 	return self
 end
 
-function TypedFunction:Ret(...:clazz.UAllType):Ret(clazz.TypedFunction)
+function TypedFunction:Ret(...):Ret(clazz.TypedFunction)
 	assert(not self._retTuples, "fn building is finish, can't call Ret")
-	local nTypeTuple = self._manager:TypeTuple(self._node, ...)
-	local nPreRetTuples = self._buildingRetTuples
-	if not nPreRetTuples then
-		nPreRetTuples = self._manager:SingleRetTuples(nTypeTuple)
-	else
-		nPreRetTuples = self._manager:retConcat(self._node, nPreRetTuples, nTypeTuple)
-	end
-	self._buildingRetTuples = nPreRetTuples
+	self._retBuilder:Ret(...)
 	return self
 end
 
@@ -70,7 +52,7 @@ end
 function TypedFunction:_buildRetTuples():Ret(clazz.RetTuples)
 	local nRetTuples = self._retTuples
 	if not nRetTuples then
-		nRetTuples = self._buildingRetTuples or self._manager:VoidRetTuples()
+		nRetTuples = self._retBuilder:build()
 		self._retTuples = nRetTuples
 	end
 	return nRetTuples
@@ -167,10 +149,6 @@ end
 
 function TypedFunction:mayRecursive()
 	return true
-end
-
-function TypedFunction:isSingleton()
-	return false
 end
 
 function TypedFunction:getFnAwait():Ret(clazz.TypedFunction)

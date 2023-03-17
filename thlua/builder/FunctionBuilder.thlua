@@ -152,7 +152,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 					nNewStack:error("hint return not match when cast")
 				end
 			end
-			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples())
+			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples(self._node))
 			const nPreTypeFn = nParTuple and nRetTuples and self._manager:TypedFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
 				if self._pass then
@@ -167,7 +167,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Mem
 						nNewStack:error("auto parameter deduce failed")
 						error("auto parameter deduce failed")
 					end
-					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(nRetTermTuple:checkTypeTuple())
+					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple())
 					if not nRetTuples then
 						nNewStack:error("auto return deduce failed")
 						error("auto return deduce failed")
@@ -330,7 +330,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		nFactory:buildAsync(function()
 			nClassTable:waitInit()
 			const nParTermTuple = nGenParam(false)
-			const nRetTuples = self._manager:SingleRetTuples(self._manager:TypeTuple(self._node, nClassTable))
+			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, nClassTable))
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			const nPreTypeFn = nParTuple and self._manager:TypedFunction(self._node, nParTuple, nRetTuples) or false
 			return nPreTypeFn, function()
