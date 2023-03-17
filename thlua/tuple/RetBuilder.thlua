@@ -35,36 +35,7 @@ function RetBuilder:build():Ret(clazz.RetTuples)
 	if #nTupleList == 0 then
 		return self._manager:VoidRetTuples(self._node)
 	else
-		const nFirstToTuple:Dict(clazz.UAllType, clazz.UTypeTuple) = {}
-		for _, nTuple in ipairs(nTupleList) do
-			const nFirst = nTuple:get(1)
-			nFirstToTuple[nFirst] = nTuple
-		end
-		const nFirstRefer = self._manager:Reference(false)
-		const nFirstAtomList:List(clazz.IAtomType) = {}
-		nFirstRefer:setUnionAsync(self._node, function()
-			for _, nTuple in ipairs(nTupleList) do
-				const nFirst = nTuple:get(1)
-				local nCurCount = 0
-				nFirst:foreachAwait(function(vAtomType)
-					nFirstAtomList[#nFirstAtomList + 1] = vAtomType
-					nCurCount = nCurCount + 1
-				end)
-				if nCurCount == 0 then
-					error("can't return never")
-				end
-			end
-			return nFirstAtomList
-		end, function(vAtomUnion)
-			local nCount = 0
-			vAtomUnion:foreach(function(_)
-				nCount = nCount + 1
-			end)
-			if nCount ~= #nFirstAtomList then
-				error("return tuples' first type has intersect part")
-			end
-		end)
-		return RetTuples.new(self._manager, self._node, nFirstRefer, nFirstToTuple)
+		return RetTuples.new(self._manager, self._node, nTupleList)
 	end
 end
 
