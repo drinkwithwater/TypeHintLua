@@ -242,8 +242,8 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:UnionReferCom(vNode:clazz.IAstNode):Ret(clazz.UnionReferCom)
-	const nCom = UnionReferCom.new(self, vNode)
+function TypeManager:UnionReferCom(vNode:clazz.IAstNode, vTask:clazz.ScheduleTask):Ret(clazz.UnionReferCom)
+	const nCom = UnionReferCom.new(self, vNode, vTask)
 	return nCom
 end
 
@@ -302,10 +302,10 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 				end
 			end
 		end
-		const nKeyRefer = self:UnionReferCom(vNode)
 		const nNewObject = vIsInterface
-			and Interface.new(self, vNode, nKeyRefer, nIntersectNextKey)
-			or Struct.new(self, vNode, nKeyRefer, nIntersectNextKey)
+			and Interface.new(self, vNode, nIntersectNextKey)
+			or Struct.new(self, vNode, nIntersectNextKey)
+		const nKeyRefer = nNewObject:getKeyAsyncType()
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
@@ -378,10 +378,10 @@ function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth),
 end
 
 function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
-	const nKeyRefer = self:UnionReferCom(vNode)
 	const nNewObject = vIsInterface
-	and Interface.new(self, vNode, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
-	or Struct.new(self, vNode, nKeyRefer, vMetaEventDict and vMetaEventDict.__next or false)
+	and Interface.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
+	or Struct.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
+	const nKeyRefer = nNewObject:getKeyAsyncType()
 	nKeyRefer:build(function()
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
