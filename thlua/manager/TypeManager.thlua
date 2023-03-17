@@ -305,21 +305,19 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 		const nNewObject = vIsInterface
 			and Interface.new(self, vNode, nIntersectNextKey)
 			or Struct.new(self, vNode, nIntersectNextKey)
-		const nKeyRefer = nNewObject:getKeyAsyncType()
-		if #nMetaEventComList > 0 then
-			const nNewEventCom = self:makeMetaEventCom(nNewObject)
-			nNewEventCom:initByMerge(nMetaEventComList)
-			nNewObject:lateInit(nIntersectSet, nAllValueDict, nNewEventCom)
-		else
-			nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
-		end
-		nKeyRefer:build(function()
-			return nKeyList
-		end, function(_)
-			nNewObject:lateCheck()
+		nNewObject:buildAsync(function(vAsyncKey)
+			const nKeyAtomUnion = vAsyncKey:setListAwake(nKeyList)
+			if #nMetaEventComList > 0 then
+				const nNewEventCom = self:makeMetaEventCom(nNewObject)
+				nNewEventCom:initByMerge(nMetaEventComList)
+				nNewObject:lateInit(nIntersectSet, nAllValueDict, nNewEventCom)
+			else
+				nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
+			end
 			-- TODO check key's count and intersect valid
+			nNewObject:lateCheck()
 		end)
-		return {self:_recordTypeUnionSign(nNewObject)}
+		return {nNewObject}
 	end)
 	return nObjectRefer
 end
@@ -381,8 +379,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 	const nNewObject = vIsInterface
 	and Interface.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
 	or Struct.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
-	const nKeyRefer = nNewObject:getKeyAsyncType()
-	nKeyRefer:build(function()
+	nNewObject:buildAsync(function(vAsyncKey)
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
 		local nKeyCount = 0
@@ -412,19 +409,17 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 		else
 			nNewObject:lateInit({}, nValueDict, false)
 		end
-		return nKeyList
-	end, function(vKeyAtomUnion)
+		const nKeyAtomUnion = vAsyncKey:setListAwake(nKeyList)
 		nNewObject:lateCheck()
-		const nList = nKeyRefer:getListAwait()
 		local nFinalCount = 0
-		vKeyAtomUnion:foreach(function(_)
+		nKeyAtomUnion:foreach(function(_)
 			nFinalCount = nFinalCount + 1
 		end)
-		if nFinalCount ~= #nList then
+		if nFinalCount ~= #nKeyList then
 			error("Object's key can not has intersect part")
 		end
 	end)
-	return self:_recordTypeUnionSign(nNewObject)
+	return nNewObject
 end
 
 function TypeManager:buildIDict(vNode:clazz.IAstNode, vKey:clazz.UAtomUnion, vValue:clazz.UAllType):Ret(clazz.TypedObject)
@@ -464,11 +459,6 @@ function TypeManager:_unifyUnion(vNewType:clazz.IUnionType):Ret(clazz.UAtomUnion
 	end
 end
 
-function.open TypeManager:_recordTypeUnionSign(vType)
-	self._unionSignToType[vType:unionSign()] = vType
-	return vType
-end
-
 function TypeManager:atomRecordTypeUnionSign(vType:clazz.BaseAtomType)
 	self._unionSignToType[tostring(vType.id)] = vType
 end
@@ -492,7 +482,7 @@ function TypeManager:stackNativeOpenFunction(vFn):Ret(clazz.OpenFunction)
 end
 
 function TypeManager:AutoTable(vNode:clazz.IAstNode):Ret(clazz.AutoTable)
-	return self:_recordTypeUnionSign(AutoTable.new(self, vNode))
+	return AutoTable.new(self, vNode)
 end
 
 function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(clazz.NumberLiteral, clazz.StringLiteral, clazz.BooleanLiteral))
@@ -503,11 +493,9 @@ function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(cl
 		if t == "number" then
 			nLiteralType = NumberLiteral.new(self, vValue)
 			nLiteralDict[vValue] = nLiteralType
-			self:_recordTypeUnionSign(nLiteralType)
 		elseif t == "string" then
 			nLiteralType = StringLiteral.new(self, vValue)
 			nLiteralDict[vValue] = nLiteralType
-			self:_recordTypeUnionSign(nLiteralType)
 		elseif t == "boolean" then
 			if vValue then
 				nLiteralType = self.type.True
@@ -591,21 +579,21 @@ function TypeManager:buildPfn(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, nPolyParNum))
+	return PolyFunction.new(self, vNode, vFunc, nPolyParNum)
 end
 
 function TypeManager:buildFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypedFunction)
 	local nParTuple = self:TypeTuple(vNode, ...)
-	return self:_recordTypeUnionSign(TypedFunction.new(self, vNode, nParTuple, false))
+	return TypedFunction.new(self, vNode, nParTuple, false)
 end
 
 function TypeManager:checkedFn(...:Truth):Ret(clazz.TypedFunction)
 	local nParTuple = self:TypeTuple(self._runtime:getNode(), ...)
-	return self:_recordTypeUnionSign(TypedFunction.new(self, self._runtime:getNode(), nParTuple, false))
+	return TypedFunction.new(self, self._runtime:getNode(), nParTuple, false)
 end
 
 function TypeManager:PolyFunction(vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vStack:OrNil(clazz.BaseStack)):Ret(clazz.PolyFunction)
-	return self:_recordTypeUnionSign(PolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack))
+	return PolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
 end
 
 function TypeManager:MemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunction):Ret(clazz.MemberFunction)
@@ -615,8 +603,7 @@ end
 function TypeManager:TypedFunction(vNode:clazz.IAstNode, vParTuple:clazz.UTypeTuple, vRetTuples:clazz.RetTuples):Ret(clazz.TypedFunction)
 	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
 	assert(RetTuples.is(vRetTuples))
-	const nFunc = TypedFunction.new(self, vNode, vParTuple, vRetTuples)
-	return self:_recordTypeUnionSign(nFunc)
+	return TypedFunction.new(self, vNode, vParTuple, vRetTuples)
 end
 
 function TypeManager:makeMetaEventCom(vObject:Union(clazz.SealTable, clazz.TypedObject)):Ret(clazz.MetaEventCom)

@@ -44,6 +44,40 @@ function UnionReferCom:getListAwait():Ret(List(clazz.IAtomType))
 	return (assert(self._typeList, "type list not setted"))
 end
 
+function UnionReferCom:setListAwake(vAtomList:List(clazz.IAtomType)):Ret(clazz.UAtomUnion)
+	assert(not self._typeList, "type list has been setted")
+	-- step 1. set list
+	self._typeList = vAtomList
+	for k, v in ipairs(vAtomList) do
+		if v:mayRecursive() then
+			self._mayRecursive = true
+		end
+	end
+	self._listBuildEvent:wakeup()
+	-- step 2. merge to result
+	local nResultType:OrNil(clazz.UAtomUnion) = nil
+	if #vAtomList == 0 then
+		nResultType = self._manager.type.Never
+	elseif #vAtomList == 1 then
+		nResultType = vAtomList[1]!
+	else
+		local nCollection = self._manager:TypeCollection()
+		for _, v in ipairs(vAtomList) do
+			nCollection:put(v)
+		end
+		nResultType = nCollection:mergeToAtomUnion()
+	end
+	self._resultType = nResultType
+	self._resultBuildEvent:wakeup()
+	return nResultType
+end
+
+function UnionReferCom:setTypeAwake(vType:clazz.UAtomUnion)
+	assert(not self._resultType, "type list has been setted")
+	self._type = vType
+	self._resultBuildEvent:wakeup()
+end
+
 function UnionReferCom:_build(
 	vGetList:Fn():Ret(List(clazz.IAtomType)),
 	vLaterCall:OrNil(Fn(clazz.UAtomUnion))
