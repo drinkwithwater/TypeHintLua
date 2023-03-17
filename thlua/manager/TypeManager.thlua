@@ -551,15 +551,17 @@ function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples,
 	vRetTuples:foreachWithFirst(function(vTuple, vFirst)
 		nFirstToTuple[vFirst] = vTuple
 	end)
-	nFirstToTuple[vTypeTuple:get(1)] = vTypeTuple
+	const nAddFirst = vTypeTuple:get(1)
+	nFirstToTuple[nAddFirst] = vTypeTuple
 	const nFirstRefer = self:Reference(false)
 	local nTypeList:List(clazz.IAtomType) = {}
 	nFirstRefer:setUnionAsync(vNode, function()
-		for nFirst, _ in pairs(nFirstToTuple) do
-			nFirst:foreachAwait(function(vSubType)
-				nTypeList[#nTypeList + 1] = vSubType
-			end)
-		end
+		vRetTuples:getFirstType():foreachAwait(function(vSubType)
+			nTypeList[#nTypeList + 1] = vSubType
+		end)
+		nAddFirst:foreachAwait(function(vSubType)
+			nTypeList[#nTypeList + 1] = vSubType
+		end)
 		return nTypeList
 	end, function(vAtomUnion)
 		local nCount = 0
@@ -567,7 +569,7 @@ function TypeManager:retConcat(vNode:clazz.IAstNode, vRetTuples:clazz.RetTuples,
 			nCount = nCount + 1
 		end)
 		if nCount ~= #nTypeList then
-			error("first type has intersect part")
+			error("return tuples' first type has intersect part")
 		end
 	end)
 	return RetTuples.new(self, nFirstRefer, nFirstToTuple)

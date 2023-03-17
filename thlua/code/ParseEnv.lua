@@ -103,7 +103,8 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env:markParenWrap(pos, hintShort.pos-1)
+				local nSubject = env._subject
+				env:markParenWrap(pos-1, hintShort.pos-1)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -686,10 +687,10 @@ function ParseEnv:genLuaCode()
 				nContents[#nContents + 1] = "local"
 				nPreFinishPos = nStartPos + 4
 			elseif nChange == "(" or nChange == ")" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
 				nContents[#nContents + 1] = nLuaCode
 				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos - 1
+				nPreFinishPos = nStartPos
 			else
 				error("unexpected branch")
 			end
