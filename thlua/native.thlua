@@ -18,14 +18,16 @@ local native = {}
 end)
 
 function native._toTable(vManager:clazz.TypeManager, vTable:StringToAtomUnion):Ret(clazz.AutoTable)
-	local nPairList:List(Struct{clazz.UAtomUnion, clazz.UAtomUnion}) = {}
+	const nPairList:List(Struct{clazz.UAtomUnion, clazz.UAtomUnion}) = {}
 	for k,v in pairs(vTable) do
 		nPairList[#nPairList + 1] = {
 			vManager:Literal(k), v
 		}
 	end
-  local nKeyUnion, nTypeDict = vManager:mergePairList@<clazz.UAtomUnion>(nPairList)
-	local nTable = vManager:AutoTable(vManager:getRuntime():getNode())
+  const nKeyUnion, nTypeDict = vManager:typeMapReduce@<clazz.UAtomUnion>(nPairList, function(vList)
+		return vManager:unionReduceType(vList)
+	end)
+	const nTable = vManager:AutoTable(vManager:getRuntime():getNode())
 	nTable:initByKeyValue(nKeyUnion, nTypeDict)
 	return nTable
 end

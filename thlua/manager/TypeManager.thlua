@@ -598,8 +598,11 @@ function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReferen
 	return nRefer
 end
 
-function TypeManager:mergePairList@<TValue>(vTypePairList:List(Struct {clazz.UAtomUnion, TValue})):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, TValue))
-	local nCollection = self:TypeCollection()
+function TypeManager:typeMapReduce@<TValue>(
+	vTypePairList:List(Struct {clazz.UAtomUnion, TValue}),
+	vReduceFn:Fn(List(TValue)):Ret(TValue)
+):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, TValue))
+	const nCollection = self:TypeCollection()
 	for _, nPair in ipairs(vTypePairList) do
 		local nFieldType = nPair[1]
 		if nFieldType:isReference() then
@@ -608,22 +611,38 @@ function TypeManager:mergePairList@<TValue>(vTypePairList:List(Struct {clazz.UAt
 		end
 		nCollection:put(nFieldType)
 	end
-	local nKeyUnion = nCollection:mergeToAtomUnion()
-	local nTypeDict:Dict(clazz.IAtomType, TValue) = {}
+	const nKeyUnion = nCollection:mergeToAtomUnion()
+	-- step 1: map
+	const nTypeToList:Dict(clazz.IAtomType, List(TValue)) = {}
 	for _, nPair in ipairs(vTypePairList) do
 		local nKey = nPair[1]
 		local nValueType = nPair[2]
 		nKey:foreach(function(vSubType)
-			local nIncludeType = assert(nKeyUnion:includeAtom(vSubType), "merge error")
-			local nOldType = nTypeDict[nIncludeType]
-			if nOldType then
-				nTypeDict[nIncludeType] = nOldType | nValueType
+			const nIncludeType = assert(nKeyUnion:includeAtom(vSubType), "merge error")
+			const nList = nTypeToList[nIncludeType]
+			if not nList then
+				nTypeToList[nIncludeType] = {nValueType}
 			else
-				nTypeDict[nIncludeType] = nValueType
+				nList[#nList + 1] = nValueType
 			end
 		end)
 	end
+	-- step 2: reduce
+	const nTypeDict:Dict(clazz.IAtomType, TValue) = {}
+	for k,v in pairs(nTypeToList) do
+		nTypeDict[k] = vReduceFn(v)
+	end
 	return nKeyUnion, nTypeDict
+end
+
+function TypeManager:unionReduceType(vList:List(clazz.UAtomUnion)):Ret(clazz.UAtomUnion)
+	const nCollection = self:TypeCollection()
+	for _, nType in ipairs(vList) do
+		nType:foreach(function(vAtomType)
+			nCollection:put(vAtomType)
+		end)
+	end
+	return nCollection:mergeToAtomUnion()
 end
 
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)

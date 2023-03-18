@@ -97,8 +97,36 @@ function OperContext:NeverTerm():Ret(clazz.RefineTerm)
 	return RefineTerm.new(self._node, self._manager.type.Never)
 end
 
+function OperContext:orReduceCase(vCaseList:List(clazz.VariableCase)):Ret(clazz.VariableCase)
+	if #vCaseList == 1 then
+		return vCaseList[1]!
+	end
+	const nNewCase = VariableCase.new()
+	const nFirstCase = vCaseList[1]!
+	for nImmutVariable, nLeftType in pairs(nFirstCase) do
+		local nFinalType:clazz.UAtomUnion = nLeftType
+		local nPass = false
+		for i=2, #vCaseList do
+			const nCurCase = vCaseList[i]!
+			const nCurType = nCurCase[nImmutVariable]
+			if nCurType then
+				nFinalType = nFinalType | nCurType
+			else
+				nPass = true
+				break
+			end
+		end
+		if not nPass then
+			nNewCase[nImmutVariable] = nFinalType
+		end
+	end
+	return nNewCase
+end
+
 function OperContext:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair)):Ret(clazz.RefineTerm)
-	const nKeyUnion, nTypeDict = self._manager:mergePairList@<clazz.VariableCase>(vTypeCasePairList)
+	const nKeyUnion, nTypeDict = self._manager:typeMapReduce@<clazz.VariableCase>(vTypeCasePairList, function(vList)
+		return self:orReduceCase(vList)
+	end)
 	return RefineTerm.new(self._node, nKeyUnion, nTypeDict)
 end
 
