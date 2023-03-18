@@ -63,14 +63,20 @@ function TypedMemberFunction:getWildFn():Ret(clazz.TypedFunction)
 	return self._wildFn
 end
 
-function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight)
+function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
+	-- TODO
 	if self == vRight then
 		return self
 	end
-	if not TypedMemberFunction.is(vRight) then
-		return false
+	if TypedMemberFunction.is(vRight) then
+		return self._wildFn:assumeIncludeAtom(vAssumeSet, vRight:getWildFn()) and self
+	elseif TypedFunction.is(vRight) then
+		if vSelfType then
+			return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
+		else
+			return false
+		end
 	end
-	return self._wildFn:assumeIncludeAtom(vAssumeSet, vRight:getWildFn()) and self
 end
 
 function TypedMemberFunction:indexTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.TypedFunction)

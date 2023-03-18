@@ -43,7 +43,7 @@ clazz.IType = Interface ({
 	intersectAtom=Mfn(clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
 
 	includeAll=Mfn(clazz.UAllType):Ret(Boolean),
-	assumeIncludeAll=Mfn(OrNil(Dict(Integer, Boolean)), clazz.UAllType):Ret(Boolean),
+	assumeIncludeAll=Mfn(OrNil(Dict(Integer, Boolean)), clazz.UAllType, OrNil(clazz.IAtomType)):Ret(Boolean),
 	includeAtom=Mfn(clazz.IAtomType):Ret(OrFalse(clazz.IAtomType)),
 
 	mayRecursive=Mfn():Ret(Boolean),
@@ -64,7 +64,7 @@ clazz.IReadyType = Intersect(clazz.IType, Interface {
 	partTypedFunction=Mfn():Ret(clazz.UAtomUnion),
 	falseType=Mfn():Ret(clazz.UAtomUnion),
 	trueType=Mfn():Ret(clazz.UAtomUnion),
-	assumeIncludeAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType):Ret(OrFalse(clazz.IAtomType)),
+	assumeIncludeAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType, OrNil(clazz.IAtomType)):Ret(OrFalse(clazz.IAtomType)),
 	assumeIntersectAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
 })
 
@@ -148,10 +148,10 @@ const function.open TypeClass()
 		end)
 		return nSomeIntersect
 	end
-	function t:assumeIncludeAll(vAssumeSet, vRight)
+	function t:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 		local nAllInclude:Boolean = true
 		vRight:foreachAwait(function(vSubType)
-			if nAllInclude and not self:assumeIncludeAtom(vAssumeSet, vSubType) then
+			if nAllInclude and not self:assumeIncludeAtom(vAssumeSet, vSubType, vSelfType) then
 				nAllInclude = false
 			end
 		end)
