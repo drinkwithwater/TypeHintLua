@@ -1,5 +1,5 @@
 
-const MemberFunction = require "thlua.func.MemberFunction"
+const TypedMemberFunction = require "thlua.func.TypedMemberFunction"
 const StringLiteral = require "thlua.type.StringLiteral"
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
@@ -40,7 +40,7 @@ function TypedObject:lateCheck()
 			const nMember = nMemberDict[vKeyAtom]
 			if not nMember then
 				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
-			elseif MemberFunction.is(nMember) then
+			elseif TypedMemberFunction.is(nMember) then
 				error("nextKey's value can't be member function"..tostring(vKeyAtom))
 			end
 		end)
@@ -57,7 +57,7 @@ function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.I
 	for nLeftKey, nLeftValue in pairs(nMemberDict) do
 		if nLeftValue:mayRecursive() then
 			local nLeftIsMfn = false
-			if MemberFunction.is(nLeftValue) then
+			if TypedMemberFunction.is(nLeftValue) then
 				nLeftValue = nLeftValue:indexTypeFn(vRightObject)
 				nLeftIsMfn = true
 			end
@@ -147,7 +147,7 @@ function TypedObject:native_next(vContext, vInitType)
 		local nCollection = self._manager:TypeCollection()
 		nNextKey:foreachAwait(function(vKeyAtom)
 			const nValue = nMemberDict[vKeyAtom]!
-			if MemberFunction.is(nValue) then
+			if TypedMemberFunction.is(nValue) then
 				vContext:error("next can't take member function as value")
 			else
 				const nNotnilValue = nValue:checkAtomUnion():notnilType()
@@ -189,7 +189,7 @@ function TypedObject:_meta_get(vContext:clazz.OperContext, vType:clazz.IAtomType
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
 	else
-		if MemberFunction.is(nGetValue) then
+		if TypedMemberFunction.is(nGetValue) then
 			if not vIsInvoke then
 				-- vContext:warn("index a member function but using as invoke")
 			end
@@ -220,7 +220,7 @@ end
 function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
 	const nKey, nValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
-		if MemberFunction.is(nValue) then
+		if TypedMemberFunction.is(nValue) then
 			return false
 		else
 			return nKey, nValue
@@ -275,7 +275,7 @@ end
 function TypedObject:copyValueDict(vSelfObject:OrNil(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
 	const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 	for k,v in pairs(self:getMemberDict()) do
-		if not MemberFunction.is(v) then
+		if not TypedMemberFunction.is(v) then
 			nValueDict[k] = v
 		else
 			assert(vSelfObject, "member function copy require SelfObject")

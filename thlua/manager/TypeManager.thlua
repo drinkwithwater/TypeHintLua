@@ -26,6 +26,8 @@ const AnyFunction = require "thlua.func.AnyFunction"
 const Reference = require "thlua.refer.Reference"
 
 const MemberFunction = require "thlua.func.MemberFunction"
+const AutoMemberFunction = require "thlua.func.AutoMemberFunction"
+const TypedMemberFunction = require "thlua.func.TypedMemberFunction"
 
 const StringLiteralUnion = require "thlua.union.StringLiteralUnion"
 const NumberLiteralUnion = require "thlua.union.NumberLiteralUnion"
@@ -385,7 +387,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 	or Struct.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
 	nNewObject:buildAsync(function(vAsyncKey)
 		const nKeyList:List(clazz.IAtomType) = {}
-		const nValueDict:Dict(clazz.IAtomType, Union(clazz.UAllType, clazz.MemberFunction)) = {}
+		const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
 			local nValueType:OrNil(clazz.UAllType, clazz.MemberFunction) = nil
 			if MemberFunction.is(nValue) then
@@ -534,14 +536,14 @@ function TypeManager:SingleRetTuples(vNode:clazz.IAstNode, vTypeTuple:clazz.UTyp
 	return RetTuples.new(self, vNode, {vTypeTuple})
 end
 
-function TypeManager:buildMfn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.MemberFunction)
+function TypeManager:buildMfn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypedMemberFunction)
 	const nWildFn = self:buildFn(vNode, self.type.Truth, ...)
 	const nPolyFn = self:buildPfn(vNode, function(vSelfType:clazz.UAllType):Ret(clazz.TypedFunction)
 		const nRetTuples = nWildFn:getRetTuples()
 		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
 		return self:TypedFunction(vNode, nParTuple, nRetTuples)
 	end)
-	return MemberFunction.new(self, vNode, nPolyFn, nWildFn)
+	return TypedMemberFunction.new(self, vNode, nPolyFn, nWildFn)
 end
 
 function TypeManager:buildPfn(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.PolyFunction)
@@ -567,8 +569,8 @@ function TypeManager:PolyFunction(vNode:clazz.IAstNode, vFunc:AnyFunction, vPoly
 	return PolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
 end
 
-function TypeManager:MemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunction):Ret(clazz.MemberFunction)
-	return MemberFunction.new(self, vNode, vPolyFn, false)
+function TypeManager:AutoMemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunction):Ret(clazz.AutoMemberFunction)
+	return AutoMemberFunction.new(self, vNode, vPolyFn, false)
 end
 
 function TypeManager:TypedFunction(vNode:clazz.IAstNode, vParTuple:clazz.UTypeTuple, vRetTuples:clazz.RetTuples):Ret(clazz.TypedFunction)

@@ -1,0 +1,97 @@
+
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const Exception = require "thlua.Exception"
+
+const TypedFunction = require "thlua.func.TypedFunction"
+const PolyFunction = require "thlua.func.PolyFunction"
+const AutoFunction = require "thlua.func.AutoFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const TypedMemberFunction = class@<clazz.TypedMemberFunction, false>(MemberFunction)
+
+function.open TypedMemberFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
+	vPolyFn:clazz.PolyFunction, vWildFn:OrFalse(clazz.TypedFunction))
+	self._node = vNode
+	self._wildFn = vWildFn
+	self._polyFn = vPolyFn
+end
+
+function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	const nWildFn = self._wildFn
+	if nWildFn then
+		local nCache = vToStringCache[self]
+		if nCache then
+			return nCache
+		end
+		const nParTuple = nWildFn:getParTuple()
+		const nRetTuples = nWildFn:getRetTuples()
+		vToStringCache[self] = "member:fn-..."
+		const nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
+										"->"..nRetTuples:detailString(vToStringCache, vVerbose)
+		vToStringCache[self] = nResult
+		return nResult
+	else
+		return "MemberFunction@"..tostring(self._node)
+	end
+end
+
+function TypedMemberFunction:Dots(vType:clazz.UAllType):Ret(clazz.MemberFunction)
+	const nWildFn = assert(self._wildFn, "member function without wildfn can't take :Dots")
+	nWildFn:Dots(vType)
+	return self
+end
+
+function TypedMemberFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.MemberFunction)
+	const nWildFn = assert(self._wildFn, "member function without wildfn can't take :Ret")
+	nWildFn:RetDots(vFirst, ...)
+	return self
+end
+
+function TypedMemberFunction:Ret(...:clazz.UAllType):Ret(clazz.MemberFunction)
+	const nWildFn = assert(self._wildFn, "member function without wildfn can't take :Ret")
+	nWildFn:Ret(...)
+	return self
+end
+
+function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
+	if #vPolyArgs == 0 and self:needPolyArgs() then
+		vContext:error("TODO poly member function called without poly args")
+	end
+	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyArgs)})
+	nTypeFn:meta_call(vContext, vTypeTuple)
+end
+
+function TypedMemberFunction:needPolyArgs():Ret(Boolean)
+	return self._polyFn:getPolyParNum() > 1
+end
+
+function TypedMemberFunction:indexAutoFn(vType:clazz.UAllType):Ret(clazz.AutoFunction)
+	const nFn = self._polyFn:noCtxCastPoly({vType})
+	if AutoFunction.is(nFn) then
+		return nFn
+	else
+		error("auto function is expected here")
+	end
+end
+
+function TypedMemberFunction:indexTypeFn(vType:clazz.UAllType):Ret(clazz.TypedFunction)
+	const nFn = self._polyFn:noCtxCastPoly({vType})
+	if AutoFunction.is(nFn) then
+		return nFn:getFnAwait()
+	elseif TypedFunction.is(nFn) then
+		return nFn
+	else
+		error("class factory can't member function")
+	end
+end
+
+function TypedMemberFunction:mayRecursive():Ret(True)
+	return true
+end
+
+return TypedMemberFunction

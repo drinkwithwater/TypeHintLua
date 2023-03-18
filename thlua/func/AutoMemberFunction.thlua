@@ -1,0 +1,60 @@
+
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const Exception = require "thlua.Exception"
+
+const TypedFunction = require "thlua.func.TypedFunction"
+const PolyFunction = require "thlua.func.PolyFunction"
+const AutoFunction = require "thlua.func.AutoFunction"
+const MemberFunction = require "thlua.func.MemberFunction"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const AutoMemberFunction = class@<clazz.AutoMemberFunction, false>(MemberFunction)
+
+function.open AutoMemberFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
+	vPolyFn:clazz.PolyFunction, vWildFn:OrFalse(clazz.TypedFunction))
+	self._node = vNode
+	self._wildFn = vWildFn
+	self._polyFn = vPolyFn
+end
+
+function AutoMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	return "AutoMemberFunction@"..tostring(self._node)
+end
+
+function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
+	if #vPolyArgs == 0 and self:needPolyArgs() then
+		vContext:error("TODO poly member function called without poly args")
+	end
+	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyArgs)})
+	nTypeFn:meta_call(vContext, vTypeTuple)
+end
+
+function AutoMemberFunction:needPolyArgs():Ret(Boolean)
+	return self._polyFn:getPolyParNum() > 1
+end
+
+function AutoMemberFunction:indexAutoFn(vType:clazz.UAllType):Ret(clazz.AutoFunction)
+	const nFn = self._polyFn:noCtxCastPoly({vType})
+	if AutoFunction.is(nFn) then
+		return nFn
+	else
+		error("auto function is expected here")
+	end
+end
+
+function AutoMemberFunction:indexTypeFn(vType:clazz.UAllType):Ret(clazz.TypedFunction)
+	const nFn = self._polyFn:noCtxCastPoly({vType})
+	if AutoFunction.is(nFn) then
+		return nFn:getFnAwait()
+	elseif TypedFunction.is(nFn) then
+		return nFn
+	else
+		error("class factory can't member function")
+	end
+end
+
+return AutoMemberFunction
