@@ -20,13 +20,13 @@ local Client = {}
 
 Client.__index = Client
 
-function:class(lsp.Client) Client.new(vLogFile)
+function:class(lsp.Client) Client.new(vLogFile:OrNil(String))
 	local self = setmetatable({.class
 		initialize=false@Boolean,
 		shutdown=false,
-		root="",
+		root=""@String,
 		runtime=false,
-		fileStateDict={},
+		fileStateDict={}@Dict(String, FileState),
 		logFile=vLogFile,
 	}, Client)
 	return self
@@ -47,12 +47,13 @@ function Client:searchDefine(vFileName, vLine, vColumn)
 	return nil
 end
 
-function Client:syncFile(vContent, vFileName, vVersion):Ret(True):Ret(False, clazz.IAstNode):Ret(True)
+function Client:syncFile(vContent:String, vFileName:String, vVersion:Integer)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
 		nFileState = {
 			dirtyCodeEnv = nCodeEnv,
+			version = vVersion,
 		}
 		self.fileStateDict[vFileName] = nFileState
 	else
@@ -87,7 +88,7 @@ function Client:rerun(vFileName)
 	self:publishNormal()
 end
 
-function Client:thluaSearch(vPath)
+function Client:thluaSearch(vPath:String):Ret(Boolean, String)
 	local thluaPath = self.root.."/?.thlua"
 	local fileName, err1 = package.searchpath(vPath, thluaPath)
 	if not fileName then
@@ -96,17 +97,17 @@ function Client:thluaSearch(vPath)
 	return true, fileName
 end
 
-function Client:thluaParseFile(vFileName)
+function Client:thluaParseFile(vFileName:String)
 	if not self.fileStateDict[vFileName] then
 		local file, err = io.open(vFileName, "r")
 		if not file then
 			error(err)
 		end
-		local nContent = file:read("*a")
+		const nContent = file:read("*a")
 		file:close()
 		self:syncFile(nContent, vFileName, -1)
 	end
-	local nCodeEnv = self.fileStateDict[vFileName].dirtyCodeEnv
+	local nCodeEnv = self.fileStateDict[vFileName]!.dirtyCodeEnv
 	local ok, err = nCodeEnv:checkOkay()
 	if not ok then
 		error(err)
@@ -114,7 +115,7 @@ function Client:thluaParseFile(vFileName)
 	return nCodeEnv
 end
 
-function Client:getSuccCodeEnv(vFileName):Ret(Nil):Ret(clazz.CodeEnv)
+function Client:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 	local nState = self.fileStateDict[vFileName]
 	if nState then
 		return nState.succCodeEnv
@@ -123,12 +124,14 @@ function Client:getSuccCodeEnv(vFileName):Ret(Nil):Ret(clazz.CodeEnv)
 	end
 end
 
-function Client:getDirtyCodeEnv(vFileName):Ret(Nil):Ret(clazz.CodeEnv)
+function Client:getDirtyCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
 		self:error(vFileName, "has no file state")
+		return nil
+	else
+		return nFileState.dirtyCodeEnv
 	end
-	return nFileState.dirtyCodeEnv
 end
 
 function Client:mainLoop()
@@ -141,7 +144,7 @@ function Client:mainLoop()
 	end
 end
 
-local function reqToStr(vRequest):Ret(String)
+local function reqToStr(vRequest:lsp.RequestMessage):Ret(String)
 	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
 end
 
@@ -193,13 +196,12 @@ end
 
 function Client:readRequest():Ret(lsp.RequestMessage)
 	-- 1 get header
-	local length:Number = -1
+	local length:Integer = -1
 	while true do
 		local line = io.read("*l")
 		if not line then
 			self:debugPrint("io read fail")
 			error("io.read fail")
-			return
 		end
 		line = line:gsub("\13", "")
 		if line == "" then
@@ -212,7 +214,7 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 			error("header format error:"..line)
 		end
 		if key == "Content-Length" then
-			length = math.tointeger(val)
+			length = assert(math.tointeger(val), "Content-Length can't convert to integer"..tostring(val))
 		end
 	end
 
@@ -226,20 +228,19 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 	local data = io.read(length)
 	if not data then
 		error("read nothing")
-		return
 	end
 	self:debugPrint("read packet:"..data)
 	data = data:gsub("\13", "")
 	local obj, err = json.decode(data)
 	if type(obj) ~= "table" then
 		error("json decode error:"..tostring(err))
-		return
 	end
-	if obj.jsonrpc ~= "2.0" then
-		error("json-rpc is not 2.0, "..tostring(obj.jsonrpc))
+	const req = obj @? lsp.RequestMessage
+	if req.jsonrpc ~= "2.0" then
+		error("json-rpc is not 2.0, "..tostring(req.jsonrpc))
 	end
-	self:info("recv:"..reqToStr(obj) ) -- , json.encode(obj.params))
-	return obj
+	self:info("recv:"..reqToStr(req) ) -- , json.encode(obj.params))
+	return req
 end
 
 function Client:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:String, vData:String):Ret()
