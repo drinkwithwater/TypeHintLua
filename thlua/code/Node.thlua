@@ -23,7 +23,7 @@ let.ILen = Interface({}, {
 
 local __node = {}
 
-__node.Chunk = StructExtend({
+__node.Chunk = ExtendStruct({
 	tag = "Chunk",
 	symbol_dots = OrNil(node.Dots),
 	retFlag = OrNil(True),
@@ -34,7 +34,7 @@ __node.Chunk = StructExtend({
 	[3] = node.Block,
 }, let.IAstNode, let.ILen)
 
-__node.Block = StructExtend({
+__node.Block = ExtendStruct({
 	tag = "Block",
 	symbolTable = Dict(String, node.Ident_def),
 	scope_children = List(node.Block),
@@ -59,67 +59,67 @@ node.Stat = Union (
 	node.HintInfoStat
 )
 
-__node.HintScript = StructExtend({
+__node.HintScript = ExtendStruct({
 	tag = "HintScript",
 	[1] = String,
 }, let.IAstNode)
 
-__node.HintEval = StructExtend({
+__node.HintEval = ExtendStruct({
 	tag = "HintEval",
 	[1] = node.Expr,
 }, let.IAstNode)
 
-node.IHintInfo = Intersect(Interface {
+node.IHintInfo = ExtendInterface(Interface {
 	tag = "HintInfo",
 	[Integer] = Union(node.HintEval, node.HintScript)
 }, let.IAstNode, let.ILen)
 
-node.LongHintInfo = StructExtend({
+node.LongHintInfo = ExtendStruct({
 	kind = "long",
 	attrList = List(String),
 }, node.IHintInfo)
 
-node.ShortHintInfo = StructExtend({
+node.ShortHintInfo = ExtendStruct({
 	kind = "short",
 	castKind = OrFalse(node.CastKindEnum),
 }, node.IHintInfo)
 
-node.HintInfoStat = StructExtend({
+node.HintInfoStat = ExtendStruct({
 	kind = "stat",
 }, node.IHintInfo)
 
 __node.HintInfo = Union(node.LongHintInfo, node.ShortHintInfo, node.HintInfoStat)
 
-__node.Do = StructExtend({
+__node.Do = ExtendStruct({
 	tag = "Do",
 	hintLong = OrNil(node.LongHintInfo),
 	[1] = node.Block,
 }, let.IAstNode)
 
-__node.Set = StructExtend({
+__node.Set = ExtendStruct({
 	tag = "Set",
 	[1] = node.VarList,
 	[2] = node.ExprList,
 }, let.IAstNode)
 
-__node.While = StructExtend({
+__node.While = ExtendStruct({
 	tag = "While",
 	[1] = node.Expr,
 	[2] = node.Block,
 }, let.IAstNode)
 
-__node.Repeat = StructExtend({
+__node.Repeat = ExtendStruct({
 	tag = "Repeat",
 	[1] = node.Block,
 	[2] = node.Expr,
 }, let.IAstNode)
 
-__node.If = StructExtend({
+__node.If = ExtendStruct({
 	tag = "If",
 	[Number] = Union(node.Block, node.Expr),
 }, let.IAstNode, let.ILen)
 
-__node.Fornum = StructExtend({
+__node.Fornum = ExtendStruct({
 	tag = "Fornum",
 	[1] = node.Ident_def,
 	[2] = node.Expr,
@@ -128,43 +128,43 @@ __node.Fornum = StructExtend({
 	[5] = Union(node.Block, Nil),
 }, let.IAstNode)
 
-__node.Forin = StructExtend({
+__node.Forin = ExtendStruct({
 	tag = "Forin",
 	[1] = node.IdentList,
 	[2] = node.ExprList,
 	[3] = node.Block,
 }, let.IAstNode)
 
-__node.Local = StructExtend({
+__node.Local = ExtendStruct({
 	tag = "Local",
 	isConst = OrNil(True),
 	[1] = node.IdentList,
 	[2] = node.ExprList,
 }, let.IAstNode)
 
-__node.Localrec = StructExtend({
+__node.Localrec = ExtendStruct({
 	tag = "Localrec",
 	isConst = OrNil(True),
 	[1] = node.Ident_def,
 	[2] = node.Function,
 }, let.IAstNode)
 
-__node.Goto = StructExtend({
+__node.Goto = ExtendStruct({
 	tag = "Goto",
 	[1] = String,
 }, let.IAstNode)
 
-__node.Label = StructExtend({
+__node.Label = ExtendStruct({
 	tag = "Label",
 	[1] = String,
 }, let.IAstNode)
 
-__node.Return = StructExtend({
+__node.Return = ExtendStruct({
 	tag = "Return",
 	[1] = node.ExprList,
 }, let.IAstNode)
 
-__node.Break = StructExtend({
+__node.Break = ExtendStruct({
 	tag = "Break",
 }, let.IAstNode)
 
@@ -173,13 +173,13 @@ node.Apply = Union (
 	node.Invoke
 )
 
-__node.Call = StructExtend({
+__node.Call = ExtendStruct({
 	tag = "Call",
 	[1] = node.Expr,
 	[2] = node.ExprList,
 }, let.IAstNode)
 
-__node.Invoke = StructExtend({
+__node.Invoke = ExtendStruct({
 	tag = "Invoke",
 	hintPolyArgs = OrNil(node.ShortHintInfo),
 	[1] = node.Expr,
@@ -192,14 +192,14 @@ node.Lhs = Union (
 	node.Index
 )
 
-__node.Index = StructExtend({
+__node.Index = ExtendStruct({
 	tag = "Index",
 	notnil = OrNil(True),
 	[1] = node.Expr,
 	[2] = node.Expr,
 }, let.IAstNode)
 
-node.Ident_use = StructExtend({
+node.Ident_use = ExtendStruct({
 	tag = "Ident",
 	kind = "use",
 	isSet = Boolean,
@@ -207,12 +207,12 @@ node.Ident_use = StructExtend({
 	[1] = String,
 }, let.IAstNode)
 
-__node.Attr = StructExtend({
+__node.Attr = ExtendStruct({
 	tag = "Attr",
 	[1] = String,
 }, let.IAstNode)
 
-node.Ident_def = StructExtend({
+node.Ident_def = ExtendStruct({
 	tag = "Ident",
 	kind = "def",
 	symbolKind=node.SymbolKindEnum,
@@ -242,30 +242,30 @@ node.Expr = Union (
 	node.Lhs
 )
 
-__node.Nil = StructExtend({
+__node.Nil = ExtendStruct({
 	tag = "Nil"
 },let.IAstNode)
 
-__node.False = StructExtend({
+__node.False = ExtendStruct({
 	tag = "False"
 },let.IAstNode)
 
-__node.True = StructExtend({
+__node.True = ExtendStruct({
 	tag = "True"
 },let.IAstNode)
 
-__node.Number = StructExtend({
+__node.Number = ExtendStruct({
 	tag = "Number",
 	[1] = Number,
 },let.IAstNode)
 
-__node.String = StructExtend({
+__node.String = ExtendStruct({
 	tag = "String",
 	isLong = OrNil(True),
 	[1] = String,
 },let.IAstNode)
 
-__node.Function = StructExtend({
+__node.Function = ExtendStruct({
 	tag = "Function",
 	symbol_dots = OrNil(node.Dots),
 	hintPrefix = OrNil(node.LongHintInfo),
@@ -277,57 +277,57 @@ __node.Function = StructExtend({
 	[2] = node.Block,
 },let.IAstNode)
 
-__node.Table = StructExtend({
+__node.Table = ExtendStruct({
 	tag = "Table",
 	hintLong = OrNil(node.LongHintInfo),
 	[Number] = Union(node.Pair, node.Expr)
 },let.IAstNode, let.ILen)
 
-__node.Pair = StructExtend({
+__node.Pair = ExtendStruct({
 	tag = "Pair",
 	[1] = node.Expr,
 	[2] = node.Expr,
 },let.IAstNode)
 
-__node.Op = StructExtend({
+__node.Op = ExtendStruct({
 	tag = "Op",
 	[1] = String,
 	[2] = node.Expr,
 	[3] = Union(node.Expr, Nil),
 },let.IAstNode)
 
-__node.Dots = StructExtend({
+__node.Dots = ExtendStruct({
 	tag = "Dots",
 	hintShort = OrNil(node.ShortHintInfo),
 },let.IAstNode)
 
-__node.Paren = StructExtend({
+__node.Paren = ExtendStruct({
 	tag = "Paren",
 	[1] = node.Expr
 },let.IAstNode)
 
-__node.HintAt = StructExtend({
+__node.HintAt = ExtendStruct({
 	tag = "HintAt",
 	hintShort = node.ShortHintInfo,
 	[1] = node.Expr,
 },let.IAstNode)
 
-__node.ParList = StructExtend({
+__node.ParList = ExtendStruct({
 	tag = "ParList",
 	[Number] = Union(node.Ident_def, node.Dots),
 },let.IAstNode, let.ILen)
 
-__node.ExprList = StructExtend({
+__node.ExprList = ExtendStruct({
 	tag = "ExprList",
 	[Number] = node.Expr,
 },let.IAstNode, let.ILen)
 
-__node.VarList = StructExtend({
+__node.VarList = ExtendStruct({
 	tag = "VarList",
 	[Number] = node.Lhs,
 },let.IAstNode, let.ILen)
 
-__node.IdentList = StructExtend({
+__node.IdentList = ExtendStruct({
 	tag = "IdentList",
 	[Number] = node.Ident_def,
 },let.IAstNode, let.ILen)
@@ -348,7 +348,7 @@ node.TagToNodeType = Struct(__node)
 
 node.URegionNode = Union(node.Chunk, node.Function)
 
-node.Error = StructExtend({
+node.Error = ExtendStruct({
 	tag = "Error",
 	[1] = String,
 	[2] = OrNil(node.Ident, node.Paren, node.Invoke, node.Call, node.Index),
