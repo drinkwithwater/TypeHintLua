@@ -408,7 +408,7 @@ const HintGener = {}
 HintGener.__index = HintGener
 
 function.pass HintGener:visit(vNode:node.IAstNode):Ret(UGenResult)
-	const nUnionNode = vNode @> node.UNodeType
+	const nUnionNode = vNode
 	const nFunc = TagToVisiting[nUnionNode.tag]
 	if nFunc then
 		return nFunc(self, nUnionNode)
@@ -613,9 +613,12 @@ function HintGener:stkAutoUnpack(vNode:node.UTupleExpr, vInner:UGenResult):Ret(U
 	local nAutoUnpack = true
 	if nParent.tag == "ExprList" or nParent.tag == "ParList" or nParent.tag == "Block" then
 		nAutoUnpack = false
-	elseif nParent.tag == "Table" and nParent[#nParent] == vNode then
-		-- table tail not autoUnpack
-		nAutoUnpack = false
+	elseif nParent.tag == "Table" then
+		const nTableNode = nParent @> node.Table
+		if nTableNode[#nTableNode] == vNode then
+			-- table tail not autoUnpack
+			nAutoUnpack = false
+		end
 	end
 	if nAutoUnpack then
 		return self:stkWrap(vNode).EXPRLIST_UNPACK("1", vInner)
