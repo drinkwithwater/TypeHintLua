@@ -262,7 +262,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
 		const nKeyList:List(clazz.IAtomType) = {}
-		const nAllValueDict:Dict(clazz.IAtomType, clazz.UAllType)= {}
+		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UAllType}) = {}
 		const nIntersectSet:Dict(clazz.TypedObject, True) = {}
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
 		local nIntersectNextKey:OrFalse(clazz.UAllType) = self.type.Any
@@ -292,7 +292,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			const nKeyRefer, nNextKey = nTypedObject:getKeyTypes()
 			for _, nKeyType in ipairs(nKeyRefer:getListAwait()) do
 				nKeyList[#nKeyList + 1] = nKeyType
-				nAllValueDict[nKeyType] = nValueDict[nKeyType]
+				nKeyValuePairList[#nKeyValuePairList + 1] = {nKeyType, nValueDict[nKeyType]!}
 			end
 			nMetaEventComList[#nMetaEventComList + 1] = nTypedObject:getMetaEventCom() or nil
 			if nIntersectNextKey then
@@ -312,12 +312,15 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			and Interface.new(self, vNode, nIntersectNextKey)
 			or Struct.new(self, vNode, nIntersectNextKey)
 		nNewObject:buildAsync(function(vAsyncKey)
+			const _, nFinalValueDict = self:typeMapReduce@<clazz.UAllType>(nKeyValuePairList, function(vList)
+				return self:intersectReduceType(vNode, vList)
+			end)
 			if #nMetaEventComList > 0 then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				nNewEventCom:initByMerge(nMetaEventComList)
-				nNewObject:lateInit(nIntersectSet, nAllValueDict, nNewEventCom)
+				nNewObject:lateInit(nIntersectSet, nFinalValueDict, nNewEventCom)
 			else
-				nNewObject:lateInit(nIntersectSet, nAllValueDict, false)
+				nNewObject:lateInit(nIntersectSet, nFinalValueDict, false)
 			end
 			const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 			-- TODO check key's count and intersect valid
@@ -599,8 +602,8 @@ function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReferen
 end
 
 function TypeManager:typeMapReduce@<TValue>(
-	vTypePairList:List(Struct {clazz.UAtomUnion, TValue}),
-	vReduceFn:Fn(List(TValue)):Ret(TValue)
+	vTypePairList:IList(Interface {clazz.UAtomUnion, TValue}),
+	vReduceFn:Fn(IList(TValue)):Ret(TValue)
 ):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, TValue))
 	const nCollection = self:TypeCollection()
 	for _, nPair in ipairs(vTypePairList) do
@@ -635,7 +638,10 @@ function TypeManager:typeMapReduce@<TValue>(
 	return nKeyUnion, nTypeDict
 end
 
-function TypeManager:unionReduceType(vList:List(clazz.UAtomUnion)):Ret(clazz.UAtomUnion)
+function TypeManager:unionReduceType(vList:IList(clazz.UAtomUnion)):Ret(clazz.UAtomUnion)
+	if #vList == 1 then
+		return vList[1]!
+	end
 	const nCollection = self:TypeCollection()
 	for _, nType in ipairs(vList) do
 		nType:foreach(function(vAtomType)
@@ -643,6 +649,37 @@ function TypeManager:unionReduceType(vList:List(clazz.UAtomUnion)):Ret(clazz.UAt
 		end)
 	end
 	return nCollection:mergeToAtomUnion()
+end
+
+function TypeManager:intersectReduceType(vNode:clazz.IAstNode, vList:IList(clazz.UAllType)):Ret(clazz.UAllType)
+	const nFirst = vList[1]!
+	if #vList == 1 then
+		return nFirst
+	end
+	const nRefer = self:Reference(false)
+	nRefer:setUnionAsync(vNode, function()
+		local nFinalType = nFirst:checkAtomUnion()
+		for i=2, #vList do
+			const nCurType = vList[i]!
+			const nInterType = nFinalType:safeIntersect(nCurType)
+			if not nInterType then
+				error("unexpected intersect")
+			else
+				nFinalType = nInterType
+			end
+		end
+		const nAtomList:List(clazz.IAtomType) = {}
+		nFinalType:foreach(function(vAtomType)
+			nAtomList[#nAtomList + 1] = vAtomType
+		end)
+		if nFinalType:isNever() then
+			error("object intersect can't has never field")
+		end
+		return nAtomList, function()
+			return nFinalType
+		end
+	end)
+	return nRefer
 end
 
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)
