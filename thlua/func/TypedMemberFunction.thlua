@@ -3,8 +3,6 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 
 const TypedFunction = require "thlua.func.TypedFunction"
-const PolyFunction = require "thlua.func.PolyFunction"
-const AutoFunction = require "thlua.func.AutoFunction"
 const MemberFunction = require "thlua.func.MemberFunction"
 const class = require "thlua.class"
 
@@ -59,6 +57,20 @@ end
 
 function TypedMemberFunction:needPolyArgs():Ret(Boolean)
 	return false
+end
+
+function TypedMemberFunction:getWildFn():Ret(clazz.TypedFunction)
+	return self._wildFn
+end
+
+function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight)
+	if self == vRight then
+		return self
+	end
+	if not TypedMemberFunction.is(vRight) then
+		return false
+	end
+	return self._wildFn:assumeIncludeAtom(vAssumeSet, vRight:getWildFn()) and self
 end
 
 function TypedMemberFunction:indexTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.TypedFunction)

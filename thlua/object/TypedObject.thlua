@@ -40,8 +40,6 @@ function TypedObject:lateCheck()
 			const nMember = nMemberDict[vKeyAtom]
 			if not nMember then
 				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
-			elseif TypedMemberFunction.is(nMember) then
-				error("nextKey's value can't be member function"..tostring(vKeyAtom))
 			end
 		end)
 	end
@@ -147,13 +145,9 @@ function TypedObject:native_next(vContext, vInitType)
 		local nCollection = self._manager:TypeCollection()
 		nNextKey:foreachAwait(function(vKeyAtom)
 			const nValue = nMemberDict[vKeyAtom]!
-			if TypedMemberFunction.is(nValue) then
-				vContext:error("next can't take member function as value")
-			else
-				const nNotnilValue = nValue:checkAtomUnion():notnilType()
-				nNextDict[vKeyAtom] = nNotnilValue
-				nCollection:put(nNotnilValue)
-			end
+			const nNotnilValue = nValue:checkAtomUnion():notnilType()
+			nNextDict[vKeyAtom] = nNotnilValue
+			nCollection:put(nNotnilValue)
 		end)
 		nCollection:put(nNil)
 		nNextValue = nCollection:mergeToAtomUnion()
@@ -178,31 +172,24 @@ function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType,
 end
 
 function TypedObject:meta_get(vContext, vType)
-	const nRet = self:_meta_get(vContext, vType, false)
+	const nRet = self:_getValue(vContext, vType)
 	vContext:pushFirstAndTuple(nRet)
 	return true
 end
 
-function TypedObject:_meta_get(vContext:clazz.OperContext, vType:clazz.IAtomType, vIsInvoke:Boolean):Ret(clazz.UAtomUnion)
+function TypedObject:_getValue(vContext:clazz.OperContext, vType:clazz.IAtomType):Ret(clazz.UAtomUnion)
 	const nKey, nGetValue = self:_keyIncludeAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
 		return self._manager.type.Nil
 	else
-		if TypedMemberFunction.is(nGetValue) then
-			if not vIsInvoke then
-				-- vContext:warn("index a member function but using as invoke")
-			end
-			return nGetValue:indexTypeFn(self)
-		else
-			return nGetValue:checkAtomUnion()
-		end
+		return nGetValue:checkAtomUnion()
 	end
 end
 
 function TypedObject:native_rawget(vContext, vKeyType)
 	vContext:warn("abstract object take rawget")
-	return self:_meta_get(vContext, vKeyType, false)
+	return self:_getValue(vContext, vKeyType)
 end
 
 function TypedObject:meta_bop_func(vContext, vOper)
