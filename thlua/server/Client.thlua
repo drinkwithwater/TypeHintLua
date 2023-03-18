@@ -272,8 +272,9 @@ end
 
 function Client:publishNormal()
 	local nFileToList = self.runtime:getAllDiagnostic()
-	for nFileName, nRawDiaList in pairs(nFileToList) do
-		local nCodeEnv = self:getSuccCodeEnv(nFileName)
+	for nFileName, nFileState in pairs(self.fileStateDict) do
+		const nRawDiaList = nFileToList[nFileName] or {}
+		local nCodeEnv = nFileState.succCodeEnv or nFileState.dirtyCodeEnv
 		local nVersion = nCodeEnv:getVersion()
 		local nDiaList = {}
 		for _, dia in ipairs(nRawDiaList) do

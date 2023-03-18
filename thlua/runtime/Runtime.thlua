@@ -56,7 +56,8 @@ function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 		_spaceList={}@List(clazz.Namespace),
 		_loadedDict={}@Dict(String, LoadedState),
 		_nodeToSymbolSet={}@Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True)),
-		_fileStateDict={}@Dict(String, FileState),
+		_fileEnvDict={}@Dict(String, clazz.CodeEnv),
+		_diaList={}@List(Diagnostic),
 		_lineToExpectResult=false @ OrFalse(Dict(Integer, Union(String, Integer))),
 		_scheduleManager=ScheduleManager.new(),
 		_manager=nil@!clazz.TypeManager,
@@ -100,23 +101,6 @@ function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 	return nSpace.localExport
 end
 
-function.pass Runtime:main2():Ret(Boolean, Nil)
-	--[[
-	local t1 = os.clock()
-	const a,b = pcall(function()
-		const nRootStack = self:SealStack(self._node, false)
-		self._rootStack = nRootStack
-		nRootStack:rootSetNamespace(self:RootNamespace())
-		local nLuaFunc = self:cacheLoadFile(self._mainFileName)
-		local nTermTuple = self._rootStack:inplaceOper():FixedTermTuple({})
-		nLuaFunc:meta_open_call(self._rootStack:newOpenStack(self._node), nTermTuple)
-		self._rootStack:seal()
-	end)
-	local t2 = os.clock()
-	print(t2-t1)
-	return a,b]]
-end
-
 function Runtime:main():Ret(Boolean, Nil)
 	const t1 = os.clock()
 	const a,b = pcall(function()
@@ -155,17 +139,10 @@ function Runtime:OpenStack(...):Ret(clazz.OpenStack)
 end
 
 function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
-	local nFileState = self._fileStateDict[vFileName]
-	local nCodeEnv:OrNil(clazz.CodeEnv)
-	if not nFileState then
+	local nCodeEnv = self._fileEnvDict[vFileName]
+	if not nCodeEnv then
 		nCodeEnv = self._loader:thluaParseFile(vFileName)
-		nFileState = {
-			codeEnv = nCodeEnv,
-			diaList = {},
-		}
-		self._fileStateDict[vFileName] = nFileState
-	else
-		nCodeEnv = nFileState.codeEnv
+		self._fileEnvDict[vFileName] = nCodeEnv
 	end
 	return nCodeEnv:getTypingFn()(self, self._rootStack, nCodeEnv:getNodeList())
 end
@@ -326,7 +303,7 @@ function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth
 		l[i] = tostring(select(i, ...))
 	end
 	local nMsg = table.concat(l, " ")
-	local nDiaList = self._fileStateDict[vNode.path]!.diaList
+	local nDiaList = self._diaList
 	nDiaList[#nDiaList + 1] = {
 		msg=nMsg,
 		node=vNode,
@@ -351,8 +328,14 @@ end
 
 function Runtime:getAllDiagnostic():Ret(Dict(String, List(Diagnostic)))
 	local nFileToDiaList:Dict(String, List(Diagnostic)) = {}
-	for nFileName, nState in pairs(self._fileStateDict) do
-		nFileToDiaList[nFileName] = nState.diaList
+	for _, nDia in pairs(self._diaList) do
+		const nPath = nDia.node.path
+		local nList = nFileToDiaList[nPath]
+		if not nList then
+			nList = {}
+			nFileToDiaList[nPath] = nList
+		end
+		nList[#nList + 1] = nDia
 	end
 	return nFileToDiaList
 end
