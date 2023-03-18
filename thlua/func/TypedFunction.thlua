@@ -82,18 +82,6 @@ function TypedFunction:meta_call(vContext, vTermTuple)
 	vContext:pushRetTuples(nRetTuples)
 end
 
-function TypedFunction:assumeIntersectAtom(vAssumeSet, vType)
-	if vType == self then
-		return self
-	elseif vType:assumeIncludeAtom(nil, self) then
-		return self
-	elseif self:assumeIncludeAtom(nil, vType) then
-		return vType
-	else
-		return false
-	end
-end
-
 function TypedFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypedFunction):Ret(Boolean)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
@@ -111,7 +99,6 @@ function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight)
 		return self
 	end
 	if not TypedFunction.is(vRight) then
-		-- TODO
 		return false
 	end
 	const nMgr = self._manager

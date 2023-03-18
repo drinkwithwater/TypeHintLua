@@ -14,30 +14,24 @@ end)
 
 const TypedMemberFunction = class@<clazz.TypedMemberFunction, false>(MemberFunction)
 
-function.open TypedMemberFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
-	vPolyFn:clazz.PolyFunction, vWildFn:OrFalse(clazz.TypedFunction))
-	self._node = vNode
+function.open TypedMemberFunction:ctor(_,_,vWildFn:clazz.TypedFunction)
 	self._wildFn = vWildFn
-	self._polyFn = vPolyFn
+	self._typeFnDict = {}@Dict(clazz.IAtomType, clazz.TypedFunction)
 end
 
 function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	const nWildFn = self._wildFn
-	if nWildFn then
-		local nCache = vToStringCache[self]
-		if nCache then
-			return nCache
-		end
-		const nParTuple = nWildFn:getParTuple()
-		const nRetTuples = nWildFn:getRetTuples()
-		vToStringCache[self] = "member:fn-..."
-		const nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
-										"->"..nRetTuples:detailString(vToStringCache, vVerbose)
-		vToStringCache[self] = nResult
-		return nResult
-	else
-		return "MemberFunction@"..tostring(self._node)
+	const nCache = vToStringCache[self]
+	if nCache then
+		return nCache
 	end
+	const nParTuple = nWildFn:getParTuple()
+	const nRetTuples = nWildFn:getRetTuples()
+	vToStringCache[self] = "member:fn-..."
+	const nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
+									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
+	vToStringCache[self] = nResult
+	return nResult
 end
 
 function TypedMemberFunction:Dots(vType:clazz.UAllType):Ret(clazz.MemberFunction)
@@ -59,34 +53,26 @@ function TypedMemberFunction:Ret(...:clazz.UAllType):Ret(clazz.MemberFunction)
 end
 
 function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	if #vPolyArgs == 0 and self:needPolyArgs() then
-		vContext:error("TODO poly member function called without poly args")
-	end
-	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyArgs)})
+	const nTypeFn = self:indexTypeFn(vSelfType)
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
 function TypedMemberFunction:needPolyArgs():Ret(Boolean)
-	return self._polyFn:getPolyParNum() > 1
+	return false
 end
 
-function TypedMemberFunction:indexAutoFn(vType:clazz.UAllType):Ret(clazz.AutoFunction)
-	const nFn = self._polyFn:noCtxCastPoly({vType})
-	if AutoFunction.is(nFn) then
+function TypedMemberFunction:indexTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.TypedFunction)
+	const nDict = self._typeFnDict
+	const nFn = nDict[vSelfType]
+	if nFn then
 		return nFn
 	else
-		error("auto function is expected here")
-	end
-end
-
-function TypedMemberFunction:indexTypeFn(vType:clazz.UAllType):Ret(clazz.TypedFunction)
-	const nFn = self._polyFn:noCtxCastPoly({vType})
-	if AutoFunction.is(nFn) then
-		return nFn:getFnAwait()
-	elseif TypedFunction.is(nFn) then
+		const nWildFn = self._wildFn
+		const nRetTuples = nWildFn:getRetTuples()
+		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
+		const nFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+		nDict[vSelfType] = nFn
 		return nFn
-	else
-		error("class factory can't member function")
 	end
 end
 
