@@ -19,25 +19,25 @@ function.open TypedObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode,
 	const nTask = vManager:getScheduleManager():newTask()
 	self._task = nTask
 	self._keyRefer=vManager:UnionReferCom(vNode, nTask)
-	self._memberDict=false@OrFalse(clazz.MemberDict)
+	self._valueDict=false@OrFalse(Dict(clazz.IAtomType, clazz.UAllType))
 	self._nextKey=vNextKey
 	self._nextValue=false@OrFalse(clazz.UAtomUnion)
 	self._nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion)
 	self._intersectSet={}@Dict(clazz.TypedObject, True)
 end
 
-function TypedObject:lateInit(vIntersectSet:Dict(clazz.TypedObject,True), vMemberDict:clazz.MemberDict, vMetaEventCom:OrFalse(clazz.MetaEventCom))
+function TypedObject:lateInit(vIntersectSet:Dict(clazz.TypedObject,True), vValueDict:Dict(clazz.IAtomType, clazz.UAllType), vMetaEventCom:OrFalse(clazz.MetaEventCom))
 	self._intersectSet = vIntersectSet
 	self._metaEventCom = vMetaEventCom
-	self._memberDict = vMemberDict
+	self._valueDict = vValueDict
 end
 
 function TypedObject:lateCheck()
 	const nNextKey = self._nextKey
-	const nMemberDict = assert(self._memberDict, "member dict must existed here")
+	const nValueDict = assert(self._valueDict, "member dict must existed here")
 	if nNextKey then
 		nNextKey:foreachAwait(function(vKeyAtom)
-			const nMember = nMemberDict[vKeyAtom]
+			const nMember = nValueDict[vKeyAtom]
 			if not nMember then
 				error("nextKey is not subtype of object's key, missing field:"..tostring(vKeyAtom))
 			end
@@ -45,21 +45,16 @@ function TypedObject:lateCheck()
 	end
 end
 
-function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.IAtomType, clazz.UAllType, Boolean):Ret(Boolean)):Ret(Boolean)
-	const nMemberDict = self:getMemberDict()
-	for nLeftKey, nLeftValue in pairs(nMemberDict) do
-		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue, false) then
+function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.IAtomType, clazz.UAllType):Ret(Boolean)):Ret(Boolean)
+	const nValueDict = self:getValueDict()
+	for nLeftKey, nLeftValue in pairs(nValueDict) do
+		if not nLeftValue:mayRecursive() and not vFunc(nLeftKey, nLeftValue) then
 			return false
 		end
 	end
-	for nLeftKey, nLeftValue in pairs(nMemberDict) do
+	for nLeftKey, nLeftValue in pairs(nValueDict) do
 		if nLeftValue:mayRecursive() then
-			local nLeftIsMfn = false
-			if TypedMemberFunction.is(nLeftValue) then
-				nLeftValue = nLeftValue:indexTypeFn(vRightObject)
-				nLeftIsMfn = true
-			end
-			if not vFunc(nLeftKey, nLeftValue, nLeftIsMfn) then
+			if not vFunc(nLeftKey, nLeftValue) then
 				return false
 			end
 		end
@@ -131,7 +126,7 @@ function TypedObject:meta_ipairs(vContext)
 end
 
 function TypedObject:native_next(vContext, vInitType)
-	const nMemberDict = self:getMemberDict()
+	const nValueDict = self:getValueDict()
 	const nNextKey = self._nextKey
 	const nNil = self._manager.type.Nil
 	if not nNextKey then
@@ -144,7 +139,7 @@ function TypedObject:native_next(vContext, vInitType)
 		nNextDict = {}
 		local nCollection = self._manager:TypeCollection()
 		nNextKey:foreachAwait(function(vKeyAtom)
-			const nValue = nMemberDict[vKeyAtom]!
+			const nValue = nValueDict[vKeyAtom]!
 			const nNotnilValue = nValue:checkAtomUnion():notnilType()
 			nNextDict[vKeyAtom] = nNotnilValue
 			nCollection:put(nNotnilValue)
@@ -162,10 +157,10 @@ function TypedObject:isSingleton()
 	return false
 end
 
-function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UMemberAllType):Ret(False)
+function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UAllType):Ret(False)
 	const nKey = self._keyRefer:getTypeAwait():includeAtom(vType)
 	if nKey then
-		return nKey, assert(self._memberDict)[nKey]!
+		return nKey, assert(self._valueDict)[nKey]!
 	else
 		return false
 	end
@@ -234,13 +229,13 @@ function TypedObject:detailString(vToStringCache, vVerbose)
 	if nCache then
 		return nCache
 	end
-	const nMemberDict = self._memberDict
-	if not nMemberDict then
+	const nValueDict = self._valueDict
+	if not nValueDict then
 		return "Object (constructing...)"
 	end
 	vToStringCache[self] = "Object {...}"
 	local l:List(String) = {}
-	for k,v in pairs(nMemberDict) do
+	for k,v in pairs(nValueDict) do
 		local nKeyString:String = ""
 		if StringLiteral.is(k) and not vVerbose then
 			nKeyString = k:getLiteral()
@@ -254,14 +249,14 @@ function TypedObject:detailString(vToStringCache, vVerbose)
 	return nResult]]
 end
 
-function TypedObject:getMemberDict():Ret(clazz.MemberDict)
+function TypedObject:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAllType))
 	self._keyRefer:getListAwait()
-	return (assert(self._memberDict, "member list is not setted after waiting"))
+	return (assert(self._valueDict, "member list is not setted after waiting"))
 end
 
 function TypedObject:copyValueDict(vSelfObject:OrNil(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
 	const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
-	for k,v in pairs(self:getMemberDict()) do
+	for k,v in pairs(self:getValueDict()) do
 		if not TypedMemberFunction.is(v) then
 			nValueDict[k] = v
 		else

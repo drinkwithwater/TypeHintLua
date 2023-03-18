@@ -1,5 +1,4 @@
 
-const TypedMemberFunction = require "thlua.func.TypedMemberFunction"
 const TypedObject = require "thlua.object.TypedObject"
 const class = require "thlua.class"
 
@@ -30,25 +29,9 @@ function Interface:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRight
 			return false
 		end
 	end
-	const function isMatchedValue(vLeftValue:clazz.UAllType, vRightValue:clazz.UMemberAllType, vLeftIsMfn:Boolean):Ret(Boolean)
-		if TypedMemberFunction.is(vRightValue) then
-			if not vLeftIsMfn then
-				return false
-			end
-			const nRightTypeFn = vRightValue:indexTypeFn(vRightObject)
-			if not vLeftValue:assumeIncludeAll(vAssumeSet, nRightTypeFn) then
-				return false
-			end
-		else
-			if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
-				return false
-			end
-		end
-		return true
-	end
-	const nRightValueDict = vRightObject:getMemberDict()
+	const nRightValueDict = vRightObject:getValueDict()
 	const nRightResultType = nRightKeyRefer:getResultType()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
+	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue)
 		if nRightResultType then -- key is merged, just get one matched
 			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
 			if not nRightKey then
@@ -58,12 +41,12 @@ function Interface:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRight
 			if not nRightValue then
 				return false
 			end
-			return isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn)
+			return vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) and true
 		else -- key is not merged, iter for one matched
 			for _, nRightMoreKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightMoreKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					const nRightValue = nRightValueDict[nRightMoreKey]
-					if nRightValue and isMatchedValue(vLeftValue, nRightValue, vLeftIsMfn) then
+					if nRightValue and vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) then
 						return true
 					end
 				end
@@ -123,19 +106,16 @@ function Interface:assumeIntersectAtom(vAssumeSet, vRightType)
 end
 
 function Interface:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.Interface):Ret(Boolean)
-	const nRightValueDict = vRightObject:getMemberDict()
+	const nRightValueDict = vRightObject:getValueDict()
 	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	const nRightResultType = nRightKeyRefer:getResultType()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue, vLeftIsMfn)
+	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue)
 		if nRightResultType then -- key is merged, just get one matched
 			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
 			if not nRightKey then
 				return true
 			end
-			local nRightValue = nRightValueDict[nRightKey]!
-			if TypedMemberFunction.is(nRightValue) then
-				nRightValue = nRightValue:indexTypeFn(vRightObject)
-			end
+			const nRightValue = nRightValueDict[nRightKey]!
 			if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
 				return true
 			else
@@ -144,10 +124,7 @@ function Interface:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), v
 		else
 			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
-					local nRightValue = nRightValueDict[nRightKey]!
-					if TypedMemberFunction.is(nRightValue) then
-						nRightValue = nRightValue:indexTypeFn(vRightObject)
-					end
+					const nRightValue = nRightValueDict[nRightKey]!
 					if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
 						return true
 					end
