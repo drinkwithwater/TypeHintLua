@@ -388,10 +388,11 @@ function InstStack:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Numbe
 	return self:_nodeTerm(vNode, nType)
 end
 
-function InstStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.RefineTerm)
-	assert(not AutoHolder.is(vSymbol), "auto symbol can't set"..tostring(vNode))
-	assert(not ImmutVariable.is(vSymbol), "immutable symbol can't set"..tostring(vNode))
+function InstStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.UAutoTerm)
 	const nSymbolContext = self:newAssignContext(vNode)
+	assert(not AutoHolder.is(vSymbol), nSymbolContext:newException("auto symbol can't set "))
+	assert(not ImmutVariable.is(vSymbol), nSymbolContext:newException("immutable symbol can't set "))
+	assert(not AutoHolder.is(vTerm), nSymbolContext:newException("TODO.. auto term assign"))
 	self:_topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
 end
 
@@ -408,7 +409,7 @@ function InstStack:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllo
 			return nBranch:immutGet(nSymbolContext, nTerm:attachImmutVariable())
 		else
 			if not vAllowAuto then
-				error(Exception.new("auto term can't be used when it's undeduced", vNode))
+				error(nSymbolContext:newException("auto term can't be used when it's undeduced"))
 			else
 				return vSymbol
 			end
@@ -490,9 +491,9 @@ function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, v
 		const nTermInHolder = nTerm:getRefineTerm()
 		if not nTermInHolder then
 			if vModify then
-				error(Exception.new("auto variable can't be modified", vNode))
+				error(nSymbolContext:newException("auto variable can't be modified"))
 			elseif vKind == Enum.SymbolKind_LOCAL then
-				error(Exception.new("auto variable can't be defined as local", vNode))
+				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
 			return nTerm
 		end

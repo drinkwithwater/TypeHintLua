@@ -34,6 +34,15 @@ local Exception = require "thlua.Exception"
 		}),
 	}
 
+	let.DidSaveTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+		text=OrNil(String),
+	}
+
+	let.DidCloseTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+	}
+
 	let.DidOpenTextDocumentParams = Struct {
 		textDocument = Struct {
 			uri=String,
@@ -110,9 +119,14 @@ end)
 
 return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
-		local nContent = vParams.contentChanges[1].text
-		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
+		const nContentChange = vParams.contentChanges[1]
+		if nContentChange then
+			const nContent = vParams.contentChanges[1].text
+			const nFileName = vClient:uriToPath(vParams.textDocument.uri)
+			vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
+		else
+			vClient:error("content change is empty onDidChange")
+		end
 		--vClient:rerun(nFileName)
 	end,
 	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
@@ -121,11 +135,11 @@ return {
 		vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
 		vClient:rerun(nFileName)
 	end,
-	didSave=function(vClient:lsp.Client, vParams)
+	didSave=function(vClient:lsp.Client, vParams:DidSaveTextDocumentParams)
 		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		vClient:rerun(nFileName)
 	end,
-	didClose=function(vClient:lsp.Client, vParams)
+	didClose=function(vClient:lsp.Client, vParams:DidCloseTextDocumentParams)
 	end,
 	definition=function(vClient:lsp.Client, vParams:DefinitionParams):Ret(Location)
 		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
@@ -142,9 +156,9 @@ return {
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams):Ret(List(CompletionItem))
 		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		local nSuccEnv = vClient:getSuccCodeEnv(nFileName)
+		const nSuccEnv = vClient:getSuccCodeEnv(nFileName)
 		if not nSuccEnv then
-			return
+			return {}
 		end
 		local nDirtyEnv = vClient:getDirtyCodeEnv(nFileName)
 		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
@@ -160,7 +174,7 @@ return {
 				vParams.position.line,
 				vParams.position.character,
 			})]]
-			return
+			return {}
 		end
 		if nDefineNode then
 			local nLocalSymbolSet = vClient.runtime:getNodeLocalSymbolSet(nDefineNode)

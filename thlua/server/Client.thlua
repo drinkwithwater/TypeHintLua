@@ -23,9 +23,9 @@ Client.__index = Client
 function:class(lsp.Client) Client.new(vLogFile:OrNil(String))
 	local self = setmetatable({.class
 		initialize=false@Boolean,
-		shutdown=false,
+		shutdown=false@Boolean,
 		root=""@String,
-		runtime=false,
+		runtime=nil@OrNil(clazz.Runtime),
 		fileStateDict={}@Dict(String, FileState),
 		logFile=vLogFile,
 	}, Client)
@@ -64,7 +64,7 @@ function Client:syncFile(vContent:String, vFileName:String, vVersion:Integer)
 	end
 end
 
-function Client:rerun(vFileName)
+function Client:rerun(vFileName:String)
 	local ok, mainFileName = self:thluaSearch("main")
 	if not ok then
 		mainFileName = vFileName
@@ -72,19 +72,17 @@ function Client:rerun(vFileName)
 	else
 		self:info("main.thlua found:", mainFileName)
 	end
-	local nRuntime=Runtime.new(self, mainFileName)
-	local ok, exc = nRuntime:main()
+	const nRuntime=Runtime.new(self, mainFileName)
+	const ok, exc = nRuntime:main()
 	if not ok then
 		if not self.runtime then
 			self.runtime = nRuntime
 		end
-		self:publishException(exc)
-		print("publish exception ==========================", vVersion, exc)
+		self:publishException(tostring(exc))
 		return
 	end
 	self.runtime = nRuntime
 	collectgarbage()
-	print("publish normal ==========================", vVersion)
 	self:publishNormal()
 end
 
@@ -272,7 +270,7 @@ function Client:notify(vMethod:String, vParams:Truth):Ret()
 end
 
 function Client:publishNormal()
-	local nFileToList = self.runtime:getAllDiagnostic()
+	local nFileToList = self.runtime!:getAllDiagnostic()
 	for nFileName, nFileState in pairs(self.fileStateDict) do
 		const nRawDiaList = nFileToList[nFileName] or {}
 		local nCodeEnv = nFileState.succCodeEnv or nFileState.dirtyCodeEnv
@@ -309,13 +307,13 @@ function Client:publishNormal()
 end
 
 function Client:publishException(vException:Union(clazz.Exception, String))
-	local nNode
-	local nMsg
+	local nNode:OrNil(clazz.IAstNode) = nil
+	local nMsg:String = ""
 	if Exception.is(vException) then
-		nNode = vException.node or self.runtime:getNode()
+		nNode = vException.node or self.runtime!:getNode()
 		nMsg = vException.msg or "exception's msg field is missing"
 	else
-		nNode = self.runtime:getNode()
+		nNode = self.runtime!:getNode()
 		nMsg = "root error:"..tostring(vException)
 	end
 	local nCodeEnv = self:getDirtyCodeEnv(nNode.path)
