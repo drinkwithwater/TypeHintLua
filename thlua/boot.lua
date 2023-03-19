@@ -59,10 +59,10 @@ function boot.runCheck(vMainFileName)
 end
 
 -- run language server
-function boot.runServer(vFileOpen)
+function boot.runServer(vMode)
 	boot.patch()
 	local Client = require "thlua.server.Client"
-	local client = Client.new(vFileOpen)
+	local client = Client.new(vMode)
 
 	print=function(...)
 		--[[client:notify("window/logMessage", {

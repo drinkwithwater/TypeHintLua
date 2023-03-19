@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from 'path';
-import { workspace, ExtensionContext } from 'vscode';
+import { workspace, ExtensionContext, Diagnostic } from 'vscode';
 
 import {
 	LanguageClient,
@@ -13,7 +13,11 @@ import {
 	TransportKind
 } from 'vscode-languageclient/node';
 
-let client: LanguageClient;
+
+// fast client for complete
+let fastClient: LanguageClient;
+// slow client for diagnostic
+let slowClient: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 	const serverCommand = context.asAbsolutePath(
@@ -24,11 +28,6 @@ export function activate(context: ExtensionContext) {
 	);
 
 	// If the extension is launched in debug mode then the debug server options are used
-	// Otherwise the run options are used
-	const serverOptions: ServerOptions = {
-		command : serverCommand,
-		args: [serverCommandArg]
-	};
 
 	// Options to control the language client
 	const clientOptions: LanguageClientOptions = {
@@ -41,20 +40,38 @@ export function activate(context: ExtensionContext) {
 	};
 
 	// Create the language client and start the client.
-	client = new LanguageClient(
+	slowClient = new LanguageClient(
 		'TypeHintLua',
 		'TypeHintLua',
-		serverOptions,
+		{ // server option
+			command : serverCommand,
+			args: [serverCommandArg, "slow"]
+		},
+		clientOptions
+	);
+
+	fastClient = new LanguageClient(
+		'TypeHintLua',
+		'TypeHintLua',
+		{ // server option
+			command : serverCommand,
+			args: [serverCommandArg, "fast"]
+		},
 		clientOptions
 	);
 
 	// Start the client. This will also launch the server
-	client.start();
+	slowClient.start();
+	fastClient.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
-	if (!client) {
-		return undefined;
+	const promises:Thenable<void>[] = [];
+	if (!slowClient) {
+		promises.push(slowClient.stop());
 	}
-	return client.stop();
+	if (!fastClient) {
+		promises.push(fastClient.stop());
+	}
+	return Promise.all(promises).then(() => undefined);
 }

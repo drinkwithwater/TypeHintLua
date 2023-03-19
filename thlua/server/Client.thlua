@@ -20,14 +20,15 @@ local Client = {}
 
 Client.__index = Client
 
-function:class(lsp.Client) Client.new(vLogFile:OrNil(String))
+function:class(lsp.Client) Client.new(vMode:OrNil("fast", "slow"))
 	local self = setmetatable({.class
+		_mode=vMode or false,
 		initialize=false@Boolean,
 		shutdown=false@Boolean,
 		root=""@String,
 		runtime=nil@OrNil(clazz.Runtime),
 		fileStateDict={}@Dict(String, FileState),
-		logFile=vLogFile,
+		logFile=false,
 	}, Client)
 	return self
 end
@@ -137,6 +138,7 @@ function Client:mainLoop()
 		text="hello",
 		tooltip="hello",
 	})
+	self:info("mode=", self._mode)
 	while not self.shutdown do
 		self:rpc()
 	end
