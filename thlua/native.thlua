@@ -95,6 +95,10 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.AutoTable)
 			print("rawset TODO")
 			return vContext:FixedTermTuple({})
 		end),
+		collectgarbage=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+			print("collectgarbage TODO")
+			return vContext:FixedTermTuple({})
+		end),
 		tostring=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			return vContext:RefineTerm(nManager.type.String)
 		end),
@@ -212,7 +216,7 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.AutoTable)
 		end),
 	}
 	for k,v in pairs(global @? Dict(String, clazz.OpenFunction)) do
-		v:set_name(k)
+		-- v:set_name(k)
 	end
 
 	global.string=nManager.builtin.string
@@ -223,12 +227,23 @@ function native.make(vRuntime:clazz.Runtime):Ret(clazz.AutoTable)
 	global.table=native.make_table(nManager)
 	global.io=native.make_io(nManager)
 	global.coroutine=native.make_coroutine(nManager)
+	global.package=native.make_package(nManager)
 
 	-- global.next = vRuntime.func.next
 	const nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
     nGlobalTable:setName("_G")
 
 	return nGlobalTable
+end
+
+function native.make_package(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
+	const type = vManager.type
+	const package:StringToAtomUnion = {
+		searchpath=vManager:checkedFn(type.String, type.String):Ret(type.Nil, type.String):Ret(type.String),
+	}
+	const nTable = native._toTable(vManager, package)
+	nTable:setName("package")
+	return nTable
 end
 
 function native.make_math(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
@@ -308,6 +323,7 @@ function native.make_os(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
 	const type = vManager.type
 	const string:StringToAtomUnion = {
 		clock=vManager:checkedFn():Ret(type.Number),
+		exit=vManager:checkedFn(),
 	}
 	const nTable = native._toTable(vManager, string)
 	nTable:setName("os")

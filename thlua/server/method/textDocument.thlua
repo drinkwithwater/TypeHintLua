@@ -6,14 +6,14 @@ local Exception = require "thlua.Exception"
 (@do
 	let.lsp=import("thlua.server.protocol").lsp
 
-	let.Position = Struct {
+	lsp.Position = Struct {
 		line=Number,
 		character=Number,
 	}
 
-	let.Range=Struct {
-		start=Position,
-		["end"]=Position,
+	lsp.Range=Struct {
+		start=lsp.Position,
+		["end"]=lsp.Position,
 	}
 
 	let.TextDocumentIdentifier = Struct {
@@ -25,10 +25,36 @@ local Exception = require "thlua.Exception"
 		uri=String,
 	}
 
+	do
+		let.TextDocumentPositionParams = Interface {
+			textDocument=TextDocumentIdentifier
+		}
+
+		let.ProgressToken = Union(Integer, String)
+
+		let.WorkDoneProgressParams = Interface {
+			workDoneToke=OrNil(ProgressToken),
+		}
+
+		let.PartialResultParams = Interface {
+			partialResultToken=OrNil(ProgressToken)
+		}
+
+		let.ReferenceParams = ExtendStruct ({
+			context = Struct {
+				includeDecleration = Boolean,
+			}
+		}, let.TextDocumentPositionParams, let.WorkDoneProgressParams, let.PartialResultParams)
+
+		let.TypeDefinitionParams = ExtendStruct ({
+		}, let.TextDocumentPositionParams, let.WorkDoneProgressParams, let.PartialResultParams)
+
+	end
+
 	let.DidChangeTextDocumentParams = Struct {
 		textDocument=lsp.VersionedTextDocumentIdentifier,
 		contentChanges=List(Struct {
-			range=Range,
+			range=lsp.Range,
 			rangeLength=OrNil(Number),
 			text=String,
 		}),
@@ -54,17 +80,17 @@ local Exception = require "thlua.Exception"
 
 	let.DefinitionParams = Struct {
 		textDocument = TextDocumentIdentifier,
-		position=Position,
+		position=lsp.Position,
 	}
 
 	let.HoverParams = Struct {
 		textDocument = TextDocumentIdentifier,
-		position=Position,
+		position=lsp.Position,
 	}
 
 	let.CompletionParams = Struct {
 		textDocument = TextDocumentIdentifier,
-		position=Position,
+		position=lsp.Position,
 		context=OrNil(Struct {
 			triggerKind=Union(1,2,3),
 			triggerCharacter=OrNil(String),
@@ -75,7 +101,7 @@ local Exception = require "thlua.Exception"
 		uri=String,
 		version=OrNil(Number),
 		diagnostics=List(Struct {
-			range=Range,
+			range=lsp.Range,
 			severity=OrNil(Struct {
 			}),
 			code=OrNil(Union(Number, String)),
@@ -92,7 +118,7 @@ local Exception = require "thlua.Exception"
 
 	let.Location = Struct {
 		uri=String,
-		range=Range,
+		range=lsp.Range,
 	}
 
 	let.CompletionItem = Struct {
@@ -121,7 +147,7 @@ return {
 	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
 		const nContentChange = vParams.contentChanges[1]
 		if nContentChange then
-			const nContent = vParams.contentChanges[1].text
+			const nContent = nContentChange.text
 			const nFileName = vClient:uriToPath(vParams.textDocument.uri)
 			vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
 		else
@@ -212,8 +238,6 @@ return {
 			}
 		end
 	end,
-	references=function(vClient, vParams)
-	end,
-	typeDefinition=function(vClient, vParams)
-	end,
+	references=function(vClient:lsp.Client, vParams:ReferenceParams) end,
+	typeDefinition=function(vClient:lsp.Client, vParams:TypeDefinitionParams) end,
 }

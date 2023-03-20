@@ -21,9 +21,15 @@ const ScheduleManager = require "thlua.manager.ScheduleManager"
 	import("thlua.code.CodeEnv")
 	let.clazz = import("thlua.type.TypeClass").clazz
 
-	let.ILoader = Interface {
+	clazz.ILoader = Interface {
 		thluaSearch=Mfn(String):Ret(Boolean, String),
 		thluaParseFile=Mfn(String):Ret(clazz.CodeEnv),
+	}
+
+	clazz.Diagnostic = Struct {
+		node=clazz.IAstNode,
+		msg=String,
+		severity=Union(1,2,3,4),
 	}
 
 	let.LoadedState = Struct {
@@ -32,23 +38,13 @@ const ScheduleManager = require "thlua.manager.ScheduleManager"
 		stack=OrNil(clazz.BaseStack),
 	}
 
-	let.Diagnostic = Struct {
-		node=clazz.IAstNode,
-		msg=String,
-		severity=Union(1,2,3,4),
-	}
-
-	let.FileState = Struct {
-		codeEnv=clazz.CodeEnv,
-		diaList=List(Diagnostic),
-	}
 end)
 
 
 local Runtime = {}
 Runtime.__index=Runtime
 
-function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
+function:class(clazz.Runtime) Runtime.new(vLoader:clazz.ILoader, vMainFileName:String)
 	const self = setmetatable({.class
 		_loader=vLoader,
 		_mainFileName=vMainFileName,
@@ -57,7 +53,7 @@ function:class(clazz.Runtime) Runtime.new(vLoader:ILoader, vMainFileName:String)
 		_loadedDict={}@Dict(String, LoadedState),
 		_nodeToSymbolSet={}@Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True)),
 		_fileEnvDict={}@Dict(String, clazz.CodeEnv),
-		_diaList={}@List(Diagnostic),
+		_diaList={}@List(clazz.Diagnostic),
 		_lineToExpectResult=false @ OrFalse(Dict(Integer, Union(String, Integer))),
 		_scheduleManager=ScheduleManager.new(),
 		_manager=nil@!clazz.TypeManager,
@@ -326,8 +322,8 @@ function Runtime:nodeInfo(vNode:clazz.IAstNode, ...:Truth)
 	self:_save(3, vNode, ...)
 end
 
-function Runtime:getAllDiagnostic():Ret(Dict(String, List(Diagnostic)))
-	local nFileToDiaList:Dict(String, List(Diagnostic)) = {}
+function Runtime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
 	for _, nDia in pairs(self._diaList) do
 		const nPath = nDia.node.path
 		local nList = nFileToDiaList[nPath]

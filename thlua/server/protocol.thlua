@@ -1,5 +1,5 @@
 
-local ErrorCodes = {
+const ErrorCodes = {
 	ParseError = -32700;
 	InvalidRequest = -32600;
 	MethodNotFound = -32601;
@@ -64,9 +64,18 @@ local ErrorCodes = {
 	lspReservedErrorRangeEnd = -32800;
 }
 
+const SeverityEnum = {
+	Error = 1,
+	Warn = 2,
+	Info = 3,
+	Hint = 4,
+}
+
 (@do
 
 let.lsp=namespace()
+
+lsp.URI = String
 
 lsp.RequestMessage = Struct {
 	jsonrpc = String,
@@ -124,16 +133,31 @@ lsp.InitializeResult = Struct {
 			},
 		},
 		hoverProvider = Boolean,
+		referencesProvider = Boolean,
 		documentLocalSymbolProvider = Boolean,
 	},
-	serverInfo=Struct {
+	serverInfo=OrNil(Struct {
 		name=String,
 		version=String|Nil,
-	} | Nil,
+	}),
+}
+
+lsp.DiagnosticSeverity = Union(1,2,3,4) -- ValueOf(SeverityEnum)
+
+lsp.Diagnostic = Struct {
+	range=lsp.Range,
+	severity=lsp.DiagnosticSeverity,
+	code=OrNil(Integer, String),
+	codeDescription=OrNil(Struct {
+		href=lsp.URI,
+	}),
+	source=OrNil(String),
+	message=String,
 }
 
 end)
 
 return {
-	ErrorCodes=ErrorCodes
+	ErrorCodes=ErrorCodes,
+	SeverityEnum=SeverityEnum,
 }

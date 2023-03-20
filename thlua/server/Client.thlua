@@ -20,7 +20,7 @@ local Client = {}
 
 Client.__index = Client
 
-function:class(lsp.Client) Client.new(vMode:OrNil("fast", "slow"))
+function:class(lsp.Client) Client.new(vMode:OrNil("fast", "slow")):impl(clazz.ILoader)
 	local self = setmetatable({.class
 		_mode=vMode or false,
 		initialize=false@Boolean,
@@ -123,11 +123,10 @@ function Client:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 	end
 end
 
-function Client:getDirtyCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
+function Client:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
 	local nFileState = self.fileStateDict[vFileName]
 	if not nFileState then
-		self:error(vFileName, "has no file state")
-		return nil
+		error(tostring(vFileName).." has no file state")
 	else
 		return nFileState.dirtyCodeEnv
 	end
@@ -160,7 +159,7 @@ function Client:rpc():Ret()
 		end
 		return
 	end
-	local handler = methodHandler[methodName]
+	const handler = methodHandler[methodName]
 	if not handler then
 		if nId then
 			self:writeError(nId, ErrorCodes.MethodNotFound, "method not found", "method="..tostring(methodName))
@@ -169,7 +168,7 @@ function Client:rpc():Ret()
 		end
 		return
 	end
-	local result = handler(self, request.params)
+	const result = handler(self, request.params)
 	if result then
 		if nId then
 			self:writeResult(nId, result)
@@ -274,10 +273,10 @@ end
 function Client:publishNormal()
 	local nFileToList = self.runtime!:getAllDiagnostic()
 	for nFileName, nFileState in pairs(self.fileStateDict) do
-		const nRawDiaList = nFileToList[nFileName] or {}
+		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
 		local nCodeEnv = nFileState.succCodeEnv or nFileState.dirtyCodeEnv
 		local nVersion = nCodeEnv:getVersion()
-		local nDiaList = {}
+		local nDiaList:List(lsp.Diagnostic) = {}
 		for _, dia in ipairs(nRawDiaList) do
 			local nNode = dia.node
 			local nMsg = dia.msg
@@ -318,7 +317,7 @@ function Client:publishException(vException:Union(clazz.Exception, String))
 		nNode = self.runtime!:getNode()
 		nMsg = "root error:"..tostring(vException)
 	end
-	local nCodeEnv = self:getDirtyCodeEnv(nNode.path)
+	const nCodeEnv = self:getDirtyCodeEnv(nNode.path)
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
@@ -408,7 +407,7 @@ function Client:warn(...:Truth):Ret()
 	end
 end
 
-function Client:info(...:Truth):Ret()
+function Client:info(...:Any)
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
