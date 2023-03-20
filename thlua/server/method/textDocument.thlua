@@ -191,10 +191,7 @@ return {
 		local nContent = nDirtyEnv:getContent():sub(1, nPos)
 		local nCompletionEnv = CodeEnv.new(nContent, nFileName, -1)
 		local nErrNode = nCompletionEnv:getAstTree()
-		local nDefineNode
-		if nErrNode.tag == "Error" then
-			nDefineNode = nSuccEnv:searchNameByError(nErrNode)
-		else
+		if nErrNode.tag ~= "Error" then
 			print("TODO... completionEnv has no syntax error")
 			--[[nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
 				vParams.position.line,
@@ -202,16 +199,18 @@ return {
 			})]]
 			return {}
 		end
+		const nDefineNode = nSuccEnv:searchNameByError(nErrNode)
 		if nDefineNode then
-			local nLocalSymbolSet = vClient.runtime:getNodeLocalSymbolSet(nDefineNode)
-			local nNameToType = {}
+			const nLocalSymbolSet = vClient:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
+			const nNameToType = {}
 			for nLocalSymbol, _ in pairs(nLocalSymbolSet) do
-				local nType = nLocalSymbol:getType()
+				const nType = nLocalSymbol:getType()
+				--[[
 				for k, v in pairs(nType:getCompletion()) do
 					nNameToType[k] = v
-				end
+				end]]
 			end
-			local l = {}
+			local l:List(CompletionItem) = {}
 			for k,v in pairs(nNameToType) do
 				l[#l + 1] = {
 					label=k
@@ -224,7 +223,7 @@ return {
 		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		local nDefineNode = vClient:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
 		if nDefineNode then
-			local nLocalSymbolSet = vClient.runtime:getNodeLocalSymbolSet(nDefineNode)
+			local nLocalSymbolSet = vClient:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
 			local l = {}
 			for nLocalSymbol, _ in pairs(nLocalSymbolSet) do
 				l[#l + 1] = tostring(nLocalSymbol:getType())

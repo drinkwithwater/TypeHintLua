@@ -22,12 +22,12 @@ Client.__index = Client
 
 function:class(lsp.Client) Client.new(vMode:OrNil("fast", "slow")):impl(clazz.ILoader)
 	local self = setmetatable({.class
-		_mode=vMode or false,
 		initialize=false@Boolean,
 		shutdown=false@Boolean,
-		root=""@String,
-		runtime=nil@OrNil(clazz.Runtime),
-		fileStateDict={}@Dict(String, FileState),
+		_mode=vMode or false,
+		_root=""@String,
+		_runtime=nil@OrNil(clazz.Runtime),
+		_fileStateDict={}@Dict(String, FileState),
 		logFile=false,
 	}, Client)
 	return self
@@ -50,13 +50,13 @@ end
 
 function Client:syncFile(vContent:String, vFileName:String, vVersion:Integer)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
-	local nFileState = self.fileStateDict[vFileName]
+	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
 		nFileState = {
 			dirtyCodeEnv = nCodeEnv,
 			version = vVersion,
 		}
-		self.fileStateDict[vFileName] = nFileState
+		self._fileStateDict[vFileName] = nFileState
 	else
 		nFileState.dirtyCodeEnv = nCodeEnv
 	end
@@ -76,19 +76,19 @@ function Client:rerun(vFileName:String)
 	const nRuntime=Runtime.new(self, mainFileName)
 	const ok, exc = nRuntime:main()
 	if not ok then
-		if not self.runtime then
-			self.runtime = nRuntime
+		if not self._runtime then
+			self._runtime = nRuntime
 		end
 		self:publishException(tostring(exc))
 		return
 	end
-	self.runtime = nRuntime
+	self._runtime = nRuntime
 	collectgarbage()
 	self:publishNormal()
 end
 
 function Client:thluaSearch(vPath:String):Ret(Boolean, String)
-	local thluaPath = self.root.."/?.thlua"
+	local thluaPath = self._root.."/?.thlua"
 	local fileName, err1 = package.searchpath(vPath, thluaPath)
 	if not fileName then
 		return false, err1
@@ -97,7 +97,7 @@ function Client:thluaSearch(vPath:String):Ret(Boolean, String)
 end
 
 function Client:thluaParseFile(vFileName:String)
-	if not self.fileStateDict[vFileName] then
+	if not self._fileStateDict[vFileName] then
 		local file, err = io.open(vFileName, "r")
 		if not file then
 			error(err)
@@ -106,7 +106,7 @@ function Client:thluaParseFile(vFileName:String)
 		file:close()
 		self:syncFile(nContent, vFileName, -1)
 	end
-	local nCodeEnv = self.fileStateDict[vFileName]!.dirtyCodeEnv
+	local nCodeEnv = self._fileStateDict[vFileName]!.dirtyCodeEnv
 	local ok, err = nCodeEnv:checkOkay()
 	if not ok then
 		error(err)
@@ -115,7 +115,7 @@ function Client:thluaParseFile(vFileName:String)
 end
 
 function Client:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
-	local nState = self.fileStateDict[vFileName]
+	local nState = self._fileStateDict[vFileName]
 	if nState then
 		return nState.succCodeEnv
 	else
@@ -124,7 +124,7 @@ function Client:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 end
 
 function Client:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
-	local nFileState = self.fileStateDict[vFileName]
+	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
 		error(tostring(vFileName).." has no file state")
 	else
@@ -147,7 +147,7 @@ local function reqToStr(vRequest:lsp.RequestMessage):Ret(String)
 	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
 end
 
-function Client:rpc():Ret()
+function.pass Client:rpc()
 	local request = self:readRequest()
 	local methodName = request.method
 	local nId = request.id
@@ -271,8 +271,8 @@ function Client:notify(vMethod:String, vParams:Truth):Ret()
 end
 
 function Client:publishNormal()
-	local nFileToList = self.runtime!:getAllDiagnostic()
-	for nFileName, nFileState in pairs(self.fileStateDict) do
+	local nFileToList = self._runtime!:getAllDiagnostic()
+	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
 		local nCodeEnv = nFileState.succCodeEnv or nFileState.dirtyCodeEnv
 		local nVersion = nCodeEnv:getVersion()
@@ -311,10 +311,10 @@ function Client:publishException(vException:Union(clazz.Exception, String))
 	local nNode:OrNil(clazz.IAstNode) = nil
 	local nMsg:String = ""
 	if Exception.is(vException) then
-		nNode = vException.node or self.runtime!:getNode()
+		nNode = vException.node or self._runtime!:getNode()
 		nMsg = vException.msg or "exception's msg field is missing"
 	else
-		nNode = self.runtime!:getNode()
+		nNode = self._runtime!:getNode()
 		nMsg = "root error:"..tostring(vException)
 	end
 	const nCodeEnv = self:getDirtyCodeEnv(nNode.path)
@@ -440,7 +440,7 @@ end
 function Client:setRoot(vRoot:String)
 	--self.root = vRoot:gsub("/*$", "")
 	--self:info("root:", self.root, vRoot)
-	self.root = vRoot
+	self._root = vRoot
 end
 
 function Client:uriToPath(vUri:String):Ret(String)
@@ -463,6 +463,10 @@ function Client:pathToUri(vPath:String):Ret(String)
 	else
 		return "file://"..vPath
 	end
+end
+
+function Client:checkRuntime()
+	return assert(self._runtime)
 end
 
 return Client
