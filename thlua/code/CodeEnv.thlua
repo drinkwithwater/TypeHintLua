@@ -147,8 +147,11 @@ function CodeEnv:_init()
 			break
 		end
 	end
-	local nParseEnv = ParseEnv.new(self._subject, self._chunkName)
-	self._astOrErr = nParseEnv:get()
+	const nAst, nErr = ParseEnv.parse(self._subject)
+	if not nAst then
+		error(nErr)
+	end
+	self._astOrErr = nAst
 end
 
 function.pass CodeEnv:genTypingCode():Ret(String)
@@ -262,6 +265,9 @@ end
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
 	local nIndex, nNode = self:binSearch@<node.Ident_def>(self._identList, vPos)
 	if not nIndex then
+		return nil
+	end
+	if vPos >= nNode.pos + #nNode[1] or vPos > nNode.posEnd then
 		return nil
 	end
 	return nNode

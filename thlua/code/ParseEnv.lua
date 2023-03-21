@@ -700,4 +700,12 @@ function ParseEnv:genLuaCode()
 	return table.concat(nContents)
 end
 
+function ParseEnv.compile()
+end
+
+function ParseEnv.parse(vContent)
+	local env = ParseEnv.new(vContent, "")
+	return env:get()
+end
+
 return ParseEnv

@@ -37,7 +37,7 @@ function boot.searcher(name)
 	end
 	local thluaCode = file:read("*a")
 	file:close()
-	return boot.load(thluaCode, name)
+	return boot.load(thluaCode, fileName)
 end
 
 local patch = false
