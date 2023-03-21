@@ -56,21 +56,22 @@ function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function SealFunction:buildAsync(vRunner:Fn():Ret(OrFalse(clazz.TypedFunction), Fn():Ret(clazz.TypedFunction)))
+function SealFunction:buildAsync(vRunner:Fn():Ret(
+	OrFalse(clazz.UTypeTuple), OrFalse(clazz.RetTuples), Fn():Ret(
+		clazz.UTypeTuple, clazz.RetTuples
+	)
+))
 	self._task:runAsync(function()
 		self._headStartEvent:wait()
-		const nTypeFn, nLateRunner = vRunner()
-		if nTypeFn then
-			self._typeFn = nTypeFn
-			self._retTuples = nTypeFn:getRetTuples()
+		const nParTuple, nRetTuples, nLateRunner = vRunner()
+		self._retTuples = nRetTuples
+		if nParTuple and nRetTuples then
+			self._typeFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		end
 		self._headFinishEvent:wakeup()
 		self._bodyStartEvent:wait()
-		const nTypeFn = nLateRunner()
-		if not self._typeFn then
-			self._typeFn = nTypeFn
-			self._retTuples = nTypeFn:getRetTuples()
-		end
+		const nParTuple, nRetTuples = nLateRunner()
+		self._typeFn = self._typeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		self._bodyFinishEvent:wakeup()
 	end)
 end

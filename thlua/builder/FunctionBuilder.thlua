@@ -153,13 +153,12 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 				end
 			end
 			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples(self._node))
-			const nPreTypeFn = nParTuple and nRetTuples and self._manager:TypedFunction(self._node, nParTuple, nRetTuples) or false
-			return nPreTypeFn, function()
+			return nParTuple, nRetTuples, function()
 				if self._pass then
 					if not nParTuple or not nRetTuples then
 						error("pass function can't take auto return or auto parameter")
 					end
-					return nPreTypeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+					return nParTuple, nRetTuples
 				else
 					const nRetTermTuple = nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
@@ -172,7 +171,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 						nNewStack:error("auto return deduce failed")
 						error("auto return deduce failed")
 					end
-					return nPreTypeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+					return nParTuple, nRetTuples
 				end
 			end
 		end)
@@ -330,10 +329,9 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 		nFactory:buildAsync(function()
 			nClassTable:waitInit()
 			const nParTermTuple = nGenParam(false)
-			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, nClassTable))
 			const nParTuple = nParTermTuple:checkTypeTuple()
-			const nPreTypeFn = nParTuple and self._manager:TypedFunction(self._node, nParTuple, nRetTuples) or false
-			return nPreTypeFn, function()
+			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, nClassTable))
+			return nParTuple, nRetTuples, function()
 				nNewStack:setClassTable(nClassTable)
 				nGenFunc()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
@@ -341,9 +339,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 					nNewStack:error("auto parameter deduce failed")
 					error("auto parameter deduce failed")
 				end
-				const nRetTypeFn = nPreTypeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 				nFactory:wakeupTableBuild()
-				return nRetTypeFn
+				return nParTuple, nRetTuples
 			end
 		end)
 		return nFactory

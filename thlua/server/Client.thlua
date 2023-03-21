@@ -9,6 +9,7 @@ local CodeEnv = require "thlua.code.CodeEnv"
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.lsp=import("thlua.server.protocol").lsp
+	let.node = import("thlua.code.Node").node
 	let.FileState = Struct {
 		succCodeEnv=OrNil(clazz.CodeEnv),
 		dirtyCodeEnv=clazz.CodeEnv,
@@ -33,16 +34,13 @@ function:class(lsp.Client) Client.new(vMode:OrNil("fast", "slow")):impl(clazz.IL
 	return self
 end
 
-function Client:searchDefine(vFileName, vLine, vColumn)
+function Client:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident_def))
 	local nSuccEnv = self:getSuccCodeEnv(vFileName)
 	if nSuccEnv then
 		local nPos = nSuccEnv:lcToPos(vLine, vColumn)
-		local nNode = nSuccEnv:searchName(nPos)
-		if nNode then
-			if nNode.tag == "Id" then
-				nNode = nSuccEnv:getIdent(nNode.ident_refer)
-				return nNode
-			end
+		const nNode = nSuccEnv:searchName(nPos)
+		if nNode and nNode.kind == "def" then
+			return nNode
 		end
 	end
 	return nil
