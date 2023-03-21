@@ -33,7 +33,17 @@ local TagToVisiting:RealTraverser = {
 		}
 	end,
 	Block=function(self, node)
-		const nStatUntilIf:List(node.Stat) = {}
+		return {
+			self:stkWrap(node).INJECT_AFTER(self:codeNode(node)),
+			self:concatList@<node.Stat>(node, function(i, vStatNode)
+					return {
+						self:visit(vStatNode),
+						self:stkWrap(vStatNode).INJECT_AFTER(self:codeNode(vStatNode)),
+					}
+			end, " ")
+		}
+		-- RUN_AFTER_IF is not usefull
+		--[[const nStatUntilIf:List(node.Stat) = {}
 		const nStatAfterIf:List(node.Stat) = {}
 		local nMeetIf = false
 		for i, nStatNode in ipairs(node) do
@@ -45,12 +55,9 @@ local TagToVisiting:RealTraverser = {
 			if nStatNode.tag == "If" then
 				nMeetIf = true
 			end
-		end
-		if #nStatAfterIf == 0 then
-			return self:concatList@<node.Stat>(node, function(i, vStatNode)
-					return self:visit(vStatNode)
-			end, " ")
-		else
+		end]]
+		--if #nStatAfterIf == 0 then
+		--[[else
 			return {
 				self:concatList@<node.Stat>(nStatUntilIf, function(i, vStatNode)
 						return self:visit(vStatNode)
@@ -61,7 +68,7 @@ local TagToVisiting:RealTraverser = {
 					end, " ")
 				))
 			}
-		end
+		end]]
 	end,
 	Do=function(self, node)
 		return self:rgnWrap(node).DO(
@@ -181,10 +188,8 @@ local TagToVisiting:RealTraverser = {
 		const nIdentFormat = self:formatIdent(nIdentNode)
 		return {
 			line=node.l,
-			" local ", nIdentFormat, " ", nIdentFormat, "=", self:rgnWrap(nIdentNode).SYMBOL_NEW(
-				string.format("%q", nIdentNode.symbolKind), tostring(nIdentNode.symbolModify or false),
-				self:visit(node[2])
-			)
+			" local ", nIdentFormat, " ",
+			self:visitIdentDef(nIdentNode, self:visit(node[2]), true),
 		}
 	end,
 	Goto=function(self, node)
@@ -460,13 +465,13 @@ function HintGener:formatIdent(vIdentNode:node.Ident):Ret(String)
 	end
 end
 
-function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:String, vIsParam:OrNil(True)):Ret(UGenResult)
+function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, vIsParamOrRec:OrNil(True)):Ret(UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
-		vIsParam and " " or " local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
+		vIsParamOrRec and " " or " local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
-			vValue, vIsParam and "nil" or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
+			vValue, vIsParamOrRec and "nil" or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
 		)
 	}
 end
@@ -527,6 +532,7 @@ end
 (@do
 	let.StkNameEnum = Union(
 		"AUTO", -- just a flag
+		"INJECT_AFTER", -- just a flag
 
 		"CHUNK_TYPE",
 		"FUNC_NEW",
@@ -681,7 +687,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	}), nHintPrefix,
 	-- par ret maker
 		self:fnWrap("____newStk","____polyArgs", "____self")(
-			"local ____stk,____rgn,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(vNode), ") ",
+			"local ____stk,____rgn,____vt,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(vNode), ") ",
 			nPolyUnpack,
 			-- pre declare param
 			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)

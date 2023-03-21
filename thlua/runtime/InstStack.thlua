@@ -39,11 +39,11 @@ function InstStack:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
 	return AutoFlag
 end
 
-function InstStack:BEGIN(vLexStack:clazz.BaseStack, vRegionNode:clazz.IAstNode):Ret(clazz.InstStack, clazz.SpaceTable, clazz.SpaceTable)
+function InstStack:BEGIN(vLexStack:clazz.BaseStack, vRegionNode:clazz.IAstNode):Ret(clazz.InstStack, Dict(clazz.IAstNode, clazz.USymbol), clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._namespace, "context can only begin once")
 	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vRegionNode)
 	self._namespace = nSpace
-	return self, nSpace.localExport, nSpace.globalExport
+	return self, {}, nSpace.localExport, nSpace.globalExport
 end
 
 -- pack explist to termtuple or lazyfunc
@@ -479,7 +479,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:clazz.IAstNode, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
 	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
@@ -717,6 +717,9 @@ function InstStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	self:getNamespace():close()
 	self:seal()
 	return re
+end
+
+function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))
 end
 
 return InstStack
