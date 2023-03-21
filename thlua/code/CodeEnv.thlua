@@ -47,7 +47,7 @@ function.pass CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error)
 	}, Node)
 end
 
-function.pass CodeEnv:prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
+function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
 	const nNodeList = self._nodeList
 	const nIndex = #nNodeList + 1
 	nNodeList[nIndex] = vNode
@@ -65,7 +65,7 @@ function CodeEnv:prepare()
 	const nStack:List(node.IAstNode) = {}
 	self:visit(function(visitor, vNode)
 		-- 1. prepare
-		self:prepareNode(vNode, nStack[#nStack] or false)
+		self:_prepareNode(vNode, nStack[#nStack] or false)
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
@@ -177,8 +177,8 @@ function.pass CodeEnv:_genTypingCode():Ret(String)
 	const nSymbolVisitor = SymbolVisitor.new(self)
 	nSymbolVisitor:realVisit(self:getAstTree())
 	-- 3. hint gen visitor
-	const gener = HintGener.new()
-	return gener:genCode(nAstOrErr)
+	const gener = HintGener.new(nAstOrErr)
+	return gener:genCode()
 end
 
 function.pass CodeEnv:_buildTypingFn()

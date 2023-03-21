@@ -246,25 +246,11 @@ function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
 	end
 end
 
-function.pass SymbolVisitor:idToIndex(vIdentNode:node.Ident_use):Ret(node.Index)
-	-- "_ENV" index TODO
-	const e1 = {[1]="_ENV",
-		tag="Ident", pos=vIdentNode.pos, posEnd=vIdentNode.pos, kind="use",
-		isSet=false, defineIdent = self._ident_ENV,
-	}
-	const e2 = {tag="String", pos=vIdentNode.pos, posEnd=vIdentNode.posEnd, vIdentNode[1]}
-	vIdentNode.tag = "Index"
-	vIdentNode[1] = e1
-	vIdentNode[2] = e2
-	self._env:prepareNode(e1, vIdentNode)
-	self._env:prepareNode(e2, vIdentNode)
-	return vIdentNode
-end
-
 function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	const nDefineNode = self._scopeStack[#self._scopeStack]!.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
-		self:idToIndex(vIdentNode)
+		vIdentNode.isSet = vIsAssign
+		vIdentNode.defineIdent = false
 		return
 	end
 	if vIsAssign then

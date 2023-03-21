@@ -27,7 +27,7 @@ local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
 		return {
 			'local ____codeEnv,____runtime,____stk,____nodes=... ',
-			"local ____s__ENV"..node[1].index.."=____runtime:makeSymbol_ENV(",self:codeNode(node[1]),") ",
+			"local ", self:formatENV(), "=____runtime:makeSymbol_ENV(",self:codeNode(node[1]),") ",
 			"return ",
 			self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 		}
@@ -364,9 +364,9 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Ident=function(self, node)
 		assert(node.kind ~= "def")
-		assert(not node.isSet)
 		const nDefineIdent = node.defineIdent
 		if nDefineIdent then
+			assert(not node.isSet)
 			const symbol = self:formatIdent(nDefineIdent)
 			local nParent = node.parent!
 			while nParent.tag == "Paren" do
@@ -462,7 +462,7 @@ function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 end
 
 function HintGener:formatENV():Ret(String)
-	return "____s_ENV2"
+	return self:formatIdent(self._chunk[1])
 end
 
 function HintGener:formatIdent(vIdentNode:node.Ident_def):Ret(String)
@@ -760,13 +760,14 @@ function HintGener:concatList@<T>(
 	return nResult
 end
 
-function:class(let.HintGener) HintGener.new()
+function:class(let.HintGener) HintGener.new(vChunk:node.Chunk)
 	const self = setmetatable({.class
+		_chunk=vChunk,
 	}, HintGener)
 	return self
 end
 
-function HintGener:genCode(vNode:node.IAstNode):Ret(String)
+function HintGener:genCode():Ret(String)
 	const nBufferList:List(String) = {}
 	local nLineCount = 1
 	const function recurAppend(vResult:UGenResult, vDepth:Integer):Ret()
@@ -789,7 +790,7 @@ function HintGener:genCode(vNode:node.IAstNode):Ret(String)
 			nBufferList[#nBufferList+1] = tostring(vResult)
 		end
 	end
-	recurAppend(self:visit(vNode), 0)
+	recurAppend(self:visit(self._chunk), 0)
 	const re = table.concat(nBufferList)
 	return re
 end
