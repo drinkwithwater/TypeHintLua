@@ -146,8 +146,11 @@ local function buildInjectChunk(expr)
 	local nChunk = buildLoadChunk(1, {
 		tag="Block", pos=expr.pos, posEnd=expr.posEnd,
 		[1]={
-			tag="ExprList", pos=expr.pos, posEnd=expr.posEnd,
-			[1] = expr
+			tag="Return", pos=expr.pos, posEnd=expr.posEnd,
+			[1]={
+				tag="ExprList", pos=expr.pos, posEnd=expr.posEnd,
+				[1] = expr
+			}
 		}
 	})
 	nChunk.isInject = true

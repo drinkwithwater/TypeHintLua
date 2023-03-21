@@ -719,6 +719,19 @@ function InstStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	return re
 end
 
+function InstStack:GLOBAL_GET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable):Ret(clazz.RefineTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
+	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
+	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
+end
+
+function InstStack:GLOBAL_SET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable, vValueTerm:clazz.UAutoTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
+	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
+	assert(not AutoHolder.is(vValueTerm), "auto can't be used here")
+	return self:META_SET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), vValueTerm)
+end
+
 function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))
 end
 

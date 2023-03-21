@@ -84,10 +84,18 @@ local TagToVisiting:RealTraverser = {
 			"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
 			self:concatList@<node.Lhs>(node[1], function(i, vVarNode)
 				if vVarNode.tag == "Ident" then
-					return self:rgnWrap(vVarNode).SYMBOL_SET(
-						self:formatIdent(vVarNode),
-						"____set_a"..i
-					)
+					const nDefineIdent = vVarNode.defineIdent
+					if nDefineIdent then
+						return self:rgnWrap(vVarNode).SYMBOL_SET(
+							self:formatIdent(nDefineIdent),
+							"____set_a"..i
+						)
+					else
+						return self:stkWrap(vVarNode).GLOBAL_SET(
+							self:formatENV(),
+							"____set_a"..i
+						)
+					end
 				else
 					return self:stkWrap(node).META_SET(
 						self:visit(vVarNode[1]),
@@ -356,10 +364,10 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Ident=function(self, node)
 		assert(node.kind ~= "def")
-		const symbol = self:formatIdent(node)
-		if node.isSet then
-			return symbol
-		else
+		assert(not node.isSet)
+		const nDefineIdent = node.defineIdent
+		if nDefineIdent then
+			const symbol = self:formatIdent(nDefineIdent)
 			local nParent = node.parent!
 			while nParent.tag == "Paren" do
 				nParent = nParent.parent!
@@ -375,9 +383,10 @@ local TagToVisiting:RealTraverser = {
 					return nSymbolGet
 				end
 			else
-				const nSymbolGet = self:rgnWrap(node).SYMBOL_GET(symbol, "false")
-				return nSymbolGet
+				return self:rgnWrap(node).SYMBOL_GET(symbol, "false")
 			end
+		else
+			return self:stkWrap(node).GLOBAL_GET(self:formatENV())
 		end
 	end,
 	Index=function(self, node)
@@ -452,13 +461,12 @@ function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 	return "____nodes["..vNode.index.."]"
 end
 
-function HintGener:formatIdent(vIdentNode:node.Ident):Ret(String)
-	if vIdentNode.kind == "use" then
-		const nDefineId = vIdentNode.defineIdent
-		return "____s_"..nDefineId[1]..nDefineId.index
-	else
-		return "____s_"..vIdentNode[1]..vIdentNode.index
-	end
+function HintGener:formatENV():Ret(String)
+	return "____s_ENV2"
+end
+
+function HintGener:formatIdent(vIdentNode:node.Ident_def):Ret(String)
+	return "____s_"..vIdentNode[1]..vIdentNode.index
 end
 
 function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, vIsParamOrRec:OrNil(True)):Ret(UGenResult)
@@ -549,7 +557,10 @@ end
 		"META_CALL",
 		"META_INVOKE",
 		"META_GET",
-		"META_SET"
+		"META_SET",
+
+		"GLOBAL_SET",
+		"GLOBAL_GET"
 	)
 end)
 function.pass HintGener:stkWrap(vNode:node.IAstNode):Ret(Dict(StkNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))
