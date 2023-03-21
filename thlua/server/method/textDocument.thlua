@@ -167,18 +167,25 @@ return {
 	end,
 	didClose=function(vClient:lsp.Client, vParams:DidCloseTextDocumentParams)
 	end,
-	definition=function(vClient:lsp.Client, vParams:DefinitionParams):Ret(Location)
-		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		local nDefineNode = vClient:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
-		if nDefineNode then
-			return {
-				uri=vParams.textDocument.uri,
-				range={
-					start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
-					["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
-				}
-			}
+	definition=function(vClient:lsp.Client, vParams:DefinitionParams):Ret(OrNil(Location))
+		const nFileName = vClient:uriToPath(vParams.textDocument.uri)
+		const nSuccEnv = vClient:getSuccCodeEnv(nFileName)
+		if not nSuccEnv then
+			return nil
 		end
+		const nPos = nSuccEnv:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
+		const nNode = nSuccEnv:searchIdent(nPos)
+		if not nNode then
+			return nil
+		end
+		const nDefineNode = nNode.kind == "def" and nNode or nNode.defineIdent
+		return {
+			uri=vParams.textDocument.uri,
+			range={
+				start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
+				["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
+			}
+		}
 	end,
 	completion=function(vClient:lsp.Client, vParams:CompletionParams):Ret(List(CompletionItem))
 		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
@@ -220,6 +227,7 @@ return {
 		end
 	end,
 	hover=function(vClient:lsp.Client, vParams:HoverParams)
+		--[[
 		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
 		local nDefineNode = vClient:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
 		if nDefineNode then
@@ -235,7 +243,7 @@ return {
 					value=value
 				} @ MarkupContent
 			}
-		end
+		end]]
 	end,
 	references=function(vClient:lsp.Client, vParams:ReferenceParams) end,
 	typeDefinition=function(vClient:lsp.Client, vParams:TypeDefinitionParams) end,
