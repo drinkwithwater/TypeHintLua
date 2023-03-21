@@ -125,13 +125,34 @@ local parF = {
 	identDefENV=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def"}
 	end,
-	dotsDef=function(vPos, vHintShort, vPosEnd)
-		return {tag="Dots", pos=vPos, posEnd=vPosEnd, kind="def", hintShort=vHintShort}
-	end,
-	dotsUse=function(vPos, vPosEnd)
-		return {tag="Dots", pos=vPos, posEnd=vPosEnd, kind="use"}
-	end,
 }
+
+
+local function buildLoadChunk(vPos, vBlock)
+	return {
+		tag="Chunk", isInject=false, pos=vPos, posEnd=vBlock.posEnd,
+		[1]=parF.identDefENV(vPos),
+		[2]={
+			tag="ParList",pos=vPos,posEnd=vPos,
+			[1]={
+				tag="Dots",pos=vPos,posEnd=vPos
+			}
+		},
+		[3]=vBlock
+	}
+end
+
+local function buildInjectChunk(expr)
+	local nChunk = buildLoadChunk(1, {
+		tag="Block", pos=expr.pos, posEnd=expr.posEnd,
+		[1]={
+			tag="ExprList", pos=expr.pos, posEnd=expr.posEnd,
+			[1] = expr
+		}
+	})
+	nChunk.isInject = true
+	return nChunk
+end
 
 local tagC=setmetatable({
 }, {
@@ -302,7 +323,8 @@ local G = lpeg.P { "TypeHintLua";
 
 
 	-- parser
-	Chunk = tagC.Chunk(Cpos/parF.identDefENV * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
+	-- Chunk = tagC.Chunk(Cpos/parF.identDefENV * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
+	Chunk = Cpos * vv.Skip * vv.Block/buildLoadChunk;
 
 	FuncPrefix = kw("function") * (vv.LongHint + cc(nil));
 	FuncDef = vv.FuncPrefix * vv.FuncBody / function(vHint, vFuncExpr)
@@ -403,13 +425,9 @@ local G = lpeg.P { "TypeHintLua";
 				return true, expr
 			else
 				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
-				nNode[2] = expr
+				nNode[2] = buildInjectChunk(expr)
 				nNode[3] = env.scopeTraceList
-				local l = {}
-				for k,v in pairs(env.scopeTraceList) do
-					l[#l + 1] = v
-				end
-				print("scope trace:", table.concat(l, ","))
+				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
 				error(nNode)
 				return false
 			end

@@ -22,6 +22,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vSubject:String, vChunkName:String, vV
 		_astOrErr = nil@!Union(node.Error, node.Chunk),
 		_nodeList = {}@List(node.IAstNode),
 		_identList = {}@List(node.Ident_def),
+		_blockList = {}@List(node.Block),
 		_rootScope = false@OrFalse(node.Block),
 		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
@@ -73,8 +74,14 @@ function CodeEnv:prepare()
 		if vNode.tag == "Ident" then
 			table.insert(self._identList, vNode)
 		end
+		if vNode.tag == "Block" then
+			table.insert(self._blockList, vNode)
+		end
 	end)
-	table.sort(self._identList, function(a:node.Ident,b:node.Ident)
+	table.sort(self._identList, function(a:node.Ident, b:node.Ident)
+		return a.pos < b.pos
+	end)
+	table.sort(self._blockList, function(a:node.Block, b:node.Block)
 		return a.pos < b.pos
 	end)
 end
@@ -223,7 +230,7 @@ function CodeEnv:getAstTree()
 	return self._astOrErr
 end
 
-function.pass CodeEnv:getTypingFn():Ret(Fn(clazz.Runtime, clazz.BaseStack, List(clazz.IAstNode)):Ret(clazz.OpenFunction))
+function.pass CodeEnv:getTypingFn():Ret(Fn(clazz.CodeEnv, clazz.Runtime, clazz.BaseStack, List(clazz.IAstNode)):Ret(clazz.OpenFunction))
 	return self._typingFn
 end
 
@@ -252,6 +259,8 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_d
 		-- other typp TODO
 		return nil
 	end
+	return nil
+	--[[
 	local nTraceList = vErrorNode[3]!
 	local nPos = nErrExpr.pos
 	local nScope = self:searchScopeByTrace(nTraceList)
@@ -260,11 +269,24 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_d
 	while nIdent and nIdent.pos > nPos do
 		nIdent = nIdent.lookupIdent
 	end
-	return nIdent
+	return nIdent]]
+end
+
+function CodeEnv:lookupSymbol(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
+	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
+	if not nIndex then
+		return nil
+	else
+		local nIdent = nBlock.symbolTable[vName]
+		while nIdent and nIdent.pos > vPos do
+			nIdent = nIdent.lookupIdent
+		end
+		return nIdent
+	end
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
-	local nIndex, nNode = self:binSearch@<node.Ident_def>(self._identList, vPos)
+	const nIndex, nNode = self:binSearch@<node.Ident_def>(self._identList, vPos)
 	if not nIndex then
 		return nil
 	end
