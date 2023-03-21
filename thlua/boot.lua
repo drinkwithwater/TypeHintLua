@@ -9,10 +9,7 @@ local boot = {}
 
 boot.path = package.path:gsub("[.]lua", ".thlua")
 
-function boot.compile(chunk, chunkName)
-	local parser = ParseEnv.new(chunk, chunkName or "[anonymous script]")
-	return parser:genLuaCode()
-end
+boot.compile = ParseEnv.compile
 
 function boot.load(chunk, chunkName, ...)
 	local luaCode = boot.compile(chunk, chunkName)

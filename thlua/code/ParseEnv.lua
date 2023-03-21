@@ -543,15 +543,12 @@ local G = lpeg.P { "TypeHintLua";
 
 }
 
-function ParseEnv.new(vSubject, vChunkName)
+function ParseEnv.new(vSubject)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
 		_subject = vSubject,
-		_chunkName = vChunkName,
 		_posToChange = {},
-		_posToParenWrap = {},
-		_astOrErr = nil,
 	}, ParseEnv)
 	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
 	if not nOkay then
@@ -566,7 +563,7 @@ function ParseEnv.new(vSubject, vChunkName)
 	return self
 end
 
-function ParseEnv:get()
+function ParseEnv:getAstOrErr()
 	return self._astOrErr
 end
 
@@ -700,12 +697,29 @@ function ParseEnv:genLuaCode()
 	return table.concat(nContents)
 end
 
-function ParseEnv.compile()
+-- return lua code or throw error
+function ParseEnv.compile(vContent, vChunkName)
+	vChunkName = vChunkName or "[anonymous script]"
+	local nEnv = ParseEnv.new(vContent)
+	local nAstOrErr = nEnv:getAstOrErr()
+	if nAstOrErr.tag == "Error" then
+		local nLineNum = select(2, vContent:sub(1, nAstOrErr.pos):gsub('\n', '\n'))
+		local nMsg = vChunkName..":".. nLineNum .." ".. nAstOrErr[1]
+		error(nMsg)
+	else
+		return nEnv:genLuaCode()
+	end
 end
 
+-- return false, errorNode | return chunkNode
 function ParseEnv.parse(vContent)
-	local env = ParseEnv.new(vContent, "")
-	return env:get()
+	local nEnv = ParseEnv.new(vContent)
+	local nAstOrErr = nEnv:getAstOrErr()
+	if nAstOrErr.tag == "Error" then
+		return false, nAstOrErr
+	else
+		return nAstOrErr
+	end
 end
 
 return ParseEnv
