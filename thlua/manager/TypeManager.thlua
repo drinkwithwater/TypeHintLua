@@ -75,7 +75,11 @@ const function:class(let.BuiltinFunc) makeBuiltinFunc(vManager:clazz.TypeManager
 	return self
 end
 
-function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
+function:class(clazz.TypeManager) TypeManager.new(
+	vRuntime:clazz.Runtime,
+	vRootNode:clazz.IAstNode,
+	vScheduleManager:clazz.ScheduleManager
+)
 	const function:class(let.BuiltinType) makeBuiltinType(vManager:clazz.TypeManager)
 		const self = {.class
 			Never = Never.new(vManager),
@@ -104,18 +108,18 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=OrNil(clazz.BooleanLiteral)},
 		_unionSignToType=setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion),
 		_typeIdCounter=0@Integer,
-		_rootNode=vRuntime:getNode(),
+		_rootNode=vRootNode,
+		_scheduleManager=vScheduleManager,
 	}, TypeManager)
-	const nRootNode = vRuntime:getNode()
 	self.type = makeBuiltinType(self)
-	self.type.Boolean = self:buildUnion(nRootNode, self.type.False, self.type.True)
-	self.type.Any = self:buildUnion(nRootNode, self.type.False, self.type.Nil, self.type.Truth)
-	self.type.AnyObject = self:buildInterface(nRootNode, {})
-	self.generic.Dict = self:buildTemplate(nRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
+	self.type.Boolean = self:buildUnion(vRootNode, self.type.False, self.type.True)
+	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
+	self.type.AnyObject = self:buildInterface(vRootNode, {})
+	self.generic.Dict = self:buildTemplate(vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
-		return self:buildStruct(nRootNode, {[vKey]=vValue}, {__next=vKey})
+		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.Cond = self:buildTemplate(nRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
+	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
 		local nType = vCond
 		if Reference.is(vCond) then
 			nType = vCond:waitTypeCom():getTypeAwait()
@@ -125,19 +129,19 @@ function:class(clazz.TypeManager) TypeManager.new(vRuntime:clazz.Runtime)
 		end
 		return (nType == self.type.Nil or nType == self.type.False) and v2 or v1
 	end)
-	self.generic.IDict = self:buildTemplate(nRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
+	self.generic.IDict = self:buildTemplate(vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
-		return self:buildInterface(nRootNode, {[vKey]=vValue}, {__next=vKey})
+		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__next=vKey})
 	end)
-	self.generic.List = self:buildTemplate(nRootNode, function(vValue:clazz.UAllType)
+	self.generic.List = self:buildTemplate(vRootNode, function(vValue:clazz.UAllType)
 		assert(vValue, "value can't be nil when build List")
-		return self:buildStruct(nRootNode, {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
+		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
 	end)
-	self.generic.IList = self:buildTemplate(nRootNode, function(vValue:clazz.UAllType)
+	self.generic.IList = self:buildTemplate(vRootNode, function(vValue:clazz.UAllType)
 		assert(vValue, "value can't be nil when build IList")
-		return self:buildInterface(nRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:buildTemplate(nRootNode, function(vOneType:clazz.UAllType)
+	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType:clazz.UAllType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
 			nObject = vOneType:waitTypeCom():getTypeAwait()
@@ -532,7 +536,7 @@ function TypeManager:TypeTuple(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeTu
 end
 
 function TypeManager:VoidRetTuples(vNode:clazz.IAstNode):Ret(clazz.RetTuples)
-	return RetTuples.new(self, vNode, {self:TypeTuple(self._runtime:getNode())})
+	return RetTuples.new(self, vNode, {self:TypeTuple(self._rootNode)})
 end
 
 function TypeManager:SingleRetTuples(vNode:clazz.IAstNode, vTypeTuple:clazz.UTypeTuple):Ret(clazz.RetTuples)
@@ -559,8 +563,8 @@ function TypeManager:buildFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypedFun
 end
 
 function TypeManager:checkedFn(...:Truth):Ret(clazz.TypedFunction)
-	local nParTuple = self:TypeTuple(self._runtime:getNode(), ...)
-	return TypedFunction.new(self, self._runtime:getNode(), nParTuple, false)
+	local nParTuple = self:TypeTuple(self._rootNode, ...)
+	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
 function TypeManager:PolyFunction(vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vStack:OrNil(clazz.BaseStack)):Ret(clazz.PolyFunction)
@@ -713,7 +717,7 @@ function TypeManager:attachPairInclude(vLeft:clazz.TypedObject, vRight:clazz.Typ
 		if not nIncludeRefer then
 			nIncludeRefer = self:Reference(false)
 			self._pairToInclude[nLRPair] = nIncludeRefer
-			nIncludeRefer:setUnionAsync(self._runtime:getNode(), function()
+			nIncludeRefer:setUnionAsync(self._rootNode, function()
 				const nLRInclude = vLeft:assumeIncludeObject({[nLRPair]=true}, vRight)
 				const nRLInclude = vRight:assumeIncludeObject({[nRLPair]=true}, vLeft)
 				if nLRInclude and nRLInclude then
@@ -795,7 +799,7 @@ function TypeManager:dump()
 end
 
 function TypeManager:getScheduleManager():Ret(clazz.ScheduleManager)
-	return self._runtime:getScheduleManager()
+	return self._scheduleManager
 end
 
 return TypeManager

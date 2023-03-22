@@ -15,6 +15,7 @@ const SealStack = require "thlua.runtime.SealStack"
 const AutoFunction = require "thlua.func.AutoFunction"
 
 const ScheduleManager = require "thlua.manager.ScheduleManager"
+const class = require "thlua.class"
 
 (@do
 	import("thlua.code.CodeEnv")
@@ -40,36 +41,20 @@ const ScheduleManager = require "thlua.manager.ScheduleManager"
 end)
 
 
-local Runtime = {}
-Runtime.__index=Runtime
+const Runtime = class@<clazz.Runtime, false>()
 
-function:class(clazz.Runtime) Runtime.new(vLoader:clazz.ILoader, vMainFileName:String)
-	const self = setmetatable({.class
-		_loader=vLoader,
-		_mainFileName=vMainFileName,
-		_node=Node.newRootNode(vMainFileName),
-		_spaceList={}@List(clazz.Namespace),
-		_loadedDict={}@Dict(String, LoadedState),
-		_nodeToSymbolSet={}@Dict(clazz.IAstNode, Dict(clazz.LocalSymbol, True)),
-		_fileEnvDict={}@Dict(String, clazz.CodeEnv),
-		_diaList={}@List(clazz.Diagnostic),
-		_lineToExpectResult=false @ OrFalse(Dict(Integer, Union(String, Integer))),
-		_scheduleManager=ScheduleManager.new(),
-		_manager=nil@!clazz.TypeManager,
-		_globalTable=nil@!clazz.AutoTable,
-		_rootStack=nil@!clazz.SealStack,
-	}, Runtime)
-	self._manager = TypeManager.new(self)
-	return self
-end
-
-function Runtime:getNodeLocalSymbolSet(vNode:clazz.IAstNode):Ret(Dict(clazz.LocalSymbol, True))
-	local nLocalSymbolSet = self._nodeToSymbolSet[vNode]
-	if not nLocalSymbolSet then
-		nLocalSymbolSet = {} @ Dict(clazz.LocalSymbol, True)
-		self._nodeToSymbolSet[vNode] = nLocalSymbolSet
-	end
-	return nLocalSymbolSet
+function.open Runtime:ctor(vLoader:clazz.ILoader, vMainFileName:String)
+	self._loader=vLoader
+	self._mainFileName=vMainFileName
+	self._node=Node.newRootNode(vMainFileName)
+	self._spaceList={}@List(clazz.Namespace)
+	self._loadedDict={}@Dict(String, LoadedState)
+	self._fileEnvDict={}@Dict(String, clazz.CodeEnv)
+	self._diaList={}@List(clazz.Diagnostic)
+	self._scheduleManager=ScheduleManager.new()
+	self._manager = TypeManager.new(self, self._node, self._scheduleManager)
+	self._globalTable=nil@!clazz.AutoTable
+	self._rootStack=nil@!clazz.SealStack
 end
 
 function Runtime:checkAtomUnionFinish()
@@ -162,38 +147,6 @@ function Runtime:TreeNamespace():Ret(clazz.Namespace)
 	return nSpace
 end
 
-function Runtime:diffTestExpect()
-	const nLineToResult = self._lineToExpectResult
-	if not nLineToResult then
-		return
-	end
-	for _, nDiaList in pairs(self:getAllDiagnostic()) do
-		for _, nDiagnostic in pairs(nDiaList) do
-			const nLine = nDiagnostic.node.l
-			const nResult = nLineToResult[nLine]
-			if type(nResult) == "number" then
-				nLineToResult[nLine] = nResult + 1
-			else
-				nLineToResult[nLine] = nDiagnostic.msg
-			end
-		end
-	end
-	const l:List(Struct {Integer, Union(Integer, String)}) = {}
-	for nLine, nResult in pairs(nLineToResult) do
-		l[#l + 1] = {nLine, nResult}
-	end
-	for _, nPair in pairs(l) do
-		const nLine, nResult = nPair[1], nPair[2]
-		if nResult == 0 then
-			print(nLine, "fail: no diagnostic")
-		elseif type(nResult) == "string" then
-			print(nLine, "fail: diagnostic unexpected", nResult)
-		else
-			print(nLine, "ok")
-		end
-	end
-end
-
 function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	local nGlobal = {}
 	for k,v in pairs(self._manager.type) do
@@ -246,13 +199,6 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	end
 	nGlobal.print=function(...)
 		self:nodeInfo(Node.getDebugNode(3), ...)
-	end
-	nGlobal.debug.expect=function(...)
-		const t:Dict(Integer, Union(String, Integer)) = {}
-		self._lineToExpectResult = t
-		for _, nLine in pairs({...}) do
-			t[nLine] = 0
-		end
 	end
 	const nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
