@@ -143,7 +143,7 @@ local function buildLoadChunk(vPos, vBlock)
 end
 
 local function buildInjectChunk(expr)
-	local nChunk = buildLoadChunk(1, {
+	local nChunk = buildLoadChunk(expr.pos, {
 		tag="Block", pos=expr.pos, posEnd=expr.posEnd,
 		[1]={
 			tag="Return", pos=expr.pos, posEnd=expr.posEnd,

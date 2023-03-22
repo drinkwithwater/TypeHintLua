@@ -725,29 +725,28 @@ function InstStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	return re
 end
 
-function InstStack:GLOBAL_GET(vNode:node.Ident_use, vEnvIdent:node.Ident_def):Ret(clazz.RefineTerm)
-	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvIdent, false)
+function InstStack:GLOBAL_GET(vNode:node.Ident_use, vIdentENV:node.Ident_def):Ret(clazz.RefineTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vIdentENV, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
 end
 
-function InstStack:GLOBAL_SET(vNode:node.Ident_use, vEnvIdent:node.Ident_def, vValueTerm:clazz.UAutoTerm)
-	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvIdent, false)
+function InstStack:GLOBAL_SET(vNode:node.Ident_use, vIdentENV:node.Ident_def, vValueTerm:clazz.UAutoTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vIdentENV, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	assert(not AutoHolder.is(vValueTerm), "auto can't be used here")
 	self:META_SET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), vValueTerm)
 end
 
-function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))
-end
-
-function InstStack:INJECT_GET(vNode:node.Ident_use, vEnvIdent:node.Ident_def):Ret(clazz.RefineTerm)
-	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvIdent, false)
+function InstStack:INJECT_GET(vNode:node.Ident_use, vInjectEnv:clazz.CodeEnv):Ret(clazz.RefineTerm)
+	const nDefineNode = vInjectEnv:lookupDefineIdent(vNode.pos, vNode[1])
+	assert(nDefineNode)
+	const nEnvTerm = self:SYMBOL_GET(vNode, nDefineNode, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
 end
 
-function InstStack:INJECT_SET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable, vValueTerm:clazz.UAutoTerm)
+function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))
 end
 
 return InstStack

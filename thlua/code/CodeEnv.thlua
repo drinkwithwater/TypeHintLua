@@ -168,8 +168,8 @@ function.pass CodeEnv:_genTypingCode():Ret(String)
 		nAstOrErr.path = self._chunkName
 		Node.bind(nAstOrErr)
 		error(Exception.new(nAstOrErr[1], nAstOrErr))
-		--nAstOrErr = nAstOrErr[2]
-		--self._astOrErr = nAstOrErr
+		nAstOrErr = nAstOrErr[2]
+		self._astOrErr = nAstOrErr
 	end
 	-- 2. prepare
 	self:prepare()
@@ -236,7 +236,7 @@ function CodeEnv:getTypingCode()
 	return self._typingCode
 end
 
-function.pass CodeEnv:getTypingFn():Ret(Fn(clazz.CodeEnv, clazz.BaseStack, clazz.RefineTerm, List(clazz.IAstNode)):Ret(clazz.OpenFunction))
+function.pass CodeEnv:getTypingFn():Ret(Fn(clazz.BaseStack, clazz.RefineTerm, List(clazz.IAstNode), OrFalse(clazz.CodeEnv)):Ret(clazz.OpenFunction))
 	return self._typingFn
 end
 
@@ -278,7 +278,16 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_d
 	return nIdent]]
 end
 
-function CodeEnv:lookupSymbol(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
+function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))
+	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
+	if not nIndex then
+		return nil
+	else
+		return nBlock
+	end
+end
+
+function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
 	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
 	if not nIndex then
 		return nil

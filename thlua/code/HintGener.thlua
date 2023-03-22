@@ -26,7 +26,7 @@ end)
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
 		return {
-			'local ____codeEnv,____stk,____globalTerm,____nodes=... ',
+			'local ____stk,____globalTerm,____nodes,____injectEnv=... ',
 			self:visitIdentDef(node[1], "____globalTerm"),
 			" return ",
 			self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
@@ -91,10 +91,16 @@ local TagToVisiting:RealTraverser = {
 							"____set_a"..i
 						)
 					else
-						return self:stkWrap(vVarNode).GLOBAL_SET(
-							self:codeNode(vVarNode.isGetFrom @> node.Ident_def),
-							"____set_a"..i
-						)
+						const nIdentENV = vVarNode.isGetFrom
+						if self._chunk.isInject and nIdentENV == self._chunk[1] then
+							-- INJECT_SET donothing, so just ignore
+							return ""
+						else
+							return self:stkWrap(vVarNode).GLOBAL_SET(
+								self:codeNode(nIdentENV @> node.Ident_def),
+								"____set_a"..i
+							)
+						end
 					end
 				else
 					return self:stkWrap(node).META_SET(
@@ -381,7 +387,16 @@ local TagToVisiting:RealTraverser = {
 				return self:stkWrap(node).SYMBOL_GET(symbol, "false")
 			end
 		else
-			return self:stkWrap(node).GLOBAL_GET(self:codeNode(node.isGetFrom @> node.Ident_def))
+			const nIdentENV = node.isGetFrom
+			if self._chunk.isInject and nIdentENV == self._chunk[1] then
+				return self:stkWrap(node).INJECT_GET(
+					"____injectEnv"
+				)
+			else
+				return self:stkWrap(node).GLOBAL_GET(
+					self:codeNode(nIdentENV @> node.Ident_def)
+				)
+			end
 		end
 	end,
 	Index=function(self, node)
@@ -534,9 +549,6 @@ end
 		"EXPRLIST_UNPACK",
 		"EXPRLIST_REPACK",
 
-		"CAST_HINT",
-		"EVAL",
-
 		"META_EQ_NE",
 		"META_UOP",
 		"META_BOP_SOME",
@@ -551,7 +563,11 @@ end
 		"SYMBOL_SET",
 
 		"GLOBAL_SET",
-		"GLOBAL_GET"
+		"GLOBAL_GET",
+		"INJECT_GET",
+
+		"CAST_HINT",
+		"EVAL"
 	)
 end)
 function.pass HintGener:stkWrap(vNode:node.IAstNode):Ret(Dict(StkNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))
