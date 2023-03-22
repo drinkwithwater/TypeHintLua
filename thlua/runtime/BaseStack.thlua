@@ -37,6 +37,11 @@ const LogicContext = require "thlua.context.LogicContext"
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
+
+	clazz.StackUpState = Struct {
+		branch=clazz.Branch,
+		uvCase=clazz.VariableCase,
+	}
 end)
 
 const BaseStack = class@<clazz.BaseStack, false>()
@@ -44,7 +49,7 @@ const BaseStack = class@<clazz.BaseStack, false>()
 function.open BaseStack:ctor(
 	vRuntime:clazz.Runtime,
 	vNode:clazz.IAstNode,
-	vUpValueCase:OrFalse(clazz.VariableCase),
+	vUpState:OrFalse(clazz.StackUpState),
 	...
 )
 	const nManager = vRuntime:getTypeManager()
@@ -54,7 +59,7 @@ function.open BaseStack:ctor(
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
-	const nRootBranch = Branch.new(self, vUpValueCase or VariableCase.new())
+	const nRootBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new())
 	self._curBranch=nRootBranch
 	self._branchStack={self._curBranch}@List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
@@ -112,8 +117,8 @@ function BaseStack:newClassFactory(vNode:clazz.IAstNode, ...):Ret(clazz.ClassFac
 	return nFactory
 end
 
-function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpValueCase:OrNil(False, clazz.VariableCase)):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self._manager, vNode, self, vUpValueCase)
+function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.StackUpState)):Ret(clazz.OpenFunction)
+	const nOpenFn = OpenFunction.new(self._manager, vNode, self, vUpState)
 	return nOpenFn
 end
 
@@ -208,7 +213,7 @@ function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
-	const nNewBranch = Branch.new(self, vVariableCase, nOldBranch)
+	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch)
 	nStack[nNewLen] = nNewBranch
 	self._curBranch = nNewBranch
 	vFunc()

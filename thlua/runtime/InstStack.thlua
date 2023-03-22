@@ -324,8 +324,11 @@ function InstStack:FUNC_NEW(vNode:clazz.IAstNode,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 ):Ret(clazz.RefineTerm)
-	const nUpValueCase = self:_topBranch():getCase()
-	const nFnType = FunctionBuilder.new(self, vNode, nUpValueCase, vFnNewInfo, vPrefixHint, vParRetMaker):build()
+	const nBranch = self:_topBranch()
+	const nFnType = FunctionBuilder.new(self, vNode, {
+		branch=nBranch,
+		uvCase=nBranch:getCase(),
+	}, vFnNewInfo, vPrefixHint, vParRetMaker):build()
 	return self:_nodeTerm(vNode, nFnType)
 end
 
@@ -390,7 +393,6 @@ end
 
 function InstStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.UAutoTerm)
 	const nSymbolContext = self:newAssignContext(vNode)
-	assert(not AutoHolder.is(vSymbol), nSymbolContext:newException("auto symbol can't set "))
 	assert(not ImmutVariable.is(vSymbol), nSymbolContext:newException("immutable symbol can't set "))
 	assert(not AutoHolder.is(vTerm), nSymbolContext:newException("TODO.. auto term assign"))
 	self:_topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
@@ -551,13 +553,9 @@ end
 
 function InstStack:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
 	const nTrueCase = vTerm:caseTrue()
-	if nTrueCase then
-		self:_withBranch(nTrueCase, function()
-			vTrueFunction()
-		end)
-	else
-		-- self:getRuntime():nodeWarn(vNode, "while loop is unreachable scope")
-	end
+	self:_withBranch(nTrueCase or VariableCase.new(), function()
+		vTrueFunction()
+	end)
 end
 
 function InstStack:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
@@ -733,10 +731,19 @@ function InstStack:GLOBAL_SET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariab
 	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	assert(not AutoHolder.is(vValueTerm), "auto can't be used here")
-	return self:META_SET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), vValueTerm)
+	self:META_SET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), vValueTerm)
 end
 
 function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))
+end
+
+function InstStack:INJECT_GET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable):Ret(clazz.RefineTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
+	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
+	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
+end
+
+function InstStack:INJECT_SET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable, vValueTerm:clazz.UAutoTerm)
 end
 
 return InstStack

@@ -50,7 +50,7 @@ FunctionBuilder.__index=FunctionBuilder
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vStack:clazz.BaseStack,
 	vNode:clazz.IAstNode,
-	vUpValueCase:OrFalse(clazz.VariableCase),
+	vUpState:OrFalse(clazz.StackUpState),
 	vInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
@@ -59,7 +59,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_stack=vStack,
 		_manager=vStack:getTypeManager(),
 		_node=vNode,
-		_uvCase=vUpValueCase,
+		_upState=vUpState,
 		_prefixHint=vPrefixHint,
 		_pass=vPrefixHint.attrSet.pass and true or false,
 		_parRetMaker=vParRetMaker,
@@ -135,7 +135,7 @@ end
 function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.AutoMemberFunction, clazz.PolyFunction))
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
-		const nAutoFn = self._stack:newAutoFunction(self._node, self._uvCase)
+		const nAutoFn = self._stack:newAutoFunction(self._node, self._upState)
 		const nNewStack = nAutoFn:getStack()
 		nAutoFn:buildAsync(function()
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, vSelfType)
@@ -197,7 +197,7 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	if self._hasSuffixHint then
-		const nGuardFn = self._stack:newOpenFunction(self._node, self._uvCase)
+		const nGuardFn = self._stack:newOpenFunction(self._node, self._upState)
 		const nMakerStack = nGuardFn:newStack(self._node, self._stack)
 		local nSetted = false
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, {}, false)
@@ -229,7 +229,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node, self._uvCase):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
+		return self._stack:newOpenFunction(self._node, self._upState):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)
 			return nGenFunc()
@@ -314,7 +314,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			end
 			return nExtendsTable, nImplementsInterface
 		end
-		const nFactory = self._stack:newClassFactory(self._node, self._uvCase)
+		const nFactory = self._stack:newClassFactory(self._node, self._upState)
 		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getStack()
 		local nGenParam:OrNil(clazz.GenParam) = nil
