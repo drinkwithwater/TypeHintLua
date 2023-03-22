@@ -41,9 +41,9 @@ const class = require "thlua.class"
 end)
 
 
-const Runtime = class@<clazz.Runtime, false>()
+const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open Runtime:ctor(vLoader:clazz.ILoader, vMainFileName:String)
+function.open BaseRuntime:ctor(vLoader:clazz.ILoader, vMainFileName:String)
 	self._loader=vLoader
 	self._mainFileName=vMainFileName
 	self._node=Node.newRootNode(vMainFileName)
@@ -57,13 +57,13 @@ function.open Runtime:ctor(vLoader:clazz.ILoader, vMainFileName:String)
 	self._rootStack=nil@!clazz.SealStack
 end
 
-function Runtime:checkAtomUnionFinish()
+function BaseRuntime:checkAtomUnionFinish()
 	for _, space in pairs(self._spaceList) do
 		space:check()
 	end
 end
 
-function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
+function BaseRuntime:import(vPath:String):Ret(clazz.SpaceTable)
 	-- TODO better style?
 	self:require(vPath)
 	const nStack = self._loadedDict[vPath]!.stack!
@@ -71,7 +71,7 @@ function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
 	return nSpace.localExport
 end
 
-function Runtime:main():Ret(Boolean, Nil)
+function BaseRuntime:main():Ret(Boolean, Nil)
 	const t1 = os.clock()
 	const a,b = pcall(function()
 		const nAutoFn = AutoFunction.new(self._manager, self._node, false, false)
@@ -100,15 +100,15 @@ function Runtime:main():Ret(Boolean, Nil)
 	return a,b
 end
 
-function Runtime:SealStack(...):Ret(clazz.SealStack)
+function BaseRuntime:SealStack(...):Ret(clazz.SealStack)
 	return SealStack.new(self, ...)
 end
 
-function Runtime:OpenStack(...):Ret(clazz.OpenStack)
+function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
 	return OpenStack.new(self, ...)
 end
 
-function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
+function BaseRuntime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
 	local nCodeEnv = self._fileEnvDict[vFileName]
 	if not nCodeEnv then
 		nCodeEnv = self._loader:thluaParseFile(vFileName)
@@ -117,7 +117,7 @@ function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
 	return nCodeEnv:getTypingFn()(self._rootStack, self:makeGlobalTerm(), nCodeEnv:getNodeList(), false)
 end
 
-function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
+function BaseRuntime:require(vPath:String):Ret(clazz.RefineTerm)
 	if not self._loadedDict[vPath] then
 		const nOkay, nFileName = self._loader:thluaSearch(vPath)
 		if not nOkay then
@@ -141,13 +141,13 @@ function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
 	return nTerm
 end
 
-function Runtime:TreeNamespace():Ret(clazz.Namespace)
+function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, Node.getDebugNode(4))
 	self._spaceList[#self._spaceList + 1] = nSpace
 	return nSpace
 end
 
-function.pass Runtime:buildSimpleGlobal():Ret(Truth)
+function.pass BaseRuntime:buildSimpleGlobal():Ret(Truth)
 	local nGlobal = {}
 	for k,v in pairs(self._manager.type) do
 		nGlobal[k] = v
@@ -207,7 +207,7 @@ function.pass Runtime:buildSimpleGlobal():Ret(Truth)
 	return nRetGlobal
 end
 
-function Runtime:RootNamespace():Ret(clazz.Namespace)
+function BaseRuntime:RootNamespace():Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, self._node, self:buildSimpleGlobal())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
@@ -215,19 +215,19 @@ function Runtime:RootNamespace():Ret(clazz.Namespace)
 	return nSpace
 end
 
-function Runtime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Namespace)
+function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, vRegionNode, vParentLet:getKeyToType())
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
 end
 
-function Runtime:makeGlobalTerm():Ret(clazz.RefineTerm)
+function BaseRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)
 	const nHeadContext = self._rootStack:inplaceOper()
 	return nHeadContext:RefineTerm(self._globalTable)
 end
 
-function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
 	local l:List(String) = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
@@ -241,22 +241,22 @@ function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth
 	}
 end
 
-function Runtime:nodeError(vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:nodeError(vNode:clazz.IAstNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
-function Runtime:nodeWarn(vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:nodeWarn(vNode:clazz.IAstNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
-function Runtime:nodeInfo(vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:nodeInfo(vNode:clazz.IAstNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end
 
-function Runtime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+function BaseRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
 	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
 	for _, nDia in pairs(self._diaList) do
 		const nPath = nDia.node.path
@@ -270,20 +270,20 @@ function Runtime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
 	return nFileToDiaList
 end
 
-function Runtime:getNode():Ret(clazz.IAstNode)
+function BaseRuntime:getNode():Ret(clazz.IAstNode)
 	return self._node
 end
 
-function Runtime:getTypeManager():Ret(clazz.TypeManager)
+function BaseRuntime:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
 end
 
-function Runtime:getScheduleManager():Ret(clazz.ScheduleManager)
+function BaseRuntime:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
 end
 
-function Runtime:getRootStack():Ret(clazz.SealStack)
+function BaseRuntime:getRootStack():Ret(clazz.SealStack)
 	return self._rootStack
 end
 
-return Runtime
+return BaseRuntime

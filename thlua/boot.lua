@@ -49,7 +49,7 @@ end
 -- start check from a main file
 function boot.runCheck(vMainFileName)
 	boot.patch()
-	local Runtime = require "thlua.runtime.Runtime"
+	local Runtime = require "thlua.runtime.BaseRuntime"
 	local thloader = require "thlua.code.thloader"
 	local nRuntime = Runtime.new(thloader, vMainFileName)
 	assert(nRuntime:main())
