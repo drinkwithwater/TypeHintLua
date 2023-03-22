@@ -391,29 +391,33 @@ function InstStack:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Numbe
 	return self:_nodeTerm(vNode, nType)
 end
 
-function InstStack:SYMBOL_SET(vNode:clazz.IAstNode, vSymbol:clazz.LocalSymbol, vTerm:clazz.UAutoTerm)
+function InstStack:SYMBOL_SET(vNode:node.Ident_use, vDefineNode:node.Ident_def, vTerm:clazz.UAutoTerm)
+	const nBranch = self:_topBranch()
+	const nSymbol = nBranch:getSymbolByNode(vDefineNode)
 	const nSymbolContext = self:newAssignContext(vNode)
-	assert(not ImmutVariable.is(vSymbol), nSymbolContext:newException("immutable symbol can't set "))
+	assert(not ImmutVariable.is(nSymbol), nSymbolContext:newException("immutable symbol can't set "))
+	assert(not AutoHolder.is(nSymbol), nSymbolContext:newException("auto symbol can't set "))
 	assert(not AutoHolder.is(vTerm), nSymbolContext:newException("TODO.. auto term assign"))
-	self:_topBranch():mutSet(nSymbolContext, vSymbol, vTerm)
+	nBranch:mutSet(nSymbolContext, nSymbol, vTerm)
 end
 
-function InstStack:SYMBOL_GET(vNode:clazz.IAstNode, vSymbol:clazz.USymbol, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
+function InstStack:SYMBOL_GET(vNode:node.Ident_use, vDefineNode:node.Ident_def, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
 	const nSymbolContext = self:newOperContext(vNode)
 	const nBranch = self:_topBranch()
-	if LocalSymbol.is(vSymbol) then
-		return nBranch:mutGet(nSymbolContext, vSymbol)
-	elseif ImmutVariable.is(vSymbol) then
-		return nBranch:immutGet(nSymbolContext, vSymbol)
+	const nSymbol = nBranch:getSymbolByNode(vDefineNode)
+	if LocalSymbol.is(nSymbol) then
+		return nBranch:mutGet(nSymbolContext, nSymbol)
+	elseif ImmutVariable.is(nSymbol) then
+		return nBranch:immutGet(nSymbolContext, nSymbol)
 	else
-		const nTerm = vSymbol:getRefineTerm()
+		const nTerm = nSymbol:getRefineTerm()
 		if nTerm then
 			return nBranch:immutGet(nSymbolContext, nTerm:attachImmutVariable())
 		else
 			if not vAllowAuto then
 				error(nSymbolContext:newException("auto term can't be used when it's undeduced"))
 			else
-				return vSymbol
+				return nSymbol
 			end
 		end
 	end
@@ -482,6 +486,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 end
 
 function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+	const nTopBranch = self:_topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
 	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
@@ -497,7 +502,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 			elseif vKind == Enum.SymbolKind_LOCAL then
 				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
-			return nTerm
+			return nTopBranch:setSymbolByNode(vNode, nTerm)
 		end
 		nTerm = nTermInHolder
 		const nFromType = nTerm:getType()
@@ -512,13 +517,12 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 	end
 	const nImmutVariable = nTerm:attachImmutVariable()
 	if vModify then
-		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, nTerm:getType(), nTerm)
-		self:getRuntime():recordSymbol(nLocalSymbol)
+		const nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, nTerm:getType(), nTerm)
 		self:_topBranch():mutMark(nLocalSymbol, nImmutVariable)
-		return nLocalSymbol
+		return nTopBranch:setSymbolByNode(vNode, nLocalSymbol)
 	else
 		nImmutVariable:setNode(vNode)
-		return nImmutVariable
+		return nTopBranch:setSymbolByNode(vNode, nImmutVariable)
 	end
 end
 
@@ -721,14 +725,14 @@ function InstStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	return re
 end
 
-function InstStack:GLOBAL_GET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable):Ret(clazz.RefineTerm)
-	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
+function InstStack:GLOBAL_GET(vNode:node.Ident_use, vEnvIdent:node.Ident_def):Ret(clazz.RefineTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvIdent, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
 end
 
-function InstStack:GLOBAL_SET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable, vValueTerm:clazz.UAutoTerm)
-	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
+function InstStack:GLOBAL_SET(vNode:node.Ident_use, vEnvIdent:node.Ident_def, vValueTerm:clazz.UAutoTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvIdent, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	assert(not AutoHolder.is(vValueTerm), "auto can't be used here")
 	self:META_SET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), vValueTerm)
@@ -737,8 +741,8 @@ end
 function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))
 end
 
-function InstStack:INJECT_GET(vNode:node.Ident_use, vEnvSymbol:clazz.ImmutVariable):Ret(clazz.RefineTerm)
-	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvSymbol, false)
+function InstStack:INJECT_GET(vNode:node.Ident_use, vEnvIdent:node.Ident_def):Ret(clazz.RefineTerm)
+	const nEnvTerm = self:SYMBOL_GET(vNode, vEnvIdent, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
 	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
 end

@@ -87,12 +87,12 @@ local TagToVisiting:RealTraverser = {
 					const nDefineIdent = vVarNode.defineIdent
 					if nDefineIdent then
 						return self:stkWrap(vVarNode).SYMBOL_SET(
-							self:formatIdent(nDefineIdent),
+							self:codeNode(nDefineIdent),
 							"____set_a"..i
 						)
 					else
 						return self:stkWrap(vVarNode).GLOBAL_SET(
-							self:formatIdent(vVarNode.isGetFrom @> node.Ident_def),
+							self:codeNode(vVarNode.isGetFrom @> node.Ident_def),
 							"____set_a"..i
 						)
 					end
@@ -194,13 +194,7 @@ local TagToVisiting:RealTraverser = {
 	end,
 	Localrec=function(self, node)
 		-- recursive function
-		const nIdentNode = node[1]
-		const nIdentFormat = self:formatIdent(nIdentNode)
-		return {
-			line=node.l,
-			" local ", nIdentFormat, " ",
-			self:visitIdentDef(nIdentNode, self:visit(node[2]), true),
-		}
+		return self:visitIdentDef(node[1], self:visit(node[2]), true)
 	end,
 	Goto=function(self, node)
 		-- print("--goto TODO")
@@ -368,7 +362,7 @@ local TagToVisiting:RealTraverser = {
 		assert(node.kind ~= "def")
 		const nDefineIdent = node.defineIdent
 		if nDefineIdent then
-			const symbol = self:formatIdent(nDefineIdent)
+			const symbol = self:codeNode(nDefineIdent)
 			local nParent = node.parent!
 			while nParent.tag == "Paren" do
 				nParent = nParent.parent!
@@ -387,7 +381,7 @@ local TagToVisiting:RealTraverser = {
 				return self:stkWrap(node).SYMBOL_GET(symbol, "false")
 			end
 		else
-			return self:stkWrap(node).GLOBAL_GET(self:formatIdent(node.isGetFrom @> node.Ident_def))
+			return self:stkWrap(node).GLOBAL_GET(self:codeNode(node.isGetFrom @> node.Ident_def))
 		end
 	end,
 	Index=function(self, node)
@@ -462,15 +456,11 @@ function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 	return "____nodes["..vNode.index.."]"
 end
 
-function HintGener:formatIdent(vIdentNode:node.Ident_def):Ret(String)
-	return "____s_"..vIdentNode[1]..vIdentNode.index
-end
-
 function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, vIsParamOrRec:OrNil(True)):Ret(UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
-		vIsParamOrRec and " " or " local ", self:formatIdent(vIdentNode), "=", self:stkWrap(vIdentNode).SYMBOL_NEW(
+		" ", self:stkWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
 			vValue, vIsParamOrRec and "nil" or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
 		)
@@ -696,11 +686,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			"local ____stk,____rgn,____vt,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(vNode), ") ",
 			nPolyUnpack,
 			-- pre declare param
-			self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
-				if vParNode.tag ~= "Dots" then
-					return " local "..self:formatIdent(vParNode)
-				end
-			end, " "), " local ____vDOTS=false ",
+			" local ____vDOTS=false ",
 			-- check param when function building
 			" return ", self:fnWrap("____termArgs")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)

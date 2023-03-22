@@ -1,26 +1,37 @@
 
+const LocalSymbol = require "thlua.term.LocalSymbol"
 const VariableCase = require "thlua.term.VariableCase"
 const RefineTerm = require "thlua.term.RefineTerm"
 
 const Branch = {}
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
+end)
 
 Branch.__index = Branch
 Branch.__tostring = function(self):Ret(String)
 	return "Branch"
 end
 
-function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:clazz.VariableCase, vPreBranch:OrNil(clazz.Branch))
+function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:clazz.VariableCase, vPreBranch:OrFalse(clazz.Branch))
 	(@let.VariableDict = Dict(clazz.LocalSymbol, clazz.ImmutVariable))
+	(@let.SymbolDict = Dict(node.Ident_def, clazz.USymbol))
 	const self = setmetatable({.class
 		_stack=vStack,
 		_stop=false@Boolean,
 		_case=vVariableCase,
+		_nodeToSymbol={}@SymbolDict,
 		symbolToVariable={}@VariableDict,
 		_headCase=vVariableCase,
 	}, Branch)
-	self.symbolToVariable = setmetatable({}, {__index=vPreBranch and vPreBranch.symbolToVariable}) @ VariableDict
+	if vPreBranch then
+		if vPreBranch:getStack() == vStack then
+			self.symbolToVariable = setmetatable({}, {__index=vPreBranch.symbolToVariable}) @ VariableDict
+		end
+		self._nodeToSymbol = setmetatable({}, {__index=vPreBranch._nodeToSymbol})
+	end
 	return self
 end
 
@@ -48,6 +59,15 @@ function Branch:mutGet(vContext:clazz.OperContext, vLocalSymbol:clazz.LocalSymbo
 		self.symbolToVariable[vLocalSymbol] = nImmutVariable
 	end
 	return self:immutGet(vContext, nImmutVariable)
+end
+
+function Branch:setSymbolByNode(vNode:node.Ident_def, vSymbol:clazz.USymbol):Ret(clazz.USymbol)
+	self._nodeToSymbol[vNode] = vSymbol
+	return vSymbol
+end
+
+function Branch:getSymbolByNode(vNode:node.Ident_def):Ret(clazz.USymbol)
+	return self._nodeToSymbol[vNode]!
 end
 
 function Branch:mutMark(vSymbol:clazz.LocalSymbol, vImmutVariable:clazz.ImmutVariable)
@@ -146,6 +166,10 @@ end
 
 function Branch:getStop():Ret(Boolean)
 	return self._stop
+end
+
+function Branch:getStack():Ret(clazz.BaseStack)
+	return self._stack
 end
 
 return Branch
