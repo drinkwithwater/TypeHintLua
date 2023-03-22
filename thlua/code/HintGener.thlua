@@ -27,7 +27,7 @@ local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
 		return {
 			'local ____codeEnv,____runtime,____stk,____nodes=... ',
-			"local ", self:formatENV(), "=____runtime:makeSymbol_ENV(",self:codeNode(node[1]),") ",
+			"local ", self:formatIdent(node[1]), "=____runtime:makeSymbol_ENV(",self:codeNode(node[1]),") ",
 			"return ",
 			self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 		}
@@ -92,7 +92,7 @@ local TagToVisiting:RealTraverser = {
 						)
 					else
 						return self:stkWrap(vVarNode).GLOBAL_SET(
-							self:formatENV(),
+							self:formatIdent(vVarNode.isGetFrom @> node.Ident_def),
 							"____set_a"..i
 						)
 					end
@@ -366,7 +366,6 @@ local TagToVisiting:RealTraverser = {
 		assert(node.kind ~= "def")
 		const nDefineIdent = node.defineIdent
 		if nDefineIdent then
-			assert(not node.isSet)
 			const symbol = self:formatIdent(nDefineIdent)
 			local nParent = node.parent!
 			while nParent.tag == "Paren" do
@@ -386,7 +385,7 @@ local TagToVisiting:RealTraverser = {
 				return self:rgnWrap(node).SYMBOL_GET(symbol, "false")
 			end
 		else
-			return self:stkWrap(node).GLOBAL_GET(self:formatENV())
+			return self:stkWrap(node).GLOBAL_GET(self:formatIdent(node.isGetFrom @> node.Ident_def))
 		end
 	end,
 	Index=function(self, node)
@@ -459,10 +458,6 @@ end
 
 function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 	return "____nodes["..vNode.index.."]"
-end
-
-function HintGener:formatENV():Ret(String)
-	return self:formatIdent(self._chunk[1])
 end
 
 function HintGener:formatIdent(vIdentNode:node.Ident_def):Ret(String)

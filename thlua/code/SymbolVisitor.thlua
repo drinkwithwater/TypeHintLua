@@ -170,7 +170,7 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 	Ident=function(self, node)
 		assert(node.kind == "use")
-		if node.isSet then
+		if node.isGetFrom ~= nil then -- not nil means this Ident has been setted by symbolUse
 		else
 			self:symbolUse(node, false)
 		end
@@ -247,9 +247,15 @@ function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
 end
 
 function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
-	const nDefineNode = self._scopeStack[#self._scopeStack]!.symbolTable[vIdentNode[1]]
+	const nScope = self._scopeStack[#self._scopeStack]!
+	const nDefineNode = nScope.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
-		vIdentNode.isSet = vIsAssign
+		const nEnvIdent = nScope.symbolTable._ENV
+		if not nEnvIdent then
+			const nErrNode = self._env:makeErrNode(1, "can't find _ENV ident when symbol visit")
+			error(Exception.new(nErrNode[1], nErrNode))
+		end
+		vIdentNode.isGetFrom = nEnvIdent
 		vIdentNode.defineIdent = false
 		return
 	end
@@ -260,10 +266,10 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 		else
 			nDefineNode.symbolModify = true
 		end
-		vIdentNode.isSet = true
+		vIdentNode.isGetFrom = false
 		vIdentNode.defineIdent = nDefineNode
 	else
-		vIdentNode.isSet = false
+		vIdentNode.isGetFrom = true
 		vIdentNode.defineIdent = nDefineNode
 	end
 end
