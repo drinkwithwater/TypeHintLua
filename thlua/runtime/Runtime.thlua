@@ -6,7 +6,6 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
 const Namespace = require "thlua.manager.Namespace"
-const LocalSymbol = require "thlua.term.LocalSymbol"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
 
@@ -90,7 +89,7 @@ function Runtime:checkAtomUnionFinish()
 end
 
 function Runtime:import(vPath:String):Ret(clazz.SpaceTable)
-	-- TODO better style
+	-- TODO better style?
 	self:require(vPath)
 	const nStack = self._loadedDict[vPath]!.stack!
 	const nSpace = nStack:getNamespace()
@@ -140,7 +139,7 @@ function Runtime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
 		nCodeEnv = self._loader:thluaParseFile(vFileName)
 		self._fileEnvDict[vFileName] = nCodeEnv
 	end
-	return nCodeEnv:getTypingFn()(nCodeEnv, self, self._rootStack, nCodeEnv:getNodeList())
+	return nCodeEnv:getTypingFn()(nCodeEnv, self._rootStack, self:makeGlobalTerm(), nCodeEnv:getNodeList())
 end
 
 function Runtime:require(vPath:String):Ret(clazz.RefineTerm)
@@ -287,10 +286,9 @@ function Runtime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAst
 	return nSpace
 end
 
-function Runtime:makeSymbol_ENV(vNode:clazz.IAstNode):Ret(clazz.LocalSymbol)
+function Runtime:makeGlobalTerm():Ret(clazz.RefineTerm)
 	const nHeadContext = self._rootStack:inplaceOper()
-	local nTerm = nHeadContext:RefineTerm(self._globalTable)
-	return LocalSymbol.new(nHeadContext, vNode, self._globalTable, nTerm)
+	return nHeadContext:RefineTerm(self._globalTable)
 end
 
 function Runtime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)

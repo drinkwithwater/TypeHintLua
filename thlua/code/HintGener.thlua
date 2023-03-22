@@ -26,9 +26,9 @@ end)
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
 		return {
-			'local ____codeEnv,____runtime,____stk,____nodes=... ',
-			"local ", self:formatIdent(node[1]), "=____runtime:makeSymbol_ENV(",self:codeNode(node[1]),") ",
-			"return ",
+			'local ____codeEnv,____stk,____globalTerm,____nodes=... ',
+			self:visitIdentDef(node[1], "____globalTerm"),
+			" return ",
 			self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 		}
 	end,
@@ -86,7 +86,7 @@ local TagToVisiting:RealTraverser = {
 				if vVarNode.tag == "Ident" then
 					const nDefineIdent = vVarNode.defineIdent
 					if nDefineIdent then
-						return self:rgnWrap(vVarNode).SYMBOL_SET(
+						return self:stkWrap(vVarNode).SYMBOL_SET(
 							self:formatIdent(nDefineIdent),
 							"____set_a"..i
 						)
@@ -374,7 +374,7 @@ local TagToVisiting:RealTraverser = {
 			const nParentTag = nParent.tag
 			const nParentParentTag = nParent.parent!.tag
 			if nParentTag == "ExprList" then
-				const nSymbolGet = self:rgnWrap(node).SYMBOL_GET(symbol, "true")
+				const nSymbolGet = self:stkWrap(node).SYMBOL_GET(symbol, "true")
 				if nParentParentTag == "Invoke" or nParentParentTag == "Call" then
 					-- lazy eval
 					return self:fnRetWrap(nSymbolGet)
@@ -382,7 +382,7 @@ local TagToVisiting:RealTraverser = {
 					return nSymbolGet
 				end
 			else
-				return self:rgnWrap(node).SYMBOL_GET(symbol, "false")
+				return self:stkWrap(node).SYMBOL_GET(symbol, "false")
 			end
 		else
 			return self:stkWrap(node).GLOBAL_GET(self:formatIdent(node.isGetFrom @> node.Ident_def))
@@ -468,7 +468,7 @@ function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, v
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
-		vIsParamOrRec and " " or " local ", self:formatIdent(vIdentNode), "=", self:rgnWrap(vIdentNode).SYMBOL_NEW(
+		vIsParamOrRec and " " or " local ", self:formatIdent(vIdentNode), "=", self:stkWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
 			vValue, vIsParamOrRec and "nil" or (nHintShort and self:fixIHintInfo(nHintShort) or "nil")
 		)
@@ -554,6 +554,10 @@ end
 		"META_GET",
 		"META_SET",
 
+		"SYMBOL_NEW",
+		"SYMBOL_GET",
+		"SYMBOL_SET",
+
 		"GLOBAL_SET",
 		"GLOBAL_GET"
 	)
@@ -584,9 +588,6 @@ end
 		"IF",
 		"RUN_AFTER_IF",
 		"BREAK",
-		"SYMBOL_NEW",
-		"SYMBOL_GET",
-		"SYMBOL_SET",
 		"LOGIC_NOT",
 		"LOGIC_OR",
 		"LOGIC_AND"
@@ -721,7 +722,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 						}
 					end
 				end, " "),
-				(nLastDots) and "" or self:rgnWrap(nParList).PARAM_NODOTS_UNPACK("____termArgs", tostring(nParamNum)),
+				nLastDots and "" or self:rgnWrap(nParList).PARAM_NODOTS_UNPACK("____termArgs", tostring(nParamNum)),
 				" return ", self:rgnWrap(nParList).PARAM_PACKOUT(
 					self:listWrap(self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 						if vParNode.tag ~= "Dots" then

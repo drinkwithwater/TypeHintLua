@@ -176,9 +176,9 @@ local TagToVisiting:let.RealTraverser = {
 		end
 	end,
 	Chunk=function(self, chunk)
-		self:record_ENV(chunk[1])
 		const nBlockNode = chunk[3]
 		self:withScope(nBlockNode, chunk, function()
+			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
 				if name.tag == "dots" then
 					self:dotsDefine(name)
@@ -203,9 +203,7 @@ function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 		})
 		table.insert(nCurScope.scope_children, vBlockNode)
 	else
-		vBlockNode.symbolTable = setmetatable({}, {
-			__index={_ENV=self._ident_ENV}
-		})
+		vBlockNode.symbolTable = {}
 	end
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
@@ -279,13 +277,8 @@ function:class(let.SymbolVisitor) SymbolVisitor.new(vFileEnv:clazz.CodeEnv)
 		_env = vFileEnv,
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
-		_ident_ENV=nil@!node.Ident_def,
 	}, SymbolVisitor)
 	return self
-end
-
-function SymbolVisitor:record_ENV(vIdentNode:node.Ident_def)
-	self._ident_ENV = vIdentNode
 end
 
 return SymbolVisitor
