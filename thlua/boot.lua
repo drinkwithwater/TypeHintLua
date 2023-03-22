@@ -51,15 +51,15 @@ function boot.runCheck(vMainFileName)
 	boot.patch()
 	local Runtime = require "thlua.runtime.BaseRuntime"
 	local thloader = require "thlua.code.thloader"
-	local nRuntime = Runtime.new(thloader, vMainFileName)
-	assert(nRuntime:main())
+	local nRuntime = Runtime.new(thloader)
+	assert(nRuntime:main(vMainFileName))
 end
 
 -- run language server
 function boot.runServer(vMode)
 	boot.patch()
-	local Client = require "thlua.server.Client"
-	local client = Client.new(vMode)
+	local Server = require "thlua.server.BaseServer"
+	local server = Server.new(vMode)
 
 	print=function(...)
 		--[[client:notify("window/logMessage", {
@@ -68,7 +68,7 @@ function boot.runServer(vMode)
 		})]]
 	end
 
-	client:mainLoop()
+	server:mainLoop()
 end
 
 return boot

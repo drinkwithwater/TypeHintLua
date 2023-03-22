@@ -1,18 +1,18 @@
 
 (@let.lsp=import("thlua.server.protocol").lsp)
 
-return function(vClient:lsp.Client, vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
-	if vClient.initialize then
+return function(vServer:lsp.BaseServer, vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
+	if vServer.initialize then
 		error("already initialized!")
 	else
-		vClient.initialize = true
+		vServer.initialize = true
 	end
 	const rootUri = vParams.rootUri
-	const root  = vParams.rootPath or (rootUri and vClient:uriToPath(rootUri))
-	vClient:info("Config.root = ", root, vParams.rootPath, vParams.rootUri)
-	vClient:info("Platform = ", vClient:getPlatform())
+	const root  = vParams.rootPath or (rootUri and vServer:uriToPath(rootUri))
+	vServer:info("Config.root = ", root, vParams.rootPath, vParams.rootUri)
+	vServer:info("Platform = ", vServer:getPlatform())
 	if root then
-		vClient:setRoot(root)
+		vServer:setRoot(root)
 	end
 	return {
 		capabilities = {

@@ -1,15 +1,17 @@
 
-local json = require "thlua.server.json"
-local methodHandler = require "thlua.server.methodHandler"
-local Exception = require "thlua.Exception"
-local ErrorCodes = require "thlua.server.protocol".ErrorCodes
-local Runtime = require "thlua.runtime.BaseRuntime"
-local CodeEnv = require "thlua.code.CodeEnv"
+const json = require "thlua.server.json"
+const methodHandler = require "thlua.server.methodHandler"
+const Exception = require "thlua.Exception"
+const ErrorCodes = require "thlua.server.protocol".ErrorCodes
+const CompletionRuntime = require "thlua.runtime.CompletionRuntime"
+const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
+const CodeEnv = require "thlua.code.CodeEnv"
+const class = require "thlua.class"
 
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.lsp=import("thlua.server.protocol").lsp
-	let.node = import("thlua.code.Node").node
+	let.node=import("thlua.code.Node").node
 	let.FileState = Struct {
 		succCodeEnv=OrNil(clazz.CodeEnv),
 		dirtyCodeEnv=clazz.CodeEnv,
@@ -17,24 +19,18 @@ local CodeEnv = require "thlua.code.CodeEnv"
 	}
 end)
 
-local Client = {}
+const BaseServer = class@<lsp.BaseServer, clazz.ILoader>()
 
-Client.__index = Client
-
-function:class(lsp.Client) Client.new(vMode:OrNil("fast", "slow")):impl(clazz.ILoader)
-	local self = setmetatable({.class
-		initialize=false@Boolean,
-		shutdown=false@Boolean,
-		_mode=vMode or false,
-		_root=""@String,
-		_runtime=nil@OrNil(clazz.BaseRuntime),
-		_fileStateDict={}@Dict(String, FileState),
-		logFile=false,
-	}, Client)
-	return self
+function.open BaseServer:ctor(vMode:OrNil("fast", "slow"))
+	self.initialize=false@Boolean
+	self.shutdown=false@Boolean
+	self._isFast=vMode == "fast" and true or false
+	self._root=""@String
+	self._runtime=nil@OrNil(clazz.BaseRuntime)
+	self._fileStateDict={}@Dict(String, FileState)
 end
 
-function Client:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident_def))
+function BaseServer:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident_def))
 	const nSuccEnv = self:getSuccCodeEnv(vFileName)
 	if nSuccEnv then
 		local nPos = nSuccEnv:lcToPos(vLine, vColumn)
@@ -47,7 +43,7 @@ function Client:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident_def
 	return nil
 end
 
-function Client:syncFile(vContent:String, vFileName:String, vVersion:Integer)
+function BaseServer:syncFile(vContent:String, vFileName:String, vVersion:Integer)
 	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
@@ -64,7 +60,7 @@ function Client:syncFile(vContent:String, vFileName:String, vVersion:Integer)
 	end
 end
 
-function Client:rerun(vFileName:String)
+function BaseServer:rerun(vFileName:String)
 	local ok, mainFileName = self:thluaSearch("main")
 	if not ok then
 		mainFileName = vFileName
@@ -72,8 +68,8 @@ function Client:rerun(vFileName:String)
 	else
 		self:info("main.thlua found:", mainFileName)
 	end
-	const nRuntime=Runtime.new(self, mainFileName)
-	const ok, exc = nRuntime:main()
+	const nRuntime=self._isFast and CompletionRuntime.new(self) or DiagnosticRuntime.new(self)
+	const ok, exc = nRuntime:main(mainFileName)
 	if not ok then
 		if not self._runtime then
 			self._runtime = nRuntime
@@ -86,7 +82,7 @@ function Client:rerun(vFileName:String)
 	self:publishNormal()
 end
 
-function Client:thluaSearch(vPath:String):Ret(Boolean, String)
+function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
 	local thluaPath = self._root.."/?.thlua"
 	local fileName, err1 = package.searchpath(vPath, thluaPath)
 	if not fileName then
@@ -95,7 +91,7 @@ function Client:thluaSearch(vPath:String):Ret(Boolean, String)
 	return true, fileName
 end
 
-function Client:thluaParseFile(vFileName:String)
+function BaseServer:thluaParseFile(vFileName:String)
 	if not self._fileStateDict[vFileName] then
 		local file, err = io.open(vFileName, "r")
 		if not file then
@@ -113,7 +109,7 @@ function Client:thluaParseFile(vFileName:String)
 	return nCodeEnv
 end
 
-function Client:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
+function BaseServer:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 	local nState = self._fileStateDict[vFileName]
 	if nState then
 		return nState.succCodeEnv
@@ -122,7 +118,7 @@ function Client:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 	end
 end
 
-function Client:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
+function BaseServer:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
 		error(tostring(vFileName).." has no file state")
@@ -131,12 +127,11 @@ function Client:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
 	end
 end
 
-function Client:mainLoop()
+function BaseServer:mainLoop()
 	self:notify("$/status/report", {
 		text="hello",
 		tooltip="hello",
 	})
-	self:info("mode=", self._mode)
 	while not self.shutdown do
 		self:rpc()
 	end
@@ -146,7 +141,7 @@ local function reqToStr(vRequest:lsp.RequestMessage):Ret(String)
 	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
 end
 
-function.pass Client:rpc()
+function.pass BaseServer:rpc()
 	local request = self:readRequest()
 	local methodName = request.method
 	local nId = request.id
@@ -183,32 +178,20 @@ function.pass Client:rpc()
 	end
 end
 
-function Client:debugPrint(vStr:String):Ret()
-	const nLogFile = self.logFile
-	if nLogFile then
-		nLogFile:write(vStr)
-		nLogFile:write("\n")
-		nLogFile:flush()
-	end
-end
-
-function Client:readRequest():Ret(lsp.RequestMessage)
+function BaseServer:readRequest():Ret(lsp.RequestMessage)
 	-- 1 get header
 	local length:Integer = -1
 	while true do
 		local line = io.read("*l")
 		if not line then
-			self:debugPrint("io read fail")
 			error("io.read fail")
 		end
 		line = line:gsub("\13", "")
 		if line == "" then
 			break
 		end
-		self:debugPrint("read line:"..line)
 		local key, val = line:match("([^:]+): (.+)")
 		if not key or not val then
-			self:debugPrint("header format error")
 			error("header format error:"..line)
 		end
 		if key == "Content-Length" then
@@ -217,17 +200,14 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 	end
 
 	if length < 0 then
-		self:debugPrint("Context-Length failed in rpc"..length)
 		error("Content-Length failed in rpc")
 	end
-	self:debugPrint("read length ="..tostring(length))
 
 	-- 2 get body
 	local data = io.read(length)
 	if not data then
 		error("read nothing")
 	end
-	self:debugPrint("read packet:"..data)
 	data = data:gsub("\13", "")
 	local obj, err = json.decode(data)
 	if type(obj) ~= "table" then
@@ -241,7 +221,7 @@ function Client:readRequest():Ret(lsp.RequestMessage)
 	return req
 end
 
-function Client:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:String, vData:String):Ret()
+function BaseServer:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:String, vData:String):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -253,7 +233,7 @@ function Client:writeError(vId:Union(Number, String, Nil), vCode:Number, vMsg:St
 	})
 end
 
-function Client:writeResult(vId:Union(Number, String, Nil), vResult:Truth):Ret()
+function BaseServer:writeResult(vId:Union(Number, String, Nil), vResult:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -261,7 +241,7 @@ function Client:writeResult(vId:Union(Number, String, Nil), vResult:Truth):Ret()
 	})
 end
 
-function Client:notify(vMethod:String, vParams:Truth):Ret()
+function BaseServer:notify(vMethod:String, vParams:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		method = vMethod,
@@ -269,7 +249,7 @@ function Client:notify(vMethod:String, vParams:Truth):Ret()
 	})
 end
 
-function Client:publishNormal()
+function BaseServer:publishNormal()
 	local nFileToList = self._runtime!:getAllDiagnostic()
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
@@ -306,7 +286,7 @@ function Client:publishNormal()
 	end
 end
 
-function Client:publishException(vException:Union(clazz.Exception, String))
+function BaseServer:publishException(vException:Union(clazz.Exception, String))
 	local nNode:OrNil(clazz.IAstNode) = nil
 	local nMsg:String = ""
 	if Exception.is(vException) then
@@ -340,7 +320,7 @@ function Client:publishException(vException:Union(clazz.Exception, String))
 	})
 end
 
-function Client:getPlatform():Ret(String)
+function BaseServer:getPlatform():Ret(String)
 	if package.config:sub(1,1) == "\\" then
 		return "win"
 	else
@@ -348,7 +328,7 @@ function Client:getPlatform():Ret(String)
 	end
 end
 
-function Client:_write(vPacket:Truth)
+function BaseServer:_write(vPacket:Truth)
 	local data:String = json.encode(vPacket)
 	if self:getPlatform() == "win" then
 		data = ("Content-Length: %d\n\n%s"):format(#data, data)
@@ -366,7 +346,7 @@ MessageType.WARNING = 2
 MessageType.INFO = 3
 MessageType.DEBUG = 4
 
-function Client:packToString(vDepth, ...:Truth):Ret(String)
+function BaseServer:packToString(vDepth, ...:Truth):Ret(String)
 	local nInfo = debug.getinfo(vDepth)
 	local nPrefix = nInfo.source..":"..nInfo.currentline
 	local l = {nPrefix} @ List(String)
@@ -376,73 +356,45 @@ function Client:packToString(vDepth, ...:Truth):Ret(String)
 	return table.concat(l, " ")
 end
 
-function Client:error(...:Truth):Ret()
+function BaseServer:error(...:Truth):Ret()
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
 		type = MessageType.ERROR,
 	})
-	const nLogFile = self.logFile
-	if nLogFile then
-		nLogFile:write("[ERROR]")
-		nLogFile:write(str)
-		nLogFile:write("\n")
-		nLogFile:flush()
-	end
 end
 
-function Client:warn(...:Truth):Ret()
+function BaseServer:warn(...:Truth):Ret()
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
 		type = MessageType.WARNING,
 	})
-	const nLogFile = self.logFile
-	if nLogFile then
-		nLogFile:write("[WARN]")
-		nLogFile:write(str)
-		nLogFile:write("\n")
-		nLogFile:flush()
-	end
 end
 
-function Client:info(...:Any)
+function BaseServer:info(...:Any)
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
 		type = MessageType.INFO,
 	})
-	const nLogFile = self.logFile
-	if nLogFile then
-		nLogFile:write("[INFO]")
-		nLogFile:write(str)
-		nLogFile:write("\n")
-		nLogFile:flush()
-	end
 end
 
-function Client:debug(...)
+function BaseServer:debug(...)
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
 		type = MessageType.DEBUG,
 	})
-	const nLogFile = self.logFile
-	if nLogFile then
-		nLogFile:write("[DEBUG]")
-		nLogFile:write(str)
-		nLogFile:write("\n")
-		nLogFile:flush()
-	end
 end
 
-function Client:setRoot(vRoot:String)
+function BaseServer:setRoot(vRoot:String)
 	--self.root = vRoot:gsub("/*$", "")
 	--self:info("root:", self.root, vRoot)
 	self._root = vRoot
 end
 
-function Client:uriToPath(vUri:String):Ret(String)
+function BaseServer:uriToPath(vUri:String):Ret(String)
 	const nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
 		return string.char(tonumber(c, 16))
 	end)
@@ -453,7 +405,7 @@ function Client:uriToPath(vUri:String):Ret(String)
 	end
 end
 
-function Client:pathToUri(vPath:String):Ret(String)
+function BaseServer:pathToUri(vPath:String):Ret(String)
 	if self:getPlatform() == "win" then
 		const nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
 			return driver.."%3A"
@@ -464,8 +416,8 @@ function Client:pathToUri(vPath:String):Ret(String)
 	end
 end
 
-function Client:checkRuntime()
+function BaseServer:checkRuntime()
 	return assert(self._runtime)
 end
 
-return Client
+return BaseServer

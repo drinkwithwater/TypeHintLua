@@ -43,16 +43,16 @@ end)
 
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open BaseRuntime:ctor(vLoader:clazz.ILoader, vMainFileName:String)
+function.open BaseRuntime:ctor(vLoader:clazz.ILoader)
 	self._loader=vLoader
-	self._mainFileName=vMainFileName
-	self._node=Node.newRootNode(vMainFileName)
 	self._spaceList={}@List(clazz.Namespace)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._fileEnvDict={}@Dict(String, clazz.CodeEnv)
 	self._diaList={}@List(clazz.Diagnostic)
 	self._scheduleManager=ScheduleManager.new()
-	self._manager = TypeManager.new(self, self._node, self._scheduleManager)
+	-- late init fields
+	self._node=nil@!clazz.IAstNode
+	self._manager=nil@!clazz.TypeManager
 	self._globalTable=nil@!clazz.AutoTable
 	self._rootStack=nil@!clazz.SealStack
 end
@@ -71,18 +71,20 @@ function BaseRuntime:import(vPath:String):Ret(clazz.SpaceTable)
 	return nSpace.localExport
 end
 
-function BaseRuntime:main():Ret(Boolean, Nil)
+function BaseRuntime:main(vMainFileName:String):Ret(Boolean, Nil)
+	self._node=Node.newRootNode(vMainFileName)
+	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
+	const nAutoFn = AutoFunction.new(self._manager, self._node, false, false)
+	const nRootStack = nAutoFn:getStack()
+	self._rootStack = nRootStack
+	self._manager:lateInit()
+	self._globalTable = native.make(self)
+	nRootStack:rootSetNamespace(self:RootNamespace())
 	const t1 = os.clock()
 	const a,b = pcall(function()
-		const nAutoFn = AutoFunction.new(self._manager, self._node, false, false)
-		const nRootStack = nAutoFn:getStack()
-		self._rootStack = nRootStack
-		self._manager:lateInit()
-		self._globalTable = native.make(self)
-		nRootStack:rootSetNamespace(self:RootNamespace())
 		nAutoFn:buildAsync(function()
 			return false, false, function()
-				const nLuaFunc = self:cacheLoadFile(self._mainFileName)
+				const nLuaFunc = self:cacheLoadFile(vMainFileName)
 				const nNoPushContext = self._rootStack:newNoPushContext(self._node)
 				const nTermTuple = nNoPushContext:FixedTermTuple({})
 				nLuaFunc:meta_open_call(nNoPushContext, nTermTuple)

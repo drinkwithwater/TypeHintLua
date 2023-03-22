@@ -144,32 +144,32 @@ local Exception = require "thlua.Exception"
 end)
 
 return {
-	didChange=function(vClient:lsp.Client, vParams:DidChangeTextDocumentParams)
+	didChange=function(vServer:lsp.BaseServer, vParams:DidChangeTextDocumentParams)
 		const nContentChange = vParams.contentChanges[1]
 		if nContentChange then
 			const nContent = nContentChange.text
-			const nFileName = vClient:uriToPath(vParams.textDocument.uri)
-			vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
+			const nFileName = vServer:uriToPath(vParams.textDocument.uri)
+			vServer:syncFile(nContent, nFileName, vParams.textDocument.version)
 		else
-			vClient:error("content change is empty onDidChange")
+			vServer:error("content change is empty onDidChange")
 		end
-		--vClient:rerun(nFileName)
+		--vServer:rerun(nFileName)
 	end,
-	didOpen=function(vClient:lsp.Client, vParams:DidOpenTextDocumentParams)
+	didOpen=function(vServer:lsp.BaseServer, vParams:DidOpenTextDocumentParams)
 		local nContent = vParams.textDocument.text
-		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		vClient:syncFile(nContent, nFileName, vParams.textDocument.version)
-		vClient:rerun(nFileName)
+		local nFileName = vServer:uriToPath(vParams.textDocument.uri)
+		vServer:syncFile(nContent, nFileName, vParams.textDocument.version)
+		vServer:rerun(nFileName)
 	end,
-	didSave=function(vClient:lsp.Client, vParams:DidSaveTextDocumentParams)
-		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		vClient:rerun(nFileName)
+	didSave=function(vServer:lsp.BaseServer, vParams:DidSaveTextDocumentParams)
+		local nFileName = vServer:uriToPath(vParams.textDocument.uri)
+		vServer:rerun(nFileName)
 	end,
-	didClose=function(vClient:lsp.Client, vParams:DidCloseTextDocumentParams)
+	didClose=function(vServer:lsp.BaseServer, vParams:DidCloseTextDocumentParams)
 	end,
-	definition=function(vClient:lsp.Client, vParams:DefinitionParams):Ret(OrNil(Location))
-		const nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		const nSuccEnv = vClient:getSuccCodeEnv(nFileName)
+	definition=function(vServer:lsp.BaseServer, vParams:DefinitionParams):Ret(OrNil(Location))
+		const nFileName = vServer:uriToPath(vParams.textDocument.uri)
+		const nSuccEnv = vServer:getSuccCodeEnv(nFileName)
 		if not nSuccEnv then
 			return nil
 		end
@@ -180,7 +180,7 @@ return {
 		end
 		const nDefineNode = nNode.kind == "def" and nNode or nNode.defineIdent
 		if not nDefineNode then
-			vClient:error("global ident TODO")
+			vServer:error("global ident TODO")
 			return nil
 		end
 		return {
@@ -191,20 +191,20 @@ return {
 			}
 		}
 	end,
-	completion=function(vClient:lsp.Client, vParams:CompletionParams):Ret(List(CompletionItem))
-		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		const nSuccEnv = vClient:getSuccCodeEnv(nFileName)
+	completion=function(vServer:lsp.BaseServer, vParams:CompletionParams):Ret(List(CompletionItem))
+		local nFileName = vServer:uriToPath(vParams.textDocument.uri)
+		const nSuccEnv = vServer:getSuccCodeEnv(nFileName)
 		if not nSuccEnv then
 			return {}
 		end
-		local nDirtyEnv = vClient:getDirtyCodeEnv(nFileName)
+		local nDirtyEnv = vServer:getDirtyCodeEnv(nFileName)
 		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
 		local nContent = nDirtyEnv:getContent():sub(1, nPos)
 		local nCompletionEnv = CodeEnv.new(nContent, nFileName, -1)
 		local nErrNode = nCompletionEnv:getAstTree()
 		if nErrNode.tag ~= "Error" then
 			print("TODO... completionEnv has no syntax error")
-			--[[nDefineNode = searchIdDefine(vClient, vParams.textDocument.uri, {
+			--[[nDefineNode = searchIdDefine(vServer, vParams.textDocument.uri, {
 				vParams.position.line,
 				vParams.position.character,
 			})]]
@@ -213,7 +213,7 @@ return {
 		const nDefineNode = nSuccEnv:searchNameByError(nErrNode)
 		if nDefineNode then
 			--[[
-			const nLocalSymbolSet = vClient:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
+			const nLocalSymbolSet = vServer:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
 			const nNameToType = {}
 			for nLocalSymbol, _ in pairs(nLocalSymbolSet) do
 				const nType = nLocalSymbol:getType()
@@ -231,12 +231,12 @@ return {
 			return {}
 		end
 	end,
-	hover=function(vClient:lsp.Client, vParams:HoverParams)
+	hover=function(vServer:lsp.BaseServer, vParams:HoverParams)
 		--[[
-		local nFileName = vClient:uriToPath(vParams.textDocument.uri)
-		local nDefineNode = vClient:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
+		local nFileName = vServer:uriToPath(vParams.textDocument.uri)
+		local nDefineNode = vServer:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
 		if nDefineNode then
-			local nLocalSymbolSet = vClient:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
+			local nLocalSymbolSet = vServer:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
 			local l = {}
 			for nLocalSymbol, _ in pairs(nLocalSymbolSet) do
 				l[#l + 1] = tostring(nLocalSymbol:getType())
@@ -250,6 +250,6 @@ return {
 			}
 		end]]
 	end,
-	references=function(vClient:lsp.Client, vParams:ReferenceParams) end,
-	typeDefinition=function(vClient:lsp.Client, vParams:TypeDefinitionParams) end,
+	references=function(vServer:lsp.BaseServer, vParams:ReferenceParams) end,
+	typeDefinition=function(vServer:lsp.BaseServer, vParams:TypeDefinitionParams) end,
 }

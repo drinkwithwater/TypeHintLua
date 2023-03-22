@@ -9,9 +9,8 @@ compileService = pyskynet.scriptservice("""
 local foreign = require "pyskynet.foreign"
 local pyskynet = require "pyskynet"
 local ParseEnv = require "thlua.code.ParseEnv"
-foreign.dispatch("compile", function(content)
-    local env = ParseEnv.new(content, "default")
-    return env:genLuaCode()
+foreign.dispatch("compile", function(content, filename)
+    return ParseEnv.compile(content, filename)
 end)
 pyskynet.start(function()
 end)
@@ -72,7 +71,7 @@ class Packer(object):
                 content = fi.read()
             path = os.path.join(directory, prefix).replace("./", "").replace("/", ".")
             if suffix == "thlua":
-                content, = foreign.call(compileService, "compile", content)
+                content, = foreign.call(compileService, "compile", content, fullFileName)
                 content = content.decode("utf-8")
             self.pathContentList.append((path, content))
 
@@ -93,8 +92,8 @@ class Packer(object):
             l.append(TEMPLATE.format(path=path,content=content))
         l.append("""
             local boot = require "thlua.boot"
-            local f = io.open("d:/log.txt", "w")
-            boot.runServer(f)
+            -- local f = io.open("d:/log.txt", "w")
+            boot.runServer(...)
         """)
         with open("3rd/vscode-lsp/server/thlua.lua", "w") as fo:
             content = "".join(l)
