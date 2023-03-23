@@ -11,6 +11,7 @@ const class = require "thlua.class"
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
+	let.TypingFn = Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
 end)
 
 const CodeEnv = class@<clazz.CodeEnv, false>(SplitCode)
@@ -23,23 +24,19 @@ function.open CodeEnv:ctor(vContent:String, vChunkName:String, vVersion:Integer)
 	self._identList = {}@List(node.Ident_def)
 	self._blockList = {}@List(node.Block)
 	self._funcList = {}@List(node.Function)
-	self._rootScope = false@OrFalse(node.Block)
 	self._version = vVersion or -1
-	self._typingFn = nil@!Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
-	self._injectFn = false
 	self._typingCode = false@OrFalse(String)
+	self._typingFn = nil@!TypingFn
 end
 
 function CodeEnv:lateInit()
 	const nAst, nErr = ParseEnv.parse(self._subject)
 	if not nAst then
-		nErr.l, nErr.c = self:fixupPos(nErr.pos)
-		nErr.path = self._chunkName
-		Node.bind(nErr)
+		self:_prepareNode(nErr, false)
 		error(Exception.new(nErr[1], nErr))
 	end
 	self._astTree = nAst
-	self:_buildTypingFn()
+	self._typingFn = self:_buildTypingFn() @> TypingFn
 end
 
 function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
@@ -90,7 +87,7 @@ function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
 	visitor:realVisit(self._astTree)
 end
 
-function.pass CodeEnv:_buildTypingFn()
+function.pass CodeEnv:_buildTypingFn():Ret(AnyFunction)
 	const nAst = self._astTree
 	self:prepare()
 	const nSymbolVisitor = SymbolVisitor.new()
@@ -112,7 +109,7 @@ function.pass CodeEnv:_buildTypingFn()
 		-- TODO, give node pos
 		error(Exception.new(tostring(nInfo), self._astTree))
 	end
-	self._typingFn = nFunc
+	return nFunc
 end
 
 function CodeEnv:getNodeList():Ret(List(clazz.IAstNode))
@@ -127,7 +124,7 @@ function CodeEnv:getTypingCode()
 	return self._typingCode
 end
 
-function.pass CodeEnv:getTypingFn():Ret(Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction))
+function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 

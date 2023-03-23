@@ -1,0 +1,45 @@
+
+const ParseEnv = require "thlua.code.ParseEnv"
+const CodeEnv = require "thlua.code.CodeEnv"
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz=import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
+	let.InjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+end)
+
+const TriggerCode = class@<clazz.TriggerCode, false>(CodeEnv)
+
+function TriggerCode:lateInit()
+	error("trigger code can't call late init")
+end
+
+function TriggerCode:tryGenInjectFn():Ret(False, String):Ret(InjectFn)
+	const nAst, nErr = ParseEnv.parse(self._subject)
+	if nAst then
+		return false, "try trigger .: but not get any syntax error???"
+	end
+	const nAst = nErr[2]
+	if not nAst then
+		return false, "try trigger .: but get wrong error..."
+	end
+	self._astTree = nAst
+	const ok, err = pcall(function():Ret(InjectFn)
+		(@do
+			let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+		end)
+		const nRawInjectFn = self:_buildTypingFn() @> RawInjectFn
+		return function(vStack, vGetter)
+			return nRawInjectFn(self._nodeList, vStack, vGetter)
+		end
+	end)
+	if ok then
+		return err
+	else
+		return false, tostring(err)
+	end
+end
+
+return TriggerCode

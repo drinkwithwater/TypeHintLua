@@ -5,6 +5,7 @@ const class = require "thlua.class"
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
+	let.InjectFn = import("thlua.code.TriggerCode").InjectFn
 end)
 
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
@@ -22,7 +23,7 @@ function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	self._nodeToBranch[vNode] = vBranch
 end
 
-function CompletionRuntime:focus(vPos:Integer, vCurEnv:clazz.CodeEnv, vNewEnv:clazz.CodeEnv)
+function CompletionRuntime:focus(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:InjectFn)
 	const nBlockNode, nFuncList = vCurEnv:traceBlock(vPos)
 	if not nBlockNode then
 		return
@@ -32,6 +33,29 @@ function CompletionRuntime:focus(vPos:Integer, vCurEnv:clazz.CodeEnv, vNewEnv:cl
 		nSet[v] = true
 	end
 	self._rootStack:reSchedule()
+	for nBlock, nBranch in pairs(self._nodeToBranch) do
+		const nStack = nBranch:getStack()
+		const nOpenFn = vFn(nStack, function(vIdent)
+			const nName = vIdent[1]
+			local nDefineIdent = nBlockNode.symbolTable[nName]
+			while nDefineIdent and nDefineIdent.pos > vPos do
+				nDefineIdent = nDefineIdent.lookupIdent
+			end
+			if nDefineIdent then
+				print("TODO use branch")
+				return nStack:SYMBOL_GET(vIdent, nDefineIdent, false)
+			end
+			const nName = "_ENV"
+			local nDefineIdent = nBlockNode.symbolTable[nName]
+			while nDefineIdent and nDefineIdent.pos > vPos do
+				nDefineIdent = nDefineIdent.lookupIdent
+			end
+			if nDefineIdent then
+				return nStack:GLOBAL_GET(vIdent, nDefineIdent)
+			end
+			return nStack:NIL_TERM(vIdent)
+		end)
+	end
 end
 
 return CompletionRuntime
