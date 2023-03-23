@@ -1,0 +1,40 @@
+
+const CodeEnv = require "thlua.code.CodeEnv"
+const class = require "thlua.class"
+
+(@do
+	let.clazz=import("thlua.type.TypeClass").clazz
+	let.lsp=import("thlua.server.protocol").lsp
+end)
+
+const FileState = class@<lsp.FileState, false>()
+
+function.open FileState:ctor(vFileName:String)
+	self._fileName = vFileName
+	self._succEnv = false@OrFalse(clazz.CodeEnv)
+	self._dirtyEnv = nil@!clazz.CodeEnv
+	self._version = (-1) @Integer
+end
+
+function FileState:syncContent(vContent:String, vVersion:Integer)
+	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
+	self._version = vVersion
+	self._dirtyEnv = nCodeEnv
+	if nCodeEnv:checkOkay() then
+		self._succEnv = nCodeEnv
+	end
+end
+
+function FileState:getDirtyEnv():Ret(clazz.CodeEnv)
+	return self._dirtyEnv
+end
+
+function FileState:getSuccEnv():Ret(OrFalse(clazz.CodeEnv))
+	return self._succEnv
+end
+
+function FileState:getVersion():Ret(Integer)
+	return self._version
+end
+
+return FileState

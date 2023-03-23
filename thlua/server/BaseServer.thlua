@@ -6,17 +6,13 @@ const ErrorCodes = require "thlua.server.protocol".ErrorCodes
 const CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 const CodeEnv = require "thlua.code.CodeEnv"
+const FileState = require "thlua.server.FileState"
 const class = require "thlua.class"
 
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.lsp=import("thlua.server.protocol").lsp
 	let.node=import("thlua.code.Node").node
-	let.FileState = Struct {
-		succCodeEnv=OrNil(clazz.CodeEnv),
-		dirtyCodeEnv=clazz.CodeEnv,
-		version=Number,
-	}
 end)
 
 const BaseServer = class@<lsp.BaseServer, clazz.ILoader>()
@@ -27,7 +23,7 @@ function.open BaseServer:ctor(vMode:OrNil("fast", "slow"))
 	self._isFast=vMode == "fast" and true or false
 	self._root=""@String
 	self._runtime=nil@OrNil(clazz.BaseRuntime)
-	self._fileStateDict={}@Dict(String, FileState)
+	self._fileStateDict={}@Dict(String, lsp.FileState)
 end
 
 function BaseServer:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident_def))
@@ -44,20 +40,12 @@ function BaseServer:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident
 end
 
 function BaseServer:syncFile(vContent:String, vFileName:String, vVersion:Integer)
-	local nCodeEnv = CodeEnv.new(vContent, vFileName, vVersion)
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
-		nFileState = {
-			dirtyCodeEnv = nCodeEnv,
-			version = vVersion,
-		}
+		nFileState = FileState.new(vFileName)
 		self._fileStateDict[vFileName] = nFileState
-	else
-		nFileState.dirtyCodeEnv = nCodeEnv
 	end
-	if nCodeEnv:checkOkay() then
-		nFileState.succCodeEnv = nCodeEnv
-	end
+	nFileState:syncContent(vContent, vVersion)
 end
 
 function BaseServer:rerun(vFileName:String)
@@ -101,7 +89,7 @@ function BaseServer:thluaParseFile(vFileName:String)
 		file:close()
 		self:syncFile(nContent, vFileName, -1)
 	end
-	local nCodeEnv = self._fileStateDict[vFileName]!.dirtyCodeEnv
+	local nCodeEnv = self._fileStateDict[vFileName]!:getDirtyEnv()
 	local ok, err = nCodeEnv:checkOkay()
 	if not ok then
 		error(err)
@@ -112,7 +100,7 @@ end
 function BaseServer:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
 	local nState = self._fileStateDict[vFileName]
 	if nState then
-		return nState.succCodeEnv
+		return nState:getSuccEnv() or nil
 	else
 		return nil
 	end
@@ -123,7 +111,7 @@ function BaseServer:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
 	if not nFileState then
 		error(tostring(vFileName).." has no file state")
 	else
-		return nFileState.dirtyCodeEnv
+		return nFileState:getDirtyEnv()
 	end
 end
 
@@ -257,8 +245,8 @@ function BaseServer:publishNormal()
 	local nFileToList = nRuntime:getAllDiagnostic()
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
-		local nCodeEnv = nFileState.succCodeEnv or nFileState.dirtyCodeEnv
-		local nVersion = nCodeEnv:getVersion()
+		local nCodeEnv = nFileState:getSuccEnv() or nFileState:getDirtyEnv()
+		local nVersion = nFileState:getVersion()
 		local nDiaList:List(lsp.Diagnostic) = {}
 		for _, dia in ipairs(nRawDiaList) do
 			local nNode = dia.node
