@@ -239,8 +239,7 @@ function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
 	const nCurRegion = self._regionStack[#self._regionStack]!
 	const nDotsDefine = nCurRegion.symbol_dots
 	if not nDotsDefine then
-		const nErrNode = self._env:makeErrNode(vDotsNode.pos, "cannot use '...' outside a vararg function")
-		error(Exception.new(nErrNode[1], nErrNode))
+		error(Exception.new("cannot use '...' outside a vararg function", vDotsNode))
 	end
 end
 
@@ -248,19 +247,14 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	const nScope = self._scopeStack[#self._scopeStack]!
 	const nDefineNode = nScope.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
-		const nEnvIdent = nScope.symbolTable._ENV
-		if not nEnvIdent then
-			const nErrNode = self._env:makeErrNode(1, "can't find _ENV ident when symbol visit")
-			error(Exception.new(nErrNode[1], nErrNode))
-		end
+		const nEnvIdent = nScope.symbolTable._ENV!
 		vIdentNode.isGetFrom = nEnvIdent
 		vIdentNode.defineIdent = false
 		return
 	end
 	if vIsAssign then
 		if nDefineNode.symbolKind == Enum.SymbolKind_CONST then
-			const nErrNode = self._env:makeErrNode(vIdentNode.pos, "cannot assign to const variable '"..vIdentNode[1].."'")
-			error(Exception.new(nErrNode[1], nErrNode))
+			error(Exception.new("cannot assign to const variable '"..vIdentNode[1].."'", vIdentNode))
 		else
 			nDefineNode.symbolModify = true
 		end
@@ -272,9 +266,8 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	end
 end
 
-function:class(let.SymbolVisitor) SymbolVisitor.new(vFileEnv:clazz.CodeEnv)
+function:class(let.SymbolVisitor) SymbolVisitor.new()
 	const self = setmetatable({.class
-		_env = vFileEnv,
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
 	}, SymbolVisitor)

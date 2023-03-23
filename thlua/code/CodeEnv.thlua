@@ -40,6 +40,33 @@ function:class(clazz.CodeEnv) CodeEnv.new(vSubject:String, vChunkName:String, vV
 	return self
 end
 
+function CodeEnv.binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(False):Ret(Integer, TValue)
+	if #vList <= 0 then
+		return false
+	end
+	if vPos < vList[1]!.pos then
+		return false
+	end
+	local nLeft = 1
+	local nRight = #vList
+	local count = 0
+	while nRight > nLeft do
+		count = count + 1
+		local nMiddle = (nLeft + nRight) // 2
+		local nMiddle1 = nMiddle + 1
+		if vPos < vList[nMiddle]!.pos then
+			nRight = nMiddle - 1
+		elseif vPos >= vList[nMiddle1]!.pos then
+			nLeft = nMiddle1
+		else
+			nLeft = nMiddle
+			nRight = nMiddle
+		end
+	end
+	return nLeft, vList[nLeft]!
+end
+
+
 function.pass CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error)
 	local nLine, nColumn = self:fixupPos(vPos)
 	return setmetatable({
@@ -101,35 +128,9 @@ function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
 	visitor:realVisit(self._astOrErr)
 end
 
-function CodeEnv:binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(False):Ret(Integer, TValue)
-	if #vList <= 0 then
-		return false
-	end
-	if vPos < vList[1]!.pos then
-		return false
-	end
-	local nLeft = 1
-	local nRight = #vList
-	local count = 0
-	while nRight > nLeft do
-		count = count + 1
-		local nMiddle = (nLeft + nRight) // 2
-		local nMiddle1 = nMiddle + 1
-		if vPos < vList[nMiddle]!.pos then
-			nRight = nMiddle - 1
-		elseif vPos >= vList[nMiddle1]!.pos then
-			nLeft = nMiddle1
-		else
-			nLeft = nMiddle
-			nRight = nMiddle
-		end
-	end
-	return nLeft, vList[nLeft]!
-end
-
 -- pos to line & column
 function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
-	local line, lineInfo = self:binSearch@<Struct {pos=Integer, posEnd=Integer}>(self._linePosList, vPos)
+	local line, lineInfo = CodeEnv.binSearch@<Struct {pos=Integer, posEnd=Integer}>(self._linePosList, vPos)
 	if not line or not lineInfo then
 		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
 		return 1, 1
@@ -139,31 +140,7 @@ function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer,
 end
 
 function CodeEnv:_init()
-	const nSubject = self._subject
-	const nList = self._linePosList
-	-- 1. calc line pos
-	local nStartPos = 1
-	local nFinishPos:OrNil(Integer) = 0
-	local nLineCount = 0
-	while true do
-		nLineCount = nLineCount + 1
-		nFinishPos = nSubject:find("\n", nStartPos)
-		if nFinishPos then
-			nList[#nList + 1] = {
-				pos=nStartPos,
-				posEnd=nFinishPos
-			}
-			nStartPos = nFinishPos + 1
-		else
-			if nStartPos <= #nSubject then
-				nList[#nList + 1] = {
-					pos=nStartPos,
-					posEnd=#nSubject
-				}
-			end
-			break
-		end
-	end
+	self._linePosList = CodeEnv.split(self._subject)
 	const nAst, nErr = ParseEnv.parse(self._subject)
 	if not nAst then
 		self._astOrErr = nErr
@@ -183,7 +160,7 @@ function.pass CodeEnv:_genTypingCode():Ret(String)
 		self._astOrErr = nAstOrErr
 	end
 	self:prepare()
-	const nSymbolVisitor = SymbolVisitor.new(self)
+	const nSymbolVisitor = SymbolVisitor.new()
 	nSymbolVisitor:realVisit(self:getAstTree())
 	const gener = HintGener.new(nAstOrErr)
 	return gener:genCode()
@@ -248,16 +225,6 @@ function.pass CodeEnv:getTypingFn():Ret(Fn(List(clazz.IAstNode), clazz.BaseStack
 	return self._typingFn
 end
 
-function CodeEnv:searchScopeByTrace(vList:List(Integer)):Ret(node.Block)
-	local nScope = self._rootScope
-	assert(nScope, "scope not setted")
-	for i=1,#vList-1 do
-		const nTrace = vList[i]!
-		nScope = nScope.scope_children[nTrace]!
-	end
-	return nScope
-end
-
 function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_def))
 	local nErrExpr = vErrorNode[2]
 	if not nErrExpr or nErrExpr.tag ~= "Ident" then
@@ -310,7 +277,7 @@ function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))
 end
 
 function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
-	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
+	const nIndex, nBlock = CodeEnv.binSearch@<node.Block>(self._blockList, vPos)
 	if not nIndex then
 		return nil
 	else
@@ -323,7 +290,7 @@ function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Id
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
-	const nIndex, nNode = self:binSearch@<node.Ident_def>(self._identList, vPos)
+	const nIndex, nNode = CodeEnv.binSearch@<node.Ident_def>(self._identList, vPos)
 	if not nIndex then
 		return nil
 	end
@@ -331,10 +298,6 @@ function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
 		return nil
 	end
 	return nNode
-end
-
-function CodeEnv:getContent():Ret(String)
-	return self._subject
 end
 
 function CodeEnv:getVersion():Ret(Integer)
@@ -348,5 +311,33 @@ end
 function.open CodeEnv.is(v):isguard(clazz.CodeEnv)
 	return getmetatable(v) == CodeEnv
 end
+
+function CodeEnv.split(vContent:String):Ret(List(node.LinePos))
+	const nLinePosList:List(node.LinePos) = {}
+	local nLineCount = 0
+	local nStartPos = 1
+	local nFinishPos:OrNil(Integer) = 0
+	while true do
+		nLineCount = nLineCount + 1
+		nFinishPos = vContent:find("\n", nStartPos)
+		if nFinishPos then
+			nLinePosList[#nLinePosList + 1] = {
+				pos=nStartPos,
+				posEnd=nFinishPos
+			}
+			nStartPos = nFinishPos + 1
+		else
+			if nStartPos <= #vContent then
+				nLinePosList[#nLinePosList + 1] = {
+					pos=nStartPos,
+					posEnd=#vContent
+				}
+			end
+			break
+		end
+	end
+	return nLinePosList
+end
+
 
 return CodeEnv

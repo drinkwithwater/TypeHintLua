@@ -743,32 +743,4 @@ function ParseEnv.parse(vContent)
 	end
 end
 
-function ParseEnv.split(vContent)
-	local nLinePosList = {}
-	-- 1. calc line pos
-	local nStartPos = 1
-	local nFinishPos = 0
-	local nLineCount = 0
-	while true do
-		nLineCount = nLineCount + 1
-		nFinishPos = vContent:find("\n", nStartPos)
-		if nFinishPos then
-			nLinePosList[#nLinePosList + 1] = {
-				pos=nStartPos,
-				posEnd=nFinishPos
-			}
-			nStartPos = nFinishPos + 1
-		else
-			if nStartPos <= #vContent then
-				nLinePosList[#nLinePosList + 1] = {
-					pos=nStartPos,
-					posEnd=#vContent
-				}
-			end
-			break
-		end
-	end
-	return nLinePosList
-end
-
 return ParseEnv
