@@ -1,5 +1,6 @@
 
 const CodeEnv = require "thlua.code.CodeEnv"
+const SplitCode = require "thlua.code.SplitCode"
 const class = require "thlua.class"
 
 (@do
@@ -13,32 +14,30 @@ const FileState = class@<lsp.FileState, false>()
 function.open FileState:ctor(vFileName:String)
 	self._succEnv = false@OrFalse(clazz.CodeEnv)
 	self._fileName = vFileName
-	self._linePosList = {}@List(node.LinePos)
 	self._content = ""@String
+	self._splitCode = nil@!clazz.SplitCode
 	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
 end
 
 function FileState:lcToPos(l:Integer, c:Integer):Ret(Integer)
-	local nLineInfo = self._linePosList[l]
-	if nLineInfo then
-		return nLineInfo.pos + c - 1
-	else
-		return 0
-	end
+	return self._splitCode:lcToPos(l,c)
 end
 
 function FileState:syncContent(vContent:String, vVersion:Integer)
 	self._content = vContent
 	self._version = vVersion
-	self._linePosList = CodeEnv.split(vContent)
 	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
-	self._errOrEnv = nCodeEnv
-	local ok, err = nCodeEnv:checkOkay()
+	const ok, err = pcall(function()
+		nCodeEnv:lateInit()
+	end)
 	if ok then
 		self._succEnv = nCodeEnv
+		self._errOrEnv = nCodeEnv
+		self._splitCode = nCodeEnv
 	else
 		self._errOrEnv = err
+		self._splitCode = SplitCode.new(vContent)
 	end
 end
 

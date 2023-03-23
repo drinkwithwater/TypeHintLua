@@ -5,79 +5,41 @@ const Exception = require "thlua.Exception"
 const VisitorExtend = require "thlua.code.VisitorExtend"
 const SymbolVisitor = require "thlua.code.SymbolVisitor"
 const HintGener = require "thlua.code.HintGener"
+const SplitCode = require "thlua.code.SplitCode"
+const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
-	node.LinePos = Struct{
-		pos=Integer,
-		posEnd=Integer
-	}
 end)
 
-local CodeEnv = {}
-CodeEnv.__index=CodeEnv
+const CodeEnv = class@<clazz.CodeEnv, false>(SplitCode)
 
-function:class(clazz.CodeEnv) CodeEnv.new(vSubject:String, vChunkName:String, vVersion:Integer)
-	local self = setmetatable({.class
-		_linePosList = {}@List(node.LinePos),
-		_subject = vSubject,
-		_chunkName = vChunkName,
-		_astOrErr = nil@!Union(node.Error, node.Chunk),
-		_nodeList = {}@List(node.IAstNode),
-		_identList = {}@List(node.Ident_def),
-		_blockList = {}@List(node.Block),
-		_funcList = {}@List(node.Function),
-		_rootScope = false@OrFalse(node.Block),
-		_version = vVersion or -1,
-		_typingFn = "typing code not execute",
-		_injectFn = false,
-		_typingCode = false@OrFalse(String),
-	}, CodeEnv)
+function.open CodeEnv:ctor(vContent:String, vChunkName:String, vVersion:Integer)
+	self._subject = vContent
+	self._chunkName = vChunkName
+	self._astTree = nil@!node.Chunk
+	self._nodeList = {}@List(node.IAstNode)
+	self._identList = {}@List(node.Ident_def)
+	self._blockList = {}@List(node.Block)
+	self._funcList = {}@List(node.Function)
+	self._rootScope = false@OrFalse(node.Block)
+	self._version = vVersion or -1
+	self._typingFn = nil@!Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
+	self._injectFn = false
+	self._typingCode = false@OrFalse(String)
+end
 
-	self:_init()
+function CodeEnv:lateInit()
+	const nAst, nErr = ParseEnv.parse(self._subject)
+	if not nAst then
+		nErr.l, nErr.c = self:fixupPos(nErr.pos)
+		nErr.path = self._chunkName
+		Node.bind(nErr)
+		error(Exception.new(nErr[1], nErr))
+	end
+	self._astTree = nAst
 	self:_buildTypingFn()
-	return self
-end
-
-function CodeEnv.binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(False):Ret(Integer, TValue)
-	if #vList <= 0 then
-		return false
-	end
-	if vPos < vList[1]!.pos then
-		return false
-	end
-	local nLeft = 1
-	local nRight = #vList
-	local count = 0
-	while nRight > nLeft do
-		count = count + 1
-		local nMiddle = (nLeft + nRight) // 2
-		local nMiddle1 = nMiddle + 1
-		if vPos < vList[nMiddle]!.pos then
-			nRight = nMiddle - 1
-		elseif vPos >= vList[nMiddle1]!.pos then
-			nLeft = nMiddle1
-		else
-			nLeft = nMiddle
-			nRight = nMiddle
-		end
-	end
-	return nLeft, vList[nLeft]!
-end
-
-
-function.pass CodeEnv:makeErrNode(vPos:Integer, vErr:String):Ret(node.Error)
-	local nLine, nColumn = self:fixupPos(vPos)
-	return setmetatable({
-		tag="Error",
-		path=self._chunkName,
-		pos=vPos,
-		l=nLine,
-		c=nColumn,
-		index=0,
-		vErr
-	}, Node)
 end
 
 function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
@@ -125,88 +87,32 @@ end
 
 function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
 	const visitor = VisitorExtend(vFunc)
-	visitor:realVisit(self._astOrErr)
-end
-
--- pos to line & column
-function CodeEnv:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
-	local line, lineInfo = CodeEnv.binSearch@<Struct {pos=Integer, posEnd=Integer}>(self._linePosList, vPos)
-	if not line or not lineInfo then
-		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
-		return 1, 1
-	else
-		return line, vPos - lineInfo.pos + 1
-	end
-end
-
-function CodeEnv:_init()
-	self._linePosList = CodeEnv.split(self._subject)
-	const nAst, nErr = ParseEnv.parse(self._subject)
-	if not nAst then
-		self._astOrErr = nErr
-	else
-		self._astOrErr = nAst
-	end
-end
-
-function.pass CodeEnv:_genTypingCode():Ret(String)
-	local nAstOrErr = self._astOrErr
-	if nAstOrErr.tag == "Error" then
-		nAstOrErr.l, nAstOrErr.c = self:fixupPos(nAstOrErr.pos, nAstOrErr)
-		nAstOrErr.path = self._chunkName
-		Node.bind(nAstOrErr)
-		error(Exception.new(nAstOrErr[1], nAstOrErr))
-		nAstOrErr = nAstOrErr[2]
-		self._astOrErr = nAstOrErr
-	end
-	self:prepare()
-	const nSymbolVisitor = SymbolVisitor.new()
-	nSymbolVisitor:realVisit(self:getAstTree())
-	const gener = HintGener.new(nAstOrErr)
-	return gener:genCode()
+	visitor:realVisit(self._astTree)
 end
 
 function.pass CodeEnv:_buildTypingFn()
-	local ok, fnOrErr = pcall(function ()
-		local nTypingCode = self:_genTypingCode()
-		self._typingCode = nTypingCode
-		local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
-			__index=function(t,k)
-				-- TODO, give node pos
-				error("indexing global is fatal error, name="..k)
-			end
-		}))
-		if not nFunc then
-			error(nInfo)
-		end
-		assert(type(nFunc) == "function", "typing code must return function")
-		if not nFunc then
+	const nAst = self._astTree
+	self:prepare()
+	const nSymbolVisitor = SymbolVisitor.new()
+	nSymbolVisitor:realVisit(nAst)
+	const gener = HintGener.new(nAst)
+	const nTypingCode = gener:genCode()
+	self._typingCode = nTypingCode
+	local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
+		__index=function(t,k)
 			-- TODO, give node pos
-			error(nInfo)
+			error("indexing global is fatal error, name="..k)
 		end
-		return nFunc
-	end)
-	if ok then
-		self._typingFn = fnOrErr
-	else
-		if Exception.is(fnOrErr) then
-			self._typingFn = fnOrErr
-		else
-			self._typingFn = tostring(fnOrErr)
-		end
+	}))
+	if not nFunc then
+		error(Exception.new(tostring(nInfo), self._astTree))
 	end
-end
-
-function.pass CodeEnv:checkOkay():Ret(True):Ret(False, clazz.Exception)
-	if self._astOrErr.tag == "Error" then
-		return false, Exception.new(self._astOrErr[1], self._astOrErr)
-	elseif type(self._typingFn) == "string" then
-		return false, Exception.new(self._typingFn, self:makeErrNode(1, ""))
-	elseif Exception.is(self._typingFn) then
-		return false, self._typingFn
-	else
-		return true
+	assert(type(nFunc) == "function", Exception.new("typing code must return function", self._astTree))
+	if not nFunc then
+		-- TODO, give node pos
+		error(Exception.new(tostring(nInfo), self._astTree))
 	end
+	self._typingFn = nFunc
 end
 
 function CodeEnv:getNodeList():Ret(List(clazz.IAstNode))
@@ -214,7 +120,7 @@ function CodeEnv:getNodeList():Ret(List(clazz.IAstNode))
 end
 
 function CodeEnv:getAstTree()
-	return self._astOrErr
+	return self._astTree
 end
 
 function CodeEnv:getTypingCode()
@@ -277,7 +183,7 @@ function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))
 end
 
 function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
-	const nIndex, nBlock = CodeEnv.binSearch@<node.Block>(self._blockList, vPos)
+	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
 	if not nIndex then
 		return nil
 	else
@@ -290,7 +196,7 @@ function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Id
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
-	const nIndex, nNode = CodeEnv.binSearch@<node.Ident_def>(self._identList, vPos)
+	const nIndex, nNode = self:binSearch@<node.Ident_def>(self._identList, vPos)
 	if not nIndex then
 		return nil
 	end
@@ -307,37 +213,5 @@ end
 function CodeEnv:getChunkName():Ret(String)
 	return self._chunkName
 end
-
-function.open CodeEnv.is(v):isguard(clazz.CodeEnv)
-	return getmetatable(v) == CodeEnv
-end
-
-function CodeEnv.split(vContent:String):Ret(List(node.LinePos))
-	const nLinePosList:List(node.LinePos) = {}
-	local nLineCount = 0
-	local nStartPos = 1
-	local nFinishPos:OrNil(Integer) = 0
-	while true do
-		nLineCount = nLineCount + 1
-		nFinishPos = vContent:find("\n", nStartPos)
-		if nFinishPos then
-			nLinePosList[#nLinePosList + 1] = {
-				pos=nStartPos,
-				posEnd=nFinishPos
-			}
-			nStartPos = nFinishPos + 1
-		else
-			if nStartPos <= #vContent then
-				nLinePosList[#nLinePosList + 1] = {
-					pos=nStartPos,
-					posEnd=#vContent
-				}
-			end
-			break
-		end
-	end
-	return nLinePosList
-end
-
 
 return CodeEnv

@@ -1,0 +1,91 @@
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz=import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
+	node.LinePos = Struct{
+		pos=Integer,
+		posEnd=Integer
+	}
+end)
+
+const SplitCode = class@<clazz.SplitCode, false>()
+
+const function split(vContent:String):Ret(List(node.LinePos))
+	const nLinePosList:List(node.LinePos) = {}
+	local nLineCount = 0
+	local nStartPos = 1
+	local nFinishPos:OrNil(Integer) = 0
+	while true do
+		nLineCount = nLineCount + 1
+		nFinishPos = vContent:find("\n", nStartPos)
+		if nFinishPos then
+			nLinePosList[#nLinePosList + 1] = {
+				pos=nStartPos,
+				posEnd=nFinishPos
+			}
+			nStartPos = nFinishPos + 1
+		else
+			if nStartPos <= #vContent then
+				nLinePosList[#nLinePosList + 1] = {
+					pos=nStartPos,
+					posEnd=#vContent
+				}
+			end
+			break
+		end
+	end
+	return nLinePosList
+end
+
+function.open SplitCode:ctor(vContent:String, ...)
+	self._linePosList = split(vContent)
+end
+
+function SplitCode:binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(False):Ret(Integer, TValue)
+	if #vList <= 0 then
+		return false
+	end
+	if vPos < vList[1]!.pos then
+		return false
+	end
+	local nLeft = 1
+	local nRight = #vList
+	local count = 0
+	while nRight > nLeft do
+		count = count + 1
+		local nMiddle = (nLeft + nRight) // 2
+		local nMiddle1 = nMiddle + 1
+		if vPos < vList[nMiddle]!.pos then
+			nRight = nMiddle - 1
+		elseif vPos >= vList[nMiddle1]!.pos then
+			nLeft = nMiddle1
+		else
+			nLeft = nMiddle
+			nRight = nMiddle
+		end
+	end
+	return nLeft, vList[nLeft]!
+end
+
+function SplitCode:lcToPos(l:Integer, c:Integer):Ret(Integer)
+	local nLineInfo = self._linePosList[l]
+	if nLineInfo then
+		return nLineInfo.pos + c - 1
+	else
+		return 0
+	end
+end
+
+function SplitCode:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
+	local line, lineInfo = self:binSearch@<node.LinePos>(self._linePosList, vPos)
+	if not line or not lineInfo then
+		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
+		return 1, 1
+	else
+		return line, vPos - lineInfo.pos + 1
+	end
+end
+
+return SplitCode
