@@ -169,11 +169,12 @@ return {
 	end,
 	definition=function(vServer:lsp.BaseServer, vParams:DefinitionParams):Ret(OrNil(Location))
 		const nFileName = vServer:uriToPath(vParams.textDocument.uri)
-		const nSuccEnv = vServer:getSuccCodeEnv(nFileName)
+		const nFileState = vServer:checkFileState(nFileName)
+		const nSuccEnv = nFileState:getSuccEnv()
 		if not nSuccEnv then
 			return nil
 		end
-		const nPos = nSuccEnv:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
+		const nPos = nFileState:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
 		const nNode = nSuccEnv:searchIdent(nPos)
 		if not nNode then
 			return nil
@@ -193,12 +194,9 @@ return {
 	end,
 	completion=function(vServer:lsp.BaseServer, vParams:CompletionParams):Ret(List(CompletionItem))
 		local nFileName = vServer:uriToPath(vParams.textDocument.uri)
-		const nSuccEnv = vServer:getSuccCodeEnv(nFileName)
-		if not nSuccEnv then
-			return {}
-		end
-		local nDirtyEnv = vServer:getDirtyCodeEnv(nFileName)
-		local nPos = nDirtyEnv:lcToPos(vParams.position.line+1, vParams.position.character+1)
+		const nFileState = vServer:checkFileState(nFileName)
+		const nDirtyEnv = nFileState:checkLatestEnv()
+		local nPos = nFileState:lcToPos(vParams.position.line+1, vParams.position.character+1)
 		local nContent = nDirtyEnv:getContent():sub(1, nPos)
 		local nCompletionEnv = CodeEnv.new(nContent, nFileName, -1)
 		local nErrNode = nCompletionEnv:getAstTree()

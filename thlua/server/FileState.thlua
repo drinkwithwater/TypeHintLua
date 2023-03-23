@@ -1,36 +1,63 @@
 
 const CodeEnv = require "thlua.code.CodeEnv"
+const ParseEnv = require "thlua.code.ParseEnv"
 const class = require "thlua.class"
 
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.lsp=import("thlua.server.protocol").lsp
+	let.node=import("thlua.code.Node").node
 end)
 
 const FileState = class@<lsp.FileState, false>()
 
 function.open FileState:ctor(vFileName:String)
-	self._fileName = vFileName
 	self._succEnv = false@OrFalse(clazz.CodeEnv)
-	self._dirtyEnv = nil@!clazz.CodeEnv
+	self._fileName = vFileName
+	self._linePosList = {}@List(node.LinePos)
+	self._content = ""@String
+	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
 end
 
-function FileState:syncContent(vContent:String, vVersion:Integer)
-	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
-	self._version = vVersion
-	self._dirtyEnv = nCodeEnv
-	if nCodeEnv:checkOkay() then
-		self._succEnv = nCodeEnv
+function FileState:lcToPos(l:Integer, c:Integer):Ret(Integer)
+	local nLineInfo = self._linePosList[l]
+	if nLineInfo then
+		return nLineInfo.pos + c - 1
+	else
+		return 0
 	end
 end
 
-function FileState:getDirtyEnv():Ret(clazz.CodeEnv)
-	return self._dirtyEnv
+function FileState:syncContent(vContent:String, vVersion:Integer)
+	self._content = vContent
+	self._version = vVersion
+	self._linePosList = ParseEnv.split(vContent)
+	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
+	self._errOrEnv = nCodeEnv
+	local ok, err = nCodeEnv:checkOkay()
+	if ok then
+		self._succEnv = nCodeEnv
+	else
+		self._errOrEnv = err
+	end
 end
 
 function FileState:getSuccEnv():Ret(OrFalse(clazz.CodeEnv))
 	return self._succEnv
+end
+
+function FileState:checkLatestEnv():Ret(clazz.CodeEnv)
+	const nLatest = self._errOrEnv
+	if CodeEnv.is(nLatest) then
+		return nLatest
+	else
+		error(nLatest)
+	end
+end
+
+function FileState:getContent():Ret(String)
+	return self._content
 end
 
 function FileState:getVersion():Ret(Integer)

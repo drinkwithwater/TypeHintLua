@@ -26,19 +26,6 @@ function.open BaseServer:ctor(vMode:OrNil("fast", "slow"))
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 end
 
-function BaseServer:searchDefine(vFileName, vLine, vColumn):Ret(OrNil(node.Ident_def))
-	const nSuccEnv = self:getSuccCodeEnv(vFileName)
-	if nSuccEnv then
-		local nPos = nSuccEnv:lcToPos(vLine, vColumn)
-		const nNode = nSuccEnv:searchIdent(nPos)
-		if nNode and nNode.kind == "def" then
-			-- return nNode
-			return nil
-		end
-	end
-	return nil
-end
-
 function BaseServer:syncFile(vContent:String, vFileName:String, vVersion:Integer)
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
@@ -89,30 +76,11 @@ function BaseServer:thluaParseFile(vFileName:String)
 		file:close()
 		self:syncFile(nContent, vFileName, -1)
 	end
-	local nCodeEnv = self._fileStateDict[vFileName]!:getDirtyEnv()
-	local ok, err = nCodeEnv:checkOkay()
-	if not ok then
-		error(err)
-	end
-	return nCodeEnv
+	return self._fileStateDict[vFileName]!:checkLatestEnv()
 end
 
-function BaseServer:getSuccCodeEnv(vFileName:String):Ret(OrNil(clazz.CodeEnv))
-	local nState = self._fileStateDict[vFileName]
-	if nState then
-		return nState:getSuccEnv() or nil
-	else
-		return nil
-	end
-end
-
-function BaseServer:getDirtyCodeEnv(vFileName:String):Ret(clazz.CodeEnv)
-	local nFileState = self._fileStateDict[vFileName]
-	if not nFileState then
-		error(tostring(vFileName).." has no file state")
-	else
-		return nFileState:getDirtyEnv()
-	end
+function BaseServer:checkFileState(vFileName:String):Ret(lsp.FileState)
+	return (assert(self._fileStateDict[vFileName], "file not existed:"..vFileName))
 end
 
 function BaseServer:mainLoop()
@@ -245,7 +213,6 @@ function BaseServer:publishNormal()
 	local nFileToList = nRuntime:getAllDiagnostic()
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
-		local nCodeEnv = nFileState:getSuccEnv() or nFileState:getDirtyEnv()
 		local nVersion = nFileState:getVersion()
 		local nDiaList:List(lsp.Diagnostic) = {}
 		for _, dia in ipairs(nRawDiaList) do
@@ -288,13 +255,13 @@ function BaseServer:publishException(vException:Union(clazz.Exception, String))
 		nNode = self._runtime!:getNode()
 		nMsg = "root error:"..tostring(vException)
 	end
-	const nCodeEnv = self:getDirtyCodeEnv(nNode.path)
+	const nFileState = self._fileStateDict[nNode.path]
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
 		params = {
-			uri=self:pathToUri(nCodeEnv:getChunkName()),
-			version=nCodeEnv:getVersion(),
+			uri=self:pathToUri(nNode.path),
+			version=nFileState:getVersion(),
 			diagnostics={ {
 				range={
 					start={
