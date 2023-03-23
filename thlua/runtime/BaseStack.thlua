@@ -209,11 +209,14 @@ function BaseStack:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
 end
 
-function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn()):Ret(clazz.Branch)
+function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn(), vNode:OrNil(node.Block)):Ret(clazz.Branch)
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
 	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch)
+	if vNode then
+		self:recordBranch(vNode, nNewBranch)
+	end
 	nStack[nNewLen] = nNewBranch
 	self._curBranch = nNewBranch
 	vFunc()

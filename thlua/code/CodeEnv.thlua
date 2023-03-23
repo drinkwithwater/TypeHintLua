@@ -285,8 +285,8 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_d
 	return nIdent]]
 end
 
-function CodeEnv:searchFunctionSet(vPos:Integer):Ret(Dict(node.Function, True))
-	const nSet:Dict(node.Function, True) = {}
+function CodeEnv:traceFunction(vPos:Integer):Ret(List(node.Function))
+	const nList:List(node.Function) = {}
 	local nCurFunc:OrNil(node.IAstNode) = nil
 	for _, func in ipairs(self._funcList) do
 		if func.pos <= vPos and vPos <= func.posEnd then
@@ -296,11 +296,11 @@ function CodeEnv:searchFunctionSet(vPos:Integer):Ret(Dict(node.Function, True))
 	end
 	while nCurFunc do
 		if nCurFunc.tag == "Function" and vPos < nCurFunc.posEnd then
-			nSet[nCurFunc @> node.Function] = true
+			nList[#nList + 1] = nCurFunc @> node.Function
 		end
 		nCurFunc = nCurFunc.parent
 	end
-	return nSet
+	return nList
 end
 
 function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))

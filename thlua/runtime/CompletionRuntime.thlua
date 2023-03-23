@@ -2,23 +2,32 @@
 const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const class = require "thlua.class"
 
-(@let.clazz=import("thlua.type.TypeClass").clazz)
+(@do
+	let.clazz=import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
+end)
 
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
-	self._focusNodeSet = {} @ Dict(clazz.IAstNode, True)
+	self._focusNodeSet = {} @ Dict(node.Function, True)
+	self._nodeToBranch = {} @ Dict(node.IAstNode. clazz.Branch)
 end
 
-function CompletionRuntime:getFocusNodeSet():Ret(OrFalse(Dict(clazz.IAstNode, True)))
+function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
 	return self._focusNodeSet
 end
 
-function CompletionRuntime:focusNodeSet(vNodeSet:Dict(clazz.IAstNode, True))
+function CompletionRuntime:recordBranch(vNode:clazz.IAstNode, vBranch:clazz.Branch)
+	self._nodeToBranch[vNode] = vBranch
+end
+
+function CompletionRuntime:focusTraceFunction(vTraceList:List(node.Function))
 	const nSet = self._focusNodeSet
-	for k,v in pairs(vNodeSet) do
-		nSet[k] = v
+	for k,v in pairs(vTraceList) do
+		nSet[v] = true
 	end
+	self._rootStack:reSchedule()
 end
 
 return CompletionRuntime

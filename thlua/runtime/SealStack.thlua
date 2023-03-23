@@ -6,6 +6,7 @@ const AutoFunction = require "thlua.func.AutoFunction"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
 end)
 
 const SealStack = class@<clazz.SealStack, false>(InstStack)
@@ -46,7 +47,7 @@ function SealStack:seal()
 	else
 		const nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
 		for fn, v in pairs(nAutoFnSet) do
-			if nFocusSet[fn:getNode()] then
+			if nFocusSet[fn:getNode() @> node.Function] then
 				fn:startTask()
 				fn:getStack():reSchedule()
 			end
@@ -59,7 +60,7 @@ function SealStack:reSchedule()
 	const nAutoFnSet = self._autoFnSet
 	if nFocusSet and nAutoFnSet then
 		for fn, v in pairs(nAutoFnSet) do
-			if nFocusSet[fn:getNode()] then
+			if nFocusSet[fn:getNode() @> node.Function] then
 				fn:startTask()
 				fn:getStack():reSchedule()
 			end
@@ -87,7 +88,7 @@ function SealStack:scheduleSealType(vType:clazz.SealFunction)
 			vType:startTask()
 		end
 		const nFocusSet = self._runtime:getFocusNodeSet()
-		if nFocusSet and nFocusSet[vType:getNode()] then
+		if nFocusSet and nFocusSet[vType:getNode() @> node.Function] then
 			vType:startTask()
 		end
 	end
