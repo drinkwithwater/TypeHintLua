@@ -48,7 +48,6 @@ function.open BaseRuntime:ctor(vLoader:clazz.ILoader)
 	self._spaceList={}@List(clazz.Namespace)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._fileEnvDict={}@Dict(String, clazz.CodeEnv)
-	self._diaList={}@List(clazz.Diagnostic)
 	self._scheduleManager=ScheduleManager.new()
 	-- late init fields
 	self._node=nil@!clazz.IAstNode
@@ -100,6 +99,11 @@ function BaseRuntime:main(vMainFileName:String):Ret(Boolean, Nil)
 	print(t2-t1)
 	-- self:diffTestExpect()
 	return a,b
+end
+
+function BaseRuntime:getFocusNodeSet():Ret(OrFalse(Dict(clazz.IAstNode, True)))
+	error("not implement in baseRuntime")
+	return false
 end
 
 function BaseRuntime:SealStack(...):Ret(clazz.SealStack)
@@ -230,17 +234,7 @@ function BaseRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)
 end
 
 function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
-	local l:List(String) = {}
-	for i=1, select("#", ...) do
-		l[i] = tostring(select(i, ...))
-	end
-	local nMsg = table.concat(l, " ")
-	local nDiaList = self._diaList
-	nDiaList[#nDiaList + 1] = {
-		msg=nMsg,
-		node=vNode,
-		severity=vSeverity,
-	}
+	-- pass
 end
 
 function BaseRuntime:nodeError(vNode:clazz.IAstNode, ...:Truth)
@@ -256,20 +250,6 @@ end
 function BaseRuntime:nodeInfo(vNode:clazz.IAstNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
-end
-
-function BaseRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
-	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
-	for _, nDia in pairs(self._diaList) do
-		const nPath = nDia.node.path
-		local nList = nFileToDiaList[nPath]
-		if not nList then
-			nList = {}
-			nFileToDiaList[nPath] = nList
-		end
-		nList[#nList + 1] = nDia
-	end
-	return nFileToDiaList
 end
 
 function BaseRuntime:getNode():Ret(clazz.IAstNode)

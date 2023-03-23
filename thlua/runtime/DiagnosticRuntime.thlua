@@ -6,4 +6,40 @@ const class = require "thlua.class"
 
 const DiagnosticRuntime = class@<clazz.DiagnosticRuntime, false>(BaseRuntime)
 
+function.open DiagnosticRuntime:ctor(...)
+	self._diaList={}@List(clazz.Diagnostic)
+end
+
+function DiagnosticRuntime:getFocusNodeSet():Ret(False)
+	return false
+end
+
+function DiagnosticRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
+	local l:List(String) = {}
+	for i=1, select("#", ...) do
+		l[i] = tostring(select(i, ...))
+	end
+	local nMsg = table.concat(l, " ")
+	local nDiaList = self._diaList
+	nDiaList[#nDiaList + 1] = {
+		msg=nMsg,
+		node=vNode,
+		severity=vSeverity,
+	}
+end
+
+function DiagnosticRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
+	for _, nDia in pairs(self._diaList) do
+		const nPath = nDia.node.path
+		local nList = nFileToDiaList[nPath]
+		if not nList then
+			nList = {}
+			nFileToDiaList[nPath] = nList
+		end
+		nList[#nList + 1] = nDia
+	end
+	return nFileToDiaList
+end
+
 return DiagnosticRuntime

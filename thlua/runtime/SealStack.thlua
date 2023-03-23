@@ -17,7 +17,7 @@ function.open SealStack:ctor(
 	vBodyFn:Union(clazz.ClassFactory, clazz.AutoFunction)
 )
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
-	self._funcMakerSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
+	self._autoFnSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
 	self._bodyFn = vBodyFn
 	self._classTable=false@OrFalse(clazz.ClassTable)
 end
@@ -36,10 +36,34 @@ function SealStack:seal()
 	for fn, v in pairs(nClassFnSet) do
 		fn:startTask()
 	end
-	const nFuncMakerSet = assert(self._funcMakerSet, "maker set must be true here")
-	self._funcMakerSet = false
-	for fn, v in pairs(nFuncMakerSet) do
-		fn:startTask()
+	const nFocusSet = self._runtime:getFocusNodeSet()
+	if not nFocusSet then
+		const nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
+		self._autoFnSet = false
+		for fn, v in pairs(nAutoFnSet) do
+			fn:startTask()
+		end
+	else
+		const nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
+		for fn, v in pairs(nAutoFnSet) do
+			if nFocusSet[fn:getNode()] then
+				fn:startTask()
+				fn:getStack():reSchedule()
+			end
+		end
+	end
+end
+
+function SealStack:reSchedule()
+	const nFocusSet = self._runtime:getFocusNodeSet()
+	const nAutoFnSet = self._autoFnSet
+	if nFocusSet and nAutoFnSet then
+		for fn, v in pairs(nAutoFnSet) do
+			if nFocusSet[fn:getNode()] then
+				fn:startTask()
+				fn:getStack():reSchedule()
+			end
+		end
 	end
 end
 
@@ -56,10 +80,14 @@ function SealStack:scheduleSealType(vType:clazz.SealFunction)
 			vType:startTask()
 		end
 	elseif AutoFunction.is(vType) then
-		const nSet = self._funcMakerSet
+		const nSet = self._autoFnSet
 		if nSet then
 			nSet[vType] = true
 		else
+			vType:startTask()
+		end
+		const nFocusSet = self._runtime:getFocusNodeSet()
+		if nFocusSet and nFocusSet[vType:getNode()] then
 			vType:startTask()
 		end
 	end
@@ -68,6 +96,10 @@ end
 function SealStack:rootSetNamespace(vRootSpace:clazz.Namespace)
 	assert(not self._namespace, "namespace has been setted")
 	self._namespace = vRootSpace
+end
+
+function SealStack:getBodyFn():Ret(Union(clazz.AutoFunction,clazz.ClassFactory))
+	return self._bodyFn @> Union(clazz.AutoFunction,clazz.ClassFactory)
 end
 
 return SealStack

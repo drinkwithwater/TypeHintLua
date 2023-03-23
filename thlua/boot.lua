@@ -49,9 +49,9 @@ end
 -- start check from a main file
 function boot.runCheck(vMainFileName)
 	boot.patch()
-	local Runtime = require "thlua.runtime.BaseRuntime"
+	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 	local thloader = require "thlua.code.thloader"
-	local nRuntime = Runtime.new(thloader)
+	local nRuntime = DiagnosticRuntime.new(thloader)
 	assert(nRuntime:main(vMainFileName))
 end
 

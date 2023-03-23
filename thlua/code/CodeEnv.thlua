@@ -23,6 +23,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vSubject:String, vChunkName:String, vV
 		_nodeList = {}@List(node.IAstNode),
 		_identList = {}@List(node.Ident_def),
 		_blockList = {}@List(node.Block),
+		_funcList = {}@List(node.Function),
 		_rootScope = false@OrFalse(node.Block),
 		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
@@ -76,11 +77,17 @@ function CodeEnv:prepare()
 		if vNode.tag == "Block" then
 			table.insert(self._blockList, vNode)
 		end
+		if vNode.tag == "Function" then
+			table.insert(self._funcList, vNode)
+		end
 	end)
 	table.sort(self._identList, function(a:node.Ident, b:node.Ident)
 		return a.pos < b.pos
 	end)
 	table.sort(self._blockList, function(a:node.Block, b:node.Block)
+		return a.pos < b.pos
+	end)
+	table.sort(self._funcList, function(a:node.Function, b:node.Block)
 		return a.pos < b.pos
 	end)
 end
@@ -278,13 +285,31 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_d
 	return nIdent]]
 end
 
-function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))
-	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
-	if not nIndex then
-		return nil
-	else
-		return nBlock
+function CodeEnv:searchFunctionSet(vPos:Integer):Ret(Dict(node.Function, True))
+	const nSet:Dict(node.Function, True) = {}
+	local nCurFunc:OrNil(node.IAstNode) = nil
+	for _, func in ipairs(self._funcList) do
+		if func.pos <= vPos and vPos <= func.posEnd then
+			nCurFunc = func
+			break
+		end
 	end
+	while nCurFunc do
+		if nCurFunc.tag == "Function" and vPos < nCurFunc.posEnd then
+			nSet[nCurFunc @> node.Function] = true
+		end
+		nCurFunc = nCurFunc.parent
+	end
+	return nSet
+end
+
+function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))
+	for _, block in ipairs(self._blockList) do
+		if block.pos <= vPos and vPos <= block.posEnd then
+			return block
+		end
+	end
+	return nil
 end
 
 function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
