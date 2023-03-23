@@ -25,12 +25,20 @@ end)
 
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
-		return {
-			'local ____stk,____globalTerm,____nodes,____injectEnv=... ',
-			self:visitIdentDef(node[1], "____globalTerm"),
-			" return ",
-			self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
-		}
+		if not self._chunk.isInject then
+			return {
+				'local ____nodes,____stk,____globalTerm=... ',
+				self:visitIdentDef(node[1], "____globalTerm"),
+				" return ",
+				self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
+			}
+		else
+			return {
+				'local ____nodes,____stk,____injectGetter=... ',
+				" return ",
+				self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
+			}
+		end
 	end,
 	Block=function(self, node)
 		return {
@@ -130,23 +138,23 @@ local TagToVisiting:RealTraverser = {
 			if nNext1Node then
 				if nNext2Node then
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
-					return self:rgnWrap(node).IF(
+					return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
-						self:fnWrap()(self:visit(blockNode)),
+						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
 						self:fnWrap()(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
 					)
 				else
 					assert(nNext1Node.tag == "Block")
-					return self:rgnWrap(node).IF(
+					return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
-						self:fnWrap()(self:visit(blockNode)),
-						self:fnWrap()(self:visit(nNext1Node))
+						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
+						self:fnWrap()(self:visit(nNext1Node)), self:codeNode(nNext1Node)
 					)
 				end
 			else
-				return self:rgnWrap(node).IF(
+				return self:rgnWrap(node).IF_ONE(
 					self:visit(exprNode),
-					self:fnWrap()(self:visit(blockNode))
+					self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode)
 				)
 			end
 		end
@@ -163,7 +171,8 @@ local TagToVisiting:RealTraverser = {
 			self:fnWrap("____fornum")(
 				self:visitIdentDef(node[1], "____fornum"),
 				self:visit(nBlockNode)
-			)
+			),
+			self:codeNode(nBlockNode)
 		)
 	end,
 	Forin=function(self, node)
@@ -390,7 +399,7 @@ local TagToVisiting:RealTraverser = {
 			const nIdentENV = node.isGetFrom
 			if self._chunk.isInject and nIdentENV == self._chunk[1] then
 				return self:stkWrap(node).INJECT_GET(
-					"____injectEnv"
+					"____injectGetter"
 				)
 			else
 				return self:stkWrap(node).GLOBAL_GET(
@@ -594,7 +603,8 @@ end
 		"DO",
 		"FOR_IN",
 		"FOR_NUM",
-		"IF",
+		"IF_ONE",
+		"IF_TWO",
 		"RUN_AFTER_IF",
 		"BREAK",
 		"LOGIC_NOT",

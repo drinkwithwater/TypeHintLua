@@ -11,20 +11,24 @@ const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
 	self._focusNodeSet = {} @ Dict(node.Function, True)
-	self._nodeToBranch = {} @ Dict(node.IAstNode. clazz.Branch)
+	self._nodeToBranch = {} @ Dict(node.Block, clazz.Branch)
 end
 
 function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
 	return self._focusNodeSet
 end
 
-function CompletionRuntime:recordBranch(vNode:clazz.IAstNode, vBranch:clazz.Branch)
+function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	self._nodeToBranch[vNode] = vBranch
 end
 
-function CompletionRuntime:focusTraceFunction(vTraceList:List(node.Function))
+function CompletionRuntime:focus(vPos:Integer, vCurEnv:clazz.CodeEnv, vNewEnv:clazz.CodeEnv)
+	const nBlockNode, nFuncList = vCurEnv:traceBlock(vPos)
+	if not nBlockNode then
+		return
+	end
 	const nSet = self._focusNodeSet
-	for k,v in pairs(vTraceList) do
+	for k,v in pairs(nFuncList) do
 		nSet[v] = true
 	end
 	self._rootStack:reSchedule()

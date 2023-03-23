@@ -526,56 +526,64 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 	end
 end
 
-function InstStack:IF(
+
+function InstStack:IF_ONE(
 	vNode:clazz.IAstNode,
 	vTerm:clazz.RefineTerm,
-	vTrueFunction:Fn(),
-	vFalseFunction:OrNil(Fn())
+	vTrueFunction:Fn(), vBlockNode:node.Block
 )
 	const nIfContext = self:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
 	const nBeforeBranch = self:_topBranch()
 	if nTrueCase then
-		const nTrueBranch = self:_withBranch(nTrueCase, function()
-			vTrueFunction()
-		end)
-		if nFalseCase and vFalseFunction then
-			const nFalseBranch = self:_withBranch(nFalseCase, function()
-				vFalseFunction()
-			end)
+		const nTrueBranch = self:_withBranch(nTrueCase, vTrueFunction, vBlockNode)
+		nBeforeBranch:mergeOneBranch(nIfContext, nTrueBranch, nFalseCase)
+	end
+end
+
+function InstStack:IF_TWO(
+	vNode:clazz.IAstNode,
+	vTerm:clazz.RefineTerm,
+	vTrueFunction:Fn(), vTrueBlock:node.Block,
+	vFalseFunction:Fn(), vFalseBlock:OrNil(node.Block)
+)
+	const nIfContext = self:newOperContext(vNode)
+	const nTrueCase = vTerm:caseTrue()
+	const nFalseCase = vTerm:caseFalse()
+	const nBeforeBranch = self:_topBranch()
+	if nTrueCase then
+		const nTrueBranch = self:_withBranch(nTrueCase, vTrueFunction, vTrueBlock)
+		if nFalseCase then
+			const nFalseBranch = self:_withBranch(nFalseCase, vFalseFunction, vFalseBlock)
 			nBeforeBranch:mergeTwoBranch(nIfContext, nTrueBranch, nFalseBranch)
 		else
 			nBeforeBranch:mergeOneBranch(nIfContext, nTrueBranch, nFalseCase)
 		end
-	elseif nFalseCase and vFalseFunction then
-		const nFalseBranch = self:_withBranch(nFalseCase, function()
-			vFalseFunction()
-		end)
+	elseif nFalseCase then
+		const nFalseBranch = self:_withBranch(nFalseCase, vFalseFunction, vFalseBlock)
 		nBeforeBranch:mergeOneBranch(nIfContext, nFalseBranch, nTrueCase)
 	end
 end
 
-function InstStack:REPEAT(vNode:clazz.IAstNode, vFunc:Fn(), vTerm:clazz.RefineTerm)
-	vFunc()
+function InstStack:REPEAT(vNode:node.Repeat, vFunc:Fn(), vTerm:clazz.RefineTerm)
+	self:_withBranch(VariableCase.new(), vFunc, vNode[1])
 end
 
-function InstStack:WHILE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
+function InstStack:WHILE(vNode:node.While, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
 	const nTrueCase = vTerm:caseTrue()
-	self:_withBranch(nTrueCase or VariableCase.new(), function()
-		vTrueFunction()
-	end)
+	self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction,  vNode[2])
 end
 
-function InstStack:DO(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
+function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
-		vDoFunc()
+		self:_withBranch(VariableCase.new(), vDoFunc, vNode[1])
 	end
 end
 
-function InstStack:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
+function InstStack:FOR_IN(vNode:node.Forin, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
 	const nForContext = self:newOperContext(vNode)
 	const nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
@@ -633,19 +641,22 @@ function InstStack:FOR_IN(vNode:clazz.IAstNode, vFunc:Fn(clazz.FixedTermTuple), 
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
 		self:_withBranch(vCase, function()
 			vFunc(nNewTuple)
-		end)
+		end, vNode[3])
 	end)
 end
 
 function InstStack:FOR_NUM(
-	vNode:clazz.IAstNode,
+	vNode:node.Fornum,
 	vStart:clazz.RefineTerm,
 	vStop:clazz.RefineTerm,
 	vStepOrNil:OrNil(clazz.RefineTerm),
-	vFunc:Fn(clazz.RefineTerm)
+	vFunc:Fn(clazz.RefineTerm),
+	vBlockNode:node.Block
 )
 	const nForContext = self:newOperContext(vNode)
-	vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+	self:_withBranch(VariableCase.new(), function()
+		vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+	end, vBlockNode)
 end
 
 function InstStack:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
@@ -743,12 +754,11 @@ function InstStack:GLOBAL_SET(vNode:node.Ident_use, vIdentENV:node.Ident_def, vV
 	self:META_SET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), vValueTerm)
 end
 
-function InstStack:INJECT_GET(vNode:node.Ident_use, vInjectEnv:clazz.CodeEnv):Ret(clazz.RefineTerm)
-	const nDefineNode = vInjectEnv:lookupDefineIdent(vNode.pos, vNode[1])
-	assert(nDefineNode)
-	const nEnvTerm = self:SYMBOL_GET(vNode, nDefineNode, false)
-	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
-	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
+function InstStack:INJECT_GET(
+	vNode:node.Ident_use,
+	vInjectGetter:Fn(node.Ident_use):Ret(clazz.RefineTerm)
+):Ret(clazz.RefineTerm)
+	return vInjectGetter(vNode)
 end
 
 function InstStack:INJECT_AFTER(vNode:Union(node.Block, node.Stat))

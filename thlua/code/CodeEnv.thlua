@@ -27,6 +27,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vSubject:String, vChunkName:String, vV
 		_rootScope = false@OrFalse(node.Block),
 		_version = vVersion or -1,
 		_typingFn = "typing code not execute",
+		_injectFn = false,
 		_typingCode = false@OrFalse(String),
 	}, CodeEnv)
 
@@ -61,7 +62,6 @@ end
 
 function CodeEnv:prepare()
 	assert(#self._nodeList == 0, "node list has been setted")
-
 	-- 1. set line & column, parent
 	const nStack:List(node.IAstNode) = {}
 	self:visit(function(visitor, vNode)
@@ -178,12 +178,9 @@ function.pass CodeEnv:_genTypingCode():Ret(String)
 		nAstOrErr = nAstOrErr[2]
 		self._astOrErr = nAstOrErr
 	end
-	-- 2. prepare
 	self:prepare()
-	-- 1. refer visitor
 	const nSymbolVisitor = SymbolVisitor.new(self)
 	nSymbolVisitor:realVisit(self:getAstTree())
-	-- 3. hint gen visitor
 	const gener = HintGener.new(nAstOrErr)
 	return gener:genCode()
 end
@@ -243,7 +240,7 @@ function CodeEnv:getTypingCode()
 	return self._typingCode
 end
 
-function.pass CodeEnv:getTypingFn():Ret(Fn(clazz.BaseStack, clazz.RefineTerm, List(clazz.IAstNode), OrFalse(clazz.CodeEnv)):Ret(clazz.OpenFunction))
+function.pass CodeEnv:getTypingFn():Ret(Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction))
 	return self._typingFn
 end
 
@@ -285,22 +282,27 @@ function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_d
 	return nIdent]]
 end
 
-function CodeEnv:traceFunction(vPos:Integer):Ret(List(node.Function))
-	const nList:List(node.Function) = {}
-	local nCurFunc:OrNil(node.IAstNode) = nil
-	for _, func in ipairs(self._funcList) do
-		if func.pos <= vPos and vPos <= func.posEnd then
-			nCurFunc = func
+function CodeEnv:traceBlock(vPos:Integer):Ret(False):Ret(node.Block, List(node.Function))
+	local nRetBlock:OrFalse(node.Block) = false
+	for _, nBlock in ipairs(self._blockList) do
+		if nBlock.pos <= vPos and vPos <= nBlock.posEnd then
+			nRetBlock = nBlock
 			break
 		end
 	end
-	while nCurFunc do
-		if nCurFunc.tag == "Function" and vPos < nCurFunc.posEnd then
-			nList[#nList + 1] = nCurFunc @> node.Function
+	if not nRetBlock then
+		return false
+	else
+		const nList:List(node.Function) = {}
+		local nCurFunc:OrNil(node.IAstNode) = nRetBlock
+		while nCurFunc do
+			if nCurFunc.tag == "Function" and vPos < nCurFunc.posEnd then
+				nList[#nList + 1] = nCurFunc @> node.Function
+			end
+			nCurFunc = nCurFunc.parent
 		end
-		nCurFunc = nCurFunc.parent
+		return nRetBlock, nList
 	end
-	return nList
 end
 
 function CodeEnv:searchBlock(vPos:Integer):Ret(OrNil(node.Block))
