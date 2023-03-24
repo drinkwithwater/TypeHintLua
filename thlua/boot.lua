@@ -58,8 +58,8 @@ end
 -- run language server
 function boot.runServer(vMode)
 	boot.patch()
-	local Server = require "thlua.server.BaseServer"
-	local server = Server.new(vMode)
+	local Server = require "thlua.server.SlowServer"
+	local server = Server.new()
 
 	print=function(...)
 		--[[client:notify("window/logMessage", {

@@ -1,0 +1,67 @@
+
+const BaseServer = require "thlua.server.BaseServer"
+const class = require "thlua.class"
+
+(@do
+	let.lsp=import("thlua.server.protocol").lsp
+	let.node=import("thlua.code.Node").node
+end)
+
+const ApiServer = class@<lsp.ApiServer, false>(BaseServer)
+
+--[[
+function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
+	if self.initialize then
+		error("already initialized!")
+	else
+		self.initialize = true
+	end
+	const rootUri = vParams.rootUri
+	const root  = vParams.rootPath or (rootUri and self:uriToPath(rootUri))
+	self:info("Config.root = ", root, vParams.rootPath, vParams.rootUri)
+	self:info("Platform = ", self:getPlatform())
+	if root then
+		self:setRoot(root)
+	end
+	return {
+		capabilities = {
+			textDocumentSync = {
+				openClose = true,
+				change = 1, -- 1 is non-incremental, 2 is incremental
+				save = { includeText = true },
+			},
+			definitionProvider = true,
+			hoverProvider = true,
+			completionProvider = {
+				triggerCharacters = {".",":"},
+				resolveProvider = false
+			},
+			referencesProvider = true,
+			documentLocalSymbolProvider = false,
+			--documentHighlightProvider = false,
+			--workspaceLocalSymbolProvider = false,
+			--codeActionProvider = false,
+			--documentFormattingProvider = false,
+			--documentRangeFormattingProvider = false,
+			--renameProvider = false,
+		},
+	}
+end
+
+function ApiServer:onShutdown()
+	self.shutdown=true
+end
+
+function ApiServer:onExit()
+	if self.shutdown then
+		os.exit()
+	else
+		os.exit()
+	end
+end
+
+function ApiServer:onDidChange(vParams:DidChangeTextDocumentParams)
+end
+]]
+
+return ApiServer

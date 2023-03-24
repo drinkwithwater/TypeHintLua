@@ -19,7 +19,7 @@ function.open FileState:ctor(vFileName:String)
 	self._version = (-1) @Integer
 end
 
-function FileState:syncContent(vContent:String, vVersion:Integer)
+function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)
 	self._version = vVersion
 	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
 	const ok, err = pcall(function()
@@ -29,9 +29,11 @@ function FileState:syncContent(vContent:String, vVersion:Integer)
 		self._succEnv = nCodeEnv
 		self._errOrEnv = nCodeEnv
 		self._splitCode = nCodeEnv
+		return true
 	else
 		self._errOrEnv = err
 		self._splitCode = SplitCode.new(vContent)
+		return false
 	end
 end
 

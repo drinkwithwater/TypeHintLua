@@ -17,44 +17,24 @@ end)
 
 const BaseServer = class@<lsp.BaseServer, clazz.ILoader>()
 
-function.open BaseServer:ctor(vMode:OrNil("fast", "slow"))
+function.open BaseServer:ctor()
 	self.initialize=false@Boolean
 	self.shutdown=false@Boolean
-	self._isFast=vMode == "fast" and true or false
 	self._root=""@String
-	self._runtime=nil@OrNil(clazz.BaseRuntime)
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 end
 
-function BaseServer:syncFile(vContent:String, vFileName:String, vVersion:Integer)
+function.pass BaseServer:getMethodHandler():Ret(Truth)
+	return methodHandler
+end
+
+function BaseServer:syncFile(vContent:String, vFileName:String, vVersion:Integer):Ret(Boolean)
 	local nFileState = self._fileStateDict[vFileName]
 	if not nFileState then
 		nFileState = FileState.new(vFileName)
 		self._fileStateDict[vFileName] = nFileState
 	end
-	nFileState:syncContent(vContent, vVersion)
-end
-
-function BaseServer:rerun(vFileName:String)
-	local ok, mainFileName = self:thluaSearch("main")
-	if not ok then
-		mainFileName = vFileName
-		self:info("main.thlua not found, run single file:", mainFileName)
-	else
-		self:info("main.thlua found:", mainFileName)
-	end
-	const nRuntime=self._isFast and CompletionRuntime.new(self) or DiagnosticRuntime.new(self)
-	const ok, exc = nRuntime:main(mainFileName)
-	if not ok then
-		if not self._runtime then
-			self._runtime = nRuntime
-		end
-		self:publishException(tostring(exc))
-		return
-	end
-	self._runtime = nRuntime
-	collectgarbage()
-	self:publishNormal()
+	return nFileState:syncContent(vContent, vVersion)
 end
 
 function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
@@ -109,7 +89,7 @@ function.pass BaseServer:rpc()
 		end
 		return
 	end
-	const handler = methodHandler[methodName]
+	const handler = self:getMethodHandler()[methodName]
 	if not handler then
 		if nId then
 			self:writeError(nId, ErrorCodes.MethodNotFound, "method not found", "method="..tostring(methodName))
@@ -202,80 +182,6 @@ function BaseServer:notify(vMethod:String, vParams:Truth):Ret()
 		jsonrpc = "2.0",
 		method = vMethod,
 		params = vParams,
-	})
-end
-
-function BaseServer:publishNormal()
-	const nRuntime = self._runtime
-	if not DiagnosticRuntime.is(nRuntime) then
-		return
-	end
-	local nFileToList = nRuntime:getAllDiagnostic()
-	for nFileName, nFileState in pairs(self._fileStateDict) do
-		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
-		local nVersion = nFileState:getVersion()
-		local nDiaList:List(lsp.Diagnostic) = {}
-		for _, dia in ipairs(nRawDiaList) do
-			local nNode = dia.node
-			local nMsg = dia.msg
-			nDiaList[#nDiaList + 1] = {
-				range={
-					start={
-						line=nNode.l-1,
-						character=nNode.c-1,
-					},
-					["end"]={
-						line=nNode.l-1,
-						character=nNode.c,
-					}
-				},
-				message=nMsg,
-				severity=dia.severity,
-			}
-		end
-		self:_write({
-			jsonrpc = "2.0",
-			method = "textDocument/publishDiagnostics",
-			params = {
-				uri=self:pathToUri(nFileName),
-				version=nVersion,
-				diagnostics=json.array(nDiaList),
-			},
-		})
-	end
-end
-
-function BaseServer:publishException(vException:Union(clazz.Exception, String))
-	local nNode:OrNil(clazz.IAstNode) = nil
-	local nMsg:String = ""
-	if Exception.is(vException) then
-		nNode = vException.node or self._runtime!:getNode()
-		nMsg = vException.msg or "exception's msg field is missing"
-	else
-		nNode = self._runtime!:getNode()
-		nMsg = "root error:"..tostring(vException)
-	end
-	const nFileState = self._fileStateDict[nNode.path]
-	self:_write({
-		jsonrpc = "2.0",
-		method = "textDocument/publishDiagnostics",
-		params = {
-			uri=self:pathToUri(nNode.path),
-			version=nFileState:getVersion(),
-			diagnostics={ {
-				range={
-					start={
-						line=nNode.l-1,
-						character=nNode.c-1,
-					},
-					["end"]={
-						line=nNode.l-1,
-						character=nNode.c,
-					}
-				},
-				message=nMsg,
-			} }
-		},
 	})
 end
 
@@ -373,10 +279,6 @@ function BaseServer:pathToUri(vPath:String):Ret(String)
 	else
 		return "file://"..vPath
 	end
-end
-
-function BaseServer:checkRuntime()
-	return assert(self._runtime)
 end
 
 return BaseServer
