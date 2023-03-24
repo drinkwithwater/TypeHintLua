@@ -14,18 +14,12 @@ const FileState = class@<lsp.FileState, false>()
 function.open FileState:ctor(vFileName:String)
 	self._succEnv = false@OrFalse(clazz.CodeEnv)
 	self._fileName = vFileName
-	self._content = ""@String
 	self._splitCode = nil@!clazz.SplitCode
 	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
 end
 
-function FileState:lcToPos(l:Integer, c:Integer):Ret(Integer)
-	return self._splitCode:lcToPos(l,c)
-end
-
 function FileState:syncContent(vContent:String, vVersion:Integer)
-	self._content = vContent
 	self._version = vVersion
 	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
 	const ok, err = pcall(function()
@@ -54,8 +48,8 @@ function FileState:checkLatestEnv():Ret(clazz.CodeEnv)
 	end
 end
 
-function FileState:getContent():Ret(String)
-	return self._content
+function FileState:getSplitCode():Ret(clazz.SplitCode)
+	return self._splitCode
 end
 
 function FileState:getVersion():Ret(Integer)
