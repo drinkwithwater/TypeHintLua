@@ -1,0 +1,148 @@
+
+const TriggerCode = require "thlua.code.TriggerCode"
+const json = require "thlua.server.json"
+const Exception = require "thlua.Exception"
+const ErrorCodes = require "thlua.server.protocol".ErrorCodes
+const CompletionRuntime = require "thlua.runtime.CompletionRuntime"
+const CodeEnv = require "thlua.code.CodeEnv"
+const FileState = require "thlua.server.FileState"
+const ApiServer = require "thlua.server.ApiServer"
+const class = require "thlua.class"
+
+(@do
+	let.clazz=import("thlua.type.TypeClass").clazz
+	let.lsp=import("thlua.server.protocol").lsp
+	let.node=import("thlua.code.Node").node
+end)
+
+const FastServer = class@<lsp.FastServer, false>(ApiServer)
+
+function.open FastServer:ctor()
+	self._runtime=nil@OrNil(clazz.CompletionRuntime)
+end
+
+function FastServer:rerun(vFileName:String)
+	local ok, mainFileName = self:thluaSearch("main")
+	if not ok then
+		mainFileName = vFileName
+		self:info("main.thlua not found, run single file:", mainFileName)
+	else
+		self:info("main.thlua found:", mainFileName)
+	end
+	const nRuntime=CompletionRuntime.new(self)
+	const ok, exc = nRuntime:main(mainFileName)
+	if not ok then
+		if not self._runtime then
+			self._runtime = nRuntime
+		end
+		return
+	end
+	self._runtime = nRuntime
+	collectgarbage()
+end
+
+function FastServer:checkRuntime():Ret(clazz.CompletionRuntime)
+	return assert(self._runtime)
+end
+
+function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
+	const nContentChange = vParams.contentChanges[1]
+	if nContentChange then
+		const nContent = nContentChange.text
+		const nFileName = self:uriToPath(vParams.textDocument.uri)
+		const nOkay = self:syncFile(nContent, nFileName, vParams.textDocument.version)
+		if nOkay then
+			self:rerun(nFileName)
+		end
+	else
+		self:error("content change is empty onDidChange")
+	end
+end
+
+function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
+	const nContent = vParams.textDocument.text
+	const nFileName = self:uriToPath(vParams.textDocument.uri)
+	self:syncFile(nContent, nFileName, vParams.textDocument.version)
+	self:rerun(nFileName)
+end
+
+function FastServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
+end
+
+function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Location))
+	const nFileName = self:uriToPath(vParams.textDocument.uri)
+	const nFileState = self:checkFileState(nFileName)
+	const nSuccEnv = nFileState:getSuccEnv()
+	if not nSuccEnv then
+		return nil
+	end
+	const nSplitCode = nFileState:getSplitCode()
+	const nPos = nSplitCode:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
+	const nNode = nSuccEnv:searchIdent(nPos)
+	if not nNode then
+		return nil
+	end
+	const nDefineNode = nNode.kind == "def" and nNode or nNode.defineIdent
+	if not nDefineNode then
+		self:error("global ident TODO")
+		return nil
+	end
+	return {
+		uri=vParams.textDocument.uri,
+		range={
+			start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
+			["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
+		}
+	}
+end
+
+function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(List(lsp.CompletionItem))
+	const nCompletionRuntime = self._runtime!
+	-- 1. get succ env
+	const nRetList:List(lsp.CompletionItem) = {}
+	const nFileName = self:uriToPath(vParams.textDocument.uri)
+	const nFileState = self:checkFileState(nFileName)
+	const nSuccEnv = nFileState:getSuccEnv()
+	if not nSuccEnv then
+		return json.array(nRetList)
+	end
+	-- 2. make inject fn
+	const nSplitCode = nFileState:getSplitCode()
+	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
+	const nContent = nSplitCode:getContent():sub(1, nPos)
+	const nTriggerCode = TriggerCode.new(nContent, nFileName, 0)
+	const nPos, nInjectFn = nTriggerCode:tryGenInjectFn()
+	if not nPos then
+		return json.array(nRetList)
+	end
+	-- 3. run inject
+	const nType = nCompletionRuntime:injectType(nPos, nSuccEnv, nInjectFn)
+	for k,v in pairs(nType:getCompletion()) do
+		nRetList[#nRetList + 1] = {
+			label=k
+		}
+	end
+	return json.array(nRetList)
+end
+
+function FastServer:onHover(vParams:lsp.HoverParams)
+	--[[
+	local nFileName = self:uriToPath(vParams.textDocument.uri)
+	local nDefineNode = self:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
+	if nDefineNode then
+		local nLocalSymbolSet = self:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
+		local l = {}
+		for nLocalSymbol, _ in pairs(nLocalSymbolSet) do
+			l[#l + 1] = tostring(nLocalSymbol:getType())
+		end
+		local value = table.concat(l, ",")
+		return {
+			contents = {
+				kind="markdown",
+				value=value
+			} @ MarkupContent
+		}
+	end]]
+end
+
+return FastServer

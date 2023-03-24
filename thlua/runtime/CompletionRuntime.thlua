@@ -14,7 +14,7 @@ const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
 	self._focusNodeSet = {} @ Dict(node.Function, True)
-	self._nodeToBranch = {} @ Dict(node.Block, clazz.Branch)
+	self._nodeToBranch = {} @ Dict(node.Block, List(clazz.Branch))
 end
 
 function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
@@ -22,10 +22,17 @@ function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
 end
 
 function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
-	self._nodeToBranch[vNode] = vBranch
+	local nList = self._nodeToBranch[vNode]
+	if not nList then
+		nList = {vBranch}
+		self._nodeToBranch[vNode] = nList
+	else
+		nList[#nList + 1] = vBranch
+	end
 end
 
 function CompletionRuntime:injectType(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:InjectFn):Ret(clazz.UAtomUnion)
+	-- 1. trace block and focus
 	const nBlockNode, nFuncList = vCurEnv:traceBlock(vPos)
 	if not nBlockNode then
 		return self._manager.type.Never
@@ -34,9 +41,15 @@ function CompletionRuntime:injectType(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:I
 	for k,v in pairs(nFuncList) do
 		nSet[v] = true
 	end
+	-- 2. schedule to activate block & function
 	self._rootStack:reSchedule()
+	const nBranchList = self._nodeToBranch[nBlockNode]
+	if not nBranchList then
+		return self._manager.type.Never
+	end
+	-- 3. run inject fn in each branches
 	const nCollection = self._manager:TypeCollection()
-	for nBlock, nBranch in pairs(self._nodeToBranch) do
+	for _, nBranch in pairs(nBranchList) do
 		const nStack = nBranch:getStack()
 		const nOpenFn = vFn(nStack, function(vIdent)
 			-- 1. lookup local symbol

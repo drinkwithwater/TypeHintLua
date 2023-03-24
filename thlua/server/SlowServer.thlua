@@ -1,6 +1,5 @@
 
 const json = require "thlua.server.json"
-const methodHandler = require "thlua.server.methodHandler"
 const Exception = require "thlua.Exception"
 const ErrorCodes = require "thlua.server.protocol".ErrorCodes
 const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
@@ -19,10 +18,6 @@ const SlowServer = class@<lsp.SlowServer, false>(ApiServer)
 
 function.open SlowServer:ctor()
 	self._runtime=nil@OrNil(clazz.DiagnosticRuntime)
-end
-
-function SlowServer:getMethodHandler():Ret(Truth)
-	return methodHandler
 end
 
 function SlowServer:publishNormal()
@@ -123,6 +118,30 @@ end
 
 function SlowServer:checkRuntime():Ret(clazz.DiagnosticRuntime)
 	return assert(self._runtime)
+end
+
+function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
+	const nContentChange = vParams.contentChanges[1]
+	if nContentChange then
+		const nContent = nContentChange.text
+		const nFileName = self:uriToPath(vParams.textDocument.uri)
+		self:syncFile(nContent, nFileName, vParams.textDocument.version)
+	else
+		self:error("content change is empty onDidChange")
+	end
+	--self:rerun(nFileName)
+end
+
+function SlowServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
+	const nContent = vParams.textDocument.text
+	const nFileName = self:uriToPath(vParams.textDocument.uri)
+	self:syncFile(nContent, nFileName, vParams.textDocument.version)
+	self:rerun(nFileName)
+end
+
+function SlowServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
+	const nFileName = self:uriToPath(vParams.textDocument.uri)
+	self:rerun(nFileName)
 end
 
 return SlowServer

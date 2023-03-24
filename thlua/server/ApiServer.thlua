@@ -5,11 +5,191 @@ const class = require "thlua.class"
 (@do
 	let.lsp=import("thlua.server.protocol").lsp
 	let.node=import("thlua.code.Node").node
+
+	lsp.Position = Struct {
+		line=Number,
+		character=Number,
+	}
+
+	lsp.Range=Struct {
+		start=lsp.Position,
+		["end"]=lsp.Position,
+	}
+
+	let.TextDocumentIdentifier = Struct {
+		uri=String,
+	}
+
+	lsp.VersionedTextDocumentIdentifier = Struct {
+		version=Number,
+		uri=String,
+	}
+
+	do
+		let.TextDocumentPositionParams = Interface {
+			textDocument=TextDocumentIdentifier
+		}
+
+		let.ProgressToken = Union(Integer, String)
+
+		let.WorkDoneProgressParams = Interface {
+			workDoneToke=OrNil(ProgressToken),
+		}
+
+		let.PartialResultParams = Interface {
+			partialResultToken=OrNil(ProgressToken)
+		}
+
+		lsp.ReferenceParams = ExtendStruct ({
+			context = Struct {
+				includeDecleration = Boolean,
+			}
+		}, let.TextDocumentPositionParams, let.WorkDoneProgressParams, let.PartialResultParams)
+
+		lsp.TypeDefinitionParams = ExtendStruct ({
+		}, let.TextDocumentPositionParams, let.WorkDoneProgressParams, let.PartialResultParams)
+
+	end
+
+	lsp.DidChangeTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+		contentChanges=List(Struct {
+			range=lsp.Range,
+			rangeLength=OrNil(Number),
+			text=String,
+		}),
+	}
+
+	lsp.DidSaveTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+		text=OrNil(String),
+	}
+
+	lsp.DidCloseTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+	}
+
+	lsp.DidOpenTextDocumentParams = Struct {
+		textDocument = Struct {
+			uri=String,
+			languageId=String,
+			version=Number,
+			text=String,
+		}
+	}
+
+	lsp.DefinitionParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=lsp.Position,
+	}
+
+	lsp.HoverParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=lsp.Position,
+	}
+
+	lsp.CompletionParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=lsp.Position,
+		context=OrNil(Struct {
+			triggerKind=Union(1,2,3),
+			triggerCharacter=OrNil(String),
+		}),
+	}
+
+	let.PublishDiagnosticsParams = Struct {
+		uri=String,
+		version=OrNil(Number),
+		diagnostics=List(Struct {
+			range=lsp.Range,
+			severity=OrNil(Struct {
+			}),
+			code=OrNil(Union(Number, String)),
+			codeDescription=OrNil(Struct {
+				href=String,
+			}),
+			source=OrNil(String),
+			message=String,
+			tags=OrNil(List(Union(1,2))),
+			-- relatedInformation
+			-- data
+		}),
+	}
+
+	lsp.Location = Struct {
+		uri=String,
+		range=lsp.Range,
+	}
+
+	lsp.CompletionItem = Struct {
+		label=String,
+		labelDetails=OrNil(Struct{}),
+		kind=Union(Nil,1,2,3,4,5,6,7,8),
+		--tags=CompletionItemTag,
+		detail=OrNil(String),
+		documentation=OrNil(String),
+		deprecated=OrNil(Boolean),
+		preselect=OrNil(Boolean),
+		sortText=OrNil(String),
+		filterText=OrNil(String),
+		insertText=OrNil(String),
+		--....
+	}
+
+	let.MarkupContent = Struct {
+		kind=Union("markdown", "plaintext"),
+		value=String,
+	}
+
 end)
 
 const ApiServer = class@<lsp.ApiServer, false>(BaseServer)
 
---[[
+function.open ApiServer:ctor()
+	self._methodHandler = {
+		initialize=function(vParam)
+			return self:onInitialize(vParam)
+		end,
+		shutdown=function()
+			self:onShutdown()
+		end,
+		exit=function()
+			self:onExit()
+		end,
+		["textDocument/didOpen"]=function(vParam)
+			return self:onDidOpen(vParam)
+		end,
+		["textDocument/didChange"]=function(vParam)
+			return self:onDidChange(vParam)
+		end,
+		["textDocument/didSave"]=function(vParam)
+			return self:onDidSave(vParam)
+		end,
+		["textDocument/didClose"]=function(vParam)
+			return self:onDidClose(vParam)
+		end,
+		["textDocument/completion"]=function(vParam)
+			return self:onCompletion(vParam)
+		end,
+		["textDocument/definition"]=function(vParam)
+			return self:onDefinition(vParam)
+		end,
+		["textDocument/typeDefinition"]=function(vParam)
+			return self:onTypeDefinition(vParam)
+		end,
+		["textDocument/references"]=function(vParam)
+			return self:onReferences(vParam)
+		end,
+		["textDocument/hover"]=function(vParam)
+			return self:onHover(vParam)
+		end,
+	}
+end
+
+function ApiServer:getMethodHandler():Ret(Truth)
+	return self._methodHandler
+end
+
 function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
 	if self.initialize then
 		error("already initialized!")
@@ -60,8 +240,33 @@ function ApiServer:onExit()
 	end
 end
 
-function ApiServer:onDidChange(vParams:DidChangeTextDocumentParams)
+function ApiServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 end
-]]
+
+function ApiServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
+end
+
+function ApiServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
+end
+
+function ApiServer:onDidClose(vParams:lsp.DidCloseTextDocumentParams)
+end
+
+function ApiServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Location))
+	return nil
+end
+
+function ApiServer:onCompletion(vParams:lsp.CompletionParams):Ret(List(lsp.CompletionItem))
+	return {}
+end
+
+function ApiServer:onHover(vParams:lsp.HoverParams)
+end
+
+function ApiServer:onReferences(vParams:lsp.ReferenceParams)
+end
+
+function ApiServer:onTypeDefinition(vParams:lsp.TypeDefinitionParams)
+end
 
 return ApiServer
