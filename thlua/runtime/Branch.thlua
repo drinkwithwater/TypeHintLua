@@ -1,4 +1,5 @@
 
+const ImmutVariable = require "thlua.term.ImmutVariable"
 const LocalSymbol = require "thlua.term.LocalSymbol"
 const VariableCase = require "thlua.term.VariableCase"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -12,14 +13,15 @@ end)
 
 Branch.__index = Branch
 Branch.__tostring = function(self):Ret(String)
-	return "Branch"
+	return "Branch@"..tostring(self._node)
 end
 
-function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:clazz.VariableCase, vPreBranch:OrFalse(clazz.Branch))
+function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:clazz.VariableCase, vPreBranch:OrFalse(clazz.Branch), vNode:OrNil(clazz.IAstNode))
 	(@let.VariableDict = Dict(clazz.LocalSymbol, clazz.ImmutVariable))
 	(@let.SymbolDict = Dict(node.Ident_def, clazz.USymbol))
 	const self = setmetatable({.class
 		_stack=vStack,
+		_node=vNode or false,
 		_stop=false@Boolean,
 		_case=vVariableCase,
 		_nodeToSymbol={}@SymbolDict,
@@ -59,6 +61,27 @@ function Branch:mutGet(vContext:clazz.OperContext, vLocalSymbol:clazz.LocalSymbo
 		self.symbolToVariable[vLocalSymbol] = nImmutVariable
 	end
 	return self:immutGet(vContext, nImmutVariable)
+end
+
+function Branch:SYMBOL_GET(vNode:clazz.IAstNode, vDefineNode:node.Ident_def, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
+	const nSymbolContext = self._stack:newOperContext(vNode)
+	const nSymbol = self:getSymbolByNode(vDefineNode)
+	if LocalSymbol.is(nSymbol) then
+		return self:mutGet(nSymbolContext, nSymbol)
+	elseif ImmutVariable.is(nSymbol) then
+		return self:immutGet(nSymbolContext, nSymbol)
+	else
+		const nTerm = nSymbol:getRefineTerm()
+		if nTerm then
+			return self:immutGet(nSymbolContext, nTerm:attachImmutVariable())
+		else
+			if not vAllowAuto then
+				error(nSymbolContext:newException("auto term can't be used when it's undeduced"))
+			else
+				return nSymbol
+			end
+		end
+	end
 end
 
 function Branch:setSymbolByNode(vNode:node.Ident_def, vSymbol:clazz.USymbol):Ret(clazz.USymbol)

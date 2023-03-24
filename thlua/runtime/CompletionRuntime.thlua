@@ -1,4 +1,6 @@
 
+const TermTuple = require "thlua.tuple.TermTuple"
+const RefineTerm = require "thlua.term.RefineTerm"
 const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const class = require "thlua.class"
 
@@ -23,39 +25,60 @@ function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	self._nodeToBranch[vNode] = vBranch
 end
 
-function CompletionRuntime:focus(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:InjectFn)
+function CompletionRuntime:injectType(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:InjectFn):Ret(clazz.UAtomUnion)
 	const nBlockNode, nFuncList = vCurEnv:traceBlock(vPos)
 	if not nBlockNode then
-		return
+		return self._manager.type.Never
 	end
 	const nSet = self._focusNodeSet
 	for k,v in pairs(nFuncList) do
 		nSet[v] = true
 	end
 	self._rootStack:reSchedule()
+	const nCollection = self._manager:TypeCollection()
 	for nBlock, nBranch in pairs(self._nodeToBranch) do
 		const nStack = nBranch:getStack()
 		const nOpenFn = vFn(nStack, function(vIdent)
+			-- 1. lookup local symbol
 			const nName = vIdent[1]
 			local nDefineIdent = nBlockNode.symbolTable[nName]
 			while nDefineIdent and nDefineIdent.pos > vPos do
 				nDefineIdent = nDefineIdent.lookupIdent
 			end
 			if nDefineIdent then
-				print("TODO use branch")
-				return nStack:SYMBOL_GET(vIdent, nDefineIdent, false)
+				const nAutoTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
+				if RefineTerm.is(nAutoTerm) then
+					return nAutoTerm
+				else
+					return nStack:NIL_TERM(vIdent)
+				end
 			end
+			-- 2. lookup global symbol
 			const nName = "_ENV"
 			local nDefineIdent = nBlockNode.symbolTable[nName]
 			while nDefineIdent and nDefineIdent.pos > vPos do
 				nDefineIdent = nDefineIdent.lookupIdent
 			end
 			if nDefineIdent then
-				return nStack:GLOBAL_GET(vIdent, nDefineIdent)
+				const nEnvTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
+				assert(RefineTerm.is(nEnvTerm), "auto can't be used here")
+				const nAutoTerm = nStack:META_GET(vIdent, nEnvTerm, nStack:LITERAL_TERM(vIdent, vIdent[1]), false)
+				if RefineTerm.is(nAutoTerm) then
+					return nAutoTerm
+				else
+					return nStack:NIL_TERM(vIdent)
+				end
+			else
+				return nStack:NIL_TERM(vIdent)
 			end
-			return nStack:NIL_TERM(vIdent)
 		end)
+		const nContext = self._rootStack:newNoPushContext(self._node)
+		const nTermTuple = nContext:FixedTermTuple({})
+		const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple)
+		const nRetTerm = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
+		nCollection:put(nRetTerm:getType())
 	end
+	return nCollection:mergeToAtomUnion()
 end
 
 return CompletionRuntime

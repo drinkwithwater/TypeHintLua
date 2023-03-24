@@ -49,7 +49,7 @@ FunctionBuilder.__index=FunctionBuilder
 
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vStack:clazz.BaseStack,
-	vNode:clazz.IAstNode,
+	vNode:Union(node.Chunk, node.Function),
 	vUpState:OrFalse(clazz.StackUpState),
 	vInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
@@ -133,9 +133,11 @@ function FunctionBuilder:_makeRetTuples(
 end
 
 function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.AutoMemberFunction, clazz.PolyFunction))
+	const nNode = self._node
+	assert(nNode.tag == "Function")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
-		const nAutoFn = self._stack:newAutoFunction(self._node, self._upState)
+		const nAutoFn = self._stack:newAutoFunction(nNode, self._upState)
 		const nNewStack = nAutoFn:getStack()
 		nAutoFn:buildAsync(function()
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, vSelfType)
@@ -238,6 +240,8 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 end
 
 function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyFunction))
+	const nNode = self._node
+	assert(nNode.tag == "Function")
 	const nPrefixHint = self._prefixHint
 	local nReferOrNil:OrNil(clazz.TypeReference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
@@ -314,7 +318,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 			end
 			return nExtendsTable, nImplementsInterface
 		end
-		const nFactory = self._stack:newClassFactory(self._node, self._upState)
+		const nFactory = self._stack:newClassFactory(nNode, self._upState)
 		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getStack()
 		local nGenParam:OrNil(clazz.GenParam) = nil

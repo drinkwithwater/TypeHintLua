@@ -107,12 +107,12 @@ function BaseStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 	return self:getSealStack():getClassTable()
 end
 
-function BaseStack:newAutoFunction(vNode:clazz.IAstNode, ...):Ret(clazz.AutoFunction)
+function BaseStack:newAutoFunction(vNode:Union(node.Function, node.Root), ...):Ret(clazz.AutoFunction)
 	const nAutoFn = AutoFunction.new(self._manager, vNode, self, ...)
 	return nAutoFn
 end
 
-function BaseStack:newClassFactory(vNode:clazz.IAstNode, ...):Ret(clazz.ClassFactory)
+function BaseStack:newClassFactory(vNode:node.Function, ...):Ret(clazz.ClassFactory)
 	const nFactory = ClassFactory.new(self._manager, vNode, self, ...)
 	return nFactory
 end
@@ -213,7 +213,7 @@ function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn(), vNo
 	const nStack = self._branchStack
 	const nNewLen = #nStack + 1
 	const nOldBranch = self._curBranch
-	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch)
+	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch, vNode)
 	if vNode then
 		assert(vNode.tag == "Block")
 		self._runtime:recordBranch(vNode, nNewBranch)

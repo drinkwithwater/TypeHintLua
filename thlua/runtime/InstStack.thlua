@@ -319,7 +319,7 @@ function InstStack:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(
 	return vTerm:getType()
 end
 
-function InstStack:FUNC_NEW(vNode:clazz.IAstNode,
+function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 	vFnNewInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
@@ -402,25 +402,7 @@ function InstStack:SYMBOL_SET(vNode:node.Ident_use, vDefineNode:node.Ident_def, 
 end
 
 function InstStack:SYMBOL_GET(vNode:node.Ident_use, vDefineNode:node.Ident_def, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
-	const nSymbolContext = self:newOperContext(vNode)
-	const nBranch = self:_topBranch()
-	const nSymbol = nBranch:getSymbolByNode(vDefineNode)
-	if LocalSymbol.is(nSymbol) then
-		return nBranch:mutGet(nSymbolContext, nSymbol)
-	elseif ImmutVariable.is(nSymbol) then
-		return nBranch:immutGet(nSymbolContext, nSymbol)
-	else
-		const nTerm = nSymbol:getRefineTerm()
-		if nTerm then
-			return nBranch:immutGet(nSymbolContext, nTerm:attachImmutVariable())
-		else
-			if not vAllowAuto then
-				error(nSymbolContext:newException("auto term can't be used when it's undeduced"))
-			else
-				return nSymbol
-			end
-		end
-	end
+	return self:_topBranch():SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
 end
 
 function InstStack:PARAM_PACKOUT(
