@@ -59,9 +59,9 @@ function.open BaseStack:ctor(
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
-	const nRootBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
-	self._curBranch=nRootBranch
-	self._branchStack={self._curBranch}@List(clazz.Branch)
+	self._upState = vUpState
+	const nTempBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
+	self._branchStack={nTempBranch}@List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
 	self._retList={} @ List(clazz.FixedTermTuple)
 end
@@ -211,23 +211,19 @@ end
 
 function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn(), vNode:OrNil(node.Block)):Ret(clazz.Branch)
 	const nStack = self._branchStack
-	const nNewLen = #nStack + 1
-	const nOldBranch = self._curBranch
+	const nLen = #nStack
+	const nNewLen = nLen + 1
+	const nOldBranch = nStack[nLen]!
 	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch, vNode)
-	if vNode then
-		assert(vNode.tag == "Block")
-		self._runtime:recordBranch(vNode, nNewBranch)
-	end
 	nStack[nNewLen] = nNewBranch
-	self._curBranch = nNewBranch
 	vFunc()
 	nStack[nNewLen] = nil
-	self._curBranch = nOldBranch
 	return nNewBranch
 end
 
 function BaseStack:_topBranch():Ret(clazz.Branch)
-	return self._curBranch
+	const nStack = self._branchStack
+	return nStack[#nStack]!
 end
 
 function BaseStack:nativeError()

@@ -16,7 +16,7 @@ Branch.__tostring = function(self):Ret(String)
 	return "Branch@"..tostring(self._node)
 end
 
-function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:clazz.VariableCase, vPreBranch:OrFalse(clazz.Branch), vNode:OrNil(clazz.IAstNode))
+function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:clazz.VariableCase, vPreBranch:OrFalse(clazz.Branch), vNode:OrNil(node.Block))
 	(@let.VariableDict = Dict(clazz.LocalSymbol, clazz.ImmutVariable))
 	(@let.SymbolDict = Dict(node.Ident_def, clazz.USymbol))
 	const self = setmetatable({.class
@@ -33,6 +33,10 @@ function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:cl
 			self.symbolToVariable = setmetatable({}, {__index=vPreBranch.symbolToVariable}) @ VariableDict
 		end
 		self._nodeToSymbol = setmetatable({}, {__index=vPreBranch._nodeToSymbol})
+	end
+	if vNode then
+		assert(vNode.tag == "Block")
+		vStack:getRuntime():recordBranch(vNode, self)
 	end
 	return self
 end

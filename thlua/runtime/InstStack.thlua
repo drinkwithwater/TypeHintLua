@@ -39,9 +39,12 @@ function InstStack:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
 	return AutoFlag
 end
 
-function InstStack:BEGIN(vLexStack:clazz.BaseStack, vRegionNode:clazz.IAstNode):Ret(clazz.InstStack, Dict(clazz.IAstNode, clazz.USymbol), clazz.SpaceTable, clazz.SpaceTable)
+function InstStack:BEGIN(vLexStack:clazz.BaseStack, vBlockNode:node.Block):Ret(clazz.InstStack, Dict(clazz.IAstNode, clazz.USymbol), clazz.SpaceTable, clazz.SpaceTable)
 	assert(not self._namespace, "context can only begin once")
-	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vRegionNode)
+	const nUpState = self._upState
+	const nRootBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, vBlockNode)
+	self._branchStack[1]=nRootBranch
+	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vBlockNode)
 	self._namespace = nSpace
 	return self, {}, nSpace.localExport, nSpace.globalExport
 end
