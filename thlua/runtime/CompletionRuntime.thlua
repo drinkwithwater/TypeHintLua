@@ -8,6 +8,7 @@ const class = require "thlua.class"
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 	let.InjectFn = import("thlua.code.TriggerCode").InjectFn
+	let.lsp=import("thlua.server.protocol").lsp
 end)
 
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
@@ -31,19 +32,15 @@ function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	end
 end
 
-function CompletionRuntime:injectType(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:InjectFn):Ret(clazz.UAtomUnion)
-	-- 1. trace block and focus
-	const nBlockNode, nFuncList = vCurEnv:traceBlock(vPos)
-	if not nBlockNode then
-		return self._manager.type.Never
-	end
+function CompletionRuntime:injectType(vServer:lsp.FastServer, vTracePos:Integer, vBlockNode:node.Block, vFuncList:List(node.Function), vFn:InjectFn):Ret(clazz.UAtomUnion)
+	-- 1. set focus functions
 	const nSet = self._focusNodeSet
-	for k,v in pairs(nFuncList) do
+	for k,v in pairs(vFuncList) do
 		nSet[v] = true
 	end
 	-- 2. schedule to activate block & function
 	self._rootStack:reSchedule()
-	const nBranchList = self._nodeToBranch[nBlockNode]
+	const nBranchList = self._nodeToBranch[vBlockNode]
 	if not nBranchList then
 		return self._manager.type.Never
 	end
@@ -54,8 +51,8 @@ function CompletionRuntime:injectType(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:I
 		const nOpenFn = vFn(nStack, function(vIdent)
 			-- 1. lookup local symbol
 			const nName = vIdent[1]
-			local nDefineIdent = nBlockNode.symbolTable[nName]
-			while nDefineIdent and nDefineIdent.pos > vPos do
+			local nDefineIdent = vBlockNode.symbolTable[nName]
+			while nDefineIdent and nDefineIdent.pos > vTracePos do
 				nDefineIdent = nDefineIdent.lookupIdent
 			end
 			if nDefineIdent then
@@ -68,8 +65,8 @@ function CompletionRuntime:injectType(vPos:Integer, vCurEnv:clazz.CodeEnv, vFn:I
 			end
 			-- 2. lookup global symbol
 			const nName = "_ENV"
-			local nDefineIdent = nBlockNode.symbolTable[nName]
-			while nDefineIdent and nDefineIdent.pos > vPos do
+			local nDefineIdent = vBlockNode.symbolTable[nName]
+			while nDefineIdent and nDefineIdent.pos > vTracePos do
 				nDefineIdent = nDefineIdent.lookupIdent
 			end
 			if nDefineIdent then

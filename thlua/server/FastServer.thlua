@@ -111,12 +111,16 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(List(lsp.Comp
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
 	const nContent = nSplitCode:getContent():sub(1, nPos)
 	const nTriggerCode = TriggerCode.new(nContent, nFileName, 0)
-	const nPos, nInjectFn = nTriggerCode:tryGenInjectFn()
-	if not nPos then
+	const nTracePos, nTraceList, nInjectFn = nTriggerCode:tryGenInjectFn()
+	if not nTracePos then
+		return json.array(nRetList)
+	end
+	const nBlockNode, nFuncList = nSuccEnv:traceBlock(nTraceList)
+	if not nBlockNode then
 		return json.array(nRetList)
 	end
 	-- 3. run inject
-	const nType = nCompletionRuntime:injectType(nPos, nSuccEnv, nInjectFn)
+	const nType = nCompletionRuntime:injectType(self, nTracePos, nBlockNode, nFuncList, nInjectFn)
 	for k,v in pairs(nType:getCompletion()) do
 		nRetList[#nRetList + 1] = {
 			label=k
