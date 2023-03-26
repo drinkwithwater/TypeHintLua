@@ -187,13 +187,32 @@ local TagToVisiting:let.RealTraverser = {
 			self:realVisit(nBlockNode)
 		end)
 	end,
+	-- hint scope
+	LongHintScope=function(self, node)
+		const nEvalScriptList = node.evalScriptList
+		for i=1, #nEvalScriptList do
+			self:realVisit(nEvalScriptList[i]!)
+		end
+	end,
+	ShortHintScope=function(self, node)
+		const nEvalScriptList = node.evalScriptList
+		for i=1, #nEvalScriptList do
+			self:realVisit(nEvalScriptList[i]!)
+		end
+	end,
+	StatHintScope=function(self, node)
+		const nEvalScriptList = node.evalScriptList
+		for i=1, #nEvalScriptList do
+			self:realVisit(nEvalScriptList[i]!)
+		end
+	end,
 }
 
 const SymbolVisitor = VisitorExtend(TagToVisiting)
 
 function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vFunc:Fn())
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
-	vBlockNode.scope_children = {}
+	vBlockNode.subBlockList = {}
 	const nScopeStack = self._scopeStack
 	const nStackLen = #nScopeStack
 	if nStackLen > 0 then
@@ -201,7 +220,7 @@ function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 		vBlockNode.symbolTable = setmetatable({}, {
 			__index=nCurScope.symbolTable,
 		})
-		table.insert(nCurScope.scope_children, vBlockNode)
+		table.insert(nCurScope.subBlockList, vBlockNode)
 	else
 		vBlockNode.symbolTable = {}
 	end
@@ -270,6 +289,7 @@ function:class(let.SymbolVisitor) SymbolVisitor.new()
 	const self = setmetatable({.class
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
+		_inHintScope=false@Boolean,
 	}, SymbolVisitor)
 	return self
 end

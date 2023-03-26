@@ -38,7 +38,7 @@ __node.Chunk = ExtendStruct({
 __node.Block = ExtendStruct({
 	tag = "Block",
 	symbolTable = Dict(String, node.Ident_def),
-	scope_children = List(node.Block),
+	subBlockList = List(node.Block),
 	[Number] = node.Stat,
 }, let.IAstNode, let.ILen)
 
@@ -77,15 +77,18 @@ node.IHintScope = ExtendInterface(Interface {
 __node.LongHintScope = ExtendStruct({
 	tag="LongHintScope",
 	attrList = List(String),
-}, node.IHintScope)
+	[Integer] = Union(node.String, node.ExprList),
+}, node.IHintScope, let.ILen)
 
 __node.ShortHintScope = ExtendStruct({
 	tag = "ShortHintScope",
 	castKind = OrFalse(node.CastKindEnum), -- if is false, then not hint
+	[1] = node.Expr,
 }, node.IHintScope)
 
 __node.StatHintScope = ExtendStruct({
 	tag = "StatHintScope",
+	[1] = Union(node.Do, node.Apply, node.Set),
 }, node.IHintScope)
 
 __node.Do = ExtendStruct({
@@ -202,11 +205,6 @@ node.Ident_use = ExtendStruct({ -- local symbol
 	kind = "use",
 	isGetFrom = OrFalse(True, node.Ident_def), -- false for set, true for get, Ident_def for global
 	defineIdent=OrFalse(node.Ident_def),
-	[1] = String,
-}, let.IAstNode)
-
-__node.Attr = ExtendStruct({
-	tag = "Attr",
 	[1] = String,
 }, let.IAstNode)
 

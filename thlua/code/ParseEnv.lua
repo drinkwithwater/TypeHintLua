@@ -175,21 +175,23 @@ local tagC=setmetatable({
 
 local hintC={
 	wrap=function(isStat, pattBegin, pattBody, pattEnd)
-		pattBody = Cenv * pattBody / function(env, ...) return env:captureEvalByVisit({...}) end
+		pattBody = Cenv * pattBody / function(env, ...) return {...} end
 		return Cenv *
 					Cpos * pattBegin * vv.HintBegin *
 					Cpos * pattBody * vv.HintEnd *
-					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,evalList,p3,p4)
+					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
+			local evalList = env:captureEvalByVisit(innerList)
 			env:markDel(p1, p4-1)
-			local nHintScope = env:buildIHintScope(isStat and "StatHintScope" or "ShortHintScope", evalList, p1, p2, p3-1)
+			local nHintScope = env:buildIHintScope(isStat and "StatHintScope" or "ShortHintScope", innerList, evalList, p1, p2, p3-1)
 			nHintScope.castKind = castKind
 			return nHintScope
 		end
 	end,
 	long=function()
-		local colonInvoke = vvA.Attr * symbA"(" * vv.ExprListOrEmpty * symbA")";
+		local name = tagC.String(vvA.Name)
+		local colonInvoke = name * symbA"(" * vv.ExprListOrEmpty * symbA")";
 		local pattBody = (
-			(symb"." * vv.HintBegin * vvA.Attr)*(symb"." * vvA.Attr)^0+
+			(symb"." * vv.HintBegin * name)*(symb"." * name)^0+
 			symb":" * vv.HintBegin * colonInvoke
 		) * (symb":" * colonInvoke)^0 * vv.HintEnd
 		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
@@ -199,20 +201,20 @@ local hintC={
 			l[#l] = nil
 			local middle = nil
 			local nAttrList = {}
-			for i, attrOrExprList in ipairs(l) do
-				local nTag = attrOrExprList.tag
+			for i, nameOrExprList in ipairs(l) do
+				local nTag = nameOrExprList.tag
 				if nTag == "ExprList" then
 					if not middle then
 						middle = i-1
 					end
 				else
-					assert(nTag == "Attr")
-					nAttrList[#nAttrList + 1] = attrOrExprList[1]
+					assert(nTag == "String")
+					nAttrList[#nAttrList + 1] = nameOrExprList[1]
 				end
 			end
 			local nEvalList = env:captureEvalByVisit(l)
 			if middle then
-				local nHintScope = env:buildIHintScope("LongHintScope", nEvalList, p1, l[middle].pos, posEnd-1)
+				local nHintScope = env:buildIHintScope("LongHintScope", l, nEvalList, p1, l[middle].pos, posEnd-1)
 				nHintScope.attrList = nAttrList
 				return nHintScope
 			else
@@ -222,6 +224,7 @@ local hintC={
 					posEnd = posEnd,
 					attrList = nAttrList,
 					evalScriptList = {},
+					table.unpack(l),
 				}
 				return nHintScope
 			end
@@ -284,8 +287,6 @@ local G = lpeg.P { "TypeHintLua";
 		env.hinting = true
 		return true
 	end);
-
-	Attr = tagC.Attr(vv.Name);
 
 	NotnilHint = hintC.char("!");
 
@@ -593,12 +594,13 @@ function ParseEnv:makeErrNode(vPos, vErr)
 	}
 end
 
-function ParseEnv:buildIHintScope(vTag, vEvalList, vRealStartPos, vStartPos, vFinishPos)
+function ParseEnv:buildIHintScope(vTag, vInnerList, vEvalList, vRealStartPos, vStartPos, vFinishPos)
 	local nHintScope = {
 		tag = vTag,
 		pos = vRealStartPos,
 		posEnd = vFinishPos + 1,
-		evalScriptList = {}
+		evalScriptList = {},
+		table.unpack(vInnerList)
 	}
 	local nEvalScriptList = nHintScope.evalScriptList
 	local nSubject = self._subject

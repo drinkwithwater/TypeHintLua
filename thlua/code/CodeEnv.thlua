@@ -21,8 +21,6 @@ function.open CodeEnv:ctor(vContent:String, vChunkName:String, vVersion:Integer)
 	self._astTree = nil@!node.Chunk
 	self._nodeList = {}@List(node.IAstNode)
 	self._identList = {}@List(node.Ident_def)
-	self._blockList = {}@List(node.Block)
-	self._funcList = {}@List(node.Function)
 	self._version = vVersion or -1
 	self._typingCode = false@OrFalse(String)
 	self._typingFn = nil@!TypingFn
@@ -63,20 +61,8 @@ function CodeEnv:prepare()
 		if vNode.tag == "Ident" then
 			table.insert(self._identList, vNode)
 		end
-		if vNode.tag == "Block" then
-			table.insert(self._blockList, vNode)
-		end
-		if vNode.tag == "Function" then
-			table.insert(self._funcList, vNode)
-		end
 	end)
 	table.sort(self._identList, function(a:node.Ident, b:node.Ident)
-		return a.pos < b.pos
-	end)
-	table.sort(self._blockList, function(a:node.Block, b:node.Block)
-		return a.pos < b.pos
-	end)
-	table.sort(self._funcList, function(a:node.Function, b:node.Block)
 		return a.pos < b.pos
 	end)
 end
@@ -127,25 +113,6 @@ function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 
-function CodeEnv:searchNameByError(vErrorNode:node.Error):Ret(OrNil(node.Ident_def))
-	local nErrExpr = vErrorNode[2]
-	if not nErrExpr or nErrExpr.tag ~= "Ident" then
-		-- other typp TODO
-		return nil
-	end
-	return nil
-	--[[
-	local nTraceList = vErrorNode[3]!
-	local nPos = nErrExpr.pos
-	local nScope = self:searchScopeByTrace(nTraceList)
-	local nName = nErrExpr[1]
-	local nIdent = nScope.symbolTable[nName]
-	while nIdent and nIdent.pos > nPos do
-		nIdent = nIdent.lookupIdent
-	end
-	return nIdent]]
-end
-
 function CodeEnv:traceBlock(vTraceList:List(Integer)):Ret(False):Ret(node.Block, List(node.Function))
 	local nRetBlock:OrNil(node.Block) = self._astTree[3]
 	for i=1,#vTraceList-1 do
@@ -153,7 +120,7 @@ function CodeEnv:traceBlock(vTraceList:List(Integer)):Ret(False):Ret(node.Block,
 		if not nRetBlock then
 			return false
 		end
-		nRetBlock = nRetBlock.scope_children[nTrace]!
+		nRetBlock = nRetBlock.subBlockList[nTrace]!
 	end
 	if not nRetBlock then
 		return false
@@ -167,19 +134,6 @@ function CodeEnv:traceBlock(vTraceList:List(Integer)):Ret(False):Ret(node.Block,
 		nCurFunc = nCurFunc.parent
 	end
 	return nRetBlock, nList
-end
-
-function CodeEnv:lookupDefineIdent(vPos:Integer, vName:String):Ret(OrNil(node.Ident_def))
-	const nIndex, nBlock = self:binSearch@<node.Block>(self._blockList, vPos)
-	if not nIndex then
-		return nil
-	else
-		local nIdent = nBlock.symbolTable[vName]
-		while nIdent and nIdent.pos > vPos do
-			nIdent = nIdent.lookupIdent
-		end
-		return nIdent
-	end
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
