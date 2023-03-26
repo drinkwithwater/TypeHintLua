@@ -148,16 +148,16 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
 	const nContent = nSplitCode:getContent():sub(1, nPos)
 	const nTriggerCode = TriggerCode.new(nContent, nFileName, 0)
-	const nTracePos, nTraceList, nInjectFn = nTriggerCode:tryGenInjectFn()
-	if not nTracePos then
+	const nInjectChunk, nInjectFn = nTriggerCode:tryGenInjectChunkFn()
+	if not nInjectChunk then
 		return nil
 	end
-	const nBlockNode, nFuncList = nSuccEnv:traceBlock(nTraceList)
+	const nBlockNode, nFuncList = nSuccEnv:traceBlock(assert(nInjectChunk.injectTrace))
 	if not nBlockNode then
 		return nil
 	end
 	-- 3. run inject
-	const nType = nCompletionRuntime:injectType(self, nTracePos, nBlockNode, nFuncList, nInjectFn)
+	const nType = nCompletionRuntime:injectType(self, nInjectChunk.pos, nBlockNode, nFuncList, nInjectFn)
 	const nRetList:List(lsp.CompletionItem) = {}
 	for k,v in pairs(nType:getCompletion()) do
 		nRetList[#nRetList + 1] = {

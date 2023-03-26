@@ -130,7 +130,7 @@ local parF = {
 
 local function buildLoadChunk(vPos, vBlock)
 	return {
-		tag="Chunk", isInject=false, pos=vPos, posEnd=vBlock.posEnd,
+		tag="Chunk", injectTrace=false, pos=vPos, posEnd=vBlock.posEnd,
 		[1]=parF.identDefENV(vPos),
 		[2]={
 			tag="ParList",pos=vPos,posEnd=vPos,
@@ -142,7 +142,7 @@ local function buildLoadChunk(vPos, vBlock)
 	}
 end
 
-local function buildInjectChunk(expr)
+local function buildInjectChunk(expr, blockTraceList)
 	local nChunk = buildLoadChunk(expr.pos, {
 		tag="Block", pos=expr.pos, posEnd=expr.posEnd,
 		[1]={
@@ -153,7 +153,7 @@ local function buildInjectChunk(expr)
 			}
 		}
 	})
-	nChunk.isInject = true
+	nChunk.injectTrace = blockTraceList
 	return nChunk
 end
 
@@ -428,8 +428,7 @@ local G = lpeg.P { "TypeHintLua";
 				return true, expr
 			else
 				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
-				nNode[2] = buildInjectChunk(expr)
-				nNode[3] = env.scopeTraceList
+				nNode[2] = buildInjectChunk(expr, env.scopeTraceList)
 				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
 				error(nNode)
 				return false
