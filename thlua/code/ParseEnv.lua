@@ -181,10 +181,9 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,evalList,p3,p4)
 			env:markDel(p1, p4-1)
-			local nHintInfo = env:buildIHintInfo(evalList, p1, p2, p3-1)
-			nHintInfo.kind = isStat and "stat" or "short"
-			nHintInfo.castKind = castKind
-			return nHintInfo
+			local nHintScope = env:buildIHintScope(isStat and "StatHintScope" or "ShortHintScope", evalList, p1, p2, p3-1)
+			nHintScope.castKind = castKind
+			return nHintScope
 		end
 	end,
 	long=function()
@@ -213,19 +212,18 @@ local hintC={
 			end
 			local nEvalList = env:captureEvalByVisit(l)
 			if middle then
-				local nHintInfo = env:buildIHintInfo(nEvalList, p1, l[middle].pos, posEnd-1)
-				nHintInfo.attrList = nAttrList
-				nHintInfo.kind = "long"
-				return nHintInfo
+				local nHintScope = env:buildIHintScope("LongHintScope", nEvalList, p1, l[middle].pos, posEnd-1)
+				nHintScope.attrList = nAttrList
+				return nHintScope
 			else
-				local nHintInfo = {
-					tag = "HintInfo",
-					kind = "long",
+				local nHintScope = {
+					tag = "LongHintScope",
 					pos = p1,
 					posEnd = posEnd,
 					attrList = nAttrList,
+					evalScriptList = {},
 				}
-				return nHintInfo
+				return nHintScope
 			end
 		end
 	end,
@@ -595,32 +593,34 @@ function ParseEnv:makeErrNode(vPos, vErr)
 	}
 end
 
-function ParseEnv:buildIHintInfo(vEvalList, vRealStartPos, vStartPos, vFinishPos)
-	local nHintInfo = {
-		tag = "HintInfo",
+function ParseEnv:buildIHintScope(vTag, vEvalList, vRealStartPos, vStartPos, vFinishPos)
+	local nHintScope = {
+		tag = vTag,
 		pos = vRealStartPos,
 		posEnd = vFinishPos + 1,
+		evalScriptList = {}
 	}
+	local nEvalScriptList = nHintScope.evalScriptList
 	local nSubject = self._subject
 	for _, nHintEval in ipairs(vEvalList) do
-		nHintInfo[#nHintInfo + 1] = {
+		nEvalScriptList[#nEvalScriptList + 1] = {
 			tag = "HintScript",
 			pos=vStartPos,
 			posEnd=nHintEval.pos,
 			[1] = nSubject:sub(vStartPos, nHintEval.pos-1)
 		}
-		nHintInfo[#nHintInfo + 1] = nHintEval
+		nEvalScriptList[#nEvalScriptList + 1] = nHintEval
 		vStartPos = nHintEval.posEnd
 	end
 	if vStartPos <= vFinishPos then
-		nHintInfo[#nHintInfo + 1] = {
+		nEvalScriptList[#nEvalScriptList + 1] = {
 			tag="HintScript",
 			pos=vStartPos,
 			posEnd=vFinishPos+1,
 			[1]=nSubject:sub(vStartPos, vFinishPos)
 		}
 	end
-	return nHintInfo
+	return nHintScope
 end
 
 -- @ hint for invoke & call , need to add paren

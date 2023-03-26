@@ -57,7 +57,7 @@ node.Stat = Union (
 	node.Return,
 	node.Break,
 	node.Apply,
-	node.HintInfoStat
+	node.StatHintScope
 )
 
 __node.HintScript = ExtendStruct({
@@ -70,30 +70,27 @@ __node.HintEval = ExtendStruct({
 	[1] = node.Expr,
 }, let.IAstNode)
 
-node.IHintInfo = ExtendInterface(Interface {
-	tag = "HintInfo",
-	[Integer] = Union(node.HintEval, node.HintScript)
-}, let.IAstNode, let.ILen)
+node.IHintScope = ExtendInterface(Interface {
+	evalScriptList = List(Union(node.HintEval, node.HintScript)),
+}, let.IAstNode)
 
-node.LongHintInfo = ExtendStruct({
-	kind = "long",
+__node.LongHintScope = ExtendStruct({
+	tag="LongHintScope",
 	attrList = List(String),
-}, node.IHintInfo)
+}, node.IHintScope)
 
-node.ShortHintInfo = ExtendStruct({
-	kind = "short",
+__node.ShortHintScope = ExtendStruct({
+	tag = "ShortHintScope",
 	castKind = OrFalse(node.CastKindEnum), -- if is false, then not hint
-}, node.IHintInfo)
+}, node.IHintScope)
 
-node.HintInfoStat = ExtendStruct({
-	kind = "stat",
-}, node.IHintInfo)
-
-__node.HintInfo = Union(node.LongHintInfo, node.ShortHintInfo, node.HintInfoStat)
+__node.StatHintScope = ExtendStruct({
+	tag = "StatHintScope",
+}, node.IHintScope)
 
 __node.Do = ExtendStruct({
 	tag = "Do",
-	hintLong = OrNil(node.LongHintInfo),
+	hintLong = OrNil(node.LongHintScope),
 	[1] = node.Block,
 }, let.IAstNode)
 
@@ -182,7 +179,7 @@ __node.Call = ExtendStruct({
 
 __node.Invoke = ExtendStruct({
 	tag = "Invoke",
-	hintPolyArgs = OrNil(node.ShortHintInfo),
+	hintPolyArgs = OrNil(node.ShortHintScope),
 	[1] = node.Expr,
 	[2] = node.String,
 	[3] = node.ExprList,
@@ -219,7 +216,7 @@ node.Ident_def = ExtendStruct({
 	symbolKind=node.SymbolKindEnum,
 	symbolModify=Boolean,
 	isSelf=OrNil(True),
-	hintShort=OrNil(node.ShortHintInfo),
+	hintShort=OrNil(node.ShortHintScope),
 	lookupIdent = OrNil(node.Ident_def),
 	[1] = String,
 }, let.IAstNode)
@@ -269,9 +266,9 @@ __node.String = ExtendStruct({
 __node.Function = ExtendStruct({
 	tag = "Function",
 	symbol_dots = OrNil(node.Dots),
-	hintPrefix = OrNil(node.LongHintInfo),
+	hintPrefix = OrNil(node.LongHintScope),
 	hintPolyParList = OrNil(List(String)),
-	hintSuffix = OrNil(node.LongHintInfo),
+	hintSuffix = OrNil(node.LongHintScope),
 	retFlag = OrNil(True),
 	parFullHint = Boolean,
 	[1] = node.ParList,
@@ -280,7 +277,7 @@ __node.Function = ExtendStruct({
 
 __node.Table = ExtendStruct({
 	tag = "Table",
-	hintLong = OrNil(node.LongHintInfo),
+	hintLong = OrNil(node.LongHintScope),
 	[Number] = Union(node.Pair, node.Expr)
 },let.IAstNode, let.ILen)
 
@@ -299,7 +296,7 @@ __node.Op = ExtendStruct({
 
 __node.Dots = ExtendStruct({
 	tag = "Dots",
-	hintShort = OrNil(node.ShortHintInfo),
+	hintShort = OrNil(node.ShortHintScope),
 },let.IAstNode)
 
 __node.Paren = ExtendStruct({
@@ -309,7 +306,7 @@ __node.Paren = ExtendStruct({
 
 __node.HintAt = ExtendStruct({
 	tag = "HintAt",
-	hintShort = node.ShortHintInfo,
+	hintShort = node.ShortHintScope,
 	[1] = node.Expr,
 },let.IAstNode)
 
