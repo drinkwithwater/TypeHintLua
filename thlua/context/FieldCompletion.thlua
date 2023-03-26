@@ -1,0 +1,34 @@
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const FieldCompletion = class@<clazz.FieldCompletion, false>()
+
+function.open FieldCompletion:ctor()
+	self._passDict = {}@Dict(clazz.IAtomType, True)
+	self._keyToType = {}@Dict(String, True)
+end
+
+function FieldCompletion:putPair(vKey:String, vValue:clazz.UAllType)
+	self._keyToType[vKey] = true
+end
+
+function FieldCompletion:testAndSetPass(vAtomType:clazz.IAtomType):Ret(Boolean)
+	if self._passDict[vAtomType] then
+		return false
+	else
+		self._passDict[vAtomType] = true
+		return true
+	end
+end
+
+function FieldCompletion:foreach(vOnPair:Fn(String, Truth))
+	for k,v in pairs(self._keyToType) do
+		vOnPair(k,v)
+	end
+end
+
+return FieldCompletion

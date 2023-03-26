@@ -296,14 +296,14 @@ function TypedObject:getNode()
 	return self._node
 end
 
-function TypedObject:getCompletion():Ret(clazz.LspCompletion)
-	local nDict:Dict(String, True) = {}
-	self._keyRefer:foreachAwait(function(vType)
-		if StringLiteral.is(vType) then
-			nDict[vType:getLiteral()] = true
-		end
-	end)
-	return nDict
+function TypedObject:getCompletion(vCompletion)
+	if vCompletion:testAndSetPass(self) then
+		self._keyRefer:foreachAwait(function(vType)
+			if StringLiteral.is(vType) then
+				vCompletion:putPair(vType:getLiteral(), assert(self._valueDict)[vType]!)
+			end
+		end)
+	end
 end
 
 return TypedObject

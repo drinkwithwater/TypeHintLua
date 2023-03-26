@@ -294,14 +294,18 @@ function SealTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
 	return nDict
 end
 
-function SealTable:getCompletion():Ret(clazz.LspCompletion)
-	const nDict:Dict(String, True) = {}
-	self._keyType:foreach(function(vType)
-		if StringLiteral.is(vType) then
-			nDict[vType:getLiteral()] = true
+function SealTable:getCompletion(vCompletion)
+	if vCompletion:testAndSetPass(self) then
+		self._keyType:foreach(function(vAtomType)
+			if StringLiteral.is(vAtomType) then
+				vCompletion:putPair(vAtomType:getLiteral(), self._fieldDict[vAtomType]!.rawValueType)
+			end
+		end)
+		const nMetaIndex = self._metaIndex
+		if nMetaIndex then
+			nMetaIndex:getCompletion(vCompletion)
 		end
-	end)
-	return nDict
+	end
 end
 
 return SealTable

@@ -1,4 +1,5 @@
 
+const FieldCompletion = require "thlua.context.FieldCompletion"
 const TriggerCode = require "thlua.code.TriggerCode"
 const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
@@ -146,13 +147,15 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	end
 	-- 3. run inject
 	const nType = nCompletionRuntime:injectType(self, nInjectChunk.pos, nBlockNode, nFuncList, nInjectFn)
+	const nCompletion = FieldCompletion.new()
+	nType:getCompletion(nCompletion)
 	const nRetList:List(lsp.CompletionItem) = {}
-	for k,v in pairs(nType:getCompletion()) do
+	nCompletion:foreach(function(vKey, vValue)
 		nRetList[#nRetList + 1] = {
-			label=k,
+			label=vKey,
 			kind=2,
 		}
-	end
+	end)
 	return json.array(nRetList)
 end
 
