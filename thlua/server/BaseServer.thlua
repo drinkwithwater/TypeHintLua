@@ -17,7 +17,7 @@ const BaseServer = class@<lsp.BaseServer, clazz.ILoader>()
 function.open BaseServer:ctor()
 	self.initialize=false@Boolean
 	self.shutdown=false@Boolean
-	self._root=""@String
+	self._rootPath=""@String
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 end
 
@@ -25,39 +25,40 @@ function.pass BaseServer:getMethodHandler():Ret(Truth)
 	error("get method handler is not implement in BaseServer")
 end
 
-function BaseServer:syncFile(vContent:String, vFileName:String, vVersion:Integer):Ret(Boolean)
-	local nFileState = self._fileStateDict[vFileName]
+function BaseServer:syncFile(vContent:String, vFileUri:String, vVersion:Integer):Ret(Boolean)
+	local nFileState = self._fileStateDict[vFileUri]
 	if not nFileState then
-		nFileState = FileState.new(vFileName)
-		self._fileStateDict[vFileName] = nFileState
+		nFileState = FileState.new(vFileUri)
+		self._fileStateDict[vFileUri] = nFileState
 	end
 	return nFileState:syncContent(vContent, vVersion)
 end
 
 function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
-	local thluaPath = self._root.."/?.thlua"
+	local thluaPath = self._rootPath.."/?.thlua"
 	local fileName, err1 = package.searchpath(vPath, thluaPath)
 	if not fileName then
 		return false, err1
 	end
-	return true, fileName
+	return true, self:pathToUri(fileName)
 end
 
-function BaseServer:thluaParseFile(vFileName:String)
-	if not self._fileStateDict[vFileName] then
-		local file, err = io.open(vFileName, "r")
+function BaseServer:thluaParseFile(vFileUri:String)
+	if not self._fileStateDict[vFileUri] then
+		const nFilePath = self:uriToPath(vFileUri)
+		const file, err = io.open(nFilePath, "r")
 		if not file then
 			error(err)
 		end
 		const nContent = file:read("*a")
 		file:close()
-		self:syncFile(nContent, vFileName, -1)
+		self:syncFile(nContent, vFileUri, -1)
 	end
-	return self._fileStateDict[vFileName]!:checkLatestEnv()
+	return self._fileStateDict[vFileUri]!:checkLatestEnv()
 end
 
-function BaseServer:checkFileState(vFileName:String):Ret(lsp.FileState)
-	return (assert(self._fileStateDict[vFileName], "file not existed:"..vFileName))
+function BaseServer:checkFileState(vFileUri:String):Ret(lsp.FileState)
+	return (assert(self._fileStateDict[vFileUri], "file not existed:"..vFileUri))
 end
 
 function BaseServer:mainLoop()
@@ -253,7 +254,7 @@ end
 function BaseServer:setRoot(vRoot:String)
 	--self.root = vRoot:gsub("/*$", "")
 	--self:info("root:", self.root, vRoot)
-	self._root = vRoot
+	self._rootPath = vRoot
 end
 
 function BaseServer:uriToPath(vUri:String):Ret(String)

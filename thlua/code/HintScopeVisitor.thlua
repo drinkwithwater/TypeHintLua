@@ -1,0 +1,130 @@
+
+const VisitorExtend = require "thlua.code.VisitorExtend"
+const Exception = require "thlua.Exception"
+const Enum = require "thlua.Enum"
+
+(@do
+
+let.node = import("thlua.code.Node").node
+let.clazz = import("thlua.type.TypeClass").clazz
+
+let.RealTraverser = Struct((function()
+	local t = {}
+	foreachPair(node.TagToNodeType, function(vTag, vNodeType)
+		t[vTag] = OrNil(Fn(let.HintScopeVisitor, vNodeType))
+	end)
+	return t
+end)())
+
+end)
+
+local TagToVisiting:let.RealTraverser = {
+	Function=function(self, func)
+		self:rawVisit(func)
+	end,
+	LongHintScope=function(self, node)
+		for i=1,#node do
+			self:rawVisit(node[i])
+		end
+	end,
+	ShortHintScope=function(self, node)
+		const nEvalScriptList = node.evalScriptList
+		for i=1, #nEvalScriptList do
+			self:realVisit(nEvalScriptList[i]!)
+		end
+	end,
+	StatHintScope=function(self, node)
+		const nEvalScriptList = node.evalScriptList
+		for i=1, #nEvalScriptList do
+			self:realVisit(nEvalScriptList[i]!)
+		end
+	end,
+}
+
+const HintScopeVisitor = VisitorExtend(TagToVisiting)
+
+function HintScopeVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vFunc:Fn())
+	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
+	vBlockNode.subBlockList = {}
+	const nScopeStack = self._scopeStack
+	const nStackLen = #nScopeStack
+	if nStackLen > 0 then
+		const nCurScope = nScopeStack[nStackLen]!
+		vBlockNode.symbolTable = setmetatable({}, {
+			__index=nCurScope.symbolTable,
+		})
+		table.insert(nCurScope.subBlockList, vBlockNode)
+	else
+		vBlockNode.symbolTable = {}
+	end
+	table.insert(self._scopeStack, vBlockNode)
+	if vFuncOrChunk then
+		table.insert(self._regionStack, vFuncOrChunk)
+		vFunc()
+		table.remove(self._regionStack)
+	else
+		vFunc()
+	end
+	table.remove(self._scopeStack)
+end
+
+function HintScopeVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.SymbolKindEnum)
+	const nHintShort = vIdentNode.hintShort
+	if nHintShort then
+		self:realVisit(nHintShort)
+	end
+	local nScope = self._scopeStack[#self._scopeStack]!
+	vIdentNode.symbolKind = vImmutKind
+	vIdentNode.symbolModify = false
+	local nName = vIdentNode[1]
+	local nLookupNode = nScope.symbolTable[nName]
+	nScope.symbolTable[nName] = vIdentNode
+	vIdentNode.lookupIdent = nLookupNode
+end
+
+function HintScopeVisitor:dotsDefine(vDotsNode:node.Dots)
+	local nCurRegion = self._regionStack[#self._regionStack]!
+	nCurRegion.symbol_dots = vDotsNode
+end
+
+function HintScopeVisitor:dotsUse(vDotsNode:node.Dots)
+	const nCurRegion = self._regionStack[#self._regionStack]!
+	const nDotsDefine = nCurRegion.symbol_dots
+	if not nDotsDefine then
+		error(Exception.new("cannot use '...' outside a vararg function", vDotsNode))
+	end
+end
+
+function HintScopeVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
+	const nScope = self._scopeStack[#self._scopeStack]!
+	const nDefineNode = nScope.symbolTable[vIdentNode[1]]
+	if not nDefineNode then
+		const nEnvIdent = nScope.symbolTable._ENV!
+		vIdentNode.isGetFrom = nEnvIdent
+		vIdentNode.defineIdent = false
+		return
+	end
+	if vIsAssign then
+		if nDefineNode.symbolKind == Enum.SymbolKind_CONST then
+			error(Exception.new("cannot assign to const variable '"..vIdentNode[1].."'", vIdentNode))
+		else
+			nDefineNode.symbolModify = true
+		end
+		vIdentNode.isGetFrom = false
+		vIdentNode.defineIdent = nDefineNode
+	else
+		vIdentNode.isGetFrom = true
+		vIdentNode.defineIdent = nDefineNode
+	end
+end
+
+function:class(let.HintScopeVisitor) HintScopeVisitor.new()
+	const self = setmetatable({.class
+		_scopeStack={}@List(node.Block),
+		_regionStack={}@List(node.URegionNode),
+		_inHintScope=false@Boolean,
+	}, HintScopeVisitor)
+	return self
+end
+
+return HintScopeVisitor

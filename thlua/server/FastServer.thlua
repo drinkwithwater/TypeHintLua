@@ -21,19 +21,7 @@ function.open FastServer:ctor()
 	self._runtime=nil@OrNil(clazz.CompletionRuntime)
 end
 
-function FastServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
-	if self.initialize then
-		error("already initialized!")
-	else
-		self.initialize = true
-	end
-	const rootUri = vParams.rootUri
-	const root  = vParams.rootPath or (rootUri and self:uriToPath(rootUri))
-	self:info("FastServer, Config.root = ", root, vParams.rootPath, vParams.rootUri)
-	self:info("Platform = ", self:getPlatform())
-	if root then
-		self:setRoot(root)
-	end
+function FastServer:getInitializeResult():Ret(lsp.InitializeResult)
 	return {
 		capabilities = {
 			textDocumentSync = {
@@ -87,10 +75,10 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nContentChange = vParams.contentChanges[1]
 	if nContentChange then
 		const nContent = nContentChange.text
-		const nFileName = self:uriToPath(vParams.textDocument.uri)
-		const nOkay = self:syncFile(nContent, nFileName, vParams.textDocument.version)
+		const nFileUri = vParams.textDocument.uri
+		const nOkay = self:syncFile(nContent, nFileUri, vParams.textDocument.version)
 		if nOkay then
-			self:rerun(nFileName)
+			self:rerun(nFileUri)
 		end
 	else
 		self:error("content change is empty onDidChange")
@@ -99,17 +87,17 @@ end
 
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
-	const nFileName = self:uriToPath(vParams.textDocument.uri)
-	self:syncFile(nContent, nFileName, vParams.textDocument.version)
-	self:rerun(nFileName)
+	const nFileUri = vParams.textDocument.uri
+	self:syncFile(nContent, nFileUri, vParams.textDocument.version)
+	self:rerun(nFileUri)
 end
 
 function FastServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
 end
 
 function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Location))
-	const nFileName = self:uriToPath(vParams.textDocument.uri)
-	const nFileState = self:checkFileState(nFileName)
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
 	const nSuccEnv = nFileState:getSuccEnv()
 	if not nSuccEnv then
 		return nil
@@ -137,8 +125,8 @@ end
 function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(lsp.CompletionItem)))
 	const nCompletionRuntime = self._runtime!
 	-- 1. get succ env
-	const nFileName = self:uriToPath(vParams.textDocument.uri)
-	const nFileState = self:checkFileState(nFileName)
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
 	const nSuccEnv = nFileState:getSuccEnv()
 	if not nSuccEnv then
 		return nil
@@ -147,7 +135,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nSplitCode = nFileState:getSplitCode()
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
 	const nContent = nSplitCode:getContent():sub(1, nPos)
-	const nTriggerCode = TriggerCode.new(nContent, nFileName, 0)
+	const nTriggerCode = TriggerCode.new(nContent, nFileUri, 0)
 	const nInjectChunk, nInjectFn = nTriggerCode:tryGenInjectChunkFn()
 	if not nInjectChunk then
 		return nil
@@ -157,11 +145,12 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 		return nil
 	end
 	-- 3. run inject
-	const nType = nCompletionRuntime:injectType(nInjectChunk.pos, nBlockNode, nFuncList, nInjectFn)
+	const nType = nCompletionRuntime:injectType(self, nInjectChunk.pos, nBlockNode, nFuncList, nInjectFn)
 	const nRetList:List(lsp.CompletionItem) = {}
 	for k,v in pairs(nType:getCompletion()) do
 		nRetList[#nRetList + 1] = {
-			label=k
+			label=k,
+			kind=2,
 		}
 	end
 	return json.array(nRetList)

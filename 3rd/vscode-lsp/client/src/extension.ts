@@ -61,8 +61,8 @@ export function activate(context: ExtensionContext) {
 	);
 
 	// Start the client. This will also launch the server
-	slowClient.start();
 	fastClient.start();
+	slowClient.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {

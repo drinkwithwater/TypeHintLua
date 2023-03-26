@@ -368,7 +368,7 @@ local G = lpeg.P { "TypeHintLua";
 	ConcatExpr = (function()
 		local MulExpr = chainOp(vv.UnaryExpr, symb, "*", "//", "/", "%")
 		local AddExpr = chainOp(MulExpr, symb, "+", "-")
-	  return AddExpr * (symb("..")/"..") * vv.ConcatExpr / exprF.binOp + AddExpr
+	  return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
 	end)();
 	Expr = (function()
 		local ShiftExpr = chainOp(vv.ConcatExpr, symb, "<<", ">>")
@@ -438,7 +438,7 @@ local G = lpeg.P { "TypeHintLua";
 	ApplyExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Call" or exp.tag == "Invoke", exp end);
 	VarExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Ident" or exp.tag == "Index", exp end);
 
-	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,_,env)
+	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,pos,env)
 		if not env.hinting then
 			local len = #env.scopeTraceList
 			env.scopeTraceList[len + 1] = 0
@@ -457,8 +457,7 @@ local G = lpeg.P { "TypeHintLua";
 	FuncBody = (function()
 		local IdentDefTList = vv.IdentDefT * (symb(",") * vv.IdentDefT)^0;
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
-		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1) +
-									tagC.ParList(DotsHintable^-1);
+		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1 + DotsHintable^-1);
 		return tagC.Function(lpeg.Cg(vv.HintPolyParList, "hintPolyParList")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();

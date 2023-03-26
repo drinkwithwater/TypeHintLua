@@ -52,7 +52,7 @@ function SlowServer:publishNormal()
 			jsonrpc = "2.0",
 			method = "textDocument/publishDiagnostics",
 			params = {
-				uri=self:pathToUri(nFileName),
+				uri=nFileName,
 				version=nVersion,
 				diagnostics=json.array(nDiaList),
 			},
@@ -75,7 +75,7 @@ function SlowServer:publishException(vException:Union(clazz.Exception, String))
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
 		params = {
-			uri=self:pathToUri(nNode.path),
+			uri=nNode.path,
 			version=nFileState:getVersion(),
 			diagnostics={ {
 				range={
@@ -94,16 +94,16 @@ function SlowServer:publishException(vException:Union(clazz.Exception, String))
 	})
 end
 
-function SlowServer:rerun(vFileName:String)
-	local ok, mainFileName = self:thluaSearch("main")
+function SlowServer:rerun(vFileUri:String)
+	local ok, mainFileUri = self:thluaSearch("main")
 	if not ok then
-		mainFileName = vFileName
-		self:info("main.thlua not found, run single file:", mainFileName)
+		mainFileUri = vFileUri
+		self:info("main.thlua not found, run single file:", mainFileUri)
 	else
-		self:info("main.thlua found:", mainFileName)
+		self:info("main.thlua found:", mainFileUri)
 	end
 	const nRuntime=DiagnosticRuntime.new(self)
-	const ok, exc = nRuntime:main(mainFileName)
+	const ok, exc = nRuntime:main(mainFileUri)
 	if not ok then
 		if not self._runtime then
 			self._runtime = nRuntime
@@ -120,19 +120,7 @@ function SlowServer:checkRuntime():Ret(clazz.DiagnosticRuntime)
 	return assert(self._runtime)
 end
 
-function SlowServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
-	if self.initialize then
-		error("already initialized!")
-	else
-		self.initialize = true
-	end
-	const rootUri = vParams.rootUri
-	const root  = vParams.rootPath or (rootUri and self:uriToPath(rootUri))
-	self:info("SlowServer, Config.root = ", root, vParams.rootPath, vParams.rootUri)
-	self:info("Platform = ", self:getPlatform())
-	if root then
-		self:setRoot(root)
-	end
+function SlowServer:getInitializeResult():Ret(lsp.InitializeResult)
 	return {
 		capabilities = {
 			textDocumentSync = {
@@ -148,8 +136,7 @@ function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nContentChange = vParams.contentChanges[1]
 	if nContentChange then
 		const nContent = nContentChange.text
-		const nFileName = self:uriToPath(vParams.textDocument.uri)
-		self:syncFile(nContent, nFileName, vParams.textDocument.version)
+		self:syncFile(nContent, vParams.textDocument.uri, vParams.textDocument.version)
 	else
 		self:error("content change is empty onDidChange")
 	end
@@ -158,14 +145,14 @@ end
 
 function SlowServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
-	const nFileName = self:uriToPath(vParams.textDocument.uri)
-	self:syncFile(nContent, nFileName, vParams.textDocument.version)
-	self:rerun(nFileName)
+	const nFileUri = vParams.textDocument.uri
+	self:syncFile(nContent, vParams.textDocument.uri, vParams.textDocument.version)
+	self:rerun(nFileUri)
 end
 
 function SlowServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
-	const nFileName = self:uriToPath(vParams.textDocument.uri)
-	self:rerun(nFileName)
+	const nFileUri = vParams.textDocument.uri
+	self:rerun(nFileUri)
 end
 
 return SlowServer

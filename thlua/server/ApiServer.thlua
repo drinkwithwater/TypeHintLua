@@ -191,6 +191,10 @@ function ApiServer:getMethodHandler():Ret(Truth)
 	return self._methodHandler
 end
 
+function.pass ApiServer:getInitializeResult():Ret(lsp.InitializeResult)
+	error("getInitializeResult not implement in ApiServer")
+end
+
 function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
 	if self.initialize then
 		error("already initialized!")
@@ -204,29 +208,7 @@ function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.Initialize
 	if root then
 		self:setRoot(root)
 	end
-	return {
-		capabilities = {
-			textDocumentSync = {
-				openClose = true,
-				change = 1, -- 1 is non-incremental, 2 is incremental
-				save = { includeText = true },
-			},
-			definitionProvider = true,
-			hoverProvider = true,
-			completionProvider = {
-				triggerCharacters = {".",":"},
-				resolveProvider = false
-			},
-			referencesProvider = true,
-			documentLocalSymbolProvider = false,
-			--documentHighlightProvider = false,
-			--workspaceLocalSymbolProvider = false,
-			--codeActionProvider = false,
-			--documentFormattingProvider = false,
-			--documentRangeFormattingProvider = false,
-			--renameProvider = false,
-		},
-	}
+	return self:getInitializeResult()
 end
 
 function ApiServer:onShutdown()
