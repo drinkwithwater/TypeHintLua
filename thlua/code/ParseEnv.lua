@@ -125,12 +125,16 @@ local parF = {
 	identDefENV=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def"}
 	end,
+	identDefLet=function(vPos)
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "let", kind="def"}
+	end,
 }
 
 
 local function buildLoadChunk(vPos, vBlock)
 	return {
 		tag="Chunk", injectTrace=false, pos=vPos, posEnd=vBlock.posEnd,
+		letNode = parF.identDefLet(vPos),
 		[1]=parF.identDefENV(vPos),
 		[2]={
 			tag="ParList",pos=vPos,posEnd=vPos,
@@ -458,7 +462,9 @@ local G = lpeg.P { "TypeHintLua";
 		local IdentDefTList = vv.IdentDefT * (symb(",") * vv.IdentDefT)^0;
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1 + DotsHintable^-1);
-		return tagC.Function(lpeg.Cg(vv.HintPolyParList, "hintPolyParList")^-1*symbA("(") * ParList * symbA(")") *
+		return tagC.Function(
+			lpeg.Cg(Cpos/parF.identDefLet, "letNode")*
+			lpeg.Cg(vv.HintPolyParList, "hintPolyParList")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 

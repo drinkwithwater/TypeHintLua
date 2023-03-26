@@ -16,6 +16,13 @@ let.RealTraverser = Struct((function()
 	return t
 end)())
 
+let.HintStack = Struct {
+	blockStack=List(node.Block),
+	funcStack=List(node.Function),
+	spaceStack=List(node.HintSpace),
+	outRegion=node.URegionNode
+}
+
 end)
 
 local TagToVisiting:let.RealTraverser = {
@@ -77,14 +84,8 @@ local TagToVisiting:let.RealTraverser = {
 		end)
 	end,
 	Return=function(self, stm)
-		local nFuncOrChunk = stm.parent
-		while nFuncOrChunk and not (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk") do
-			nFuncOrChunk = nFuncOrChunk.parent
-		end
 		if #stm[1] > 0 then
-			assert (nFuncOrChunk and (nFuncOrChunk.tag == "Function" or nFuncOrChunk.tag == "Chunk"), "function or chunk must be here")
-			const nFuncOrChunk = nFuncOrChunk @> Union(node.Function, node.Chunk)
-			nFuncOrChunk.retFlag = true
+			self._regionStack[#self._regionStack]!.retFlag = true
 		end
 		self:rawVisit(stm)
 	end,
@@ -189,80 +190,160 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 	-- hint scope
 	LongHintScope=function(self, node)
-		const nEvalScriptList = node.evalScriptList
-		for i=1, #nEvalScriptList do
-			self:realVisit(nEvalScriptList[i]!)
+		self._inHintSpace = true
+		for i=1, #node do
+			self:realVisit(node[i]!)
 		end
+		self._inHintSpace = false
 	end,
 	ShortHintScope=function(self, node)
-		const nEvalScriptList = node.evalScriptList
-		for i=1, #nEvalScriptList do
-			self:realVisit(nEvalScriptList[i]!)
-		end
+		self._inHintSpace = true
+		self:realVisit(node[1])
+		self._inHintSpace = false
 	end,
 	StatHintScope=function(self, node)
-		const nEvalScriptList = node.evalScriptList
-		for i=1, #nEvalScriptList do
-			self:realVisit(nEvalScriptList[i]!)
-		end
+		self._inHintSpace = true
+		self:realVisit(node[1])
+		self._inHintSpace = false
+	end,
+	HintEval=function(self, node)
+		self._inHintSpace=false
+		self:realVisit(node[1])
+		self._inHintSpace=true
 	end,
 }
 
 const SymbolVisitor = VisitorExtend(TagToVisiting)
 
-function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vFunc:Fn())
+function SymbolVisitor:withHintBlock(vBlockNode:node.Block, vFuncNode:OrNil(node.Function), vInnerCall:Fn())
+	assert(vBlockNode.tag == "Block", "node tag must be Block or Function but get "..tostring(vBlockNode.tag))
+	const nHintStack = self._hintStack
+	const nStackLen = #nHintStack
+	vBlockNode.subBlockList = {}
+	const nPreNode = nHintStack[nStackLen]!
+	if nPreNode.tag == "Block" then
+		vBlockNode.symbolTable = setmetatable({}, {
+			__index=nPreNode.symbolTable,
+		})
+	else
+		vBlockNode.symbolTable = {
+			let=nPreNode.letNode
+		}
+	end
+	table.insert(self._hintStack, vBlockNode)
+	if vFuncNode then
+		table.insert(self._hintFuncStack, vFuncNode)
+		vInnerCall()
+		table.remove(self._hintFuncStack)
+	else
+		vInnerCall()
+	end
+	table.remove(self._hintStack)
+end
+
+function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.URegionNode), vInnerCall:Fn())
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
+	if self._inHintSpace then
+		self:withHintBlock(vBlockNode, vFuncOrChunk @> OrNil(node.Function), vInnerCall)
+		return
+	end
 	vBlockNode.subBlockList = {}
 	const nScopeStack = self._scopeStack
 	const nStackLen = #nScopeStack
 	if nStackLen > 0 then
-		const nCurScope = nScopeStack[nStackLen]!
+		const nPreScope = nScopeStack[nStackLen]!
 		vBlockNode.symbolTable = setmetatable({}, {
-			__index=nCurScope.symbolTable,
+			__index=nPreScope.symbolTable,
 		})
-		table.insert(nCurScope.subBlockList, vBlockNode)
+		table.insert(nPreScope.subBlockList, vBlockNode)
 	else
 		vBlockNode.symbolTable = {}
 	end
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
+		table.insert(self._hintStack, vFuncOrChunk)
 		table.insert(self._regionStack, vFuncOrChunk)
-		vFunc()
+		vInnerCall()
 		table.remove(self._regionStack)
+		table.remove(self._hintStack)
 	else
-		vFunc()
+		vInnerCall()
 	end
 	table.remove(self._scopeStack)
 end
 
 function SymbolVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.SymbolKindEnum)
-	const nHintShort = vIdentNode.hintShort
-	if nHintShort then
-		self:realVisit(nHintShort)
-	end
-	local nScope = self._scopeStack[#self._scopeStack]!
 	vIdentNode.symbolKind = vImmutKind
 	vIdentNode.symbolModify = false
-	local nName = vIdentNode[1]
-	local nLookupNode = nScope.symbolTable[nName]
-	nScope.symbolTable[nName] = vIdentNode
-	vIdentNode.lookupIdent = nLookupNode
+	const nName = vIdentNode[1]
+	if not self._inHintSpace then
+		const nHintShort = vIdentNode.hintShort
+		if nHintShort then
+			self:realVisit(nHintShort)
+		end
+		const nScope = self._scopeStack[#self._scopeStack]!
+		const nLookupNode = nScope.symbolTable[nName]
+		nScope.symbolTable[nName] = vIdentNode
+		vIdentNode.lookupIdent = nLookupNode
+	else
+		const nBlockOrRegion = self._hintStack[#self._hintStack]!
+		if nBlockOrRegion.tag == "Block" then
+			const nLookupNode = nBlockOrRegion.symbolTable[nName]
+			nBlockOrRegion.symbolTable[nName] = vIdentNode
+			vIdentNode.lookupIdent = nLookupNode
+		else
+			error("local stat can't existed here..")
+		end
+	end
 end
 
 function SymbolVisitor:dotsDefine(vDotsNode:node.Dots)
-	local nCurRegion = self._regionStack[#self._regionStack]!
+	const nCurRegion = self._inHintSpace and self._hintFuncStack[#self._hintFuncStack] or self._regionStack[#self._regionStack]!
 	nCurRegion.symbol_dots = vDotsNode
 end
 
 function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
-	const nCurRegion = self._regionStack[#self._regionStack]!
-	const nDotsDefine = nCurRegion.symbol_dots
+	const nCurRegion = self._inHintSpace and self._hintFuncStack[#self._hintFuncStack] or self._regionStack[#self._regionStack]!
+	const nDotsDefine = nCurRegion and nCurRegion.symbol_dots
 	if not nDotsDefine then
 		error(Exception.new("cannot use '...' outside a vararg function", vDotsNode))
 	end
 end
 
+function SymbolVisitor:hintSymbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
+	const nBlockOrRegion = self._hintStack[#self._hintStack]!
+	const nName = vIdentNode[1]
+	local nDefineNode:OrNil(node.Ident_def) = nil
+	if nBlockOrRegion.tag == "Block" then
+		nDefineNode = nBlockOrRegion.symbolTable[nName]
+	else
+		if nName == "let" then
+			nDefineNode = nBlockOrRegion.letNode
+		end
+	end
+	if not nDefineNode then
+		vIdentNode.defineIdent = false
+		if nBlockOrRegion.tag == "Block" then
+			vIdentNode.isGetFrom = nBlockOrRegion.symbolTable["let"]!
+		else
+			vIdentNode.isGetFrom = nBlockOrRegion.letNode
+		end
+	else
+		if vIsAssign then
+			nDefineNode.symbolModify = true
+			vIdentNode.isGetFrom = false
+		else
+			vIdentNode.isGetFrom = true
+		end
+		vIdentNode.defineIdent = nDefineNode
+	end
+end
+
 function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
+	if self._inHintSpace then
+		self:hintSymbolUse(vIdentNode, vIsAssign)
+		return
+	end
 	const nScope = self._scopeStack[#self._scopeStack]!
 	const nDefineNode = nScope.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
@@ -278,18 +359,19 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 			nDefineNode.symbolModify = true
 		end
 		vIdentNode.isGetFrom = false
-		vIdentNode.defineIdent = nDefineNode
 	else
 		vIdentNode.isGetFrom = true
-		vIdentNode.defineIdent = nDefineNode
 	end
+	vIdentNode.defineIdent = nDefineNode
 end
 
 function:class(let.SymbolVisitor) SymbolVisitor.new()
 	const self = setmetatable({.class
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
-		_inHintScope=false@Boolean,
+		_inHintSpace=false@Boolean,
+		_hintStack={}@List(Union(node.Block, node.Function, node.Chunk)),
+		_hintFuncStack={}@List(node.Function),
 	}, SymbolVisitor)
 	return self
 end
