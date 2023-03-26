@@ -247,7 +247,7 @@ local TagToVisiting:RealTraverser = {
 			self:stkWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
-				self:listWrap(nHintPolyArgs and self:fixIHintScope(nHintPolyArgs) or ""),
+				self:listWrap(nHintPolyArgs and self:fixIHintSpace(nHintPolyArgs) or ""),
 				self:stkWrap(node).EXPRLIST_REPACK(
 					"false",
 					self:listWrap(#node[3] > 0 and self:visit(node[3]) or "")
@@ -255,11 +255,11 @@ local TagToVisiting:RealTraverser = {
 			)
 		)
 	end,
-	StatHintScope=function(self, node)
+	StatHintSpace=function(self, node)
 		-- self:print("local block = function(self) ", node[1], " end block(self)\n")
 		return {
 			line = node.l,
-			self:fixIHintScope(node)
+			self:fixIHintSpace(node)
 		}
 	end,
 	Dots=function(self, node)
@@ -367,7 +367,7 @@ local TagToVisiting:RealTraverser = {
 		return self:stkWrap(node).CAST_HINT(
 			{"(", self:visit(node[1]), ")"},
 			string.format("%q", nHintShort.castKind),
-			self:fixIHintScope(nHintShort)
+			self:fixIHintSpace(nHintShort)
 		)
 	end,
 	Paren=function(self, node)
@@ -450,9 +450,9 @@ function.pass HintGener:visit(vNode:node.IAstNode):Ret(UGenResult)
 	end
 end
 
-function HintGener:fixIHintScope(vHintScope:node.IHintScope):Ret(GenResult)
+function HintGener:fixIHintSpace(vHintSpace:node.IHintSpace):Ret(GenResult)
 	const nResult:GenResult = {}
-	for k,v in ipairs(vHintScope.evalScriptList) do
+	for k,v in ipairs(vHintSpace.evalScriptList) do
 		if v.tag == "HintScript" then
 			local nLast:OrNil(GenResult) = nil
 			for s in string.gmatch(v[1], "[^\n]*") do
@@ -486,7 +486,7 @@ function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, v
 		line=vIdentNode.l,
 		" ", self:stkWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
-			vValue, vIsParamOrRec and "nil" or (nHintShort and self:fixIHintScope(nHintShort) or "nil")
+			vValue, vIsParamOrRec and "nil" or (nHintShort and self:fixIHintSpace(nHintShort) or "nil")
 		)
 	}
 end
@@ -662,11 +662,11 @@ function HintGener:chunkLongHint():Ret(GenResult)
 	})
 end
 
-function HintGener:visitLongHint(vHintScope:OrNil(node.LongHintScope)):Ret(GenResult)
-	const nCallGen:UGenResult = (vHintScope and #vHintScope.evalScriptList > 0) and {
-		":", self:fixIHintScope(vHintScope)
+function HintGener:visitLongHint(vHintSpace:OrNil(node.LongHintSpace)):Ret(GenResult)
+	const nCallGen:UGenResult = (vHintSpace and #vHintSpace.evalScriptList > 0) and {
+		":", self:fixIHintSpace(vHintSpace)
 	} or ""
-	const nAttrList = vHintScope and vHintScope.attrList or ({} @ List(String))
+	const nAttrList = vHintSpace and vHintSpace.attrList or ({} @ List(String))
 	const l:List(String) = {}
 	for i=1, #nAttrList do
 		l[#l + 1] = nAttrList[i]! .. "=1"
@@ -717,7 +717,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			" return ", self:fnWrap("____termArgs")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
-					local nHintType = nHintShort and self:fixIHintScope(nHintShort) or self:stkWrap(vParNode).AUTO()
+					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or self:stkWrap(vParNode).AUTO()
 					if vParNode.tag ~= "Dots" then
 						if i == 1 then
 							-- if i == 1 then use ____self as first type if setted

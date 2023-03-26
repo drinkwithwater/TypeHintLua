@@ -186,9 +186,9 @@ local hintC={
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
 			env:markDel(p1, p4-1)
-			local nHintScope = env:buildIHintScope(isStat and "StatHintScope" or "ShortHintScope", innerList, evalList, p1, p2, p3-1)
-			nHintScope.castKind = castKind
-			return nHintScope
+			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
+			nHintSpace.castKind = castKind
+			return nHintSpace
 		end
 	end,
 	long=function()
@@ -218,19 +218,19 @@ local hintC={
 			end
 			local nEvalList = env:captureEvalByVisit(l)
 			if middle then
-				local nHintScope = env:buildIHintScope("LongHintScope", l, nEvalList, p1, l[middle].pos, posEnd-1)
-				nHintScope.attrList = nAttrList
-				return nHintScope
+				local nHintSpace = env:buildIHintSpace("LongHintSpace", l, nEvalList, p1, l[middle].pos, posEnd-1)
+				nHintSpace.attrList = nAttrList
+				return nHintSpace
 			else
-				local nHintScope = {
-					tag = "LongHintScope",
+				local nHintSpace = {
+					tag = "LongHintSpace",
 					pos = p1,
 					posEnd = posEnd,
 					attrList = nAttrList,
 					evalScriptList = {},
 					table.unpack(l),
 				}
-				return nHintScope
+				return nHintSpace
 			end
 		end
 	end,
@@ -599,15 +599,15 @@ function ParseEnv:makeErrNode(vPos, vErr)
 	}
 end
 
-function ParseEnv:buildIHintScope(vTag, vInnerList, vEvalList, vRealStartPos, vStartPos, vFinishPos)
-	local nHintScope = {
+function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vStartPos, vFinishPos)
+	local nHintSpace = {
 		tag = vTag,
 		pos = vRealStartPos,
 		posEnd = vFinishPos + 1,
 		evalScriptList = {},
 		table.unpack(vInnerList)
 	}
-	local nEvalScriptList = nHintScope.evalScriptList
+	local nEvalScriptList = nHintSpace.evalScriptList
 	local nSubject = self._subject
 	for _, nHintEval in ipairs(vEvalList) do
 		nEvalScriptList[#nEvalScriptList + 1] = {
@@ -627,7 +627,7 @@ function ParseEnv:buildIHintScope(vTag, vInnerList, vEvalList, vRealStartPos, vS
 			[1]=nSubject:sub(vStartPos, vFinishPos)
 		}
 	end
-	return nHintScope
+	return nHintSpace
 end
 
 -- @ hint for invoke & call , need to add paren
