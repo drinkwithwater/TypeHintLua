@@ -40,16 +40,13 @@ local TagToVisiting:RealTraverser = {
 			}
 		end
 	end,
+	HintInject=function(self, node)
+		return self:stkWrap(node).INJECT_TERM(self:fixIHintSpace(node[1]))
+	end,
 	Block=function(self, node)
-		return {
-			self:stkWrap(node).INJECT_AFTER(self:codeNode(node)),
-			self:concatList@<node.Stat>(node, function(i, vStatNode)
-					return {
-						self:visit(vStatNode),
-						self:stkWrap(vStatNode).INJECT_AFTER(self:codeNode(vStatNode)),
-					}
-			end, " ")
-		}
+		return self:concatList@<node.Stat>(node, function(i, vStatNode)
+			return self:visit(vStatNode)
+		end, " ")
 		-- RUN_AFTER_IF is not usefull
 		--[[const nStatUntilIf:List(node.Stat) = {}
 		const nStatAfterIf:List(node.Stat) = {}
@@ -547,13 +544,13 @@ end
 (@do
 	let.StkNameEnum = Union(
 		"AUTO", -- just a flag
-		"INJECT_AFTER", -- just a flag
 
 		"CHUNK_TYPE",
 		"FUNC_NEW",
 		"TABLE_NEW",
 		"NIL_TERM",
 		"LITERAL_TERM",
+		"INJECT_TERM",
 
 		"EXPRLIST_UNPACK",
 		"EXPRLIST_REPACK",
@@ -605,7 +602,6 @@ end
 		"FOR_NUM",
 		"IF_ONE",
 		"IF_TWO",
-		"RUN_AFTER_IF",
 		"BREAK",
 		"LOGIC_NOT",
 		"LOGIC_OR",

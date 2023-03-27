@@ -254,6 +254,64 @@ local function chainOp (pat, kwOrSymb, op1, ...)
   return lpeg.Cf(pat * lpeg.Cg(sep * pat)^0, exprF.binOp)
 end
 
+local function suffixedExprByPrimary(primaryExpr)
+	local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
+	local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
+	-- . index
+	local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
+	-- [] index
+	local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
+	-- invoke
+	local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * polyArgs * vvA.FuncArgs)
+	-- call
+	local call = tagC.Call(cc(false) * vv.FuncArgs)
+	-- atPoly
+	local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
+	-- add completion case
+	local succPatt = lpeg.Cf(primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
+	return lpeg.Cmt(succPatt * Cenv * (Cpos*symb(".") + Cpos*symb(":")) ^-1, function(_, _, expr, env, predictPos)
+		if not predictPos then
+			if expr.tag == "HintAt" then
+				local hintAtExpr = expr
+				local curExpr = expr[1]
+				while curExpr.tag == "HintAt" do
+					hintAtExpr = curExpr
+					curExpr = curExpr[1]
+				end
+				-- if poly cast is after invoke or call, then add ()
+				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
+					env:markParenWrap(curExpr.pos, curExpr.posEnd - 1)
+				end
+			end
+			return true, expr
+		else
+			local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
+			if not env.hint then
+				nNode[2] = {
+					pos=expr.pos,
+					capture=buildInjectChunk(expr),
+					script=env._subject:sub(expr.pos, predictPos - 1),
+					traceList=env.scopeTraceList
+				}
+			else
+				nNode[2] = {
+					pos=expr.pos,
+					capture={
+						tag="ShortHintSpace", pos=expr.pos, posEnd=expr.posEnd,
+						castKind=false,
+						[1]=expr,
+					},
+					script=env._subject:sub(expr.pos, predictPos-1),
+					traceList=env.scopeTraceList
+				}
+			end
+			-- print("scope trace:", table.concat(env.scopeTraceList, ","))
+			error(nNode)
+			return false
+		end
+	end)
+end
+
 local G = lpeg.P { "TypeHintLua";
 	Shebang = lpeg.P("#") * (lpeg.P(1) - lpeg.P("\n"))^0 * lpeg.P("\n");
 	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
@@ -293,23 +351,26 @@ local G = lpeg.P { "TypeHintLua";
 
 	NotnilHint = hintC.char("!");
 
-	HintExpr = vv.EvalExpr + vv.SimpleExpr;
-
 	AtCastHint = hintC.wrap(
 		false,
 		symb("@") * cc("@") +
 		symb("@!") * cc("@!") +
 		symb("@>") * cc("@>") +
 		symb("@?") * cc("@?"),
-		vv.HintExpr) ;
+		vv.SimpleExpr) ;
 
-	ColonHint = hintC.wrap(false, symb(":") * cc(false), vv.HintExpr);
+	ColonHint = hintC.wrap(false, symb(":") * cc(false), vv.SimpleExpr);
 
 	LongHint = hintC.long();
 
-	HintStat = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("HintStat need DoStat or Apply or AssignStat inside"),
+	StatHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
+		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
+
+	HintInject = suffixedExprByPrimary(
+		tagC.HintInject(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
+		vv.PrimaryExpr
+	);
 
 	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") * Cpos / function(env, pos, ...)
 		local l = {...}
@@ -320,9 +381,9 @@ local G = lpeg.P { "TypeHintLua";
 	end;
 
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
-		vvA.HintExpr * (symb"," * vv.HintExpr)^0, symbA(">"));
+		vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.HintInject + vvA.SimpleExpr) * vv.EvalEnd);
 
   -- hint & eval end }}}
 
@@ -381,76 +442,25 @@ local G = lpeg.P { "TypeHintLua";
 		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
 		local AndExpr = chainOp(RelExpr, kw, "and")
 		local OrExpr = chainOp(AndExpr, kw, "or")
-		return vv.EvalExpr + OrExpr
+		return OrExpr
 	end)();
 
 	SimpleExpr = Cpos * (
-								vv.String +
-								tagC.Number(token(vv.Number)) +
-								tagC.Nil(kw"nil") +
-								tagC.False(kw"false") +
-								tagC.True(kw"true") +
-								vv.FuncDef +
-								vv.Constructor +
-								vv.SuffixedExpr +
-								tagC.Dots(symb"...")
-							) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv/ exprF.hintExpr;
+						vv.String +
+						tagC.Number(token(vv.Number)) +
+						tagC.Nil(kw"nil") +
+						tagC.False(kw"false") +
+						tagC.True(kw"true") +
+						vv.FuncDef +
+						vv.Constructor +
+						vv.SuffixedExpr +
+						tagC.Dots(symb"...") +
+						vv.EvalExpr
+					) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv/ exprF.hintExpr;
 
 	PrimaryExpr = vv.IdentUse + tagC.Paren(symb"(" * vv.Expr * symb")");
 
-	SuffixedExpr = (function()
-		local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
-		local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
-		-- . index
-		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
-		-- [] index
-		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
-		-- invoke
-		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * polyArgs * vvA.FuncArgs)
-		-- call
-		local call = tagC.Call(cc(false) * vv.FuncArgs)
-		-- atPoly
-		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
-		-- add completion case
-		local succPatt = lpeg.Cf(vv.PrimaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
-		return lpeg.Cmt(succPatt * Cenv * (Cpos*symb(".") + Cpos*symb(":")) ^-1, function(_, _, expr, env, predictPos)
-			if not predictPos then
-				if expr.tag == "HintAt" then
-					local hintAtExpr = expr
-					local curExpr = expr[1]
-					while curExpr.tag == "HintAt" do
-						hintAtExpr = curExpr
-						curExpr = curExpr[1]
-					end
-					-- if poly cast is after invoke or call, then add ()
-					if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-						env:markParenWrap(curExpr.pos, curExpr.posEnd - 1)
-					end
-				end
-				return true, expr
-			else
-				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
-				if not env.hint then
-					nNode[2] = {
-						pos=expr.pos,
-						capture=buildInjectChunk(expr),
-						script=env._subject:sub(expr.pos, predictPos - 1),
-						traceList=env.scopeTraceList
-					}
-				else
-					nNode[2] = {
-						pos=expr.pos,
-						capture=expr,
-						script=env._subject:sub(expr.pos, predictPos-1),
-						traceList=env.scopeTraceList
-					}
-				end
-				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
-				error(nNode)
-				return false
-			end
-		end)
-	end)();
+	SuffixedExpr = suffixedExprByPrimary(vv.PrimaryExpr);
 
 	ApplyExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Call" or exp.tag == "Invoke", exp end);
 	VarExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Ident" or exp.tag == "Index", exp end);
@@ -535,7 +545,7 @@ local G = lpeg.P { "TypeHintLua";
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA("end")
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
-		return vv.HintStat +
+		return vv.StatHintSpace +
          LocalStat + FuncStat + LabelStat + BreakStat + GoToStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
 				 vv.DoStat + vv.AssignStat + vv.ApplyExpr + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
