@@ -136,7 +136,7 @@ function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nContentChange = vParams.contentChanges[1]
 	if nContentChange then
 		const nContent = nContentChange.text
-		self:syncFile(nContent, vParams.textDocument.uri, vParams.textDocument.version)
+		self:attachFileState(vParams.textDocument.uri):syncContent(nContent, vParams.textDocument.version)
 	else
 		self:error("content change is empty onDidChange")
 	end
@@ -146,7 +146,7 @@ end
 function SlowServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
 	const nFileUri = vParams.textDocument.uri
-	self:syncFile(nContent, vParams.textDocument.uri, vParams.textDocument.version)
+	self:attachFileState(vParams.textDocument.uri):syncContent(nContent, vParams.textDocument.version)
 	self:rerun(nFileUri)
 end
 

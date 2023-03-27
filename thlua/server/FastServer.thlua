@@ -77,10 +77,7 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	if nContentChange then
 		const nContent = nContentChange.text
 		const nFileUri = vParams.textDocument.uri
-		const nOkay = self:syncFile(nContent, nFileUri, vParams.textDocument.version)
-		if nOkay then
-			-- self:rerun(nFileUri)
-		end
+		self:attachFileState(nFileUri):syncContent(nContent, vParams.textDocument.version)
 	else
 		self:error("content change is empty onDidChange")
 	end
@@ -89,7 +86,7 @@ end
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
 	const nFileUri = vParams.textDocument.uri
-	self:syncFile(nContent, nFileUri, vParams.textDocument.version)
+	self:attachFileState(nFileUri):syncContent(nContent, vParams.textDocument.version)
 	self:rerun(nFileUri)
 end
 

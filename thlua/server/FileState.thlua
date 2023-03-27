@@ -20,6 +20,23 @@ function.open FileState:ctor(vFileName:String)
 	self._version = (-1) @Integer
 end
 
+function FileState:getWellformedRange(vRange:lsp.Range):Ret(lsp.Range)
+	const nStart = vRange.start
+	const nEnd = vRange["end"]
+	if nStart.line > nEnd.line or (nStart.line == nEnd.line and nStart.character > nEnd.character) then
+		return { start=nEnd, ["end"]=nStart }
+	else
+		return vRange
+	end
+end
+
+function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams)
+	const nChanges = vParams.contentChanges
+	for _, nChange in ipairs(nChanges) do
+		const nRange = self:getWellformedRange(nChange.range)
+	end
+end
+
 function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)
 	self._version = vVersion
 	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)

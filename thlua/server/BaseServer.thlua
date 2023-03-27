@@ -25,13 +25,15 @@ function.pass BaseServer:getMethodHandler():Ret(Truth)
 	error("get method handler is not implement in BaseServer")
 end
 
-function BaseServer:syncFile(vContent:String, vFileUri:String, vVersion:Integer):Ret(Boolean)
+function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	local nFileState = self._fileStateDict[vFileUri]
 	if not nFileState then
-		nFileState = FileState.new(vFileUri)
-		self._fileStateDict[vFileUri] = nFileState
+		const nNewState = FileState.new(vFileUri)
+		self._fileStateDict[vFileUri] = nNewState
+		return nNewState
+	else
+		return nFileState
 	end
-	return nFileState:syncContent(vContent, vVersion)
 end
 
 function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
@@ -52,7 +54,7 @@ function BaseServer:thluaParseFile(vFileUri:String)
 		end
 		const nContent = file:read("*a")
 		file:close()
-		self:syncFile(nContent, vFileUri, -1)
+		self:attachFileState(vFileUri):syncContent(nContent, -1)
 	end
 	return self._fileStateDict[vFileUri]!:checkLatestEnv()
 end
