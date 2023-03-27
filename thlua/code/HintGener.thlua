@@ -25,18 +25,18 @@ end)
 
 local TagToVisiting:RealTraverser = {
 	Chunk=function(self, node)
-		if not self._isInject then
+		const nInjectNode = node.injectNode
+		if not nInjectNode then
 			return {
 				'local ____nodes,____stk,____globalTerm=... ',
 				self:visitIdentDef(node[1], "____globalTerm"),
-				" return ",
-				self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
+				" return ", self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 			}
 		else
 			return {
 				'local ____nodes,____stk,____injectGetter=... ',
-				" return ",
-				self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
+				"local let, _ENV = ____stk:INJECT_BEGIN() ",
+				" return ", self:visit(nInjectNode),
 			}
 		end
 	end,
@@ -97,7 +97,7 @@ local TagToVisiting:RealTraverser = {
 						)
 					else
 						const nIdentENV = vVarNode.isGetFrom
-						if self._isInject and nIdentENV == self._chunk[1] then
+						if self._chunk.injectNode and nIdentENV == self._chunk[1] then
 							-- INJECT_SET donothing, so just ignore
 							return ""
 						else
@@ -394,7 +394,7 @@ local TagToVisiting:RealTraverser = {
 			end
 		else
 			const nIdentENV = node.isGetFrom
-			if self._isInject and nIdentENV == self._chunk[1] then
+			if self._chunk.injectNode and nIdentENV == self._chunk[1] then
 				return self:stkWrap(node).INJECT_GET(
 					"____injectGetter"
 				)
@@ -769,7 +769,6 @@ end
 
 function:class(let.HintGener) HintGener.new(vChunk:node.Chunk, vIsInject:Boolean)
 	const self = setmetatable({.class
-		_isInject=vIsInject,
 		_chunk=vChunk,
 	}, HintGener)
 	return self

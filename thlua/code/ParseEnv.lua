@@ -158,7 +158,7 @@ local function buildInjectChunk(expr)
 			}
 		}
 	})
-	nChunk[4] = expr
+	nChunk.injectNode = expr
 	return nChunk
 end
 
@@ -167,7 +167,7 @@ local function buildHintInjectChunk(shortHintSpace)
 		tag="Block", pos=shortHintSpace.pos, posEnd=shortHintSpace.posEnd,
 		[1]={}
 	})
-	nChunk[4] = shortHintSpace
+	nChunk.injectNode = shortHintSpace
 	return nChunk
 end
 

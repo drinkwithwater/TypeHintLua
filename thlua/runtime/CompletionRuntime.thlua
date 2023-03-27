@@ -50,7 +50,7 @@ function CompletionRuntime:nonHintInject(vTracePos:Integer, vBlockNode:node.Bloc
 	const nCollection = self._manager:TypeCollection()
 	for _, nBranch in pairs(nBranchList) do
 		const nStack = nBranch:getStack()
-		const nOpenFn = vFn(nStack, function(vIdent)
+		const nRetTerm = vFn(nStack, function(vIdent)
 			-- 1. lookup local symbol
 			const nName = vIdent[1]
 			local nDefineIdent = vBlockNode.symbolTable[nName]
@@ -84,10 +84,6 @@ function CompletionRuntime:nonHintInject(vTracePos:Integer, vBlockNode:node.Bloc
 				return nStack:NIL_TERM(vIdent)
 			end
 		end)
-		const nContext = self._rootStack:newNoPushContext(self._node)
-		const nTermTuple = nContext:FixedTermTuple({})
-		const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple)
-		const nRetTerm = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
 		nCollection:put(nRetTerm:getType())
 	end
 	return nCollection:mergeToAtomUnion()

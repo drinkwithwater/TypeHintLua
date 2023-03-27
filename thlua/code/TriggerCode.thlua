@@ -7,7 +7,7 @@ const class = require "thlua.class"
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
-	let.NonHintInjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+	let.NonHintInjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	let.HintInjectFn = Fn(clazz.SpaceTable, clazz.SpaceTable):Ret(clazz.Truth)
 end)
 
@@ -31,9 +31,9 @@ function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.Chunk, No
 		self._astTree = nCapture
 		const ok, err = pcall(function():Ret(NonHintInjectFn)
 			(@do
-				let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+				let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 			end)
-			const nRawInjectFn = self:_buildTypingFn(true) @> RawInjectFn
+			const nRawInjectFn = self:_buildTypingFn() @> RawInjectFn
 			return function(vStack, vGetter)
 				return nRawInjectFn(self._nodeList, vStack, vGetter)
 			end
