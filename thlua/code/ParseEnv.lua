@@ -142,7 +142,8 @@ local function buildLoadChunk(vPos, vBlock)
 				tag="Dots",pos=vPos,posEnd=vPos
 			}
 		},
-		[3]=vBlock
+		[3]=vBlock,
+		[4]=false
 	}
 end
 
@@ -157,6 +158,15 @@ local function buildInjectChunk(expr)
 			}
 		}
 	})
+	return nChunk
+end
+
+local function buildHintInjectChunk(shortHintSpace)
+	local nChunk = buildLoadChunk(shortHintSpace.pos, {
+		tag="Block", pos=shortHintSpace.pos, posEnd=shortHintSpace.posEnd,
+		[1]={}
+	})
+	nChunk[4] = shortHintSpace
 	return nChunk
 end
 
@@ -294,13 +304,12 @@ local function suffixedExprByPrimary(primaryExpr)
 					traceList=env.scopeTraceList
 				}
 			else
+				local innerList = {expr}
+				local evalList = env:captureEvalByVisit(innerList)
+				local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, expr.pos, expr.pos, predictPos-1)
 				nNode[2] = {
 					pos=expr.pos,
-					capture={
-						tag="ShortHintSpace", pos=expr.pos, posEnd=expr.posEnd,
-						castKind=false,
-						[1]=expr,
-					},
+					capture=buildHintInjectChunk(hintSpace),
 					script=env._subject:sub(expr.pos, predictPos-1),
 					traceList=env.scopeTraceList
 				}
@@ -367,8 +376,8 @@ local G = lpeg.P { "TypeHintLua";
 		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
-	HintInject = suffixedExprByPrimary(
-		tagC.HintInject(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
+	HintTerm = suffixedExprByPrimary(
+		tagC.HintTerm(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
 		vv.PrimaryExpr
 	);
 
@@ -383,7 +392,7 @@ local G = lpeg.P { "TypeHintLua";
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
 		vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.HintInject + vvA.SimpleExpr) * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.HintTerm + vvA.SimpleExpr) * vv.EvalEnd);
 
   -- hint & eval end }}}
 
