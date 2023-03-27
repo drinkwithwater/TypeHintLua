@@ -147,11 +147,12 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	nCompletionRuntime:focusSchedule(nFuncList)
 	if nInjectFn then
 		-- 3. run inject
-		const nType = nCompletionRuntime:nonHintInject(nInjectNode.pos, nBlockNode, nInjectFn)
-		const nCompletion = FieldCompletion.new()
-		nType:putCompletion(nCompletion)
+		const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
+		if not nFieldCompletion then
+			return nil
+		end
 		const nRetList:List(lsp.CompletionItem) = {}
-		nCompletion:foreach(function(vKey, vValue)
+		nFieldCompletion:foreach(function(vKey, vValue)
 			nRetList[#nRetList + 1] = {
 				label=vKey,
 				kind=2,

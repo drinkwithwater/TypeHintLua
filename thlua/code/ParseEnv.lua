@@ -150,13 +150,6 @@ end
 local function buildInjectChunk(expr)
 	local nChunk = buildLoadChunk(expr.pos, {
 		tag="Block", pos=expr.pos, posEnd=expr.posEnd,
-		[1]={
-			tag="Return", pos=expr.pos, posEnd=expr.posEnd,
-			[1]={
-				tag="ExprList", pos=expr.pos, posEnd=expr.posEnd,
-				[1] = expr
-			}
-		}
 	})
 	nChunk.injectNode = expr
 	return nChunk
@@ -165,7 +158,6 @@ end
 local function buildHintInjectChunk(shortHintSpace)
 	local nChunk = buildLoadChunk(shortHintSpace.pos, {
 		tag="Block", pos=shortHintSpace.pos, posEnd=shortHintSpace.posEnd,
-		[1]={}
 	})
 	nChunk.injectNode = shortHintSpace
 	return nChunk
@@ -297,7 +289,7 @@ local function suffixedExprByPrimary(primaryExpr)
 			return true, expr
 		else
 			local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
-			if not env.hint then
+			if not env.hinting then
 				nNode[2] = {
 					pos=expr.pos,
 					capture=buildInjectChunk(expr),

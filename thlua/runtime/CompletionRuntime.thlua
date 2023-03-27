@@ -1,13 +1,15 @@
 
+const FieldCompletion = require "thlua.context.FieldCompletion"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const BaseRuntime = require "thlua.runtime.BaseRuntime"
+const Namespace = require "thlua.manager.Namespace"
 const class = require "thlua.class"
 
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
-	let.NonHintInjectFn = import("thlua.code.TriggerCode").NonHintInjectFn
+	let.InjectFn = import("thlua.code.TriggerCode").InjectFn
 end)
 
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
@@ -41,16 +43,16 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	self._rootStack:reSchedule()
 end
 
-function CompletionRuntime:nonHintInject(vTracePos:Integer, vBlockNode:node.Block, vFn:NonHintInjectFn):Ret(clazz.UAtomUnion)
+function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(OrFalse(clazz.FieldCompletion))
 	const nBranchList = self._nodeToBranchList[vBlockNode]
 	if not nBranchList then
-		return self._manager.type.Never
+		return false
 	end
+	const nFieldCompletion = FieldCompletion.new()
 	-- 3. run inject fn in each branches
-	const nCollection = self._manager:TypeCollection()
 	for _, nBranch in pairs(nBranchList) do
 		const nStack = nBranch:getStack()
-		const nRetTerm = vFn(nStack, function(vIdent)
+		const nResult = vFn(nStack, function(vIdent)
 			-- 1. lookup local symbol
 			const nName = vIdent[1]
 			local nDefineIdent = vBlockNode.symbolTable[nName]
@@ -84,9 +86,16 @@ function CompletionRuntime:nonHintInject(vTracePos:Integer, vBlockNode:node.Bloc
 				return nStack:NIL_TERM(vIdent)
 			end
 		end)
-		nCollection:put(nRetTerm:getType())
+		if RefineTerm.is(nResult) then
+			nResult:getType():putCompletion(nFieldCompletion)
+		else
+			const nSpace = Namespace.fromExport(nResult)
+			if nSpace then
+				nSpace:putCompletion(nFieldCompletion)
+			end
+		end
 	end
-	return nCollection:mergeToAtomUnion()
+	return nFieldCompletion
 end
 
 return CompletionRuntime

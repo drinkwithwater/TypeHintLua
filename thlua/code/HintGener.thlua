@@ -33,11 +33,19 @@ local TagToVisiting:RealTraverser = {
 				" return ", self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 			}
 		else
-			return {
-				'local ____nodes,____stk,____injectGetter=... ',
-				"local let, _ENV = ____stk:INJECT_BEGIN() ",
-				" return ", self:visit(nInjectNode),
-			}
+			if nInjectNode.tag ~= "ShortHintSpace" then
+				return {
+					'local ____nodes,____stk,____injectGetter=... ',
+					"local let, _ENV = ____stk:INJECT_BEGIN() ",
+					" return ", self:visit(nInjectNode),
+				}
+			else
+				return {
+					'local ____nodes,____stk,____injectGetter=... ',
+					"local let, _ENV = ____stk:INJECT_BEGIN() ",
+					" return ", self:fixIHintSpace(nInjectNode),
+				}
+			end
 		end
 	end,
 	HintTerm=function(self, node)
