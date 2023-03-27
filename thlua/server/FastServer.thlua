@@ -94,6 +94,8 @@ function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 end
 
 function FastServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
+	const nFileUri = vParams.textDocument.uri
+	self:rerun(nFileUri)
 end
 
 function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Location))
@@ -137,26 +139,26 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
 	const nContent = nSplitCode:getContent():sub(1, nPos)
 	const nTriggerCode = TriggerCode.new(nContent, nFileUri, 0)
-	const nInjectChunk, nInjectFn = nTriggerCode:tryGenInjectChunkFn()
-	if not nInjectChunk then
+	const nInjectTrace, nInjectFn = nTriggerCode:tryGenInjectChunkFn()
+	if not nInjectTrace then
 		return nil
 	end
-	const nBlockNode, nFuncList = nSuccEnv:traceBlock(assert(nInjectChunk.injectTrace))
-	if not nBlockNode then
-		return nil
+	const nBlockNode, nFuncList = nSuccEnv:traceBlock(nInjectTrace)
+	nCompletionRuntime:focusSchedule(nFuncList)
+	if nInjectFn then
+		-- 3. run inject
+		const nType = nCompletionRuntime:nonHintInject(nInjectTrace.pos, nBlockNode, nInjectFn)
+		const nCompletion = FieldCompletion.new()
+		nType:getCompletion(nCompletion)
+		const nRetList:List(lsp.CompletionItem) = {}
+		nCompletion:foreach(function(vKey, vValue)
+			nRetList[#nRetList + 1] = {
+				label=vKey,
+				kind=2,
+			}
+		end)
+		return json.array(nRetList)
 	end
-	-- 3. run inject
-	const nType = nCompletionRuntime:injectType(self, nInjectChunk.pos, nBlockNode, nFuncList, nInjectFn)
-	const nCompletion = FieldCompletion.new()
-	nType:getCompletion(nCompletion)
-	const nRetList:List(lsp.CompletionItem) = {}
-	nCompletion:foreach(function(vKey, vValue)
-		nRetList[#nRetList + 1] = {
-			label=vKey,
-			kind=2,
-		}
-	end)
-	return json.array(nRetList)
 end
 
 function FastServer:onHover(vParams:lsp.HoverParams)

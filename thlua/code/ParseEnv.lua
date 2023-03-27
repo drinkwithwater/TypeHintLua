@@ -133,7 +133,7 @@ local parF = {
 
 local function buildLoadChunk(vPos, vBlock)
 	return {
-		tag="Chunk", injectTrace=false, pos=vPos, posEnd=vBlock.posEnd,
+		tag="Chunk", pos=vPos, posEnd=vBlock.posEnd,
 		letNode = parF.identDefLet(vPos),
 		[1]=parF.identDefENV(vPos),
 		[2]={
@@ -146,7 +146,7 @@ local function buildLoadChunk(vPos, vBlock)
 	}
 end
 
-local function buildInjectChunk(expr, blockTraceList)
+local function buildInjectChunk(expr)
 	local nChunk = buildLoadChunk(expr.pos, {
 		tag="Block", pos=expr.pos, posEnd=expr.posEnd,
 		[1]={
@@ -157,7 +157,6 @@ local function buildInjectChunk(expr, blockTraceList)
 			}
 		}
 	})
-	nChunk.injectTrace = blockTraceList
 	return nChunk
 end
 
@@ -431,7 +430,21 @@ local G = lpeg.P { "TypeHintLua";
 				return true, expr
 			else
 				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
-				nNode[2] = buildInjectChunk(expr, env.scopeTraceList)
+				if not env.hint then
+					nNode[2] = {
+						pos = expr.pos,
+						capture=buildInjectChunk(expr),
+						table.unpack(env.scopeTraceList)
+					}
+				else
+					if expr.tag == "Index" or expr.tag == "Ident" then
+						nNode[2] = {
+							pos = expr.pos,
+							capture=expr,
+							table.unpack(env.scopeTraceList)
+						}
+					end
+				end
 				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
 				error(nNode)
 				return false

@@ -25,7 +25,6 @@ local __node = {}
 
 __node.Chunk = ExtendStruct({
 	tag = "Chunk",
-	injectTrace = OrFalse(List(Integer)),
 	symbol_dots = OrNil(node.Dots),
 	retFlag = OrNil(True),
 	hintPolyParList = Nil,
@@ -348,10 +347,18 @@ node.TagToNodeType = Struct(__node)
 
 node.URegionNode = Union(node.Chunk, node.Function)
 
+node.InjectTrace = Struct ({
+	capture=Union(node.Chunk, node.Index, node.Ident_use), -- chunk for non-hint space capture, index & ident_use for hint space capture
+	pos=Integer,
+	[Integer]=Integer
+}, {
+	__len=Integer
+})
+
 node.Error = ExtendStruct({
 	tag = "Error",
 	[1] = String,
-	[2] = OrNil(node.Chunk),
+	[2] = OrNil(node.InjectTrace),
 }, let.IAstNode)
 
 node.Root = ExtendStruct ({

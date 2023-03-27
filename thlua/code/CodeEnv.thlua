@@ -33,7 +33,7 @@ function CodeEnv:lateInit()
 		error(Exception.new(nErr[1], nErr))
 	end
 	self._astTree = nAst
-	self._typingFn = self:_buildTypingFn() @> TypingFn
+	self._typingFn = self:_buildTypingFn(false) @> TypingFn
 end
 
 function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
@@ -72,12 +72,12 @@ function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
 	visitor:realVisit(self._astTree)
 end
 
-function.pass CodeEnv:_buildTypingFn():Ret(AnyFunction)
+function.pass CodeEnv:_buildTypingFn(vIsInject:Boolean):Ret(AnyFunction)
 	const nAst = self._astTree
 	self:prepare()
 	const nSymbolVisitor = SymbolVisitor.new()
 	nSymbolVisitor:realVisit(nAst)
-	const gener = HintGener.new(nAst)
+	const gener = HintGener.new(nAst, vIsInject)
 	const nTypingCode = gener:genCode()
 	self._typingCode = nTypingCode
 	local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
@@ -113,8 +113,8 @@ function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 
-function CodeEnv:traceBlock(vTraceList:List(Integer)):Ret(False):Ret(node.Block, List(node.Function))
-	local nRetBlock:OrNil(node.Block) = self._astTree[3]
+function CodeEnv:traceBlock(vTraceList:node.InjectTrace):Ret(node.Block, List(node.Function))
+	local nRetBlock:node.Block = self._astTree[3]
 	for i=1,#vTraceList-1 do
 		const nTrace = vTraceList[i]!
 		const nNextBlock = nRetBlock.subBlockList[nTrace]!

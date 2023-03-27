@@ -16,29 +16,34 @@ function TriggerCode:lateInit()
 	error("trigger code can't call late init")
 end
 
-function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.Chunk, InjectFn)
-	const nAst, nErr = ParseEnv.parse(self._content)
-	if nAst then
-		return false, "try trigger .: but not get any syntax error???"
+function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.InjectTrace, OrFalse(InjectFn))
+	const nInjectTrace, nErr = ParseEnv.parse(self._content)
+	if nInjectTrace then
+		return false, "trigger by completion but not get any syntax error???"
 	end
-	const nAst = nErr[2]
-	if not nAst then
-		return false, "try trigger .: but get wrong error..."
+	const nInjectTrace = nErr[2]
+	if not nInjectTrace then
+		return false, "trigger by completion but get wrong error..."
 	end
-	self._astTree = nAst
-	const ok, err = pcall(function():Ret(InjectFn)
-		(@do
-			let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+	const nCapture = nInjectTrace.capture
+	if nCapture.tag == "Chunk" then
+		self._astTree = nCapture
+		const ok, err = pcall(function():Ret(InjectFn)
+			(@do
+				let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+			end)
+			const nRawInjectFn = self:_buildTypingFn(true) @> RawInjectFn
+			return function(vStack, vGetter)
+				return nRawInjectFn(self._nodeList, vStack, vGetter)
+			end
 		end)
-		const nRawInjectFn = self:_buildTypingFn() @> RawInjectFn
-		return function(vStack, vGetter)
-			return nRawInjectFn(self._nodeList, vStack, vGetter)
+		if ok then
+			return nInjectTrace, err
+		else
+			return false, tostring(err)
 		end
-	end)
-	if ok then
-		return nAst, err
 	else
-		return false, tostring(err)
+		return nInjectTrace, false
 	end
 end
 

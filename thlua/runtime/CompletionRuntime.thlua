@@ -14,7 +14,7 @@ const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
 	self._focusNodeSet = {} @ Dict(node.Function, True)
-	self._nodeToBranch = {} @ Dict(node.Block, List(clazz.Branch))
+	self._nodeToBranchList = {} @ Dict(node.Block, List(clazz.Branch))
 end
 
 function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
@@ -22,16 +22,16 @@ function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
 end
 
 function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
-	local nList = self._nodeToBranch[vNode]
+	local nList = self._nodeToBranchList[vNode]
 	if not nList then
 		nList = {vBranch}
-		self._nodeToBranch[vNode] = nList
+		self._nodeToBranchList[vNode] = nList
 	else
 		nList[#nList + 1] = vBranch
 	end
 end
 
-function CompletionRuntime:injectType(vServer:Truth, vTracePos:Integer, vBlockNode:node.Block, vFuncList:List(node.Function), vFn:InjectFn):Ret(clazz.UAtomUnion)
+function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	-- 1. set focus functions
 	const nSet = self._focusNodeSet
 	for k,v in pairs(vFuncList) do
@@ -39,7 +39,10 @@ function CompletionRuntime:injectType(vServer:Truth, vTracePos:Integer, vBlockNo
 	end
 	-- 2. schedule to activate block & function
 	self._rootStack:reSchedule()
-	const nBranchList = self._nodeToBranch[vBlockNode]
+end
+
+function CompletionRuntime:nonHintInject(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(clazz.UAtomUnion)
+	const nBranchList = self._nodeToBranchList[vBlockNode]
 	if not nBranchList then
 		return self._manager.type.Never
 	end
