@@ -137,13 +137,13 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	-- 2. make inject fn
 	const nSplitCode = nFileState:getSplitCode()
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
-	const nContent = nSplitCode:getContent():sub(1, nPos)
+	const nContent = nSplitCode:getContent():sub(1, nPos-1)
 	const nTriggerCode = TriggerCode.new(nContent, nFileUri, 0)
 	const nInjectNode, nInjectFn, nTraceList = nTriggerCode:tryGenInjectChunkFn()
 	if not nInjectNode then
 		return nil
 	end
-	const nBlockNode, nFuncList = nSuccEnv:traceBlock(nTraceList)
+	const nBlockNode, nRegionNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
 	nCompletionRuntime:focusSchedule(nFuncList)
 	if nInjectFn then
 		-- 3. run inject

@@ -438,14 +438,12 @@ local G = lpeg.P { "TypeHintLua";
 						traceList=env.scopeTraceList
 					}
 				else
-					if expr.tag == "Index" or expr.tag == "Ident" then
-						nNode[2] = {
-							pos=expr.pos,
-							capture=expr,
-							script=env._subject:sub(expr.pos, predictPos-1),
-							traceList=env.scopeTraceList
-						}
-					end
+					nNode[2] = {
+						pos=expr.pos,
+						capture=expr,
+						script=env._subject:sub(expr.pos, predictPos-1),
+						traceList=env.scopeTraceList
+					}
 				end
 				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
 				error(nNode)

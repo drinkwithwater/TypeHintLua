@@ -113,7 +113,8 @@ function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 
-function CodeEnv:traceBlock(vTraceList:List(Integer)):Ret(node.Block, List(node.Function))
+function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, Union(node.Chunk, node.Function), List(node.Function))
+	local nRetRegion:OrFalse(node.Chunk, node.Function) = false
 	local nRetBlock:node.Block = self._astTree[3]
 	for i=1,#vTraceList-1 do
 		const nTrace = vTraceList[i]!
@@ -128,11 +129,17 @@ function CodeEnv:traceBlock(vTraceList:List(Integer)):Ret(node.Block, List(node.
 	local nCurFunc:OrNil(node.IAstNode) = nRetBlock
 	while nCurFunc do
 		if nCurFunc.tag == "Function" then
-			nList[#nList + 1] = nCurFunc @> node.Function
+			const nFunc = nCurFunc @> node.Function
+			if nFunc.letNode then
+				nList[#nList + 1] = nFunc
+				if not nRetRegion then
+					nRetRegion = nFunc
+				end
+			end
 		end
 		nCurFunc = nCurFunc.parent
 	end
-	return nRetBlock, nList
+	return nRetBlock, nRetRegion or self._astTree, nList
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))

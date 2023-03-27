@@ -227,11 +227,12 @@ function SymbolVisitor:withHintBlock(vBlockNode:node.Block, vFuncNode:OrNil(node
 		})
 	else
 		vBlockNode.symbolTable = {
-			let=nPreNode.letNode
+			let=nPreNode,
 		}
 	end
 	table.insert(self._hintStack, vBlockNode)
 	if vFuncNode then
+		vFuncNode.letNode = false
 		table.insert(self._hintFuncStack, vFuncNode)
 		vInnerCall()
 		table.remove(self._hintFuncStack)
@@ -261,8 +262,8 @@ function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 	end
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
+		table.insert(self._regionStack, assert(vFuncOrChunk.letNode))
 		table.insert(self._hintStack, vFuncOrChunk)
-		table.insert(self._regionStack, vFuncOrChunk)
 		vInnerCall()
 		table.remove(self._regionStack)
 		table.remove(self._hintStack)
@@ -311,22 +312,22 @@ function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
 end
 
 function SymbolVisitor:hintSymbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
-	const nBlockOrRegion = self._hintStack[#self._hintStack]!
+	const nBlockOrLetIdent = self._hintStack[#self._hintStack]!
 	const nName = vIdentNode[1]
 	local nDefineNode:OrNil(node.Ident_def) = nil
-	if nBlockOrRegion.tag == "Block" then
-		nDefineNode = nBlockOrRegion.symbolTable[nName]
+	if nBlockOrLetIdent.tag == "Block" then
+		nDefineNode = nBlockOrLetIdent.symbolTable[nName]
 	else
 		if nName == "let" then
-			nDefineNode = nBlockOrRegion.letNode
+			nDefineNode = nBlockOrLetIdent
 		end
 	end
 	if not nDefineNode then
 		vIdentNode.defineIdent = false
-		if nBlockOrRegion.tag == "Block" then
-			vIdentNode.isGetFrom = nBlockOrRegion.symbolTable["let"]!
+		if nBlockOrLetIdent.tag == "Block" then
+			vIdentNode.isGetFrom = nBlockOrLetIdent.symbolTable["let"]!
 		else
-			vIdentNode.isGetFrom = nBlockOrRegion.letNode
+			vIdentNode.isGetFrom = nBlockOrLetIdent
 		end
 	else
 		if vIsAssign then
@@ -370,7 +371,7 @@ function:class(let.SymbolVisitor) SymbolVisitor.new()
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
 		_inHintSpace=false@Boolean,
-		_hintStack={}@List(Union(node.Block, node.Function, node.Chunk)),
+		_hintStack={}@List(Union(node.Block, node.Ident_def)),
 		_hintFuncStack={}@List(node.Function),
 	}, SymbolVisitor)
 	return self
