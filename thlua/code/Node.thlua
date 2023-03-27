@@ -347,18 +347,14 @@ node.TagToNodeType = Struct(__node)
 
 node.URegionNode = Union(node.Chunk, node.Function)
 
-node.InjectTrace = Struct ({
-	capture=Union(node.Chunk, node.Index, node.Ident_use), -- chunk for non-hint space capture, index & ident_use for hint space capture
-	pos=Integer,
-	[Integer]=Integer
-}, {
-	__len=Integer
-})
-
 node.Error = ExtendStruct({
 	tag = "Error",
 	[1] = String,
-	[2] = OrNil(node.InjectTrace),
+	[2] = OrNil(Struct {
+		capture=Union(node.Chunk, node.ShortHintSpace), -- chunk for non-hint space capture, index & ident_use for hint space capture
+		pos=Integer,
+		traceList=List(Integer)
+	}),
 }, let.IAstNode)
 
 node.Root = ExtendStruct ({

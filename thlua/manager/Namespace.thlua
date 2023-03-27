@@ -69,7 +69,7 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 					throw("assign conflict: key="..tostring(nKeyType))
 				end
 			else
-				const namespace = Namespace.fromLocalExport(newV)
+				const namespace = Namespace.fromExport(newV)
 				if namespace then
 					namespace:trySetKey(tostring(nKeyType))
 					self._key2type[nKeyType] = newV @? clazz.SpaceTable
@@ -100,6 +100,7 @@ function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:
 		__tostring=function(t:Truth):Ret(String)
 			return tostring(self).."->globalExport"
 		end,
+		__self=self,
 	}) @? clazz.SpaceTable
 	return self
 end
@@ -131,7 +132,7 @@ function.pass Namespace:isLetSpace():Ret(Boolean)
 	return getmetatable(self._key2type) and true or false
 end
 
-function.pass Namespace.fromLocalExport(t:Any):Ret(OrFalse(clazz.Namespace))
+function.pass Namespace.fromExport(t:Any):Ret(OrFalse(clazz.Namespace))
 	local nMeta = getmetatable(t)
 	if type(nMeta) == "table" then
 		local self = rawget(nMeta, "__self")

@@ -7,7 +7,8 @@ const class = require "thlua.class"
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
-	let.InjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+	let.NonHintInjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
+	let.HintInjectFn = Fn(clazz.SpaceTable, clazz.SpaceTable):Ret(clazz.Truth)
 end)
 
 const TriggerCode = class@<clazz.TriggerCode, false>(CodeEnv)
@@ -16,7 +17,7 @@ function TriggerCode:lateInit()
 	error("trigger code can't call late init")
 end
 
-function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.InjectTrace, OrFalse(InjectFn))
+function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.Chunk, NonHintInjectFn, List(Integer))
 	const nInjectTrace, nErr = ParseEnv.parse(self._content)
 	if nInjectTrace then
 		return false, "trigger by completion but not get any syntax error???"
@@ -28,7 +29,7 @@ function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.InjectTra
 	const nCapture = nInjectTrace.capture
 	if nCapture.tag == "Chunk" then
 		self._astTree = nCapture
-		const ok, err = pcall(function():Ret(InjectFn)
+		const ok, err = pcall(function():Ret(NonHintInjectFn)
 			(@do
 				let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(clazz.OpenFunction)
 			end)
@@ -38,12 +39,20 @@ function TriggerCode:tryGenInjectChunkFn():Ret(False, String):Ret(node.InjectTra
 			end
 		end)
 		if ok then
-			return nInjectTrace, err
+			return nCapture, err, nInjectTrace.traceList
 		else
 			return false, tostring(err)
 		end
 	else
-		return nInjectTrace, false
+		return false, "TODO"
+		--[[
+		const fn, err = load("local _ENV, let = ... return " .. nCapture, "inject", "t", nil)
+		if not fn then
+			return false, err
+		else
+			return nInjectTrace, fn
+		end
+		]]
 	end
 end
 

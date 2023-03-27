@@ -432,16 +432,18 @@ local G = lpeg.P { "TypeHintLua";
 				local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
 				if not env.hint then
 					nNode[2] = {
-						pos = expr.pos,
+						pos=expr.pos,
 						capture=buildInjectChunk(expr),
-						table.unpack(env.scopeTraceList)
+						script=env._subject:sub(expr.pos, predictPos - 1),
+						traceList=env.scopeTraceList
 					}
 				else
 					if expr.tag == "Index" or expr.tag == "Ident" then
 						nNode[2] = {
-							pos = expr.pos,
+							pos=expr.pos,
 							capture=expr,
-							table.unpack(env.scopeTraceList)
+							script=env._subject:sub(expr.pos, predictPos-1),
+							traceList=env.scopeTraceList
 						}
 					end
 				end
