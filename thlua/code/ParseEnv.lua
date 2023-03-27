@@ -158,6 +158,7 @@ local function buildInjectChunk(expr)
 			}
 		}
 	})
+	nChunk[4] = expr
 	return nChunk
 end
 
