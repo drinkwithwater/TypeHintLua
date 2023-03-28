@@ -11,6 +11,9 @@ end)
 
 const FileState = class@<lsp.FileState, false>()
 
+const CHANGE_ANYTHING = 1
+const CHANGE_NONBLANK = 2
+
 function.open FileState:ctor(vFileName:String)
 	self._succEnv = false@OrFalse(clazz.CodeEnv)
 	self._rightEnv = false@OrFalse(clazz.CodeEnv)
@@ -18,11 +21,15 @@ function.open FileState:ctor(vFileName:String)
 	self._splitCode = SplitCode.new("")
 	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
-	self._nonBlankChange = false @Boolean
+	self._changeState = false @OrFalse($CHANGE_ANYTHING, $CHANGE_NONBLANK)
 end
 
-function FileState:onSave()
-	self._nonBlankChange = false
+function FileState:onSaveAndGetChange():Ret(Boolean)
+	if self._changeState then
+		self._changeState = false
+		return true
+	end
+	return false
 end
 
 function FileState:getWellformedRange(vRange:lsp.Range):Ret(lsp.Range)
@@ -55,19 +62,22 @@ function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams):Ret(Boole
 				nLineChange = true
 			end
 			if nChangeText:find("[^%s]") or nRemoveText:find("[^%s]") then
-				self._nonBlankChange = true
+				self._changeState = CHANGE_NONBLANK
 			end
 			nSplitCode = SplitCode.new(nNewContent)
 		else
 			nSplitCode = SplitCode.new(nChange.text)
+		end
+		if not self._changeState then
+			self._chanegState = CHANGE_ANYTHING
 		end
 	end
 	self._splitCode = nSplitCode
 	self._version = vParams.textDocument.version
 	const nRight = self:_checkRight()
 	if nRight then
-		if self._nonBlankChange and nLineChange then
-			self._nonBlankChange = false
+		if self._changeState == CHANGE_NONBLANK and nLineChange then
+			self._changeState = false
 			return true
 		else
 			return false

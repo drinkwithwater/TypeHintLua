@@ -38,7 +38,7 @@ const LogicContext = require "thlua.context.LogicContext"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 
-	clazz.StackUpState = Struct {
+	clazz.LexState = Struct {
 		branch=clazz.Branch,
 		uvCase=clazz.VariableCase,
 	}
@@ -49,7 +49,7 @@ const BaseStack = class@<clazz.BaseStack, false>()
 function.open BaseStack:ctor(
 	vRuntime:clazz.BaseRuntime,
 	vNode:clazz.IAstNode,
-	vUpState:OrFalse(clazz.StackUpState),
+	vUpState:OrFalse(clazz.LexState),
 	...
 )
 	const nManager = vRuntime:getTypeManager()
@@ -59,7 +59,7 @@ function.open BaseStack:ctor(
 	self._namespace=false@OrFalse(clazz.Namespace)
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
-	self._upState = vUpState
+	self._lexState = vUpState
 	const nTempBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
 	self._branchStack={nTempBranch}@List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
@@ -108,17 +108,17 @@ function BaseStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 end
 
 function BaseStack:newAutoFunction(vNode:Union(node.Function, node.Root), ...):Ret(clazz.AutoFunction)
-	const nAutoFn = AutoFunction.new(self._manager, vNode, self, ...)
+	const nAutoFn = AutoFunction.new(self._manager, vNode, ...)
 	return nAutoFn
 end
 
 function BaseStack:newClassFactory(vNode:node.Function, ...):Ret(clazz.ClassFactory)
-	const nFactory = ClassFactory.new(self._manager, vNode, self, ...)
+	const nFactory = ClassFactory.new(self._manager, vNode, ...)
 	return nFactory
 end
 
-function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.StackUpState)):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self._manager, vNode, self, vUpState)
+function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.LexState)):Ret(clazz.OpenFunction)
+	const nOpenFn = OpenFunction.new(self._manager, vNode, vUpState)
 	return nOpenFn
 end
 
