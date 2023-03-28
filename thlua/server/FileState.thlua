@@ -15,9 +15,14 @@ function.open FileState:ctor(vFileName:String)
 	self._succEnv = false@OrFalse(clazz.CodeEnv)
 	self._rightEnv = false@OrFalse(clazz.CodeEnv)
 	self._fileName = vFileName
-	self._splitCode = nil@!clazz.SplitCode
+	self._splitCode = SplitCode.new("")
 	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
+	self._nonBlankChange = false @Boolean
+end
+
+function FileState:onSave()
+	self._nonBlankChange = false
 end
 
 function FileState:getWellformedRange(vRange:lsp.Range):Ret(lsp.Range)
@@ -30,41 +35,67 @@ function FileState:getWellformedRange(vRange:lsp.Range):Ret(lsp.Range)
 	end
 end
 
-function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams)
+function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
 	const nChanges = vParams.contentChanges
 	local nSplitCode = self._splitCode
+	local nLineChange = false
 	for _, nChange in ipairs(nChanges) do
 		const nRawRange = nChange.range
 		if nRawRange then
 			const nRange = self:getWellformedRange(nRawRange)
+			const nChangeText = nChange.text
 			const nContent = nSplitCode:getContent()
-			const nStartPos = nSplitCode:lcToPos(nRange.start.line + 1, nRange.start.character + 1)
-			const nFinishPos = nSplitCode:lcToPos(nRange["end"].line + 1, nRange["end"].character + 1)
-			const nNewContent = nContent:sub(1, nStartPos - 1) .. nChange.text .. nContent:sub(nFinishPos, #nContent)
+			const nRangeStart = nRange.start
+			const nRangeEnd = nRange["end"]
+			const nStartPos = nSplitCode:lcToPos(nRangeStart.line + 1, nRangeStart.character + 1)
+			const nFinishPos = nSplitCode:lcToPos(nRangeEnd.line + 1, nRangeEnd.character + 1)
+			const nNewContent = nContent:sub(1, nStartPos - 1) .. nChangeText .. nContent:sub(nFinishPos, #nContent)
+			const nRemoveText = nContent:sub(nStartPos, nFinishPos-1)
+			if nChangeText:find("[\r\n]") or nRemoveText:find("[\r\n]") then
+				nLineChange = true
+			end
+			if nChangeText:find("[^%s]") or nRemoveText:find("[^%s]") then
+				self._nonBlankChange = true
+			end
 			nSplitCode = SplitCode.new(nNewContent)
 		else
 			nSplitCode = SplitCode.new(nChange.text)
 		end
 	end
 	self._splitCode = nSplitCode
+	self._version = vParams.textDocument.version
+	const nRight = self:_checkRight()
+	if nRight then
+		if self._nonBlankChange and nLineChange then
+			self._nonBlankChange = false
+			return true
+		else
+			return false
+		end
+	else
+		return false
+	end
 end
 
-function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)
-	self._version = vVersion
-	const nCodeEnv = CodeEnv.new(vContent, self._fileName, vVersion)
+function FileState:_checkRight():Ret(Boolean)
+	const nCodeEnv = CodeEnv.new(self._splitCode:getContent(), self._fileName, self._version)
 	const ok, err = pcall(function()
 		nCodeEnv:lateInit()
 	end)
 	if ok then
 		self._rightEnv = nCodeEnv
 		self._errOrEnv = nCodeEnv
-		self._splitCode = nCodeEnv
 		return true
 	else
 		self._errOrEnv = err
-		self._splitCode = SplitCode.new(vContent)
 		return false
 	end
+end
+
+function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)
+	self._version = vVersion
+	self._splitCode = SplitCode.new(vContent)
+	return self:_checkRight()
 end
 
 function FileState:getRightEnv():Ret(OrFalse(clazz.CodeEnv))
@@ -73,6 +104,16 @@ end
 
 function FileState:getSuccEnv():Ret(OrFalse(clazz.CodeEnv))
 	return self._succEnv
+end
+
+function FileState:contentMismatch(vContent:String):Ret(Boolean)
+	const nSplitCode = self._splitCode
+	const nContent = nSplitCode:getContent()
+	if nContent ~= "" and nContent ~= vContent then
+		return true
+	else
+		return false
+	end
 end
 
 function FileState:checkLatestEnv():Ret(clazz.CodeEnv)

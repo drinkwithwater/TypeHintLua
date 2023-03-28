@@ -23,6 +23,7 @@ function.open FastServer:ctor()
 end
 
 function FastServer:getInitializeResult():Ret(lsp.InitializeResult)
+	self:info("fast server")
 	return {
 		capabilities = {
 			textDocumentSync = {
@@ -31,7 +32,7 @@ function FastServer:getInitializeResult():Ret(lsp.InitializeResult)
 				save = { includeText = true },
 			},
 			definitionProvider = true,
-			--hoverProvider = true,
+			hoverProvider = true,
 			completionProvider = {
 				triggerCharacters = {".",":"},
 				resolveProvider = false
@@ -74,18 +75,33 @@ end
 
 function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
-	self:attachFileState(nFileUri):syncChange(vParams)
+	if self:attachFileState(nFileUri):syncChange(vParams) then
+		self:rerun(nFileUri)
+	end
 end
 
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
 	const nFileUri = vParams.textDocument.uri
-	self:attachFileState(nFileUri):syncContent(nContent, vParams.textDocument.version)
-	self:rerun(nFileUri)
+	const nFileState = self:attachFileState(nFileUri)
+	if nFileState:contentMismatch(nContent) then
+		self:warn("content mismatch when open")
+	end
+	if nFileState:syncContent(nContent, vParams.textDocument.version) then
+		self:rerun(nFileUri)
+	end
 end
 
 function FastServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
+	const nContent = vParams.text
+	const nFileState = self:attachFileState(nFileUri)
+	if nContent then
+		if nFileState:contentMismatch(nContent) then
+			self:warn("content mismatch when save")
+		end
+	end
+	nFileState:onSave()
 	self:rerun(nFileUri)
 end
 
