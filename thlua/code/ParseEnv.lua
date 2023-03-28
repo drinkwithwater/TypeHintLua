@@ -366,7 +366,7 @@ local G = lpeg.P { "TypeHintLua";
 	LongHint = hintC.long();
 
 	StatHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.AssignStat + vv.ApplyExpr + vv.DoStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
+		vv.DoStat + vv.ApplyOrAssignStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
 	HintTerm = suffixedExprByPrimary(
@@ -464,8 +464,34 @@ local G = lpeg.P { "TypeHintLua";
 
 	SuffixedExpr = suffixedExprByPrimary(vv.PrimaryExpr);
 
-	ApplyExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Call" or exp.tag == "Invoke", exp end);
-	VarExpr = lpeg.Cmt(vv.SuffixedExpr, function(_,_,exp) return exp.tag == "Ident" or exp.tag == "Index", exp end);
+	ApplyOrAssignStat = (function()
+		return lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
+			if not ... then
+				if first.tag == "Call" or first.tag == "Invoke" then
+					return true, first
+				else
+					error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
+				end
+			else
+				local nVarList = {
+					tag="VarList", pos=first.pos, posEnd = 0,
+					first, ...
+				}
+				local nExprList = nVarList[#nVarList]
+				nVarList[#nVarList] = nil
+				nVarList.posEnd = nVarList[#nVarList].posEnd
+				for _, varExpr in ipairs(nVarList) do
+					if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
+						error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
+					end
+				end
+				return true, {
+					tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
+					nVarList,nExprList
+				}
+			end
+		end)
+	end)();
 
 	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,pos,env)
 		if not env.hinting then
@@ -493,11 +519,6 @@ local G = lpeg.P { "TypeHintLua";
 			lpeg.Cg(Cpos/parF.identDefLet, "letNode")*
 			lpeg.Cg(vv.HintPolyParList, "hintPolyParList")^-1*symbA("(") * ParList * symbA(")") *
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
-	end)();
-
-	AssignStat = (function()
-		local VarList = tagC.VarList(vv.VarExpr * (symb(",") * vv.VarExpr)^0)
-		return tagC.Set(VarList * symb("=") * vv.ExprList)
 	end)();
 
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
@@ -552,7 +573,7 @@ local G = lpeg.P { "TypeHintLua";
 		return vv.StatHintSpace +
          LocalStat + FuncStat + LabelStat + BreakStat + GoToStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
-				 vv.DoStat + vv.AssignStat + vv.ApplyExpr + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
+				 vv.DoStat + vv.ApplyOrAssignStat + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
 
 	-- lexer
