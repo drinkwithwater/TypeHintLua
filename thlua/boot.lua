@@ -52,7 +52,7 @@ function boot.runCheck(vMainFileName)
 	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 	local thloader = require "thlua.code.thloader"
 	local nRuntime = DiagnosticRuntime.new(thloader)
-	assert(nRuntime:main(vMainFileName))
+	assert(nRuntime:pmain(vMainFileName))
 end
 
 -- run language server

@@ -41,8 +41,8 @@ export function activate(context: ExtensionContext) {
 
 	// Create the language client and start the client.
 	slowClient = new LanguageClient(
-		'TypeHintLua',
-		'TypeHintLua',
+		'TypeHintLua_slow',
+		'TypeHintLua_slow',
 		{ // server option
 			command : serverCommand,
 			args: [serverCommandArg, "slow"]
@@ -51,8 +51,8 @@ export function activate(context: ExtensionContext) {
 	);
 
 	fastClient = new LanguageClient(
-		'TypeHintLua',
-		'TypeHintLua',
+		'TypeHintLua_fast',
+		'TypeHintLua_fast',
 		{ // server option
 			command : serverCommand,
 			args: [serverCommandArg, "fast"]

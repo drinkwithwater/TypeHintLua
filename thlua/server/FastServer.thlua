@@ -58,7 +58,7 @@ function FastServer:rerun(vFileName:String)
 		self:info("main.thlua found:", mainFileName)
 	end
 	const nRuntime=CompletionRuntime.new(self)
-	const ok, exc = nRuntime:main(mainFileName)
+	const ok, exc = nRuntime:pmain(mainFileName)
 	if not ok then
 		if not self._runtime then
 			self._runtime = nRuntime
@@ -138,7 +138,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	-- 1. get succ env
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nSuccEnv = nFileState:getSuccEnv()
+	const nSuccEnv = self:checkRuntime():getCodeEnv(nFileUri)
 	if not nSuccEnv then
 		return nil
 	end
