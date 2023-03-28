@@ -12,7 +12,8 @@ end)
 
 const SplitCode = class@<clazz.SplitCode, false>()
 
-const function split(vContent:String):Ret(List(node.LinePos))
+const function split(vContent:String):Ret(List(String), List(node.LinePos))
+	const nLineList:List(String) = {}
 	const nLinePosList:List(node.LinePos) = {}
 	local nLineCount = 0
 	local nStartPos = 1
@@ -26,6 +27,7 @@ const function split(vContent:String):Ret(List(node.LinePos))
 					pos=nStartPos,
 					posEnd=#vContent
 				}
+				nLineList[#nLineList + 1] = vContent:sub(nStartPos)
 			end
 			break
 		else
@@ -36,15 +38,16 @@ const function split(vContent:String):Ret(List(node.LinePos))
 				pos=nStartPos,
 				posEnd=nFinishPos
 			}
+			nLineList[#nLineList + 1] = vContent:sub(nStartPos, nFinishPos)
 			nStartPos = nFinishPos + 1
 		end
 	end
-	return nLinePosList
+	return nLineList, nLinePosList
 end
 
 function.open SplitCode:ctor(vContent:String, ...)
 	self._content = vContent
-	self._linePosList = split(vContent)
+	self._lineList, self._linePosList = split(vContent)
 end
 
 function SplitCode:binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(False):Ret(Integer, TValue)
@@ -104,6 +107,10 @@ end
 
 function SplitCode:getContent()
 	return self._content
+end
+
+function SplitCode:getLine(vLine:Integer):Ret(OrNil(String))
+	return self._lineList[vLine]
 end
 
 return SplitCode

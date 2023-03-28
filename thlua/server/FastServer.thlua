@@ -109,28 +109,35 @@ end
 function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Location))
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nRightEnv = nFileState:getRightEnv()
-	if not nRightEnv then
-		return nil
-	end
 	const nSplitCode = nFileState:getSplitCode()
-	const nPos = nSplitCode:lcToPos(vParams.position.line + 1, vParams.position.character + 1)
-	const nNode = nRightEnv:searchIdent(nPos)
-	if not nNode then
+	const nLine = vParams.position.line + 1
+	const nColumn = vParams.position.character + 1
+	const nPos = nSplitCode:lcToPos(nLine, nColumn)
+	const nRightEnv = nFileState:getRightEnv()
+	if nRightEnv then
+		const nNode = nRightEnv:searchIdent(nPos)
+		if nNode then
+			const nDefineNode = nNode.kind == "def" and nNode or nNode.defineIdent
+			if nDefineNode then
+				return {
+					uri=vParams.textDocument.uri,
+					range={
+						start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
+						["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
+					}
+				}
+			end
+		end
+	end
+	const nSuccEnv = self:checkRuntime():getCodeEnv(nFileUri)
+	if not nSuccEnv then
 		return nil
 	end
-	const nDefineNode = nNode.kind == "def" and nNode or nNode.defineIdent
-	if not nDefineNode then
-		self:error("global ident TODO")
+	if nSuccEnv:getLine(nLine) ~= nSplitCode:getLine(nLine) then
+		self:info("TODO, if line not same, need rerun or check if split code has syntax error")
 		return nil
 	end
-	return {
-		uri=vParams.textDocument.uri,
-		range={
-			start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
-			["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
-		}
-	}
+	const nPos = nSuccEnv:lcToPos(nLine, nColumn)
 end
 
 function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(lsp.CompletionItem)))

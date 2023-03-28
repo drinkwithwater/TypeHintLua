@@ -12,6 +12,7 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 	let.TypingFn = Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
+	let.UNameExprNode = Union(node.Ident_use, node.Ident, node.Invoke)
 end)
 
 const CodeEnv = class@<clazz.CodeEnv, false>(SplitCode)
@@ -20,7 +21,8 @@ function.open CodeEnv:ctor(vContent:String, vChunkName:String, vVersion:Integer)
 	self._chunkName = vChunkName
 	self._astTree = nil@!node.Chunk
 	self._nodeList = {}@List(node.IAstNode)
-	self._identList = {}@List(node.Ident_def)
+	self._identList = {}@List(node.Ident)
+	self._nameExprList = {}@List(UNameExprNode)
 	self._version = vVersion or -1
 	self._typingCode = false@OrFalse(String)
 	self._typingFn = nil@!TypingFn
@@ -60,11 +62,23 @@ function CodeEnv:prepare()
 		-- 2. put record ident
 		if vNode.tag == "Ident" then
 			table.insert(self._identList, vNode)
+			if (vNode @> node.Ident).kind == "use" then
+				table.insert(self._nameExprList, vNode)
+			end
+		elseif vNode.tag == "Index" or vNode.tag == "Invoke" then
+			table.insert(self._nameExprList, vNode)
 		end
 	end)
 	table.sort(self._identList, function(a:node.Ident, b:node.Ident)
 		return a.pos < b.pos
 	end)
+	table.sort(self._nameExprList, function(a:UNameExprNode, b:UNameExprNode)
+		return a.pos < b.pos
+	end)
+	for k,v in pairs({} @ Dict(Integer,String)) do
+	end
+	--for k,v in pairs(self._nameExprList @? Dict(Integer,String)) do
+	--end
 end
 
 function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode))
@@ -142,8 +156,19 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, Unio
 	return nRetBlock, nRetRegion or self._astTree, nList
 end
 
+function CodeEnv:searchNameExpr(vPos:Integer):Ret(OrNil(UNameExprNode))
+	const nIndex, nNode = self:binSearch@<UNameExprNode>(self._nameExprList, vPos)
+	if not nIndex then
+		return nil
+	end
+	if vPos < nNode.pos or vPos > nNode.posEnd then
+		return nil
+	end
+	return nNode
+end
+
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
-	const nIndex, nNode = self:binSearch@<node.Ident_def>(self._identList, vPos)
+	const nIndex, nNode = self:binSearch@<node.Ident>(self._identList, vPos)
 	if not nIndex then
 		return nil
 	end

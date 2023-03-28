@@ -469,6 +469,8 @@ local G = lpeg.P { "TypeHintLua";
 
 	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,pos,env)
 		if not env.hinting then
+			-- local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
+			-- print(pos, nLineNum)
 			local len = #env.scopeTraceList
 			env.scopeTraceList[len + 1] = 0
 			if len > 0 then
