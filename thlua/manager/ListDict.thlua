@@ -1,0 +1,47 @@
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+return function:class(clazz.ListDict) @<TKey, TValue>()
+    const t = {.class
+        _keyToList={} @Dict(TKey, List(TValue)),
+    }
+    function t:putOne(k:TKey, v:TValue)
+        const nList = self._keyToList[k]
+        if not nList then
+            self._keyToList[k] = {v}
+        else
+            nList[#nList + 1] = v
+        end
+    end
+    function t:putAll(v:clazz.ListDict(TKey,TValue))
+        const nSelfKeyToList = self._keyToList
+        v:forKList(function(vKey, vList)
+            const nList = nSelfKeyToList[vKey]
+            if not nList then
+                nSelfKeyToList[vKey] = {table.unpack(vList)}
+            else
+                for i,v in ipairs(vList) do
+                    nList[#nList + 1] = v
+                end
+            end
+        end)
+    end
+    function t:get(k:TKey):Ret(OrNil(List(TValue)))
+        return self._keyToList[k]
+    end
+    function t:forKV(vFunc:Fn(TKey, TValue))
+        for k,vList in pairs(self._keyToList) do
+            for _, v in ipairs(vList) do
+                vFunc(k,v)
+            end
+        end
+    end
+    function t:forKList(vFunc:Fn(TKey, List(TValue)))
+        for k,vList in pairs(self._keyToList) do
+            vFunc(k,vList)
+        end
+    end
+    return t
+end

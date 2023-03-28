@@ -4,6 +4,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const Namespace = require "thlua.manager.Namespace"
+const ListDict = require "thlua.manager.ListDict"
 const class = require "thlua.class"
 
 (@do
@@ -16,7 +17,7 @@ const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
 	self._focusNodeSet = {} @ Dict(node.Function, True)
-	self._nodeToBranchList = {} @ Dict(node.Block, List(clazz.Branch))
+	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
 end
 
 function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
@@ -24,13 +25,7 @@ function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
 end
 
 function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
-	local nList = self._nodeToBranchList[vNode]
-	if not nList then
-		nList = {vBranch}
-		self._nodeToBranchList[vNode] = nList
-	else
-		nList[#nList + 1] = vBranch
-	end
+	self._nodeToBranchList:putOne(vNode, vBranch)
 end
 
 function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
@@ -44,7 +39,7 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 end
 
 function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(OrFalse(clazz.FieldCompletion))
-	const nBranchList = self._nodeToBranchList[vBlockNode]
+	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
 		return false
 	end

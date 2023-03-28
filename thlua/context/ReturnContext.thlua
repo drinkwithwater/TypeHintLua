@@ -2,7 +2,6 @@
 const class = require "thlua.class"
 const AssignContext = require "thlua.context.AssignContext"
 const TypedFunction = require "thlua.func.TypedFunction"
-const AutoFnCastDict = require "thlua.context.AutoFnCastDict"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -17,7 +16,7 @@ function ReturnContext:returnMatchTuples(
 	vSrcTuple:clazz.UTypeTuple,
 	vRetTuples:clazz.RetTuples
 ):Ret(False):Ret(True, Boolean)
-	const nAutoFnCastDict = AutoFnCastDict.new()
+	const nAutoFnCastDict = self:newAutoFnCastDict()
 	local nOneMatchSucc = false
 	local nOneCastSucc = false
 	vRetTuples:foreachWithFirst(function(vDstTuple, _)
@@ -30,7 +29,7 @@ function ReturnContext:returnMatchTuples(
 		end
 	end)
 	if nOneMatchSucc then
-		nAutoFnCastDict:runLateCast(self)
+		self:runLateCast(nAutoFnCastDict)
 		return true, nOneCastSucc
 	else
 		return false

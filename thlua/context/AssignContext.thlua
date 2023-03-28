@@ -15,12 +15,13 @@ const AutoHolder = require "thlua.auto.AutoHolder"
 const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = require "thlua.auto.AutoTail"
 
-const AutoFnCastDict = require "thlua.context.AutoFnCastDict"
+const ListDict = require "thlua.manager.ListDict"
 const OperContext = require "thlua.context.OperContext"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
+	clazz.AutoFnCastDict = clazz.ListDict(clazz.AutoFunction, clazz.UAtomUnion)
 end)
 
 const AssignContext = class@<clazz.AssignContext, false>(OperContext)
@@ -180,10 +181,10 @@ function AssignContext:tryIncludeCast(
 end
 
 function AssignContext:includeAndCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.UAtomUnion, vWhen:OrNil(String)):Ret(OrFalse(clazz.UAtomUnion))
-	const nFnLateDict = AutoFnCastDict.new()
+	const nFnLateDict = self:newAutoFnCastDict()
 	const nIncludeType, nCastSucc = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
 	if nIncludeType then
-		nFnLateDict:runLateCast(self)
+		self:runLateCast(nFnLateDict)
 		if not nCastSucc then
 			if vWhen then
 				self:error("type cast fail when "..tostring(vWhen))
@@ -216,6 +217,20 @@ end
 function AssignContext:finish()
 	assert(not self._finish, "context finish can only called once")
 	self._finish = true
+end
+
+function AssignContext:newAutoFnCastDict()
+	return ListDict@<clazz.AutoFunction, clazz.UAtomUnion>()
+end
+
+function AssignContext:runLateCast(vDict:clazz.AutoFnCastDict)
+	vDict:forKList(function(vAutoFn, vTypeFnList)
+		for _, nTypeFn in ipairs(vTypeFnList) do
+			if TypedFunction.is(nTypeFn) then
+				vAutoFn:checkWhenCast(nTypeFn)
+			end
+		end
+	end)
 end
 
 return AssignContext
