@@ -32,45 +32,47 @@ function SealStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 end
 
 function SealStack:seal()
-	const nClassFnSet = assert(self._classFnSet, "class set must be true here")
-	self._classFnSet = false
-	for fn, v in pairs(nClassFnSet) do
-		fn:startTask()
-	end
 	const nFocusSet = self._runtime:getFocusNodeSet()
 	if not nFocusSet then
+		const nClassFnSet = assert(self._classFnSet, "class set must be true here")
+		self._classFnSet = false
+		for fn, v in pairs(nClassFnSet) do
+			fn:startTask()
+		end
 		const nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
 		self._autoFnSet = false
 		for fn, v in pairs(nAutoFnSet) do
 			fn:startTask()
 		end
 	else
+		const nClassFnSet = assert(self._classFnSet, "class set must be true here")
+		for fn, v in pairs(nClassFnSet) do
+			fn:startTask()
+		end
 		const nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
 		for fn, v in pairs(nAutoFnSet) do
-			if nFocusSet[fn:getNode() @> node.Function] then
-				fn:startTask()
-				fn:getStack():reSchedule()
-			end
+			fn:getStack():focusSchedule()
 		end
 	end
 end
 
-function SealStack:reSchedule()
+function SealStack:focusSchedule()
 	const nFocusSet = self._runtime:getFocusNodeSet()
 	if nFocusSet then
-		const nAutoFnSet = self._autoFnSet
-		if nAutoFnSet then
-			for fn, v in pairs(nAutoFnSet) do
-				if nFocusSet[fn:getNode() @> node.Function] then
-					fn:startTask()
-					fn:getStack():reSchedule()
-				end
-			end
+		const nBodyFn = self:getBodyFn()
+		if nFocusSet[nBodyFn:getNode() @> node.Function] then
+			nBodyFn:startTask()
 		end
 		const nClassFnSet = self._classFnSet
 		if nClassFnSet then
 			for fn, v in pairs(nClassFnSet) do
-				fn:getStack():reSchedule()
+				fn:getStack():focusSchedule()
+			end
+		end
+		const nAutoFnSet = self._autoFnSet
+		if nAutoFnSet then
+			for fn, v in pairs(nAutoFnSet) do
+				fn:getStack():focusSchedule()
 			end
 		end
 	end
