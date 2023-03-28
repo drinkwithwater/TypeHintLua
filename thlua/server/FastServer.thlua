@@ -27,7 +27,7 @@ function FastServer:getInitializeResult():Ret(lsp.InitializeResult)
 		capabilities = {
 			textDocumentSync = {
 				openClose = true,
-				change = 1, -- 1 is non-incremental, 2 is incremental
+				change = 2, -- 1 is non-incremental, 2 is incremental
 				save = { includeText = true },
 			},
 			definitionProvider = true,
@@ -73,14 +73,8 @@ function FastServer:checkRuntime():Ret(clazz.CompletionRuntime)
 end
 
 function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
-	const nContentChange = vParams.contentChanges[1]
-	if nContentChange then
-		const nContent = nContentChange.text
-		const nFileUri = vParams.textDocument.uri
-		self:attachFileState(nFileUri):syncContent(nContent, vParams.textDocument.version)
-	else
-		self:error("content change is empty onDidChange")
-	end
+	const nFileUri = vParams.textDocument.uri
+	self:attachFileState(nFileUri):syncChange(vParams)
 end
 
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)

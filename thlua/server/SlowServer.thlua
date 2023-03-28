@@ -20,6 +20,18 @@ function.open SlowServer:ctor()
 	self._runtime=nil@OrNil(clazz.DiagnosticRuntime)
 end
 
+function SlowServer:getInitializeResult():Ret(lsp.InitializeResult)
+	return {
+		capabilities = {
+			textDocumentSync = {
+				openClose = true,
+				change = 1, -- 1 is non-incremental, 2 is incremental
+				save = { includeText = true },
+			},
+		},
+	}
+end
+
 function SlowServer:publishNormal()
 	const nRuntime = self._runtime
 	if not DiagnosticRuntime.is(nRuntime) then
@@ -120,26 +132,8 @@ function SlowServer:checkRuntime():Ret(clazz.DiagnosticRuntime)
 	return assert(self._runtime)
 end
 
-function SlowServer:getInitializeResult():Ret(lsp.InitializeResult)
-	return {
-		capabilities = {
-			textDocumentSync = {
-				openClose = true,
-				change = 1, -- 1 is non-incremental, 2 is incremental
-				save = { includeText = true },
-			},
-		},
-	}
-end
-
 function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
-	const nContentChange = vParams.contentChanges[1]
-	if nContentChange then
-		const nContent = nContentChange.text
-		self:attachFileState(vParams.textDocument.uri):syncContent(nContent, vParams.textDocument.version)
-	else
-		self:error("content change is empty onDidChange")
-	end
+	self:attachFileState(vParams.textDocument.uri):syncChange(vParams)
 	--self:rerun(nFileName)
 end
 

@@ -32,9 +32,21 @@ end
 
 function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nChanges = vParams.contentChanges
+	local nSplitCode = self._splitCode
 	for _, nChange in ipairs(nChanges) do
-		const nRange = self:getWellformedRange(nChange.range)
+		const nRawRange = nChange.range
+		if nRawRange then
+			const nRange = self:getWellformedRange(nRawRange)
+			const nContent = nSplitCode:getContent()
+			const nStartPos = nSplitCode:lcToPos(nRange.start.line + 1, nRange.start.character + 1)
+			const nFinishPos = nSplitCode:lcToPos(nRange["end"].line + 1, nRange["end"].character + 1)
+			const nNewContent = nContent:sub(1, nStartPos - 1) .. nChange.text .. nContent:sub(nFinishPos, #nContent)
+			nSplitCode = SplitCode.new(nNewContent)
+		else
+			nSplitCode = SplitCode.new(nChange.text)
+		end
 	end
+	self._splitCode = nSplitCode
 end
 
 function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)

@@ -19,14 +19,8 @@ const function split(vContent:String):Ret(List(node.LinePos))
 	local nFinishPos:OrNil(Integer) = 0
 	while true do
 		nLineCount = nLineCount + 1
-		nFinishPos = vContent:find("\n", nStartPos)
-		if nFinishPos then
-			nLinePosList[#nLinePosList + 1] = {
-				pos=nStartPos,
-				posEnd=nFinishPos
-			}
-			nStartPos = nFinishPos + 1
-		else
+		nFinishPos = vContent:find("[\r\n]", nStartPos)
+		if not nFinishPos then
 			if nStartPos <= #vContent then
 				nLinePosList[#nLinePosList + 1] = {
 					pos=nStartPos,
@@ -34,6 +28,15 @@ const function split(vContent:String):Ret(List(node.LinePos))
 				}
 			end
 			break
+		else
+			if vContent:sub(nFinishPos, nFinishPos + 1) == "\r\n" then
+				nFinishPos = nFinishPos + 1
+			end
+			nLinePosList[#nLinePosList + 1] = {
+				pos=nStartPos,
+				posEnd=nFinishPos
+			}
+			nStartPos = nFinishPos + 1
 		end
 	end
 	return nLinePosList
@@ -70,12 +73,22 @@ function SplitCode:binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(Fals
 	return nLeft, vList[nLeft]!
 end
 
-function SplitCode:lcToPos(l:Integer, c:Integer):Ret(Integer)
-	local nLineInfo = self._linePosList[l]
+function SplitCode:lcToPos(vLine:Integer, c:Integer):Ret(Integer)
+	const nLinePos = self._linePosList
+	const nLineInfo = nLinePos[vLine]
+	const nLineCount = #nLinePos
 	if nLineInfo then
-		return nLineInfo.pos + c - 1
+		if c <= 1 then
+			return nLineInfo.pos
+		else
+			return nLineInfo.pos + c - 1
+		end
 	else
-		return 0
+		if vLine > nLineCount then
+			return #self._content + 1
+		else
+			return 1
+		end
 	end
 end
 
