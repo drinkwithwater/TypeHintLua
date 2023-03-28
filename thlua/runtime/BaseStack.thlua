@@ -84,7 +84,7 @@ function BaseStack:META_CALL(
 		else
 			self._runtime:nodeError(vNode, "TODO call by a non-function value, type="..tostring(vFuncType))
 		end
-	end)
+	end):mergeReturn()
 end
 
 --[[function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
@@ -122,19 +122,19 @@ function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpState:OrNil(False, c
 	return nOpenFn
 end
 
-function BaseStack:withOnePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.RefineTerm)
+function BaseStack:withOnePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.OnePushContext)
 	const nCtx = OnePushContext.new(vNode, self, self._manager, vNotnil or false)
 	vFunc(nCtx)
-	return nCtx:mergeFirst()
+	return nCtx
 end
 
-function BaseStack:withMorePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.UOpenReturn)
+function BaseStack:withMorePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.MorePushContext)
 	const nCtx = MorePushContext.new(vNode, self, self._manager)
 	vFunc(nCtx)
-	return nCtx:mergeReturn()
+	return nCtx
 end
 
-function BaseStack:withMorePushContextWithCase(vNode:clazz.IAstNode, vTermOrTuple:Union(clazz.FixedTermTuple, clazz.RefineTerm), vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.UOpenReturn)
+function BaseStack:withMorePushContextWithCase(vNode:clazz.IAstNode, vTermOrTuple:Union(clazz.FixedTermTuple, clazz.RefineTerm), vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.MorePushContext)
 	const nCtx = MorePushContext.new(vNode, self, self._manager)
 	const nTerm = TermTuple.isFixed(vTermOrTuple) and vTermOrTuple:checkFixed(nCtx, 1) or vTermOrTuple
 	nTerm:foreach(function(vType, vCase)
@@ -142,7 +142,7 @@ function BaseStack:withMorePushContextWithCase(vNode:clazz.IAstNode, vTermOrTupl
 			vFunc(nCtx, vType, vCase)
 		end)
 	end)
-	return nCtx:mergeReturn()
+	return nCtx
 end
 
 function BaseStack:newNoPushContext(vNode:clazz.IAstNode)
