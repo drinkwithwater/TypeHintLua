@@ -57,11 +57,19 @@ end
 
 function SealStack:reSchedule()
 	const nFocusSet = self._runtime:getFocusNodeSet()
-	const nAutoFnSet = self._autoFnSet
-	if nFocusSet and nAutoFnSet then
-		for fn, v in pairs(nAutoFnSet) do
-			if nFocusSet[fn:getNode() @> node.Function] then
-				fn:startTask()
+	if nFocusSet then
+		const nAutoFnSet = self._autoFnSet
+		if nAutoFnSet then
+			for fn, v in pairs(nAutoFnSet) do
+				if nFocusSet[fn:getNode() @> node.Function] then
+					fn:startTask()
+					fn:getStack():reSchedule()
+				end
+			end
+		end
+		const nClassFnSet = self._classFnSet
+		if nClassFnSet then
+			for fn, v in pairs(nClassFnSet) do
 				fn:getStack():reSchedule()
 			end
 		end
@@ -103,7 +111,8 @@ function SealStack:getBodyFn():Ret(Union(clazz.AutoFunction,clazz.ClassFactory))
 	return self._bodyFn @> Union(clazz.AutoFunction,clazz.ClassFactory)
 end
 
-function SealStack:isRoot()
+function SealStack:isRoot():Ret(Boolean)
+	return not self._lexState
 end
 
 return SealStack

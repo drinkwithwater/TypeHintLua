@@ -4,6 +4,7 @@ const OpenFunction = require "thlua.func.OpenFunction"
 const AssignContext = require "thlua.context.AssignContext"
 const VariableCase = require "thlua.term.VariableCase"
 const Exception = require "thlua.Exception"
+const RecurChain = require "thlua.context.RecurChain"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -12,24 +13,19 @@ end)
 const ApplyContext = class@<clazz.ApplyContext, false>(AssignContext)
 
 function.open ApplyContext:ctor(...)
-	self._curSelfChain = false @ OrFalse(Dict(clazz.IAtomType, True))
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
-	self._curPushChain = {} @ List(clazz.IAtomType)
+	self._recurChain = false @ OrFalse(clazz.RecurChain)
 	self._openReturn = false@OrFalse(clazz.UOpenReturn)
 end
 
 function ApplyContext:recursiveChainTestAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)
-	const nChain = self._curPushChain
-	for i=1, #nChain do
-		if nChain[i] == vSelfType then
-			return false
-		end
+	local nRecurChain = self._recurChain
+	if not nRecurChain then
+		nRecurChain = RecurChain.new()
+		self._recurChain = nRecurChain
 	end
-	nChain[#nChain + 1] = vSelfType
-	const nRet = vFunc()
-	nChain[#nChain] = nil
-	return true, nRet
+	return nRecurChain:testAndRun(vSelfType, vFunc)
 end
 
 function ApplyContext:withCase(vCase:clazz.VariableCase, vFunc:Fn())

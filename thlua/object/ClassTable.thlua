@@ -6,6 +6,7 @@ const AutoMemberFunction = require "thlua.func.AutoMemberFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const RecurChain = require "thlua.context.RecurChain"
 const Nil = require "thlua.type.Nil"
 
 const SealTable = require "thlua.object.SealTable"
@@ -28,6 +29,7 @@ function.open ClassTable:ctor(
 	self._initEvent = nTask:makeEvent()
 	self._baseClass = false@OrFalse(clazz.ClassTable)
 	self._interface = nil@!clazz.Interface
+	self._buildFinish = false@Boolean
 end
 
 function ClassTable:detailString(v, vVerbose)
@@ -47,14 +49,21 @@ end
 
 function ClassTable:onSetMetaTable(vContext:clazz.ApplyContext)
 	self._factory:wakeupTableBuild()
-	const nInterface = self._interface
-	if nInterface then
-		self:implInterface(vContext, nInterface)
+	self:onBuildFinish(vContext)
+end
+
+function ClassTable:onBuildFinish(vContext:clazz.ApplyContext)
+	if not self._buildFinish then
+		self._buildFinish = true
+		self:implInterface(vContext)
+		const nRecurChain = RecurChain.new()
+		self:memberFunctionFillSelf(nRecurChain, self)
+		self._factory:wakeupTableBuild()
 	end
 end
 
-function ClassTable:implInterface(vContext:clazz.ApplyContext, vInterface:clazz.Interface)
-	const nInterfaceKeyValue = vInterface:copyValueDict(self)
+function ClassTable:implInterface(vContext:clazz.ApplyContext)
+	const nInterfaceKeyValue = self._interface:copyValueDict(self)
 	const nSelfKey = self._keyType
 	const nSelfFieldDict = self._fieldDict
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
@@ -65,7 +74,7 @@ function ClassTable:implInterface(vContext:clazz.ApplyContext, vInterface:clazz.
 		end):getType()
 		if AutoMemberFunction.is(nSelfValue) then
 			if TypedFunction.is(nValue) then
-				nSelfValue:indexAutoFn(self):checkWhenCast(vContext, nValue)
+				nSelfValue:indexAutoFn(self):checkWhenCast(nValue)
 			end
 		else
 			if not nValue:includeAll(nSelfValue) then
@@ -73,7 +82,6 @@ function ClassTable:implInterface(vContext:clazz.ApplyContext, vInterface:clazz.
 			end
 		end
 	end
-	self:memberFunctionFillSelf(vContext, self)
 	--[[
 	const nMetaIndex = self._metaIndex
 	for _, nField in pairs(nSelfFieldDict) do

@@ -1,0 +1,27 @@
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+end)
+
+const RecurChain = class@<clazz.RecurChain, false>()
+
+function.open RecurChain:ctor()
+	self._curPushChain = {} @ List(clazz.IAtomType)
+end
+
+function RecurChain:testAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)
+	const nChain = self._curPushChain
+	for i=1, #nChain do
+		if nChain[i] == vSelfType then
+			return false
+		end
+	end
+	nChain[#nChain + 1] = vSelfType
+	const nRet = vFunc()
+	nChain[#nChain] = nil
+	return true, nRet
+end
+
+return RecurChain

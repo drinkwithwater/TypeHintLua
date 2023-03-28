@@ -266,8 +266,8 @@ function SealTable:meta_bop_func(vContext, vOper)
 	return false, nil
 end
 
-function SealTable:memberFunctionFillSelf(vContext:clazz.ApplyContext, vSelfTable:clazz.SealTable)
-	const nNotRecursive = vContext:recursiveChainTestAndRun(self, function()
+function SealTable:memberFunctionFillSelf(vChain:clazz.RecurChain, vSelfTable:clazz.SealTable)
+	const nNotRecursive = vChain:testAndRun(self, function()
 		for _, nField in pairs(self._fieldDict) do
 			const nSelfValue = nField.rawValueType
 			if AutoMemberFunction.is(nSelfValue) then
@@ -279,7 +279,7 @@ function SealTable:memberFunctionFillSelf(vContext:clazz.ApplyContext, vSelfTabl
 		const nMetaIndex = self._metaIndex
 		if nMetaIndex then
 			if BaseObject.is(nMetaIndex) then
-				nMetaIndex:memberFunctionFillSelf(vContext, vSelfTable)
+				nMetaIndex:memberFunctionFillSelf(vChain, vSelfTable)
 			end
 		end
 		return true
