@@ -1,7 +1,10 @@
 
 const Exception = require "thlua.Exception"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
+end)
 
 const AutoHolder = {}
 AutoHolder.__index = AutoHolder
@@ -9,8 +12,9 @@ AutoHolder.__tostring = function(self:clazz.AutoHolder)
 	return "auto"
 end
 
-function:class(clazz.AutoHolder) AutoHolder.new(vContext:clazz.OperContext)
+function:class(clazz.AutoHolder) AutoHolder.new(vNode:Union(node.Ident_def, node.Dots), vContext:clazz.OperContext)
 	const self = setmetatable({.class
+		_node=vNode,
 		_context=vContext,
 		_term=false@OrFalse(clazz.RefineTerm)
 	}, AutoHolder)
@@ -39,6 +43,10 @@ end
 function AutoHolder:getType():Ret(OrFalse(clazz.UAtomUnion))
 	const nTerm = self._term
 	return nTerm and nTerm:getType()
+end
+
+function AutoHolder:getNode()
+	return self._node
 end
 
 function.open AutoHolder.is(t):isguard(clazz.AutoHolder)
