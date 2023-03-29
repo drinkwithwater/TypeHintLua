@@ -147,6 +147,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nFileState = self:checkFileState(nFileUri)
 	const nSuccEnv = self:checkRuntime():getCodeEnv(nFileUri)
 	if not nSuccEnv then
+		self:info("completion fail for some code error")
 		return nil
 	end
 	-- 2. make inject fn
@@ -156,6 +157,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nFocusCode = FocusCode.new(nContent, nFileUri, 0)
 	const nInjectNode, nInjectFn, nTraceList = nFocusCode:tryGenInjectChunkFn()
 	if not nInjectNode then
+		self:info("completion fail for code gen fail")
 		return nil
 	end
 	const nBlockNode, nRegionNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
@@ -164,6 +166,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 		-- 3. run inject
 		const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
 		if not nFieldCompletion then
+			self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
 			return nil
 		end
 		const nRetList:List(lsp.CompletionItem) = {}

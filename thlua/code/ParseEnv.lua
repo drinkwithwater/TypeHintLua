@@ -103,7 +103,6 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				local nSubject = env._subject
 				env:markParenWrap(pos-1, hintShort.pos-1)
 			end
 			-- TODO, use other tag
@@ -272,38 +271,36 @@ local function suffixedExprByPrimary(primaryExpr)
 	local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
 	-- add completion case
 	local succPatt = lpeg.Cf(primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
-	return lpeg.Cmt(succPatt * Cenv * (Cpos*symb(".") + Cpos*symb(":")) ^-1, function(_, _, expr, env, predictPos)
-		if not predictPos then
+	return lpeg.Cmt(Cpos*succPatt * Cenv * Cpos*((symb(".") + symb(":"))*cc(true) + cc(false)), function(_, _, pos, expr, env, posEnd, triggerCompletion)
+		if not triggerCompletion then
 			if expr.tag == "HintAt" then
-				local hintAtExpr = expr
 				local curExpr = expr[1]
 				while curExpr.tag == "HintAt" do
-					hintAtExpr = curExpr
 					curExpr = curExpr[1]
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env:markParenWrap(curExpr.pos, curExpr.posEnd - 1)
+					env:markParenWrap(pos-1, curExpr.posEnd-1)
 				end
 			end
 			return true, expr
 		else
-			local nNode = env:makeErrNode(predictPos+1, "syntax error : expect a name")
+			local nNode = env:makeErrNode(posEnd+1, "syntax error : expect a name")
 			if not env.hinting then
 				nNode[2] = {
-					pos=expr.pos,
+					pos=pos,
 					capture=buildInjectChunk(expr),
-					script=env._subject:sub(expr.pos, predictPos - 1),
+					script=env._subject:sub(pos, posEnd - 1),
 					traceList=env.scopeTraceList
 				}
 			else
 				local innerList = {expr}
 				local evalList = env:captureEvalByVisit(innerList)
-				local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, expr.pos, expr.pos, predictPos-1)
+				local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, pos, pos, posEnd-1)
 				nNode[2] = {
-					pos=expr.pos,
+					pos=pos,
 					capture=buildHintInjectChunk(hintSpace),
-					script=env._subject:sub(expr.pos, predictPos-1),
+					script=env._subject:sub(pos, posEnd-1),
 					traceList=env.scopeTraceList
 				}
 			end
@@ -495,8 +492,8 @@ local G = lpeg.P { "TypeHintLua";
 
 	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,pos,env)
 		if not env.hinting then
-			-- local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
-			-- print(pos, nLineNum)
+			--local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
+			--print(pos, nLineNum)
 			local len = #env.scopeTraceList
 			env.scopeTraceList[len + 1] = 0
 			if len > 0 then

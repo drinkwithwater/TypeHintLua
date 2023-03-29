@@ -2,13 +2,17 @@
 const AutoHolder = require "thlua.auto.AutoHolder"
 const DotsTail = require "thlua.tuple.DotsTail"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.node = import("thlua.code.Node").node
+end)
 
 const AutoTail = {}
 AutoTail.__index = AutoTail
 
-function:class(clazz.AutoTail) AutoTail.new(vContext:clazz.OperContext, vInit:OrNil(List(clazz.AutoHolder)))
+function:class(clazz.AutoTail) AutoTail.new(vNode:node.Dots, vContext:clazz.OperContext, vInit:OrNil(List(clazz.AutoHolder)))
 	const self = setmetatable({.class
+		_node=vNode,
 		_context=vContext,
 		_holderList=vInit or {}@List(clazz.AutoHolder),
 		_sealTail=false@OrFalse(True, clazz.AutoTail, clazz.DotsTail),
@@ -49,7 +53,7 @@ function AutoTail:openTailFrom(vContext:clazz.OperContext, vFrom:Integer):Ret(cl
 			nNewHolderList[#nNewHolderList + 1] = nSelfHolderList[i]
 			nSelfHolderList[i] = nil
 		end
-		const nNewAutoTail = AutoTail.new(self._context, nNewHolderList)
+		const nNewAutoTail = AutoTail.new(self._node, self._context, nNewHolderList)
 		self._sealTail = nNewAutoTail
 		return nNewAutoTail
 	else
