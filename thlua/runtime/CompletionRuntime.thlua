@@ -19,6 +19,7 @@ function.open CompletionRuntime:ctor(...)
 	self._focusNodeSet = {} @ Dict(clazz.IAstNode, True)
 	self._nodeToAutoFnList = ListDict@<clazz.IAstNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
+	self._nodeToApplyContextList = ListDict@<clazz.IAstNode, clazz.ApplyContext>()
 end
 
 function CompletionRuntime:scheduleAutoFn(vAutoFn:clazz.AutoFunction)
@@ -30,12 +31,29 @@ function CompletionRuntime:scheduleAutoFn(vAutoFn:clazz.AutoFunction)
 end
 
 function.pass CompletionRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
-	-- const nServer = self._loader
-	-- nServer:info(vNode, ...)
+	--const nServer = self._loader
+	--nServer:info(vNode, ...)
 end
 
 function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	self._nodeToBranchList:putOne(vNode, vBranch)
+end
+
+function CompletionRuntime:recordApplyContext(vNode:clazz.IAstNode, vContext:clazz.ApplyContext)
+	self._nodeToApplyContextList:putOne(vNode, vContext)
+end
+
+function CompletionRuntime:getLookupNode(vNode:clazz.IAstNode):Ret(OrFalse(clazz.IAstNode))
+	const nList = self._nodeToApplyContextList:get(vNode)
+	if nList and #nList > 0 then
+		for _, nContext in pairs(nList) do
+			const nLookupNode = next(nContext:getLookupNodeSet())
+			if nLookupNode then
+				return nLookupNode
+			end
+		end
+	end
+	return false
 end
 
 function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))

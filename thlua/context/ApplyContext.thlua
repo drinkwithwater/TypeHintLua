@@ -12,11 +12,21 @@ end)
 
 const ApplyContext = class@<clazz.ApplyContext, false>(AssignContext)
 
-function.open ApplyContext:ctor(...)
+function.open ApplyContext:ctor(vNode, ...)
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
 	self._recurChain = false @ OrFalse(clazz.RecurChain)
 	self._openReturn = false@OrFalse(clazz.UOpenReturn)
+	self._lookupNodeSet = {} @ Dict(clazz.IAstNode, True)
+	self._stack:getRuntime():recordApplyContext(vNode, self)
+end
+
+function ApplyContext:getLookupNodeSet()
+	return self._lookupNodeSet
+end
+
+function ApplyContext:addLookupNode(vNode:clazz.IAstNode)
+	self._lookupNodeSet[vNode] = true
 end
 
 function ApplyContext:recursiveChainTestAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)

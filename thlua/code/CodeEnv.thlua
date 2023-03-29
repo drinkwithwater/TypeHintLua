@@ -144,37 +144,48 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 			nRetBlock = nNextBlock
 		end
 	end
-	const nList:List(node.Function) = {}
+	const nFocusList:List(node.Function) = {}
 	local nCurFunc:OrNil(node.IAstNode) = nRetBlock
 	while nCurFunc do
 		if nCurFunc.tag == "Function" then
 			const nFunc = nCurFunc @> node.Function
 			if nFunc.letNode then
-				nList[#nList + 1] = nFunc
+				nFocusList[#nFocusList + 1] = nFunc
 			end
 		end
 		nCurFunc = nCurFunc.parent
 	end
-	return nRetBlock, nList
+	return nRetBlock, nFocusList
 end
 
-function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(OrNil(node.Expr))
+function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
 	const nIndex, nNode = self:binSearch@<node.Expr>(self._suffixExprList, vPos)
 	if not nIndex then
-		return nil
+		return false
 	end
 	if vPos < nNode.pos or vPos >= nNode.posEnd then
-		return nil
+		return false
+	end
+	const nFocusList:List(node.Function) = {}
+	local nCurNode:OrNil(node.IAstNode) = nNode
+	while nCurNode do
+		if nCurNode.tag == "Function" then
+			const nFunc = nCurNode @> node.Function
+			if nFunc.letNode then
+				nFocusList[#nFocusList + 1] = nFunc
+			end
+		end
+		nCurNode = nCurNode.parent
 	end
 	if nNode.tag == "String" or nNode.tag == "Number" then
 		const nParentNode = nNode.parent
 		if nParentNode and (nParentNode.tag == "Index" or nParentNode.tag == "Invoke") then
-			return nParentNode @> Union(node.Index, node.Invoke)
+			return nParentNode @> Union(node.Index, node.Invoke), nFocusList
 		else
-			return nil
+			return false
 		end
 	else
-		return nNode @> node.Ident_use
+		return nNode @> node.Ident_use, nFocusList
 	end
 end
 
