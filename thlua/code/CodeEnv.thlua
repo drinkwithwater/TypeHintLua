@@ -66,7 +66,7 @@ function CodeEnv:prepare()
 			end
 		elseif vNode.tag == "Index" or vNode.tag == "Invoke" then
 			const nSuffixExpr = (vNode @> Union(node.Index, node.Invoke))[2]
-			if nSuffixExpr.tag ~= "Ident" and nSuffixExpr.tag ~= "Invoke" then
+			if nSuffixExpr.tag == "String" or nSuffixExpr.tag == "Number" then
 				table.insert(self._suffixExprList, nSuffixExpr)
 			end
 		end
@@ -82,7 +82,7 @@ function CodeEnv:prepare()
 		if not set[v.pos] then
 			set[v.pos] = v
 		else
-			--print("conflict:", v.path, set[v.pos]!.tag, v.tag)
+			print("conflict:", v.path, set[v.pos]!.tag, v.tag)
 		end
 	end
 end
@@ -133,8 +133,7 @@ function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 
-function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, Union(node.Chunk, node.Function), List(node.Function))
-	local nRetRegion:OrFalse(node.Chunk, node.Function) = false
+function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List(node.Function))
 	local nRetBlock:node.Block = self._astTree[3]
 	for i=1,#vTraceList-1 do
 		const nTrace = vTraceList[i]!
@@ -152,25 +151,31 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, Unio
 			const nFunc = nCurFunc @> node.Function
 			if nFunc.letNode then
 				nList[#nList + 1] = nFunc
-				if not nRetRegion then
-					nRetRegion = nFunc
-				end
 			end
 		end
 		nCurFunc = nCurFunc.parent
 	end
-	return nRetBlock, nRetRegion or self._astTree, nList
+	return nRetBlock, nList
 end
 
-function CodeEnv:searchNameExpr(vPos:Integer):Ret(OrNil(node.Expr))
+function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(OrNil(node.Expr))
 	const nIndex, nNode = self:binSearch@<node.Expr>(self._suffixExprList, vPos)
 	if not nIndex then
 		return nil
 	end
-	if vPos < nNode.pos or vPos > nNode.posEnd then
+	if vPos < nNode.pos or vPos >= nNode.posEnd then
 		return nil
 	end
-	return nNode
+	if nNode.tag == "String" or nNode.tag == "Number" then
+		const nParentNode = nNode.parent
+		if nParentNode and (nParentNode.tag == "Index" or nParentNode.tag == "Invoke") then
+			return nParentNode @> Union(node.Index, node.Invoke)
+		else
+			return nil
+		end
+	else
+		return nNode @> node.Ident_use
+	end
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))

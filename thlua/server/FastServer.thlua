@@ -138,6 +138,18 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 		return nil
 	end
 	const nPos = nSuccEnv:lcToPos(nLine, nColumn)
+	const nExprNode = nSuccEnv:searchExprBySuffix(nPos)
+	if not nExprNode then
+		self:info("found nothing")
+		return nil
+	end
+	return {
+		uri=vParams.textDocument.uri,
+		range={
+			start={ line=nExprNode.l - 1, character=nExprNode.c-1, },
+			["end"]={ line=nExprNode.l - 1, character=nExprNode.c - 1 },
+		}
+	}
 end
 
 function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(lsp.CompletionItem)))
@@ -160,7 +172,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 		self:info("completion fail for code gen fail")
 		return nil
 	end
-	const nBlockNode, nRegionNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
+	const nBlockNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
 	nCompletionRuntime:focusSchedule(nFuncList)
 	if nInjectFn then
 		-- 3. run inject
