@@ -88,30 +88,32 @@ function Struct:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObj
 	return true
 end
 
-function Struct:meta_set(vContext, vKeyType, vValueType)
+function Struct:meta_set(vContext, vKeyType, vValueTerm)
 	vContext:pushNothing()
+	const nValueType = vValueTerm:getType()
 	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
 		if MemberFunction.is(nSetValue) then
-			vContext:error("error:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field is member function")
+			vContext:error("error:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field is member function")
 			return
 		end
 		local nSetType = nSetValue:checkAtomUnion()
-		vContext:includeAndCast(nSetType, vValueType, "set")
+		vContext:includeAndCast(nSetType, nValueType, "set")
 	else
-		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not exist")
 	end
 end
 
-function Struct:native_rawset(vContext, vKeyType, vValueType)
+function Struct:native_rawset(vContext, vKeyType, vValueTerm)
 	vContext:warn("abstract object take rawset")
+	const nValueType = vValueTerm:getType()
 	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
-		if not nSetValue:includeAll(vValueType) then
-			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not match")
+		if not nSetValue:includeAll(nValueType) then
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not match")
 		end
 	else
-		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(vValueType)..") in struct, field not exist")
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not exist")
 	end
 end
 

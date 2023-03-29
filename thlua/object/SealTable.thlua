@@ -14,7 +14,7 @@ const class = require "thlua.class"
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.TableField = Struct {
-		rawValueType = clazz.UAtomUnion,
+		valueType = clazz.UAtomUnion,
 	}
 end)
 
@@ -42,7 +42,7 @@ function SealTable:initByKeyValue(vNode:clazz.IAstNode, vKeyType:clazz.UAtomUnio
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
-			rawValueType = v,
+			valueType = v,
 		}
 	end
 end
@@ -74,16 +74,16 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 	self:onSetMetaTable(vContext)
 end
 
-function SealTable:meta_set(vContext, vKeyType, vValueType)
+function SealTable:meta_set(vContext, vKeyType, vValueTerm)
 	self:ctxWait(vContext)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		vContext:pushNothing()
 		const nTableField = self._fieldDict[nKeyIncludeType]!
-		const nFieldType = nTableField.rawValueType
-		vContext:includeAndCast(nFieldType, vValueType, "set")
+		const nFieldType = nTableField.valueType
+		vContext:includeAndCast(nFieldType, vValueTerm:getType(), "set")
 	else
-		self:native_rawset(vContext, vKeyType, vValueType)
+		self:native_rawset(vContext, vKeyType, vValueTerm)
 	end
 end
 
@@ -97,7 +97,7 @@ function SealTable:meta_get(vContext, vKeyType)
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
-			const nValueType = nField.rawValueType
+			const nValueType = nField.valueType
 			if nValueType:isNilable() then
 				nTrigger = NIL_TRIGGER
 				if nIndexType then
@@ -116,7 +116,7 @@ function SealTable:meta_get(vContext, vKeyType)
 			else
 				nInterType:foreach(function(vKeyAtom)
 					const nField = self._fieldDict[vKeyAtom]!
-					const nValueType = nField.rawValueType
+					const nValueType = nField.valueType
 					if nIndexType then
 						vContext:pushFirstAndTuple(nValueType:notnilType())
 					else
@@ -149,24 +149,24 @@ function SealTable:meta_get(vContext, vKeyType)
 	end
 end
 
-function SealTable:native_rawset(vContext, vKeyType, vValueType)
+function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 	self:ctxWait(vContext)
-	vContext:openAssign(vValueType)
+	vContext:openAssign(vValueTerm:getType())
 	local nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
-				rawValueType = vValueType,
+				valueType = vValueTerm:getType(),
 			}
 		else
-			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueType)..") error")
+			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end
 	else
 		const nTableField = self._fieldDict[nIncludeType]!
-		const nFieldType = nTableField.rawValueType
-		if not nFieldType:includeAll(vValueType) then
+		const nFieldType = nTableField.valueType
+		if not nFieldType:includeAll(vValueTerm:getType()) then
 			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
 	end
@@ -177,7 +177,7 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
-		return nField.rawValueType
+		return nField.valueType
 	else
 		return self._manager.type.Nil
 	end
@@ -223,12 +223,12 @@ function SealTable:native_next(vContext, vInitType)
 	if not nNextDict or not nValueType then
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
-			nNextDict[nKeyAtom] = nField.rawValueType
+			nNextDict[nKeyAtom] = nField.valueType
 		end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
-			const nValueType = nOneField.rawValueType
+			const nValueType = nOneField.valueType
 			const nNotnilType = nValueType:notnilType()
 			nNextDict[nOneKey] = nNotnilType
 			nCollection:put(nNotnilType)
@@ -269,7 +269,7 @@ end
 function SealTable:memberFunctionFillSelf(vChain:clazz.RecurChain, vSelfTable:clazz.SealTable)
 	const nNotRecursive = vChain:testAndRun(self, function()
 		for _, nField in pairs(self._fieldDict) do
-			const nSelfValue = nField.rawValueType
+			const nSelfValue = nField.valueType
 			if AutoMemberFunction.is(nSelfValue) then
 				if not nSelfValue:needPolyArgs() then
 					nSelfValue:indexAutoFn(vSelfTable)
@@ -289,7 +289,7 @@ end
 function SealTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
 	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	self._keyType:foreach(function(vType)
-		nDict[vType] = self._fieldDict[vType]!.rawValueType
+		nDict[vType] = self._fieldDict[vType]!.valueType
 	end)
 	return nDict
 end
@@ -298,7 +298,7 @@ function SealTable:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
 		self._keyType:foreach(function(vAtomType)
 			if StringLiteral.is(vAtomType) then
-				vCompletion:putPair(vAtomType:getLiteral(), self._fieldDict[vAtomType]!.rawValueType)
+				vCompletion:putPair(vAtomType:getLiteral(), self._fieldDict[vAtomType]!.valueType)
 			end
 		end)
 		const nMetaIndex = self._metaIndex
