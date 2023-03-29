@@ -16,17 +16,22 @@ end)
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
-	self._focusNodeSet = {} @ Dict(node.Function, True)
+	self._focusNodeSet = {} @ Dict(clazz.IAstNode, True)
+	self._nodeToAutoFnList = ListDict@<clazz.IAstNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
+end
+
+function CompletionRuntime:scheduleAutoFn(vAutoFn:clazz.AutoFunction)
+	if self._focusNodeSet[vAutoFn:getNode()] then
+		vAutoFn:startTask()
+	else
+		self._nodeToAutoFnList:putOne(vAutoFn:getNode(), vAutoFn)
+	end
 end
 
 function.pass CompletionRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
 	const nServer = self._loader
 	nServer:info(vNode, ...)
-end
-
-function CompletionRuntime:getFocusNodeSet():Ret(Dict(node.Function, True))
-	return self._focusNodeSet
 end
 
 function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
@@ -36,11 +41,19 @@ end
 function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	-- 1. set focus functions
 	const nSet = self._focusNodeSet
-	for k,v in pairs(vFuncList) do
-		nSet[v] = true
+	const nAutoFnList:List(clazz.AutoFunction) = {}
+	for _,nNode in pairs(vFuncList) do
+		nSet[nNode] = true
+		const nList = self._nodeToAutoFnList:pop(nNode)
+		if nList then
+			for i=1,#nList do
+				nAutoFnList[#nAutoFnList + 1] = nList[i]
+			end
+		end
 	end
-	-- 2. schedule to activate block & function
-	self._rootStack:focusSchedule()
+	for _, nAutoFn in ipairs(nAutoFnList) do
+		nAutoFn:startTask()
+	end
 end
 
 function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(OrFalse(clazz.FieldCompletion))
