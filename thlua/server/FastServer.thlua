@@ -189,12 +189,11 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	end
 	const nCapture = nInjectTrace.capture
 	-- 4. gen inject function
-	const nFocusEnv = CodeEnv.new(nSplitCode, nFileUri, nCapture)
 	const nOkay, nInjectFn = pcall(function():Ret(Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any))
+		const nFocusEnv = CodeEnv.new(nSplitCode, nFileUri, nCapture)
 		(@do
 			let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
 		end)
-		nFocusEnv:lateInit()
 		const nRawInjectFn = nFocusEnv:getTypingFn() @? RawInjectFn
 		return function(vStack, vGetter)
 			return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)

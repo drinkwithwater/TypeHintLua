@@ -19,33 +19,33 @@ const class = require "thlua.class"
 	}
 end)
 
-const CodeEnv = class@<clazz.CodeEnv, false>()
+const CodeEnv = {}
+CodeEnv.__index=CodeEnv
 
-function.open CodeEnv:ctor(vCode:Union(String, clazz.SplitCode), vChunkName:String, vChunkWithInject:OrNil(node.Chunk))
-	if SplitCode.is(vCode) then
-		self._code = vCode
-	else
-		self._code = SplitCode.new(vCode)
-	end
-	self._chunkName = vChunkName
-	self._astTree = vChunkWithInject@!node.Chunk
-	self._nodeList = {}@List(node.IAstNode)
-	self._identList = {}@List(node.Ident)
-	self._lookupPairList = {}@List(LookupPair)
-	self._typingCode = false@OrFalse(String)
-	self._typingFn = nil@!TypingFn
-end
-
-function CodeEnv:lateInit()
-	if not self._astTree then
-		const nAst, nErr = ParseEnv.parse(self._code:getContent())
+function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), vChunkName:String, vChunkWithInject:OrNil(node.Chunk))
+	const nSplitCode = SplitCode.is(vCode) and vCode or SplitCode.new(vCode)
+	const self = setmetatable({.class
+		_code = nSplitCode,
+		_chunkName = vChunkName,
+		_nodeList = {}@List(node.IAstNode),
+		_identList = {}@List(node.Ident),
+		_lookupPairList = {}@List(LookupPair),
+		_typingCode = false@OrFalse(String),
+		_astTree = nil@!node.Chunk,
+		_typingFn = nil@!TypingFn,
+	}, CodeEnv)
+	if not vChunkWithInject then
+		const nAst, nErr = ParseEnv.parse(nSplitCode:getContent())
 		if not nAst then
 			self:_prepareNode(nErr, false)
 			error(Exception.new(nErr[1], nErr))
 		end
 		self._astTree = nAst
+	else
+		self._astTree = vChunkWithInject
 	end
 	self._typingFn = self:_buildTypingFn() @> TypingFn
+	return self
 end
 
 function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
@@ -215,6 +215,10 @@ end
 
 function CodeEnv:getSplitCode()
 	return self._code
+end
+
+function.open CodeEnv.is(v):isguard(clazz.CodeEnv)
+	return getmetatable(v) == CodeEnv
 end
 
 return CodeEnv

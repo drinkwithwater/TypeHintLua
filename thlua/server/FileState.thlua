@@ -87,16 +87,13 @@ function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams):Ret(Boole
 end
 
 function FileState:_checkRight():Ret(Boolean)
-	const nCodeEnv = CodeEnv.new(self._splitCode:getContent(), self._fileName)
-	const ok, err = pcall(function()
-		nCodeEnv:lateInit()
-	end)
-	if ok then
+	const nOkay, nCodeEnv = pcall(CodeEnv.new, self._splitCode:getContent(), self._fileName)
+	if nOkay then
 		self._rightEnv = nCodeEnv
 		self._errOrEnv = nCodeEnv
 		return true
 	else
-		self._errOrEnv = err
+		self._errOrEnv = nCodeEnv
 		return false
 	end
 end
