@@ -30,6 +30,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), 
 		_nodeList = {}@List(node.IAstNode),
 		_identList = {}@List(node.Ident),
 		_lookupPairList = {}@List(LookupPair),
+		_hintLookupPairList = {}@List(LookupPair),
 		_typingCode = false@OrFalse(String),
 		_astTree = nil@!node.Chunk,
 		_typingFn = nil@!TypingFn,
@@ -63,36 +64,52 @@ function CodeEnv:prepare()
 	assert(#self._nodeList == 0, "node list has been setted")
 	-- 1. set line & column, parent
 	const nStack:List(node.IAstNode) = {}
+	local nInHint = false
 	self:visit(function(visitor, vNode)
 		-- 1. prepare
 		self:_prepareNode(vNode, nStack[#nStack] or false)
+		-- 2. recurive visit
 		nStack[#nStack + 1] = vNode
-		visitor:rawVisit(vNode)
+		if vNode.tag == "HintEval" then
+			nInHint = false
+			visitor:rawVisit(vNode)
+			nInHint = true
+		elseif vNode.tag == "HintSpace" then
+			nInHint = true
+			visitor:rawVisit(vNode)
+			nInHint = false
+		else
+			visitor:rawVisit(vNode)
+		end
 		nStack[#nStack] = nil
-		-- 2. put record ident
-		if vNode.tag == "Ident" then
-			table.insert(self._identList, vNode)
-			if (vNode @> node.Ident).kind == "use" then
-				table.insert(self._lookupPairList, {
-					pos=vNode.pos,posEnd=vNode.posEnd,
-					vNode, vNode
-				})
+		const nExprNode = vNode @> node.Expr
+		-- 3. save some node
+		if nExprNode.tag == "Ident" then
+			table.insert(self._identList, nExprNode)
+			if nExprNode.kind == "use" then
+				const nPair:LookupPair = {
+					pos=nExprNode.pos,posEnd=nExprNode.posEnd,
+					nExprNode, nExprNode
+				}
+				table.insert(nInHint and self._hintLookupPairList or self._lookupPairList, nPair)
 			end
-		elseif vNode.tag == "Index" or vNode.tag == "Invoke" then
-			const nSuffixExpr = (vNode @> Union(node.Index, node.Invoke))[2]
+		elseif nExprNode.tag == "Index" or nExprNode.tag == "Invoke" then
+			const nSuffixExpr = nExprNode[2]
 			if nSuffixExpr.tag == "String" or nSuffixExpr.tag == "Number" then
-				table.insert(self._lookupPairList, {
+				const nPair:LookupPair = {
 					pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
-					vNode, nSuffixExpr
-				})
+					nExprNode, nSuffixExpr
+				}
+				table.insert(nInHint and self._hintLookupPairList or self._lookupPairList, nPair)
 			end
-		elseif vNode.tag == "Call" then
-			const nFirstArg = (vNode @> node.Call)[2][1]
+		elseif nExprNode.tag == "Call" then
+			const nFirstArg = nExprNode[2][1]
 			if nFirstArg and nFirstArg.tag == "String" then
-				table.insert(self._lookupPairList, {
+				const nPair:LookupPair = {
 					pos=nFirstArg.pos, posEnd=nFirstArg.posEnd,
-					vNode, nFirstArg
-				})
+					nExprNode, nFirstArg
+				}
+				table.insert(nInHint and self._hintLookupPairList or self._lookupPairList, nPair)
 			end
 		end
 	end)
@@ -100,6 +117,9 @@ function CodeEnv:prepare()
 		return a.pos < b.pos
 	end)
 	table.sort(self._lookupPairList, function(a:LookupPair, b:LookupPair)
+		return a.pos < b.pos
+	end)
+	table.sort(self._hintLookupPairList, function(a:LookupPair, b:LookupPair)
 		return a.pos < b.pos
 	end)
 end
@@ -175,6 +195,30 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 	return nRetBlock, nFocusList
 end
 
+function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
+	const nIndex, nPair = self._code:binSearch@<LookupPair>(self._hintLookupPairList, vPos)
+	if not nIndex then
+		return false
+	end
+	if vPos < nPair.pos or vPos >= nPair.posEnd then
+		return false
+	end
+	local nRetBlock:OrNil(node.Block) = nil
+	const nFocusList:List(node.Function) = {}
+	const nPrefixNode = nPair[1]
+	local nCurNode:OrNil(node.IAstNode) = nPrefixNode
+	while nCurNode do
+		if nCurNode.tag == "Function" then
+			const nFunc = nCurNode @> node.Function
+			if nFunc.letNode then
+				nFocusList[#nFocusList + 1] = nFunc
+			end
+		end
+		nCurNode = nCurNode.parent
+	end
+	return nPrefixNode, nFocusList
+end
+
 function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
 	const nIndex, nPair = self._code:binSearch@<LookupPair>(self._lookupPairList, vPos)
 	if not nIndex then
@@ -183,6 +227,7 @@ function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List
 	if vPos < nPair.pos or vPos >= nPair.posEnd then
 		return false
 	end
+	local nRetBlock:OrNil(node.Block) = nil
 	const nFocusList:List(node.Function) = {}
 	const nPrefixNode = nPair[1]
 	local nCurNode:OrNil(node.IAstNode) = nPrefixNode

@@ -142,9 +142,16 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 		return nil
 	end
 	const nPos = nSuccEnv:getSplitCode():lcToPos(nLine, nColumn)
+	-- 3. search expr
 	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
 	if not nExprNode then
-		self:info("no target expr")
+		-- 4. search hint expr
+		const nHintExprNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
+		if nHintExprNode then
+			self:info("hint expr TODO")
+		else
+			self:info("no target expr")
+		end
 		return nil
 	end
 	nCompletionRuntime:focusSchedule(nFocusList)

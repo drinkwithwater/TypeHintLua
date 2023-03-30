@@ -193,7 +193,7 @@ local TagToVisiting:let.RealTraverser = {
 		end)
 	end,
 	HintSpace=function(self, node)
-		self._inHintSpace = true
+		self:reverseInHint(true)
 		if node.kind == "LongHintSpace" then
 			for i=1, #node do
 				self:realVisit(node[i]!)
@@ -201,16 +201,21 @@ local TagToVisiting:let.RealTraverser = {
 		else
 			self:realVisit(node[1])
 		end
-		self._inHintSpace = false
+		self:reverseInHint(false)
 	end,
 	HintEval=function(self, node)
-		self._inHintSpace=false
+		self:reverseInHint(false)
 		self:realVisit(node[1])
-		self._inHintSpace=true
+		self:reverseInHint(true)
 	end,
 }
 
 const SymbolVisitor = VisitorExtend(TagToVisiting)
+
+function SymbolVisitor:reverseInHint(vTarget:Boolean)
+	assert(self._inHintSpace ~= vTarget)
+	self._inHintSpace = vTarget
+end
 
 function SymbolVisitor:withHintBlock(vBlockNode:node.Block, vFuncNode:OrNil(node.Function), vInnerCall:Fn())
 	assert(vBlockNode.tag == "Block", "node tag must be Block or Function but get "..tostring(vBlockNode.tag))
