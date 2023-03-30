@@ -463,7 +463,12 @@ function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 		nType1 = nType1:trueType()
 		local nType2 = vTermTuple:get(vContext, 2):getType()
 		if nType1:isUnion() then
-			error(Exception.new("TODO: next Union type"))
+			if nType1:isNever() then
+				vContext:error("next must take table as first type")
+			else
+				vContext:error("TODO: next Union type")
+			end
+			return vContext:FixedTermTuple({vContext:NilTerm(), vContext:NilTerm()})
 		else
 			local nValueType, nKeyValue = nType1:native_next(vContext, nType2)
 			local nValueTerm = vContext:RefineTerm(nValueType)
