@@ -202,11 +202,7 @@ end
 function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
 	const nKey, nValue = self:_keyIncludeAtom(vKeyType)
 	if nKey then
-		if TypedMemberFunction.is(nValue) then
-			return false
-		else
-			return nKey, nValue
-		end
+		return nKey, nValue
 	else
 		return false
 	end
@@ -254,13 +250,12 @@ function TypedObject:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAllType))
 	return (assert(self._valueDict, "member list is not setted after waiting"))
 end
 
-function TypedObject:copyValueDict(vSelfObject:OrNil(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
+function TypedObject:copyValueDict(vSelfObject:Union(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
 	const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 	for k,v in pairs(self:getValueDict()) do
 		if not TypedMemberFunction.is(v) then
 			nValueDict[k] = v
 		else
-			assert(vSelfObject, "member function copy require SelfObject")
 			nValueDict[k] = v:indexTypeFn(vSelfObject)
 		end
 	end

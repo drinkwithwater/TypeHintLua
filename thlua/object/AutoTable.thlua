@@ -3,7 +3,7 @@ const StringLiteral = require "thlua.type.StringLiteral"
 const TypedObject = require "thlua.object.TypedObject"
 const Struct = require "thlua.object.Struct"
 const TypedFunction = require "thlua.func.TypedFunction"
-const MemberFunction = require "thlua.func.MemberFunction"
+const TypedMemberFunction = require "thlua.func.TypedMemberFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
@@ -45,7 +45,7 @@ function AutoTable:castMatchOne(
 	vStruct:clazz.Struct
 ):Ret(OrFalse(clazz.AutoFnCastDict))
 	const nAutoFnCastDict = vContext:newAutoFnCastDict()
-	const nCopyValueDict = vStruct:copyValueDict()
+	const nCopyValueDict = vStruct:copyValueDict(self)
 	local nMatchSucc = true
 	self._keyType:foreach(function(vTableKey)
 		const vTableValue = self._fieldDict[vTableKey]!.valueType
@@ -57,7 +57,12 @@ function AutoTable:castMatchOne(
 			nMatchSucc = false
 			return
 		end
-		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue:checkAtomUnion(), vTableValue)
+		nMatchValue = nMatchValue:checkAtomUnion()
+		if TypedMemberFunction.is(nMatchValue) then
+			-- TODO:thinking how to refactor for member function cast
+			nMatchValue=nMatchValue:indexTypeFn(vStruct)
+		end
+		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, vTableValue)
 		if not nIncludeType or not nCastSucc then
 			nMatchSucc = false
 			return

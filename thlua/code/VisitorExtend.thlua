@@ -220,10 +220,10 @@ const TagToTraverse:let.RawTraverser = {
 }
 
 const function.open VisitorExtend(vDictOrFunc)
-	local t = {}
-	t.__index = t
 	const nType = type(vDictOrFunc)
 	if nType == "table" then
+		local t = {}
+		t.__index = t
 		function.pass t:realVisit(node:node.IAstNode)
 			local tag = node.tag
 			local f = vDictOrFunc[tag] or TagToTraverse[tag]
@@ -232,17 +232,23 @@ const function.open VisitorExtend(vDictOrFunc)
 			end
 			f(self, node)
 		end
-	elseif nType == "function" then
-		function t:realVisit(node:node.IAstNode)
-			vDictOrFunc(self, node)
+		function.pass t:rawVisit(node:node.IAstNode)
+			TagToTraverse[node.tag](self, node)
 		end
+		return t
+	elseif nType == "function" then
+		const t:node.IVisitor = {
+			realVisit=function(self, vNode)
+				vDictOrFunc(self, vNode)
+			end,
+			rawVisit=function.pass(self, vNode)
+				TagToTraverse[vNode.tag](self, vNode)
+			end
+		}
+		return t
 	else
 		error("VisitorExtend must take a function or dict for override")
 	end
-	function.pass t:rawVisit(node:node.IAstNode)
-		TagToTraverse[node.tag](self, node)
-	end
-	return t
 end
 
 return VisitorExtend
