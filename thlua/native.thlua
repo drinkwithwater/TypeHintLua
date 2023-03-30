@@ -176,15 +176,19 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			print("tonumber TODO")
 			return vContext:RefineTerm(nManager:checkedUnion(nManager.type.False, nManager.type.Number))
 		end),
-		require=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nFileName = vTermTuple:get(vContext, 1):getType()
-			if StringLiteral.is(nFileName) then
-				local nPath = nFileName:getLiteral()
-				return vRuntime:require(nPath)
-			else
-				vContext:error("TODO require take non-StringLiteral type ")
-				return vContext:FixedTermTuple({})
-			end
+		require=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+				local nFileName = vTermTuple:get(vContext, 1):getType()
+				if StringLiteral.is(nFileName) then
+					local nPath = nFileName:getLiteral()
+					const nRetTerm, nOpenFn = vRuntime:require(nPath)
+					vContext:addLookupNode(nRetTerm:getNode(), nOpenFn)
+					vContext:openPushReturn(nRetTerm)
+				else
+					vContext:warn("TODO require take non-StringLiteral type ")
+					vContext:openPushReturn(vContext:FixedTermTuple({}))
+				end
+			end):mergeFirst()
 		end),
 		load=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			return vContext:RefineTerm(nManager.type.AnyFunction)

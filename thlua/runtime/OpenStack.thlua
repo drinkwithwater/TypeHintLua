@@ -13,10 +13,29 @@ function.open OpenStack:ctor(
 	vNode:clazz.IAstNode,
 	vUpState:OrFalse(clazz.LexState),
 	vBodyFn:clazz.OpenFunction,
-	vApplyStack:clazz.BaseStack
+	vApplyStack:clazz.BaseStack,
+	vIsRequire:Boolean
 )
 	self._applyStack = vApplyStack
 	self._bodyFn = vBodyFn
+	self._isRequire = vIsRequire
+end
+
+function OpenStack:isRequire():Ret(Boolean)
+	return self._isRequire
+end
+
+function OpenStack:findRequireStack():Ret(OrFalse(clazz.OpenStack))
+	local nStack = self
+	while not nStack:isRequire() do
+		const nApplyStack = nStack:getApplyStack()
+		if OpenStack.is(nApplyStack) then
+			nStack = nApplyStack
+		else
+			return false
+		end
+	end
+	return nStack
 end
 
 function OpenStack:getSealStack():Ret(clazz.SealStack)

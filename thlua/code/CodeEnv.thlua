@@ -12,6 +12,11 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 	let.TypingFn = Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
+	let.LookupPair = Struct {
+		pos = Integer,
+		posEnd = Integer,
+		node.Expr, node.Expr,
+	}
 end)
 
 const CodeEnv = class@<clazz.CodeEnv, false>(SplitCode)
@@ -21,7 +26,7 @@ function.open CodeEnv:ctor(vContent:String, vChunkName:String, vVersion:Integer)
 	self._astTree = nil@!node.Chunk
 	self._nodeList = {}@List(node.IAstNode)
 	self._identList = {}@List(node.Ident)
-	self._suffixExprList = {}@List(node.Expr)
+	self._lookupPairList = {}@List(LookupPair)
 	self._version = vVersion or -1
 	self._typingCode = false@OrFalse(String)
 	self._typingFn = nil@!TypingFn
@@ -62,29 +67,35 @@ function CodeEnv:prepare()
 		if vNode.tag == "Ident" then
 			table.insert(self._identList, vNode)
 			if (vNode @> node.Ident).kind == "use" then
-				table.insert(self._suffixExprList, vNode)
+				table.insert(self._lookupPairList, {
+					pos=vNode.pos,posEnd=vNode.posEnd,
+					vNode, vNode
+				})
 			end
 		elseif vNode.tag == "Index" or vNode.tag == "Invoke" then
 			const nSuffixExpr = (vNode @> Union(node.Index, node.Invoke))[2]
 			if nSuffixExpr.tag == "String" or nSuffixExpr.tag == "Number" then
-				table.insert(self._suffixExprList, nSuffixExpr)
+				table.insert(self._lookupPairList, {
+					pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
+					vNode, nSuffixExpr
+				})
+			end
+		elseif vNode.tag == "Call" then
+			const nFirstArg = (vNode @> node.Call)[2][1]
+			if nFirstArg and nFirstArg.tag == "String" then
+				table.insert(self._lookupPairList, {
+					pos=nFirstArg.pos, posEnd=nFirstArg.posEnd,
+					vNode, nFirstArg
+				})
 			end
 		end
 	end)
 	table.sort(self._identList, function(a:node.Ident, b:node.Ident)
 		return a.pos < b.pos
 	end)
-	table.sort(self._suffixExprList, function(a:node.Expr, b:node.Expr)
+	table.sort(self._lookupPairList, function(a:LookupPair, b:LookupPair)
 		return a.pos < b.pos
 	end)
-	const set:Dict(Integer, node.IAstNode) = {}
-	for k,v in pairs(self._suffixExprList) do
-		if not set[v.pos] then
-			set[v.pos] = v
-		else
-			print("conflict:", v.path, set[v.pos]!.tag, v.tag)
-		end
-	end
 end
 
 function.pass CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode)):Ret()
@@ -159,15 +170,16 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 end
 
 function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
-	const nIndex, nNode = self:binSearch@<node.Expr>(self._suffixExprList, vPos)
+	const nIndex, nPair = self:binSearch@<LookupPair>(self._lookupPairList, vPos)
 	if not nIndex then
 		return false
 	end
-	if vPos < nNode.pos or vPos >= nNode.posEnd then
+	if vPos < nPair.pos or vPos >= nPair.posEnd then
 		return false
 	end
 	const nFocusList:List(node.Function) = {}
-	local nCurNode:OrNil(node.IAstNode) = nNode
+	const nPrefixNode = nPair[1]
+	local nCurNode:OrNil(node.IAstNode) = nPrefixNode
 	while nCurNode do
 		if nCurNode.tag == "Function" then
 			const nFunc = nCurNode @> node.Function
@@ -177,16 +189,7 @@ function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List
 		end
 		nCurNode = nCurNode.parent
 	end
-	if nNode.tag == "String" or nNode.tag == "Number" then
-		const nParentNode = nNode.parent
-		if nParentNode and (nParentNode.tag == "Index" or nParentNode.tag == "Invoke") then
-			return nParentNode @> Union(node.Index, node.Invoke), nFocusList
-		else
-			return false
-		end
-	else
-		return nNode @> node.Ident_use, nFocusList
-	end
+	return nPrefixNode, nFocusList
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))

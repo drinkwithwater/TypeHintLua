@@ -2,6 +2,7 @@
 const TypedFunction = require "thlua.func.TypedFunction"
 const TypeManager = require "thlua.manager.TypeManager"
 const OpenFunction = require "thlua.func.OpenFunction"
+const OpenTable = require "thlua.object.OpenTable"
 const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
@@ -34,7 +35,7 @@ const class = require "thlua.class"
 	}
 
 	let.LoadedState = Struct {
-		fn=clazz.OpenFunction,
+		openFn=clazz.OpenFunction,
 		term=OrNil(clazz.RefineTerm),
 		stack=OrNil(clazz.BaseStack),
 	}
@@ -67,12 +68,25 @@ function BaseRuntime:checkAtomUnionFinish()
 	end
 end
 
-function BaseRuntime:import(vPath:String):Ret(clazz.SpaceTable)
+function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	-- TODO better style?
-	self:require(vPath)
-	const nStack = self._loadedDict[vPath]!.stack!
-	const nSpace = nStack:getNamespace()
-	return nSpace.localExport
+	if type(vDst) == "string" then
+		const nPath = vDst@> String
+		self:require(nPath)
+		const nStack = self._loadedDict[nPath]!.stack!
+		const nSpace = nStack:getNamespace()
+		return nSpace.localExport
+	elseif OpenTable.is(vDst) or OpenFunction.is(vDst) then
+		const nStack = vDst:findRequireStack()
+		if nStack then
+			const nSpace = nStack:getNamespace()
+			return nSpace.localExport
+		else
+			error("import can only take open function or open table in a required stack")
+		end
+	else
+		error("import can only take string or open function or open table")
+	end
 end
 
 function BaseRuntime:pmain(vMainFileName:String):Ret(Boolean, Nil)
@@ -91,7 +105,7 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(Boolean, Nil)
 				const nLuaFunc = self:cacheLoadFile(vMainFileName)
 				const nNoPushContext = self._rootStack:newNoPushContext(self._node)
 				const nTermTuple = nNoPushContext:FixedTermTuple({})
-				nLuaFunc:meta_open_call(nNoPushContext, nTermTuple)
+				nLuaFunc:meta_open_call(nNoPushContext, nTermTuple, true)
 				self._rootStack:seal()
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples(self._node)
@@ -135,7 +149,7 @@ function BaseRuntime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
 	return nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
 end
 
-function BaseRuntime:require(vPath:String):Ret(clazz.RefineTerm)
+function BaseRuntime:require(vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
 	if not self._loadedDict[vPath] then
 		const nOkay, nFileName = self._loader:thluaSearch(vPath)
 		if not nOkay then
@@ -143,20 +157,21 @@ function BaseRuntime:require(vPath:String):Ret(clazz.RefineTerm)
 		end
 		const nLuaFunc = self:cacheLoadFile(nFileName)
 		const nLoadedState:LoadedState = {
-			fn=nLuaFunc,
+			openFn=nLuaFunc,
 		}
 		self._loadedDict[vPath] = nLoadedState
 		const nContext = self._rootStack:newNoPushContext(self._node)
 		const nTermTuple = nContext:FixedTermTuple({})
-		const nRet, nStack = nLuaFunc:meta_open_call(nContext, nTermTuple)
+		const nRet, nStack = nLuaFunc:meta_open_call(nContext, nTermTuple, true)
 		nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
 		nLoadedState.stack = nStack
 	end
-	const nTerm = self._loadedDict[vPath]!.term
+	const nLoaded = self._loadedDict[vPath]!
+	const nTerm = nLoaded.term
 	if not nTerm then
 		error("recursive require:"..vPath)
 	end
-	return nTerm
+	return nTerm, nLoaded.openFn
 end
 
 function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)

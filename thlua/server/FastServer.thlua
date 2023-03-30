@@ -134,6 +134,7 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 	const nCompletionRuntime = self:checkRuntime()
 	const nSuccEnv = nCompletionRuntime:getCodeEnv(nFileUri)
 	if not nSuccEnv then
+		self:info("goto definition fail, maybe some error in code")
 		return nil
 	end
 	if nSuccEnv:getLine(nLine) ~= nSplitCode:getLine(nLine) then
@@ -149,6 +150,7 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 	nCompletionRuntime:focusSchedule(nFocusList)
 	const nLookupNode = nCompletionRuntime:getLookupNode(nExprNode)
 	if not nLookupNode then
+		self:info("not found lookup node"..tostring(nExprNode), nExprNode.tag)
 		return nil
 	end
 	return {

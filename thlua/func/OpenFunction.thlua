@@ -118,17 +118,25 @@ function OpenFunction:set_name(name:String)
 end
 
 function OpenFunction:newStack(vNode:clazz.IAstNode, vApplyStack:clazz.BaseStack)
-	return self._manager:getRuntime():OpenStack(vNode, self._lexState, self, vApplyStack)
+	return self._manager:getRuntime():OpenStack(vNode, self._lexState, self, vApplyStack, false)
 end
 
 function OpenFunction:meta_call(vContext, vTermTuple)
-	const nRet = self:meta_open_call(vContext, vTermTuple)
+	const nRet = self:meta_open_call(vContext, vTermTuple, false)
 	vContext:openPushReturn(nRet)
 end
 
-function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple):Ret(clazz.UOpenReturn, clazz.OpenStack)
-	const nNewStack = self:newStack(vContext:getNode(), vContext:getStack())
+function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple, vIsRequire:Boolean):Ret(clazz.UOpenReturn, clazz.OpenStack)
+	const nNewStack = self._manager:getRuntime():OpenStack(vContext:getNode(), self._lexState, self, vContext:getStack(), vIsRequire)
 	return self._func!(nNewStack, vTermTuple), nNewStack
+end
+
+function OpenFunction:findRequireStack():Ret(OrFalse(clazz.OpenStack))
+	const nLexState = self._lexState
+	if not nLexState then
+		return false
+	end
+	return nLexState.branch:getStack():findRequireStack()
 end
 
 function OpenFunction:isSingleton()
