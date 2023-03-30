@@ -1,6 +1,5 @@
 
 const FieldCompletion = require "thlua.context.FieldCompletion"
-const FocusCode = require "thlua.code.FocusCode"
 const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
 const ErrorCodes = require "thlua.server.protocol".ErrorCodes
@@ -8,6 +7,7 @@ const CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
 const ApiServer = require "thlua.server.ApiServer"
+const ParseEnv = require "thlua.code.ParseEnv"
 const class = require "thlua.class"
 
 (@do
@@ -137,11 +137,11 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 		self:info("goto definition fail, maybe some error in code")
 		return nil
 	end
-	if nSuccEnv:getLine(nLine) ~= nSplitCode:getLine(nLine) then
+	if nSuccEnv:getSplitCode():getLine(nLine) ~= nSplitCode:getLine(nLine) then
 		self:info("TODO, if line not same, need rerun or check if split code has syntax error")
 		return nil
 	end
-	const nPos = nSuccEnv:lcToPos(nLine, nColumn)
+	const nPos = nSuccEnv:getSplitCode():lcToPos(nLine, nColumn)
 	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
 	if not nExprNode then
 		self:info("no target expr")
@@ -176,12 +176,34 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nSplitCode = nFileState:getSplitCode()
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
 	const nContent = nSplitCode:getContent():sub(1, nPos-1)
-	const nFocusCode = FocusCode.new(nContent, nFileUri)
-	const nInjectNode, nInjectFn, nTraceList = nFocusCode:tryGenInjectChunkFn()
-	if not nInjectNode then
-		self:info("completion fail for code gen fail")
+	-- 3. parsing with error
+	const nInjectTrace, nErrNode = ParseEnv.parse(nContent)
+	if nInjectTrace then
+		self:info("completion fail for code gen fail, not trigger by '.' or ':' ?")
 		return nil
 	end
+	const nInjectTrace = nErrNode[2]
+	if not nInjectTrace then
+		self:info("completion fail for code gen fail, maybe syntax error?")
+		return nil
+	end
+	const nCapture = nInjectTrace.capture
+	-- 4. gen inject function
+	const nFocusEnv = CodeEnv.new(nSplitCode, nFileUri, nCapture)
+	const nOkay, nInjectFn = pcall(function():Ret(Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any))
+		(@do
+			let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
+		end)
+		nFocusEnv:lateInit()
+		const nRawInjectFn = nFocusEnv:getTypingFn() @? RawInjectFn
+		return function(vStack, vGetter)
+			return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)
+		end
+	end)
+	if not nOkay then
+		return nil
+	end
+	const nInjectNode, nTraceList = assert(nCapture.injectNode), nInjectTrace.traceList
 	const nBlockNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
 	nCompletionRuntime:focusSchedule(nFuncList)
 	if nInjectFn then

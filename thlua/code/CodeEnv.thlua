@@ -19,11 +19,16 @@ const class = require "thlua.class"
 	}
 end)
 
-const CodeEnv = class@<clazz.CodeEnv, false>(SplitCode)
+const CodeEnv = class@<clazz.CodeEnv, false>()
 
-function.open CodeEnv:ctor(vContent:String, vChunkName:String, vChunkWithInject:OrNil(node.Chunk))
+function.open CodeEnv:ctor(vCode:Union(String, clazz.SplitCode), vChunkName:String, vChunkWithInject:OrNil(node.Chunk))
+	if SplitCode.is(vCode) then
+		self._code = vCode
+	else
+		self._code = SplitCode.new(vCode)
+	end
 	self._chunkName = vChunkName
-	self._astTree = nil@!node.Chunk
+	self._astTree = vChunkWithInject@!node.Chunk
 	self._nodeList = {}@List(node.IAstNode)
 	self._identList = {}@List(node.Ident)
 	self._lookupPairList = {}@List(LookupPair)
@@ -32,12 +37,14 @@ function.open CodeEnv:ctor(vContent:String, vChunkName:String, vChunkWithInject:
 end
 
 function CodeEnv:lateInit()
-	const nAst, nErr = ParseEnv.parse(self._content)
-	if not nAst then
-		self:_prepareNode(nErr, false)
-		error(Exception.new(nErr[1], nErr))
+	if not self._astTree then
+		const nAst, nErr = ParseEnv.parse(self._code:getContent())
+		if not nAst then
+			self:_prepareNode(nErr, false)
+			error(Exception.new(nErr[1], nErr))
+		end
+		self._astTree = nAst
 	end
-	self._astTree = nAst
 	self._typingFn = self:_buildTypingFn() @> TypingFn
 end
 
@@ -48,7 +55,7 @@ function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAs
 	vNode.index = nIndex
 	vNode.parent = vParent
 	vNode.path = self._chunkName
-	vNode.l, vNode.c = self:fixupPos(vNode.pos, vNode)
+	vNode.l, vNode.c = self._code:fixupPos(vNode.pos, vNode)
 	Node.bind(vNode)
 end
 
@@ -169,7 +176,7 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 end
 
 function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
-	const nIndex, nPair = self:binSearch@<LookupPair>(self._lookupPairList, vPos)
+	const nIndex, nPair = self._code:binSearch@<LookupPair>(self._lookupPairList, vPos)
 	if not nIndex then
 		return false
 	end
@@ -192,7 +199,7 @@ function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
-	const nIndex, nNode = self:binSearch@<node.Ident>(self._identList, vPos)
+	const nIndex, nNode = self._code:binSearch@<node.Ident>(self._identList, vPos)
 	if not nIndex then
 		return nil
 	end
@@ -204,6 +211,10 @@ end
 
 function CodeEnv:getChunkName():Ret(String)
 	return self._chunkName
+end
+
+function CodeEnv:getSplitCode()
+	return self._code
 end
 
 return CodeEnv
