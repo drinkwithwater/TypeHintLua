@@ -641,6 +641,7 @@ function ParseEnv:makeErrNode(vPos, vErr)
 	return {
 		tag="Error",
 		pos=vPos,
+		posEnd=vPos,
 		vErr
 	}
 end

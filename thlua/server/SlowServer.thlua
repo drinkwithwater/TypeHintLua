@@ -40,8 +40,12 @@ function SlowServer:publishNormal()
 		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
 		local nVersion = nFileState:getVersion()
 		local nDiaList:List(lsp.Diagnostic) = {}
+		const nSplitCode = nFileState:getSplitCode()
 		for _, dia in ipairs(nRawDiaList) do
 			local nNode = dia.node
+			const nRangeEnd = nNode.pos == nNode.posEnd and {
+				nNode.l, nNode.c + 100
+			} or {nSplitCode:fixupPos(nNode.posEnd)}
 			local nMsg = dia.msg
 			nDiaList[#nDiaList + 1] = {
 				range={
@@ -50,8 +54,8 @@ function SlowServer:publishNormal()
 						character=nNode.c-1,
 					},
 					["end"]={
-						line=nNode.l-1,
-						character=nNode.c,
+						line=nRangeEnd[1]-1,
+						character=nRangeEnd[2]-1,
 					}
 				},
 				message=nMsg,
@@ -91,11 +95,11 @@ function SlowServer:publishException(vException:Union(clazz.Exception, String))
 				range={
 					start={
 						line=nNode.l-1,
-						character=nNode.c-1,
+						character=0,
 					},
 					["end"]={
 						line=nNode.l-1,
-						character=nNode.c,
+						character=100,
 					}
 				},
 				message=nMsg,
