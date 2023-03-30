@@ -2,7 +2,7 @@
 const TypedFunction = require "thlua.func.TypedFunction"
 const TypeManager = require "thlua.manager.TypeManager"
 const OpenFunction = require "thlua.func.OpenFunction"
-const OpenTable = require "thlua.object.OpenTable"
+const BaseAtomType = require "thlua.type.BaseAtomType"
 const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
@@ -76,7 +76,7 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 		const nStack = self._loadedDict[nPath]!.stack!
 		const nSpace = nStack:getNamespace()
 		return nSpace.localExport
-	elseif OpenTable.is(vDst) or OpenFunction.is(vDst) then
+	elseif BaseAtomType.is(vDst) then
 		const nStack = vDst:findRequireStack()
 		if nStack then
 			const nSpace = nStack:getNamespace()
@@ -93,7 +93,7 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(Boolean, Nil)
 	self._node=Node.newRootNode(vMainFileName)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
-	const nRootStack = nAutoFn:getStack()
+	const nRootStack = nAutoFn:getBuildStack()
 	self._rootStack = nRootStack
 	self._manager:lateInit()
 	self._globalTable = native.make(self)

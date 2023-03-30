@@ -14,9 +14,10 @@ end)
 
 const SealFunction = class@<clazz.SealFunction, false>(BaseFunction)
 
-function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vUpState:OrFalse(clazz.LexState))
-	const nNewStack = vManager:getRuntime():SealStack(vNode, vUpState, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
-	self._stack = nNewStack
+function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexState:OrFalse(clazz.LexState))
+	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexState, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
+	self._lexStack = vLexState and vLexState.branch:getStack() or false
+	self._buildStack = nNewStack
 	const nTask = vManager:getScheduleManager():newTask(nNewStack)
 	self._task = nTask
 	self._node = vNode
@@ -49,8 +50,11 @@ function SealFunction:getNode()
 	return self._node
 end
 
-function SealFunction:getStack()
-	return self._stack
+function SealFunction:getBuildStack()
+	return self._buildStack
+end
+
+function SealFunction:findRequireStack()
 end
 
 function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
@@ -80,6 +84,11 @@ end
 function SealFunction:startTask()
 	self._headStartEvent:wakeup()
 	self._bodyStartEvent:wakeup()
+end
+
+function SealFunction:findRequireStack()
+	const nLexStack = self._lexStack
+	return nLexStack and nLexStack:findRequireStack() or false
 end
 
 function SealFunction:getIfLuaNode():Ret(False):Ret(True, clazz.IAstNode)
