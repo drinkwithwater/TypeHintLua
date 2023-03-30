@@ -15,7 +15,7 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.TableField = Struct {
 		valueType = clazz.UAtomUnion,
-		lookupNode = clazz.IAstNode,
+		assignNode = clazz.IAstNode,
 	}
 end)
 
@@ -44,7 +44,7 @@ function SealTable:initByKeyValue(vNode:clazz.IAstNode, vKeyType:clazz.UAtomUnio
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
 			valueType = v,
-			lookupNode = vNode,
+			assignNode = vNode,
 		}
 	end
 end
@@ -99,7 +99,7 @@ function SealTable:meta_get(vContext, vKeyType)
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
-			vContext:addLookupNode(nField.lookupNode)
+			vContext:addLookupNode(nField.assignNode, nField.valueType)
 			const nValueType = nField.valueType
 			if nValueType:isNilable() then
 				nTrigger = NIL_TRIGGER
@@ -119,7 +119,7 @@ function SealTable:meta_get(vContext, vKeyType)
 			else
 				nInterType:foreach(function(vKeyAtom)
 					const nField = self._fieldDict[vKeyAtom]!
-					vContext:addLookupNode(nField.lookupNode)
+					vContext:addLookupNode(nField.assignNode, nField.valueType)
 					const nValueType = nField.valueType
 					if nIndexType then
 						vContext:pushFirstAndTuple(nValueType:notnilType())
@@ -163,7 +163,7 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
 				valueType = vValueTerm:getType(),
-				lookupNode = vValueTerm:getNode(),
+				assignNode = vContext:getNode(),
 			}
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
@@ -171,7 +171,7 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 	else
 		const nTableField = self._fieldDict[nIncludeType]!
 		const nFieldType = nTableField.valueType
-		vContext:addLookupNode(nTableField.lookupNode)
+		vContext:addLookupNode(nTableField.assignNode, nTableField.valueType)
 		if not nFieldType:includeAll(vValueTerm:getType()) then
 			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
@@ -183,7 +183,7 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
-		vContext:addLookupNode(nField.lookupNode)
+		vContext:addLookupNode(nField.assignNode, nField.valueType)
 		return nField.valueType
 	else
 		return self._manager.type.Nil

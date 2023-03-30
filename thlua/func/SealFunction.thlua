@@ -14,7 +14,7 @@ end)
 
 const SealFunction = class@<clazz.SealFunction, false>(BaseFunction)
 
-function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:node.UFunctionNode, vUpState:OrFalse(clazz.LexState))
+function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vUpState:OrFalse(clazz.LexState))
 	const nNewStack = vManager:getRuntime():SealStack(vNode, vUpState, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
 	self._stack = nNewStack
 	const nTask = vManager:getScheduleManager():newTask(nNewStack)
@@ -80,6 +80,10 @@ end
 function SealFunction:startTask()
 	self._headStartEvent:wakeup()
 	self._bodyStartEvent:wakeup()
+end
+
+function SealFunction:getIfLuaNode():Ret(False):Ret(True, clazz.IAstNode)
+	return true, self._node
 end
 
 return SealFunction

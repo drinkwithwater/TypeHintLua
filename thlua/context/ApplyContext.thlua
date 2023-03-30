@@ -1,6 +1,7 @@
 
 const class = require "thlua.class"
 const OpenFunction = require "thlua.func.OpenFunction"
+const BaseFunction = require "thlua.func.BaseFunction"
 const AssignContext = require "thlua.context.AssignContext"
 const VariableCase = require "thlua.term.VariableCase"
 const Exception = require "thlua.Exception"
@@ -25,7 +26,13 @@ function ApplyContext:getLookupNodeSet()
 	return self._lookupNodeSet
 end
 
-function ApplyContext:addLookupNode(vNode:clazz.IAstNode)
+function ApplyContext:addLookupNode(vNode:clazz.IAstNode, vType:clazz.UAtomUnion)
+	if BaseFunction.is(vType) then
+		const nIfLua, nNode = vType:getIfLuaNode()
+		if nIfLua then
+			vNode = nNode
+		end
+	end
 	self._lookupNodeSet[vNode] = true
 end
 
