@@ -72,25 +72,29 @@ __node.HintEval = ExtendStruct({
 }, let.IAstNode)
 
 node.IHintSpace = ExtendInterface(Interface {
+	tag="HintSpace",
+	kind=String,
 	evalScriptList = List(Union(node.HintEval, node.HintScript)),
 }, let.IAstNode)
 
-__node.LongHintSpace = ExtendStruct({
-	tag="LongHintSpace",
+node.LongHintSpace = ExtendStruct({
+	kind="LongHintSpace",
 	attrList = List(String),
 	[Integer] = Union(node.String, node.ExprList),
 }, node.IHintSpace, let.ILen)
 
-__node.ShortHintSpace = ExtendStruct({
-	tag = "ShortHintSpace",
+node.ShortHintSpace = ExtendStruct({
+	kind="ShortHintSpace",
 	castKind = OrFalse(node.CastKindEnum), -- if is false, then not hint
 	[1] = node.Expr,
 }, node.IHintSpace)
 
-__node.StatHintSpace = ExtendStruct({
-	tag = "StatHintSpace",
+node.StatHintSpace = ExtendStruct({
+	kind="StatHintSpace",
 	[1] = Union(node.Do, node.Apply, node.Set),
 }, node.IHintSpace)
+
+__node.HintSpace = Union(node.ShortHintSpace, node.LongHintSpace, node.StatHintSpace)
 
 __node.HintTerm = ExtendStruct({
 	tag="HintTerm",
@@ -341,7 +345,6 @@ for k,v in pairs(__node) do
 	nodeTypeList[#nodeTypeList + 1] = v
 end
 
-node.HintSpace = Union(node.ShortHintSpace, node.LongHintSpace, node.StatHintSpace)
 
 node.IAstNode = let.IAstNode
 

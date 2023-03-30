@@ -224,7 +224,8 @@ local hintC={
 				return nHintSpace
 			else
 				local nHintSpace = {
-					tag = "LongHintSpace",
+					tag = "HintSpace",
+					kind = "LongHintSpace",
 					pos = p1,
 					posEnd = posEnd,
 					attrList = nAttrList,
@@ -646,7 +647,8 @@ end
 
 function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vStartPos, vFinishPos)
 	local nHintSpace = {
-		tag = vTag,
+		tag = "HintSpace",
+		kind = vTag,
 		pos = vRealStartPos,
 		posEnd = vFinishPos + 1,
 		evalScriptList = {},

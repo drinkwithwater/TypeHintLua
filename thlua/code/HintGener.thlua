@@ -33,7 +33,7 @@ local TagToVisiting:RealTraverser = {
 				" return ", self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 			}
 		else
-			if nInjectNode.tag ~= "ShortHintSpace" then
+			if nInjectNode.tag ~= "HintSpace" then
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
 					"local let, _ENV = ____stk:INJECT_BEGIN() ",
@@ -260,12 +260,17 @@ local TagToVisiting:RealTraverser = {
 			)
 		)
 	end,
-	StatHintSpace=function(self, node)
-		-- self:print("local block = function(self) ", node[1], " end block(self)\n")
-		return {
-			line = node.l,
-			self:fixIHintSpace(node)
-		}
+	HintSpace=function(self, node)
+		if node.kind == "StatHintSpace" then
+			-- self:print("local block = function(self) ", node[1], " end block(self)\n")
+			return {
+				line = node.l,
+				self:fixIHintSpace(node)
+			}
+		else
+			error("visit long space or short space in other function")
+			return {}
+		end
 	end,
 	Dots=function(self, node)
 		return self:stkAutoUnpack(node, "____vDOTS")
