@@ -5,17 +5,16 @@ const Truth = require "thlua.type.Truth"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const UnionClass = require "thlua.union.UnionClass"
 
-const StringLiteralUnion = UnionClass()
+const BaseUnionType = require "thlua.union.BaseUnionType"
+const class = require "thlua.class"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@let.clazz = import($class).clazz)
 
-function:class(clazz.StringLiteralUnion) StringLiteralUnion.new(vTypeManager:clazz.TypeManager):impl(clazz.IUnionType)
-	return setmetatable({.class
-		_manager=vTypeManager,
-		_literalSet={} @Dict(clazz.StringLiteral,True), -- literal to true
-		id=0 @Number,
-		bits=TYPE_BITS.STRING,
-	}, StringLiteralUnion)
+const StringLiteralUnion = class@<clazz.StringLiteralUnion, false>(BaseUnionType)
+
+function.open StringLiteralUnion:ctor(vTypeManager:clazz.TypeManager)
+	self._literalSet={} @Dict(clazz.StringLiteral,True) -- literal to true
+	self.bits=TYPE_BITS.STRING
 end
 
 function StringLiteralUnion:putAwait(vType)

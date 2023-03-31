@@ -1,31 +1,28 @@
 
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
-const UnionClass = require "thlua.union.UnionClass"
 const Truth = require "thlua.type.Truth"
+const BaseUnionType = require "thlua.union.BaseUnionType"
+const class = require "thlua.class"
 
-const FalsableUnion = UnionClass()
+(@let.clazz = import($class).clazz)
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+const FalsableUnion = class@<clazz.FalsableUnion, false>(BaseUnionType)
 
-function:class(clazz.FalsableUnion) FalsableUnion.new(vTypeManager:clazz.TypeManager, vTruableType:clazz.UAtomUnion, vFalsableBits:Number):impl(clazz.IUnionType)
+function.open FalsableUnion:ctor(vTypeManager:clazz.TypeManager, vTruableType:clazz.UAtomUnion, vFalsableBits:Number)
 	const nNil = vTypeManager.type.Nil
 	const nFalse = vTypeManager.type.False
-	const self = setmetatable({.class
-		_manager=vTypeManager,
-		_trueType=vTruableType,
-		_notnilType=nil @! clazz.UAtomUnion,
-		_nil=vFalsableBits & TYPE_BITS.NIL > 0 and nNil or false,
-		_false=vFalsableBits & TYPE_BITS.FALSE > 0 and nFalse or false,
-		_falseType=false @OrFalse(clazz.UAtomUnion),
-		bits=vTruableType.bits | vFalsableBits,
-		id=0@Integer,
-	}, FalsableUnion)
+	self.bits=vTruableType.bits | vFalsableBits
+	self._trueType=vTruableType
+	self._notnilType=nil @! clazz.UAtomUnion
+	self._nil=vFalsableBits & TYPE_BITS.NIL > 0 and nNil or false
+	self._false=vFalsableBits & TYPE_BITS.FALSE > 0 and nFalse or false
+	self._falseType=false @OrFalse(clazz.UAtomUnion)
     if self._trueType == vTypeManager.type.Never then
-			self._falseType = self
+		self._falseType = self
     elseif self._nil and self._false then
-			self._falseType = vTypeManager:checkedUnion(nNil, nFalse)
+		self._falseType = vTypeManager:checkedUnion(nNil, nFalse)
     else
-			self._falseType = self._nil or self._false
+		self._falseType = self._nil or self._false
     end
 	if self._false then
 		if not self._nil then
@@ -41,7 +38,6 @@ function:class(clazz.FalsableUnion) FalsableUnion.new(vTypeManager:clazz.TypeMan
 	else
 		self._notnilType = self._trueType
 	end
-	return self
 end
 
 function FalsableUnion:foreach(vFunc)

@@ -9,23 +9,21 @@ const TypedFunction = require "thlua.func.TypedFunction"
 const TypedMemberFunction = require "thlua.func.TypedMemberFunction"
 const BaseFunction = require "thlua.func.BaseFunction"
 
-const FuncUnion = UnionClass()
+const BaseUnionType = require "thlua.union.BaseUnionType"
+const class = require "thlua.class"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@let.clazz = import($class).clazz)
 
-function:class(clazz.FuncUnion) FuncUnion.new(vManager:clazz.TypeManager):impl(clazz.IUnionType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_typeFnDict={} @Dict(clazz.TypedFunction, True),
-		_typeMfnDict={} @Dict(clazz.TypedMemberFunction, True),
-		_notTypeFnDict={} @Dict(clazz.BaseFunction, True),
-		_openFnDict={} @Dict(clazz.OpenFunction, True),
-		_anyFn=false@OrFalse(clazz.AnyFunction),
-		_typedPart=false@OrFalse(clazz.UAtomUnion),
-		bits=TYPE_BITS.FUNCTION,
-		id=0@Integer,
-	}, FuncUnion)
-	return self
+const FuncUnion = class@<clazz.FuncUnion, false>(BaseUnionType)
+
+function.open FuncUnion:ctor(vManager:clazz.TypeManager)
+	self._typeFnDict={} @Dict(clazz.TypedFunction, True)
+	self._typeMfnDict={} @Dict(clazz.TypedMemberFunction, True)
+	self._notTypeFnDict={} @Dict(clazz.BaseFunction, True)
+	self._openFnDict={} @Dict(clazz.OpenFunction, True)
+	self._anyFn=false@OrFalse(clazz.AnyFunction)
+	self._typedPart=false@OrFalse(clazz.UAtomUnion)
+	self.bits=TYPE_BITS.FUNCTION
 end
 
 function FuncUnion:foreach(vFunc)

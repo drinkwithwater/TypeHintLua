@@ -7,21 +7,19 @@ const BaseObject = require "thlua.object.BaseObject"
 const TypedObject = require "thlua.object.TypedObject"
 const Truth = require "thlua.type.Truth"
 
-const ObjectUnion = UnionClass()
+const BaseUnionType = require "thlua.union.BaseUnionType"
+const class = require "thlua.class"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@let.clazz = import($class).clazz)
 
-function:class(clazz.ObjectUnion) ObjectUnion.new(vManager:clazz.TypeManager):impl(clazz.IUnionType)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_typedObjectDict={} @Dict(clazz.TypedObject, True),
-		_sealTableDict={} @Dict(clazz.SealTable, True),
-		_openTableDict={} @Dict(clazz.OpenTable, True),
-		_typedPart=false@OrFalse(clazz.UAtomUnion),
-		bits=TYPE_BITS.OBJECT,
-		id=0@Integer,
-	}, ObjectUnion)
-	return self
+const ObjectUnion = class@<clazz.ObjectUnion, false>(BaseUnionType)
+
+function.open ObjectUnion:ctor(vManager:clazz.TypeManager)
+	self._typedObjectDict={} @Dict(clazz.TypedObject, True)
+	self._sealTableDict={} @Dict(clazz.SealTable, True)
+	self._openTableDict={} @Dict(clazz.OpenTable, True)
+	self._typedPart=false@OrFalse(clazz.UAtomUnion)
+	self.bits=TYPE_BITS.OBJECT
 end
 
 function ObjectUnion:foreach(vFunc)
