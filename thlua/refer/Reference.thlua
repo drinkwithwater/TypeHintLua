@@ -125,14 +125,17 @@ function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
 		elseif BaseAtomType.is(nAssignValue) then
-			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
 			const nCom = self._manager:UnionReferCom(vNode, self._task)
 			self:_setComAndWakeup(nCom)
 			nCom:setAtomList({nAssignValue}, function()
 				return nAssignValue
 			end)
 		elseif BaseUnionType.is(nAssignValue) then
-			error("TODO assign Union to reference")
+			const nCom = self._manager:UnionReferCom(vNode, self._task)
+			self:_setComAndWakeup(nCom)
+			nCom:setAtomList(nAssignValue:getAtomList(), function()
+				return nAssignValue
+			end)
 		else
 			error("namespace assign a non-type value")
 		end

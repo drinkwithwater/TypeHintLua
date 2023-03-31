@@ -1,0 +1,89 @@
+
+const class = require "thlua.class"
+const Interface = require "thlua.object.Interface"
+
+const TypeRelation = {}
+TypeRelation.__index = TypeRelation
+
+TypeRelation.HAS = ">"
+TypeRelation.IN = "<"
+TypeRelation.EQUAL = "="
+TypeRelation.SOME = "&"
+TypeRelation.NONE = "="
+
+(@do
+	let.clazz = import($class).clazz
+    clazz.RelationEnum = Union("<", ">", "=", "~", "&")
+end)
+
+function:class(clazz.TypeRelation) TypeRelation.new(vManager:clazz.TypeManager)
+    const nTask = vManager:getScheduleManager():newTask()
+    const self = setmetatable({.class
+        _manager = vManager,
+        _task = nTask,
+        _buildEvent = nTask:makeEvent(),
+        _relation = false @ OrFalse(clazz.RelationEnum),
+        _smallIdObj = nil@!clazz.TypedObject,
+        _bigIdObj = nil@!clazz.TypedObject,
+    }, TypeRelation)
+    return self
+end
+
+const function shiftPair(vId1:Integer, vId2:Integer):Ret(Integer)
+	return (vId1 << 32) + vId2
+end
+TypeRelation.shiftPair = shiftPair
+
+function TypeRelation:getAwait():Ret(clazz.RelationEnum)
+    self._buildEvent:wait()
+    return assert(self._relation)
+end
+
+function TypeRelation:getNoAwait():Ret(OrFalse(clazz.RelationEnum))
+    return self._relation
+end
+
+function TypeRelation:buildAsync(vLeft:clazz.TypedObject, vRight:clazz.TypedObject)
+    if vLeft.id > vRight.id then
+        vLeft, vRight = vRight, vLeft
+    end
+    self._smallIdObj = vLeft
+    self._bigIdObj = vRight
+    self._task:runAsync(function()
+        const nLeftId = vLeft.id
+        const nRightId = vRight.id
+        const nLRPair, nRLPair = shiftPair(nLeftId, nRightId), TypeRelation.shiftPair(nRightId, nLeftId)
+        const nLRInclude = vLeft:assumeIncludeObject({[nLRPair]=true}, vRight)
+        const nRLInclude = vRight:assumeIncludeObject({[nRLPair]=true}, vLeft)
+        if nLRInclude and nRLInclude then
+            self._relation = TypeRelation.EQUAL
+        elseif nLRInclude then
+            self._relation = TypeRelation.HAS
+        elseif nRLInclude then
+            self._relation = TypeRelation.IN
+        else
+            if Interface.is(vLeft) and Interface.is(vRight) then
+                const nIntersect = vLeft:assumeIntersectInterface({[nLRPair]=true,[nRLPair]=true}, vRight)
+                if nIntersect then
+                    self._relation = TypeRelation.SOME
+                else
+                    self._relation = TypeRelation.NONE
+                end
+            else
+                self._relation = TypeRelation.NONE
+            end
+        end
+        self._buildEvent:wakeup()
+    end)
+end
+
+function TypeRelation.makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Boolean, Integer, Integer)
+	const nLeftId, nRightId = vLeft.id, vRight.id
+	if nLeftId < nRightId then
+		return false, shiftPair(nLeftId, nRightId), shiftPair(nRightId, nLeftId)
+	else
+		return true, shiftPair(nRightId, nLeftId), shiftPair(nLeftId, nRightId)
+	end
+end
+
+return TypeRelation

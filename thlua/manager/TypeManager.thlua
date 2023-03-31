@@ -51,6 +51,8 @@ const native = require "thlua.native"
 
 const UnionReferCom = require "thlua.refer.UnionReferCom"
 
+const TypeRelation = require "thlua.manager.TypeRelation"
+
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.WaitingInfo = Struct {
@@ -420,7 +422,7 @@ function TypeManager:_unifyUnion(vNewType:clazz.IUnionType):Ret(clazz.UAtomUnion
 	local nSignToType = self._unionSignToType
 	local nOldType = nSignToType[nSign]
 	if not nOldType then
-		vNewType:initTypeId(self:genTypeId())
+		vNewType:initWithTypeId(self:genTypeId())
 		nSignToType[nSign] = vNewType
 		return vNewType
 	else
@@ -655,11 +657,6 @@ function TypeManager:makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):R
 	else
 		return true, (nRightId << 32) + nLeftId, (nLeftId << 32) + nRightId
 	end
-end
-
-function TypeManager:getTypePairInclude(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(OrNil(clazz.TypeReference))
-	const nPair = self:makePair(vLeft, vRight)
-	return self._pairToInclude[nPair]
 end
 
 function TypeManager:attachPairInclude(vLeft:clazz.TypedObject, vRight:clazz.TypedObject, vWaitCreate:Boolean):Ret(OrNil(clazz.RelationEnum))
