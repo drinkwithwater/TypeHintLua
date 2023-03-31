@@ -108,7 +108,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		type=nil @! BuiltinType,
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
-		_pairToInclude={} @ Dict(Integer, clazz.TypeReference),
+		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=OrNil(clazz.BooleanLiteral)},
 		_unionSignToType=setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion),
 		_typeIdCounter=0@Integer,
@@ -647,71 +647,50 @@ end
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)
 	const nLeftId, nRightId = vLeft.id, vRight.id
 	assert(nLeftId ~= 0 and nRightId ~=0, "use id ==0")
-	return (nLeftId << 32) + nRightId
+	return TypeRelation.shiftPair(nLeftId, nRightId)
 end
 
 function TypeManager:makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Boolean, Integer, Integer)
 	const nLeftId, nRightId = vLeft.id, vRight.id
 	if nLeftId < nRightId then
-		return false, (nLeftId << 32) + nRightId, (nRightId << 32) + nLeftId
+		return false, TypeRelation.shiftPair(nLeftId, nRightId), TypeRelation.shiftPair(nRightId, nLeftId)
 	else
-		return true, (nRightId << 32) + nLeftId, (nLeftId << 32) + nRightId
+		return true, TypeRelation.shiftPair(nRightId, nLeftId), TypeRelation.shiftPair(nLeftId, nRightId)
 	end
 end
 
-function TypeManager:attachPairInclude(vLeft:clazz.TypedObject, vRight:clazz.TypedObject, vWaitCreate:Boolean):Ret(OrNil(clazz.RelationEnum))
+function TypeManager:attachPairRelation(vLeft:clazz.TypedObject, vRight:clazz.TypedObject, vWaitCreate:Boolean):Ret(OrNil(clazz.RelationEnum))
 	const nInverse, nLRPair, nRLPair = self:makeDuPair(vLeft, vRight)
 	if nInverse then
 		vRight, vLeft = vLeft, vRight
 	end
-	local nIncludeRefer = self._pairToInclude[nLRPair]
-	local nResultType:OrFalse(clazz.UAtomUnion) = false
+	local nRelation = self._pairToRelation[nLRPair]
+	local nResult:OrFalse(clazz.RelationEnum) = false
 	if vWaitCreate then
-		if not nIncludeRefer then
-			nIncludeRefer = self:Reference(false)
-			self._pairToInclude[nLRPair] = nIncludeRefer
-			nIncludeRefer:setUnionAsync(self._rootNode, function()
-				const nLRInclude = vLeft:assumeIncludeObject({[nLRPair]=true}, vRight)
-				const nRLInclude = vRight:assumeIncludeObject({[nRLPair]=true}, vLeft)
-				if nLRInclude and nRLInclude then
-					return {self:Literal("=")}
-				elseif nLRInclude then
-					return {self:Literal(">")}
-				elseif nRLInclude then
-					return {self:Literal("<")}
-				else
-					if Interface.is(vLeft) and Interface.is(vRight) then
-						const nIntersect = vLeft:assumeIntersectInterface({[nLRPair]=true,[nRLPair]=true}, vRight)
-						if nIntersect then
-							return {self:Literal("&")}
-						end
-					end
-					return {self:Literal("~")}
-				end
-			end)
+		if not nRelation then
+			nRelation = TypeRelation.new(self)
+			self._pairToRelation[nLRPair] = nRelation
+			nRelation:buildByObject(vLeft, vRight)
 		end
-		nResultType = nIncludeRefer:waitTypeCom():getTypeAwait()
+		nResult = nRelation:getAwait()
 	else
-		if nIncludeRefer then
-			nResultType = nIncludeRefer:waitTypeCom():getResultType()
+		if nRelation then
+			nResult = nRelation:getNoAwait()
 		end
 	end
-	if not nResultType then
+	if not nResult then
 		return nil
-	else
-		const nLiteral = nResultType @? clazz.StringLiteral
-		const nRelation = nLiteral:getLiteral() @? clazz.RelationEnum
-		if nInverse then
-			if nRelation == ">" then
-				return "<"
-			elseif nRelation == "<" then
-				return ">"
-			else
-				return nRelation
-			end
+	end
+	if nInverse then
+		if nResult == ">" then
+			return "<"
+		elseif nResult == "<" then
+			return ">"
 		else
-			return nRelation
+			return nResult
 		end
+	else
+		return nResult
 	end
 end
 

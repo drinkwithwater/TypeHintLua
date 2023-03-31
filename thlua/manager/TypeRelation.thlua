@@ -22,7 +22,7 @@ function:class(clazz.TypeRelation) TypeRelation.new(vManager:clazz.TypeManager)
         _manager = vManager,
         _task = nTask,
         _buildEvent = nTask:makeEvent(),
-        _relation = false @ OrFalse(clazz.RelationEnum),
+        _result = false @ OrFalse(clazz.RelationEnum),
         _smallIdObj = nil@!clazz.TypedObject,
         _bigIdObj = nil@!clazz.TypedObject,
     }, TypeRelation)
@@ -36,14 +36,14 @@ TypeRelation.shiftPair = shiftPair
 
 function TypeRelation:getAwait():Ret(clazz.RelationEnum)
     self._buildEvent:wait()
-    return assert(self._relation)
+    return assert(self._result)
 end
 
 function TypeRelation:getNoAwait():Ret(OrFalse(clazz.RelationEnum))
-    return self._relation
+    return self._result
 end
 
-function TypeRelation:buildAsync(vLeft:clazz.TypedObject, vRight:clazz.TypedObject)
+function TypeRelation:buildByObject(vLeft:clazz.TypedObject, vRight:clazz.TypedObject)
     if vLeft.id > vRight.id then
         vLeft, vRight = vRight, vLeft
     end
@@ -56,34 +56,25 @@ function TypeRelation:buildAsync(vLeft:clazz.TypedObject, vRight:clazz.TypedObje
         const nLRInclude = vLeft:assumeIncludeObject({[nLRPair]=true}, vRight)
         const nRLInclude = vRight:assumeIncludeObject({[nRLPair]=true}, vLeft)
         if nLRInclude and nRLInclude then
-            self._relation = TypeRelation.EQUAL
+            self._result = TypeRelation.EQUAL
         elseif nLRInclude then
-            self._relation = TypeRelation.HAS
+            self._result = TypeRelation.HAS
         elseif nRLInclude then
-            self._relation = TypeRelation.IN
+            self._result = TypeRelation.IN
         else
             if Interface.is(vLeft) and Interface.is(vRight) then
                 const nIntersect = vLeft:assumeIntersectInterface({[nLRPair]=true,[nRLPair]=true}, vRight)
                 if nIntersect then
-                    self._relation = TypeRelation.SOME
+                    self._result = TypeRelation.SOME
                 else
-                    self._relation = TypeRelation.NONE
+                    self._result = TypeRelation.NONE
                 end
             else
-                self._relation = TypeRelation.NONE
+                self._result = TypeRelation.NONE
             end
         end
         self._buildEvent:wakeup()
     end)
-end
-
-function TypeRelation.makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Boolean, Integer, Integer)
-	const nLeftId, nRightId = vLeft.id, vRight.id
-	if nLeftId < nRightId then
-		return false, shiftPair(nLeftId, nRightId), shiftPair(nRightId, nLeftId)
-	else
-		return true, shiftPair(nRightId, nLeftId), shiftPair(nLeftId, nRightId)
-	end
 end
 
 return TypeRelation
