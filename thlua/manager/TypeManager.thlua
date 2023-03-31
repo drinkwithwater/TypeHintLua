@@ -44,6 +44,8 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 
 const BaseReadyType = require "thlua.type.BaseReadyType"
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const BaseUnionType = require "thlua.union.BaseUnionType"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
@@ -165,51 +167,8 @@ function TypeManager:lateInit()
 	self.builtin = makeBuiltinFunc(self)
 end
 
-const AtomMetatableSet:Dict(Truth, String) = {
-	-- not recursive
-}
-
-const AtomUnionMetatableSet:Dict(Truth, String) = {
-	[Never]="Never",
-	[NumberLiteralUnion]="NumberLiteralUnion",
-	[StringLiteralUnion]="StringLiteralUnion",
-	[FalsableUnion]="FalsableUnion",
-	[ObjectUnion]="ObjectUnion",
-	[FuncUnion]="FuncUnion",
-	[ComplexUnion]="ComplexUnion",
-}
-
-for k, v in pairs(AtomMetatableSet) do
-	AtomUnionMetatableSet[k] = v
-end
-
-function TypeManager:pcheckNamespaceAssigValue(vData:Any):Ret(True, Union(clazz.TypeReference, clazz.IAtomType)):Ret(False, String)
-	local meta = getmetatable(vData)
-	if meta and (AtomMetatableSet[meta] or Reference.is(vData) or BaseReadyType.is(vData)) then
-		return true, vData @? Union(clazz.TypeReference, clazz.IAtomType)
-	else
-		return false, "not atom or reference"
-	end
-end
-
-function TypeManager:assertAllType(vData:Truth):Ret(clazz.UAllType)
-	local meta = getmetatable(vData)
-	if meta and (AtomUnionMetatableSet[meta] or Reference.is(vData) or BaseReadyType.is(vData)) then
-		return vData @? clazz.UAllType
-	else
-		error("assertAllType failed, type="..type(vData)..tostring(debug.traceback()))
-	end
-end
-
-function.pass TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
-	local t = type(vData)
-	if t == "table" then
-		local meta = getmetatable(vData)
-		if AtomMetatableSet[meta] then
-			return vData
-		end
-	end
-	if Reference.is(vData) then
+function TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
+	if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 		return vData
 	end
 	return false
@@ -223,17 +182,16 @@ function.pass TypeManager:easyToTypeList(...:Any):Ret(List(clazz.UAllType))
 	return l
 end
 
-function.pass TypeManager:peasyToType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
+function TypeManager:peasyToType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
 	local t = type(vData)
 	if t == "table" then
-		local meta = getmetatable(vData)
-		if AtomMetatableSet[meta] or AtomUnionMetatableSet[meta] or Reference.is(vData) or BaseReadyType.is(vData) then
+		if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 			return true, vData
 		else
 			return false, "to type failed"
 		end
 	elseif t == "number" or t == "string" or t == "boolean"then
-		return true, self:Literal(vData)
+		return true, self:Literal(vData @> Union(Number, String, Boolean))
 	else
 		return false, "easyToType("..t..") invalid"
 	end
@@ -524,8 +482,10 @@ function TypeManager:TypeTuple(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeTu
 		assert(nArg, "tuple can't take false or nil value")
 		if Reference.is(nArg) then
 			nTypeList[i] = nArg
+		elseif BaseUnionType.is(nArg) or BaseAtomType.is(nArg) then
+			nTypeList[i] = nArg
 		else
-			nTypeList[i] = self:assertAllType(nArg)
+			error("type expected here...")
 		end
 	end
 	return TypeTuple.new(self, vNode, nTypeList)

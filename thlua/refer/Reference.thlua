@@ -4,6 +4,9 @@ const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
 
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const BaseUnionType = require "thlua.union.BaseUnionType"
+
 const UnionReferCom = require "thlua.refer.UnionReferCom"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
@@ -14,7 +17,7 @@ const ScheduleTask = require "thlua.manager.ScheduleTask"
 const class = require "thlua.class"
 
 (@do
-	let.clazz = import("thlua.type.TypeClass").clazz
+	let.clazz = import($class).clazz
 	let.UReferCom = Union(clazz.UnionReferCom, clazz.TemplateReferCom)
 end)
 
@@ -117,20 +120,21 @@ function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	self._task:runAsync(function()
-		const nOkay, nAssignValue = self._manager:pcheckNamespaceAssigValue(vGetFunc())
-		if not nOkay then
-			error("namespace assign a non-type value")
-		end
+		const nAssignValue = vGetFunc()
 		if Reference.is(nAssignValue) then
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
-		else
+		elseif BaseAtomType.is(nAssignValue) then
 			assert(not nAssignValue:isUnion(), "TODO assign Union to reference")
 			const nCom = self._manager:UnionReferCom(vNode, self._task)
 			self:_setComAndWakeup(nCom)
 			nCom:setAtomList({nAssignValue}, function()
 				return nAssignValue
 			end)
+		elseif BaseUnionType.is(nAssignValue) then
+			error("TODO assign Union to reference")
+		else
+			error("namespace assign a non-type value")
 		end
 	end)
 end
