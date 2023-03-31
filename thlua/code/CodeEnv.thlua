@@ -12,6 +12,7 @@ const class = require "thlua.class"
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
 	let.TypingFn = Fn(List(clazz.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
+	let.InjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
 	let.LookupPair = Struct {
 		pos = Integer,
 		posEnd = Integer,
@@ -170,6 +171,21 @@ function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 
+function CodeEnv:makeFocusList(vNode:node.IAstNode):Ret(List(node.Function))
+	local nCurNode:OrNil(node.IAstNode) = vNode
+	const nFocusList:List(node.Function) = {}
+	while nCurNode do
+		if nCurNode.tag == "Function" then
+			const nFunc = nCurNode @> node.Function
+			if nFunc.letNode then
+				nFocusList[#nFocusList + 1] = nFunc
+			end
+		end
+		nCurNode = nCurNode.parent
+	end
+	return nFocusList
+end
+
 function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List(node.Function))
 	local nRetBlock:node.Block = self._astTree[3]
 	for i=1,#vTraceList-1 do
@@ -181,21 +197,10 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 			nRetBlock = nNextBlock
 		end
 	end
-	const nFocusList:List(node.Function) = {}
-	local nCurFunc:OrNil(node.IAstNode) = nRetBlock
-	while nCurFunc do
-		if nCurFunc.tag == "Function" then
-			const nFunc = nCurFunc @> node.Function
-			if nFunc.letNode then
-				nFocusList[#nFocusList + 1] = nFunc
-			end
-		end
-		nCurFunc = nCurFunc.parent
-	end
-	return nRetBlock, nFocusList
+	return nRetBlock, self:makeFocusList(nRetBlock)
 end
 
-function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
+function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, node.Block, List(node.Function))
 	const nIndex, nPair = self._code:binSearch@<LookupPair>(self._hintLookupPairList, vPos)
 	if not nIndex then
 		return false
@@ -204,19 +209,25 @@ function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, 
 		return false
 	end
 	local nRetBlock:OrNil(node.Block) = nil
-	const nFocusList:List(node.Function) = {}
 	const nPrefixNode = nPair[1]
+	-- lookup a non-hint block
 	local nCurNode:OrNil(node.IAstNode) = nPrefixNode
+	local nInHint = true
 	while nCurNode do
-		if nCurNode.tag == "Function" then
-			const nFunc = nCurNode @> node.Function
-			if nFunc.letNode then
-				nFocusList[#nFocusList + 1] = nFunc
+		if nCurNode.tag == "HintSpace" then
+			nInHint = false
+		elseif nCurNode.tag == "Block" then
+			if not nInHint then
+				nRetBlock = nCurNode @> node.Block
+				break
 			end
 		end
 		nCurNode = nCurNode.parent
 	end
-	return nPrefixNode, nFocusList
+	if not nRetBlock then
+		return false
+	end
+	return nPrefixNode, nRetBlock, self:makeFocusList(nPrefixNode)
 end
 
 function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
@@ -227,20 +238,8 @@ function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List
 	if vPos < nPair.pos or vPos >= nPair.posEnd then
 		return false
 	end
-	local nRetBlock:OrNil(node.Block) = nil
-	const nFocusList:List(node.Function) = {}
 	const nPrefixNode = nPair[1]
-	local nCurNode:OrNil(node.IAstNode) = nPrefixNode
-	while nCurNode do
-		if nCurNode.tag == "Function" then
-			const nFunc = nCurNode @> node.Function
-			if nFunc.letNode then
-				nFocusList[#nFocusList + 1] = nFunc
-			end
-		end
-		nCurNode = nCurNode.parent
-	end
-	return nPrefixNode, nFocusList
+	return nPrefixNode, self:makeFocusList(nPrefixNode)
 end
 
 function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
@@ -264,6 +263,34 @@ end
 
 function.open CodeEnv.is(v):isguard(clazz.CodeEnv)
 	return getmetatable(v) == CodeEnv
+end
+
+function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String, vWrongContent:String):Ret(False):Ret(InjectFn, node.InjectTrace)
+	const nRightAst, nErrNode = ParseEnv.parse(vWrongContent)
+	if nRightAst then
+		return false
+	end
+	const nInjectTrace = nErrNode[2]
+	if not nInjectTrace then
+		return false
+	end
+	const nChunk = nInjectTrace.capture
+	const nOkay, nInjectFn = pcall(function():Ret(InjectFn)
+		assert(nChunk.injectNode)
+		const nFocusEnv = CodeEnv.new(vSplitCode, vFileUri, nChunk)
+		(@do
+			let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
+		end)
+		const nRawInjectFn = nFocusEnv:getTypingFn() @? RawInjectFn
+		return function(vStack, vGetter)
+			return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)
+		end
+	end)
+	if nOkay then
+		return nInjectFn, nInjectTrace
+	else
+		return false
+	end
 end
 
 return CodeEnv

@@ -41,7 +41,17 @@ function FileState:getWellformedRange(vRange:lsp.Range):Ret(lsp.Range)
 	end
 end
 
-function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
+function FileState:syncChangeMayRerun(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
+	const nCanRerun = self:syncChangeNoRerun(vParams)
+	if nCanRerun then
+		self._changeState = false
+		return true
+	else
+		return false
+	end
+end
+
+function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
 	const nChanges = vParams.contentChanges
 	local nSplitCode = self._splitCode
 	local nLineChange = false
@@ -76,7 +86,6 @@ function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams):Ret(Boole
 	const nRight = self:_checkRight()
 	if nRight then
 		if self._changeState == CHANGE_NONBLANK and nLineChange then
-			self._changeState = false
 			return true
 		else
 			return false
@@ -101,6 +110,7 @@ end
 function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)
 	self._version = vVersion
 	self._splitCode = SplitCode.new(vContent)
+	self._changeState = false
 	return self:_checkRight()
 end
 
@@ -111,7 +121,7 @@ end
 function FileState:contentMismatch(vContent:String):Ret(Boolean)
 	const nSplitCode = self._splitCode
 	const nContent = nSplitCode:getContent()
-	if nContent ~= "" and nContent ~= vContent then
+	if nContent ~= vContent then
 		return true
 	else
 		return false

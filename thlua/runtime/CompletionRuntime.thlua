@@ -5,12 +5,14 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const Namespace = require "thlua.manager.Namespace"
 const ListDict = require "thlua.manager.ListDict"
+const TypeReference = require "thlua.refer.Reference"
+const BaseReadyType = require "thlua.type.BaseReadyType"
 const class = require "thlua.class"
 
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
-	let.InjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
+	let.InjectFn = import("thlua.code.CodeEnv").InjectFn
 end)
 
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
@@ -74,12 +76,11 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	end
 end
 
-function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(OrFalse(clazz.FieldCompletion))
+function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.UAllType, clazz.Namespace)))
 	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
-		return false
+		return
 	end
-	const nFieldCompletion = FieldCompletion.new()
 	-- 3. run inject fn in each branches
 	for _, nBranch in pairs(nBranchList) do
 		const nStack = nBranch:getStack()
@@ -118,15 +119,42 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 			end
 		end)
 		if RefineTerm.is(nResult) then
-			nResult:getType():putCompletion(nFieldCompletion)
+			vCallback(nResult)
 		else
-			const nSpace = Namespace.fromExport(nResult)
-			if nSpace then
-				nSpace:putCompletion(nFieldCompletion)
+			if TypeReference.is(nResult) then
+				vCallback(nResult)
+			elseif BaseReadyType.is(nResult) then
+				vCallback(nResult @? clazz.UAtomUnion)
+			else
+				const nSpace = Namespace.fromExport(nResult)
+				if nSpace then
+					vCallback(nSpace)
+				end
 			end
 		end
 	end
+end
+
+function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(clazz.FieldCompletion)
+	const nFieldCompletion = FieldCompletion.new()
+	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
+		if RefineTerm.is(vResult) then
+			vResult:getType():putCompletion(nFieldCompletion)
+		elseif Namespace.is(vResult) then
+			vResult:putCompletion(nFieldCompletion)
+		end
+	end)
 	return nFieldCompletion
+end
+
+function CompletionRuntime:injectLookupDefinition(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(OrFalse(clazz.IAstNode))
+	local nNode:OrFalse(clazz.IAstNode) = false
+	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
+		if Namespace.is(vResult) then
+			nNode = vResult:getNode()
+		end
+	end)
+	return nNode
 end
 
 return CompletionRuntime

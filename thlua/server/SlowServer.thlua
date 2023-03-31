@@ -6,6 +6,7 @@ const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
 const ApiServer = require "thlua.server.ApiServer"
+const FastServer = require "thlua.server.FastServer"
 const class = require "thlua.class"
 
 (@do
@@ -14,10 +15,10 @@ const class = require "thlua.class"
 	let.node=import("thlua.code.Node").node
 end)
 
-const SlowServer = class@<lsp.SlowServer, false>(ApiServer)
+const SlowServer = class@<lsp.SlowServer, false>(FastServer)
 
-function.open SlowServer:ctor()
-	self._runtime=nil@OrNil(clazz.DiagnosticRuntime)
+function SlowServer:checkDiagnosticRuntime()
+	return assert(self._runtime) @> clazz.DiagnosticRuntime
 end
 
 function SlowServer:getInitializeResult():Ret(lsp.InitializeResult)
@@ -34,7 +35,7 @@ function SlowServer:getInitializeResult():Ret(lsp.InitializeResult)
 end
 
 function SlowServer:publishNormal()
-	const nRuntime = self._runtime!
+	const nRuntime = self:checkDiagnosticRuntime()
 	local nFileToList = nRuntime:getAllDiagnostic()
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
@@ -130,25 +131,8 @@ function SlowServer:rerun(vFileUri:String)
 	self:publishNormal()
 end
 
-function SlowServer:checkRuntime():Ret(clazz.DiagnosticRuntime)
-	return assert(self._runtime)
-end
-
 function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
-	self:attachFileState(vParams.textDocument.uri):syncChange(vParams)
-	--self:rerun(nFileName)
-end
-
-function SlowServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
-	const nContent = vParams.textDocument.text
-	const nFileUri = vParams.textDocument.uri
-	self:attachFileState(vParams.textDocument.uri):syncContent(nContent, vParams.textDocument.version)
-	self:rerun(nFileUri)
-end
-
-function SlowServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
-	const nFileUri = vParams.textDocument.uri
-	self:rerun(nFileUri)
+	self:attachFileState(vParams.textDocument.uri):syncChangeNoRerun(vParams)
 end
 
 return SlowServer

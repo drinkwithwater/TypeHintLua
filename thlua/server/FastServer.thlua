@@ -75,7 +75,7 @@ end
 
 function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
-	if self:attachFileState(nFileUri):syncChange(vParams) then
+	if self:attachFileState(nFileUri):syncChangeMayRerun(vParams) then
 		self:rerun(nFileUri)
 	end
 end
@@ -85,10 +85,9 @@ function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:attachFileState(nFileUri)
 	if nFileState:contentMismatch(nContent) then
-		self:warn("content mismatch when open")
-	end
-	if nFileState:syncContent(nContent, vParams.textDocument.version) then
-		self:rerun(nFileUri)
+		if nFileState:syncContent(nContent, vParams.textDocument.version) then
+			self:rerun(nFileUri)
+		end
 	end
 end
 
@@ -130,7 +129,7 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 			end
 		end
 	end
-	-- 2. if node is not Ident_use->Ident_def
+	-- 2. other case, get position in succ env, find by expr lookup
 	const nCompletionRuntime = self:checkRuntime()
 	const nSuccEnv = nCompletionRuntime:getCodeEnv(nFileUri)
 	if not nSuccEnv then
@@ -144,20 +143,42 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 	const nPos = nSuccEnv:getSplitCode():lcToPos(nLine, nColumn)
 	-- 3. search expr
 	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
-	if not nExprNode then
-		-- 4. search hint expr
-		const nHintExprNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
-		if nHintExprNode then
-			self:info("hint expr TODO")
-		else
-			self:info("no target expr")
+	if nExprNode then
+		nCompletionRuntime:focusSchedule(nFocusList)
+		const nLookupNode = nCompletionRuntime:getLookupNode(nExprNode)
+		if not nLookupNode then
+			self:info("not found lookup node"..tostring(nExprNode), nExprNode.tag)
+			return nil
 		end
+		return {
+			uri=nLookupNode.path,
+			range={
+				start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
+				["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c - 1 },
+			}
+		}
+	end
+	-- 4. search hint expr
+	const nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
+	if not nHintExprNode then
+		self:info("no target expr")
+		return nil
+	end
+	const nExprContent = nSuccEnv:getSplitCode():getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
+	const nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
+	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
+	if not nInjectFn then
 		return nil
 	end
 	nCompletionRuntime:focusSchedule(nFocusList)
-	const nLookupNode = nCompletionRuntime:getLookupNode(nExprNode)
+	-- 4. run inject
+	const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectTrace.pos, nBlockNode, nInjectFn, self)
+	if not nFieldCompletion then
+		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
+		return nil
+	end
+	const nLookupNode = nCompletionRuntime:injectLookupDefinition(nInjectTrace.pos, nBlockNode, nInjectFn)
 	if not nLookupNode then
-		self:info("not found lookup node"..tostring(nExprNode), nExprNode.tag)
 		return nil
 	end
 	return {
@@ -179,55 +200,33 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 		self:info("completion fail for some code error")
 		return nil
 	end
-	-- 2. make inject fn
+	-- 2. cut code
 	const nSplitCode = nFileState:getSplitCode()
 	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
-	const nContent = nSplitCode:getContent():sub(1, nPos-1)
+	const nWrongContent = nSplitCode:getContent():sub(1, nPos-1)
 	-- 3. parsing with error
-	const nInjectTrace, nErrNode = ParseEnv.parse(nContent)
-	if nInjectTrace then
-		self:info("completion fail for code gen fail, not trigger by '.' or ':' ?")
+	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
+	if not nInjectFn then
 		return nil
 	end
-	const nInjectTrace = nErrNode[2]
-	if not nInjectTrace then
-		self:info("completion fail for code gen fail, maybe syntax error?")
-		return nil
-	end
-	const nCapture = nInjectTrace.capture
-	-- 4. gen inject function
-	const nOkay, nInjectFn = pcall(function():Ret(Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any))
-		const nFocusEnv = CodeEnv.new(nSplitCode, nFileUri, nCapture)
-		(@do
-			let.RawInjectFn = Fn(List(clazz.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
-		end)
-		const nRawInjectFn = nFocusEnv:getTypingFn() @? RawInjectFn
-		return function(vStack, vGetter)
-			return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)
-		end
-	end)
-	if not nOkay then
-		return nil
-	end
-	const nInjectNode, nTraceList = assert(nCapture.injectNode), nInjectTrace.traceList
+	-- TODO, using nInjectNode.pos maybe not right such as local a = a.fds ...
+	const nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
 	const nBlockNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
 	nCompletionRuntime:focusSchedule(nFuncList)
-	if nInjectFn then
-		-- 3. run inject
-		const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
-		if not nFieldCompletion then
-			self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
-			return nil
-		end
-		const nRetList:List(lsp.CompletionItem) = {}
-		nFieldCompletion:foreach(function(vKey, vValue)
-			nRetList[#nRetList + 1] = {
-				label=vKey,
-				kind=2,
-			}
-		end)
-		return json.array(nRetList)
+	-- 4. run inject
+	const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
+	if not nFieldCompletion then
+		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
+		return nil
 	end
+	const nRetList:List(lsp.CompletionItem) = {}
+	nFieldCompletion:foreach(function(vKey, vValue)
+		nRetList[#nRetList + 1] = {
+			label=vKey,
+			kind=2,
+		}
+	end)
+	return json.array(nRetList)
 end
 
 function FastServer:onHover(vParams:lsp.HoverParams)
