@@ -1,0 +1,72 @@
+
+const class = require "thlua.class"
+const BaseReadyType = require "thlua.type.BaseReadyType"
+
+(@let.clazz = import("thlua.class").clazz)
+
+const BaseUnionType = class@<clazz.BaseUnionType, clazz.IUnionType>(BaseReadyType)
+
+function.open BaseUnionType:ctor(...)
+    self.bits = false @? Integer
+    self._unionSign = false@OrFalse(String)
+end
+
+function BaseUnionType:detailString(vCache, vVerbose):Ret(String)
+    const l:List(clazz.IAtomType) = {}
+    self:foreach(function(vType)
+        l[#l+1] = vType
+    end)
+    table.sort(l, function(vLeft:clazz.IAtomType, vRight:clazz.IAtomType)
+        return vLeft.id < vRight.id
+    end)
+    const sl:List(String) = {}
+    for i=1, #l do
+        sl[i] = l[i]!:detailString(vCache, vVerbose)
+    end
+    return "Union("..table.concat(sl,",")..")"
+end
+
+function BaseUnionType:initTypeId(vTypeId)
+    assert(self.id == 0, "newunion's id must be 0")
+    self.id = vTypeId
+end
+
+function BaseUnionType:isUnion()
+    return true
+end
+
+function.pass BaseUnionType:unionSign()
+    local nSign = self._unionSign
+    const l = {}
+    if not nSign then
+        self:foreach(function(vType)
+            l[#l + 1] = vType.id
+        end)
+        table.sort(l)
+        nSign = table.concat(l, "-")
+        self._unionSign = nSign
+    end
+    return nSign
+end
+
+function BaseUnionType:putAwait(vType)
+    error("this union type can't call putAwait to build itself")
+end
+
+function BaseUnionType:setAssigned(vContext)
+    self:foreach(function(vType)
+        vType:setAssigned(vContext)
+    end)
+end
+
+function BaseUnionType:checkAtomUnion()
+	return self
+end
+
+function BaseUnionType:putCompletion(v)
+    self:foreach(function(vType)
+        vType:putCompletion(v)
+    end)
+end
+
+return BaseUnionType
