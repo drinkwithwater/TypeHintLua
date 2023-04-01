@@ -325,12 +325,12 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeR
 	nNewRefer:setUnionAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
-			local nItem = l[i]
+			local nItem = self:easyToType(l[i])
 			if Reference.is(nItem) then
 				local nList = nItem:waitTypeCom():getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
-				self:easyToType(nItem):foreachAwait(function(vAtom)
+				nItem:foreach(function(vAtom)
 					nTypeList[#nTypeList + 1] = vAtom
 				end)
 			end
@@ -353,22 +353,18 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 	and Interface.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
 	or Struct.new(self, vNode, vMetaEventDict and vMetaEventDict.__next or false)
 	nNewObject:buildAsync(function(vAsyncKey)
+		const nIndependentList:List(clazz.UAllType) = {}
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
-			local nValueType:OrNil(clazz.UAllType, clazz.MemberFunction) = nil
-			if MemberFunction.is(nValue) then
-				nValueType = nValue
-			else
-				nValueType = self:easyToType(nValue)
-			end
-			local nKeyType = self:easyToType(nKey)
-			nKeyType:foreachAwait(function(vAtomType)
+			const nValueType = self:easyToType(nValue)
+			const nKeyType = self:easyToType(nKey)
+			nIndependentList[#nIndependentList + 1] = nKeyType
+			nKeyType:checkAtomUnion():foreach(function(vAtomType)
 				nKeyList[#nKeyList + 1] = vAtomType
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
 				else
-					assert(nValueType and not MemberFunction.is(nValueType), "valuetype with non-singleton key can't be nil or MemberFunction")
 					nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
 				end
 			end)
@@ -382,12 +378,8 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 		end
 		const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 		nNewObject:lateCheck()
-		local nFinalCount = 0
-		nKeyAtomUnion:foreach(function(_)
-			nFinalCount = nFinalCount + 1
-		end)
-		if nFinalCount ~= #nKeyList then
-			error("Object's key can not has intersect part")
+		if not self:typeCheckIndepent(nIndependentList, nKeyAtomUnion) then
+			error("Object's key must be independent")
 		end
 	end)
 	return nNewObject
@@ -561,6 +553,20 @@ end
 function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReference)
 	const nRefer = Reference.new(self, vName)
 	return nRefer
+end
+
+function TypeManager:typeCheckIndepent(vList:List(clazz.UAllType), vFinalType:clazz.UAtomUnion):Ret(Boolean)
+	local nLeftCount = 0
+	for k,v in pairs(vList) do
+		v:checkAtomUnion():foreach(function(_)
+			nLeftCount = nLeftCount + 1
+		end)
+	end
+	local nRightCount = 0
+	vFinalType:foreach(function(_)
+		nRightCount = nRightCount + 1
+	end)
+	return nRightCount == nLeftCount
 end
 
 function TypeManager:typeMapReduce@<TValue>(
