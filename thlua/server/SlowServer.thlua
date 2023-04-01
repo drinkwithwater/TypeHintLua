@@ -135,4 +135,22 @@ function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	self:attachFileState(vParams.textDocument.uri):syncChangeNoRerun(vParams)
 end
 
+function SlowServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
+	const nContent = vParams.textDocument.text
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:attachFileState(nFileUri)
+	if nFileState:contentMismatch(nContent) then
+		nFileState:syncContent(nContent, vParams.textDocument.version)
+		self:rerun(nFileUri)
+	end
+end
+
+function SlowServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
+	const nFileUri = vParams.textDocument.uri
+	const nContent = vParams.text
+	const nFileState = self:attachFileState(nFileUri)
+	nFileState:onSaveAndGetChange()
+	self:rerun(nFileUri)
+end
+
 return SlowServer
