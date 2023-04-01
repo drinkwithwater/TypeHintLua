@@ -26,29 +26,31 @@ const class = require "thlua.class"
 		uri=String,
 	}
 
+	lsp.TextDocumentPositionParams = Interface {
+		textDocument=TextDocumentIdentifier,
+		position=lsp.Position,
+	}
+
+	lsp.ProgressToken = Union(Integer, String)
+
+	lsp.WorkDoneProgressParams = Interface {
+		workDoneToke=OrNil(lsp.ProgressToken),
+	}
+
 	do
-		let.TextDocumentPositionParams = Interface {
-			textDocument=TextDocumentIdentifier
-		}
-
-		let.ProgressToken = Union(Integer, String)
-
-		let.WorkDoneProgressParams = Interface {
-			workDoneToke=OrNil(ProgressToken),
-		}
 
 		let.PartialResultParams = Interface {
-			partialResultToken=OrNil(ProgressToken)
+			partialResultToken=OrNil(lsp.ProgressToken)
 		}
 
 		lsp.ReferenceParams = ExtendStruct ({
 			context = Struct {
 				includeDecleration = Boolean,
 			}
-		}, let.TextDocumentPositionParams, let.WorkDoneProgressParams, let.PartialResultParams)
+		}, lsp.TextDocumentPositionParams, lsp.WorkDoneProgressParams, let.PartialResultParams)
 
 		lsp.TypeDefinitionParams = ExtendStruct ({
-		}, let.TextDocumentPositionParams, let.WorkDoneProgressParams, let.PartialResultParams)
+		}, lsp.TextDocumentPositionParams, lsp.WorkDoneProgressParams, let.PartialResultParams)
 
 	end
 
@@ -79,15 +81,11 @@ const class = require "thlua.class"
 		}
 	}
 
-	lsp.DefinitionParams = Struct {
-		textDocument = TextDocumentIdentifier,
-		position=lsp.Position,
-	}
+	lsp.DefinitionParams = ExtendStruct({
+	}, lsp.TextDocumentPositionParams)
 
-	lsp.HoverParams = Struct {
-		textDocument = TextDocumentIdentifier,
-		position=lsp.Position,
-	}
+	lsp.HoverParams = ExtendStruct({
+	}, lsp.TextDocumentPositionParams)
 
 	lsp.CompletionParams = Struct {
 		textDocument = TextDocumentIdentifier,

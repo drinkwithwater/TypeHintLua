@@ -16,7 +16,7 @@ end)
 const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
 function.open ScheduleManager:ctor()
-	self._coToRefer={} @ Dict(Thread, clazz.ScheduleTask)
+	self._coToTask={} @ Dict(Thread, clazz.ScheduleTask)
 	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
 	self._coToWaitingInfo={}@Dict(Thread, WaitingInfo)
 	self._sessionIdCounter=0@Integer
@@ -24,21 +24,23 @@ function.open ScheduleManager:ctor()
 end
 
 function ScheduleManager:newTask(vStack:OrNil(clazz.SealStack))
-	return ScheduleTask.new(self, vStack)
+	const nTask = ScheduleTask.new(self, vStack)
+	self._coToTask[nTask:getSelfCo()] = nTask
+	return nTask
 end
 
 function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
 	assert(vWaitCo == coroutine.running(), "wait co must be current co")
 	if vDependCo then
-		const nWaitingRefer = self._coToRefer[vWaitCo]
-		if not nWaitingRefer then
-			const nDependRefer = self._coToRefer[vDependCo]
-			error("can only call coWait in Reference's coroutine, try to get:"..tostring(nDependRefer))
+		const nWaitingTask = self._coToTask[vWaitCo]
+		if not nWaitingTask then
+			const nDependTask = self._coToTask[vDependCo]
+			error("can only call coWait in a task, try to get:"..tostring(nDependTask))
 		else
-			const nDependRefer = self._coToRefer[vDependCo]
-			if nDependRefer then
-				if not nWaitingRefer:canWaitType() and not nDependRefer:getStack() then
-					error("type not setted"..tostring(nDependRefer))
+			const nDependTask = self._coToTask[vDependCo]
+			if nDependTask then
+				if not nWaitingTask:canWaitType() and not nDependTask:getStack() then
+					error("type not setted"..tostring(nDependTask))
 				end
 			end
 		end
@@ -57,7 +59,7 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNi
 			end
 		end
 		if nCurCo then
-			error(Exception.new("recursive build type:"..tostring(self._coToRefer[nCurCo])))
+			error(Exception.new("recursive build type:"..tostring(self._coToTask[nCurCo])))
 		end
 	else
 		vDependCo = self._selfCo
@@ -84,16 +86,16 @@ function ScheduleManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
 	end
 	self._coToWaitingInfo[vWaitCo] = nil
 	self._coToScheduleParam[vWaitCo] = true
-	const nRefer = self._coToRefer[coroutine.running()]
-	if not nRefer or nRefer:getStack() then
+	const nTask = self._coToTask[coroutine.running()]
+	if not nTask or nTask:getStack() then
 		self:_schedule()
 	end
 end
 
 function ScheduleManager:coStart(vCo:Thread, vFunc:Fn())
 	self._coToScheduleParam[vCo] = vFunc
-	const nRefer = self._coToRefer[coroutine.running()]
-	if not nRefer or nRefer:getStack() then
+	const nTask = self._coToTask[coroutine.running()]
+	if not nTask or nTask:getStack() then
 		self:_schedule()
 	end
 end
@@ -127,23 +129,19 @@ function ScheduleManager:coInterrupt()
 	const nWaitingInfo = self._coToWaitingInfo
 	for co, v in pairs(nWaitingInfo) do
 		const nDependCo = v.dependCo
-		const nWaitingRefer = self._coToRefer[nDependCo]
+		const nWaitingRefer = self._coToTask[nDependCo]
 		if nWaitingRefer then
 			const com = nWaitingRefer:getComNowait()
 			if not com then
 				-- TODO set error com
-				--print("TODO,", self._coToRefer[nDependCo], "is not setted, TODO: setErrorCom ")
+				--print("TODO,", self._coToTask[nDependCo], "is not setted, TODO: setErrorCom ")
 			else
 				--print("TODO, unknown error?")
 			end
 		else
-			-- print("TODO,", self._coToRefer[co], "is waiting, something is wrong ??")
+			-- print("TODO,", self._coToTask[co], "is waiting, something is wrong ??")
 		end
 	end]]
-end
-
-function ScheduleManager:markReference(vThread:Thread, vRefer:clazz.ScheduleTask)
-	self._coToRefer[vThread] = vRefer
 end
 
 return ScheduleManager

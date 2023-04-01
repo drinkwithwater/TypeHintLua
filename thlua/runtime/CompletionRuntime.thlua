@@ -6,7 +6,8 @@ const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const Namespace = require "thlua.manager.Namespace"
 const ListDict = require "thlua.manager.ListDict"
 const TypeReference = require "thlua.refer.Reference"
-const BaseReadyType = require "thlua.type.BaseReadyType"
+const BaseUnionType = require "thlua.union.BaseUnionType"
+const BaseAtomType = require "thlua.type.BaseAtomType"
 const class = require "thlua.class"
 
 (@do
@@ -76,6 +77,14 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	end
 end
 
+function CompletionRuntime:injectGetAll(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn)
+	const nList:List(Union(clazz.RefineTerm, clazz.UAllType, clazz.Namespace)) = {}
+	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vItem)
+		nList[#nList + 1] = vItem
+	end)
+	return nList
+end
+
 function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.UAllType, clazz.Namespace)))
 	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
@@ -123,8 +132,8 @@ function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Blo
 		else
 			if TypeReference.is(nResult) then
 				vCallback(nResult)
-			elseif BaseReadyType.is(nResult) then
-				vCallback(nResult @? clazz.UAtomUnion)
+			elseif BaseAtomType.is(nResult) or BaseUnionType.is(nResult) then
+				vCallback(nResult)
 			else
 				const nSpace = Namespace.fromExport(nResult)
 				if nSpace then
