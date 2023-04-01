@@ -327,8 +327,15 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeR
 		for i=1, nLen do
 			local nItem = self:easyToType(l[i])
 			if Reference.is(nItem) then
-				const nList = nItem:waitTypeCom():getListAwait()
-				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
+				const nAsyncType = nItem:waitTypeCom():getTypeNowait()
+				if nAsyncType:isAsync() then
+					const nList = nAsyncType:getListAwait()
+					table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
+				else
+					nAsyncType:foreach(function(vAtom)
+						nTypeList[#nTypeList + 1] = vAtom
+					end)
+				end
 			else
 				nItem:foreach(function(vAtom)
 					nTypeList[#nTypeList + 1] = vAtom
@@ -681,7 +688,7 @@ function TypeManager:attachPairRelation(vLeft:clazz.TypedObject, vRight:clazz.Ty
 		nResult = nRelation:getAwait()
 	else
 		if nRelation then
-			nResult = nRelation:getNoAwait()
+			nResult = nRelation:getNowait()
 		end
 	end
 	if not nResult then

@@ -23,15 +23,17 @@ function:class(clazz.TypeReferCom) TypeReferCom.new(
 	return self
 end
 
-function TypeReferCom:setReadyType(vType:clazz.UAtomUnion)
-	self._readyType = vType
+function TypeReferCom:getTypeNowait():Ret(Union(clazz.AsyncUnion, clazz.UAtomUnion))
+	return assert(self._readyType or self._asyncType)
 end
 
-function TypeReferCom:setAsyncUnion(vAsyncUnion:clazz.AsyncUnion)
-	self._asyncType = vAsyncUnion
-end
-
-function TypeReferCom:setAsyncIntersect()
+function TypeReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
+	local nReadyType = self._readyType
+	if not nReadyType then
+		nReadyType = assert(self._asyncType):getTypeAwait()
+		self._readyType = nReadyType
+	end
+	return nReadyType
 end
 
 function.open TypeReferCom.is(self):isguard(clazz.TypeReferCom)

@@ -19,7 +19,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom)
+	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom)
 end)
 
 const Reference = class@<clazz.TypeReference, clazz.IType>()
@@ -100,9 +100,9 @@ function Reference:getComAwait():Ret(UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(clazz.AsyncUnion))
+function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom))
 	const nCom = self:getComAwait()
-	assert(not TemplateReferCom.is(nCom), "type reference expected, but get template reference")
+	assert(TypeReferCom.is(nCom), "type reference expected, but get template reference")
 	return nCom
 end
 
@@ -126,17 +126,11 @@ function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
 		elseif BaseAtomType.is(nAssignValue) then
-			const nCom = self._manager:AsyncUnion(vNode, self._task)
+			const nCom = TypeReferCom.new(self._manager, self._task, nAssignValue)
 			self:_setComAndWakeup(nCom)
-			nCom:setAtomList({nAssignValue}, function()
-				return nAssignValue
-			end)
 		elseif BaseUnionType.is(nAssignValue) then
-			const nCom = self._manager:AsyncUnion(vNode, self._task)
+			const nCom = TypeReferCom.new(self._manager, self._task, nAssignValue)
 			self:_setComAndWakeup(nCom)
-			nCom:setAtomList(nAssignValue:getAtomList(), function()
-				return nAssignValue
-			end)
 		else
 			error("namespace assign a non-type value")
 		end
@@ -158,11 +152,12 @@ function Reference:setUnionAsync(
 )
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
-	const nCom = self._manager:AsyncUnion(vNode, self._task)
+	const nAsyncUnion = self._manager:AsyncUnion(vNode, self._task)
 	self._task:runAsync(function()
-		self:_setComAndWakeup(nCom)
-		nCom:setAtomList(vGetList())
+		nAsyncUnion:setAtomList(vGetList())
 	end)
+	const nCom = TypeReferCom.new(self._manager, self._task, nAsyncUnion)
+	self:_setComAndWakeup(nCom)
 end
 
 function Reference:getAssignNode():Ret(OrFalse(clazz.IAstNode))
@@ -187,12 +182,11 @@ function Reference:isReference():Ret(True)
 end
 
 function Reference:foreachAwait(vFunc)
-	const nTypeCom = self:waitTypeCom()
-	const nResultType = nTypeCom:getResultType()
-	if nResultType then
+	const nResultType = self:waitTypeCom():getTypeNowait()
+	if not nResultType:isAsync() then
 		nResultType:foreach(vFunc)
 	else
-		local nListType = nTypeCom:getListAwait()
+		local nListType = nResultType:getListAwait()
 		for _, v in ipairs(nListType) do
 			vFunc(v)
 		end
@@ -210,13 +204,12 @@ function Reference:includeAtom(vRightType)
 end
 
 function Reference:assumeIntersectSome(vAssumeSet, vRight)
-	const nTypeCom = self:waitTypeCom()
-	const nResultType = nTypeCom:getResultType()
-	if nResultType then
+	const nResultType = self:waitTypeCom():getTypeNowait()
+	if not nResultType:isAsync() then
 		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
 	else
 		local nSomeIntersect:Boolean = false
-		const nTypeList = nTypeCom:getListAwait()
+		const nTypeList = nResultType:getListAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if nSomeIntersect then
 				return
@@ -237,13 +230,12 @@ function Reference:assumeIntersectSome(vAssumeSet, vRight)
 end
 
 function Reference:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	const nTypeCom = self:waitTypeCom()
-	const nResultType = nTypeCom:getResultType()
-	if nResultType then
+	const nResultType = self:waitTypeCom():getTypeNowait()
+	if not nResultType:isAsync() then
 		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	else
 		local nAllInclude:Boolean = true
-		const nTypeList = nTypeCom:getListAwait()
+		const nTypeList = nResultType:getListAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if not nAllInclude then
 				return
@@ -281,8 +273,12 @@ end
 
 function Reference:mayRecursive()
 	const nTypeCom = self:waitTypeCom()
-	nTypeCom:getListAwait()
-	return nTypeCom:getMayRecursive()
+	const nResultType = nTypeCom:getTypeNowait()
+	if nResultType:isAsync() then
+		return nResultType:getMayRecursive()
+	else
+		return nResultType:mayRecursive()
+	end
 end
 
 function Reference:canWaitType()
