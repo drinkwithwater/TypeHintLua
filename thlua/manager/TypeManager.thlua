@@ -49,7 +49,7 @@ const BaseUnionType = require "thlua.union.BaseUnionType"
 const MetaEventCom = require "thlua.object.MetaEventCom"
 const native = require "thlua.native"
 
-const UnionReferCom = require "thlua.refer.UnionReferCom"
+const AsyncUnion = require "thlua.refer.AsyncUnion"
 
 const TypeRelation = require "thlua.manager.TypeRelation"
 
@@ -126,7 +126,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
 		local nType = vCond
 		if Reference.is(vCond) then
-			nType = vCond:waitTypeCom():getTypeAwait()
+			nType = vCond:checkAtomUnion()
 		end
 		if nType:isUnion() then
 			error("Cond's first value can't be union")
@@ -148,7 +148,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType:clazz.UAllType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
-			nObject = vOneType:waitTypeCom():getTypeAwait()
+			nObject = vOneType:checkAtomUnion()
 		end
 		if not TypedObject.is(nObject) then
 			error("key of can only worked on object function")
@@ -212,8 +212,8 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:UnionReferCom(vNode:clazz.IAstNode, vTask:clazz.ScheduleTask):Ret(clazz.UnionReferCom)
-	const nCom = UnionReferCom.new(self, vNode, vTask)
+function TypeManager:AsyncUnion(vNode:clazz.IAstNode, vTask:clazz.ScheduleTask):Ret(clazz.AsyncUnion)
+	const nCom = AsyncUnion.new(self, vNode, vTask)
 	return nCom
 end
 
@@ -233,7 +233,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 		for i=1,#vObjectList do
 			local nTypedObject = vObjectList[i]!
 			if Reference.is(nTypedObject) then
-				nTypedObject = nTypedObject:waitTypeCom():getTypeAwait()
+				nTypedObject = nTypedObject:checkAtomUnion()
 			end
 			if not TypedObject.is(nTypedObject) then
 				error("Interface or Struct is expected here")
@@ -279,6 +279,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			const _, nFinalValueDict = self:typeMapReduce@<clazz.UAllType>(nKeyValuePairList, function(vList)
 				return self:intersectReduceType(vNode, vList)
 			end)
+			const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 			if #nMetaEventComList > 0 then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				nNewEventCom:initByMerge(nMetaEventComList)
@@ -286,7 +287,6 @@ function TypeManager:_buildCombineObject(vNode:clazz.IAstNode, vIsInterface:Bool
 			else
 				nNewObject:lateInit(nIntersectSet, nFinalValueDict, false)
 			end
-			const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 			-- TODO check key's count and intersect valid
 			nNewObject:lateCheck()
 		end)
@@ -327,7 +327,7 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeR
 		for i=1, nLen do
 			local nItem = self:easyToType(l[i])
 			if Reference.is(nItem) then
-				local nList = nItem:waitTypeCom():getListAwait()
+				const nList = nItem:waitTypeCom():getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
 				nItem:foreach(function(vAtom)
@@ -369,6 +369,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 				end
 			end)
 		end
+		const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 		if vMetaEventDict then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByEventDict(vMetaEventDict)
@@ -376,7 +377,6 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTabl
 		else
 			nNewObject:lateInit({}, nValueDict, false)
 		end
-		const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 		nNewObject:lateCheck()
 		if not self:typeCheckIndependent(nIndependentList, nKeyAtomUnion) then
 			error("Object's key must be independent")

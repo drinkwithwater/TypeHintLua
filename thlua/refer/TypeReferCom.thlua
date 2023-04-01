@@ -1,0 +1,41 @@
+
+
+const AsyncUnion = require "thlua.refer.AsyncUnion"
+const Exception = require "thlua.Exception"
+
+(@let.clazz = import("thlua.type.TypeClass").clazz)
+
+const TypeReferCom = {}
+TypeReferCom.__index = TypeReferCom
+
+function:class(clazz.TypeReferCom) TypeReferCom.new(
+	vManager:clazz.TypeManager,
+	vTask:clazz.ScheduleTask,
+	vAssignType:Union(clazz.AsyncUnion, clazz.UAtomUnion)
+)
+	const nIsAsync = AsyncUnion.is(vAssignType)
+	const self = setmetatable({.class
+        _manager=vManager,
+        _task=vTask,
+		_asyncType=nIsAsync and vAssignType or false,
+		_readyType=(not nIsAsync) and vAssignType or false,
+	}, TypeReferCom)
+	return self
+end
+
+function TypeReferCom:setReadyType(vType:clazz.UAtomUnion)
+	self._readyType = vType
+end
+
+function TypeReferCom:setAsyncUnion(vAsyncUnion:clazz.AsyncUnion)
+	self._asyncType = vAsyncUnion
+end
+
+function TypeReferCom:setAsyncIntersect()
+end
+
+function.open TypeReferCom.is(self):isguard(clazz.TypeReferCom)
+	return getmetatable(self) == TypeReferCom
+end
+
+return TypeReferCom

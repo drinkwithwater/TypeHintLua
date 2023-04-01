@@ -18,7 +18,7 @@ const TypedObject = class@<clazz.TypedObject, false>(BaseObject)
 function.open TypedObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vNextKey:OrFalse(clazz.UAllType))
 	const nTask = vManager:getScheduleManager():newTask()
 	self._task = nTask
-	self._keyRefer=vManager:UnionReferCom(vNode, nTask)
+	self._keyRefer=vManager:AsyncUnion(vNode, nTask)
 	self._valueDict=false@OrFalse(Dict(clazz.IAtomType, clazz.UAllType))
 	self._nextKey=vNextKey
 	self._nextValue=false@OrFalse(clazz.UAtomUnion)
@@ -211,7 +211,7 @@ function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(claz
 	end
 end
 
-function TypedObject:buildAsync(vFunc:Fn(clazz.UnionReferCom))
+function TypedObject:buildAsync(vFunc:Fn(clazz.AsyncUnion))
 	self._task:runAsync(function()
 		vFunc(self._keyRefer)
 	end)
@@ -243,7 +243,7 @@ function TypedObject:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
 end
 
-function TypedObject:getKeyTypes():Ret(clazz.UnionReferCom, OrFalse(clazz.UAllType))
+function TypedObject:getKeyTypes():Ret(clazz.AsyncUnion, OrFalse(clazz.UAllType))
 	return self._keyRefer, self._nextKey
 end
 

@@ -159,6 +159,10 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 	local nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
+			if self:isLocked() then
+				vContext:error("table is locked")
+				return
+			end
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
@@ -313,6 +317,11 @@ function SealTable:putCompletion(vCompletion)
 			nMetaIndex:putCompletion(vCompletion)
 		end
 	end
+end
+
+function SealTable:isLocked():Ret(Boolean)
+	error("isLocked not implement")
+	return false
 end
 
 return SealTable

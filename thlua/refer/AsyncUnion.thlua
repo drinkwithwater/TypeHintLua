@@ -5,9 +5,9 @@ const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const UnionReferCom = class@<clazz.UnionReferCom, false>()
+const AsyncUnion = class@<clazz.AsyncUnion, false>()
 
-function.open UnionReferCom:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vTask:clazz.ScheduleTask)
+function.open AsyncUnion:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vTask:clazz.ScheduleTask)
 	self._manager=vManager
 	self._task = vTask
 	self._node = vNode
@@ -18,29 +18,29 @@ function.open UnionReferCom:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNod
 	self._resultBuildEvent=vTask:makeEvent()
 end
 
-function UnionReferCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+function AsyncUnion:getResultType():Ret(OrFalse(clazz.UAtomUnion))
 	return self._resultType
 end
 
-function UnionReferCom:getTypeAwait():Ret(clazz.UAtomUnion)
+function AsyncUnion:getTypeAwait():Ret(clazz.UAtomUnion)
 	if not self._resultType then
 		self._resultBuildEvent:wait()
 	end
 	return (assert(self._resultType, "result type not setted"))
 end
 
-function UnionReferCom:getMayRecursive():Ret(Boolean)
+function AsyncUnion:getMayRecursive():Ret(Boolean)
 	return self._mayRecursive
 end
 
-function UnionReferCom:getListAwait():Ret(List(clazz.IAtomType))
+function AsyncUnion:getListAwait():Ret(List(clazz.IAtomType))
 	if not self._typeList then
 		self._listBuildEvent:wait()
 	end
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function UnionReferCom:setAtomList(vAtomList:List(clazz.IAtomType), vLateRunner:OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion)))):Ret(clazz.UAtomUnion)
+function AsyncUnion:setAtomList(vAtomList:List(clazz.IAtomType), vLateRunner:OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion)))):Ret(clazz.UAtomUnion)
 	assert(not self._typeList, "type list has been setted")
 	-- step 1. set list
 	self._typeList = vAtomList
@@ -76,7 +76,7 @@ function UnionReferCom:setAtomList(vAtomList:List(clazz.IAtomType), vLateRunner:
 	return nResultType
 end
 
-function UnionReferCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
+function AsyncUnion:foreachAwait(vFunc:Fn(clazz.IAtomType))
 	const nResultType = self._resultType
 	if nResultType then
 		nResultType:foreach(vFunc)
@@ -88,8 +88,8 @@ function UnionReferCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
 	end
 end
 
-function UnionReferCom:getAssignNode():Ret(OrFalse(clazz.IAstNode))
+function AsyncUnion:getAssignNode():Ret(OrFalse(clazz.IAstNode))
 	return self._node
 end
 
-return UnionReferCom
+return AsyncUnion
