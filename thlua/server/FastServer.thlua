@@ -149,7 +149,7 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
 	if nExprNode then
 		nCompletionRuntime:focusSchedule(nFocusList)
-		const nLookupNode = nCompletionRuntime:getLookupNode(nExprNode)
+		const nLookupNode = nCompletionRuntime:nodeLookup(nExprNode)
 		if not nLookupNode then
 			self:info("not found lookup node"..tostring(nExprNode), nExprNode.tag)
 			return nil
@@ -175,13 +175,13 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(lsp.Loc
 		return nil
 	end
 	nCompletionRuntime:focusSchedule(nFocusList)
-	-- 4. run inject
+	-- 5. run inject
 	const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectTrace.pos, nBlockNode, nInjectFn, self)
 	if not nFieldCompletion then
 		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
 		return nil
 	end
-	const nLookupNode = nCompletionRuntime:injectLookupDefinition(nInjectTrace.pos, nBlockNode, nInjectFn)
+	const nLookupNode = nCompletionRuntime:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
 	if not nLookupNode then
 		return nil
 	end

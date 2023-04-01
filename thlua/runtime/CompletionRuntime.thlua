@@ -46,19 +46,6 @@ function CompletionRuntime:recordApplyContext(vNode:clazz.IAstNode, vContext:cla
 	self._nodeToApplyContextList:putOne(vNode, vContext)
 end
 
-function CompletionRuntime:getLookupNode(vNode:clazz.IAstNode):Ret(OrFalse(clazz.IAstNode))
-	const nList = self._nodeToApplyContextList:get(vNode)
-	if nList and #nList > 0 then
-		for _, nContext in pairs(nList) do
-			const nLookupNode = next(nContext:getLookupNodeSet())
-			if nLookupNode then
-				return nLookupNode
-			end
-		end
-	end
-	return false
-end
-
 function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	-- 1. set focus functions
 	const nSet = self._focusNodeSet
@@ -156,7 +143,7 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	return nFieldCompletion
 end
 
-function CompletionRuntime:injectLookupDefinition(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(OrFalse(clazz.IAstNode))
+function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(False):Ret(clazz.IAstNode)
 	local nNode:OrFalse(clazz.IAstNode) = false
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if Namespace.is(vResult) then
@@ -166,6 +153,19 @@ function CompletionRuntime:injectLookupDefinition(vTracePos:Integer, vBlockNode:
 		end
 	end)
 	return nNode
+end
+
+function CompletionRuntime:nodeLookup(vNode:clazz.IAstNode):Ret(False):Ret(clazz.IAstNode)
+	const nList = self._nodeToApplyContextList:get(vNode)
+	if nList and #nList > 0 then
+		for _, nContext in pairs(nList) do
+			const nLookupNode = next(nContext:getLookupNodeSet())
+			if nLookupNode then
+				return nLookupNode
+			end
+		end
+	end
+	return false
 end
 
 return CompletionRuntime
