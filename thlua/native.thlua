@@ -1,4 +1,5 @@
 
+const TermTuple = require "thlua.tuple.TermTuple"
 local TypedFunction = require "thlua.func.TypedFunction"
 local SealTable = require "thlua.object.SealTable"
 local OpenTable = require "thlua.object.OpenTable"
@@ -201,7 +202,9 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			const nTermTuple = vStack:getApplyStack():META_CALL(vStack:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nHeadContext:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
-			return nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
+			const nRetTermTuple = nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
+			assert(TermTuple.isFixed(nRetTermTuple))
+			return nRetTermTuple
 		end),
 		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			const nHeadContext = vStack:inplaceOper()
@@ -210,7 +213,9 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			const nTermTuple = vStack:getApplyStack():META_CALL(vStack:getNode(), nFunc, function() return nArgs end)
 			const nRetFirst = nHeadContext:RefineTerm(nManager.type.True)
 			-- TODO combine first & second
-			return nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
+			const nRetTermTuple = nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
+			assert(TermTuple.isFixed(nRetTermTuple))
+			return nRetTermTuple
 		end),
 		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			vStack:getApplyStack():nativeError()

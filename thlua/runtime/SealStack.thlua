@@ -55,10 +55,24 @@ function SealStack:_returnCheck(vContext:clazz.ReturnContext, vTypeTuple:clazz.U
 	end
 end
 
-function SealStack:RAISE_ERROR(vContext:clazz.ApplyContext, vType:clazz.UAllType)
+function SealStack:RAISE_ERROR(vContext:clazz.ApplyContext, vRaiseErr:clazz.UAllType)
 	const nBodyFn = self._bodyFn
-	if SealFunction.is(nBodyFn) then
-		ttprint(nBodyFn)
+	assert(SealFunction.is(nBodyFn))
+	const nRetTuples = nBodyFn:getRetTuples()
+	const nString = self._manager.type.String
+	if nRetTuples then
+		const nHintErr = nRetTuples:getErrType()
+		if not nHintErr:includeAll(vRaiseErr) then
+			if nString:includeAll(nHintErr) then
+				vContext:error("can't implicit throw a non-string error")
+			else
+				vContext:error("err type not match")
+			end
+		end
+	else
+		if not nString:includeAll(vRaiseErr) then
+			vContext:error("can't implicit throw a non-string error")
+		end
 	end
 end
 
@@ -89,7 +103,7 @@ function SealStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
 	self:_topBranch():setStop()
 end
 
-function SealStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
+function SealStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 	self:getNamespace():close()
 	self:seal()
 	const nBodyFn = self._bodyFn
@@ -97,14 +111,14 @@ function SealStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
 	if AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples() then
 		const nLen = #nRetList
 		if nLen == 0 then
-			return self._fastOper:FixedTermTuple({})
+			return self._fastOper:FixedTermTuple({}), self._manager.type.String
 		elseif nLen == 1 then
-			return nRetList[1]!
+			return nRetList[1]!, self._manager.type.String
 		else
 			error("TODO : auto-return-function has more than one return")
 		end
 	else
-		return self._fastOper:FixedTermTuple({})
+		return nil@!clazz.FixedTermTuple, nil@!clazz.UAtomUnion
 	end
 end
 

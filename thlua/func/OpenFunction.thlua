@@ -32,14 +32,14 @@ function OpenFunction:lateInitFromMetaNative(
 		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vStack:getNode()))
 		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
 			vNativeFunc(vContext, vType)
-		end):mergeReturn()
+		end):mergeReturn(), vStack:mergeEndErrType()
 	end
 	self._func = nFn
 	return self
 end
 
 function OpenFunction:lateInitFromOperNative(
-	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(clazz.FixedTermTuple):Ret(clazz.RefineTerm)
+	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(Union(clazz.FixedTermTuple, clazz.RefineTerm), OrNil(clazz.UAtomUnion))
 ):Ret(clazz.OpenFunction)
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), Exception.new("this native func can't take auto term", vStack:getNode()))
@@ -59,7 +59,7 @@ function OpenFunction:castPoly(vContext, vTypeList)
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.UTermTuple)):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
 	const nNoPolyFn:$self._func = function(vStack, vTermTuple)
 		if vPolyParNum == 0 then
 			return vFunc(self, vStack, {}, vTermTuple)
@@ -103,7 +103,7 @@ function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunc
 					vContext:pushFirstAndTuple(nFalse)
 				end)
 			end
-		end):mergeFirst()
+		end):mergeFirst(), vStack:mergeEndErrType()
 	end
 	self._func = nFn
 	return self

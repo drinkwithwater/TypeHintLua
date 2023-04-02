@@ -20,7 +20,7 @@ const RetBuilder = require "thlua.tuple.RetBuilder"
 
 	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
 	clazz.GenMaker = Fn(clazz.BaseStack, List(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
-	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple)
+	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 
 	clazz.FnPrefixHint = Struct {
 		class=Fn(clazz.FnPrefixHint, Any):Ret(clazz.FnPrefixHint),
@@ -167,13 +167,13 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 					end
 					return nParTuple, nRetTuples
 				else
-					const nRetTermTuple = nGenFunc()
+					const nRetTermTuple, nErrType = nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
 						nNewStack:error("auto parameter deduce failed")
 						error("auto parameter deduce failed")
 					end
-					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple())
+					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple(), nErrType)
 					if not nRetTuples then
 						nNewStack:error("auto return deduce failed")
 						error("auto return deduce failed")
