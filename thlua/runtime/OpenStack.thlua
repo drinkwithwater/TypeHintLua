@@ -1,4 +1,6 @@
 
+const Exception = require "thlua.Exception"
+const TermTuple = require "thlua.tuple.TermTuple"
 const class = require "thlua.class"
 const InstStack = require "thlua.runtime.InstStack"
 
@@ -23,6 +25,25 @@ end
 
 function OpenStack:isRequire():Ret(Boolean)
 	return self._isRequire
+end
+
+function OpenStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
+	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
+	table.insert(self._retList, vTermTuple)
+	self:_topBranch():setStop()
+end
+
+function OpenStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
+	self:getNamespace():close()
+	const nRetList = self._retList
+	const nLen = #nRetList
+	if nLen == 0 then
+		return self._fastOper:FixedTermTuple({})
+	elseif nLen == 1 then
+		return nRetList[1]!
+	else
+		error("TODO : open-function has more than one return")
+	end
 end
 
 function OpenStack:findRequireStack():Ret(OrFalse(clazz.OpenStack))

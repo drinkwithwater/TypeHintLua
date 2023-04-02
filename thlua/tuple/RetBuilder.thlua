@@ -9,6 +9,7 @@ const RetBuilder = class@<clazz.RetBuilder, false>()
 function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode)
 	self._manager = vManager
 	self._tupleList = {} @ List(clazz.UTypeTuple)
+	self._errType = false@OrFalse(clazz.UAllType)
 	self._node=vNode
 end
 
@@ -30,12 +31,20 @@ function RetBuilder:Ret(...:clazz.UAllType)
 	nTupleList[#nTupleList + 1] = nTypeTuple
 end
 
+function RetBuilder:Err(vErrType:clazz.UAllType)
+	self._errType = vErrType
+end
+
+function RetBuilder:isEmpty()
+	return #self._tupleList == 0 and not self._errType
+end
+
 function RetBuilder:build():Ret(clazz.RetTuples)
 	const nTupleList = self._tupleList
 	if #nTupleList == 0 then
-		return self._manager:VoidRetTuples(self._node)
+		return self._manager:VoidRetTuples(self._node, self._errType or nil)
 	else
-		return RetTuples.new(self._manager, self._node, nTupleList)
+		return RetTuples.new(self._manager, self._node, nTupleList, self._errType)
 	end
 end
 

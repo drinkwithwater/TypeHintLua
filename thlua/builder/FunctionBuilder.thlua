@@ -9,6 +9,7 @@ const AutoHolder = require "thlua.auto.AutoHolder"
 const ClassFactory = require "thlua.func.ClassFactory"
 const ClassTable = require "thlua.object.ClassTable"
 const TermTuple = require "thlua.tuple.TermTuple"
+const RetBuilder = require "thlua.tuple.RetBuilder"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -29,6 +30,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 		extends=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		implements=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		Ret=Fn(clazz.FnSuffixHint):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
+		Err=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		RetDots=Fn(clazz.FnSuffixHint, clazz.UAllType):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
 		isguard=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 	}
@@ -81,8 +83,8 @@ function FunctionBuilder:_makeRetTuples(
 	vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint),
 	vTypeList:List(clazz.UAllType),
 	vSelfType:OrFalse(clazz.UAllType)
-):Ret(OrFalse(clazz.RetTuples))
-	local nFakeFn:OrFalse(clazz.TypedFunction) = false
+):Ret(False):Ret(clazz.RetTuples)
+	const nRetBuilder:clazz.RetBuilder = RetBuilder.new(self._manager, self._node)
 	const ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
 			error("extends can only be used with function:class")
@@ -92,27 +94,30 @@ function FunctionBuilder:_makeRetTuples(
 			error("impl can only be used with function:class")
 			return vHint
 		end,
+		isguard=function(vHint, vType)
+			error("isguard can only be used with function.open")
+			return vHint
+		end,
 		RetDots=function(vHint, vFirst, ...)
-			const nFn = nFakeFn or self._manager:buildFn(self._node)
-			nFn:RetDots(vFirst, ...)
-			nFakeFn = nFn
+			nRetBuilder:RetDots(vFirst, ...)
 			return vHint
 		end,
 		Ret=function(vHint, ...)
-			const nFn = nFakeFn or self._manager:buildFn(self._node)
-			nFn:Ret(...)
-			nFakeFn = nFn
+			nRetBuilder:Ret(...)
 			return vHint
 		end,
-		isguard=function(vHint, vType)
-			error("isguard can only be used with function.open")
+		Err=function(vHint, vErrType)
+			nRetBuilder:Err(vErrType)
 			return vHint
 		end,
 	})
 	if not ok then
 		error(Exception.new(tostring(err), self._node))
 	end
-	const nRetTuples = nFakeFn and nFakeFn:getRetTuples()
+	if nRetBuilder:isEmpty() then
+		return false
+	end
+	const nRetTuples = nRetBuilder:build()
 	if not self._hasRetSome then
 		if nRetTuples and not self._pass then
 			local hasVoid = false
@@ -213,11 +218,15 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 				return vHint
 			end,
 			RetDots=function(vHint, vFirst, ...)
-				error("open table can't take RetDots")
+				error("open function can't take RetDots")
 				return vHint
 			end,
 			Ret=function(vHint, ...)
-				error("open table can't take Ret")
+				error("open function can't take Ret")
+				return vHint
+			end,
+			Err=function(vHint, _)
+				error("open function can't take Err")
 				return vHint
 			end,
 			isguard=function(vHint, vType)
@@ -274,7 +283,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 					return vHint
 				end,
 				RetDots=function(vHint, vFirst, ...)
-					error("class function can't take Ret")
+					error("class function can't take RetDots")
+					return vHint
+				end,
+				Err=function(vHint, _)
+					print("TODO")
 					return vHint
 				end,
 				isguard=function(vHint, vType)

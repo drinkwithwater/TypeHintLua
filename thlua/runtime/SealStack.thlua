@@ -1,4 +1,6 @@
 
+const TermTuple = require "thlua.tuple.TermTuple"
+const Exception = require "thlua.Exception"
 const class = require "thlua.class"
 const InstStack = require "thlua.runtime.InstStack"
 const ClassFactory = require "thlua.func.ClassFactory"
@@ -29,6 +31,73 @@ end
 
 function SealStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 	return self._classTable
+end
+
+function SealStack:_returnCheck(vContext:clazz.ReturnContext, vTypeTuple:clazz.UTypeTuple)
+	const nBodyFn = self._bodyFn
+	if AutoFunction.is(nBodyFn) then
+		local nOneOkay = false
+		local nRetTuples = nBodyFn:getRetTuples()
+		if nRetTuples then
+			const nMatchSucc, nCastSucc = vContext:returnMatchTuples(vTypeTuple, nRetTuples)
+			if not nMatchSucc then
+				vContext:error("return match failed")
+			elseif not nCastSucc then
+				vContext:error("return cast failed")
+			end
+		end
+	elseif ClassFactory.is(nBodyFn) then
+		const nResultType = nBodyFn:getClassTable(true)
+		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
+			vContext:error("class return not match")
+		end
+	end
+end
+
+function SealStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
+	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
+	const nRetContext = self:newReturnContext(vNode)
+	table.insert(self._retList, vTermTuple)
+	if #vTermTuple <= 0 or vTermTuple:getTail() then
+		self:_returnCheck(nRetContext, vTermTuple:checkTypeTuple())
+	else
+		const nManager = self:getTypeManager()
+		const nFirstTerm = vTermTuple:get(nRetContext, 1)
+		nFirstTerm:foreach(function(vAtomType, vCase)
+			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
+			for i=2, #vTermTuple do
+				local nTerm = vTermTuple:get(nRetContext, i)
+				const nType = vCase[nTerm:attachImmutVariable()]
+				if not nType then
+					nTypeList[i] = nTerm:getType()
+				else
+					nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
+				end
+			end
+			const nTypeTuple = nManager:TypeTuple(vNode, table.unpack(nTypeList))
+			self:_returnCheck(nRetContext, nTypeTuple)
+		end)
+	end
+	self:_topBranch():setStop()
+end
+
+function SealStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
+	self:getNamespace():close()
+	self:seal()
+	const nBodyFn = self._bodyFn
+	const nRetList = self._retList
+	if AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples() then
+		const nLen = #nRetList
+		if nLen == 0 then
+			return self._fastOper:FixedTermTuple({})
+		elseif nLen == 1 then
+			return nRetList[1]!
+		else
+			error("TODO : auto-return-function has more than one return")
+		end
+	else
+		return self._fastOper:FixedTermTuple({})
+	end
 end
 
 function SealStack:seal()

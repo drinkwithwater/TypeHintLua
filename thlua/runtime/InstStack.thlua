@@ -690,44 +690,12 @@ function InstStack:BREAK(vNode:clazz.IAstNode)
 end
 
 function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
-	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
-	const nRetContext = self:newReturnContext(vNode)
-	table.insert(self._retList, vTermTuple)
-	if #vTermTuple <= 0 or vTermTuple:getTail() then
-		self:_bodyReturn(nRetContext, vTermTuple:checkTypeTuple())
-	else
-		const nManager = self:getTypeManager()
-		const nFirstTerm = vTermTuple:get(nRetContext, 1)
-		nFirstTerm:foreach(function(vAtomType, vCase)
-			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
-			for i=2, #vTermTuple do
-				local nTerm = vTermTuple:get(nRetContext, i)
-				const nType = vCase[nTerm:attachImmutVariable()]
-				if not nType then
-					nTypeList[i] = nTerm:getType()
-				else
-					nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
-				end
-			end
-			const nTypeTuple = nManager:TypeTuple(vNode, table.unpack(nTypeList))
-			self:_bodyReturn(nRetContext, nTypeTuple)
-		end)
-	end
-	self:_topBranch():setStop()
-end
-
-function InstStack:RUN_AFTER_IF(vNode:clazz.IAstNode, vFunc:Fn())
-	if self:_topBranch():getStop() then
-		self:getRuntime():nodeError(vNode, "unreachable code")
-	end
-	vFunc()
+	error("implement RETURN in OpenStack or SealStack")
 end
 
 function InstStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple)
-	local re = self:_bodyEnd(vNode, self._retList)
-	self:getNamespace():close()
-	self:seal()
-	return re
+	error("implement END in OpenStack or SealStack")
+	return self._fastOper:FixedTermTuple({})
 end
 
 function InstStack:GLOBAL_GET(vNode:node.Ident_use, vIdentENV:node.Ident_def):Ret(clazz.RefineTerm)

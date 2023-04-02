@@ -12,7 +12,8 @@ end
 function.open RetTuples:ctor(
 	vManager:clazz.TypeManager,
 	vNode:clazz.IAstNode,
-	vTupleList:List(clazz.UTypeTuple)
+	vTupleList:List(clazz.UTypeTuple),
+	vErrType:OrFalse(clazz.UAllType)
 )
 	assert(#vTupleList > 0, "length of tuple list must be bigger than 0 when pass to RetTuples' constructor")
 	const nFirstToTuple:Dict(clazz.UAllType, clazz.UTypeTuple) = {}
@@ -22,6 +23,12 @@ function.open RetTuples:ctor(
 	end
 	const nTask = vManager:getScheduleManager():newTask()
 	const nAsyncFirstType = vManager:AsyncUnion(nTask)
+	self._node=vNode
+	self._task = nTask
+	self._manager=vManager
+	self._firstType=nAsyncFirstType
+	self._firstToTuple=nFirstToTuple
+	self._errType = vErrType and self._manager:buildUnion(vNode, self._manager.type.String, vErrType) or self._manager.type.String
 	nTask:runAsync(function()
 		const nIndependentList:List(clazz.UAllType) = {}
 		const nFirstAtomList:List(clazz.IAtomType) = {}
@@ -38,11 +45,6 @@ function.open RetTuples:ctor(
 			error("return tuples' first type must be independent")
 		end
 	end)
-	self._node=vNode
-	self._task = nTask
-	self._manager=vManager
-	self._firstType=nAsyncFirstType
-	self._firstToTuple=nFirstToTuple
 end
 
 function RetTuples:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
