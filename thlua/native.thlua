@@ -218,13 +218,15 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			return nRetTermTuple
 		end),
 		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			vStack:getApplyStack():nativeError()
-			return vStack:inplaceOper():FixedTermTuple({})
+			const nOperCtx = vStack:inplaceOper()
+			vStack:getApplyStack():nativeError(nOperCtx, vTermTuple:checkFixed(nOperCtx, 1))
+			return nOperCtx:FixedTermTuple({})
 		end),
 		assert=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			const nHeadContext = vStack:inplaceOper()
-			const nFirst = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
-			vStack:getApplyStack():nativeAssert(nFirst)
+			const nFirst = vTermTuple:checkFixed(nHeadContext, 1)
+			const nSecond = vTermTuple:rawget(2)
+			vStack:getApplyStack():nativeAssert(nHeadContext, nFirst, nSecond and nSecond:checkRefineTerm(nHeadContext))
 			const nLogicContext = vStack:newLogicContext(vStack:getNode())
 			return vStack:inplaceOper():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
 		end),

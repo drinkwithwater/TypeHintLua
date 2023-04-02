@@ -66,7 +66,7 @@ function.open BaseStack:ctor(
 	self._retList={} @ List(clazz.FixedTermTuple)
 end
 
-function BaseStack:RAISE_ERROR(vContext:clazz.ApplyContext, vType:clazz.UAllType)
+function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UAllType)
 	error("check error in OpenStack or SealStack")
 end
 
@@ -230,12 +230,16 @@ function BaseStack:_topBranch():Ret(clazz.Branch)
 	return nStack[#nStack]!
 end
 
-function BaseStack:nativeError()
+function BaseStack:nativeError(vContext:clazz.OperContext, vTerm:clazz.RefineTerm)
+	self:RAISE_ERROR(vContext, vTerm:getType())
 	self:_topBranch():setStop()
 end
 
-function BaseStack:nativeAssert(vTerm:clazz.RefineTerm)
-	local nTrueCase = vTerm:caseTrue()
+function BaseStack:nativeAssert(vContext:clazz.OperContext, vFirstTerm:clazz.RefineTerm, vSecondTerm:OrNil(clazz.RefineTerm))
+	if vSecondTerm then
+		self:RAISE_ERROR(vContext, vSecondTerm:getType())
+	end
+	const nTrueCase = vFirstTerm:caseTrue()
 	if nTrueCase then
 		self:_topBranch():assertCase(nTrueCase)
 	end
