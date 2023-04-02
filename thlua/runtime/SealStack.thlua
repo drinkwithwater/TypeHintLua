@@ -4,6 +4,7 @@ const Exception = require "thlua.Exception"
 const class = require "thlua.class"
 const InstStack = require "thlua.runtime.InstStack"
 const ClassFactory = require "thlua.func.ClassFactory"
+const SealFunction = require "thlua.func.SealFunction"
 const AutoFunction = require "thlua.func.AutoFunction"
 
 (@do
@@ -51,6 +52,13 @@ function SealStack:_returnCheck(vContext:clazz.ReturnContext, vTypeTuple:clazz.U
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
 			vContext:error("class return not match")
 		end
+	end
+end
+
+function SealStack:RAISE_ERROR(vContext:clazz.ApplyContext, vType:clazz.UAllType)
+	const nBodyFn = self._bodyFn
+	if SealFunction.is(nBodyFn) then
+		ttprint(nBodyFn)
 	end
 end
 

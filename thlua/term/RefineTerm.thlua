@@ -50,7 +50,7 @@ end
 function RefineTerm:caseIsType(vGuardType:clazz.ClassTable):Ret(OrNil(clazz.VariableCase))
 	local nCase:OrNil(clazz.VariableCase) = nil
 	self._type:foreach(function(vType)
-		if vType:includeAll(vGuardType) then
+		if vType:intersectSome(vGuardType) then
 			nCase = self._typeToCase[vType]
 		end
 	end)
@@ -70,7 +70,7 @@ function RefineTerm:caseIsNotType(vGuardType:clazz.ClassTable):Ret(OrNil(clazz.V
 	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:foreach(function(vType)
 		const nCase = self._typeToCase[vType]!
-		if vGuardType ~= vType then
+		if not vGuardType:includeAll(vType) then
 			if not reCase then
 				reCase = nCase
 			else
