@@ -1,0 +1,143 @@
+
+const VisitorExtend = require "thlua.code.VisitorExtend"
+const Exception = require "thlua.Exception"
+
+(@do
+
+let.node = import("thlua.code.Node").node
+let.clazz = import("thlua.type.TypeClass").clazz
+let.SuffixPair = Struct {
+	pos = Integer,
+	posEnd = Integer,
+	node.Expr, node.Expr,
+}
+
+let.RealTraverser = Struct((function()
+	local t = {}
+	foreachPair(node.TagToNodeType, function(vTag, vNodeType)
+		t[vTag] = OrNil(Fn(let.SearchVisitor, vNodeType))
+	end)
+	return t
+end)())
+
+end)
+
+local TagToVisiting:let.RealTraverser = {
+	Chunk=function(self, vNode)
+		self:rawVisit(vNode)
+		table.sort(self._identList, function(a:node.Ident, b:node.Ident)
+			return a.pos < b.pos
+		end)
+		table.sort(self._suffixPairList, function(a:SuffixPair, b:SuffixPair)
+			return a.pos < b.pos
+		end)
+		table.sort(self._hintSuffixPairList, function(a:SuffixPair, b:SuffixPair)
+			return a.pos < b.pos
+		end)
+	end,
+	HintEval=function(self, vNode)
+		self:reverseInHint(false)
+		self:rawVisit(vNode)
+		self:reverseInHint(true)
+	end,
+	HintSpace=function(self, vNode)
+		self:reverseInHint(true)
+		self:rawVisit(vNode)
+		self:reverseInHint(false)
+	end,
+	Ident=function(self, vNode)
+		self:rawVisit(vNode)
+		table.insert(self._identList, vNode)
+		if vNode.kind == "use" then
+			const nPair:SuffixPair = {
+				pos=vNode.pos,posEnd=vNode.posEnd,
+				vNode, vNode
+			}
+			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+		end
+	end,
+	Index=function(self, vNode)
+		self:rawVisit(vNode)
+		const nSuffixExpr = vNode[2]
+		if nSuffixExpr.tag == "String" or nSuffixExpr.tag == "Number" then
+			const nPair:SuffixPair = {
+				pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
+				vNode, nSuffixExpr
+			}
+			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+		end
+	end,
+	Invoke=function(self, vNode)
+		self:rawVisit(vNode)
+		const nSuffixExpr = vNode[2]
+		const nPair:SuffixPair = {
+			pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
+			vNode, nSuffixExpr
+		}
+		table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+	end,
+	Call=function(self, vNode)
+		self:rawVisit(vNode)
+		const nFirstArg = vNode[2][1]
+		if nFirstArg and nFirstArg.tag == "String" then
+			const nPair:SuffixPair = {
+				pos=nFirstArg.pos, posEnd=nFirstArg.posEnd,
+				vNode, nFirstArg
+			}
+			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+		end
+	end,
+}
+
+const SearchVisitor = VisitorExtend(TagToVisiting)
+
+function SearchVisitor:reverseInHint(vTarget:Boolean)
+	assert(self._inHintSpace ~= vTarget)
+	self._inHintSpace = vTarget
+end
+
+function:class(let.SearchVisitor) SearchVisitor.new(vSplitCode:clazz.SplitCode)
+	const self = setmetatable({.class
+		_code = vSplitCode,
+		_inHintSpace=false@Boolean,
+		_identList = {}@List(node.Ident),
+		_suffixPairList = {}@List(SuffixPair),
+		_hintSuffixPairList = {}@List(SuffixPair),
+	}, SearchVisitor)
+	return self
+end
+
+function SearchVisitor:searchSuffixPair(vPos:Integer):Ret(OrFalse(SuffixPair))
+	const nIndex, nPair = self._code:binSearch@<SuffixPair>(self._suffixPairList, vPos)
+	if not nIndex then
+		return false
+	end
+	if vPos < nPair.pos or vPos >= nPair.posEnd then
+		return false
+	end
+	return nPair
+end
+
+function SearchVisitor:searchHintSuffixPair(vPos:Integer):Ret(OrFalse(SuffixPair))
+	const nIndex, nPair = self._code:binSearch@<SuffixPair>(self._hintSuffixPairList, vPos)
+	if not nIndex then
+		return false
+	end
+	if vPos < nPair.pos or vPos >= nPair.posEnd then
+		return false
+	end
+	return nPair
+end
+
+function SearchVisitor:searchIdent(vPos:Integer):Ret(OrFalse(node.Ident))
+	const nIndex, nNode = self._code:binSearch@<node.Ident>(self._identList, vPos)
+	if not nIndex then
+		return false
+	end
+	if vPos >= nNode.pos + #nNode[1] or vPos > nNode.posEnd then
+		return false
+	end
+	return nNode
+end
+
+return SearchVisitor

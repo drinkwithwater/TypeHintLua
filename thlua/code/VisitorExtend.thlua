@@ -6,7 +6,7 @@ local Exception = require "thlua.Exception"
 
 let.node = import("thlua.code.Node").node
 
-node.IVisitor = Struct {
+node.IVisitor = Interface {
 	realVisit=Mfn(node.IAstNode),
 	rawVisit=Mfn(node.IAstNode),
 }
@@ -237,7 +237,13 @@ const function.open VisitorExtend(vDictOrFunc)
 		end
 		return t
 	elseif nType == "function" then
-		const t:node.IVisitor = {
+		(@do
+			let.EasyVisitor = Struct {
+				realVisit=Mfn(node.IAstNode),
+				rawVisit=Mfn(node.IAstNode),
+			}
+		end)
+		const t:EasyVisitor = {
 			realVisit=function(self, vNode)
 				vDictOrFunc(self, vNode)
 			end,

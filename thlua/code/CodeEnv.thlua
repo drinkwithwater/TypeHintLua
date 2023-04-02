@@ -4,6 +4,7 @@ const Node = require "thlua.code.Node"
 const Exception = require "thlua.Exception"
 const VisitorExtend = require "thlua.code.VisitorExtend"
 const SymbolVisitor = require "thlua.code.SymbolVisitor"
+const SearchVisitor = require "thlua.code.SearchVisitor"
 const HintGener = require "thlua.code.HintGener"
 const SplitCode = require "thlua.code.SplitCode"
 const class = require "thlua.class"
@@ -28,11 +29,9 @@ function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), 
 	const self = setmetatable({.class
 		_code = nSplitCode,
 		_chunkName = vChunkName,
+		_searcher = SearchVisitor.new(nSplitCode),
 		_nodeList = {}@List(node.IAstNode),
-		_identList = {}@List(node.Ident),
-		_lookupPairList = {}@List(LookupPair),
-		_hintLookupPairList = {}@List(LookupPair),
-		_typingCode = false@OrFalse(String),
+		_typingCode = "--[[no gen code ]]"@OrFalse(String),
 		_astTree = nil@!node.Chunk,
 		_typingFn = nil@!TypingFn,
 	}, CodeEnv)
@@ -61,86 +60,34 @@ function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAs
 	Node.bind(vNode)
 end
 
-function CodeEnv:prepare()
+function CodeEnv:_prepare()
+	const nAst = self._astTree
 	assert(#self._nodeList == 0, "node list has been setted")
 	-- 1. set line & column, parent
 	const nStack:List(node.IAstNode) = {}
-	local nInHint = false
-	self:visit(function(visitor, vNode)
+	const nVisitor = VisitorExtend(function(visitor:node.IVisitor, vNode:node.IAstNode)
 		-- 1. prepare
 		self:_prepareNode(vNode, nStack[#nStack] or false)
 		-- 2. recurive visit
 		nStack[#nStack + 1] = vNode
-		if vNode.tag == "HintEval" then
-			const nHintEval = vNode @> node.HintEval
-			nHintEval.endLine = self._code:fixupPos(nHintEval.posEnd)
-			nInHint = false
-			visitor:rawVisit(vNode)
-			nInHint = true
-		elseif vNode.tag == "HintSpace" then
-			nInHint = true
-			visitor:rawVisit(vNode)
-			nInHint = false
-		else
-			visitor:rawVisit(vNode)
-		end
+		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
-		const nExprNode = vNode @> node.Expr
-		-- 3. save some node
-		if nExprNode.tag == "Ident" then
-			table.insert(self._identList, nExprNode)
-			if nExprNode.kind == "use" then
-				const nPair:LookupPair = {
-					pos=nExprNode.pos,posEnd=nExprNode.posEnd,
-					nExprNode, nExprNode
-				}
-				table.insert(nInHint and self._hintLookupPairList or self._lookupPairList, nPair)
-			end
-		elseif nExprNode.tag == "Index" or nExprNode.tag == "Invoke" then
-			const nSuffixExpr = nExprNode[2]
-			if nSuffixExpr.tag == "String" or nSuffixExpr.tag == "Number" then
-				const nPair:LookupPair = {
-					pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
-					nExprNode, nSuffixExpr
-				}
-				table.insert(nInHint and self._hintLookupPairList or self._lookupPairList, nPair)
-			end
-		elseif nExprNode.tag == "Call" then
-			const nFirstArg = nExprNode[2][1]
-			if nFirstArg and nFirstArg.tag == "String" then
-				const nPair:LookupPair = {
-					pos=nFirstArg.pos, posEnd=nFirstArg.posEnd,
-					nExprNode, nFirstArg
-				}
-				table.insert(nInHint and self._hintLookupPairList or self._lookupPairList, nPair)
-			end
-		end
 	end)
-	table.sort(self._identList, function(a:node.Ident, b:node.Ident)
-		return a.pos < b.pos
-	end)
-	table.sort(self._lookupPairList, function(a:LookupPair, b:LookupPair)
-		return a.pos < b.pos
-	end)
-	table.sort(self._hintLookupPairList, function(a:LookupPair, b:LookupPair)
-		return a.pos < b.pos
-	end)
-end
-
-function CodeEnv:visit(vFunc:Fn(node.IVisitor, node.IAstNode)):Ret()
-	const visitor = VisitorExtend(vFunc)
-	visitor:realVisit(self._astTree)
+	nVisitor:realVisit(nAst)
+	-- 2. build search
+	self._searcher:realVisit(nAst)
+	-- 3. build symbol
+	const nSymbolVisitor = SymbolVisitor.new(self._code)
+	nSymbolVisitor:realVisit(nAst)
+	-- 4. gen code
+	const gener = HintGener.new(self._astTree)
+	const nTypingCode = gener:genCode()
+	self._typingCode = nTypingCode
 end
 
 function.pass CodeEnv:_buildTypingFn():Ret(AnyFunction)
-	const nAst = self._astTree
-	self:prepare()
-	const nSymbolVisitor = SymbolVisitor.new()
-	nSymbolVisitor:realVisit(nAst)
-	const gener = HintGener.new(nAst)
-	const nTypingCode = gener:genCode()
-	self._typingCode = nTypingCode
-	local nFunc, nInfo = load(nTypingCode, self._chunkName, "t", setmetatable({}, {
+	self:_prepare()
+	local nFunc, nInfo = load(self._typingCode, self._chunkName, "t", setmetatable({}, {
 		__index=function(t,k)
 			-- TODO, give node pos
 			error("indexing global is fatal error, name="..k)
@@ -203,11 +150,8 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 end
 
 function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, node.Block, List(node.Function))
-	const nIndex, nPair = self._code:binSearch@<LookupPair>(self._hintLookupPairList, vPos)
-	if not nIndex then
-		return false
-	end
-	if vPos < nPair.pos or vPos >= nPair.posEnd then
+	const nPair = self._searcher:searchHintSuffixPair(vPos)
+	if not nPair then
 		return false
 	end
 	local nRetBlock:OrNil(node.Block) = nil
@@ -233,26 +177,16 @@ function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, 
 end
 
 function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List(node.Function))
-	const nIndex, nPair = self._code:binSearch@<LookupPair>(self._lookupPairList, vPos)
-	if not nIndex then
-		return false
-	end
-	if vPos < nPair.pos or vPos >= nPair.posEnd then
+	const nPair = self._searcher:searchSuffixPair(vPos)
+	if not nPair then
 		return false
 	end
 	const nPrefixNode = nPair[1]
 	return nPrefixNode, self:makeFocusList(nPrefixNode)
 end
 
-function CodeEnv:searchIdent(vPos:Integer):Ret(OrNil(node.Ident))
-	const nIndex, nNode = self._code:binSearch@<node.Ident>(self._identList, vPos)
-	if not nIndex then
-		return nil
-	end
-	if vPos >= nNode.pos + #nNode[1] or vPos > nNode.posEnd then
-		return nil
-	end
-	return nNode
+function CodeEnv:searchIdent(vPos:Integer):Ret(OrFalse(node.Ident))
+	return self._searcher:searchIdent(vPos)
 end
 
 function CodeEnv:getChunkName():Ret(String)

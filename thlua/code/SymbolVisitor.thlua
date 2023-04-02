@@ -203,9 +203,10 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		self:reverseInHint(false)
 	end,
-	HintEval=function(self, node)
+	HintEval=function(self, vNode)
+		vNode.endLine = self._code:fixupPos(vNode.posEnd)
 		self:reverseInHint(false)
-		self:realVisit(node[1])
+		self:realVisit(vNode[1])
 		self:reverseInHint(true)
 	end,
 }
@@ -369,8 +370,9 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	vIdentNode.defineIdent = nDefineNode
 end
 
-function:class(let.SymbolVisitor) SymbolVisitor.new()
+function:class(let.SymbolVisitor) SymbolVisitor.new(vCode:clazz.SplitCode)
 	const self = setmetatable({.class
+		_code=vCode,
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
 		_inHintSpace=false@Boolean,
