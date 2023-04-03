@@ -120,12 +120,14 @@ function SealStack:seal()
 	const nClassFnSet = assert(self._classFnSet, "class set must be true here")
 	self._classFnSet = false
 	for fn, v in pairs(nClassFnSet) do
-		fn:startTask()
+		fn:startPreBuild()
+		fn:startLateBuild()
 	end
 	const nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
 	self._autoFnSet = false
 	for fn, v in pairs(nAutoFnSet) do
-		self._runtime:scheduleAutoFn(fn)
+		fn:startPreBuild()
+		self._runtime:lateSchedule(fn)
 	end
 end
 
@@ -139,14 +141,16 @@ function SealStack:scheduleSealType(vType:clazz.SealFunction)
 		if nSet then
 			nSet[vType] = true
 		else
-			vType:startTask()
+			vType:startPreBuild()
+			vType:startLateBuild()
 		end
 	elseif AutoFunction.is(vType) then
 		const nSet = self._autoFnSet
 		if nSet then
 			nSet[vType] = true
 		else
-			self._runtime:scheduleAutoFn(vType)
+			vType:startPreBuild()
+			self._runtime:lateSchedule(vType)
 		end
 	end
 end

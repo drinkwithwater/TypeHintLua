@@ -31,9 +31,9 @@ function.open SealFunction:ctor(
 	const nTask = vManager:getScheduleManager():newTask(nNewStack)
 	self._task = nTask
 	self._node = vNode
-	self._headFinishEvent=nTask:makeEvent()
-	self._bodyStartEvent=nTask:makeWildEvent()
-	self._bodyFinishEvent=nTask:makeEvent()
+	self._preBuildEvent=nTask:makeEvent()
+	self._lateStartEvent=nTask:makeWildEvent()
+	self._lateBuildEvent=nTask:makeEvent()
 	self._typeFn=false@OrFalse(clazz.TypedFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
 	self._builderFn=false@OrFalse(BuilderFn)
@@ -46,11 +46,11 @@ end
 
 function SealFunction:getFnAwait():Ret(clazz.TypedFunction)
 	if not self._typeFn then
-		self:_build()
-		self._headFinishEvent:wait()
+		self:startPreBuild()
+		self._preBuildEvent:wait()
 		if not self._typeFn then
-			self._bodyStartEvent:wakeup()
-			self._bodyFinishEvent:wait()
+			self._lateStartEvent:wakeup()
+			self._lateBuildEvent:wait()
 		end
 	end
 	return (assert(self._typeFn, "_typeFn must existed here"))
@@ -76,7 +76,7 @@ function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
 end
 
-function SealFunction:_build()
+function SealFunction:startPreBuild()
 	const nBuilderFn = self._builderFn
 	if not nBuilderFn then
 		return
@@ -88,33 +88,32 @@ function SealFunction:_build()
 		if nParTuple and nRetTuples then
 			self._typeFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		end
-		self._headFinishEvent:wakeup()
+		self._preBuildEvent:wakeup()
+		self._lateStartEvent:wait()
 		if self._typeFn then
 			-- if function is typing, schedule it after finish
 			const nLexStack = self._lexStack
 			if nLexStack then
-				self._bodyStartEvent:wait()
 				--nLexStack:getSealStack():getBodyFn():waitSeal()
 			end
 		end
 		const nParTuple, nRetTuples = nLateRunner()
 		self._typeFn = self._typeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		self._buildStack:seal()
-		self._bodyFinishEvent:wakeup()
+		self._lateBuildEvent:wakeup()
 	end)
 end
 
 function SealFunction:waitSeal()
-	self._bodyFinishEvent:wait()
+	self._lateBuildEvent:wait()
 end
 
 function SealFunction:initAsync(vRunner:BuilderFn)
 	self._builderFn=vRunner
 end
 
-function SealFunction:startTask()
-	self:_build()
-	self._bodyStartEvent:wakeup()
+function SealFunction:startLateBuild()
+	self._lateStartEvent:wakeup()
 end
 
 function SealFunction:findRequireStack()
