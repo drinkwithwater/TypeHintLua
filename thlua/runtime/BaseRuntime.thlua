@@ -20,8 +20,8 @@ const class = require "thlua.class"
 
 (@do
 	import("thlua.code.CodeEnv")
-	let.clazz = import("thlua.type.TypeClass").clazz
-	let.node = import("thlua.code.Node").node
+	let.clazz = import($class).clazz
+	let.node = import($Node).node
 
 	clazz.ILoader = Interface {
 		thluaSearch=Mfn(String):Ret(Boolean, String),
@@ -72,7 +72,7 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	-- TODO better style?
 	if type(vDst) == "string" then
 		const nPath = vDst@> String
-		self:require(nPath)
+		self:require(Node.getDebugNode(3), nPath)
 		const nStack = self._loadedDict[nPath]!.stack!
 		const nSpace = nStack:getNamespace()
 		return nSpace.localExport
@@ -149,11 +149,11 @@ function BaseRuntime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
 	return nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
 end
 
-function BaseRuntime:require(vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
+function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
 	if not self._loadedDict[vPath] then
 		const nOkay, nFileName = self._loader:thluaSearch(vPath)
 		if not nOkay then
-			error(nFileName)
+			error(Exception.new(nFileName, vNode))
 		end
 		const nLuaFunc = self:cacheLoadFile(nFileName)
 		const nLoadedState:LoadedState = {
@@ -169,7 +169,7 @@ function BaseRuntime:require(vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunct
 	const nLoaded = self._loadedDict[vPath]!
 	const nTerm = nLoaded.term
 	if not nTerm then
-		error("recursive require:"..vPath)
+		error(Exception.new("recursive require:"..vPath, vNode))
 	end
 	return nTerm, nLoaded.openFn
 end
