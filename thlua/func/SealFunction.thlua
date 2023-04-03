@@ -14,19 +14,19 @@ end)
 
 const SealFunction = class@<clazz.SealFunction, false>(BaseFunction)
 
-function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexState:OrFalse(clazz.LexState))
-	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexState, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
-	self._lexStack = vLexState and vLexState.branch:getStack() or false
+function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexShot:OrFalse(clazz.LexShot))
+	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexShot, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
+	self._lexStack = vLexShot and vLexShot.branch:getStack() or false
 	self._buildStack = nNewStack
 	const nTask = vManager:getScheduleManager():newTask(nNewStack)
 	self._task = nTask
 	self._node = vNode
-	self._headStartEvent=nTask:makeWildEvent()
 	self._headFinishEvent=nTask:makeEvent()
 	self._bodyStartEvent=nTask:makeWildEvent()
 	self._bodyFinishEvent=nTask:makeEvent()
 	self._typeFn=false@OrFalse(clazz.TypedFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
+	self._buildingFn=false@OrFalse(Fn())
 end
 
 function SealFunction:meta_call(vContext, vTermTuple)
@@ -36,7 +36,7 @@ end
 
 function SealFunction:getFnAwait():Ret(clazz.TypedFunction)
 	if not self._typeFn then
-		self._headStartEvent:wakeup()
+		self:_build()
 		self._headFinishEvent:wait()
 		if not self._typeFn then
 			self._bodyStartEvent:wakeup()
@@ -55,10 +55,23 @@ function SealFunction:getBuildStack()
 end
 
 function SealFunction:findRequireStack()
+	const nLexShot = self._lexShot
+	if not nLexShot then
+		return false
+	end
+	return nLexShot.branch:getStack():findRequireStack()
 end
 
 function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 	return self._retTuples
+end
+
+function SealFunction:_build()
+	const nFn = self._buildingFn
+	if nFn then
+		self._buildingFn = false
+		self._task:runAsync(nFn)
+	end
 end
 
 function SealFunction:buildAsync(vRunner:Fn():Ret(
@@ -66,8 +79,7 @@ function SealFunction:buildAsync(vRunner:Fn():Ret(
 		clazz.UTypeTuple, clazz.RetTuples
 	)
 ))
-	self._task:runAsync(function()
-		self._headStartEvent:wait()
+	self._buildingFn=function()
 		const nParTuple, nRetTuples, nLateRunner = vRunner()
 		self._retTuples = nRetTuples
 		if nParTuple and nRetTuples then
@@ -78,11 +90,11 @@ function SealFunction:buildAsync(vRunner:Fn():Ret(
 		const nParTuple, nRetTuples = nLateRunner()
 		self._typeFn = self._typeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		self._bodyFinishEvent:wakeup()
-	end)
+	end
 end
 
 function SealFunction:startTask()
-	self._headStartEvent:wakeup()
+	self:_build()
 	self._bodyStartEvent:wakeup()
 end
 
