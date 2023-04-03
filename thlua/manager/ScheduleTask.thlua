@@ -12,16 +12,15 @@ const ScheduleTask = class@<clazz.ScheduleTask, false>()
 
 function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:OrNil(clazz.SealStack))
 	self._scheduleManager = vScheduleManager
-	self._selfCo = coroutine.create(function(vRunFn:Fn())
+	self._selfCo = coroutine.create(function(vRunFn:Fn():Err(clazz.Exception))
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
 			const nStack = self:getStack()
 			if nStack then
-				const nNode = nExc.node
-				if not nNode then
-					nStack:getRuntime():nodeError(nStack:getNode(), tostring(nExc))
+				if Exception.is(nExc) then
+					nStack:getRuntime():nodeError(nExc.node, nExc.msg)
 				else
-					nStack:getRuntime():nodeError(nNode, nExc.msg)
+					nStack:getRuntime():nodeError(nStack:getNode(), tostring(nExc))
 				end
 			end
 			if not nStack or nStack:isRoot() then

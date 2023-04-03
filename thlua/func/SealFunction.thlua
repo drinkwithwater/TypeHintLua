@@ -10,11 +10,21 @@ const class = require "thlua.class"
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 	let.node = import("thlua.code.Node").node
+	let.BuilderFn = Fn():Ret(
+		OrFalse(clazz.UTypeTuple), OrFalse(clazz.RetTuples),
+		Fn():Ret(
+			clazz.UTypeTuple, clazz.RetTuples
+		)
+	)
 end)
 
 const SealFunction = class@<clazz.SealFunction, false>(BaseFunction)
 
-function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexShot:OrFalse(clazz.LexShot))
+function.open SealFunction:ctor(
+	vManager:clazz.TypeManager,
+	vNode:clazz.IAstNode,
+	vLexShot:OrFalse(clazz.LexShot)
+)
 	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexShot, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
 	self._lexStack = vLexShot and vLexShot.branch:getStack() or false
 	self._buildStack = nNewStack
@@ -26,7 +36,7 @@ function.open SealFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode
 	self._bodyFinishEvent=nTask:makeEvent()
 	self._typeFn=false@OrFalse(clazz.TypedFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
-	self._buildingFn=false@OrFalse(Fn())
+	self._builderFn=false@OrFalse(BuilderFn)
 end
 
 function SealFunction:meta_call(vContext, vTermTuple)
@@ -67,30 +77,39 @@ function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
 end
 
 function SealFunction:_build()
-	const nFn = self._buildingFn
-	if nFn then
-		self._buildingFn = false
-		self._task:runAsync(nFn)
+	const nBuilderFn = self._builderFn
+	if not nBuilderFn then
+		return
 	end
-end
-
-function SealFunction:buildAsync(vRunner:Fn():Ret(
-	OrFalse(clazz.UTypeTuple), OrFalse(clazz.RetTuples), Fn():Ret(
-		clazz.UTypeTuple, clazz.RetTuples
-	)
-))
-	self._buildingFn=function()
-		const nParTuple, nRetTuples, nLateRunner = vRunner()
+	self._builderFn = false
+	self._task:runAsync(function()
+		const nParTuple, nRetTuples, nLateRunner = nBuilderFn()
 		self._retTuples = nRetTuples
 		if nParTuple and nRetTuples then
 			self._typeFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		end
 		self._headFinishEvent:wakeup()
-		self._bodyStartEvent:wait()
+		if self._typeFn then
+			-- if function is typing, schedule it after finish
+			const nLexStack = self._lexStack
+			if nLexStack then
+				self._bodyStartEvent:wait()
+				--nLexStack:getSealStack():getBodyFn():waitSeal()
+			end
+		end
 		const nParTuple, nRetTuples = nLateRunner()
 		self._typeFn = self._typeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+		self._buildStack:seal()
 		self._bodyFinishEvent:wakeup()
-	end
+	end)
+end
+
+function SealFunction:waitSeal()
+	self._bodyFinishEvent:wait()
+end
+
+function SealFunction:initAsync(vRunner:BuilderFn)
+	self._builderFn=vRunner
 end
 
 function SealFunction:startTask()
