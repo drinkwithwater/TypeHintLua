@@ -12,19 +12,19 @@ end)
 
 const TypedMemberFunction = class@<clazz.TypedMemberFunction, false>(MemberFunction)
 
-function.open TypedMemberFunction:ctor(_,_,vWildFn:clazz.TypedFunction)
-	self._wildFn = vWildFn
+function.open TypedMemberFunction:ctor(_,_,vHeadlessFn:clazz.TypedFunction)
+	self._headlessFn = vHeadlessFn
 	self._typeFnDict = {}@Dict(clazz.IAtomType, clazz.TypedFunction)
 end
 
 function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
-	const nWildFn = self._wildFn
+	const nHeadlessFn = self._headlessFn
 	const nCache = vToStringCache[self]
 	if nCache then
 		return nCache
 	end
-	const nParTuple = nWildFn:getParTuple()
-	const nRetTuples = nWildFn:getRetTuples()
+	const nParTuple = nHeadlessFn:getParTuple()
+	const nRetTuples = nHeadlessFn:getRetTuples()
 	vToStringCache[self] = "member:fn-..."
 	const nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
 									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
@@ -33,20 +33,20 @@ function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vV
 end
 
 function TypedMemberFunction:Dots(vType:clazz.UAllType):Ret(clazz.MemberFunction)
-	const nWildFn = assert(self._wildFn, "member function without wildfn can't take :Dots")
-	nWildFn:Dots(vType)
+	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Dots")
+	nHeadlessFn:Dots(vType)
 	return self
 end
 
 function TypedMemberFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.MemberFunction)
-	const nWildFn = assert(self._wildFn, "member function without wildfn can't take :Ret")
-	nWildFn:RetDots(vFirst, ...)
+	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Ret")
+	nHeadlessFn:RetDots(vFirst, ...)
 	return self
 end
 
 function TypedMemberFunction:Ret(...:clazz.UAllType):Ret(clazz.MemberFunction)
-	const nWildFn = assert(self._wildFn, "member function without wildfn can't take :Ret")
-	nWildFn:Ret(...)
+	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Ret")
+	nHeadlessFn:Ret(...)
 	return self
 end
 
@@ -59,8 +59,8 @@ function TypedMemberFunction:needPolyArgs():Ret(Boolean)
 	return false
 end
 
-function TypedMemberFunction:getWildFn():Ret(clazz.TypedFunction)
-	return self._wildFn
+function TypedMemberFunction:getHeadlessFn():Ret(clazz.TypedFunction)
+	return self._headlessFn
 end
 
 function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
@@ -69,7 +69,7 @@ function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
 		return self
 	end
 	if TypedMemberFunction.is(vRight) then
-		return self._wildFn:assumeIncludeAtom(vAssumeSet, vRight:getWildFn()) and self
+		return self._headlessFn:assumeIncludeAtom(vAssumeSet, vRight:getHeadlessFn()) and self
 	elseif TypedFunction.is(vRight) then
 		if vSelfType then
 			return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
@@ -85,9 +85,9 @@ function TypedMemberFunction:indexTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.Ty
 	if nFn then
 		return nFn
 	else
-		const nWildFn = self._wildFn
-		const nRetTuples = nWildFn:getRetTuples()
-		const nParTuple = nWildFn:getParTuple():replaceFirst(vSelfType)
+		const nHeadlessFn = self._headlessFn
+		const nRetTuples = nHeadlessFn:getRetTuples()
+		const nParTuple = nHeadlessFn:getParTuple():leftAppend(vSelfType)
 		const nFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		nDict[vSelfType] = nFn
 		return nFn

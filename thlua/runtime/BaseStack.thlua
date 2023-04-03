@@ -70,11 +70,11 @@ function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UAllType)
 	error("check error in OpenStack or SealStack")
 end
 
-function BaseStack:META_CALL(
+function BaseStack:prepareMetaCall(
 	vNode:clazz.IAstNode,
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
-):Ret(clazz.UOpenReturn)
+):Ret(clazz.MorePushContext)
 	const nNil = self._manager.type.Nil
 	return self:withMorePushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
@@ -88,7 +88,7 @@ function BaseStack:META_CALL(
 		else
 			self._runtime:nodeError(vNode, "TODO call by a non-function value, type="..tostring(vFuncType))
 		end
-	end):mergeReturn()
+	end)
 end
 
 --[[function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
