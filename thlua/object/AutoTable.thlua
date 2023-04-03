@@ -18,11 +18,11 @@ end)
 
 const AutoTable = class@<clazz.AutoTable, false>(SealTable)
 
-function.open AutoTable:ctor(vManager, vNode, vLexStack:clazz.BaseStack, ...)
+function.open AutoTable:ctor(vManager, ...)
 	self._name = false @OrFalse(String)
 	self._firstAssign = false@OrFalse(clazz.AssignContext)
 	self._castDict = {} @ Dict(clazz.TypedObject, Boolean)
-	self._lexStack = vLexStack
+	self._locked = false@Boolean
 end
 
 function AutoTable:detailString(v, vVerbose)
@@ -103,9 +103,12 @@ function AutoTable:findRequireStack()
 	return self._lexStack:findRequireStack()
 end
 
+function AutoTable:setLocked()
+	self._locked = true
+end
+
 function AutoTable:isLocked():Ret(Boolean)
-	-- TODO
-	return false
+	return self._locked
 end
 
 return AutoTable

@@ -28,6 +28,7 @@ function.open OpenTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, v
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
+	self._locked=false@Boolean
 end
 
 function OpenTable:detailString(v, vVerbose)
@@ -187,7 +188,11 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 	const nIncludeType = self._keyType:includeAtom(vKeyType)
 	if not nIncludeType then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
-			-- TODO thinking when to lock this
+			-- TODO thinking lock
+			if self._locked then
+				vContext:error("assign to locked open-table")
+				return
+			end
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
 				valueTerm = vValueTerm,
@@ -198,6 +203,10 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end
 	else
+		if self._locked then
+			vContext:error("assign to locked open-table")
+			return
+		end
 		self._fieldDict[nIncludeType] = {
 			valueTerm = vValueTerm,
 			branch = vContext:getStack():topBranch(),
@@ -216,16 +225,19 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 		return nTerm:getType()
 	else
 		const nNil = self._manager.type.Nil
-		self._fieldDict[vKeyType] = {
-			valueTerm=vContext:RefineTerm(nNil),
-			branch = vContext:getStack():topBranch(),
-			lockCtx=vContext
-		}
+		if not self._locked then
+			self._fieldDict[vKeyType] = {
+				valueTerm=vContext:RefineTerm(nNil),
+				branch=vContext:getStack():topBranch(),
+				lockCtx=vContext
+			}
+		end
 		return nNil
 	end
 end
 
 function OpenTable:native_next(vContext, vInitType)
+	self._locked = true
 	local nNextDict = self._nextDict
 	local nValueType = self._nextValue
 	if not nNextDict or not nValueType then
@@ -238,9 +250,11 @@ function OpenTable:native_next(vContext, vInitType)
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			const nValueType = nOneField.valueTerm:getType()
 			const nNotnilType = nValueType:notnilType()
-			nNextDict[nOneKey] = nNotnilType
-			nCollection:put(nNotnilType)
-			nOneField.lockCtx = vContext
+			if not nNotnilType:isNever() then
+				nNextDict[nOneKey] = nNotnilType
+				nCollection:put(nNotnilType)
+			end
+			nOneField.lockCtx = nOneField.lockCtx or vContext
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
@@ -318,6 +332,14 @@ end
 
 function OpenTable:isSingleton()
 	return true
+end
+
+function OpenTable:setLocked()
+	self._locked = true
+end
+
+function OpenTable:isLocked():Ret(Boolean)
+	return self._locked
 end
 
 return OpenTable

@@ -21,7 +21,8 @@ end)
 
 const SealTable = class@<clazz.SealTable, false>(BaseObject)
 
-function.open SealTable:ctor(vManager:clazz.TypeManager, ...)
+function.open SealTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexStack:clazz.BaseStack, ...)
+	self._lexStack = vLexStack
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
 	self._fieldDict={}@Dict(clazz.IAtomType, TableField)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
@@ -162,6 +163,11 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 			if self:isLocked() then
 				vContext:error("table is locked")
 				return
+			else
+				if self._lexStack:getSealStack() ~= vContext:getStack():getSealStack() then
+					vContext:error("table new field in wrong scope")
+					return
+				end
 			end
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
