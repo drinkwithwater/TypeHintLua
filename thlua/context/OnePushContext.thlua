@@ -13,22 +13,17 @@ end)
 
 const OnePushContext = class@<clazz.OnePushContext, false>(ApplyContext)
 
-(@let.TypeCaseTupleList = List(Struct {clazz.UAtomUnion, clazz.VariableCase, OrNil(clazz.UTypeTuple)}))
 function.open OnePushContext:ctor(
 	_,_,_,vNotnil:Boolean
 )
 	self._retList = {} @ List(clazz.TypeCasePair)
-	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._notnil = vNotnil
 end
 
-function OnePushContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTuple:OrNil(clazz.UTypeTuple))
-	if self._openReturn then
-		error(Exception.new("can't mix use open function or open table", self._node))
-	end
-	const nCase = assert(self._curCase, "[FATAL] OnePushContext push value without case")
+function OnePushContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTuple:OrNil(clazz.UTypeTuple), vCase:OrNil(clazz.VariableCase))
+	const nCurCase = assert(self._curCase, "[FATAL] OnePushContext push value without case")
 	self._retList[#self._retList + 1] = {
-		self._notnil and vFirstType:notnilType() or vFirstType, nCase
+		self._notnil and vFirstType:notnilType() or vFirstType, vCase and (vCase & nCurCase) or nCurCase
 	}
 end
 
@@ -38,14 +33,6 @@ function OnePushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
 end
 
 function OnePushContext:mergeFirst():Ret(clazz.RefineTerm)
-	const nOpenReturn = self._openReturn
-	if nOpenReturn then
-		if TermTuple.is(nOpenReturn) then
-			return nOpenReturn:checkFixed(self, 1)
-		else
-			return nOpenReturn:checkRefineTerm(self)
-		end
-	end
 	const nTypeCaseList:List(clazz.TypeCasePair) = {}
 	for _, nType1TupleCase in pairs(self._retList) do
 		const nType1 = nType1TupleCase[1]

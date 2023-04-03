@@ -84,20 +84,8 @@ function SealStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
 		self:_returnCheck(nRetContext, vTermTuple:checkTypeTuple())
 	else
 		const nManager = self:getTypeManager()
-		const nFirstTerm = vTermTuple:get(nRetContext, 1)
-		nFirstTerm:foreach(function(vAtomType, vCase)
-			const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
-			for i=2, #vTermTuple do
-				local nTerm = vTermTuple:get(nRetContext, i)
-				const nType = vCase[nTerm:attachImmutVariable()]
-				if not nType then
-					nTypeList[i] = nTerm:getType()
-				else
-					nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
-				end
-			end
-			const nTypeTuple = nManager:TypeTuple(vNode, table.unpack(nTypeList))
-			self:_returnCheck(nRetContext, nTypeTuple)
+		nRetContext:unfoldTermTuple(vTermTuple, function(vFirst, vTypeTuple, _)
+			self:_returnCheck(nRetContext, vTypeTuple)
 		end)
 	end
 	self:_topBranch():setStop()

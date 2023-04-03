@@ -128,28 +128,45 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 	end
 end
 
+const NIL_TRIGGER = 1
+const NONE_TRIGGER = 2
 function OpenTable:meta_get(vContext, vKeyType)
 	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
 		-- TODO trigger meta index
 		const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
 			const nTerm = nField.valueTerm
 			vContext:addLookupNode(nTerm:getNode(), nTerm:getType())
 			nField.lockCtx = vContext
-			vContext:pushFirstAndTuple(nTerm:getType())
+			const nType = nTerm:getType()
+			if nType:isUnion() then
+				vContext:warn("open table's field is union")
+			end
+			vContext:pushFirstAndTuple(nType)
+			if nType:isNilable() then
+				nTrigger = NIL_TRIGGER
+			end
 		else
+			nTrigger = NONE_TRIGGER
+		end
+		if nTrigger then
 			const nMetaIndex = self._metaIndex
 			if BaseFunction.is(nMetaIndex) then
 				const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
 				nMetaIndex:meta_call(vContext, nTermTuple)
+				return true
 			elseif BaseObject.is(nMetaIndex) then
-				nMetaIndex:meta_get(vContext, vKeyType)
+				const nNextOkay = nMetaIndex:meta_get(vContext, vKeyType)
+				return nTrigger ~= NONE_TRIGGER or nNextOkay
 			else
 				vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
+				return nTrigger ~= NONE_TRIGGER
 			end
+		else
+			return true
 		end
-		return true
 	end)
 	if nNotRecursive then
 		return nOkay

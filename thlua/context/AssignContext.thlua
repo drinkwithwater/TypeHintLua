@@ -233,4 +233,29 @@ function AssignContext:runLateCast(vDict:clazz.AutoFnCastDict)
 	end)
 end
 
+function AssignContext:unfoldTermTuple(vTermTuple:clazz.FixedTermTuple, vFunc:Fn(clazz.UAtomUnion, clazz.UTypeTuple, OrNil(clazz.VariableCase)))
+	const nFirstTerm = vTermTuple:get(self, 1)
+	if #vTermTuple == 0 then
+		vFunc(nFirstTerm:getType(), vTermTuple:checkTypeTuple(), nil)
+		return
+	end
+	const nTail = vTermTuple:getTail()
+	const nRepeatType = nTail and nTail:getRepeatType()
+	nFirstTerm:foreach(function(vAtomType, vCase)
+		const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
+		for i=2, #vTermTuple do
+			local nTerm = vTermTuple:get(self, i)
+			const nType = vCase[nTerm:attachImmutVariable()]
+			if not nType then
+				nTypeList[i] = nTerm:getType()
+			else
+				nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
+			end
+		end
+		const nTypeTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList))
+		const nTypeTuple = nRepeatType and nTypeTuple:Dots(nRepeatType) or nTypeTuple
+		vFunc(vAtomType, nTypeTuple, vCase)
+	end)
+end
+
 return AssignContext

@@ -1,5 +1,7 @@
 
 const class = require "thlua.class"
+const TermTuple = require "thlua.tuple.TermTuple"
+const RefineTerm = require "thlua.term.RefineTerm"
 const OpenFunction = require "thlua.func.OpenFunction"
 const ApplyContext = require "thlua.context.ApplyContext"
 const VariableCase = require "thlua.term.VariableCase"
@@ -20,13 +22,10 @@ function.open MorePushContext:ctor(
 	self._retList = {} @TypeCaseTupleList
 end
 
-function MorePushContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple))
-	if self._openReturn then
-		error(Exception.new("can't mix use open function or open table", self._node))
-	end
-	const nCase = assert(self._curCase, "[FATAL] MorePushContext push value without case")
+function MorePushContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTypeTuple:OrNil(clazz.UTypeTuple), vCase:OrNil(clazz.VariableCase))
+	const nCurCase = assert(self._curCase, "[FATAL] MorePushContext push value without case")
 	self._retList[#self._retList + 1] = {
-		vFirstType, nCase, vTypeTuple
+		vFirstType, vCase and (vCase & nCurCase) or nCurCase, vTypeTuple
 	}
 	const nLength = vTypeTuple and #vTypeTuple or 1
 	if nLength > self._retMaxLength then
@@ -47,11 +46,16 @@ function MorePushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
 	end)
 end
 
-function MorePushContext:mergeReturn():Ret(clazz.UOpenReturn)
+--[[
+function MorePushContext:pcallMergeReturn():Ret(clazz.UOpenReturn)
 	const nOpenReturn = self._openReturn
 	if nOpenReturn then
-		return nOpenReturn
+		if RefineTerm.is(nOpenReturn) then
+		end
 	end
+end]]
+
+function MorePushContext:mergeReturn():Ret(clazz.UOpenReturn)
 	-- merge seal call return
 	const nRetList = self._retList
 	const nMaxLength = self._retMaxLength

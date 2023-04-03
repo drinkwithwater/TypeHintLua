@@ -6,6 +6,7 @@ const AssignContext = require "thlua.context.AssignContext"
 const VariableCase = require "thlua.term.VariableCase"
 const Exception = require "thlua.Exception"
 const RecurChain = require "thlua.context.RecurChain"
+const RefineTerm = require "thlua.term.RefineTerm"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -17,7 +18,6 @@ function.open ApplyContext:ctor(vNode, ...)
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
 	self._recurChain = false @ OrFalse(clazz.RecurChain)
-	self._openReturn = false@OrFalse(clazz.UOpenReturn)
 	self._lookupNodeSet = {} @ Dict(clazz.IAstNode, True)
 	self._stack:getRuntime():recordApplyContext(vNode, self)
 	self._finalReturn = false @OrFalse(clazz.UOpenReturn)
@@ -55,30 +55,37 @@ function ApplyContext:withCase(vCase:clazz.VariableCase, vFunc:Fn())
 end
 
 function ApplyContext:pushNothing()
-	if self._openReturn then
-		error(Exception.new("can't mix use open function or open table", self._node))
-	end
 	self._once = true
 end
 
 function ApplyContext:openAssign(vType:clazz.UAtomUnion)
-	if self._once or self._openReturn then
+	if self._once then
 		error(Exception.new("table assign new field can't be mixed actions", self._node))
 	end
 	vType:setAssigned(self)
-	self._openReturn = self:RefineTerm(vType)
 	self._once = true
 end
 
-function ApplyContext:openPushReturn(vTermTuple:clazz.UOpenReturn)
-	if self._once or self._openReturn then
-		error(Exception.new("can't mix use open function or open table", self._node))
+function ApplyContext:pushOpenReturn(vTermTuple:clazz.UOpenReturn)
+	const nCurCase = self._curCase
+	if not nCurCase then
+		self._curCase = VariableCase.new()
 	end
-	self._openReturn = vTermTuple
+	if RefineTerm.is(vTermTuple) then
+		const nFirst = vTermTuple:getType()
+		vTermTuple:foreach(function(vType, vCase)
+			self:pushFirstAndTuple(vType, nil, vCase)
+		end)
+	else
+		self:unfoldTermTuple(vTermTuple, function(vFirstType, vTypeTuple, vCase)
+			self:pushFirstAndTuple(vFirstType, vTypeTuple, vCase)
+		end)
+	end
+	self._curCase = nCurCase
 	self._once = true
 end
 
-function ApplyContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTuple:OrNil(clazz.UTypeTuple))
+function ApplyContext:pushFirstAndTuple(vFirstType:clazz.UAtomUnion, vTuple:OrNil(clazz.UTypeTuple), vCase:OrNil(clazz.VariableCase))
 	error("push return not implement in ApplyContext")
 end
 

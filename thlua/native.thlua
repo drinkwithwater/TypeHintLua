@@ -54,7 +54,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 						vContext:error("metatable must be table but get:"..tostring(nType2))
 					end
 				end
-				vContext:openPushReturn(nTerm1)
+				vContext:pushOpenReturn(nTerm1)
 			end):mergeFirst()
 		end),
 		getmetatable=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -89,7 +89,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 				const nType2 = vTermTuple:checkFixed(vContext, 2):getType()
 				assert(not nType1:isUnion(), "rawget for union type TODO")
 				assert(not nType2:isUnion(), "rawget for union type TODO")
-				vContext:openPushReturn(vContext:RefineTerm(nType1:native_rawget(vContext, nType2)))
+				vContext:pushOpenReturn(vContext:RefineTerm(nType1:native_rawget(vContext, nType2)))
 			end):mergeFirst()
 		end),
 		rawset=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -184,10 +184,10 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 					local nPath = nFileName:getLiteral()
 					const nRetTerm, nOpenFn = vRuntime:require(nPath)
 					vContext:addLookupNode(nRetTerm:getNode(), nOpenFn)
-					vContext:openPushReturn(nRetTerm)
+					vContext:pushOpenReturn(nRetTerm)
 				else
 					vContext:warn("TODO require take non-StringLiteral type ")
-					vContext:openPushReturn(vContext:FixedTermTuple({}))
+					vContext:pushOpenReturn(vContext:FixedTermTuple({}))
 				end
 			end):mergeFirst()
 		end),

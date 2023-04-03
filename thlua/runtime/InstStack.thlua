@@ -17,6 +17,7 @@ const ImmutVariable = require "thlua.term.ImmutVariable"
 
 const BaseFunction = require "thlua.func.BaseFunction"
 const TypedObject = require "thlua.object.TypedObject"
+const OpenTable = require "thlua.object.OpenTable"
 const Truth = require "thlua.type.Truth"
 
 const FunctionBuilder = require "thlua.builder.FunctionBuilder"
@@ -155,7 +156,9 @@ function InstStack:META_GET(
 			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
 				vContext:withCase(vVariableCase & vKeyVariableCase, function()
 					if not vSelfType:meta_get(vContext, vKeyType) then
-						vContext:error("index error, key="..tostring(vKeyType))
+						if not OpenTable.is(vSelfType) then
+							vContext:error("index error, key="..tostring(vKeyType))
+						end
 					end
 				end)
 			end)
