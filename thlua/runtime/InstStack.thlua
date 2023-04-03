@@ -122,13 +122,11 @@ function InstStack:EXPRLIST_UNPACK(
 		if i > #l then
 			local last = l[#l]
 			if TermTuple.is(last) then
-				local value = last:get(nUnpackContext, i - #l + 1)
-				if not value then
-					self._runtime:nodeError(vNode, "exprlist_unpack but right tuple value not enough")
-					re[i] = nUnpackContext:RefineTerm(self._manager.type.Nil)
-				else
-					re[i] = value
-				end
+				const nIndex = i - #l + 1
+				re[i] = last:get(nUnpackContext, nIndex)
+				-- if not last:rawget(nIndex) and not last:getTail() then
+					-- self._runtime:nodeError(vNode, "exprlist_unpack but right tuple value not enough")
+				-- end
 			else
 				self._runtime:nodeError(vNode, "exprlist_unpack but right value not enough")
 				re[i] = nUnpackContext:RefineTerm(self._manager.type.Nil)
@@ -136,9 +134,6 @@ function InstStack:EXPRLIST_UNPACK(
 		else
 			local cur = l[i]
 			if TermTuple.is(cur) then
-				if (i < #l and #cur ~= 1) then
-					self._runtime:nodeWarn(vNode, "exprlist_unpack except 1 value but has "..#cur)
-				end
 				re[i] = cur:get(nUnpackContext, 1)
 			else
 				re[i] = cur

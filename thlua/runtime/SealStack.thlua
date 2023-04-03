@@ -64,14 +64,14 @@ function SealStack:RAISE_ERROR(vContext:clazz.OperContext, vRaiseErr:clazz.UAllT
 		const nHintErr = nRetTuples:getErrType()
 		if not nHintErr:includeAll(vRaiseErr) then
 			if nString:includeAll(nHintErr) then
-				vContext:error("can't implicit throw a non-string error")
+				--vContext:error("can't implicit throw a non-string error")
 			else
-				vContext:error("err type not match")
+				--vContext:error("err type not match")
 			end
 		end
 	else
 		if not nString:includeAll(vRaiseErr) then
-			vContext:error("can't implicit throw a non-string error")
+			--vContext:error("can't implicit throw a non-string error")
 		end
 	end
 end
@@ -115,7 +115,14 @@ function SealStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple, clazz.UAt
 		elseif nLen == 1 then
 			return nRetList[1]!, self._manager.type.String
 		else
-			error("TODO : auto-return-function has more than one return")
+			const nFirstTuple = nRetList[1]!:checkTypeTuple()
+			for i=2,#nRetList do
+				const nOtherTuple = nRetList[i]!:checkTypeTuple()
+				if not (nFirstTuple:includeTuple(nOtherTuple) and nOtherTuple:includeTuple(nFirstTuple)) then
+					error("TODO : auto-return-function has mix return different types")
+				end
+			end
+			return nRetList[1]!, self._manager.type.String
 		end
 	else
 		return nil@!clazz.FixedTermTuple, nil@!clazz.UAtomUnion
