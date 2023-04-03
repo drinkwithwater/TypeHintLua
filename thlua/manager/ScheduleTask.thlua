@@ -10,7 +10,8 @@ end)
 
 const ScheduleTask = class@<clazz.ScheduleTask, false>()
 
-function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:OrNil(clazz.IAstNode, clazz.NameLocation, clazz.SealStack))
+-- function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:OrNil(clazz.IAstNode, clazz.NameLocation, clazz.SealStack))
+function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:OrNil(clazz.SealStack))
 	self._scheduleManager = vScheduleManager
 	self._selfCo = coroutine.create(function(vRunFn:Fn():Err(clazz.Exception))
 		const ok, nExc = pcall(vRunFn)
@@ -27,29 +28,8 @@ function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:O
 				error(nExc)
 			end
 		end
-		--[[if not ok then
-			const nContext = self:getContext()
-			if Exception.is(nExc) then
-				nExc:fixNode(self:getAssignNode())
-				if nContext then
-					nContext:getRuntime():nodeError(nExc.node, nExc.msg)
-				else
-					error(nExc)
-				end
-				error(nExc)
-			else
-				const nExc = Exception.new(tostring(nExc), self:getAssignNode())
-				if nContext then
-					nContext:getRuntime():nodeError(nExc.node, nExc.msg)
-				else
-					error(nExc)
-				end
-				error(nExc)
-			end
-		end]]
 	end)
 	self._stack = vStack or false
-	self._stopWaitType=false@Boolean
 end
 
 function ScheduleTask:getSelfCo():Ret(Thread)

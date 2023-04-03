@@ -334,7 +334,7 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 ):Ret(clazz.RefineTerm)
-	const nBranch = self:_topBranch()
+	const nBranch = self:topBranch()
 	const nFnType = FunctionBuilder.new(self, vNode, {
 		branch=nBranch,
 		uvCase=nBranch:getCase(),
@@ -406,7 +406,7 @@ function InstStack:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Numbe
 end
 
 function InstStack:SYMBOL_SET(vNode:node.Ident_use, vDefineNode:node.Ident_def, vTerm:clazz.UAutoTerm)
-	const nBranch = self:_topBranch()
+	const nBranch = self:topBranch()
 	const nSymbol = nBranch:getSymbolByNode(vDefineNode)
 	const nSymbolContext = self:newAssignContext(vNode)
 	assert(not ImmutVariable.is(nSymbol), nSymbolContext:newException("immutable symbol can't set "))
@@ -416,7 +416,7 @@ function InstStack:SYMBOL_SET(vNode:node.Ident_use, vDefineNode:node.Ident_def, 
 end
 
 function InstStack:SYMBOL_GET(vNode:node.Ident_use, vDefineNode:node.Ident_def, vAllowAuto:Boolean):Ret(clazz.UAutoTerm)
-	return self:_topBranch():SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
+	return self:topBranch():SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
 end
 
 function InstStack:PARAM_PACKOUT(
@@ -482,7 +482,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 end
 
 function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
-	const nTopBranch = self:_topBranch()
+	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
 	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
@@ -514,7 +514,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 	const nImmutVariable = nTerm:attachImmutVariable()
 	if vModify then
 		const nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, nTerm:getType(), nTerm)
-		self:_topBranch():mutMark(nLocalSymbol, nImmutVariable)
+		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
 		return nTopBranch:setSymbolByNode(vNode, nLocalSymbol)
 	else
 		nImmutVariable:setNode(vNode)
@@ -531,7 +531,7 @@ function InstStack:IF_ONE(
 	const nIfContext = self:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
-	const nBeforeBranch = self:_topBranch()
+	const nBeforeBranch = self:topBranch()
 	if nTrueCase then
 		const nTrueBranch = self:_withBranch(nTrueCase, vTrueFunction, vBlockNode)
 		nBeforeBranch:mergeOneBranch(nIfContext, nTrueBranch, nFalseCase)
@@ -547,7 +547,7 @@ function InstStack:IF_TWO(
 	const nIfContext = self:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
 	const nFalseCase = vTerm:caseFalse()
-	const nBeforeBranch = self:_topBranch()
+	const nBeforeBranch = self:topBranch()
 	if nTrueCase then
 		const nTrueBranch = self:_withBranch(nTrueCase, vTrueFunction, vTrueBlock)
 		if nFalseCase then
@@ -693,7 +693,7 @@ function InstStack:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(c
 end
 
 function InstStack:BREAK(vNode:clazz.IAstNode)
-	self:_topBranch():setStop()
+	self:topBranch():setStop()
 end
 
 function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)

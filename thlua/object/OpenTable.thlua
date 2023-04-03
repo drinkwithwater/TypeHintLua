@@ -12,6 +12,7 @@ const class = require "thlua.class"
 	let.clazz = import($class).clazz
 	let.OpenTableField = Struct {
 		valueTerm = clazz.RefineTerm,
+		branch = clazz.Branch,
 		lockCtx = OrFalse(clazz.OperContext),
 	}
 end)
@@ -38,11 +39,12 @@ function OpenTable:meta_len(vContext)
 	return self._manager.type.Number
 end
 
-function OpenTable:initByKeyValueTerm(vNode:clazz.IAstNode, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.RefineTerm))
+function OpenTable:initByKeyValueTerm(vNode:clazz.IAstNode, vBranch:clazz.Branch, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.RefineTerm))
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
 			valueTerm = v,
+			branch=vBranch,
 			lockCtx = false,
 		}
 	end
@@ -103,7 +105,12 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 					vContext:error("field is locked"..tostring(vKeyType))
 				else
 					vContext:addLookupNode(nField.valueTerm:getNode(), nField.valueTerm:getType())
+					const nTopBranch = vContext:getStack():topBranch()
+					if nField.branch == nTopBranch then
+						vContext:warn("field:"..tostring(nKeyIncludeType).." multi assign in one scope")
+					end
 					nField.valueTerm = vValueTerm
+					nField.branch = nTopBranch
 				end
 			else
 				const nMetaNewIndex = self._metaNewIndex
@@ -184,6 +191,7 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
 				valueTerm = vValueTerm,
+				branch = vContext:getStack():topBranch(),
 				lockCtx = false,
 			}
 		else
@@ -192,6 +200,7 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 	else
 		self._fieldDict[nIncludeType] = {
 			valueTerm = vValueTerm,
+			branch = vContext:getStack():topBranch(),
 			lockCtx = false,
 		}
 	end
@@ -209,6 +218,7 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 		const nNil = self._manager.type.Nil
 		self._fieldDict[vKeyType] = {
 			valueTerm=vContext:RefineTerm(nNil),
+			branch = vContext:getStack():topBranch(),
 			lockCtx=vContext
 		}
 		return nNil
