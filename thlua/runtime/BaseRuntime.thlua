@@ -36,6 +36,8 @@ const class = require "thlua.class"
 
 	let.LoadedState = Struct {
 		openFn=clazz.OpenFunction,
+		codeEnv=clazz.CodeEnv,
+		path=OrNil(String),
 		term=OrNil(clazz.RefineTerm),
 		stack=OrNil(clazz.BaseStack),
 	}
@@ -48,8 +50,8 @@ const BaseRuntime = class@<clazz.BaseRuntime, false>()
 function.open BaseRuntime:ctor(vLoader:clazz.ILoader)
 	self._loader=vLoader
 	self._spaceList={}@List(clazz.Namespace)
+	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
-	self._fileEnvDict={}@Dict(String, clazz.CodeEnv)
 	self._scheduleManager=ScheduleManager.new()
 	-- late init fields
 	self._node=nil@!node.Root
@@ -58,8 +60,13 @@ function.open BaseRuntime:ctor(vLoader:clazz.ILoader)
 	self._rootStack=nil@!clazz.SealStack
 end
 
-function BaseRuntime:getCodeEnv(vFileKey:String):Ret(OrNil(clazz.CodeEnv))
-	return self._fileEnvDict[vFileKey]
+function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
+	const nState = self._loadedDict[vFileName]
+	if nState then
+		return nState.codeEnv
+	else
+		return false
+	end
 end
 
 function BaseRuntime:checkAtomUnionFinish()
@@ -71,9 +78,13 @@ end
 function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	-- TODO better style?
 	if type(vDst) == "string" then
-		const nPath = vDst@> String
-		self:require(Node.getDebugNode(3), nPath)
-		const nStack = self._loadedDict[nPath]!.stack!
+		const nPath = vDst @> String
+		const nNode = Node.getDebugNode(3)
+		const nLoadedState = self:_cacheLoadPath(Node.getDebugNode(3), nPath)
+		const nStack = nLoadedState.stack
+		if not nStack then
+			error(Exception.new("recursive import:"..nPath, nNode))
+		end
 		const nSpace = nStack:getNamespace()
 		return nSpace.localExport
 	elseif BaseAtomType.is(vDst) then
@@ -102,10 +113,7 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, String)
 	const a,b = pcall(function()
 		nAutoFn:initAsync(function()
 			return false, false, function()
-				const nLuaFunc = self:cacheLoadFile(vMainFileName)
-				const nNoPushContext = self._rootStack:newNoPushContext(self._node)
-				const nTermTuple = nNoPushContext:FixedTermTuple({})
-				nLuaFunc:meta_open_call(nNoPushContext, nTermTuple, true)
+				const nLoadedState = self:_cacheLoadFile(self._node, vMainFileName)
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples(self._node)
 				return nParTuple, nRetTuples
@@ -140,38 +148,51 @@ function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
 	return OpenStack.new(self, ...)
 end
 
-function BaseRuntime:cacheLoadFile(vFileName:String):Ret(clazz.OpenFunction)
-	local nCodeEnv = self._fileEnvDict[vFileName]
-	if not nCodeEnv then
-		nCodeEnv = self._loader:thluaParseFile(vFileName)
-		self._fileEnvDict[vFileName] = nCodeEnv
-	end
-	return nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
-end
-
-function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
-	if not self._loadedDict[vPath] then
-		const nOkay, nFileName = self._loader:thluaSearch(vPath)
-		if not nOkay then
-			error(Exception.new(nFileName, vNode))
-		end
-		const nLuaFunc = self:cacheLoadFile(nFileName)
-		const nLoadedState:LoadedState = {
-			openFn=nLuaFunc,
+function BaseRuntime:_cacheLoadFile(vNode:clazz.IAstNode, vFileName:String):Ret(LoadedState)
+	local nLoadedState = self._loadedDict[vFileName]
+	if not nLoadedState then
+		const nCodeEnv = self._loader:thluaParseFile(vFileName)
+		const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
+		nLoadedState = {
+			openFn=nOpenFn,
+			codeEnv=nCodeEnv,
 		}
-		self._loadedDict[vPath] = nLoadedState
-		const nContext = self._rootStack:newNoPushContext(self._node)
+		self._loadedDict[vFileName] = nLoadedState
+		const nContext = self._rootStack:newNoPushContext(vNode)
 		const nTermTuple = nContext:FixedTermTuple({})
-		const nRet, nStack = nLuaFunc:meta_open_call(nContext, nTermTuple, true)
+		const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
 		nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
 		nLoadedState.stack = nStack
 	end
-	const nLoaded = self._loadedDict[vPath]!
-	const nTerm = nLoaded.term
+	return nLoadedState
+end
+
+function BaseRuntime:_cacheLoadPath(vNode:clazz.IAstNode, vPath:String):Ret(LoadedState)
+	local nFileName = self._pathToFileName[vPath]
+	if not nFileName then
+		const nOkay, nSearchFileName = self._loader:thluaSearch(vPath)
+		if not nOkay then
+			error(Exception.new(nSearchFileName, vNode))
+		else
+			nFileName = nSearchFileName
+		end
+	end
+	const nLoadedState = self._loadedDict[nFileName] or self:_cacheLoadFile(vNode, nFileName)
+	const nOldPath = nLoadedState.path
+	if nOldPath and nOldPath ~= vPath then
+		self:nodeWarn(vNode, "mixing path:'"..nOldPath.."','"..vPath.."'")
+	end
+	nLoadedState.path = vPath
+	return nLoadedState
+end
+
+function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
+	const nLoadedState = self:_cacheLoadPath(vNode, vPath)
+	const nTerm = nLoadedState.term
 	if not nTerm then
 		error(Exception.new("recursive require:"..vPath, vNode))
 	end
-	return nTerm, nLoaded.openFn
+	return nTerm, nLoadedState.openFn
 end
 
 function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)
