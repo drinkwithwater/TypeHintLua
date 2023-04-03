@@ -66,11 +66,15 @@ function ApplyContext:openAssign(vType:clazz.UAtomUnion)
 	self._once = true
 end
 
+-- TODO: refactor later
+function ApplyContext:nativeOpenReturn(vTermTuple:clazz.UOpenReturn)
+	assert(not self._curCase)
+	self._curCase = VariableCase.new()
+	self:pushOpenReturn(vTermTuple)
+	self._curCase = false
+end
+
 function ApplyContext:pushOpenReturn(vTermTuple:clazz.UOpenReturn)
-	const nCurCase = self._curCase
-	if not nCurCase then
-		self._curCase = VariableCase.new()
-	end
 	if RefineTerm.is(vTermTuple) then
 		const nFirst = vTermTuple:getType()
 		vTermTuple:foreach(function(vType, vCase)
@@ -81,7 +85,6 @@ function ApplyContext:pushOpenReturn(vTermTuple:clazz.UOpenReturn)
 			self:pushFirstAndTuple(vFirstType, vTypeTuple, vCase)
 		end)
 	end
-	self._curCase = nCurCase
 	self._once = true
 end
 

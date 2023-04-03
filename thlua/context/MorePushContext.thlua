@@ -46,14 +46,29 @@ function MorePushContext:pushRetTuples(vRetTuples:clazz.RetTuples)
 	end)
 end
 
---[[
-function MorePushContext:pcallMergeReturn():Ret(clazz.UOpenReturn)
-	const nOpenReturn = self._openReturn
-	if nOpenReturn then
-		if RefineTerm.is(nOpenReturn) then
+function MorePushContext:pcallMergeReturn(vErrType:clazz.UAtomUnion):Ret(clazz.UOpenReturn)
+	self._retMaxLength = self._retMaxLength + 1
+	const nRetList = self._retList
+	const nTrue = self._manager.type.True
+	const nFalse = self._manager.type.False
+	for i=1, #nRetList do
+		const nTypeCaseTuple = nRetList[i]!
+		nTypeCaseTuple[1] = nTrue
+		const nTuple = nTypeCaseTuple[3]
+		if nTuple then
+			nTypeCaseTuple[3] = nTuple:leftAppend(nTrue)
+		else
+			nTypeCaseTuple[3] = self._manager:TypeTuple(self._node, nTrue)
 		end
 	end
-end]]
+	nRetList[#nRetList + 1] = {
+		nFalse, VariableCase.new(), self._manager:TypeTuple(self._node, nFalse, vErrType)
+	}
+	if self._retMaxLength < 2 then
+		self._retMaxLength = 2
+	end
+	return self:mergeReturn()
+end
 
 function MorePushContext:mergeReturn():Ret(clazz.UOpenReturn)
 	-- merge seal call return

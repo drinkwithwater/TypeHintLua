@@ -1,17 +1,18 @@
 
 const TermTuple = require "thlua.tuple.TermTuple"
-local TypedFunction = require "thlua.func.TypedFunction"
-local SealTable = require "thlua.object.SealTable"
-local OpenTable = require "thlua.object.OpenTable"
-local AutoTable = require "thlua.object.AutoTable"
-local Truth = require "thlua.type.Truth"
-local StringLiteral = require "thlua.type.StringLiteral"
-local NumberLiteral = require "thlua.type.NumberLiteral"
-local Number = require "thlua.type.Number"
-local Exception = require "thlua.Exception"
-local VariableCase = require "thlua.term.VariableCase"
+const TypedFunction = require "thlua.func.TypedFunction"
+const SealTable = require "thlua.object.SealTable"
+const OpenTable = require "thlua.object.OpenTable"
+const AutoTable = require "thlua.object.AutoTable"
+const Truth = require "thlua.type.Truth"
+const RefineTerm = require "thlua.term.RefineTerm"
+const StringLiteral = require "thlua.type.StringLiteral"
+const NumberLiteral = require "thlua.type.NumberLiteral"
+const Number = require "thlua.type.Number"
+const Exception = require "thlua.Exception"
+const VariableCase = require "thlua.term.VariableCase"
 
-local native = {}
+const native = {}
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -54,7 +55,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 						vContext:error("metatable must be table but get:"..tostring(nType2))
 					end
 				end
-				vContext:pushOpenReturn(nTerm1)
+				vContext:nativeOpenReturn(nTerm1)
 			end):mergeFirst()
 		end),
 		getmetatable=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -89,7 +90,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 				const nType2 = vTermTuple:checkFixed(vContext, 2):getType()
 				assert(not nType1:isUnion(), "rawget for union type TODO")
 				assert(not nType2:isUnion(), "rawget for union type TODO")
-				vContext:pushOpenReturn(vContext:RefineTerm(nType1:native_rawget(vContext, nType2)))
+				vContext:nativeOpenReturn(vContext:RefineTerm(nType1:native_rawget(vContext, nType2)))
 			end):mergeFirst()
 		end),
 		rawset=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -174,7 +175,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 		tonumber=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			--self:argnum_warn(1, vTermTuple)
 			--local nData = vTermTuple:get(1)
-			print("tonumber TODO")
+			--print("tonumber TODO")
 			return vContext:RefineTerm(nManager:checkedUnion(nManager.type.False, nManager.type.Number))
 		end),
 		require=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
@@ -184,14 +185,15 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 					local nPath = nFileName:getLiteral()
 					const nRetTerm, nOpenFn = vRuntime:require(nPath)
 					vContext:addLookupNode(nRetTerm:getNode(), nOpenFn)
-					vContext:pushOpenReturn(nRetTerm)
+					vContext:nativeOpenReturn(nRetTerm)
 				else
 					vContext:warn("TODO require take non-StringLiteral type ")
-					vContext:pushOpenReturn(vContext:FixedTermTuple({}))
+					vContext:nativeOpenReturn(vContext:FixedTermTuple({}))
 				end
 			end):mergeFirst()
 		end),
 		load=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+			-- TODO
 			return vContext:RefineTerm(nManager.type.AnyFunction)
 		end),
 		-- function take open context, not oper context
@@ -199,25 +201,20 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			const nHeadContext = vStack:inplaceOper()
 			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 2)
-			const nCallContext = vStack:getApplyStack():prepareMetaCall(vStack:getNode(), nFunc, function() return nArgs end)
-			const nTermTuple = nCallContext:mergeReturn()
-			const nRetFirst = nHeadContext:RefineTerm(nManager.type.True)
-			-- TODO combine first & second
-			const nRetTermTuple = nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
-			assert(TermTuple.isFixed(nRetTermTuple))
-			return nRetTermTuple
+			const nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc, function() return nArgs end)
+			return nCallContext:pcallMergeReturn(vStack:mergeEndErrType())
 		end),
 		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			const nHeadContext = vStack:inplaceOper()
-			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
+			const nFunc1 = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
+			const nFunc2 = vTermTuple:get(nHeadContext, 2):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 3)
-			const nCallContext = vStack:getApplyStack():prepareMetaCall(vStack:getNode(), nFunc, function() return nArgs end)
-			const nTermTuple = nCallContext:mergeReturn()
-			const nRetFirst = nHeadContext:RefineTerm(nManager.type.True)
-			-- TODO combine first & second
-			const nRetTermTuple = nHeadContext:UTermTupleByAppend({nRetFirst}, nTermTuple)
-			assert(TermTuple.isFixed(nRetTermTuple))
-			return nRetTermTuple
+			const nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc1, function() return nArgs end)
+			const nErrType = vStack:mergeEndErrType()
+			const nHandleContext = vStack:prepareMetaCall(vStack:getNode(), nFunc2, function() return nCallContext:FixedTermTuple({nCallContext:RefineTerm(nErrType)}) end)
+			const nHandleReturn = nHandleContext:mergeReturn()
+			const nType = RefineTerm.is(nHandleReturn) and nHandleReturn:getType() or nHandleReturn:get(nHandleContext, 1):getType()
+			return nCallContext:pcallMergeReturn(nType)
 		end),
 		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			const nOperCtx = vStack:inplaceOper()
