@@ -33,6 +33,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), 
 		_nodeList = {}@List(node.IAstNode),
 		_typingCode = "--[[no gen code ]]"@OrFalse(String),
 		_astTree = nil@!node.Chunk,
+		_parseEnv = nil@!node.ParseEnv,
 		_typingFn = nil@!TypingFn,
 	}, CodeEnv)
 	if not vChunkWithInject then
@@ -42,6 +43,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), 
 			error(Exception.new(nErr[1], nErr))
 		end
 		self._astTree = nAst
+		self._parseEnv = nErr
 	else
 		self._astTree = vChunkWithInject
 	end
@@ -227,6 +229,10 @@ function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String,
 	else
 		return false
 	end
+end
+
+function CodeEnv:genLuaCode()
+	return self._parseEnv:genLuaCode()
 end
 
 return CodeEnv

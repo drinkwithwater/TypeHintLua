@@ -55,6 +55,14 @@ function boot.runCheck(vMainFileName)
 	assert(nRuntime:pmain(vMainFileName))
 end
 
+function boot.makePlayGround()
+	local PlayGround = require "thlua.server.PlayGround"
+	local playground = PlayGround.new()
+	return function(a, b)
+		return playground:update(a, b)
+	end
+end
+
 -- run language server
 function boot.runServer(vMode)
 	boot.patch()

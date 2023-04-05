@@ -98,8 +98,11 @@ end
 function SplitCode:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
 	local line, lineInfo = self:binSearch@<node.LinePos>(self._linePosList, vPos)
 	if not line or not lineInfo then
-		print("warning pos out of range, pos="..vPos) --, vNode and vNode.tag)
-		return 1, 1
+		if vPos > #self._content then
+			return #self._linePosList + 1, 1
+		else
+			return 1, 1
+		end
 	else
 		return line, vPos - lineInfo.pos + 1
 	end

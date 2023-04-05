@@ -793,7 +793,7 @@ function ParseEnv.parse(vContent)
 	if nAstOrErr.tag == "Error" then
 		return false, nAstOrErr
 	else
-		return nAstOrErr
+		return nAstOrErr, nEnv
 	end
 end
 

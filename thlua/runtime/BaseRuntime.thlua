@@ -100,7 +100,7 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	end
 end
 
-function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, String)
+function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, Union(String, clazz.Exception))
 	self._node=Node.newRootNode(vMainFileName)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
@@ -110,7 +110,7 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, String)
 	self._globalTable = native.make(self)
 	nRootStack:rootSetNamespace(self:RootNamespace())
 	const t1 = os.clock()
-	const a,b = pcall(function()
+	const a,b = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
 			return false, false, function()
 				const nLoadedState = self:_cacheLoadFile(self._node, vMainFileName)

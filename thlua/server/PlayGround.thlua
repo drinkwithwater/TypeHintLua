@@ -1,0 +1,58 @@
+
+
+const class = require "thlua.class"
+const json = require "thlua.server.json"
+
+const SplitCode = require "thlua.code.SplitCode"
+const CodeEnv = require "thlua.code.CodeEnv"
+const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
+
+(@do
+    let.clazz = import($class).clazz
+    let.UpdateReturn = Struct {
+        err=OrNil(String),
+        content=OrNil(String),
+    }
+end)
+
+const PlayGround = class@<clazz.PlayGround, clazz.ILoader>()
+
+function.open PlayGround:ctor()
+    self._splitCode = SplitCode.new("")
+    self._codeEnv = nil@!clazz.CodeEnv
+end
+
+function PlayGround:thluaParseFile(vFileName)
+    return CodeEnv.new(self._splitCode, vFileName)
+end
+
+function PlayGround:thluaSearch(vPath)
+    return false, "can't use require on playground"
+end
+
+function PlayGround:update(...)
+    return json.encode(self:_update(...))
+end
+
+function PlayGround:_update(vName:String, vContent:String):Ret(UpdateReturn)
+    const nCode = SplitCode.new(vContent)
+    self._splitCode = nCode
+    const nParseOkay, nCodeEnv = pcall(CodeEnv.new, nCode, vName)
+    if not nParseOkay then
+        return {
+            err=tostring(nCodeEnv),
+        }
+    end
+    const nRuntime = DiagnosticRuntime.new(self)
+    const nRunOkay, nExc = nRuntime:pmain(vName)
+    if not nRunOkay then
+        return {
+            err=tostring(nExc),
+        }
+    end
+    return {
+        content=nCodeEnv:genLuaCode()
+    }
+end
+
+return PlayGround
