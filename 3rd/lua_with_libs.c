@@ -20,7 +20,7 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-#include "lua_with_libs.h"
+#include "some_libs.h"
 
 #if !defined(LUA_PROGNAME)
 #define LUA_PROGNAME		"lua"

@@ -45,9 +45,16 @@ include_directories(
 
 aux_source_directory(${LUA_SRC_PATH} LUA_CORE)
 list(REMOVE_ITEM LUA_CORE ${LUA_SRC_PATH}/luac.c ${LUA_SRC_PATH}/onelua.c ${LUA_SRC_PATH}/lua.c)
-list(APPEND LUA_CORE 3rd/lua_with_libs.c)
+# list(APPEND LUA_CORE 3rd/lua_with_libs.c)
 
 add_executable(lua
+	3rd/lua_with_libs.c
+	${LUA_CORE}
+	${THIRDPART_SRC}
+)
+
+add_executable(emlua
+	3rd/lua_wasm.cpp
 	${LUA_CORE}
 	${THIRDPART_SRC}
 )
