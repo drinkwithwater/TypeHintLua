@@ -34,16 +34,16 @@ public:
 	void init(std::string vInitScript) {
 		auto compile_result = luaL_loadbuffer(pState, vInitScript.c_str(), vInitScript.size(), "@init.lua");
 		if(compile_result != LUA_OK) {
-			printf("compile fail%s\n", lua_tostring(pState, -1));
+			printf("[ERROR] compile fail%s\n", lua_tostring(pState, -1));
 			return ;
 		}
 		auto init_result = lua_pcall(pState, 0, 1, lua_gettop(pState));
 		if(init_result != LUA_OK) {
-			printf("init fail%s\n", lua_tostring(pState, -1));
+			printf("[ERROR] init fail%s\n", lua_tostring(pState, -1));
 			return ;
 		}
 		if(lua_type(pState, lua_gettop(pState)) != LUA_TFUNCTION) {
-			printf("init script return function\n");
+			printf("[ERROR] init script not return function\n");
 			return ;
 		}
 		dispatchIndex = lua_gettop(pState);

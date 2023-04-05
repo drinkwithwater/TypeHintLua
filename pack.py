@@ -74,20 +74,22 @@ class Packer(object):
                 content, = foreign.call(compileService, "compile", content, fullFileName)
                 content = content.decode("utf-8")
             self.pathContentList.append((path, content))
+        self.pathContentList.sort()
 
     def build(self):
         l = [HEAD]
-        self.pathContentList.sort()
         for path, content in self.pathContentList:
             l.append(TEMPLATE.format(path=path,content=content))
         l.append(TAIL)
         with open("thlua.lua", "w") as fo:
             content = "".join(l)
             fo.write(content)
+        with open("../pyhello/thlua.lua", "w") as fo:
+            content = "".join(l)
+            fo.write(content)
 
     def buildForVSC(self):
         l = [HEAD]
-        self.pathContentList.sort()
         for path, content in self.pathContentList:
             l.append(TEMPLATE.format(path=path,content=content))
         l.append("""
@@ -99,7 +101,21 @@ class Packer(object):
             content = "".join(l)
             fo.write(content)
 
+    def buildForWeb(self):
+        l = ["var THLUA_SCRIPT=(function(){/* ", HEAD]
+        for path, content in self.pathContentList:
+            l.append(TEMPLATE.format(path=path,content=content))
+        l.append("""
+            local boot = require "thlua.boot"
+            return boot.makePlayGround()
+                */}).toString().slice(14,-3)
+        """)
+        with open("../../github/drinkwithwater.github.io/src/thlua.js", "w") as fo:
+            content = "".join(l)
+            fo.write(content)
+
 packer = Packer()
 packer.scanRoot()
 packer.build()
 packer.buildForVSC()
+packer.buildForWeb()
