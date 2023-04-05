@@ -7,6 +7,11 @@ if ( WIN32 AND NOT CYGWIN AND NOT ( CMAKE_SYSTEM_NAME STREQUAL "WindowsStore" ) 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd" CACHE STRING "")
 endif ()
 
+if ( WASM )
+	set(CMAKE_C_COMPILER "emcc")
+	set(CMAKE_CXX_COMPILER "emcc")
+endif()
+
 project(TypeHintLua)
 
 set(LUA_SRC_PATH 3rd/lua)
@@ -47,27 +52,34 @@ aux_source_directory(${LUA_SRC_PATH} LUA_CORE)
 list(REMOVE_ITEM LUA_CORE ${LUA_SRC_PATH}/luac.c ${LUA_SRC_PATH}/onelua.c ${LUA_SRC_PATH}/lua.c)
 # list(APPEND LUA_CORE 3rd/lua_with_libs.c)
 
-add_executable(lua
-	3rd/lua_with_libs.c
-	${LUA_CORE}
-	${THIRDPART_SRC}
-)
+if (NOT WASM)
+	add_executable(lua
+		3rd/lua_wasm.cpp
+		${LUA_CORE}
+		${THIRDPART_SRC}
+	)
 
-add_executable(emlua
-	3rd/lua_wasm.cpp
-	${LUA_CORE}
-	${THIRDPART_SRC}
-)
+	if ( WIN32 AND NOT CYGWIN )
+		target_link_libraries(lua
+			ws2_32
+			${THIRDPART_LIB}
+		)
+	else ( )
+		target_link_libraries(lua
+			m
+			${THIRDPART_LIB}
+		)
+	endif ( )
+endif()
 
-
-if ( WIN32 AND NOT CYGWIN )
-	target_link_libraries(lua
-		ws2_32
+if ( WASM )
+	add_executable(emlua.js
+		3rd/lua_wasm.cpp
+		${LUA_CORE}
+		${THIRDPART_SRC}
+	)
+	target_link_libraries(emlua.js
+		embind
 		${THIRDPART_LIB}
 	)
-else ( )
-	target_link_libraries(lua
-		m
-		${THIRDPART_LIB}
-	)
-endif ( )
+endif()
