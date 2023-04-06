@@ -110,9 +110,20 @@ class Packer(object):
             return boot.makePlayGround()
                 */}).toString().slice(14,-3)
         """)
-        with open("../../github/drinkwithwater.github.io/src/thlua.js", "w") as fo:
+        MY_PATH="../../github/drinkwithwater.github.io"
+        with open(MY_PATH+"/src/thlua.js", "w") as fo:
             content = "".join(l)
             fo.write(content)
+        l = []
+        for fileName in os.listdir("examples"):
+            with open("examples/"+fileName) as fi:
+                data = fi.read()
+                l.extend(["{name:'"+fileName+"',content;(function(){/* ", data, " */}).toString().slice(14, -3)" ])
+        with open(MY_PATH+"/src/examples.js", "w") as fo:
+            content = ",".join(l)
+            fo.write("var THLUA_EXAMPLES=[")
+            fo.write(content)
+            fo.write("]")
 
 packer = Packer()
 packer.scanRoot()

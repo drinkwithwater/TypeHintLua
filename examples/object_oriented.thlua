@@ -1,0 +1,96 @@
+
+const class2meta={}
+const meta2class={}
+
+(@do
+	let.clazz = namespace()
+	let.open2type = namespace()
+end)
+
+const function.open class@<C, I>(super)
+	const class_type={.open}
+	(@open2type[$class_type] = C)
+	class_type.ctor=false
+	class_type.super=super
+	class_type.new=function:class(C) (...):extends(Cond($super, open2type[$super], False)):implements(I)
+			const obj={.class}
+			do
+				const function.open create(c,...)
+					if c.super then
+						create(c.super,...)
+					end
+					if c.ctor then
+						c.ctor(obj,...)
+					end
+				end
+
+				create(class_type,...)
+			end
+			setmetatable(obj, class_type.meta)
+			return obj
+		end
+	const vtbl={.open}
+	const meta={.open
+		__index=vtbl
+	}
+	class_type.isDict = setmetatable({}, {
+		__index=function.pass(type2is:Dict(Truth, Boolean), if_type:Truth):Ret(Boolean)
+			local cur_type = class_type
+			while cur_type do
+				if cur_type == if_type then
+					type2is[if_type] = true
+					return true
+				else
+					cur_type = cur_type.super
+				end
+			end
+			type2is[if_type] = false
+			return false
+		end
+	}) @? Dict(Truth, Boolean)
+	class_type.is=function.open(v):isguard(C)
+		const nClassType = meta2class[getmetatable(v) or 1]
+		const nIsDict = nClassType and nClassType.isDict
+		return nIsDict and nIsDict[class_type] or false
+	end
+	class_type.meta=meta
+	class2meta[class_type]=meta
+	meta2class[meta]=class_type
+
+	setmetatable(class_type,{__newindex=
+		function.open(t,k,v)
+			vtbl[k]=v
+		end
+	})
+
+	if super then
+		const super_meta = class2meta[super]
+		for k,v in pairs(super_meta.__index) do
+			vtbl[k] = v
+		end
+		for k,v in pairs(super_meta) do
+			if k ~= "__index" then
+				meta[k] = v
+			end
+		end
+	end
+
+	return class_type
+end
+
+const Base = class@<clazz.Base, false>()
+
+function.open Base:ctor(a:Integer)
+	self._data = 321
+end
+
+const Extend = class@<clazz.Extend, false>(Base)
+
+function.open Extend:ctor(...)
+end
+
+function Extend:hello()
+	(@print($self._data))
+end
+
+const e = Extend.new(321)

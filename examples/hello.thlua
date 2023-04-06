@@ -1,109 +1,20 @@
 
 -- define a const variable
-const constInt = 321
+const constHello = "hello world"
 
 -- define a local value, literal type auto cast to primitive type in local statement
 local localBoolean = true
 localBoolean = false
 
--- define a function with multi return type
-const function multiReturn(a:Integer):Ret(True, Integer):Ret(False)
-	if math.random() > 0.5 then
-		return true, a
-	else
-		return false
-	end
-end
+-- print in hint space
+(@print($constHello))
 
--- use (@ ) to wrap statement for hint space, statement must be assign-statement or apply-statement or do-statement
-(@let.HelloType = Number)
+-- print in lua space
+print(constHello)
 
-(@print(321))
+-- hint at symbol
+const i:Integer = 321
 
-(@do
+-- type cast
+const i = 321 @ Integer
 
--- define a struct, let is a default namespace in function level
-let.A = Struct {
-	fds=Integer,
-	rew=String,
-	-- namespace can be used for recursive define
-	dosth=OrNil(let.A),
-}
-
--- create a new namespace
-let.name = namespace()
-
--- use $ to get a type of a lua variable, just like decltype in c++
-print($constInt)
-
--- (@SuffixedExpr) can be used after $
-print($(@A).fds)
-
-end)
-
--- define an auto table, and cast it to a struct
-const dataA:A = {
-	fds=123,
-	rew="fds",
-}
-
--- use @ for covariance cast, this is safe
-local castToA = 321 @ Integer
-
--- use @! for ignore nil cast, this is unsafe
-castToA = nil @! Integer
-
--- use @> for contravariance cast, this is unsafe
-const contraCast:Union(1,2) = castToA @> Literal(1)
-
--- use @? for force cast, this is very unsafe
-const forceCast:Union(1,2) = "fdsfs" @? Literal(1)
-
--- use @<> for poly function
-const function dosth@<T>(a:T):Ret(T)
-	return a
-end
-
-local someInt = dosth@<Integer>(321)
-
--- sometimes function can deduce return type
-const function dosth2(a:Integer)
-	return a
-end
-
-someInt = dosth2(231)
-
--- define a class function
-const function:class(let.Hello) make(a:Integer, b:String)
-	-- declare self table with .class
-	return {.class
-		a=a,
-		b=b,
-	}
-end
-
--- define an open function, open function will expand stack for every apply
--- open function is useful sometimes, but not very safe, completion sometimes not work in open function
-const function.open make(clsName)
-	const meta = {.open}
-	meta.__index = meta
-	function:class(name[$clsName]) meta.new()
-		return setmetatable({.class
-		}, meta)
-	end
-	-- open table can modify field without type safety
-	meta.getClsName = 321
-	function meta:getClsName()
-		return clsName
-	end
-	return meta
-end
-
-const cls1 = make("class1")
-const obj1 = cls1.new()
-
-const cls2 = make("class2")
-const obj2 = cls2.new()
-
-(@print($obj1:getClsName()))
-(@print($obj2:getClsName()))

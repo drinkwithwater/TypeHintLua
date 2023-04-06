@@ -1,0 +1,33 @@
+
+(@let.name=namespace())
+
+-- define an open function, open function will expand stack for each apply
+-- open function is useful sometimes, but not very safe, completion sometimes not work in open function
+const function.open make(clsName)
+	-- define a open table, open table is regard as singleton type
+	const meta = {.open}
+	meta.__index = meta
+	function:class(name[$clsName]) meta.new()
+		return setmetatable({.class
+		}, meta)
+	end
+	function meta:getData()
+		return clsName
+	end
+	if clsName == "class1" then
+		-- open table can modify field
+		function meta:getData()
+			return "not clsName"
+		end
+	end
+	return meta
+end
+
+const cls1 = make("class1")
+const obj1 = cls1.new()
+
+const cls2 = make("class2")
+const obj2 = cls2.new()
+
+(@print($obj1:getData()))
+(@print($obj2:getData()))
