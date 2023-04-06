@@ -50,9 +50,26 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
     self._splitCode = nCode
     const nParseOkay, nCodeEnv = pcall(CodeEnv.new, nCode, vName)
     if not nParseOkay then
+        const nDia:clazz.Diagnostic = {
+            node={
+                path=vName,
+                l=1,
+                c=1,
+            } @? clazz.IAstNode,
+            msg=tostring(nCodeEnv),
+            severity=1,
+        }
+        if type(nCodeEnv) == "table" then
+            nDia.node = {
+                path=nCodeEnv.node.path,
+                l=nCodeEnv.node.l,
+                c=nCodeEnv.node.c,
+            } @? clazz.IAstNode
+            nDia.msg = nCodeEnv.msg
+        end
         return {
             syntaxErr=true,
-            diaList=json.array({} @List(clazz.Diagnostic)),
+            diaList=json.array({nDia} @List(clazz.Diagnostic)),
             luaContent=tostring(nCodeEnv),
         }
     end
