@@ -73,12 +73,12 @@ if (NOT WASM)
 endif()
 
 if ( WASM )
-	add_executable(emlua.js
+	add_executable(lua.js
 		3rd/lua_wasm.cpp
 		${LUA_CORE}
 		${THIRDPART_SRC}
 	)
-	target_link_libraries(emlua.js
+	target_link_libraries(lua.js
 		embind
 		${THIRDPART_LIB}
 	)
