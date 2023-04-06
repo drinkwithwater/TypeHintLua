@@ -9,7 +9,14 @@ const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 
 (@do
     let.clazz = import($class).clazz
-    let.UpdateReturn = Struct {
+    let.UpdateInput = Struct {
+        position=OrFalse(Struct {
+            l=Integer,
+            c=Integer,
+        }),
+        content=String,
+    }
+    let.UpdateOutput = Struct {
         err=OrNil(String),
         content=OrNil(String),
     }
@@ -30,12 +37,15 @@ function PlayGround:thluaSearch(vPath)
     return false, "can't use require on playground"
 end
 
-function PlayGround:update(...)
-    return json.encode(self:_update(...))
+function PlayGround:update(vName:String, vData:String):Ret(String)
+    const nInput = json.decode(vData) @> UpdateInput
+    const ret = self:_update(vName, nInput)
+    return json.encode(ret)
 end
 
-function PlayGround:_update(vName:String, vContent:String):Ret(UpdateReturn)
-    const nCode = SplitCode.new(vContent)
+function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
+    const nContent = vInput.content
+    const nCode = SplitCode.new(nContent)
     self._splitCode = nCode
     const nParseOkay, nCodeEnv = pcall(CodeEnv.new, nCode, vName)
     if not nParseOkay then
@@ -50,6 +60,7 @@ function PlayGround:_update(vName:String, vContent:String):Ret(UpdateReturn)
             err=tostring(nExc),
         }
     end
+    const nDiaList = nRuntime:getAllDiagnostic()[vName]
     return {
         content=nCodeEnv:genLuaCode()
     }
