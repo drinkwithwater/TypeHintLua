@@ -17,8 +17,9 @@ const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
         content=String,
     }
     let.UpdateOutput = Struct {
-        err=OrNil(String),
-        content=OrNil(String),
+        syntaxErr=Boolean,
+        diaList=List(clazz.Diagnostic),
+        luaContent=String,
     }
 end)
 
@@ -50,19 +51,30 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
     const nParseOkay, nCodeEnv = pcall(CodeEnv.new, nCode, vName)
     if not nParseOkay then
         return {
-            err=tostring(nCodeEnv),
+            syntaxErr=true,
+            diaList=json.array({} @List(clazz.Diagnostic)),
+            luaContent=tostring(nCodeEnv),
         }
     end
     const nRuntime = DiagnosticRuntime.new(self)
     const nRunOkay, nExc = nRuntime:pmain(vName)
-    if not nRunOkay then
-        return {
-            err=tostring(nExc),
+    const nDiaList:List(clazz.Diagnostic) = nRuntime:getAllDiagnostic()[vName] or {}
+    const nAfterDiaList:List(clazz.Diagnostic) = {}
+    for i, dia in ipairs(nDiaList) do
+        nAfterDiaList[i] = {
+            msg = dia.msg,
+            severity = dia.severity,
+            node = {
+                l=dia.node.l,
+                c=dia.node.c,
+                path=dia.node.path
+            } @? clazz.IAstNode,
         }
     end
-    const nDiaList = nRuntime:getAllDiagnostic()[vName]
     return {
-        content=nCodeEnv:genLuaCode()
+        syntaxErr=false,
+        diaList=json.array(nAfterDiaList),
+        luaContent=nCodeEnv:genLuaCode()
     }
 end
 

@@ -110,7 +110,7 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, Union(Stri
 	self._globalTable = native.make(self)
 	nRootStack:rootSetNamespace(self:RootNamespace())
 	const t1 = os.clock()
-	const a,b = pcall(function():Err(clazz.Exception)
+	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
 			return false, false, function()
 				const nLoadedState = self:_cacheLoadFile(self._node, vMainFileName)
@@ -122,10 +122,17 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, Union(Stri
 		nAutoFn:startPreBuild()
 		nAutoFn:startLateBuild()
 	end)
+	if not ok then
+		if Exception.is(err) then
+			self:nodeError(err.node, err.msg)
+		else
+			self:nodeError(self._node, err)
+		end
+	end
 	const t2 = os.clock()
 	print(t2-t1)
 	-- self:diffTestExpect()
-	return a,b
+	return ok, err
 end
 
 function BaseRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)

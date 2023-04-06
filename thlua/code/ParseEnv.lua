@@ -576,7 +576,9 @@ local G = lpeg.P { "TypeHintLua";
 
 	-- lexer
 	Skip     = (lpeg.space^1 + vv.Comment)^0;
-	Comment  = lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0);
+	Comment  = Cenv*Cpos*
+		lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0)
+		*Cpos/function(env, pos, posEnd) env:markDel(pos, posEnd-1) return end;
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1
@@ -746,7 +748,7 @@ function ParseEnv:genLuaCode()
 				-- 2. replace hint code with space and newline
 				local nFinishPos = nPosToChange[nStartPos]
 				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n \t]", "")
+				nContents[#nContents + 1] = nHintCode:gsub("%S", "")
 				nPreFinishPos = nFinishPos
 			--[[elseif type(nChange) == "string" then
 				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)

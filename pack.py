@@ -116,14 +116,15 @@ class Packer(object):
             fo.write(content)
         l = []
         for fileName in os.listdir("examples"):
+            singleName = fileName.split(".")[0]
             with open("examples/"+fileName) as fi:
                 data = fi.read()
-                l.extend(["{name:'"+fileName+"',content;(function(){/* ", data, " */}).toString().slice(14, -3)" ])
+                l.append("'"+singleName+"':(function(){/* "+data+" */}).toString().slice(14, -3)")
         with open(MY_PATH+"/src/examples.js", "w") as fo:
             content = ",".join(l)
-            fo.write("var THLUA_EXAMPLES=[")
+            fo.write("var THLUA_EXAMPLES={")
             fo.write(content)
-            fo.write("]")
+            fo.write("}")
 
 packer = Packer()
 packer.scanRoot()
