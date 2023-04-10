@@ -1,0 +1,55 @@
+
+-- 1.1 The syntaxes of TypeHintLua consist of two parts, one is lua syntaxes, and the other is also lua syntaxes (lua in hint space).
+
+-- use : to hint for symbol variable
+---- hint one value
+const sth:Integer = 321
+
+---- hint multi value
+const a:Integer, b:String = 321,"rew"
+
+-- use .xxx & :xxx() for long hint in some case
+
+---- use .open to define an open function
+const function.open dosth()
+end
+
+---- use :Ret(Integer) for hinting function return
+const function dosth():Ret(Integer)
+	return 321
+end
+
+-- use (@ ) to wrap statement for hint space, statement must be assign-statement or apply-statement or do-statement
+---- assign-statement in hint space, let is a default namespace in function level
+(@let.Hello = Number)
+
+---- apply-statement in hint space
+(@print(321))
+
+---- do-statement in hint space
+(@do
+	-- define a struct, let is a default namespace in function level
+	let.A = Struct {
+		fds=Integer,
+		rew=String,
+		-- namespace can be used for recursive define
+		recurField=OrNil(let.A),
+	}
+
+	-- create a new namespace
+	let.name = namespace()
+
+	name.Node = Struct {
+		left=name.Node,
+		right=name.Node,
+	}
+
+	-- use $ to get in hint space type
+
+	---- get type of variable sth, just like decltype in c++
+	print($sth)
+
+	---- (@SuffixedExpr) can be used after $
+	print($(@A).fds)
+end)
+
