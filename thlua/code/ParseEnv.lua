@@ -112,8 +112,8 @@ local exprF = {
 }
 
 local parF = {
-	identUse=function(vPos, vName, vPosEnd)
-		return {tag="Ident", pos=vPos, posEnd=vPosEnd, [1] = vName, kind="use"}
+	identUse=function(vPos, vName, vNotnil, vPosEnd)
+		return {tag="Ident", pos=vPos, posEnd=vPosEnd, [1] = vName, kind="use", notnil=vNotnil}
 	end,
 	identDef=function(vPos, vName, vHintShort, vPosEnd)
 		return {tag="Ident", pos=vPos, posEnd=vPosEnd, [1] = vName, kind="def", hintShort=vHintShort}
@@ -258,7 +258,7 @@ local function chainOp (pat, kwOrSymb, op1, ...)
 end
 
 local function suffixedExprByPrimary(primaryExpr)
-	local notnil = lpeg.Cg(vv.NotnilHint*vv.Skip*cc(true) + cc(false), "notnil")
+	local notnil = lpeg.Cg(vv.NotnilHint*cc(true) + cc(false), "notnil")
 	local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
 	-- . index
 	local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
@@ -349,7 +349,7 @@ local G = lpeg.P { "TypeHintLua";
 		return true
 	end);
 
-	NotnilHint = hintC.char("!");
+	NotnilHint = hintC.char("!") * vv.Skip;
 
 	AtCastHint = hintC.wrap(
 		false,
@@ -408,7 +408,7 @@ local G = lpeg.P { "TypeHintLua";
 		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint*(symb(",") + symb(";"))^-1, "hintLong")^-1 * FieldList * symbA("}"))
 	end)();
 
-	IdentUse = Cpos*vv.Name*Cpos/parF.identUse;
+	IdentUse = Cpos*vv.Name*(vv.NotnilHint * cc(true) + cc(false))*Cpos/parF.identUse;
 	IdentDefT = Cpos*vv.Name*(vv.ColonHint + cc(nil))*Cpos/parF.identDef;
 	IdentDefN = Cpos*vv.Name*cc(nil)*Cpos/parF.identDef;
 
@@ -481,6 +481,8 @@ local G = lpeg.P { "TypeHintLua";
 				for _, varExpr in ipairs(nVarList) do
 					if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
 						error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
+					elseif varExpr.notnil then
+						error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
 					end
 				end
 				return true, {
