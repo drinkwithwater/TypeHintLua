@@ -151,19 +151,7 @@ function InstStack:META_GET(
 	vKeyTerm:clazz.RefineTerm,
 	vNotnil:Boolean
 ):Ret(clazz.RefineTerm)
-	return self:withOnePushContext(vNode, function(vContext)
-		vSelfTerm:foreach(function(vSelfType, vVariableCase)
-			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
-				vContext:withCase(vVariableCase & vKeyVariableCase, function()
-					if not vSelfType:meta_get(vContext, vKeyType) then
-						if not OpenTable.is(vSelfType) then
-							vContext:error("index error, key="..tostring(vKeyType))
-						end
-					end
-				end)
-			end)
-		end)
-	end, vNotnil):mergeFirst()
+	return self:anyNodeMetaGet(vNode, vSelfTerm, vKeyTerm, vNotnil)
 end
 
 function InstStack:META_SET(

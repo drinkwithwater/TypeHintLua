@@ -1,4 +1,5 @@
 
+const OpenTable = require "thlua.object.OpenTable"
 const DoBuilder = require "thlua.builder.DoBuilder"
 const Branch = require "thlua.runtime.Branch"
 const DotsTail = require "thlua.tuple.DotsTail"
@@ -68,6 +69,22 @@ end
 
 function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UAllType)
 	error("check error in OpenStack or SealStack")
+end
+
+function BaseStack:anyNodeMetaGet(vNode:clazz.IAstNode, vSelfTerm:clazz.RefineTerm, vKeyTerm:clazz.RefineTerm, vNotnil:Boolean):Ret(clazz.RefineTerm)
+	return self:withOnePushContext(vNode, function(vContext)
+		vSelfTerm:foreach(function(vSelfType, vVariableCase)
+			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
+				vContext:withCase(vVariableCase & vKeyVariableCase, function()
+					if not vSelfType:meta_get(vContext, vKeyType) then
+						if not OpenTable.is(vSelfType) then
+							vContext:error("index error, key="..tostring(vKeyType))
+						end
+					end
+				end)
+			end)
+		end)
+	end, vNotnil):mergeFirst()
 end
 
 function BaseStack:prepareMetaCall(
