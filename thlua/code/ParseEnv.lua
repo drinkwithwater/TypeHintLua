@@ -265,7 +265,7 @@ local function suffixedExprByPrimary(primaryExpr)
 	-- [] index
 	local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
 	-- invoke
-	local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * polyArgs * vvA.FuncArgs)
+	local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * notnil * polyArgs * vvA.FuncArgs)
 	-- call
 	local call = tagC.Call(cc(false) * vv.FuncArgs)
 	-- atPoly
