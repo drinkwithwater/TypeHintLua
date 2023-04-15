@@ -23,6 +23,7 @@ function:class(clazz.RefineTerm) RefineTerm.new(
 		_node=vNode,
 		_typeToCase=vTypeToCase or {}@Dict(clazz.IAtomType, clazz.VariableCase),
 		_type=vType,
+		_notnilTerm=false@OrFalse(clazz.RefineTerm),
 		_symbolVariable=false @ Union(False, clazz.ImmutVariable),
 	}, RefineTerm)
 	vType:foreach(function(vType)
@@ -192,6 +193,27 @@ end
 
 function RefineTerm:getNode()
 	return self._node
+end
+
+function RefineTerm:notnilTerm()
+	const nNotnilTerm = self._notnilTerm
+	if nNotnilTerm then
+		return nNotnilTerm
+	end
+	const nType = self._type
+	if not nType:isNilable() then
+		self._notnilTerm = self
+		return self
+	end
+	const nTypeToCase:Dict(clazz.IAtomType, clazz.VariableCase) = {}
+	nType:foreach(function(vAtomType)
+		if not Nil.is(vAtomType) then
+			nTypeToCase[vAtomType] = self._typeToCase[vAtomType]
+		end
+	end)
+	const nTerm = RefineTerm.new(self._node, nType:notnilType(), nTypeToCase)
+	self._notnilTerm = nTerm
+	return nTerm
 end
 
 return RefineTerm

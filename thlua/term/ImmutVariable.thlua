@@ -9,7 +9,8 @@ end
 
 function:class(clazz.ImmutVariable) ImmutVariable.new(vTerm:clazz.RefineTerm)
 	return setmetatable({.class
-		_term=vTerm,
+		_originTerm=vTerm,
+		_termByFilter={}@Dict(clazz.UAtomUnion, clazz.RefineTerm),
 		_symbolSet={}@ Dict(clazz.LocalSymbol, True),
 		_node=false@OrFalse(clazz.IAstNode)
 	}, ImmutVariable)
@@ -24,11 +25,30 @@ function ImmutVariable:addSymbol(vSymbol:clazz.LocalSymbol)
 end
 
 function ImmutVariable:getType():Ret(clazz.UAtomUnion)
-	return self._term:getType()
+	return self._originTerm:getType()
 end
 
-function ImmutVariable:getTerm():Ret(clazz.RefineTerm)
-	return self._term
+function ImmutVariable:filterTerm(vContext:clazz.OperContext, vCase:clazz.VariableCase):Ret(clazz.RefineTerm)
+	const nOriginTerm = self._originTerm
+	const nType = vCase[self]
+	if nType then
+		if not nType:isNever() then
+			const nTermByFilter = self._termByFilter
+			const nTerm = nTermByFilter[nType]
+			if nTerm then
+				return nTerm
+			end
+			const nTerm = nOriginTerm:filter(vContext, nType)
+			nTerm:initVariable(self)
+			nTermByFilter[nType] = nTerm
+			return nTerm
+		else
+			vContext:error("TODO type is never when get symbol"..tostring(self))
+			return vContext:NeverTerm()
+		end
+	else
+		return nOriginTerm
+	end
 end
 
 function.open ImmutVariable.is(v):isguard(clazz.ImmutVariable)
