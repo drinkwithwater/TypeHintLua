@@ -1,24 +1,28 @@
 
 -- 1.2 use @ for type cast
 
--- use @ for covariance cast, this is safe
+-- 1) use '@' for covariance cast, this is safe
 local castToA = 321 @ Integer
 
--- use @! for ignore nil cast, this is unsafe
+-- 2) use '@!' for ignore nil cast, this is unsafe
 castToA = nil @! Integer
 
--- use @> for contravariance cast, this is unsafe
+-- 3) use '@>' for contravariance cast, this is unsafe
 const contraCast:Union(1,2) = castToA @> Literal(1)
 
--- use @? for force cast, this is very unsafe
+-- 4) use '@?' for force cast, this is very unsafe
 const forceCast:Union(1,2) = "fdsfs" @? Literal(1)
 
--- use @<> for poly function
+-- 5) use '@<' '>' for poly function
 const function dosth@<T>(a:T):Ret(T)
 	return a
 end
 
 const t:Integer = dosth@<Integer>(321)
+
+-- 6) use '!' to ignore symbol or index's nil case
+const i2s:Dict(Integer,String) = {}
+const s:String = i2s[1]!
 
 
 -- define an auto table, and cast it to a struct
