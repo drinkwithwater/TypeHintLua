@@ -18,6 +18,7 @@ function.open BaseServer:ctor()
 	self.initialize=false@Boolean
 	self.shutdown=false@Boolean
 	self._rootPath=""@String
+	self._searchPath=false@OrFalse(String)
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 end
 
@@ -37,8 +38,9 @@ function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 end
 
 function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
-	local thluaPath = self._rootPath.."/?.thlua"
-	local fileName, err1 = package.searchpath(vPath, thluaPath)
+	local nSearchPath = self._searchPath or self._rootPath.."/?.thlua;"..self._rootPath.."/?.d.thlua"
+	self._searchPath = nSearchPath
+	local fileName, err1 = package.searchpath(vPath, nSearchPath)
 	if not fileName then
 		return false, err1
 	end

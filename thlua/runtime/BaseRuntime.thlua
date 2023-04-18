@@ -100,8 +100,8 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	end
 end
 
-function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, Union(String, clazz.Exception))
-	self._node=Node.newRootNode(vMainFileName)
+function BaseRuntime:pmain(vRootFileName:String):Ret(True):Ret(False, Union(String, clazz.Exception))
+	self._node=Node.newRootNode(vRootFileName)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
 	const nRootStack = nAutoFn:getBuildStack()
@@ -113,7 +113,7 @@ function BaseRuntime:pmain(vMainFileName:String):Ret(True):Ret(False, Union(Stri
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
 			return false, false, function()
-				const nLoadedState = self:_cacheLoadFile(self._node, vMainFileName)
+				const nLoadedState = self:_cacheLoadFile(self._node, vRootFileName)
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples(self._node)
 				return nParTuple, nRetTuples

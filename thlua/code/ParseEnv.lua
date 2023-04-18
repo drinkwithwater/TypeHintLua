@@ -776,21 +776,21 @@ function ParseEnv:genLuaCode()
 	return table.concat(nContents)
 end
 
--- return lua code or throw error
+-- return luacode | false, errmsg
 function ParseEnv.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
 	local nEnv = ParseEnv.new(vContent)
-	local nAstOrErr = nEnv:getAstOrErr()
-	if nAstOrErr.tag == "Error" then
-		local nLineNum = select(2, vContent:sub(1, nAstOrErr.pos):gsub('\n', '\n'))
-		local nMsg = vChunkName..":".. nLineNum .." ".. nAstOrErr[1]
-		error(nMsg)
+	local nAstOrFalse, nEnvOrErr = ParseEnv.parse(vContent)
+	if not nAstOrFalse then
+		local nLineNum = select(2, vContent:sub(1, nEnvOrErr.pos):gsub('\n', '\n'))
+		local nMsg = vChunkName..":".. nLineNum .." ".. nEnvOrErr[1]
+		return false, nMsg
 	else
-		return nEnv:genLuaCode()
+		return nEnvOrErr:genLuaCode()
 	end
 end
 
--- return false, errorNode | return chunkNode
+-- return false, errorNode | return chunkNode, parseEnv
 function ParseEnv.parse(vContent)
 	local nEnv = ParseEnv.new(vContent)
 	local nAstOrErr = nEnv:getAstOrErr()
