@@ -189,18 +189,18 @@ function InstStack:META_INVOKE(
 	const nNil = self._manager.type.Nil
 	return self:withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
 		if vSelfType == nNil then
-			vContext:warn("nil as invoke self")
+			vContext:error("nil as invoke self")
 		else
 			const nFilterSelfTerm = vContext:RefineTerm(vSelfType)
 			const nNewArgTuple = vContext:UTermTupleByAppend({nFilterSelfTerm}, vArgTuple)
 			const nFuncTerm = self:META_GET(vNode, nFilterSelfTerm, vContext:RefineTerm(self._manager:Literal(vName)), false)
 			nFuncTerm:foreach(function(vSingleFuncType, _)
 				if vSingleFuncType == nNil then
-					self._runtime:nodeWarn(vNode, "nil as invoke func")
+					vContext:error("nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
 					vSingleFuncType:meta_invoke(vContext, vSelfType, vPolyArgs, nNewArgTuple)
 				else
-					self._runtime:nodeError(vNode, "TODO non-function-call TODO"..tostring(vSingleFuncType))
+					vContext:error("TODO non-function type called "..tostring(vSingleFuncType))
 				end
 			end)
 		end
