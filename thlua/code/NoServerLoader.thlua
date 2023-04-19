@@ -8,7 +8,7 @@ NoServerLoader.__index=NoServerLoader
 
 function:class(clazz.NoServerLoader) NoServerLoader.new():implements(clazz.ILoader)
     const self = setmetatable({.class
-        _path = package.path:gsub("[.]lua", ".thlua") .. ";" .. package.path:gsub("[.]lua", ".d.thlua")
+        _path="./?.thlua;./?.d.thlua"@String,
     }, NoServerLoader)
     return self
 end
@@ -21,12 +21,16 @@ function NoServerLoader:thluaSearch(vPath)
     return true, fileName
 end
 
-function NoServerLoader:thluaParseFile(vFileName)
+function NoServerLoader:thluaSetPath(vPath)
+    self._path = vPath
+end
+
+function.pass NoServerLoader:thluaParseFile(vFileName)
     local file, err = io.open(vFileName, "r")
     if not file then
         error(err)
     end
-    local nContent = file:read("*a")
+    local nContent = assert(file:read("*a"), "file "..vFileName.. " read fail")
     file:close()
     const nCodeEnv = CodeEnv.new(nContent, vFileName)
     return nCodeEnv

@@ -9,6 +9,7 @@ const Node = require "thlua.code.Node"
 const Namespace = require "thlua.manager.Namespace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
+const NoServerLoader = require "thlua.code.NoServerLoader"
 
 const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
@@ -25,6 +26,7 @@ const class = require "thlua.class"
 
 	clazz.ILoader = Interface {
 		thluaSearch=Mfn(String):Ret(Boolean, String),
+		thluaSetPath=Mfn(String),
 		thluaParseFile=Mfn(String):Ret(clazz.CodeEnv),
 	}
 
@@ -252,6 +254,9 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Truth)
 	end
 	nGlobal.import=function(vPath)
 		return self:import(vPath)
+	end
+	nGlobal.setPath=function(vPath)
+		return self._loader:thluaSetPath(vPath)
 	end
 	nGlobal.foreachPair=function(vObject, vFunc)
 		const vObject = vObject:checkAtomUnion()

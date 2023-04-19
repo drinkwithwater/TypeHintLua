@@ -37,9 +37,28 @@ function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	end
 end
 
+function BaseServer:thluaSetPath(vPath)
+	const nList:List(String) = {}
+	const nSet:Dict(String, True) = {}
+	for nOnePath in vPath:gmatch("[^;]+") do
+		const lpath = require "path"
+		const nAbsPath = lpath.abs(nOnePath)
+		if not nSet[nAbsPath] then
+			nList[#nList + 1] = nAbsPath
+		end
+		-- self._searchPath = nOnePath
+	end
+	self._searchPath = table.concat(nList, ";")
+	self:info("set path:", self._searchPath)
+	--local nSearchPath = self._searchPath or self._rootPath.."/?.thlua;"..self._rootPath.."/?.d.thlua"
+end
+
 function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
-	local nSearchPath = self._searchPath or self._rootPath.."/?.thlua;"..self._rootPath.."/?.d.thlua"
-	self._searchPath = nSearchPath
+	local nSearchPath = self._searchPath
+	if not nSearchPath then
+		nSearchPath = self._rootPath.."/?.thlua;"..self._rootPath.."/?.d.thlua"
+		self._searchPath = nSearchPath
+	end
 	local fileName, err1 = package.searchpath(vPath, nSearchPath)
 	if not fileName then
 		return false, err1
