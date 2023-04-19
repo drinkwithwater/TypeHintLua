@@ -1,4 +1,5 @@
 
+const lpath = require "path"
 const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
 const ErrorCodes = require "thlua.server.protocol".ErrorCodes
@@ -111,25 +112,24 @@ function SlowServer:publishException(vException:Union(clazz.Exception, String))
 end
 
 function SlowServer:rerun(vFileUri:String)
-	local ok, rootFileUri = self:thluaSearch("root")
-	if not ok then
+	local rootFileUri = lpath.isfile(self._rootPath .. "/root.thlua")
+	if not rootFileUri then
 		rootFileUri = vFileUri
 		self:info("root.thlua not found, run single file:", rootFileUri)
 	else
+		rootFileUri = self:pathToUri(rootFileUri)
 		self:info("root.thlua found:", rootFileUri)
 	end
 	const nRuntime=DiagnosticRuntime.new(self)
+	self._runtime = nRuntime
 	const ok, exc = nRuntime:pmain(rootFileUri)
 	if not ok then
-		if not self._runtime then
-			self._runtime = nRuntime
-		end
 		self:publishException(exc @? Union(clazz.Exception, String))
 		return
+	else
+		collectgarbage()
+		self:publishNormal()
 	end
-	self._runtime = nRuntime
-	collectgarbage()
-	self:publishNormal()
 end
 
 function SlowServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)

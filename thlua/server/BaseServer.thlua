@@ -1,6 +1,7 @@
 
 const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
+const lpath = require "path"
 const ErrorCodes = require "thlua.server.protocol".ErrorCodes
 const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
@@ -18,7 +19,6 @@ function.open BaseServer:ctor()
 	self.initialize=false@Boolean
 	self.shutdown=false@Boolean
 	self._rootPath=""@String
-	self._searchPath=false@OrFalse(String)
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 end
 
@@ -37,28 +37,18 @@ function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	end
 end
 
-function BaseServer:thluaSetPath(vPath)
+function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
+	const nRuntime = self._runtime
+	const nSearchPath = nRuntime:getSearchPath() or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
 	const nList:List(String) = {}
 	const nSet:Dict(String, True) = {}
-	for nOnePath in vPath:gmatch("[^;]+") do
-		const lpath = require "path"
+	for nOnePath in nSearchPath:gmatch("[^;]+") do
 		const nAbsPath = lpath.abs(nOnePath)
 		if not nSet[nAbsPath] then
 			nList[#nList + 1] = nAbsPath
 		end
-		-- self._searchPath = nOnePath
 	end
-	self._searchPath = table.concat(nList, ";")
-	self:info("set path:", self._searchPath)
-	--local nSearchPath = self._searchPath or self._rootPath.."/?.thlua;"..self._rootPath.."/?.d.thlua"
-end
-
-function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
-	local nSearchPath = self._searchPath
-	if not nSearchPath then
-		nSearchPath = self._rootPath.."/?.thlua;"..self._rootPath.."/?.d.thlua"
-		self._searchPath = nSearchPath
-	end
+	const nSearchPath = table.concat(nList, ";")
 	local fileName, err1 = package.searchpath(vPath, nSearchPath)
 	if not fileName then
 		return false, err1
@@ -294,7 +284,7 @@ end
 function BaseServer:pathToUri(vPath:String):Ret(String)
 	if self:getPlatform() == "win" then
 		const nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
-			return driver.."%3A"
+			return driver:lower().."%3A"
 		end)
 		return "file:///"..nUri
 	else

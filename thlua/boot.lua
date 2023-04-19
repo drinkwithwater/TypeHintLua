@@ -7,7 +7,6 @@ local ParseEnv = require "thlua.code.ParseEnv"
 
 local boot = {}
 
-boot.dpath = ""
 boot.path = ""
 
 function boot.compile(chunk, chunkName)
@@ -46,7 +45,6 @@ local patch = false
 function boot.patch()
 	if not patch then
 		boot.path = package.path:gsub("[.]lua", ".thlua")
-		boot.dpath = package.path:gsub("[.]lua", ".d.thlua")
 		table.insert(package.searchers, boot.searcher)
 		patch = true
 	end
@@ -57,7 +55,7 @@ function boot.runCheck(vMainFileName)
 	boot.patch()
 	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 	local Loader = require "thlua.code.NoServerLoader"
-	local nRuntime = DiagnosticRuntime.new(Loader.new())
+	local nRuntime = DiagnosticRuntime.new()
 	assert(nRuntime:pmain(vMainFileName))
 end
 

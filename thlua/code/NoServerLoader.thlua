@@ -6,23 +6,19 @@ const CodeEnv = require "thlua.code.CodeEnv"
 const NoServerLoader = {}
 NoServerLoader.__index=NoServerLoader
 
-function:class(clazz.NoServerLoader) NoServerLoader.new():implements(clazz.ILoader)
+function:class(clazz.NoServerLoader) NoServerLoader.new(vRuntime:clazz.BaseRuntime):implements(clazz.ILoader)
     const self = setmetatable({.class
-        _path="./?.thlua;./?.d.thlua"@String,
+        _runtime = vRuntime,
     }, NoServerLoader)
     return self
 end
 
 function NoServerLoader:thluaSearch(vPath)
-    local fileName, err1 = package.searchpath(vPath, self._path)
+    local fileName, err1 = package.searchpath(vPath, self._runtime:getSearchPath() or "./?.thlua;./?.d.thlua")
     if not fileName then
         return false, err1
     end
     return true, fileName
-end
-
-function NoServerLoader:thluaSetPath(vPath)
-    self._path = vPath
 end
 
 function.pass NoServerLoader:thluaParseFile(vFileName)

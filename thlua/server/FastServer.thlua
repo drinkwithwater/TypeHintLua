@@ -1,4 +1,5 @@
 
+const lpath = require "path"
 const FieldCompletion = require "thlua.context.FieldCompletion"
 const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
@@ -49,23 +50,18 @@ function FastServer:getInitializeResult():Ret(lsp.InitializeResult)
 	}
 end
 
-function FastServer:rerun(vFileName:String)
-	local ok, rootFileName = self:thluaSearch("root")
-	if not ok then
-		rootFileName = vFileName
-		self:info("root.thlua not found, run single file:", rootFileName)
+function FastServer:rerun(vFileUri:String)
+	local rootFileUri = lpath.isfile(self._rootPath .. "/root.thlua")
+	if not rootFileUri then
+		rootFileUri = vFileUri
+		self:info("root.thlua not found, run single file:", rootFileUri)
 	else
-		self:info("root.thlua found:", rootFileName)
+		rootFileUri = self:pathToUri(rootFileUri)
+		self:info("root.thlua found:", rootFileUri)
 	end
 	const nRuntime=CompletionRuntime.new(self)
-	const ok, exc = nRuntime:pmain(rootFileName)
-	if not ok then
-		if not self._runtime then
-			self._runtime = nRuntime
-		end
-		return
-	end
 	self._runtime = nRuntime
+	const ok, exc = nRuntime:pmain(rootFileUri)
 	collectgarbage()
 end
 
@@ -201,7 +197,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	const nFileState = self:checkFileState(nFileUri)
 	const nSuccEnv = self:checkRuntime():getCodeEnv(nFileUri)
 	if not nSuccEnv then
-		self:info("completion fail for some code error")
+		self:info("completion fail for some code error", nFileUri)
 		return nil
 	end
 	-- 2. cut code

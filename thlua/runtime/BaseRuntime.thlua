@@ -26,7 +26,6 @@ const class = require "thlua.class"
 
 	clazz.ILoader = Interface {
 		thluaSearch=Mfn(String):Ret(Boolean, String),
-		thluaSetPath=Mfn(String),
 		thluaParseFile=Mfn(String):Ret(clazz.CodeEnv),
 	}
 
@@ -49,8 +48,9 @@ end)
 
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open BaseRuntime:ctor(vLoader:clazz.ILoader)
-	self._loader=vLoader
+function.open BaseRuntime:ctor(vLoader:OrNil(clazz.ILoader))
+	self._searchPath = false @ OrFalse(String)
+	self._loader=vLoader or NoServerLoader.new(self)
 	self._spaceList={}@List(clazz.Namespace)
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
@@ -256,7 +256,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Truth)
 		return self:import(vPath)
 	end
 	nGlobal.setPath=function(vPath)
-		return self._loader:thluaSetPath(vPath)
+		self._searchPath = vPath
 	end
 	nGlobal.foreachPair=function(vObject, vFunc)
 		const vObject = vObject:checkAtomUnion()
@@ -331,6 +331,10 @@ end
 
 function BaseRuntime:getRootStack():Ret(clazz.SealStack)
 	return self._rootStack
+end
+
+function BaseRuntime:getSearchPath():Ret(OrFalse(String))
+	return self._searchPath
 end
 
 return BaseRuntime
