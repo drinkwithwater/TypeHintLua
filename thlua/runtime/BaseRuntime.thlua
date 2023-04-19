@@ -9,7 +9,6 @@ const Node = require "thlua.code.Node"
 const Namespace = require "thlua.manager.Namespace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
-const NoServerLoader = require "thlua.code.NoServerLoader"
 
 const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
@@ -18,15 +17,15 @@ const AutoFunction = require "thlua.func.AutoFunction"
 
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 const class = require "thlua.class"
+const CodeEnv = require "thlua.code.CodeEnv"
 
 (@do
-	import("thlua.code.CodeEnv")
 	let.clazz = import($class).clazz
 	let.node = import($Node).node
 
-	clazz.ILoader = Interface {
-		thluaSearch=Mfn(String):Ret(Boolean, String),
-		thluaParseFile=Mfn(String):Ret(clazz.CodeEnv),
+	clazz.FileLoader = Struct {
+		thluaSearch=Fn(clazz.BaseRuntime, String):Ret(Boolean, String),
+		thluaParseFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
 	}
 
 	clazz.Diagnostic = Struct {
@@ -45,12 +44,33 @@ const class = require "thlua.class"
 
 end)
 
+const DefaultLoader:clazz.FileLoader = {
+	thluaSearch=function(vRuntime, vPath)
+		local fileName, err1 = package.searchpath(vPath, vRuntime:getSearchPath() or "./?.thlua;./?.d.thlua")
+		if not fileName then
+			return false, err1
+		end
+		return true, fileName
+	end,
+	thluaParseFile=function.pass(vRuntime, vFileName)
+		local file, err = io.open(vFileName, "r")
+		if not file then
+			error(err)
+		end
+		local nContent = assert(file:read("*a"), "file "..vFileName.. " read fail")
+		file:close()
+		const nCodeEnv = CodeEnv.new(nContent, vFileName)
+		return nCodeEnv
+	end
+}
+
+
 
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open BaseRuntime:ctor(vLoader:OrNil(clazz.ILoader))
+function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader))
 	self._searchPath = false @ OrFalse(String)
-	self._loader=vLoader or NoServerLoader.new(self)
+	self._loader=vLoader or DefaultLoader
 	self._spaceList={}@List(clazz.Namespace)
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
@@ -102,8 +122,8 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	end
 end
 
-function BaseRuntime:pmain(vRootFileName:String):Ret(True):Ret(False, Union(String, clazz.Exception))
-	self._node=Node.newRootNode(vRootFileName)
+function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(String, clazz.Exception))
+	self._node=Node.newRootNode(vRootFileUri)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
 	const nRootStack = nAutoFn:getBuildStack()
@@ -115,7 +135,7 @@ function BaseRuntime:pmain(vRootFileName:String):Ret(True):Ret(False, Union(Stri
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
 			return false, false, function()
-				const nLoadedState = self:_cacheLoadFile(self._node, vRootFileName)
+				const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
 				const nParTuple = self._manager:TypeTuple(self._node)
 				const nRetTuples = self._manager:VoidRetTuples(self._node)
 				return nParTuple, nRetTuples
@@ -160,7 +180,7 @@ end
 function BaseRuntime:_cacheLoadFile(vNode:clazz.IAstNode, vFileName:String):Ret(LoadedState)
 	local nLoadedState = self._loadedDict[vFileName]
 	if not nLoadedState then
-		const nCodeEnv = self._loader:thluaParseFile(vFileName)
+		const nCodeEnv = self._loader.thluaParseFile(self, vFileName)
 		const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
 		nLoadedState = {
 			openFn=nOpenFn,
@@ -179,7 +199,7 @@ end
 function BaseRuntime:_cacheLoadPath(vNode:clazz.IAstNode, vPath:String):Ret(LoadedState)
 	local nFileName = self._pathToFileName[vPath]
 	if not nFileName then
-		const nOkay, nSearchFileName = self._loader:thluaSearch(vPath)
+		const nOkay, nSearchFileName = self._loader.thluaSearch(self, vPath)
 		if not nOkay then
 			error(Exception.new(nSearchFileName, vNode))
 		else

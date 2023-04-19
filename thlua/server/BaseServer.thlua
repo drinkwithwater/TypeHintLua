@@ -13,7 +13,7 @@ const class = require "thlua.class"
 	let.node=import("thlua.code.Node").node
 end)
 
-const BaseServer = class@<lsp.BaseServer, clazz.ILoader>()
+const BaseServer = class@<lsp.BaseServer, false>()
 
 function.open BaseServer:ctor()
 	self.initialize=false@Boolean
@@ -37,37 +37,39 @@ function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	end
 end
 
-function BaseServer:thluaSearch(vPath:String):Ret(Boolean, String)
-	const nRuntime = self._runtime
-	const nSearchPath = nRuntime:getSearchPath() or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
-	const nList:List(String) = {}
-	const nSet:Dict(String, True) = {}
-	for nOnePath in nSearchPath:gmatch("[^;]+") do
-		const nAbsPath = lpath.abs(nOnePath)
-		if not nSet[nAbsPath] then
-			nList[#nList + 1] = nAbsPath
-		end
-	end
-	const nSearchPath = table.concat(nList, ";")
-	local fileName, err1 = package.searchpath(vPath, nSearchPath)
-	if not fileName then
-		return false, err1
-	end
-	return true, self:pathToUri(fileName)
-end
-
-function BaseServer:thluaParseFile(vFileUri:String)
-	if not self._fileStateDict[vFileUri] then
-		const nFilePath = self:uriToPath(vFileUri)
-		const file, err = io.open(nFilePath, "r")
-		if not file then
-			error(err)
-		end
-		const nContent = file:read("*a")
-		file:close()
-		self:attachFileState(vFileUri):syncContent(nContent, -1)
-	end
-	return self._fileStateDict[vFileUri]!:checkLatestEnv()
+function BaseServer:makeLoader():Ret(clazz.FileLoader)
+	return {
+		thluaSearch=function(vRuntime:clazz.BaseRuntime, vPath:String):Ret(Boolean, String)
+			const nSearchPath = vRuntime:getSearchPath() or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
+			const nList:List(String) = {}
+			const nSet:Dict(String, True) = {}
+			for nOnePath in nSearchPath:gmatch("[^;]+") do
+				const nAbsPath = lpath.abs(nOnePath)
+				if not nSet[nAbsPath] then
+					nList[#nList + 1] = nAbsPath
+				end
+			end
+			const nSearchPath = table.concat(nList, ";")
+			local fileName, err1 = package.searchpath(vPath, nSearchPath)
+			if not fileName then
+				return false, err1
+			end
+			return true, self:pathToUri(fileName)
+		end,
+		thluaParseFile=function(vRuntime:clazz.BaseRuntime, vFileUri:String):Ret(clazz.CodeEnv)
+			if not self._fileStateDict[vFileUri] then
+				const nFilePath = self:uriToPath(vFileUri)
+				const file, err = io.open(nFilePath, "r")
+				if not file then
+					error(err)
+				end
+				const nContent = file:read("*a")
+				file:close()
+				self:attachFileState(vFileUri):syncContent(nContent, -1)
+			end
+			return self._fileStateDict[vFileUri]!:checkLatestEnv()
+		end,
+	} @? clazz.FileLoader
 end
 
 function BaseServer:checkFileState(vFileUri:String):Ret(lsp.FileState)

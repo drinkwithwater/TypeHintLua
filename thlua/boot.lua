@@ -54,7 +54,6 @@ end
 function boot.runCheck(vMainFileName)
 	boot.patch()
 	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
-	local Loader = require "thlua.code.NoServerLoader"
 	local nRuntime = DiagnosticRuntime.new()
 	assert(nRuntime:pmain(vMainFileName))
 end

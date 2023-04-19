@@ -120,13 +120,16 @@ function SlowServer:rerun(vFileUri:String)
 		rootFileUri = self:pathToUri(rootFileUri)
 		self:info("root.thlua found:", rootFileUri)
 	end
-	const nRuntime=DiagnosticRuntime.new(self)
-	self._runtime = nRuntime
+	const nRuntime=DiagnosticRuntime.new(self:makeLoader())
 	const ok, exc = nRuntime:pmain(rootFileUri)
 	if not ok then
+		if not self._runtime then
+			self._runtime = nRuntime
+		end
 		self:publishException(exc @? Union(clazz.Exception, String))
 		return
 	else
+		self._runtime = nRuntime
 		collectgarbage()
 		self:publishNormal()
 	end

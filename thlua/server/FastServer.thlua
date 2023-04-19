@@ -59,9 +59,15 @@ function FastServer:rerun(vFileUri:String)
 		rootFileUri = self:pathToUri(rootFileUri)
 		self:info("root.thlua found:", rootFileUri)
 	end
-	const nRuntime=CompletionRuntime.new(self)
-	self._runtime = nRuntime
+	const nRuntime=CompletionRuntime.new(self:makeLoader())
 	const ok, exc = nRuntime:pmain(rootFileUri)
+	if not ok then
+		if not self._runtime then
+			self._runtime = nRuntime
+		end
+	else
+		self._runtime = nRuntime
+	end
 	collectgarbage()
 end
 

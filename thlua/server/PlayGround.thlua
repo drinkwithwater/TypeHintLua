@@ -23,19 +23,11 @@ const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
     }
 end)
 
-const PlayGround = class@<clazz.PlayGround, clazz.ILoader>()
+const PlayGround = class@<clazz.PlayGround, false>()
 
 function.open PlayGround:ctor()
     self._splitCode = SplitCode.new("")
     self._codeEnv = nil@!clazz.CodeEnv
-end
-
-function PlayGround:thluaParseFile(vFileName)
-    return CodeEnv.new(self._splitCode, vFileName)
-end
-
-function PlayGround:thluaSearch(vPath)
-    return false, "can't use require on playground"
 end
 
 function PlayGround:update(vName:String, vData:String):Ret(String)
@@ -73,7 +65,14 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
             luaContent=tostring(nCodeEnv),
         }
     end
-    const nRuntime = DiagnosticRuntime.new(self)
+    const nRuntime = DiagnosticRuntime.new({
+        thluaSearch=function(vRuntime, vPath)
+            return false, "can't use require on playground"
+        end,
+        thluaParseFile=function(vRuntime, vFileName)
+            return CodeEnv.new(self._splitCode, vFileName)
+        end,
+    })
     const nRunOkay, nExc = nRuntime:pmain(vName)
     const nDiaList:List(clazz.Diagnostic) = nRuntime:getAllDiagnostic()[vName] or {}
     const nAfterDiaList:List(clazz.Diagnostic) = {}
