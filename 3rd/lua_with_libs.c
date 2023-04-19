@@ -606,6 +606,8 @@ static void addPreload (lua_State *L) {
   lua_setfield(L, -2, "lpeg");
   lua_pushcfunction(L, &luaopen_rapidjson);
   lua_setfield(L, -2, "rapidjson");
+  lua_pushcfunction(L, &luaopen_path);
+  lua_setfield(L, -2, "path");
   lua_pop(L, 1);
 }
 

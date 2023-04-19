@@ -35,9 +35,15 @@ set ( LPEG_SRC
     3rd/lpeg/lptree.c
     3rd/lpeg/lpvm.c
 )
-list(APPEND THIRDPART_INC lpeg)
 set (THIRDPART_SRC ${THIRDPART_SRC} ${LPEG_SRC})
 #end lpeg
+
+#begin lpath
+set ( LPATH_SRC
+    3rd/lpath/lpath.c
+)
+set (THIRDPART_SRC ${THIRDPART_SRC} ${LPATH_SRC})
+#end lpath
 
 set (LUA_HPP 3rd)
 include_directories(
@@ -50,11 +56,10 @@ include_directories(
 
 aux_source_directory(${LUA_SRC_PATH} LUA_CORE)
 list(REMOVE_ITEM LUA_CORE ${LUA_SRC_PATH}/luac.c ${LUA_SRC_PATH}/onelua.c ${LUA_SRC_PATH}/lua.c)
-# list(APPEND LUA_CORE 3rd/lua_with_libs.c)
 
 if (NOT WASM)
 	add_executable(lua
-		3rd/lua_wasm.cpp
+		3rd/lua_with_libs.c
 		${LUA_CORE}
 		${THIRDPART_SRC}
 	)
