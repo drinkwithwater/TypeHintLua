@@ -1,14 +1,19 @@
 return [[
 
-math = {
-    random=function.pass():Ret(Number)
-    end,
-    max=function.pass(a:Number, ...:Number):Ret(Number)
-    end,
-    min=function.pass(a:Number, ...:Number):Ret(Number)
-    end,
-    tointeger=function.pass(...:Any):Ret(OrNil(Integer))
-    end,
-}
+local math = {}
+
+function.pass math.random(...:Number):Ret(Number)
+end
+
+function.pass math.max(a:Number, ...:Number):Ret(Number)
+end
+
+function.pass math.min(a:Number, ...:Number):Ret(Number)
+end
+
+function.pass math.tointeger(...:Any):Ret(OrNil(Integer))
+end
+
+_ENV.math = math
 
 ]]

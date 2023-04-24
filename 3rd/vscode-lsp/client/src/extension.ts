@@ -23,8 +23,11 @@ export function activate(context: ExtensionContext) {
 	const serverCommand = context.asAbsolutePath(
 		path.join('server', 'lua.exe')
 	);
-	const serverCommandArg = context.asAbsolutePath(
+	const serverCommandArg1 = context.asAbsolutePath(
 		path.join('server', 'thlua.lua')
+	);
+	const serverCommandArg3 = context.asAbsolutePath(
+		path.join('server', 'global')
 	);
 
 	// If the extension is launched in debug mode then the debug server options are used
@@ -45,7 +48,7 @@ export function activate(context: ExtensionContext) {
 		'TypeHintLua_slow',
 		{ // server option
 			command : serverCommand,
-			args: [serverCommandArg, "slow"]
+			args: [serverCommandArg1, "slow", serverCommandArg3]
 		},
 		clientOptions
 	);
@@ -55,7 +58,7 @@ export function activate(context: ExtensionContext) {
 		'TypeHintLua_fast',
 		{ // server option
 			command : serverCommand,
-			args: [serverCommandArg, "fast"]
+			args: [serverCommandArg1, "fast", serverCommandArg3]
 		},
 		clientOptions
 	);

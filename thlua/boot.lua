@@ -68,15 +68,15 @@ function boot.makePlayGround()
 end
 
 -- run language server
-function boot.runServer(vMode)
+function boot.runServer(vMode, vGlobalPathOrNil)
 	boot.patch()
 	local FastServer = require "thlua.server.FastServer"
 	local SlowServer = require "thlua.server.SlowServer"
 	local server
 	if vMode == "fast" then
-		server = FastServer.new()
+		server = FastServer.new(vGlobalPathOrNil)
 	else
-		server = SlowServer.new()
+		server = SlowServer.new(vGlobalPathOrNil)
 	end
 
 	print=function(...)
