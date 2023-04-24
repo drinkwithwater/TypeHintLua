@@ -39,7 +39,7 @@ end
 
 function BaseServer:makeLoader():Ret(clazz.FileLoader)
 	return {
-		thluaSearch=function(vRuntime:clazz.BaseRuntime, vPath:String):Ret(Boolean, String)
+		thluaSearch=function(vRuntime, vPath)
 			const nSearchPath = vRuntime:getSearchPath() or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
 			const nList:List(String) = {}
 			const nSet:Dict(String, True) = {}
@@ -56,7 +56,7 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 			end
 			return true, self:pathToUri(fileName)
 		end,
-		thluaParseFile=function(vRuntime:clazz.BaseRuntime, vFileUri:String):Ret(clazz.CodeEnv)
+		thluaParseFile=function(vRuntime, vFileUri)
 			if not self._fileStateDict[vFileUri] then
 				const nFilePath = self:uriToPath(vFileUri)
 				const file, err = io.open(nFilePath, "r")
@@ -69,7 +69,22 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 			end
 			return self._fileStateDict[vFileUri]!:checkLatestEnv()
 		end,
-	} @? clazz.FileLoader
+		thluaGlobalFile=function(vRuntime, vPackage)
+            vPackage = vPackage or "global"
+			const nFilePath = lpath.parent(lpath.bin()).."/global/"..vPackage..".d.thlua"
+			const nFileUri = self:pathToUri(nFilePath)
+			if not self._fileStateDict[nFileUri] then
+				const file, err = io.open(nFilePath, "r")
+				if not file then
+					error(err)
+				end
+				const nContent = file:read("*a")
+				file:close()
+				self:attachFileState(nFileUri):syncContent(nContent, -1)
+            end
+			return self._fileStateDict[nFileUri]!:checkLatestEnv()
+		end,
+	}
 end
 
 function BaseServer:checkFileState(vFileUri:String):Ret(lsp.FileState)

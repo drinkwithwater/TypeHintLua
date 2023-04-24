@@ -16,7 +16,7 @@ end
 
 takeString(oneInt) -- error, call param not match
 
--- you write something in hint space
+-- you can write something in hint space
 (@do
 	print("Hello in hint space")
 	-- $ for get type in lua space

@@ -26,6 +26,7 @@ const CodeEnv = require "thlua.code.CodeEnv"
 	clazz.FileLoader = Struct {
 		thluaSearch=Fn(clazz.BaseRuntime, String):Ret(Boolean, String),
 		thluaParseFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
+		thluaGlobalFile=Fn(clazz.BaseRuntime, OrFalse(String)):Ret(clazz.CodeEnv),
 	}
 
 	clazz.Diagnostic = Struct {
@@ -61,10 +62,18 @@ const DefaultLoader:clazz.FileLoader = {
 		file:close()
 		const nCodeEnv = CodeEnv.new(nContent, vFileName)
 		return nCodeEnv
+	end,
+	thluaGlobalFile=function.pass(vRuntime, vPackage)
+		local nContent:OrNil(String) = nil
+		if vPackage then
+			nContent = require("thlua.global."..vPackage)
+		else
+			nContent = require("thlua.global.global")
+		end
+		const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..(vPackage or "global"))
+		return nCodeEnv
 	end
 }
-
-
 
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
@@ -122,6 +131,11 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	end
 end
 
+const nGlobalPackage:List(OrFalse(String)) = {
+	false,
+	"math",
+}
+
 function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(String, clazz.Exception))
 	self._node=Node.newRootNode(vRootFileUri)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
@@ -134,6 +148,13 @@ function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(Strin
 	const t1 = os.clock()
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
+			for _, pkg in ipairs(nGlobalPackage) do
+				const nCodeEnv = self._loader.thluaGlobalFile(self, pkg)
+				const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
+				const nContext = self._rootStack:newNoPushContext(self._node)
+				const nTermTuple = nContext:FixedTermTuple({})
+				nOpenFn:meta_open_call(nContext, nTermTuple, true)
+			end
 			return false, false, function()
 				const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
 				const nParTuple = self._manager:TypeTuple(self._node)

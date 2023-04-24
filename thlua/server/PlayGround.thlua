@@ -28,6 +28,7 @@ const PlayGround = class@<clazz.PlayGround, false>()
 function.open PlayGround:ctor()
     self._splitCode = SplitCode.new("")
     self._codeEnv = nil@!clazz.CodeEnv
+    self._globalToEnv = {} @ Dict(String, clazz.CodeEnv)
 end
 
 function PlayGround:update(vName:String, vData:String):Ret(String)
@@ -72,6 +73,21 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
         thluaParseFile=function(vRuntime, vFileName)
             return CodeEnv.new(self._splitCode, vFileName)
         end,
+        thluaGlobalFile=function(vRuntime, vPackage)
+            vPackage = vPackage or "global"
+            const nCodeEnv = self._globalToEnv[vPackage]
+            if not nCodeEnv then
+                local nContent:OrNil(String) = nil
+                do.pass
+                    nContent = require("thlua.global."..vPackage)
+                end
+                const nCodeEnv = CodeEnv.new(nContent!, "@virtual-file:"..(vPackage or "global"))
+                self._globalToEnv[vPackage] = nCodeEnv
+                return nCodeEnv
+            else
+                return nCodeEnv
+            end
+        end
     })
     const nRunOkay, nExc = nRuntime:pmain(vName)
     const nDiaList:List(clazz.Diagnostic) = nRuntime:getAllDiagnostic()[vName] or {}

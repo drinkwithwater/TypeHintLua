@@ -100,6 +100,14 @@ class Packer(object):
         with open("3rd/vscode-lsp/server/thlua.lua", "w") as fo:
             content = "".join(l)
             fo.write(content)
+        globalPath = "./thlua/global/"
+        for fileName in os.listdir(globalPath):
+            with open(globalPath + fileName, "r") as fi:
+                lines = fi.readlines()
+                lines = lines[1:-1]
+            fileName = fileName.replace(".lua", ".d.thlua")
+            with open("3rd/vscode-lsp/server/global/" + fileName, "w") as fo:
+                fo.write("".join(lines))
 
     def buildForWeb(self):
         l = ["var THLUA_SCRIPT=(function(){/* ", HEAD]
