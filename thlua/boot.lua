@@ -1,8 +1,3 @@
-tprint=function()
-end
-ttprint=function()
-end
-
 local ParseEnv = require "thlua.code.ParseEnv"
 
 local boot = {}
