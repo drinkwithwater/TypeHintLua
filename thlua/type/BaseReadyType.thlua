@@ -11,6 +11,7 @@ const BaseReadyType = class@<clazz.BaseReadyType, clazz.IReadyType>()
 
 function.open BaseReadyType:ctor(vManager:clazz.TypeManager, ...)
 	self._manager = vManager
+	self._withnilType = false @ OrFalse(clazz.UAtomUnion)
 	self.id = 0 @ Integer
 end
 
@@ -167,6 +168,18 @@ end
 
 function.pass BaseReadyType:trueType()
 	return self
+end
+
+function BaseReadyType:withnilType()
+	local nWithNilType = self._withnilType
+	if not nWithNilType then
+		const nCollection = self._manager:TypeCollection()
+		nCollection:put(self @? clazz.UAtomUnion)
+		nCollection:put(self._manager.type.Nil)
+		nWithNilType = nCollection:mergeToAtomUnion()
+		self._withnilType = nWithNilType
+	end
+	return nWithNilType
 end
 
 function BaseReadyType:setAssigned(vContext)

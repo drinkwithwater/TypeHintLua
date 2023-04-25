@@ -64,7 +64,7 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 				if not file then
 					error(err)
 				end
-				const nContent = file:read("a")
+				const nContent = assert(file:read("a"), "file get nothing")
 				file:close()
 				self:attachFileState(vFileUri):syncContent(nContent, -1)
 			end
@@ -79,7 +79,7 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 				if not file then
 					error(err)
 				end
-				const nContent = file:read("*a")
+				const nContent = assert(file:read("a"), "global file get nothing")
 				file:close()
 				self:attachFileState(nFileUri):syncContent(nContent, -1)
             end
@@ -148,7 +148,7 @@ function BaseServer:readRequest():Ret(lsp.RequestMessage)
 	-- 1 get header
 	local length:Integer = -1
 	while true do
-		local line = io.read("*l")
+		local line = io.read("l")
 		if not line then
 			error("io.read fail")
 		end
@@ -291,7 +291,9 @@ end
 
 function BaseServer:uriToPath(vUri:String):Ret(String)
 	const nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
-		return string.char(tonumber(c, 16))
+		const num = assert(tonumber(c, 16))
+		const char = string.char(num)
+		return char!
 	end)
 	if self:getPlatform() == "win" then
 		return (nPath:gsub("^file:///", ""):gsub("/$", ""))
