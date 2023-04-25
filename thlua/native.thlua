@@ -99,12 +99,6 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			print("rawset TODO")
 			return vContext:FixedTermTuple({})
 		end),
-		collectgarbage=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			return vContext:FixedTermTuple({})
-		end),
-		tostring=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			return vContext:RefineTerm(nManager.type.String)
-		end),
 		type=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(vContext, 1)
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
@@ -160,9 +154,6 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 				end
 			end
 		end),
-		print=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			return vContext:FixedTermTuple({})
-		end),
 		tprint=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			const nTailContext = vStack:inplaceOper()
 			nTailContext:info(vTermTuple)
@@ -171,12 +162,6 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 		ttprint=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			vContext:info(vTermTuple:checkTypeTuple())
 			return vContext:FixedTermTuple({})
-		end),
-		tonumber=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			--self:argnum_warn(1, vTermTuple)
-			--local nData = vTermTuple:get(1)
-			--print("tonumber TODO")
-			return vContext:RefineTerm(nManager:checkedUnion(nManager.type.False, nManager.type.Number))
 		end),
 		require=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
@@ -187,8 +172,8 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 					vContext:addLookupNode(nRetTerm:getNode(), nOpenFn)
 					vContext:nativeOpenReturn(nRetTerm)
 				else
-					vContext:warn("TODO require take non-StringLiteral type ")
-					vContext:nativeOpenReturn(vContext:FixedTermTuple({}))
+					vContext:warn("require take non-const type ")
+					vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Any))
 				end
 			end):mergeFirst()
 		end),
@@ -233,8 +218,6 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 	for k,v in pairs(global @? Dict(String, clazz.OpenFunction)) do
 		-- v:set_name(k)
 	end
-
-	global.string=nManager.builtin.string
 
 	global.table=native.make_table(nManager)
 

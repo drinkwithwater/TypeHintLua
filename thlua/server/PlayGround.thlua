@@ -77,11 +77,8 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
             vPackage = vPackage or "global"
             const nCodeEnv = self._globalToEnv[vPackage]
             if not nCodeEnv then
-                local nContent:OrNil(String) = nil
-                do.pass
-                    nContent = require("thlua.global."..vPackage)
-                end
-                const nCodeEnv = CodeEnv.new(nContent!, "@virtual-file:"..(vPackage or "global"))
+                const nContent = require("thlua.global."..vPackage) @? String
+                const nCodeEnv = CodeEnv.new(nContent!, "@virtual-file:"..vPackage)
                 self._globalToEnv[vPackage] = nCodeEnv
                 return nCodeEnv
             else

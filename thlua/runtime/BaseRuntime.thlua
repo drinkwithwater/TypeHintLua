@@ -26,7 +26,7 @@ const CodeEnv = require "thlua.code.CodeEnv"
 	clazz.FileLoader = Struct {
 		thluaSearch=Fn(clazz.BaseRuntime, String):Ret(Boolean, String),
 		thluaParseFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
-		thluaGlobalFile=Fn(clazz.BaseRuntime, OrFalse(String)):Ret(clazz.CodeEnv),
+		thluaGlobalFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
 	}
 
 	clazz.Diagnostic = Struct {
@@ -64,13 +64,8 @@ const DefaultLoader:clazz.FileLoader = {
 		return nCodeEnv
 	end,
 	thluaGlobalFile=function.pass(vRuntime, vPackage)
-		local nContent:OrNil(String) = nil
-		if vPackage then
-			nContent = require("thlua.global."..vPackage)
-		else
-			nContent = require("thlua.global.global")
-		end
-		const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..(vPackage or "global"))
+		local nContent:String = require("thlua.global."..vPackage)
+		const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
 		return nCodeEnv
 	end
 }
@@ -131,7 +126,8 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
 	end
 end
 
-const nGlobalPackage:List(OrFalse(String)) = {
+const nGlobalPackage:List(String) = {
+	"basic",
 	"coroutine",
 	"debug",
 	"io",
@@ -141,7 +137,6 @@ const nGlobalPackage:List(OrFalse(String)) = {
 	"string",
 	"table",
 	"utf8",
-	false,
 }
 
 function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(String, clazz.Exception))
