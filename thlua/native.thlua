@@ -236,87 +236,13 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 
 	global.string=nManager.builtin.string
 
-	global.os=native.make_os(nManager)
-	global.debug=native.make_debug(nManager)
 	global.table=native.make_table(nManager)
-	global.coroutine=native.make_coroutine(nManager)
-	global.package=native.make_package(nManager)
 
 	-- global.next = vRuntime.func.next
 	const nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
     nGlobalTable:setName("_G")
 
 	return nGlobalTable
-end
-
-function native.make_package(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
-	const type = vManager.type
-	const package:StringToAtomUnion = {
-		searchpath=vManager:checkedFn(type.String, type.String):Ret(type.Nil, type.String):Ret(type.String),
-		config=type.String,
-	}
-	const nTable = native._toTable(vManager, package)
-	nTable:setName("package")
-	return nTable
-end
-
-function native.make_debug(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
-	-- debug.traceback's arguments TODO
-	const type = vManager.type
-	const nInfo = vManager:buildStruct(vManager:getRuntime():getNode(), {
-		namewhat=type.String,
-		isvararg=type.Boolean,
-		ntransfer=type.Integer,
-		nups=type.Integer,
-		currentline=type.Integer,
-		func=type.Truth,
-		nparams=type.Integer,
-		short_src=type.String,
-		ftransfer=type.Integer,
-		istailcall=type.Boolean,
-		lastlinedefined=type.Integer,
-		linedefined=type.Integer,
-		source=type.String,
-		what=type.String,
-	})
-	const debug:StringToAtomUnion = {
-		traceback=vManager:checkedFn():Ret(type.String),
-		getinfo=vManager:checkedFn(vManager:checkedUnion(vManager.type.Integer, type.AnyFunction)):Ret(nInfo),
-	}
-	const nTable = native._toTable(vManager, debug)
-	nTable:setName("debug")
-	return nTable
-end
-
-function native.make_coroutine(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
-	const type = vManager.type
-	const nStatusUnion = vManager:checkedUnion(
-		vManager:Literal("running"),
-		vManager:Literal("suspended"),
-		vManager:Literal("normal"),
-		vManager:Literal("dead")
-	)
-	const co:StringToAtomUnion = {
-		create=vManager:checkedFn(type.AnyFunction):Ret(type.Thread),
-		running=vManager:checkedFn():Ret(type.Thread, type.Boolean),
-		resume=vManager:checkedFn(type.Thread):Dots(type.Any):Ret(type.True):Ret(type.False,type.String),
-		yield=vManager:checkedFn():Ret(type.Truth),
-		status=vManager:checkedFn(type.Thread):Ret(nStatusUnion),
-	}
-	local nTable = native._toTable(vManager, co)
-	nTable:setName("coroutine")
-	return nTable
-end
-
-function native.make_os(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
-	const type = vManager.type
-	const string:StringToAtomUnion = {
-		clock=vManager:checkedFn():Ret(type.Number),
-		exit=vManager:checkedFn(),
-	}
-	const nTable = native._toTable(vManager, string)
-	nTable:setName("os")
-	return nTable
 end
 
 function native.make_table(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
