@@ -133,6 +133,7 @@ end
 
 const nGlobalPackage:List(OrFalse(String)) = {
 	"math",
+	"string",
 	false,
 }
 
@@ -153,7 +154,13 @@ function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(Strin
 				const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
 				const nContext = self._rootStack:newNoPushContext(self._node)
 				const nTermTuple = nContext:FixedTermTuple({})
-				nOpenFn:meta_open_call(nContext, nTermTuple, true)
+				const nReturn = nOpenFn:meta_open_call(nContext, nTermTuple, true)
+				if pkg == "string" then
+					const nRetTerm = TermTuple.is(nReturn) and nReturn:get(nContext, 1) or nReturn
+					const nRetType = nRetTerm:getType()
+					assert(not nRetType:isUnion(), "string lib's return can't be union")
+					self._manager:lateInitStringLib(nRetType)
+				end
 			end
 			return false, false, function()
 				const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
