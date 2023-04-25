@@ -105,7 +105,7 @@ class Packer(object):
             with open(globalPath + fileName, "r") as fi:
                 lines = fi.readlines()
                 lines = lines[1:-1]
-            fileName = fileName.replace(".lua", ".d.thlua")
+            fileName = fileName.replace(".thlua", ".d.thlua")
             with open("3rd/vscode-lsp/server/global/" + fileName, "w") as fo:
                 fo.write("".join(lines))
 
