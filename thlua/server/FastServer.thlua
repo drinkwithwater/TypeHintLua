@@ -3,7 +3,7 @@ const lpath = require "path"
 const FieldCompletion = require "thlua.context.FieldCompletion"
 const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
-const ErrorCodes = require "thlua.server.protocol".ErrorCodes
+const SeverityEnum = require "thlua.runtime.SeverityEnum"
 const CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
@@ -79,6 +79,36 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
 	if self:attachFileState(nFileUri):syncChangeMayRerun(vParams) then
 		self:rerun(nFileUri)
+	end
+	for nFileName, nFileState in pairs(self._fileStateDict) do
+		const nDiaList:List(lsp.Diagnostic) = {}
+		const nExc = nFileState:getLatestException()
+		if nExc then
+			const nNode = nExc.node
+			nDiaList[1] = {
+				range={
+					start={
+						line=nNode.l-1,
+						character=0,
+					},
+					["end"]={
+						line=nNode.l-1,
+						character=100,
+					}
+				},
+				message=nExc.msg,
+				severity=SeverityEnum.Error,
+			}
+		end
+		self:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri=nFileName,
+				version=nFileState:getVersion(),
+				diagnostics=json.array(nDiaList),
+			},
+		})
 	end
 end
 
