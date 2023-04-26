@@ -27,14 +27,15 @@ function ApplyContext:getLookupNodeSet()
 	return self._lookupNodeSet
 end
 
-function ApplyContext:addLookupNode(vNode:clazz.IAstNode, vType:clazz.UAtomUnion)
+function ApplyContext:addLookupNode(vLookupNode:clazz.IAstNode, vType:clazz.UAtomUnion)
+	self._stack:getRuntime():recordLookdownNode(vLookupNode, self._node)
 	if BaseFunction.is(vType) then
 		const nIfLua, nNode = vType:getIfLuaNode()
 		if nIfLua then
-			vNode = nNode
+			vLookupNode = nNode
 		end
 	end
-	self._lookupNodeSet[vNode] = true
+	self._lookupNodeSet[vLookupNode] = true
 end
 
 function ApplyContext:recursiveChainTestAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)
