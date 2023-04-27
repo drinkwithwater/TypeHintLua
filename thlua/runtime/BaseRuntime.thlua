@@ -7,6 +7,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
 const Namespace = require "thlua.refer.Namespace"
+const Letspace = require "thlua.refer.Letspace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
 
@@ -264,7 +265,7 @@ function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)
 	return nSpace
 end
 
-function.pass BaseRuntime:buildSimpleGlobal():Ret(Truth)
+function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.TypeReference))
 	local nGlobal = {}
 	for k,v in pairs(self._manager.type) do
 		nGlobal[k] = v
@@ -338,8 +339,8 @@ function BaseRuntime:RootNamespace():Ret(clazz.Namespace)
 	return nSpace
 end
 
-function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Namespace)
-	local nSpace = Namespace.new(self._manager, vRegionNode, vParentLet:getKeyToType())
+function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Letspace)
+	local nSpace = Letspace.new(self._manager, vRegionNode, nil, vParentLet)
 	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace

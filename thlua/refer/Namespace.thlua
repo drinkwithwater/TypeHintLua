@@ -5,37 +5,31 @@ const StringLiteral = require "thlua.type.StringLiteral"
 const SpaceTable = require "thlua.refer.SpaceTable"
 const NameLocation= require "thlua.refer.NameLocation"
 const Node = require "thlua.code.Node"
-const Namespace = {}
-Namespace.__tostring=function(self):Ret(String)
-	return (self:isLetSpace() and "letspace-" or "namespace-") .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
-end
-Namespace.__index=Namespace
+const class = require "thlua.class"
 
 (@do
-	let.clazz = import("thlua.type.TypeClass").clazz
-	clazz.SpaceTable = Interface {
-		[clazz.UAllType]=clazz.TypeReference,
-	}
+	let.clazz = import($class).clazz
 	let.StringToRefer = import($SpaceTable).StringToRefer
 end)
 
-const function throw(vMsg:String)
-	const nNode = Node.getDebugNode(4)
-	error(Exception.new(vMsg, nNode))
+const Namespace = class@<clazz.Namespace, clazz.ICompletion>()
+Namespace.__tostring=function(self):Ret(String)
+	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function:class(clazz.Namespace) Namespace.new(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIndexTable:OrNil(Truth)):implements(clazz.ICompletion)
-	const self = setmetatable({.class
-		_manager=vManager,
-		_key2type=(vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
-		_closed=false@Boolean,
-		_node=vNode,
-		_key=false@Union(False, String),
-		localExport=nil@!clazz.LocalSpaceTable,
-		globalExport=nil@!clazz.GlobalSpaceTable,
-	}, Namespace)
+function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.TypeReference)), ...)
+	self._manager=vManager
+	self._key2type={} @ StringToRefer -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
+	self._closed=false@Boolean
+	self._node=vNode
+	self._key=false@Union(False, String)
+	self.localExport=nil@!clazz.LocalSpaceTable
 	self.localExport = SpaceTable.createLocal(self, self._key2type)
-	self.globalExport = SpaceTable.createGlobal(self, self._key2type)
+	if vIndexTable then -- root space
+		for k,v in pairs(vIndexTable) do
+			self._key2type[k] = v
+		end
+	end
 	return self
 end
 
@@ -62,27 +56,11 @@ function Namespace:trySetKey(vKey:String)
 	end
 end
 
-function.pass Namespace:isLetSpace():Ret(Boolean)
-	return getmetatable(self._key2type) and true or false
-end
-
-function.pass Namespace.fromExport(t:Any):Ret(OrFalse(clazz.Namespace))
-	local nMeta = getmetatable(t)
-	if type(nMeta) == "table" then
-		local self = rawget(nMeta, "__self")
-		if getmetatable(self) == Namespace then
-			return self
-		end
-	end
-	return false
-end
-
-function Namespace:testAndAssignNewValue(vNode:clazz.IAstNode, vKeyType:clazz.IAtomType, vNewValue:Any)
-	const nAssignSpace = Namespace.fromExport(vNewValue)
+function Namespace:assignNewValue(vNode:clazz.IAstNode, vKeyType:clazz.IAtomType, vNewValue:Any)
+	const nAssignSpace = SpaceTable.checkSpace(vNewValue)
 	if nAssignSpace then
 		nAssignSpace:trySetKey(tostring(vKeyType))
 		self._key2type[vKeyType] = vNewValue @? clazz.LocalSpaceTable
-		return true
 	else
 		const refer = self._manager:Reference(tostring(vKeyType))
 		refer:setAssignAsync(vNode, function() return vNewValue end)
@@ -121,12 +99,19 @@ function Namespace:getNode()
 	return self._node
 end
 
-function.open Namespace.is(v):isguard(clazz.Namespace)
-	return getmetatable(v) == Namespace
-end
-
 function Namespace:getManager()
 	return self._manager
+end
+
+SpaceTable.checkSpace = function.pass (t:Any):Ret(OrFalse(clazz.Namespace))
+	local nMeta = getmetatable(t)
+	if type(nMeta) == "table" then
+		local self = rawget(nMeta, "__namespace")
+		if Namespace.is(self) then
+			return self
+		end
+	end
+	return false
 end
 
 return Namespace

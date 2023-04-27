@@ -1,0 +1,23 @@
+
+const class = require "thlua.class"
+const Namespace = require "thlua.refer.Namespace"
+const SpaceTable = require "thlua.refer.SpaceTable"
+
+(@do
+	let.clazz = import($class).clazz
+	let.StringToRefer = import($SpaceTable).StringToRefer
+end)
+
+const Letspace = class@<clazz.Letspace, false>(Namespace)
+Letspace.__tostring=function(self):Ret(String)
+	return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
+end
+
+function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, _, vParentSpace:clazz.Namespace)
+    do.pass
+        setmetatable(self._key2type, {__index=vParentSpace:getKeyToType()})
+    end
+    self.globalExport = SpaceTable.createGlobal(self, self._key2type)
+end
+
+return Letspace
