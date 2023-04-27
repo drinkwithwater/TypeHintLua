@@ -1,0 +1,89 @@
+
+const Reference = require "thlua.refer.Reference"
+const Exception = require "thlua.Exception"
+const Node = require "thlua.code.Node"
+
+(@do
+	let.clazz = import("thlua.type.TypeClass").clazz
+	let.StringToRefer = Dict(clazz.IAtomType, Union(clazz.TypeReference, clazz.LocalSpaceTable))
+end)
+
+const function throw(vMsg:String)
+	const nNode = Node.getDebugNode(4)
+	error(Exception.new(vMsg, nNode))
+end
+
+const SpaceTable = {}
+
+function:class(clazz.LocalSpaceTable) SpaceTable.createLocal(vSpace:clazz.Namespace, vKeyToType:StringToRefer)
+    return setmetatable({.class
+    }, {
+		__index=function(_:Truth,k:Any):Ret(Union(clazz.TypeReference, clazz.LocalSpaceTable))
+			const nKeyType = vSpace:assertSpaceKeyType(k)
+			const nNode = Node.getDebugNode(3)
+			local rawgetV = rawget(vKeyToType, nKeyType)
+			if rawgetV ~= nil then
+				return rawgetV
+			end
+			const getV = vKeyToType[nKeyType]
+			if getV ~= nil then
+				throw("let can only get symbol in current level key="..tostring(k))
+			end
+			if vSpace:isClosed() then
+				throw("namespace closed, can't create key="..tostring(k))
+			end
+			const refer = vSpace:getManager():Reference(tostring(k))
+			refer:pushReferNode(nNode)
+			vKeyToType[nKeyType] = refer
+			return refer
+		end,
+		__newindex=function(_:Truth,k:Any,newV:Any)
+			const nKeyType = vSpace:assertSpaceKeyType(k)
+			if vSpace:isClosed() then
+				throw("namespace closed, can't create key="..tostring(k))
+			end
+			const getV = vKeyToType[nKeyType]
+			local rawgetV = rawget(vKeyToType, nKeyType)
+			if getV ~= nil and rawgetV == nil then
+				throw("let shadow set : key="..tostring(nKeyType))
+			end
+			if rawgetV ~= nil then
+				-- for recursive indexing reference
+				if Reference.is(rawgetV) then
+					rawgetV:setAssignAsync(Node.getDebugNode(3), function() return newV end)
+				else
+					throw("assign conflict: key="..tostring(nKeyType))
+				end
+			else
+                vSpace:testAndAssignNewValue(Node.getDebugNode(3), nKeyType, newV)
+			end
+		end,
+		__tostring=function(_:Truth):Ret(String)
+			return tostring(vSpace).."->LocalSpaceTable"
+		end,
+		__self=vSpace,
+    })
+end
+
+function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobal(vSpace:clazz.Namespace, vKeyToType:StringToRefer)
+    return setmetatable({.class
+    }, {
+		__index=function(_:Truth,k:Any):Ret(Union(clazz.TypeReference, clazz.LocalSpaceTable))
+			const nKeyType = vSpace:assertSpaceKeyType(k)
+			local v = vKeyToType[nKeyType]
+			if v ~= nil then
+				return v
+			end
+			throw("key with empty value, key="..tostring(nKeyType))
+		end,
+		__newindex=function(t:Truth,k:Any,v:Any)
+			throw("global can't assign")
+		end,
+		__tostring=function(t:Truth):Ret(String)
+			return tostring(vSpace).."->GlobalSpaceTable"
+		end,
+		__self=vSpace,
+    })
+end
+
+return SpaceTable

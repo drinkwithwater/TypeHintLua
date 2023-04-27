@@ -6,7 +6,7 @@ const BaseAtomType = require "thlua.type.BaseAtomType"
 const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
-const Namespace = require "thlua.manager.Namespace"
+const Namespace = require "thlua.refer.Namespace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
 
@@ -101,7 +101,7 @@ function BaseRuntime:checkAtomUnionFinish()
 	end
 end
 
-function BaseRuntime:import(vDst:Truth):Ret(clazz.SpaceTable)
+function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 	-- TODO better style?
 	if type(vDst) == "string" then
 		const nPath = vDst @> String
@@ -319,9 +319,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Truth)
 			vFunc(k,v)
 		end
 	end
-	for k,v in pairs(_G) do
-		nGlobal[k]=v
-	end
+	nGlobal._G = setmetatable({}, {__index=_G})
 	nGlobal.print=function(...)
 		self:nodeInfo(Node.getDebugNode(3), ...)
 	end
