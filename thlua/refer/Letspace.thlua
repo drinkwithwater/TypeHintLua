@@ -2,6 +2,8 @@
 const class = require "thlua.class"
 const Namespace = require "thlua.refer.Namespace"
 const SpaceTable = require "thlua.refer.SpaceTable"
+const Exception = require "thlua.Exception"
+const Reference = require "thlua.refer.Reference"
 
 (@do
 	let.clazz = import($class).clazz
@@ -13,15 +15,34 @@ Letspace.__tostring=function(self):Ret(String)
 end
 
 function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, _, vParentSpace:clazz.Namespace)
-    do.pass
-        setmetatable(self._key2type, {__index=vParentSpace:getKeyToType()})
-    end
-    self.globalExport = SpaceTable.createGlobal(self, self._key2type)
+    self._envTable = SpaceTable.createEnvTable(self, self._key2type)
     self._parentSpace = vParentSpace
+    self._globalTable = SpaceTable.createGlobalTable(self, vParentSpace)
 end
 
-function Letspace:parentGet(vKey:clazz.IAtomType):Ret(OrNil(clazz.SpaceValue))
-	return self._parentSpace:getKeyToType()[vKey] or self._parentSpace:parentGet(vKey)
+function Letspace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
+	return self._parentSpace:pureGet(vKeyType) and true or false
+end
+
+function Letspace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceValue))
+	return self._key2type[vKeyType] or self._parentSpace:pureGet(vKeyType)
+end
+
+function Letspace:globalGet(vNode:clazz.IAstNode, vKeyType:clazz.IAtomType)
+    const nValue = self:pureGet(vKeyType)
+    if nValue then
+        return nValue
+    else
+        error(Exception.new("key with empty value, key="..tostring(vKeyType), vNode))
+    end
+end
+
+function Letspace:getGlobalTable():Ret(OrFalse(clazz.GlobalSpaceTable))
+    return self._globalTable
+end
+
+function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
+    return self._localTable, self._envTable, self._globalTable
 end
 
 return Letspace

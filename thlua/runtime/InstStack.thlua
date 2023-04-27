@@ -40,14 +40,14 @@ function InstStack:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
 	return AutoFlag
 end
 
-function InstStack:BEGIN(vLexStack:clazz.BaseStack, vBlockNode:node.Block):Ret(clazz.LocalSpaceTable, clazz.GlobalSpaceTable)
+function InstStack:BEGIN(vLexStack:clazz.BaseStack, vBlockNode:node.Block):Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
 	assert(not self._letspace, "context can only begin once")
 	const nUpState = self._lexShot
 	const nRootBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, vBlockNode)
 	self._branchStack[1]=nRootBranch
 	const nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vBlockNode)
 	self._letspace = nSpace
-	return nSpace.localExport, nSpace.globalExport
+	return nSpace:export()
 end
 
 -- pack explist to termtuple or lazyfunc
@@ -709,9 +709,9 @@ function InstStack:INJECT_GET(
 	return vInjectGetter(vNode)
 end
 
-function InstStack:INJECT_BEGIN(vNode:clazz.IAstNode):Ret(clazz.LocalSpaceTable, clazz.GlobalSpaceTable)
+function InstStack:INJECT_BEGIN(vNode:clazz.IAstNode):Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
 	const nSpace = assert(self._letspace)
-	return nSpace.localExport, nSpace.globalExport
+	return nSpace:export()
 end
 
 return InstStack

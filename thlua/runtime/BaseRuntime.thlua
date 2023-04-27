@@ -76,7 +76,6 @@ const BaseRuntime = class@<clazz.BaseRuntime, false>()
 function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader))
 	self._searchPath = false @ OrFalse(String)
 	self._loader=vLoader or DefaultLoader
-	self._spaceList={}@List(clazz.Namespace)
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._scheduleManager=ScheduleManager.new()
@@ -96,12 +95,6 @@ function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
 	end
 end
 
-function BaseRuntime:checkAtomUnionFinish()
-	for _, space in pairs(self._spaceList) do
-		space:check()
-	end
-end
-
 function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 	-- TODO better style?
 	if type(vDst) == "string" then
@@ -113,12 +106,12 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 			error(Exception.new("recursive import:"..nPath, nNode))
 		end
 		const nSpace = nStack:getNamespace()
-		return nSpace.localExport
+		return nSpace:getLocalTable()
 	elseif BaseAtomType.is(vDst) then
 		const nStack = vDst:findRequireStack()
 		if nStack then
 			const nSpace = nStack:getNamespace()
-			return nSpace.localExport
+			return nSpace:getLocalTable()
 		else
 			error("import can only take type in a require stack"..debug.traceback())
 		end
@@ -261,7 +254,6 @@ end
 
 function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, Node.getDebugNode(4))
-	self._spaceList[#self._spaceList + 1] = nSpace
 	return nSpace
 end
 
@@ -300,7 +292,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 		return nManager:Literal(v)
 	end
 	nGlobal.namespace=function()
-		return self:TreeNamespace().localExport
+		return self:TreeNamespace():getLocalTable()
 	end
 	nGlobal.lock=function(vType)
 		vType:foreach(function(vAtom)
@@ -320,7 +312,6 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 			vFunc(k,v)
 		end
 	end
-	nGlobal._G = setmetatable({}, {__index=_G})
 	nGlobal.print=function(...)
 		self:nodeInfo(Node.getDebugNode(3), ...)
 	end
@@ -333,7 +324,6 @@ end
 
 function BaseRuntime:RootNamespace():Ret(clazz.Namespace)
 	local nSpace = Namespace.new(self._manager, self._node, self:buildSimpleGlobal())
-	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	nSpace:close()
 	return nSpace
@@ -341,7 +331,6 @@ end
 
 function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Letspace)
 	local nSpace = Letspace.new(self._manager, vRegionNode, nil, vParentLet)
-	self._spaceList[#self._spaceList + 1] = nSpace
 	nSpace:trySetKey("")
 	return nSpace
 end
