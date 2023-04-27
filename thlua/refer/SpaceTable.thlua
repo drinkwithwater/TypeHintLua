@@ -5,7 +5,6 @@ const Node = require "thlua.code.Node"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
-	let.StringToRefer = Dict(clazz.IAtomType, Union(clazz.TypeReference, clazz.LocalSpaceTable))
 end)
 
 const function throw(vMsg:String)
@@ -15,10 +14,10 @@ end
 
 const SpaceTable = {.open}
 
-function:class(clazz.LocalSpaceTable) SpaceTable.createLocal(vSpace:clazz.Namespace, vKeyToType:StringToRefer)
+function:class(clazz.LocalSpaceTable) SpaceTable.createLocal(vSpace:clazz.Namespace, vKeyToType:Dict(clazz.IAtomType, clazz.SpaceValue))
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:Any):Ret(Union(clazz.TypeReference, clazz.LocalSpaceTable))
+		__index=function(_:Truth,k:Any):Ret(clazz.SpaceValue)
 			const nKeyType = vSpace:assertSpaceKeyType(k)
 			const nNode = Node.getDebugNode(3)
 			local rawgetV = rawget(vKeyToType, nKeyType)
@@ -65,7 +64,7 @@ function:class(clazz.LocalSpaceTable) SpaceTable.createLocal(vSpace:clazz.Namesp
     })
 end
 
-function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobal(vSpace:clazz.Namespace, vKeyToType:StringToRefer)
+function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobal(vSpace:clazz.Namespace, vKeyToType:Dict(clazz.IAtomType, clazz.SpaceValue))
     return setmetatable({.class
     }, {
 		__index=function(_:Truth,k:Any):Ret(Union(clazz.TypeReference, clazz.LocalSpaceTable))

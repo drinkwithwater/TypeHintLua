@@ -5,7 +5,6 @@ const SpaceTable = require "thlua.refer.SpaceTable"
 
 (@do
 	let.clazz = import($class).clazz
-	let.StringToRefer = import($SpaceTable).StringToRefer
 end)
 
 const Letspace = class@<clazz.Letspace, false>(Namespace)
@@ -18,6 +17,11 @@ function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, _,
         setmetatable(self._key2type, {__index=vParentSpace:getKeyToType()})
     end
     self.globalExport = SpaceTable.createGlobal(self, self._key2type)
+    self._parentSpace = vParentSpace
+end
+
+function Letspace:parentGet(vKey:clazz.IAtomType):Ret(OrNil(clazz.SpaceValue))
+	return self._parentSpace:getKeyToType()[vKey] or self._parentSpace:parentGet(vKey)
 end
 
 return Letspace

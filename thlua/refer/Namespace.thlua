@@ -9,7 +9,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.StringToRefer = import($SpaceTable).StringToRefer
+	clazz.SpaceValue = Union(clazz.TypeReference, clazz.LocalSpaceTable)
 end)
 
 const Namespace = class@<clazz.Namespace, clazz.ICompletion>()
@@ -19,11 +19,10 @@ end
 
 function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.TypeReference)), ...)
 	self._manager=vManager
-	self._key2type={} @ StringToRefer -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
+	self._key2type={} @ Dict(clazz.IAtomType, clazz.SpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
 	self._node=vNode
 	self._key=false@Union(False, String)
-	self.localExport=nil@!clazz.LocalSpaceTable
 	self.localExport = SpaceTable.createLocal(self, self._key2type)
 	if vIndexTable then -- root space
 		for k,v in pairs(vIndexTable) do
@@ -48,6 +47,10 @@ function Namespace:assertSpaceKeyType(vKey:Any):Ret(clazz.IAtomType)
 	else
 		error("namespace's key can't be union type")
 	end
+end
+
+function Namespace:parentGet(vKey:clazz.IAtomType):Ret(OrNil(clazz.SpaceValue))
+	return nil
 end
 
 function Namespace:trySetKey(vKey:String)
@@ -83,7 +86,7 @@ function Namespace:check()
 	end
 end
 
-function Namespace:getKeyToType():Ret(StringToRefer)
+function Namespace:getKeyToType()
 	return self._key2type
 end
 
