@@ -42,6 +42,7 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const DirtyProcessor = require "thlua.manager.DirtyProcessor"
 
 const BaseReadyType = require "thlua.type.BaseReadyType"
 const BaseAtomType = require "thlua.type.BaseAtomType"
@@ -54,7 +55,7 @@ const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TypeRelation = require "thlua.manager.TypeRelation"
 
 (@do
-	let.clazz = import("thlua.type.TypeClass").clazz
+	let.clazz = import("thlua.class").clazz
 	let.WaitingInfo = Struct {
 		waitSid = Integer,
 		dependCo = Thread,
@@ -114,14 +115,16 @@ function:class(clazz.TypeManager) TypeManager.new(
 		_typeIdCounter=0@Integer,
 		_rootNode=vRootNode,
 		_scheduleManager=vScheduleManager,
+		_dirtyProcessor=nil@!clazz.DirtyProcessor,
 	}, TypeManager)
+	self._dirtyProcessor = DirtyProcessor.new(self)
 	self.type = makeBuiltinType(self)
 	self.type.Boolean = self:buildUnion(vRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
 	self.generic.Dict = self:buildTemplate(vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
-		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__next=vKey})
+		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
 	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
 		local nType = vCond
@@ -135,11 +138,11 @@ function:class(clazz.TypeManager) TypeManager.new(
 	end)
 	self.generic.IDict = self:buildTemplate(vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
-		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__next=vKey})
+		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
 	self.generic.List = self:buildTemplate(vRootNode, function(vValue:clazz.UAllType)
 		assert(vValue, "value can't be nil when build List")
-		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__next=self.type.Integer, __len=self.type.Integer})
+		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
 	end)
 	self.generic.IList = self:buildTemplate(vRootNode, function(vValue:clazz.UAllType)
 		assert(vValue, "value can't be nil when build IList")
@@ -178,38 +181,6 @@ function TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
 		return vData
 	end
 	return false
-end
-
-function.pass TypeManager:easyToTypeList(...:Any):Ret(List(clazz.UAllType))
-	const l = {...}
-	for i=1,#l do
-		l[i] = self:easyToType(l[i])
-	end
-	return l
-end
-
-function TypeManager:peasyToType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
-	local t = type(vData)
-	if t == "table" then
-		if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
-			return true, vData
-		else
-			return false, "to type failed"
-		end
-	elseif t == "number" or t == "string" or t == "boolean"then
-		return true, self:Literal(vData @> Union(Number, String, Boolean))
-	else
-		return false, "easyToType("..t..") invalid"
-	end
-end
-
-function TypeManager:easyToType(vData:Any):Ret(clazz.UAllType)
-	const nOkay, nType = self:peasyToType(vData)
-	if nOkay then
-		return nType
-	else
-		error(nType)
-	end
 end
 
 function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
@@ -322,7 +293,7 @@ function TypeManager:buildUnion(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeR
 	nNewRefer:setUnionAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
-			local nItem = self:easyToType(l[i])
+			local nItem = self._dirtyProcessor:easyToType(l[i])
 			if Reference.is(nItem) then
 				const nAsyncType = nItem:waitTypeCom():getTypeNowait()
 				if nAsyncType:isAsync() then
@@ -353,15 +324,15 @@ function TypeManager:buildStruct(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth),
 end
 
 function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IAstNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
-	const nNextKey = vMetaEventDict and vMetaEventDict.__next or false
+	const nNextKey = vMetaEventDict and vMetaEventDict.__Next or false
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:buildAsync(function(vAsyncKey)
 		const nIndependentList:List(clazz.UAllType) = {}
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
-			const nValueType = self:easyToType(nValue)
-			const nKeyType = self:easyToType(nKey)
+			const nValueType = self._dirtyProcessor:easyToType(nValue)
+			const nKeyType = self._dirtyProcessor:easyToType(nKey)
 			nIndependentList[#nIndependentList + 1] = nKeyType
 			nKeyType:checkAtomUnion():foreach(function(vAtomType)
 				nKeyList[#nKeyList + 1] = vAtomType
@@ -393,7 +364,7 @@ function TypeManager:buildIDict(vNode:clazz.IAstNode, vKey:clazz.UAtomUnion, vVa
 end
 
 function TypeManager:buildDict(vNode:clazz.IAstNode, vKey:clazz.UAtomUnion, vValue:clazz.UAllType):Ret(clazz.TypedObject)
-	return self:buildStruct(vNode, {[vKey]=vValue}, {__next=vKey})
+	return self:buildStruct(vNode, {[vKey]=vValue}, {__Next=vKey})
 end
 
 function TypeManager:buildIList(vNode:clazz.IAstNode, vValue:clazz.UAllType):Ret(clazz.TypedObject)
@@ -401,7 +372,7 @@ function TypeManager:buildIList(vNode:clazz.IAstNode, vValue:clazz.UAllType):Ret
 end
 
 function TypeManager:buildList(vNode:clazz.IAstNode, vValue:clazz.UAllType):Ret(clazz.TypedObject)
-	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __next=self.type.Integer})
+	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __Next=self.type.Integer})
 end
 
 function TypeManager:buildOrNil(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypeReference)
@@ -741,6 +712,10 @@ end
 
 function TypeManager:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
+end
+
+function TypeManager:getDirtyProcessor()
+	return self._dirtyProcessor
 end
 
 return TypeManager

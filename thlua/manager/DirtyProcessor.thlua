@@ -1,0 +1,53 @@
+
+const Reference = require "thlua.refer.Reference"
+const BaseAtomType = require "thlua.type.BaseAtomType"
+const BaseUnionType = require "thlua.union.BaseUnionType"
+
+const DirtyProcessor = {}
+
+DirtyProcessor.__index = DirtyProcessor
+
+(@do
+	let.clazz = import("thlua.class").clazz
+end)
+
+function:class(clazz.DirtyProcessor) DirtyProcessor.new(vTypeManager:clazz.TypeManager)
+    const self = setmetatable({.class
+        _manager = vTypeManager
+    }, DirtyProcessor)
+    return self
+end
+
+function DirtyProcessor:easyToType(vData:Any):Ret(clazz.UAllType)
+	const nOkay, nType = self:peasyToType(vData)
+	if nOkay then
+		return nType
+	else
+		error(nType)
+	end
+end
+
+function.pass DirtyProcessor:easyToTypeList(...:Any):Ret(List(clazz.UAllType))
+	const l = {...}
+	for i=1,#l do
+		l[i] = self:easyToType(l[i])
+	end
+	return l
+end
+
+function DirtyProcessor:peasyToType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
+	local t = type(vData)
+	if t == "table" then
+		if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+			return true, vData
+		else
+			return false, "to type failed"
+		end
+	elseif t == "number" or t == "string" or t == "boolean"then
+		return true, self._manager:Literal(vData @> Union(Number, String, Boolean))
+	else
+		return false, "easyToType("..t..") invalid"
+	end
+end
+
+return DirtyProcessor

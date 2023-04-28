@@ -351,7 +351,7 @@ function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
-		const nTemplateList:List(clazz.UAllType) = self._manager:easyToTypeList(...)
+		const nTemplateList:List(clazz.UAllType) = self._manager:getDirtyProcessor():easyToTypeList(...)
 		vTerm:foreach(function(vType, vVariableCase)
 			const nAfterType = vType:castPoly(nCastContext, nTemplateList)
 			if nAfterType then
@@ -363,7 +363,7 @@ function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 		return nCastContext:mergeToRefineTerm(nTypeCaseList)
 	else
 		const nDst = assert(..., "hint type can't be nil")
-		const nDstType = self._manager:easyToType(nDst):checkAtomUnion()
+		const nDstType = self._manager:getDirtyProcessor():easyToType(nDst):checkAtomUnion()
 		const nSrcType = vTerm:getType()
 		if vCastKind == Enum.CastKind_CONIL then
 			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), Enum.CastKind_CONIL)
