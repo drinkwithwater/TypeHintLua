@@ -1,4 +1,5 @@
 
+const CodeEnv = require "thlua.code.CodeEnv"
 const FieldCompletion = require "thlua.context.FieldCompletion"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -138,32 +139,104 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	return nFieldCompletion
 end
 
-function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(False):Ret(clazz.IAstNode)
-	local nNode:OrFalse(clazz.IAstNode) = false
+function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLine:Integer, vColumn:Integer):Ret(False, String):Ret(List(clazz.IAstNode))
+	const nSuccEnv = self:getCodeEnv(vFileUri)
+	if not nSuccEnv then
+		return false, "goto failed, success compiled code not found"
+	end
+	const nSuccSplitCode = nSuccEnv:getSplitCode()
+	const nPos = nSuccSplitCode:lcToPos(vLine, vColumn)
+	if nSuccSplitCode:getLine(vLine) ~= vDirtySplitCode:getLine(vLine) or nPos ~= vDirtySplitCode:lcToPos(vLine, vColumn) then
+		return false, "goto failed, code is dirty before pos"
+	end
+	-- 1. lookup Ident_use and Ident_def
+	const nIdentNode = nSuccEnv:searchIdent(nPos)
+	if nIdentNode then
+		if vIsLookup then
+			if nIdentNode.kind == "def" then
+				return false, "goto failed, lookup not work for Ident_def"
+			end
+			const nDefineNode = nIdentNode.defineIdent
+			if nDefineNode then
+				return {nDefineNode}
+			-- else, global identity, don't return, continue
+			end
+		else
+			if nIdentNode.kind == "use" and nIdentNode.defineIdent then
+				return false, "goto failed, lookdown not work for Ident_use"
+			end
+			if nIdentNode.kind == "def" then
+				return false, "symbol find reference TODO"
+			end
+		end
+	end
+	-- 2. lookup expr
+	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
+	if nExprNode then
+		self:focusSchedule(nFocusList)
+		const nNodeList = vIsLookup and self:exprLookup(nExprNode) or self:exprLookdown(nExprNode)
+		if #nNodeList <= 0 then
+			return false, "no lookup or lookdown expr node searched, node="..tostring(nExprNode)..",tag="..(nExprNode.tag)
+		end
+		return nNodeList
+	end
+	-- 3. search hint expr
+	const nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
+	if not nHintExprNode then
+		return false, "no target expr"
+	end
+	const nExprContent = nSuccSplitCode:getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
+	const nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
+	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSuccSplitCode, vFileUri, nWrongContent)
+	if not nInjectFn then
+		return false, "gen inject fn fail"
+	end
+	self:focusSchedule(nFocusList)
+	-- 3.1 run inject for hint expr
+	return vIsLookup
+		and self:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
+		or self:injectLookdown(nInjectTrace.pos, nBlockNode, nInjectFn)
+end
+
+function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(List(clazz.IAstNode))
+	local nNodeList:List(clazz.IAstNode) = {}
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if TypeReference.is(vResult) then
-			nNode = vResult:getAssignNode()
+			const nAssignNode = vResult:getAssignNode()
+			if nAssignNode then
+				nNodeList[#nNodeList+1] = nAssignNode
+			end
 		else
 			const nNamespace = SpaceTable.checkSpace(vResult)
 			if nNamespace then
-				nNode = nNamespace:getNode()
+				nNodeList[#nNodeList + 1]= nNamespace:getNode()
 			end
 		end
 	end)
-	return nNode
+	return nNodeList
 end
 
-function CompletionRuntime:nodeLookup(vNode:clazz.IAstNode):Ret(False):Ret(clazz.IAstNode)
+function CompletionRuntime:injectLookdown(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(List(clazz.IAstNode))
+	-- lookdown implement in DiagnosticRuntime
+	return {}
+end
+
+function CompletionRuntime:exprLookup(vNode:clazz.IAstNode):Ret(List(clazz.IAstNode))
 	const nList = self._nodeToApplyContextList:get(vNode)
 	if nList and #nList > 0 then
 		for _, nContext in pairs(nList) do
 			const nLookupNode = next(nContext:getLookupNodeSet())
 			if nLookupNode then
-				return nLookupNode
+				return {nLookupNode}
 			end
 		end
 	end
-	return false
+	return {}
+end
+
+function CompletionRuntime:exprLookdown(vNode:clazz.IAstNode):Ret(List(clazz.IAstNode))
+	-- lookdown implement in DiagnosticRuntime
+	return {}
 end
 
 return CompletionRuntime

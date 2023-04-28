@@ -161,80 +161,28 @@ end
 function SlowServer:onReferences(vParams:lsp.ReferenceParams):Ret(OrNil(List(lsp.Location)))
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nSplitCode = nFileState:getSplitCode()
-	const nLine = vParams.position.line + 1
-	const nColumn = vParams.position.character + 1
-	const nPos = nSplitCode:lcToPos(nLine, nColumn)
-	-- 1. find Ident_use to target Ident_def
-	const nRightEnv = nFileState:getRightEnv()
-	if nRightEnv then
-		const nNode = nRightEnv:searchIdent(nPos)
-		if nNode then
-			if nNode.kind == "def" then
-				-- TODO, return location list
-				return nil
-			end
-			if nNode.defineIdent then
-				-- not def ident
-				return nil
-			end
-		end
-	end
-	-- 2. other case, get position in succ env, find by expr lookup
 	const nDiagnosticRuntime = self:checkDiagnosticRuntime()
-	const nSuccEnv = nDiagnosticRuntime:getCodeEnv(nFileUri)
-	if not nSuccEnv then
-		self:info("find reference fail, maybe some error in code")
+	const nNodeList, nErrMsg = nDiagnosticRuntime:gotoNodeByParams(
+		false, nFileUri, nFileState:getSplitCode(),
+		vParams.position.line + 1,
+		vParams.position.character + 1
+	)
+	if not nNodeList then
+		self:info("find references fail:", nErrMsg)
 		return nil
-	end
-	if nSuccEnv:getSplitCode():getLine(nLine) ~= nSplitCode:getLine(nLine) then
-		self:info("TODO, if line not same, need rerun or check if split code has syntax error")
-		return nil
-	end
-	const nPos = nSuccEnv:getSplitCode():lcToPos(nLine, nColumn)
-	-- 3. search expr
-	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
-	if nExprNode then
-		const nLookdownList = nDiagnosticRuntime:nodeLookdown(nExprNode)
-		if not nLookdownList then
-			self:info("not found lookdown node"..tostring(nExprNode), nExprNode.tag)
-			return nil
-		end
+	else
 		const nRetList:List(lsp.Location) = {}
-		for i, nLookdownNode in ipairs(nLookdownList) do
+		for i, nLookupNode in ipairs(nNodeList) do
 			nRetList[i] = {
-				uri=nLookdownNode.path,
+				uri=nLookupNode.path,
 				range={
-					start={ line=nLookdownNode.l - 1, character=nLookdownNode.c-1, },
-					["end"]={ line=nLookdownNode.l - 1, character=nLookdownNode.c + 10 },
+					start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
+					["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c + 10 },
 				}
 			}
 		end
 		return nRetList
 	end
-	-- 4. search hint expr
-	const nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
-	if not nHintExprNode then
-		self:info("no target expr")
-		return nil
-	end
-	const nExprContent = nSuccEnv:getSplitCode():getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
-	const nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
-	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
-	if not nInjectFn then
-		return nil
-	end
-	-- 5. run inject for hint expr
-	const nFieldCompletion = nDiagnosticRuntime:injectCompletion(nInjectTrace.pos, nBlockNode, nInjectFn, self)
-	if not nFieldCompletion then
-		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
-		return nil
-	end
-	const nLookupNode = nDiagnosticRuntime:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
-	if not nLookupNode then
-		return nil
-	end
-	return nil
 end
 
 return SlowServer

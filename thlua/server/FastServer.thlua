@@ -144,83 +144,28 @@ end
 function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(lsp.Location)))
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nCurSplitCode = nFileState:getSplitCode()
-	const nLine = vParams.position.line + 1
-	const nColumn = vParams.position.character + 1
 	const nCompletionRuntime = self:checkRuntime()
-	const nSuccEnv = nCompletionRuntime:getCodeEnv(nFileUri)
-	if not nSuccEnv then
-		self:info("goto definition fail, maybe some error in code")
+	const nNodeList, nErrMsg = nCompletionRuntime:gotoNodeByParams(
+		true, nFileUri, nFileState:getSplitCode(),
+		vParams.position.line + 1,
+		vParams.position.character + 1
+	)
+	if not nNodeList then
+		self:info("goto definition fail:", nErrMsg)
 		return nil
-	end
-	const nSuccSplitCode = nSuccEnv:getSplitCode()
-	const nPos = nSuccSplitCode:lcToPos(nLine, nColumn)
-	if nSuccSplitCode:getLine(nLine) ~= nCurSplitCode:getLine(nLine) or nPos ~= nCurSplitCode:lcToPos(nLine, nColumn) then
-		self:info("TODO goto definition on dirty code")
-		return nil
-	end
-	-- 1. find Ident_use to target Ident_def
-	const nNode = nSuccEnv:searchIdent(nPos)
-	if nNode then
-		if nNode.kind == "def" then
-			self:info("goto definition not work for Ident_def node")
-			return nil
-		end
-		const nDefineNode = nNode.defineIdent
-		if nDefineNode then
-			return {{
-				uri=vParams.textDocument.uri,
+	else
+		const nRetList:List(lsp.Location) = {}
+		for i, nLookupNode in ipairs(nNodeList) do
+			nRetList[i] = {
+				uri=nLookupNode.path,
 				range={
-					start={ line=nDefineNode.l - 1, character=nDefineNode.c-1, },
-					["end"]={ line=nDefineNode.l - 1, character=nDefineNode.c - 1 },
+					start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
+					["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c - 1 },
 				}
-			}}
-		else
-			-- global identity, don't return, continue
-		end
-	end
-	-- 2. search expr
-	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
-	if nExprNode then
-		nCompletionRuntime:focusSchedule(nFocusList)
-		const nLookupNode = nCompletionRuntime:nodeLookup(nExprNode)
-		if not nLookupNode then
-			self:info("not found lookup node"..tostring(nExprNode), nExprNode.tag)
-			return nil
-		end
-		return {{
-			uri=nLookupNode.path,
-			range={
-				start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
-				["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c - 1 },
 			}
-		}}
+		end
+		return nRetList
 	end
-	-- 3. search hint expr
-	const nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
-	if not nHintExprNode then
-		self:info("no target expr")
-		return nil
-	end
-	const nExprContent = nSuccSplitCode:getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
-	const nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
-	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSuccSplitCode, nFileUri, nWrongContent)
-	if not nInjectFn then
-		return nil
-	end
-	nCompletionRuntime:focusSchedule(nFocusList)
-	-- 4. run inject for hint expr
-	const nLookupNode = nCompletionRuntime:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
-	if not nLookupNode then
-		return nil
-	end
-	return {{
-		uri=nLookupNode.path,
-		range={
-			start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
-			["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c - 1 },
-		}
-	}}
 end
 
 function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(lsp.CompletionItem)))
