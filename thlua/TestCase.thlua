@@ -20,7 +20,7 @@ function:class(test.Case) TestCase.new(vScript:String)
 		end
 	end
 	const self = setmetatable({.class
-		_runtime = nil @ clazz.BaseRuntime,
+		_runtime = nil @! clazz.DiagnosticRuntime,
 		_script = vScript,
 		_lineToResult = nLineToResult,
 	}, TestCase)
@@ -30,21 +30,25 @@ function:class(test.Case) TestCase.new(vScript:String)
 		end,
 		thluaParseFile=function(vRuntime, vFileName)
 			if vFileName == "[test]" then
-			const nCodeEnv = CodeEnv.new(self._script, vFileName)
-			local ok, err = nCodeEnv:checkOkay()
-			if not ok then
-				error(err)
-			end
-			return nCodeEnv
+				const ok, nCodeEnv = pcall(CodeEnv.new, self._script, vFileName)
+				if not ok then
+					error(nCodeEnv)
+				end
+				return nCodeEnv
 			else
 				error("test case can only parse its script")
 			end
+		end,
+		thluaGlobalFile=function.pass(vRuntime, vPackage)
+			local nContent:String = require("thlua.global."..vPackage)
+			const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
+			return nCodeEnv
 		end
 	})
 	return self
 end
 
-function TestCase:getRuntime():Ret(clazz.BaseRuntime)
+function TestCase:getRuntime()
 	return self._runtime
 end
 
@@ -92,21 +96,5 @@ function TestCase.go(vScript:String, vName:OrNil(String))
 	end
 end
 
-function TestCase:thluaSearch(vPath)
-	error("test case can't search path")
-end
-
-function TestCase:thluaParseFile(vFileName)
-	if vFileName == "[test]" then
-    const nCodeEnv = CodeEnv.new(self._script, vFileName)
-    local ok, err = nCodeEnv:checkOkay()
-    if not ok then
-        error(err)
-    end
-    return nCodeEnv
-	else
-		error("test case can only parse its script")
-	end
-end
 
 return TestCase
