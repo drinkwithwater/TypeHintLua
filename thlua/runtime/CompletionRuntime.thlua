@@ -115,7 +115,7 @@ function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Blo
 			elseif BaseAtomType.is(nResult) or BaseUnionType.is(nResult) then
 				vCallback(nResult)
 			else
-				if SpaceTable.is(nResult) then
+				if SpaceTable.checkSpace(nResult) then
 					vCallback(nResult)
 				end
 			end
@@ -128,10 +128,10 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if RefineTerm.is(vResult) then
 			vResult:getType():putCompletion(nFieldCompletion)
-		elseif SpaceTable.is(vResult) then
+		else
 			const nNamespace = SpaceTable.checkSpace(vResult)
 			if nNamespace then
-				nNamespace:putCompletion(nFieldCompletion)
+				nNamespace:spaceTablePutCompletion(vResult, nFieldCompletion)
 			end
 		end
 	end)
@@ -143,7 +143,7 @@ function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if TypeReference.is(vResult) then
 			nNode = vResult:getAssignNode()
-		elseif SpaceTable.is(vResult) then
+		else
 			const nNamespace = SpaceTable.checkSpace(vResult)
 			if nNamespace then
 				nNode = nNamespace:getNode()

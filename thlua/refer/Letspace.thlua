@@ -45,4 +45,22 @@ function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz
     return self._localTable, self._envTable, self._globalTable
 end
 
+function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)
+    const nWhat = getmetatable(vSpaceTable).__what
+    if nWhat == "_ENV" then
+        self:putCompletion(vCompletion)
+        self._parentSpace:spaceTablePutCompletion(vSpaceTable, vCompletion)
+    elseif nWhat == "_G" then
+        --[[
+        for k,v in pairs(self._globalTable) do
+            if type(k) == "string" then
+                vCompletion:putPair(k @> String, v)
+            end
+        end
+        ]]
+    else
+        self:putCompletion(vCompletion)
+    end
+end
+
 return Letspace

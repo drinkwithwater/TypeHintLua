@@ -110,6 +110,13 @@ function Namespace:close()
 	self._closed=true
 end
 
+function Namespace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)
+    const nWhat = getmetatable(vSpaceTable).__what
+	if nWhat ~= "_G" then
+		self:putCompletion(vCompletion)
+	end
+end
+
 function Namespace:putCompletion(vCompletion)
 	for k,v in pairs(self._key2type) do
 		if StringLiteral.is(k) then
@@ -130,26 +137,15 @@ function Namespace:getLocalTable():Ret(clazz.LocalSpaceTable)
 	return self._localTable
 end
 
-SpaceTable.is = function.open(v):isguard(clazz.BaseSpaceTable)
+SpaceTable.checkSpace = function.open (v):mapguard({[clazz.Namespace]=clazz.BaseSpaceTable})
 	local nMeta = getmetatable(v)
-	if type(nMeta) == "table" then
-		local self = rawget(nMeta, "__namespace")
-		if Namespace.is(self) then
-			return true
-		end
-	end
-	return false
-end
-
-SpaceTable.checkSpace = function.pass (t:Any):Ret(OrFalse(clazz.Namespace))
-	local nMeta = getmetatable(t)
 	if type(nMeta) == "table" then
 		local self = rawget(nMeta, "__namespace")
 		if Namespace.is(self) then
 			return self
 		end
 	end
-	return false
+	return nil
 end
 
 return Namespace

@@ -16,6 +16,7 @@ const function:class(clazz.BaseSpaceTable) __createBaseTable(vSpace:clazz.Namesp
 		__tostring=function(_)
 			return tostring(vSpace).."->BaseSpaceTable"
 		end,
+		__what=false@OrFalse("_ENV", "_G"),
 		__namespace=vSpace,
 	})
 end
@@ -36,6 +37,7 @@ function:class(clazz.LocalSpaceTable) SpaceTable.createLocalTable(vSpace:clazz.N
 		__tostring=function(_)
 			return tostring(vSpace).."->SpaceTable"
 		end,
+		__what=false,
 		__namespace=vSpace,
     })
 end
@@ -55,17 +57,19 @@ function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letsp
 		__tostring=function(_)
 			return tostring(vSpace).."-_ENV"
 		end,
+		__what="_ENV",
 		__namespace=vSpace,
     })
 end
 
 function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobalTable(vSelfSpace:clazz.Letspace, vParentSpace:clazz.Namespace):extends(clazz.BaseSpaceTable)
     const nMeta = vParentSpace:getGlobalTable() or _G
-    const self = setmetatable({.class}, {
+    const self = setmetatable({.class:Init({[Any]=Any})}, {
         __index=nMeta @ Truth,
         __tostring=function(_)
 			return tostring(vSelfSpace).."-_G"
         end,
+		__what="_G",
         __namespace=vSelfSpace,
     })
     return self
