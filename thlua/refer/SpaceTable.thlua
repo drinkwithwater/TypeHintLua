@@ -9,7 +9,18 @@ end)
 
 const SpaceTable = {.open}
 
-function:class(clazz.LocalSpaceTable) SpaceTable.createLocalTable(vSpace:clazz.Namespace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue))
+const function:class(clazz.BaseSpaceTable) __createBaseTable(vSpace:clazz.Namespace)
+	-- abstract class
+	return setmetatable({.class}, {
+		__index={},
+		__tostring=function(_)
+			return tostring(vSpace).."->BaseSpaceTable"
+		end,
+		__namespace=vSpace,
+	})
+end
+
+function:class(clazz.LocalSpaceTable) SpaceTable.createLocalTable(vSpace:clazz.Namespace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue)):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
 		__index=function(_:Truth,k:Any):Ret(clazz.LocalSpaceValue)
@@ -29,7 +40,7 @@ function:class(clazz.LocalSpaceTable) SpaceTable.createLocalTable(vSpace:clazz.N
     })
 end
 
-function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letspace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue))
+function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letspace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue)):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
 		__index=function(_:Truth,k:Any):Ret(Union(clazz.TypeReference, clazz.LocalSpaceTable))
@@ -48,7 +59,7 @@ function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letsp
     })
 end
 
-function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobalTable(vSelfSpace:clazz.Letspace, vParentSpace:clazz.Namespace)
+function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobalTable(vSelfSpace:clazz.Letspace, vParentSpace:clazz.Namespace):extends(clazz.BaseSpaceTable)
     const nMeta = vParentSpace:getGlobalTable() or _G
     const self = setmetatable({.class}, {
         __index=nMeta @ Truth,

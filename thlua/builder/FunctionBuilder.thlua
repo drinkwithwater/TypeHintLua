@@ -33,6 +33,7 @@ const RetBuilder = require "thlua.tuple.RetBuilder"
 		Err=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		RetDots=Fn(clazz.FnSuffixHint, clazz.UAllType):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
 		isguard=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
+		mapguard=Fn(clazz.FnSuffixHint, Dict(Truth, Truth)):Ret(clazz.FnSuffixHint),
 	}
 
 	clazz.FuncNewInfo = Struct ({
@@ -96,6 +97,10 @@ function FunctionBuilder:_makeRetTuples(
 		end,
 		isguard=function(vHint, vType)
 			error("isguard can only be used with function.open")
+			return vHint
+		end,
+		mapguard=function(vHint, vType)
+			error("mapguard can only be used with function.open")
 			return vHint
 		end,
 		RetDots=function(vHint, vFirst, ...)
@@ -231,7 +236,13 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 			end,
 			isguard=function(vHint, vType)
 				assert(not nSetted, "isguard can only use once here")
-				nGuardFn:lateInitFromGuard(vType)
+				nGuardFn:lateInitFromIsGuard(vType)
+				return vHint
+			end,
+			mapguard=function(vHint, vDict)
+				const nMapObject = self._manager:buildInterface(self._node, vDict)
+				assert(not nSetted, "isguard can only use once here")
+				nGuardFn:lateInitFromMapGuard(nMapObject)
 				return vHint
 			end,
 		})
@@ -292,6 +303,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.PolyF
 					return vHint
 				end,
 				isguard=function(vHint, vType)
+					return vHint
+				end,
+				mapguard=function(vHint, vType)
+					error("mapguard can only be used with function.open")
 					return vHint
 				end,
 			})

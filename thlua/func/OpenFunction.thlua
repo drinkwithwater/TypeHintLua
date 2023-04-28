@@ -1,4 +1,5 @@
 
+const VariableCase = require "thlua.term.VariableCase"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const TermTuple = require "thlua.tuple.TermTuple"
 const Exception = require "thlua.Exception"
@@ -80,29 +81,58 @@ function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.Op
 	return self
 end
 
-function OpenFunction:lateInitFromGuard(vType:clazz.UAllType):Ret(clazz.OpenFunction)
-	const nTrue = self._manager.type.True
+function OpenFunction:lateInitFromMapGuard(vMapObject:clazz.Interface)
+	const nNil = self._manager.type.Nil
 	const nFalse = self._manager.type.False
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
-		const nTableType = vType:checkAtomUnion()
-		if not ClassTable.is(nTableType) then
-			error("guard function must take a class table")
-		end
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
 		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 			const nTerm = vTermTuple:get(vContext, 1)
-			const caseTrue = nTerm:caseIsType(nTableType)
-			const caseFalse = nTerm:caseIsNotType(nTableType)
-			if caseTrue then
-				vContext:withCase(caseTrue, function()
-					vContext:pushFirstAndTuple(nTrue)
+			nTerm:foreach(function(vType, vCase)
+				vContext:withCase(vCase, function()
+					for nMapType, nGuardType in pairs(vMapObject:getValueDict()) do
+						nGuardType = nGuardType:checkAtomUnion()
+						if vType:intersectSome(nGuardType) then
+							const nGuardCase = VariableCase.new()
+							nGuardCase:put_and(nTerm:attachImmutVariable(), nGuardType)
+							vContext:pushFirstAndTuple(nMapType, nil, nGuardCase)
+							if not nGuardType:includeAll(vType) then
+								vContext:pushFirstAndTuple(nNil)
+							end
+						else
+							vContext:pushFirstAndTuple(nNil)
+						end
+					end
 				end)
-			end
-			if caseFalse then
-				vContext:withCase(caseFalse, function()
-					vContext:pushFirstAndTuple(nFalse)
+			end)
+		end):mergeFirst(), vStack:mergeEndErrType()
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:lateInitFromIsGuard(vType:clazz.UAllType)
+	const nTrue = self._manager.type.True
+	const nFalse = self._manager.type.False
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		const nGuardType = vType:checkAtomUnion()
+		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
+		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+			const nTerm = vTermTuple:get(vContext, 1)
+			nTerm:foreach(function(vType, vCase)
+				vContext:withCase(vCase, function()
+					if vType:intersectSome(nGuardType) then
+						const nGuardCase = VariableCase.new()
+						nGuardCase:put_and(nTerm:attachImmutVariable(), nGuardType)
+						vContext:pushFirstAndTuple(nTrue, nil, nGuardCase)
+						if not nGuardType:includeAll(vType) then
+							vContext:pushFirstAndTuple(nFalse)
+						end
+					else
+						vContext:pushFirstAndTuple(nFalse)
+					end
 				end)
-			end
+			end)
 		end):mergeFirst(), vStack:mergeEndErrType()
 	end
 	self._func = nFn

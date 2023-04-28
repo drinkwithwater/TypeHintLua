@@ -48,40 +48,6 @@ function.open RefineTerm.is(v):isguard(clazz.RefineTerm)
 	return getmetatable(v) == RefineTerm
 end
 
-function RefineTerm:caseIsType(vGuardType:clazz.ClassTable):Ret(OrNil(clazz.VariableCase))
-	local nCase:OrNil(clazz.VariableCase) = nil
-	self._type:foreach(function(vType)
-		if vType:intersectSome(vGuardType) then
-			nCase = self._typeToCase[vType]
-		end
-	end)
-	if not nCase then
-		return nil
-	else
-		const nReCase = VariableCase.new() & nCase
-		const nImmutVariable = self._symbolVariable
-		if nImmutVariable then
-			nReCase:put_and(nImmutVariable, vGuardType)
-		end
-		return nReCase
-	end
-end
-
-function RefineTerm:caseIsNotType(vGuardType:clazz.ClassTable):Ret(OrNil(clazz.VariableCase))
-	local reCase:OrNil(clazz.VariableCase) = nil
-	self._type:foreach(function(vType)
-		const nCase = self._typeToCase[vType]!
-		if not vGuardType:includeAll(vType) then
-			if not reCase then
-				reCase = nCase
-			else
-				reCase = reCase | nCase
-			end
-		end
-	end)
-	return reCase
-end
-
 function RefineTerm:caseTrue():Ret(OrNil(clazz.VariableCase))
 	local reCase:OrNil(clazz.VariableCase) = nil
 	self._type:trueType():foreach(function(vType)

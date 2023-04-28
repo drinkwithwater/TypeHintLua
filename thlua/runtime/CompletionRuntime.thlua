@@ -65,15 +65,7 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	end
 end
 
-function CompletionRuntime:injectGetAll(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn)
-	const nList:List(Union(clazz.RefineTerm, clazz.UAllType, clazz.Namespace)) = {}
-	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vItem)
-		nList[#nList + 1] = vItem
-	end)
-	return nList
-end
-
-function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.UAllType, clazz.Namespace)))
+function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.UAllType, clazz.BaseSpaceTable)))
 	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
 		return
@@ -123,9 +115,8 @@ function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Blo
 			elseif BaseAtomType.is(nResult) or BaseUnionType.is(nResult) then
 				vCallback(nResult)
 			else
-				const nSpace = SpaceTable.checkSpace(nResult)
-				if nSpace then
-					vCallback(nSpace)
+				if SpaceTable.is(nResult) then
+					vCallback(nResult)
 				end
 			end
 		end
@@ -137,8 +128,11 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if RefineTerm.is(vResult) then
 			vResult:getType():putCompletion(nFieldCompletion)
-		elseif Namespace.is(vResult) then
-			vResult:putCompletion(nFieldCompletion)
+		elseif SpaceTable.is(vResult) then
+			const nNamespace = SpaceTable.checkSpace(vResult)
+			if nNamespace then
+				nNamespace:putCompletion(nFieldCompletion)
+			end
 		end
 	end)
 	return nFieldCompletion
@@ -147,10 +141,13 @@ end
 function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(False):Ret(clazz.IAstNode)
 	local nNode:OrFalse(clazz.IAstNode) = false
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
-		if Namespace.is(vResult) then
-			nNode = vResult:getNode()
-		elseif TypeReference.is(vResult) then
+		if TypeReference.is(vResult) then
 			nNode = vResult:getAssignNode()
+		elseif SpaceTable.is(vResult) then
+			const nNamespace = SpaceTable.checkSpace(vResult)
+			if nNamespace then
+				nNode = nNamespace:getNode()
+			end
 		end
 	end)
 	return nNode
