@@ -19,7 +19,7 @@ function.open ApplyContext:ctor(vNode, ...)
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
 	self._recurChain = false @ OrFalse(clazz.RecurChain)
-	self._lookTargetSet = {} @ Dict(Union(clazz.ObjectField, clazz.CodeEnv), True)
+	self._lookTargetSet = {} @ Dict(Union(clazz.ObjectField, clazz.BaseFunction), True)
 	self._stack:getRuntime():recordApplyContext(vNode, self)
 	self._finalReturn = false @OrFalse(clazz.UOpenReturn)
 end
@@ -29,6 +29,13 @@ function ApplyContext:outLookdownNode(vNodeSet:Dict(clazz.IAstNode, True))
 		if ObjectField.is(nTarget) then
 			for nNode, _ in pairs(nTarget:getUseNodeSet()) do
 				vNodeSet[nNode] = true
+			end
+		else
+			const nUseNodeSet = nTarget:getUseNodeSet()
+			if nUseNodeSet then
+				for nNode, _ in pairs(nUseNodeSet) do
+					vNodeSet[nNode] = true
+				end
 			end
 		end
 	end
@@ -40,23 +47,27 @@ function ApplyContext:outLookupNode(vNodeSet:Dict(clazz.IAstNode, True))
 			local nLookupNode = nTarget:getInitNode()
 			const nValueType = nTarget:getValueType()
 			if BaseFunction.is(nValueType) then
-				const nIfLua, nNode = nValueType:getIfLuaNode()
-				if nIfLua then
-					nLookupNode = nNode
+				if nValueType:getUseNodeSet() then
+					nLookupNode = nValueType:getNode()
 				end
 			end
 			vNodeSet[nLookupNode] = true
 		else
-			vNodeSet[nTarget:getAstTree()] = true
+			vNodeSet[nTarget:getNode()] = true
 		end
 	end
 end
 
 -- object field for goto definition & goto reference, code env for require
-function ApplyContext:addLookTarget(vTarget:Union(clazz.ObjectField, clazz.CodeEnv))
+function ApplyContext:addLookTarget(vTarget:Union(clazz.ObjectField, clazz.BaseFunction))
 	self._lookTargetSet[vTarget] = true
 	if ObjectField.is(vTarget) then
 		vTarget:putUseNode(self._node)
+	else
+		const nUseNodeSet = vTarget:getUseNodeSet()
+		if nUseNodeSet then
+			nUseNodeSet[self._node] = true
+		end
 	end
 end
 
