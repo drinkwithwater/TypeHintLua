@@ -47,7 +47,8 @@ function ApplyContext:outLookupNode(vNodeSet:Dict(clazz.IAstNode, True))
 			local nLookupNode = nTarget:getInitNode()
 			const nValueType = nTarget:getValueType()
 			if BaseFunction.is(nValueType) then
-				if nValueType:getUseNodeSet() then
+				const nUseNodeSet = nValueType:getUseNodeSet()
+				if nUseNodeSet then
 					nLookupNode = nValueType:getNode()
 				end
 			end
@@ -63,6 +64,13 @@ function ApplyContext:addLookTarget(vTarget:Union(clazz.ObjectField, clazz.BaseF
 	self._lookTargetSet[vTarget] = true
 	if ObjectField.is(vTarget) then
 		vTarget:putUseNode(self._node)
+		const nValueType = vTarget:getValueType()
+		if BaseFunction.is(nValueType) then
+			const nUseNodeSet = nValueType:getUseNodeSet()
+			if nUseNodeSet then
+				nUseNodeSet[self._node] = true
+			end
+		end
 	else
 		const nUseNodeSet = vTarget:getUseNodeSet()
 		if nUseNodeSet then
