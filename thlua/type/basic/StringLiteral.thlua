@@ -1,0 +1,41 @@
+
+local OPER_ENUM = require "thlua.type.basic.OPER_ENUM"
+local TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const StringLiteral = class@<clazz.StringLiteral, false>(BaseAtomType)
+
+function.open StringLiteral:ctor(vManager:clazz.TypeManager, vLiteral:String)
+	self.literal=vLiteral
+	self.bits=TYPE_BITS.STRING
+end
+
+function StringLiteral:getLiteral():Ret(String)
+	return self.literal
+end
+
+function StringLiteral:detailString(v, vVerbose):Ret(String)
+	return "Literal('"..self.literal.."')"
+end
+
+function StringLiteral:isSingleton():Ret(True)
+	return true
+end
+
+function StringLiteral:meta_len(vContext)
+	return self._manager.type.Number
+end
+
+function StringLiteral:meta_get(vContext, vKeyType)
+	return self._manager.builtin.string:meta_get(vContext, vKeyType)
+end
+
+function StringLiteral:putCompletion(vFieldCompletion)
+	self._manager.builtin.string:putCompletion(vFieldCompletion)
+end
+
+return StringLiteral

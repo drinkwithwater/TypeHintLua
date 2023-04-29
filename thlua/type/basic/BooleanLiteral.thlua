@@ -1,0 +1,49 @@
+
+const OPER_ENUM = require "thlua.type.basic.OPER_ENUM"
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const BooleanLiteral = class@<clazz.BooleanLiteral, false>(BaseAtomType)
+
+function.open BooleanLiteral:ctor(vManager:clazz.TypeManager, vLiteral:Boolean)
+	self.literal=vLiteral
+	self.bits=vLiteral and TYPE_BITS.TRUE or TYPE_BITS.FALSE
+end
+
+function BooleanLiteral:detailString(v, vVerbose)
+	if vVerbose then
+		return "Literal("..tostring(self.literal)..")"
+	else
+		return self.literal and "True" or "False"
+	end
+end
+
+function BooleanLiteral:isSingleton()
+	return true
+end
+
+function BooleanLiteral:native_type()
+	return self._manager:Literal("boolean")
+end
+
+function BooleanLiteral:trueType()
+	if self.literal then
+		return self
+	else
+		return self._manager.type.Never
+	end
+end
+
+function BooleanLiteral:falseType()
+	if self.literal then
+		return self._manager.type.Never
+	else
+		return self
+	end
+end
+
+return BooleanLiteral

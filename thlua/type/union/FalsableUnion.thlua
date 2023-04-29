@@ -1,0 +1,122 @@
+
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const Truth = require "thlua.type.basic.Truth"
+const BaseUnionType = require "thlua.type.union.BaseUnionType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const FalsableUnion = class@<clazz.FalsableUnion, false>(BaseUnionType)
+
+function.open FalsableUnion:ctor(vTypeManager:clazz.TypeManager, vTruableType:clazz.UAtomUnion, vFalsableBits:Number)
+	const nNil = vTypeManager.type.Nil
+	const nFalse = vTypeManager.type.False
+	self.bits=vTruableType.bits | vFalsableBits
+	self._trueType=vTruableType
+	self._notnilType=nil @! clazz.UAtomUnion
+	self._nil=vFalsableBits & TYPE_BITS.NIL > 0 and nNil or false
+	self._false=vFalsableBits & TYPE_BITS.FALSE > 0 and nFalse or false
+	self._falseType=false @OrFalse(clazz.UAtomUnion)
+    if self._trueType == vTypeManager.type.Never then
+		self._falseType = self
+    elseif self._nil and self._false then
+		self._falseType = vTypeManager:checkedUnion(nNil, nFalse)
+    else
+		self._falseType = self._nil or self._false
+    end
+	if self._false then
+		if not self._nil then
+			self._notnilType = self
+		else
+			const nFalse = self._false
+			if nFalse then
+				self._notnilType = vTypeManager:checkedUnion(self._trueType, nFalse)
+			else
+				self._notnilType = self._trueType
+			end
+		end
+	else
+		self._notnilType = self._trueType
+	end
+end
+
+function FalsableUnion:foreach(vFunc)
+	self._trueType:foreach(vFunc)
+	const nNilType = self._nil
+	if nNilType then
+		vFunc(nNilType)
+	end
+	const nFalseType = self._false
+	if nFalseType then
+		vFunc(nFalseType)
+	end
+end
+
+function FalsableUnion:assumeIntersectAtom(vAssumeSet, vType)
+	if Truth.is(vType) then
+		const nTrueType = self._trueType
+		if nTrueType == self._manager.type.Never then
+			return false
+		else
+			return nTrueType
+		end
+	else
+		const nTrueIntersect = self._trueType:assumeIntersectAtom(vAssumeSet, vType)
+		if nTrueIntersect then
+			return nTrueIntersect
+		else
+			if self._nil and vType == self._manager.type.Nil then
+				return self._nil
+			elseif self._false and vType == self._manager.type.False then
+				return self._false
+			else
+				return false
+			end
+		end
+	end
+end
+
+function FalsableUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	const nTrueInclude = self._trueType:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	if nTrueInclude then
+		return nTrueInclude
+	else
+		if self._nil and vType == self._manager.type.Nil then
+			return self._nil
+		elseif self._false and vType == self._manager.type.False then
+			return self._false
+		else
+			return false
+		end
+	end
+end
+
+function FalsableUnion:isNilable()
+	return self._nil and true
+end
+
+function FalsableUnion:partTypedObject()
+	return self._trueType:partTypedObject()
+end
+
+function FalsableUnion:partTypedFunction()
+	return self._trueType:partTypedFunction()
+end
+
+function FalsableUnion:mayRecursive()
+	return self._trueType:mayRecursive()
+end
+
+function FalsableUnion:trueType()
+	return self._trueType
+end
+
+function FalsableUnion:notnilType()
+	return self._notnilType
+end
+
+function FalsableUnion:falseType()
+	return self._falseType or self._manager.type.Never
+end
+
+return FalsableUnion

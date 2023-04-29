@@ -1,0 +1,151 @@
+
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const OpenTable = require "thlua.type.object.OpenTable"
+const SealTable = require "thlua.type.object.SealTable"
+const BaseObject = require "thlua.type.object.BaseObject"
+const TypedObject = require "thlua.type.object.TypedObject"
+const Truth = require "thlua.type.basic.Truth"
+
+const BaseUnionType = require "thlua.type.union.BaseUnionType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const ObjectUnion = class@<clazz.ObjectUnion, false>(BaseUnionType)
+
+function.open ObjectUnion:ctor(vManager:clazz.TypeManager)
+	self._typedObjectDict={} @Dict(clazz.TypedObject, True)
+	self._sealTableDict={} @Dict(clazz.SealTable, True)
+	self._openTableDict={} @Dict(clazz.OpenTable, True)
+	self._typedPart=false@OrFalse(clazz.UAtomUnion)
+	self.bits=TYPE_BITS.OBJECT
+end
+
+function ObjectUnion:foreach(vFunc)
+	for nType, _ in pairs(self._typedObjectDict) do
+		vFunc(nType)
+	end
+	for nType, _ in pairs(self._sealTableDict) do
+		vFunc(nType)
+	end
+	for nType, _ in pairs(self._openTableDict) do
+		vFunc(nType)
+	end
+end
+
+function ObjectUnion:putAwait(vType:clazz.IAtomType)
+	if self:includeAtom(vType) then
+		return
+	end
+	if not BaseObject.is(vType) then
+		error("object-type unexpected")
+	end
+	if OpenTable.is(vType) then
+		self._openTableDict[vType] = true
+		return
+	end
+	-- delete smaller sealtable
+	const nDeleteList1:List(clazz.SealTable) = {}
+	for nSealTable, _ in pairs(self._sealTableDict) do
+		if vType:includeAtom(nSealTable) then
+			nDeleteList1[#nDeleteList1 + 1] = nSealTable
+		end
+	end
+	for _, nSealTable in pairs(nDeleteList1) do
+		self._sealTableDict[nSealTable] = nil
+	end
+	if SealTable.is(vType) then
+		self._sealTableDict[vType] = true
+	elseif TypedObject.is(vType) then
+		-- delete smaller typedObject
+		const nDeleteList2:List(clazz.TypedObject) = {}
+		for nTypedObject, _ in pairs(self._typedObjectDict) do
+			if vType:includeAtom(nTypedObject) then
+				nDeleteList2[#nDeleteList2 + 1] = nTypedObject
+			else
+				const nIntersect = vType:intersectAtom(nTypedObject)
+				if nIntersect then
+					error("unexpected intersect when union object")
+				end
+			end
+		end
+		for _, nTypedObject in pairs(nDeleteList2) do
+			self._typedObjectDict[nTypedObject] = nil
+		end
+		self._typedObjectDict[vType] = true
+	else
+		error("object-type unexpected???")
+	end
+end
+
+function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
+	if Truth.is(vType) then
+		return self
+	end
+	if not BaseObject.is(vType) then
+		return false
+	end
+	const nCollection = self._manager:TypeCollection()
+	local nExplicitCount:OrFalse(Integer) = 0
+	self:foreach(function(vSubType)
+		if nExplicitCount then
+			const nCurIntersect = vType:assumeIntersectAtom(vAssumeSet, vSubType)
+			if nCurIntersect == true then
+				nExplicitCount = false
+			elseif nCurIntersect then
+				nExplicitCount = nExplicitCount + 1
+				nCollection:put(nCurIntersect)
+			end
+		end
+	end)
+	if not nExplicitCount then
+		return true
+	else
+		return nExplicitCount > 0 and nCollection:mergeToAtomUnion()
+	end
+end
+
+function ObjectUnion:partTypedObject()
+	const nTypedPart = self._typedPart
+	if nTypedPart then
+		return nTypedPart
+	else
+		if not next(self._openTableDict) and not next(self._sealTableDict) then
+			self._typedPart = self
+			return self
+		else
+			const nCollection = self._manager:TypeCollection()
+			for k,v in pairs(self._typedObjectDict) do
+				nCollection:put(k)
+			end
+			const nTypedPart = nCollection:mergeToAtomUnion()
+			self._typedPart = nTypedPart
+			return nTypedPart
+		end
+	end
+end
+
+function ObjectUnion:mayRecursive()
+	return true
+end
+
+function ObjectUnion:assumeIncludeAtom(vAssumeSet, vType, _)
+	if OpenTable.is(vType) then
+		return self._openTableDict[vType] and vType or false
+	end
+	if SealTable.is(vType) then
+		for nTable, _ in pairs(self._sealTableDict) do
+			if nTable:assumeIncludeAtom(vAssumeSet, vType) then
+				return nTable
+			end
+		end
+	end
+	for nObject, _ in pairs(self._typedObjectDict) do
+		if nObject:assumeIncludeAtom(vAssumeSet, vType) then
+			return nObject
+		end
+	end
+	return false
+end
+
+return ObjectUnion

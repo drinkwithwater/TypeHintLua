@@ -1,0 +1,84 @@
+
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const Exception = require "thlua.Exception"
+
+const SealFunction = require "thlua.type.func.SealFunction"
+const TypedFunction = require "thlua.type.func.TypedFunction"
+const BaseFunction = require "thlua.type.func.BaseFunction"
+const class = require "thlua.class"
+
+(@let.clazz = import("thlua.type.basic.TypeClass").clazz)
+
+const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
+
+function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vLexStack:OrNil(clazz.BaseStack))
+	self._polyParNum=vPolyParNum
+	self._makerFn=vFunc
+	self._fnDict = {} @ Dict(String, Union(clazz.SealFunction, clazz.TypedFunction))
+	self._node = vNode
+	self._lexStack = vLexStack or false
+end
+
+function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	return "PolyFunction@"..tostring(self._node)
+end
+
+function PolyFunction:getPolyParNum():Ret(Integer)
+	return self._polyParNum
+end
+
+function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
+	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
+	const nAtomUnionList:List(clazz.UAtomUnion) = {}
+	for i=1, #vTypeList do
+		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()
+	end
+	const nKey = self._manager:signTemplateArgs(nAtomUnionList)
+	const nFn = self._fnDict[nKey]
+	if not nFn then
+		const nResult = self._makerFn(table.unpack(vTypeList)) @ Any
+		if TypedFunction.is(nResult) or SealFunction.is(nResult) then
+			self._fnDict[nKey] = nResult
+			if SealFunction.is(nResult) then
+				assert(self._lexStack):getSealStack():scheduleSealType(nResult)
+			end
+			return nResult
+		else
+			error("poly function must return mono-function type but got:"..tostring(nResult))
+		end
+	else
+		return nFn
+	end
+end
+
+function PolyFunction:castPoly(vContext, vTypeList)
+	const nFn = self:noCtxCastPoly(vTypeList)
+	return nFn:getFnAwait()
+end
+
+function PolyFunction:native_type()
+	return self._manager:Literal("function")
+end
+
+function PolyFunction:meta_call(vContext, vTypeTuple)
+	error("poly function meta_call TODO")
+	-- TODO
+end
+
+function PolyFunction:mayRecursive()
+	return false
+end
+
+function PolyFunction:isSingleton()
+	return false
+end
+
+function PolyFunction:getIfLuaNode():Ret(False):Ret(True, clazz.IAstNode)
+	if self._lexStack then
+		return true, self._node
+	else
+		return false
+	end
+end
+
+return PolyFunction

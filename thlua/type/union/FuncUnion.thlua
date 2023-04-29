@@ -1,0 +1,174 @@
+
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const Truth = require "thlua.type.basic.Truth"
+
+const AnyFunction = require "thlua.type.func.AnyFunction"
+const OpenFunction = require "thlua.type.func.OpenFunction"
+const TypedFunction = require "thlua.type.func.TypedFunction"
+const TypedMemberFunction = require "thlua.type.func.TypedMemberFunction"
+const BaseFunction = require "thlua.type.func.BaseFunction"
+
+const BaseUnionType = require "thlua.type.union.BaseUnionType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const FuncUnion = class@<clazz.FuncUnion, false>(BaseUnionType)
+
+function.open FuncUnion:ctor(vManager:clazz.TypeManager)
+	self._typeFnDict={} @Dict(clazz.TypedFunction, True)
+	self._typeMfnDict={} @Dict(clazz.TypedMemberFunction, True)
+	self._notTypeFnDict={} @Dict(clazz.BaseFunction, True)
+	self._openFnDict={} @Dict(clazz.OpenFunction, True)
+	self._anyFn=false@OrFalse(clazz.AnyFunction)
+	self._typedPart=false@OrFalse(clazz.UAtomUnion)
+	self.bits=TYPE_BITS.FUNCTION
+end
+
+function FuncUnion:foreach(vFunc)
+	for nType, _ in pairs(self._openFnDict) do
+		vFunc(nType)
+	end
+	const nAnyFn = self._anyFn
+	if not nAnyFn then
+		for nType, _ in pairs(self._typeFnDict) do
+			vFunc(nType)
+		end
+		for nType, _ in pairs(self._typeMfnDict) do
+			vFunc(nType)
+		end
+		for nType, _ in pairs(self._notTypeFnDict) do
+			vFunc(nType)
+		end
+	else
+		vFunc(nAnyFn)
+	end
+end
+
+function FuncUnion:putAwait(vType)
+	if self:includeAtom(vType) then
+		return
+	end
+	if OpenFunction.is(vType) then
+		self._openFnDict[vType] = true
+	elseif AnyFunction.is(vType) then
+		self._anyFn = vType
+		do.pass
+			self._notTypeFnDict = {}
+			self._typeFnDict = {}
+		end
+	-- TODO lua fn may be typefn or polyfn or openfn, deal by case TODO
+	elseif TypedFunction.is(vType) then
+		-- delete small struct
+		const nDeleteList:List(clazz.TypedFunction) = {}
+		for nTypeFn, _ in pairs(self._typeFnDict) do
+			if vType:includeAtom(nTypeFn) then
+				nDeleteList[#nDeleteList + 1] = nTypeFn
+			else
+				const nIntersect = vType:intersectAtom(nTypeFn)
+				if nIntersect then
+					error("unexpected intersect when union function")
+				end
+			end
+		end
+		for _, nTypeFn in pairs(nDeleteList) do
+			self._typeFnDict[nTypeFn] = nil
+		end
+		self._typeFnDict[vType] = true
+	elseif TypedMemberFunction.is(vType) then
+		-- delete small struct
+		const nDeleteList:List(clazz.TypedMemberFunction) = {}
+		for nTypeFn, _ in pairs(self._typeMfnDict) do
+			if vType:includeAtom(nTypeFn) then
+				nDeleteList[#nDeleteList + 1] = nTypeFn
+			else
+				const nIntersect = vType:intersectAtom(nTypeFn)
+				if nIntersect then
+					error("unexpected intersect when union function")
+				end
+			end
+		end
+		for _, nTypeFn in pairs(nDeleteList) do
+			self._typeMfnDict[nTypeFn] = nil
+		end
+		self._typeMfnDict[vType] = true
+	elseif BaseFunction.is(vType) then
+		self._notTypeFnDict[vType] = true
+	else
+		error("fn-type unexpected")
+	end
+end
+
+function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
+	if Truth.is(vType) then
+		return self
+	end
+	if self:includeAtom(vType) then
+		return vType
+	end
+	if TypedFunction.is(vType) or TypedMemberFunction.is(vType) then
+		const nCollection = self._manager:TypeCollection()
+		self:foreach(function(vSubType)
+			if vType:includeAtom(vSubType) then
+				nCollection:put(vSubType)
+			end
+		end)
+		return nCollection:mergeToAtomUnion()
+	end
+	return false
+end
+
+function FuncUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	if OpenFunction.is(vType) then
+		if self._openFnDict[vType] then
+			return vType
+		else
+			return false
+		end
+	elseif TypedFunction.is(vType) then
+		for nTypeFn, _ in pairs(self._typeFnDict) do
+			if nTypeFn:assumeIncludeAtom(vAssumeSet, vType, vSelfType) then
+				return nTypeFn
+			end
+		end
+	elseif TypedMemberFunction.is(vType) then
+		for nTypeFn, _ in pairs(self._typeMfnDict) do
+			if nTypeFn:assumeIncludeAtom(vAssumeSet, vType, vSelfType) then
+				return nTypeFn
+			end
+		end
+	elseif BaseFunction.is(vType) then
+		if self._notTypeFnDict[vType] then
+			return vType
+		else
+			return false
+		end
+	end
+	return false
+end
+
+function FuncUnion:partTypedFunction()
+	const nTypedPart = self._typedPart
+	if nTypedPart then
+		return nTypedPart
+	else
+		if not next(self._notTypeFnDict) and not next(self._openFnDict) and not self._anyFn then
+			self._typedPart = self
+			return self
+		else
+			const nCollection = self._manager:TypeCollection()
+			for k,v in pairs(self._typeFnDict) do
+				nCollection:put(k)
+			end
+			const nTypedPart = nCollection:mergeToAtomUnion()
+			self._typedPart = nTypedPart
+			return nTypedPart
+		end
+	end
+end
+
+function FuncUnion:mayRecursive()
+	return true
+end
+
+return FuncUnion

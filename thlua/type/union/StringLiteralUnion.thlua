@@ -1,0 +1,53 @@
+
+const StringLiteral = require "thlua.type.basic.StringLiteral"
+const String = require "thlua.type.basic.String"
+const Truth = require "thlua.type.basic.Truth"
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+
+const BaseUnionType = require "thlua.type.union.BaseUnionType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const StringLiteralUnion = class@<clazz.StringLiteralUnion, false>(BaseUnionType)
+
+function.open StringLiteralUnion:ctor(vTypeManager:clazz.TypeManager)
+	self._literalSet={} @Dict(clazz.StringLiteral,True) -- literal to true
+	self.bits=TYPE_BITS.STRING
+end
+
+function StringLiteralUnion:putAwait(vType)
+	if StringLiteral.is(vType) then
+		self._literalSet[vType] = true
+	else
+		error("set put wrong")
+	end
+end
+
+function StringLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
+	if String.is(vType) or Truth.is(vType) then
+		return self
+	else
+		return self:assumeIncludeAtom(nil, vType)
+	end
+end
+
+function StringLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
+	if StringLiteral.is(vType) then
+		if self._literalSet[vType] then
+			return vType
+		else
+			return false
+		end
+	else
+		return false
+	end
+end
+
+function StringLiteralUnion:foreach(vFunc)
+	for nLiteralType, v in pairs(self._literalSet) do
+		vFunc(nLiteralType)
+	end
+end
+
+return StringLiteralUnion

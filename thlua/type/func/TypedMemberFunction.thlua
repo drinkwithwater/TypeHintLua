@@ -1,0 +1,101 @@
+
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const Exception = require "thlua.Exception"
+
+const TypedFunction = require "thlua.type.func.TypedFunction"
+const MemberFunction = require "thlua.type.func.MemberFunction"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.basic.TypeClass").clazz
+end)
+
+const TypedMemberFunction = class@<clazz.TypedMemberFunction, false>(MemberFunction)
+
+function.open TypedMemberFunction:ctor(_,_,vHeadlessFn:clazz.TypedFunction)
+	self._headlessFn = vHeadlessFn
+	self._typeFnDict = {}@Dict(clazz.IAtomType, clazz.TypedFunction)
+end
+
+function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	const nHeadlessFn = self._headlessFn
+	const nCache = vToStringCache[self]
+	if nCache then
+		return nCache
+	end
+	const nParTuple = nHeadlessFn:getParTuple()
+	const nRetTuples = nHeadlessFn:getRetTuples()
+	vToStringCache[self] = "member:fn-..."
+	const nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
+									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
+	vToStringCache[self] = nResult
+	return nResult
+end
+
+function TypedMemberFunction:Dots(vType:clazz.UAllType):Ret(clazz.MemberFunction)
+	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Dots")
+	nHeadlessFn:Dots(vType)
+	return self
+end
+
+function TypedMemberFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.MemberFunction)
+	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Ret")
+	nHeadlessFn:RetDots(vFirst, ...)
+	return self
+end
+
+function TypedMemberFunction:Ret(...:clazz.UAllType):Ret(clazz.MemberFunction)
+	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Ret")
+	nHeadlessFn:Ret(...)
+	return self
+end
+
+function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
+	const nTypeFn = self:indexTypeFn(vSelfType)
+	nTypeFn:meta_call(vContext, vTypeTuple)
+end
+
+function TypedMemberFunction:needPolyArgs():Ret(Boolean)
+	return false
+end
+
+function TypedMemberFunction:getHeadlessFn():Ret(clazz.TypedFunction)
+	return self._headlessFn
+end
+
+function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
+	-- TODO
+	if self == vRight then
+		return self
+	end
+	if TypedMemberFunction.is(vRight) then
+		return self._headlessFn:assumeIncludeAtom(vAssumeSet, vRight:getHeadlessFn()) and self
+	elseif TypedFunction.is(vRight) then
+		if vSelfType then
+			return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
+		else
+			return false
+		end
+	end
+end
+
+function TypedMemberFunction:indexTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.TypedFunction)
+	const nDict = self._typeFnDict
+	const nFn = nDict[vSelfType]
+	if nFn then
+		return nFn
+	else
+		const nHeadlessFn = self._headlessFn
+		const nRetTuples = nHeadlessFn:getRetTuples()
+		const nParTuple = nHeadlessFn:getParTuple():leftAppend(vSelfType)
+		const nFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+		nDict[vSelfType] = nFn
+		return nFn
+	end
+end
+
+function TypedMemberFunction:mayRecursive():Ret(True)
+	return true
+end
+
+return TypedMemberFunction

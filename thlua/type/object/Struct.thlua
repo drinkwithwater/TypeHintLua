@@ -1,0 +1,120 @@
+
+const MemberFunction = require "thlua.type.func.MemberFunction"
+const TypedObject = require "thlua.type.object.TypedObject"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const Struct = class@<clazz.Struct, false>(TypedObject)
+
+function.open Struct:ctor(...)
+end
+
+function Struct:detailString(vToStringCache, vVerbose)
+	return "Struct@"..tostring(self._node)
+end
+
+function Struct:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.TypedObject):Ret(Boolean)
+	local nAssumeInclude:Boolean = false
+	if not Struct.is(vRightObject) then
+		return false
+	end
+	const nRightValueDict = vRightObject:copyValueDict(self)
+	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
+	const nLeftNextKey = self._nextKey
+	if nLeftNextKey and nRightNextKey then
+		const nLR = nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey)
+		const nRL = nRightNextKey:assumeIncludeAll(vAssumeSet, nLeftNextKey)
+		if not (nLR and nRL) then
+			return false
+		end
+	elseif nLeftNextKey or nRightNextKey then
+		return false
+	end
+	const function isMatchedKeyValue(
+		vLeftKey:clazz.IAtomType, vLeftValue:clazz.UAllType,
+		vRightKey:clazz.IAtomType, vRightValue:clazz.UAllType):Ret(Boolean)
+		if not vRightValue:assumeIncludeAll(vAssumeSet, vLeftValue) then
+			return false
+		end
+		if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
+			return false
+		end
+		if not vLeftKey:assumeIncludeAtom(vAssumeSet, vRightKey) then
+			return false
+		end
+		return true
+	end
+	const nRightResultType = nRightKeyRefer:getResultType()
+	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue)
+		if nRightResultType then -- key is merged, just get one matched
+			const nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, nLeftKey)
+			if not nRightKey then
+				return false
+			end
+			const nRightValue = nRightValueDict[nRightKey]
+			if not nRightValue then
+				return false
+			end
+			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
+				return false
+			end
+			nRightValueDict[nRightKey] = nil
+		else -- key is not merged, iter for one matched
+			local nMatchedKey:OrNil(clazz.IAtomType) = nil
+			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
+				if nRightKey:assumeIncludeAtom(vAssumeSet, nLeftKey) then
+					const nRightValue = nRightValueDict[nRightKey]
+					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
+						nMatchedKey = nRightKey
+						break
+					end
+				end
+			end
+			if not nMatchedKey then
+				return false
+			end
+			nRightValueDict[nMatchedKey] = nil
+		end
+		return true
+	end) then
+		return false
+	end
+	if next(nRightValueDict) then
+		return false
+	end
+	return true
+end
+
+function Struct:meta_set(vContext, vKeyType, vValueTerm)
+	vContext:pushNothing()
+	const nValueType = vValueTerm:getType()
+	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		if MemberFunction.is(nSetValue) then
+			vContext:error("error:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field is member function")
+			return
+		end
+		local nSetType = nSetValue:checkAtomUnion()
+		vContext:includeAndCast(nSetType, nValueType, "set")
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not exist")
+	end
+end
+
+function Struct:native_rawset(vContext, vKeyType, vValueTerm)
+	vContext:warn("abstract object take rawset")
+	const nValueType = vValueTerm:getType()
+	const nKey, nSetValue = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		if not nSetValue:includeAll(nValueType) then
+			vContext:error("error1:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not match")
+		end
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not exist")
+	end
+end
+
+return Struct

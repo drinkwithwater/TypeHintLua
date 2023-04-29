@@ -1,0 +1,121 @@
+
+const ScheduleTask = require "thlua.manager.ScheduleTask"
+const Exception = require "thlua.Exception"
+
+const BaseFunction = require "thlua.type.func.BaseFunction"
+
+const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+	let.node = import("thlua.code.Node").node
+	let.BuilderFn = Fn():Ret(
+		OrFalse(clazz.UTypeTuple), OrFalse(clazz.RetTuples),
+		Fn():Ret(
+			clazz.UTypeTuple, clazz.RetTuples
+		)
+	)
+end)
+
+const SealFunction = class@<clazz.SealFunction, false>(BaseFunction)
+
+function.open SealFunction:ctor(
+	vManager:clazz.TypeManager,
+	vNode:clazz.IAstNode,
+	vLexShot:OrFalse(clazz.LexShot)
+)
+	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexShot, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
+	self._lexStack = vLexShot and vLexShot.branch:getStack() or false
+	self._buildStack = nNewStack
+	const nTask = vManager:getScheduleManager():newTask(nNewStack)
+	self._task = nTask
+	self._node = vNode
+	self._preBuildEvent=nTask:makeEvent()
+	self._lateStartEvent=nTask:makeWildEvent()
+	self._lateBuildEvent=nTask:makeEvent()
+	self._typeFn=false@OrFalse(clazz.TypedFunction)
+	self._retTuples=false@OrFalse(clazz.RetTuples)
+	self._builderFn=false@OrFalse(BuilderFn)
+end
+
+function SealFunction:meta_call(vContext, vTermTuple)
+	const nTypeFn = self:getFnAwait()
+	return nTypeFn:meta_call(vContext, vTermTuple)
+end
+
+function SealFunction:getFnAwait():Ret(clazz.TypedFunction)
+	if not self._typeFn then
+		self:startPreBuild()
+		self._preBuildEvent:wait()
+		if not self._typeFn then
+			self._lateStartEvent:wakeup()
+			self._lateBuildEvent:wait()
+		end
+	end
+	return (assert(self._typeFn, "_typeFn must existed here"))
+end
+
+function SealFunction:getNode()
+	return self._node
+end
+
+function SealFunction:getBuildStack()
+	return self._buildStack
+end
+
+function SealFunction:findRequireStack()
+	const nLexShot = self._lexShot
+	if not nLexShot then
+		return false
+	end
+	return nLexShot.branch:getStack():findRequireStack()
+end
+
+function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
+	return self._retTuples
+end
+
+function SealFunction:startPreBuild()
+	const nBuilderFn = self._builderFn
+	if not nBuilderFn then
+		return
+	end
+	self._builderFn = false
+	self._task:runAsync(function()
+		const nParTuple, nRetTuples, nLateRunner = nBuilderFn()
+		self._retTuples = nRetTuples
+		if nParTuple and nRetTuples then
+			self._typeFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+		end
+		self._preBuildEvent:wakeup()
+		self._lateStartEvent:wait()
+		const nParTuple, nRetTuples = nLateRunner()
+		self._typeFn = self._typeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
+		self._buildStack:seal()
+		self._lateBuildEvent:wakeup()
+	end)
+end
+
+function SealFunction:waitSeal()
+	self._lateBuildEvent:wait()
+end
+
+function SealFunction:initAsync(vRunner:BuilderFn)
+	self._builderFn=vRunner
+end
+
+function SealFunction:startLateBuild()
+	self._lateStartEvent:wakeup()
+end
+
+function SealFunction:findRequireStack()
+	const nLexStack = self._lexStack
+	return nLexStack and nLexStack:findRequireStack() or false
+end
+
+function SealFunction:getIfLuaNode():Ret(False):Ret(True, clazz.IAstNode)
+	return true, self._node
+end
+
+return SealFunction

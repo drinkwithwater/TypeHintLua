@@ -1,0 +1,69 @@
+
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const Truth = require "thlua.type.basic.Truth"
+const BaseUnionType = require "thlua.type.union.BaseUnionType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const ComplexUnion = class@<clazz.ComplexUnion, false>(BaseUnionType)
+
+function.open ComplexUnion:ctor(vManager:clazz.TypeManager, vBits:Integer, vBitToType:Dict(Integer, clazz.UAtomUnion))
+	self._bitToType=vBitToType
+	self.bits = vBits
+end
+
+function ComplexUnion:mayRecursive()
+	const nBitToType = self._bitToType
+	if nBitToType[TYPE_BITS.OBJECT] or nBitToType[TYPE_BITS.FUNCTION] then
+		return true
+	else
+		return false
+	end
+end
+
+function ComplexUnion:partTypedObject()
+	const re = self._bitToType[TYPE_BITS.OBJECT] or self._manager.type.Never
+	return re:partTypedObject()
+end
+
+function ComplexUnion:partTypedFunction()
+	const re = self._bitToType[TYPE_BITS.FUNCTION] or self._manager.type.Never
+	return re:partTypedFunction()
+end
+
+function ComplexUnion:foreach(vFunc)
+	for nBits, nType in pairs(self._bitToType) do
+		nType:foreach(vFunc)
+	end
+end
+
+function ComplexUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	const nSimpleType = self._bitToType[vType.bits]
+	if nSimpleType then
+		return nSimpleType:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	else
+		return false
+	end
+end
+
+function ComplexUnion:assumeIntersectAtom(vAssumeSet, vType)
+	const nSimpleType = self._bitToType[vType.bits]
+	if nSimpleType then
+		return nSimpleType:assumeIntersectAtom(vAssumeSet, vType)
+	elseif Truth.is(vType) then
+		return self
+	else
+		return false
+	end
+end
+
+function ComplexUnion:isNilable()
+	if self._bitToType[TYPE_BITS.NIL] then
+		return true
+	else
+		return false
+	end
+end
+
+return ComplexUnion

@@ -1,0 +1,348 @@
+
+const StringLiteral = require "thlua.type.basic.StringLiteral"
+const TypedObject = require "thlua.type.object.TypedObject"
+const BaseFunction = require "thlua.type.func.BaseFunction"
+const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
+const Nil = require "thlua.type.basic.Nil"
+
+const BaseObject = require "thlua.type.object.BaseObject"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+	let.OpenTableField = Struct {
+		valueTerm = clazz.RefineTerm,
+		assignNode = clazz.IAstNode,
+		branch = clazz.Branch,
+		lockCtx = OrFalse(clazz.OperContext),
+	}
+end)
+
+const OpenTable = class@<clazz.OpenTable, false>(BaseObject)
+
+function.open OpenTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexStack:clazz.BaseStack)
+	self._keyType=vManager.type.Never @clazz.UAtomUnion
+	self._lexStack = vLexStack
+	self._fieldDict={}@Dict(clazz.IAtomType, OpenTableField)
+	self._metaIndex=false@OrFalse(clazz.BaseFunction, clazz.BaseObject)
+	self._metaNewIndex=false@OrFalse(clazz.BaseFunction, clazz.BaseObject)
+	self._nextValue=false@Union(False, clazz.UAtomUnion)
+	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
+	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
+	self._locked=false@Boolean
+end
+
+function OpenTable:detailString(v, vVerbose)
+	return "OpenTable@"..tostring(self._node)
+end
+
+function OpenTable:meta_len(vContext)
+	-- TODO
+	return self._manager.type.Number
+end
+
+function OpenTable:initByKeyValueTerm(vNode:clazz.IAstNode, vBranch:clazz.Branch, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.RefineTerm))
+	self._keyType = vKeyType
+	for k,v in pairs(vValueDict) do
+		self._fieldDict[k] = {
+			valueTerm = v,
+			assignNode = vNode,
+			branch=vBranch,
+			lockCtx = false,
+		}
+	end
+end
+
+function OpenTable:native_getmetatable(vContext)
+	return self._metaTable or self._manager.type.Nil
+end
+
+function OpenTable:native_setmetatable(vContext, vMetaTableType)
+	if self._metaTable then
+		vContext:error("can only setmetatable once for one table")
+		return
+	end
+	self._metaTable = vMetaTableType
+	-- TODO, opentable don't allow meta event except index & newindex, check other fields
+	--assert(not self._metaEventCom, "meta event has been setted")
+	--const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	--nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
+	--self._metaEventCom = nMetaEventCom
+	-- 2. copyout index/newindex event items
+	local nManager = self._manager
+	-- 3. meta index
+	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
+	if nIndexType:isUnion() then
+		vContext:error("open table's __index can't be union type")
+	else
+		if BaseFunction.is(nIndexType) or BaseObject.is(nIndexType) then
+			self._metaIndex = nIndexType
+		elseif not Nil.is(nIndexType) then
+			vContext:error("open table's __index must be object or function or nil")
+		end
+	end
+	-- 4. meta newindex
+	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	if nNewIndexType:isUnion() then
+		vContext:error("open table's __newindex can't be union type")
+	else
+		if BaseFunction.is(nNewIndexType) or BaseObject.is(nNewIndexType) then
+			self._metaNewIndex = nNewIndexType
+		elseif not Nil.is(nNewIndexType) then
+			vContext:error("open table's __newindex must be object or function or nil")
+		end
+	end
+end
+
+function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
+	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
+		if not vKeyType:isSingleton() then
+			vContext:error("open table's key must be singleton type")
+		elseif vKeyType:isNilable() then
+			vContext:error("open table's key can't be nil")
+		else
+			const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+			if nKeyIncludeType then
+				const nField = self._fieldDict[nKeyIncludeType]!
+				if nField.lockCtx then
+					vContext:error("field is locked"..tostring(vKeyType))
+				else
+					const nTopBranch = vContext:getStack():topBranch()
+					if nField.branch == nTopBranch then
+						vContext:warn("field:"..tostring(nKeyIncludeType).." multi assign in one scope")
+					end
+					nField.valueTerm = vValueTerm
+					nField.branch = nTopBranch
+				end
+			else
+				const nMetaNewIndex = self._metaNewIndex
+				if BaseFunction.is(nMetaNewIndex) then
+					const nTermTuple = vContext:FixedTermTuple({
+						vContext:RefineTerm(self), vContext:RefineTerm(vKeyType), vValueTerm
+					})
+					nMetaNewIndex:meta_call(vContext, nTermTuple)
+				elseif BaseObject.is(nMetaNewIndex) then
+					nMetaNewIndex:meta_set(vContext, vKeyType, vValueTerm)
+				else
+					self:native_rawset(vContext, vKeyType, vValueTerm)
+				end
+			end
+		end
+		return true
+	end)
+	if nNotRecursive then
+		-- return Boolean?
+	else
+		error("opentable's __newindex chain recursive")
+	end
+end
+
+const NIL_TRIGGER = 1
+const NONE_TRIGGER = 2
+function OpenTable:meta_get(vContext, vKeyType)
+	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
+		-- TODO trigger meta index
+		const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
+		if nKeyIncludeType then
+			const nField = self._fieldDict[nKeyIncludeType]!
+			const nTerm = nField.valueTerm
+			vContext:addLookupNode(nField.assignNode, nTerm:getType())
+			nField.lockCtx = vContext
+			const nType = nTerm:getType()
+			if nType:isUnion() then
+				vContext:warn("open table's field is union")
+			end
+			vContext:pushFirstAndTuple(nType)
+			if nType:isNilable() then
+				nTrigger = NIL_TRIGGER
+			end
+		else
+			nTrigger = NONE_TRIGGER
+		end
+		if nTrigger then
+			const nMetaIndex = self._metaIndex
+			if BaseFunction.is(nMetaIndex) then
+				const nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
+				nMetaIndex:meta_call(vContext, nTermTuple)
+				return true
+			elseif BaseObject.is(nMetaIndex) then
+				const nNextOkay = nMetaIndex:meta_get(vContext, vKeyType)
+				return nTrigger ~= NONE_TRIGGER or nNextOkay
+			else
+				vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
+				return nTrigger ~= NONE_TRIGGER
+			end
+		else
+			return true
+		end
+	end)
+	if nNotRecursive then
+		return nOkay
+	else
+		error("opentable's __index chain recursive")
+	end
+end
+
+function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
+	vContext:openAssign(vValueTerm:getType())
+	const nIncludeType = self._keyType:includeAtom(vKeyType)
+	if not nIncludeType then
+		if vKeyType:isSingleton() and not vKeyType:isNilable() then
+			-- TODO thinking lock
+			if self._locked then
+				vContext:error("assign to locked open-table")
+				return
+			end
+			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
+			self._fieldDict[vKeyType] = {
+				valueTerm = vValueTerm,
+				assignNode = vContext:getNode(),
+				branch = vContext:getStack():topBranch(),
+				lockCtx = false,
+			}
+		else
+			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
+		end
+	else
+		if self._locked then
+			vContext:error("assign to locked open-table")
+			return
+		end
+		self._fieldDict[nIncludeType] = {
+			valueTerm = vValueTerm,
+			assignNode = vContext:getNode(),
+			branch = vContext:getStack():topBranch(),
+			lockCtx = false,
+		}
+	end
+end
+
+function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
+	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+	if nKeyIncludeType then
+		const nField = self._fieldDict[nKeyIncludeType]!
+		const nTerm = nField.valueTerm
+		nField.lockCtx = vContext
+		return nTerm:getType()
+	else
+		const nNil = self._manager.type.Nil
+		if not self._locked then
+			self._fieldDict[vKeyType] = {
+				valueTerm=vContext:RefineTerm(nNil),
+				assignNode = vContext:getNode(),
+				branch=vContext:getStack():topBranch(),
+				lockCtx=vContext
+			}
+		end
+		return nNil
+	end
+end
+
+function OpenTable:native_next(vContext, vInitType)
+	self._locked = true
+	local nNextDict = self._nextDict
+	local nValueType = self._nextValue
+	if not nNextDict or not nValueType then
+		nNextDict = {}
+		for nKeyAtom, nField in pairs(self._fieldDict) do
+			nNextDict[nKeyAtom] = nField.valueTerm:getType()
+		end
+		local nNil = self._manager.type.Nil
+		local nCollection = self._manager:TypeCollection()
+		for nOneKey, nOneField in pairs(self._fieldDict) do
+			const nValueType = nOneField.valueTerm:getType()
+			const nNotnilType = nValueType:notnilType()
+			if not nNotnilType:isNever() then
+				nNextDict[nOneKey] = nNotnilType
+				nCollection:put(nNotnilType)
+			end
+			nOneField.lockCtx = nOneField.lockCtx or vContext
+		end
+		nCollection:put(nNil)
+		nValueType = nCollection:mergeToAtomUnion()
+		nNextDict[nNil] = nNil
+		self._nextValue = nValueType
+		self._nextDict = nNextDict
+	end
+	return nValueType, nNextDict
+end
+
+function OpenTable:meta_pairs(vContext)
+	--[[
+	const nCom = self._metaEventCom
+	if nCom then
+		const nPairsFn = nCom:getPairsFunc()
+		if nPairsFn then
+			vContext:error("TODO:open table use __pairs as meta field")
+		end
+	end]]
+	return false
+end
+
+function OpenTable:meta_ipairs(vContext)
+	vContext:error("TODO:open table use __ipairs as meta field")
+	return false
+end
+
+function OpenTable:memberFunctionFillSelf(vChain:clazz.RecurChain, vSelfTable:clazz.SealTable)
+	const nNotRecursive = vChain:testAndRun(self, function()
+		for _, nField in pairs(self._fieldDict) do
+			const nSelfValue = nField.valueTerm:getType()
+			if AutoMemberFunction.is(nSelfValue) then
+				if not nSelfValue:needPolyArgs() then
+					nSelfValue:indexAutoFn(vSelfTable)
+				end
+			end
+		end
+		return true
+	end)
+	if nNotRecursive then
+		const nMetaIndex = self._metaIndex
+		if nMetaIndex then
+			if BaseObject.is(nMetaIndex) then
+				nMetaIndex:memberFunctionFillSelf(vChain, vSelfTable)
+			end
+		end
+	end
+end
+
+function OpenTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
+	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
+	self._keyType:foreach(function(vType)
+		nDict[vType] = self._fieldDict[vType]!.valueTerm:getType()
+	end)
+	return nDict
+end
+
+function OpenTable:putCompletion(vCompletion)
+	if vCompletion:testAndSetPass(self) then
+		self._keyType:foreach(function(vType)
+			if StringLiteral.is(vType) then
+				vCompletion:putPair(vType:getLiteral(), self._fieldDict[vType]!.valueTerm:getType())
+			end
+		end)
+		const nMetaIndex = self._metaIndex
+		if nMetaIndex then
+			nMetaIndex:putCompletion(vCompletion)
+		end
+	end
+end
+
+function OpenTable:findRequireStack()
+	return self._lexStack:findRequireStack()
+end
+
+function OpenTable:isSingleton()
+	return true
+end
+
+function OpenTable:setLocked()
+	self._locked = true
+end
+
+function OpenTable:isLocked():Ret(Boolean)
+	return self._locked
+end
+
+return OpenTable

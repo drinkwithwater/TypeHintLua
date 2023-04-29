@@ -1,0 +1,138 @@
+
+const VariableCase = require "thlua.term.VariableCase"
+const StringLiteral = require "thlua.type.basic.StringLiteral"
+const TypedFunction = require "thlua.type.func.TypedFunction"
+const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
+const AutoFunction = require "thlua.type.func.AutoFunction"
+const BaseFunction = require "thlua.type.func.BaseFunction"
+const OPER_ENUM = require "thlua.type.basic.OPER_ENUM"
+const RecurChain = require "thlua.context.RecurChain"
+const Nil = require "thlua.type.basic.Nil"
+
+const SealTable = require "thlua.type.object.SealTable"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const ClassTable = class@<clazz.ClassTable, false>(SealTable)
+
+function.open ClassTable:ctor(
+	vManager:clazz.TypeManager,
+	vNode:clazz.IAstNode,
+	vLexStack:clazz.BaseStack,
+	vFactory:clazz.ClassFactory
+)
+	self._factory = vFactory
+	const nTask = self._manager:getScheduleManager():newTask()
+	self._task = nTask
+	self._initEvent = nTask:makeEvent()
+	self._baseClass = false@OrFalse(clazz.ClassTable)
+	self._interface = nil@!clazz.Interface
+	self._buildFinish = false@Boolean
+end
+
+function ClassTable:detailString(v, vVerbose)
+	return "ClassTable@"..tostring(self._node)
+end
+
+function ClassTable:waitInit()
+	self._initEvent:wait()
+end
+
+function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), clazz.Interface))
+	self._task:runAsync(function()
+		self._baseClass, self._interface = vBaseGetter()
+		self._initEvent:wakeup()
+	end)
+end
+
+function ClassTable:onSetMetaTable(vContext:clazz.ApplyContext)
+	self._factory:wakeupTableBuild()
+	self:onBuildFinish()
+end
+
+function ClassTable:onBuildFinish()
+	if not self._buildFinish then
+		self._buildFinish = true
+		self:implInterface()
+		const nRecurChain = RecurChain.new()
+		self:memberFunctionFillSelf(nRecurChain, self)
+		self._factory:wakeupTableBuild()
+	end
+end
+
+function ClassTable:implInterface()
+	const nInterfaceKeyValue = self._interface:copyValueDict(self)
+	const nSelfKey = self._keyType
+	const nSelfFieldDict = self._fieldDict
+	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
+		const nContext = self._factory:getBuildStack():withOnePushContext(self._factory:getNode(), function(vSubContext)
+			vSubContext:withCase(VariableCase.new(), function()
+				self:meta_get(vSubContext, nKeyAtom)
+			end)
+		end)
+		const nSelfValue = nContext:mergeFirst():getType()
+		if AutoMemberFunction.is(nSelfValue) then
+			if TypedFunction.is(nValue) then
+				nSelfValue:indexAutoFn(self):checkWhenCast(nValue)
+			end
+		else
+			if not nValue:includeAll(nSelfValue) then
+				nContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
+			end
+		end
+	end
+	--[[
+	const nMetaIndex = self._metaIndex
+	for _, nField in pairs(nSelfFieldDict) do
+		const nSelfValue = nField.valueType
+		if MemberFunction.is(nSelfValue) then
+			if not nSelfValue:needPolyArgs() then
+				nSelfValue:indexAutoFn(self)
+			end
+		elseif AutoFunction.is(nSelfValue) then
+		end
+	end]]
+end
+
+function ClassTable:ctxWait(vContext:clazz.OperContext)
+	self._factory:waitTableBuild()
+end
+
+function ClassTable:getBaseClass()
+	return self._baseClass
+end
+
+function ClassTable:getInterface()
+	return self._interface
+end
+
+function ClassTable:checkTypedObject()
+	return self._interface
+end
+
+function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
+	if ClassTable.is(vType) then
+		local nMatchTable = vType
+		while nMatchTable ~= self do
+			const nBaseClass = nMatchTable:getBaseClass()
+			if not nBaseClass then
+				break
+			else
+				nMatchTable = nBaseClass
+			end
+		end
+		return nMatchTable == self and self or false
+	else
+		-- TODO check struct
+		return false
+	end
+end
+
+function ClassTable:isLocked():Ret(Boolean)
+	return self._buildFinish
+end
+
+return ClassTable

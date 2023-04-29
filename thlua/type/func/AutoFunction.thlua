@@ -1,0 +1,57 @@
+
+const TypedFunction = require "thlua.type.func.TypedFunction"
+const SealFunction = require "thlua.type.func.SealFunction"
+const Exception = require "thlua.Exception"
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const AutoFunction = class@<clazz.AutoFunction, false>(SealFunction)
+AutoFunction.__tostring=function(self:clazz.AutoFunction)
+	return "autofn@"..tostring(self._node)
+end
+
+function.open AutoFunction:ctor(...)
+	self._castTypeFn=false@OrFalse(clazz.TypedFunction)
+	self._firstAssign = false @OrFalse(clazz.AssignContext)
+end
+
+function AutoFunction:isCastable()
+	return not self._firstAssign
+end
+
+function AutoFunction:setAssigned(vContext)
+	if not self._firstAssign then
+		self._firstAssign = vContext
+	end
+end
+
+function AutoFunction:checkWhenCast(vTypeFn:clazz.TypedFunction):Ret(Boolean)
+	if self._builderFn then
+		const nOldTypeFn = self._castTypeFn
+		if not nOldTypeFn then
+			self._castTypeFn = vTypeFn
+		else
+			if vTypeFn:includeAll(nOldTypeFn) then
+				self._castTypeFn = vTypeFn
+			elseif nOldTypeFn:includeAll(vTypeFn) then
+				-- donothing
+			else
+				-- TODO
+				--vContext:error("auto-function cast to multi type", self._node)
+			end
+		end
+		return true
+	else
+		return false
+	end
+end
+
+function AutoFunction:pickCastTypeFn():Ret(OrFalse(clazz.TypedFunction))
+	return self._castTypeFn
+end
+
+return AutoFunction

@@ -1,0 +1,43 @@
+
+const ClassTable = require "thlua.type.object.ClassTable"
+const SealFunction = require "thlua.type.func.SealFunction"
+const Exception = require "thlua.Exception"
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import("thlua.type.basic.TypeClass").clazz
+end)
+
+const ClassFactory = class@<clazz.ClassFactory, false>(SealFunction)
+function ClassFactory.__tostring(self:clazz.ClassFactory)
+	return "class@"..tostring(self._node)
+end
+
+function.open ClassFactory:ctor(vManager:clazz.TypeManager, ...)
+	const nTask = self._task
+	self._classBuildEvent=nTask:makeEvent()
+	self._classTable=ClassTable.new(self._manager, self._node, self._buildStack, self)
+end
+
+function ClassFactory:getClassTable(vWaitInit:OrNil(True)):Ret(clazz.ClassTable)
+	const nTable = self._classTable
+	if vWaitInit then
+		nTable:waitInit()
+	end
+	return nTable
+end
+
+function ClassFactory:wakeupTableBuild()
+	self._classBuildEvent:wakeup()
+end
+
+function ClassFactory:waitTableBuild()
+	self:startPreBuild()
+	self:startLateBuild()
+	if coroutine.running() ~= self._task:getSelfCo() then
+		self._classBuildEvent:wait()
+	end
+end
+
+return ClassFactory

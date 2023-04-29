@@ -1,0 +1,185 @@
+
+const VariableCase = require "thlua.term.VariableCase"
+const TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+const TermTuple = require "thlua.tuple.TermTuple"
+const Exception = require "thlua.Exception"
+const ClassTable = require "thlua.type.object.ClassTable"
+const SealTable = require "thlua.type.object.SealTable"
+
+const BaseFunction = require "thlua.type.func.BaseFunction"
+const class = require "thlua.class"
+
+(@let.clazz = import("thlua.type.basic.TypeClass").clazz)
+
+const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
+
+function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.LexShot))
+	self._func=nil@OrNil(clazz.OpenCaller)
+	self._polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction))
+	self._lexShot = vUpState or false
+	self._node = vNode
+	self.name="unknown"@String
+end
+
+function OpenFunction:lateInitFromAutoNative(vNativeFunc:clazz.OpenCaller):Ret(clazz.OpenFunction)
+	self._func = vNativeFunc
+	return self
+end
+
+function OpenFunction:lateInitFromMetaNative(
+	vNativeFunc:Fn(clazz.ApplyContext, clazz.IAtomType)
+):Ret(clazz.OpenFunction)
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
+		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
+			vNativeFunc(vContext, vType)
+		end):mergeReturn(), vStack:mergeEndErrType()
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:lateInitFromOperNative(
+	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(Union(clazz.FixedTermTuple, clazz.RefineTerm), OrNil(clazz.UAtomUnion))
+):Ret(clazz.OpenFunction)
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
+		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:castPoly(vContext, vTypeList)
+	const nPolyWrapper = self._polyWrapper
+	if nPolyWrapper then
+		return nPolyWrapper(vTypeList)
+	else
+		vContext:error("this open function can't cast poly")
+		return self
+	end
+end
+
+function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, List(clazz.UAllType), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
+	const nNoPolyFn:$self._func = function(vStack, vTermTuple)
+		if vPolyParNum == 0 then
+			return vFunc(self, vStack, {}, vTermTuple)
+		else
+			vStack:error("this open function need poly args")
+		end
+	end
+	const nPolyWrapper:$self._polyWrapper = function(vList)
+		return OpenFunction.new(self._manager, self._node, self._lexShot):lateInitFromAutoNative(function(vStack, vTermTuple)
+			if #vList ~= vPolyParNum then
+				vStack:error("poly args number not match")
+			end
+			return vFunc(self, vStack, vList, vTermTuple)
+		end)
+	end
+	self._func = nNoPolyFn
+	self._polyWrapper = nPolyWrapper
+	return self
+end
+
+function OpenFunction:lateInitFromMapGuard(vMapObject:clazz.Interface)
+	const nNil = self._manager.type.Nil
+	const nFalse = self._manager.type.False
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
+		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+			const nTerm = vTermTuple:get(vContext, 1)
+			nTerm:foreach(function(vType, vCase)
+				vContext:withCase(vCase, function()
+					for nMapType, nGuardType in pairs(vMapObject:getValueDict()) do
+						nGuardType = nGuardType:checkAtomUnion():notnilType()
+						if vType:intersectSome(nGuardType) then
+							const nGuardCase = VariableCase.new()
+							nGuardCase:put_and(nTerm:attachImmutVariable(), nGuardType)
+							vContext:pushFirstAndTuple(nMapType, nil, nGuardCase)
+							if not nGuardType:includeAll(vType) then
+								vContext:pushFirstAndTuple(nNil)
+							end
+						else
+							vContext:pushFirstAndTuple(nNil)
+						end
+					end
+				end)
+			end)
+		end):mergeFirst(), vStack:mergeEndErrType()
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:lateInitFromIsGuard(vType:clazz.UAllType)
+	const nTrue = self._manager.type.True
+	const nFalse = self._manager.type.False
+	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
+		const nGuardType = vType:checkAtomUnion()
+		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
+		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+			const nTerm = vTermTuple:get(vContext, 1)
+			nTerm:foreach(function(vType, vCase)
+				vContext:withCase(vCase, function()
+					if vType:intersectSome(nGuardType) then
+						const nGuardCase = VariableCase.new()
+						nGuardCase:put_and(nTerm:attachImmutVariable(), nGuardType)
+						vContext:pushFirstAndTuple(nTrue, nil, nGuardCase)
+						if not nGuardType:includeAll(vType) then
+							vContext:pushFirstAndTuple(nFalse)
+						end
+					else
+						vContext:pushFirstAndTuple(nFalse)
+					end
+				end)
+			end)
+		end):mergeFirst(), vStack:mergeEndErrType()
+	end
+	self._func = nFn
+	return self
+end
+
+function OpenFunction:detailString(v, vVerbose)
+	return "OpenFunction-"..self.name
+end
+
+function OpenFunction:set_name(name:String)
+	self.name = name
+end
+
+function OpenFunction:newStack(vNode:clazz.IAstNode, vApplyStack:clazz.BaseStack)
+	return self._manager:getRuntime():OpenStack(vNode, self._lexShot, self, vApplyStack, false)
+end
+
+function OpenFunction:meta_call(vContext, vTermTuple)
+	const nRet, nStack = self:meta_open_call(vContext, vTermTuple, false)
+	vContext:raiseError(nStack:mergeEndErrType())
+	vContext:pushOpenReturn(nRet)
+end
+
+function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple, vIsRequire:Boolean):Ret(clazz.UOpenReturn, clazz.OpenStack)
+	const nNewStack = self._manager:getRuntime():OpenStack(vContext:getNode(), self._lexShot, self, vContext:getStack(), vIsRequire)
+	return self._func!(nNewStack, vTermTuple), nNewStack
+end
+
+function OpenFunction:findRequireStack():Ret(OrFalse(clazz.OpenStack))
+	const nLexShot = self._lexShot
+	if not nLexShot then
+		return false
+	end
+	return nLexShot.branch:getStack():findRequireStack()
+end
+
+function OpenFunction:isSingleton()
+	return true
+end
+
+function OpenFunction:mayRecursive()
+	return false
+end
+
+function OpenFunction:getIfLuaNode():Ret(False):Ret(True, clazz.IAstNode)
+	return true, self._node
+end
+
+return OpenFunction

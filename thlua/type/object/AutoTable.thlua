@@ -1,0 +1,114 @@
+
+const StringLiteral = require "thlua.type.basic.StringLiteral"
+const TypedObject = require "thlua.type.object.TypedObject"
+const Struct = require "thlua.type.object.Struct"
+const TypedFunction = require "thlua.type.func.TypedFunction"
+const TypedMemberFunction = require "thlua.type.func.TypedMemberFunction"
+const AutoFunction = require "thlua.type.func.AutoFunction"
+const BaseFunction = require "thlua.type.func.BaseFunction"
+const OPER_ENUM = require "thlua.type.basic.OPER_ENUM"
+const Nil = require "thlua.type.basic.Nil"
+
+const SealTable = require "thlua.type.object.SealTable"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const AutoTable = class@<clazz.AutoTable, false>(SealTable)
+
+function.open AutoTable:ctor(vManager, ...)
+	self._name = false @OrFalse(String)
+	self._firstAssign = false@OrFalse(clazz.AssignContext)
+	self._castDict = {} @ Dict(clazz.TypedObject, Boolean)
+	self._locked = false@Boolean
+end
+
+function AutoTable:detailString(v, vVerbose)
+	if not self._firstAssign then
+		return "AutoTable@castable@"..tostring(self._node)
+	elseif next(self._castDict) then
+		return "AutoTable@casted@"..tostring(self._node)
+	else
+		return "AutoTable@"..tostring(self._node)
+	end
+end
+
+function AutoTable:setName(vName:String)
+	self._name = vName
+end
+
+function AutoTable:castMatchOne(
+	vContext:clazz.AssignContext,
+	vStruct:clazz.Struct
+):Ret(OrFalse(clazz.AutoFnCastDict))
+	const nAutoFnCastDict = vContext:newAutoFnCastDict()
+	const nCopyValueDict = vStruct:copyValueDict(self)
+	local nMatchSucc = true
+	self._keyType:foreach(function(vTableKey)
+		const vTableValue = self._fieldDict[vTableKey]!.valueType
+		if not nMatchSucc then
+			return
+		end
+		local nMatchKey, nMatchValue = vStruct:indexKeyValue(vTableKey)
+		if not nMatchKey then
+			nMatchSucc = false
+			return
+		end
+		nMatchValue = nMatchValue:checkAtomUnion()
+		if TypedMemberFunction.is(nMatchValue) then
+			-- TODO:thinking how to refactor for member function cast
+			nMatchValue=nMatchValue:indexTypeFn(vStruct)
+		end
+		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, vTableValue)
+		if not nIncludeType or not nCastSucc then
+			nMatchSucc = false
+			return
+		end
+		nCopyValueDict[nMatchKey] = nil
+	end)
+	if not nMatchSucc then
+		return false
+	end
+	for k,v in pairs(nCopyValueDict) do
+		if not v:checkAtomUnion():isNilable() then
+			return false
+		end
+	end
+	return nAutoFnCastDict
+end
+
+function AutoTable:checkTypedObject()
+	return self._manager.type.AnyObject
+end
+
+function AutoTable:isCastable()
+	return not self._firstAssign
+end
+
+function AutoTable:setAssigned(vContext)
+	if not self._firstAssign then
+		if next(self._castDict) then
+			vContext:error("AutoTable is casted to some TypedObject")
+		end
+		self._firstAssign = vContext
+		for k, v in pairs(self._fieldDict) do
+			v.valueType:setAssigned(vContext)
+		end
+	end
+end
+
+function AutoTable:findRequireStack()
+	return self._lexStack:findRequireStack()
+end
+
+function AutoTable:setLocked()
+	self._locked = true
+end
+
+function AutoTable:isLocked():Ret(Boolean)
+	return self._locked
+end
+
+return AutoTable

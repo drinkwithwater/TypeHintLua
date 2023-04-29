@@ -1,0 +1,54 @@
+
+local StringLiteral = require "thlua.type.basic.StringLiteral"
+local TYPE_BITS = require "thlua.type.basic.TYPE_BITS"
+
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const String = class@<clazz.String, false>(BaseAtomType)
+
+function.open String:ctor(vManager:clazz.TypeManager)
+	self.bits=TYPE_BITS.STRING
+end
+
+function String:detailString(v, vVerbose):Ret(String)
+	return "String"
+end
+
+function String:native_getmetatable(vContext)
+	return self._manager.builtin.string
+end
+
+function String:native_type()
+	return self._manager:Literal("string")
+end
+
+function String:meta_len(vContext)
+	return self._manager.type.Number
+end
+
+function String:meta_get(vContext, vKeyType)
+	return self._manager.builtin.string:meta_get(vContext, vKeyType)
+end
+
+function String:assumeIncludeAtom(vAssumeSet, vType, _)
+	if StringLiteral.is(vType) then
+		return self
+	elseif self == vType then
+		return self
+	else
+		return false
+	end
+end
+
+function String:isSingleton()
+	return false
+end
+
+function String:putCompletion(vFieldCompletion)
+	self._manager.builtin.string:putCompletion(vFieldCompletion)
+end
+
+return String
