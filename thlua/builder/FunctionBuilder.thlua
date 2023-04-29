@@ -53,7 +53,7 @@ FunctionBuilder.__index=FunctionBuilder
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vStack:clazz.BaseStack,
 	vNode:Union(node.Chunk, node.Function),
-	vUpState:clazz.LexShot,
+	vUpState:clazz.LexCapture,
 	vInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
@@ -62,7 +62,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_stack=vStack,
 		_manager=vStack:getTypeManager(),
 		_node=vNode,
-		_lexShot=vUpState,
+		_lexCapture=vUpState,
 		_prefixHint=vPrefixHint,
 		_pass=vPrefixHint.attrSet.pass and true or false,
 		_parRetMaker=vParRetMaker,
@@ -147,7 +147,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 	assert(nNode.tag == "Function")
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
-		const nAutoFn = self._stack:newAutoFunction(nNode, self._lexShot)
+		const nAutoFn = self._stack:newAutoFunction(nNode, self._lexCapture)
 		const nNewStack = nAutoFn:getBuildStack()
 		nAutoFn:initAsync(function()
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, vSelfType)
@@ -209,7 +209,7 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	if self._hasSuffixHint then
-		const nGuardFn = self._stack:newOpenFunction(self._node, self._lexShot)
+		const nGuardFn = self._stack:newOpenFunction(self._node, self._lexCapture)
 		const nMakerStack = nGuardFn:newStack(self._node, self._stack)
 		local nSetted = false
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, {}, false)
@@ -251,7 +251,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node, self._lexShot):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
+		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)
 			return nGenFunc()
@@ -347,7 +347,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			end
 			return nExtendsTable, nImplementsInterface, nErrType
 		end
-		const nFactory = self._stack:newClassFactory(nNode, self._lexShot)
+		const nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
 		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getBuildStack()
 		local nGenParam:OrNil(clazz.GenParam) = nil

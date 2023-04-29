@@ -1,12 +1,31 @@
 
 const class = require "thlua.class"
 const PolyFunction = require "thlua.type.func.PolyFunction"
+const SealFunction = require "thlua.type.func.SealFunction"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const SealPolyFunction = class@<clazz.SealPolyFunction, false>(PolyFunction)
 
-function.open SealPolyFunction:ctor(...)
+function.open SealPolyFunction:ctor(_,_,_,_, vLexStack:clazz.BaseStack)
+	self._fnDict = {} @ Dict(String, clazz.SealFunction)
+	self._lexStack = vLexStack
+end
+
+function SealPolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAtomUnion)):Ret(clazz.SealFunction)
+	const nFn = self._fnDict[vTemplateSign]
+	if not nFn then
+		const nResult = self._makerFn(table.unpack(vTypeList)) @ Any
+		if SealFunction.is(nResult) then
+			self._fnDict[vTemplateSign] = nResult
+            self._lexStack:getSealStack():scheduleSealType(nResult)
+			return nResult
+		else
+			error("poly function must return mono-function type but got:"..tostring(nResult))
+		end
+	else
+		return nFn
+	end
 end
 
 return SealPolyFunction

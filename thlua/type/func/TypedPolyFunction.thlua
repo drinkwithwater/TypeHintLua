@@ -1,12 +1,29 @@
 
 const class = require "thlua.class"
 const PolyFunction = require "thlua.type.func.PolyFunction"
+const TypedFunction = require "thlua.type.func.TypedFunction"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
 const TypedPolyFunction = class@<clazz.TypedPolyFunction, false>(PolyFunction)
 
 function.open TypedPolyFunction:ctor(...)
+	self._fnDict = {} @ Dict(String, clazz.TypedFunction)
+end
+
+function TypedPolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAtomUnion)):Ret(clazz.TypedFunction)
+	const nFn = self._fnDict[vTemplateSign]
+	if not nFn then
+		const nResult = self._makerFn(table.unpack(vTypeList)) @ Any
+		if TypedFunction.is(nResult) then
+			self._fnDict[vTemplateSign] = nResult
+			return nResult
+		else
+			error("poly function must return mono-function type but got:"..tostring(nResult))
+		end
+	else
+		return nFn
+	end
 end
 
 return TypedPolyFunction

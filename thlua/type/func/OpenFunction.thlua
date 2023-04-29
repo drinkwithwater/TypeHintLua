@@ -13,11 +13,10 @@ const class = require "thlua.class"
 
 const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
 
-function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.LexShot))
+function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.LexCapture))
 	self._func=nil@OrNil(clazz.OpenCaller)
 	self._polyWrapper=false@OrFalse(Fn(List(clazz.UAllType)):Ret(clazz.OpenFunction))
-	self._lexShot = vUpState or false
-	self._node = vNode
+	self._lexCapture = vUpState or false
 	self.name="unknown"@String
 end
 
@@ -69,7 +68,7 @@ function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.Op
 		end
 	end
 	const nPolyWrapper:$self._polyWrapper = function(vList)
-		return OpenFunction.new(self._manager, self._node, self._lexShot):lateInitFromAutoNative(function(vStack, vTermTuple)
+		return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
 			if #vList ~= vPolyParNum then
 				vStack:error("poly args number not match")
 			end
@@ -148,7 +147,7 @@ function OpenFunction:set_name(name:String)
 end
 
 function OpenFunction:newStack(vNode:clazz.IAstNode, vApplyStack:clazz.BaseStack)
-	return self._manager:getRuntime():OpenStack(vNode, self._lexShot, self, vApplyStack, false)
+	return self._manager:getRuntime():OpenStack(vNode, self._lexCapture, self, vApplyStack, false)
 end
 
 function OpenFunction:meta_call(vContext, vTermTuple)
@@ -158,16 +157,16 @@ function OpenFunction:meta_call(vContext, vTermTuple)
 end
 
 function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple, vIsRequire:Boolean):Ret(clazz.UOpenReturn, clazz.OpenStack)
-	const nNewStack = self._manager:getRuntime():OpenStack(vContext:getNode(), self._lexShot, self, vContext:getStack(), vIsRequire)
+	const nNewStack = self._manager:getRuntime():OpenStack(vContext:getNode(), self._lexCapture, self, vContext:getStack(), vIsRequire)
 	return self._func!(nNewStack, vTermTuple), nNewStack
 end
 
 function OpenFunction:findRequireStack():Ret(OrFalse(clazz.OpenStack))
-	const nLexShot = self._lexShot
-	if not nLexShot then
+	const nLexCapture = self._lexCapture
+	if not nLexCapture then
 		return false
 	end
-	return nLexShot.branch:getStack():findRequireStack()
+	return nLexCapture.branch:getStack():findRequireStack()
 end
 
 function OpenFunction:isSingleton()

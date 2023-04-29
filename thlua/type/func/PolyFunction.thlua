@@ -11,12 +11,9 @@ const class = require "thlua.class"
 
 const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
 
-function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vLexStack:OrNil(clazz.BaseStack))
+function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, ...)
 	self._polyParNum=vPolyParNum
 	self._makerFn=vFunc
-	self._fnDict = {} @ Dict(String, Union(clazz.SealFunction, clazz.TypedFunction))
-	self._node = vNode
-	self._lexStack = vLexStack or false
 end
 
 function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
@@ -27,6 +24,10 @@ function PolyFunction:getPolyParNum():Ret(Integer)
 	return self._polyParNum
 end
 
+function.pass PolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAtomUnion)):Ret(Union(clazz.TypedFunction, clazz.SealFunction))
+	error("not implement")
+end
+
 function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
 	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
@@ -34,21 +35,7 @@ function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UAllType)):Ret(Union(cl
 		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()
 	end
 	const nKey = self._manager:signTemplateArgs(nAtomUnionList)
-	const nFn = self._fnDict[nKey]
-	if not nFn then
-		const nResult = self._makerFn(table.unpack(vTypeList)) @ Any
-		if TypedFunction.is(nResult) or SealFunction.is(nResult) then
-			self._fnDict[nKey] = nResult
-			if SealFunction.is(nResult) then
-				assert(self._lexStack):getSealStack():scheduleSealType(nResult)
-			end
-			return nResult
-		else
-			error("poly function must return mono-function type but got:"..tostring(nResult))
-		end
-	else
-		return nFn
-	end
+	return self:makeFn(nKey, nAtomUnionList)
 end
 
 function PolyFunction:castPoly(vContext, vTypeList)
@@ -71,14 +58,6 @@ end
 
 function PolyFunction:isSingleton()
 	return false
-end
-
-function PolyFunction:getIfLuaNode():Ret(False):Ret(True, clazz.IAstNode)
-	if self._lexStack then
-		return true, self._node
-	else
-		return false
-	end
 end
 
 return PolyFunction

@@ -23,14 +23,13 @@ const SealFunction = class@<clazz.SealFunction, false>(BaseFunction)
 function.open SealFunction:ctor(
 	vManager:clazz.TypeManager,
 	vNode:clazz.IAstNode,
-	vLexShot:OrFalse(clazz.LexShot)
+	vLexCapture:OrFalse(clazz.LexCapture)
 )
-	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexShot, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
-	self._lexStack = vLexShot and vLexShot.branch:getStack() or false
+	const nNewStack = vManager:getRuntime():SealStack(vNode, vLexCapture, self @> Union(clazz.AutoFunction, clazz.ClassFactory))
+	self._lexStack = vLexCapture and vLexCapture.branch:getStack() or false
 	self._buildStack = nNewStack
 	const nTask = vManager:getScheduleManager():newTask(nNewStack)
 	self._task = nTask
-	self._node = vNode
 	self._preBuildEvent=nTask:makeEvent()
 	self._lateStartEvent=nTask:makeWildEvent()
 	self._lateBuildEvent=nTask:makeEvent()
@@ -56,20 +55,16 @@ function SealFunction:getFnAwait():Ret(clazz.TypedFunction)
 	return (assert(self._typeFn, "_typeFn must existed here"))
 end
 
-function SealFunction:getNode()
-	return self._node
-end
-
 function SealFunction:getBuildStack()
 	return self._buildStack
 end
 
 function SealFunction:findRequireStack()
-	const nLexShot = self._lexShot
-	if not nLexShot then
+	const nLexCapture = self._lexCapture
+	if not nLexCapture then
 		return false
 	end
-	return nLexShot.branch:getStack():findRequireStack()
+	return nLexCapture.branch:getStack():findRequireStack()
 end
 
 function SealFunction:getRetTuples():Ret(OrFalse(clazz.RetTuples))
