@@ -5,6 +5,7 @@ const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const MetaEventCom = require "thlua.type.object.MetaEventCom"
+const ObjectField = require "thlua.type.object.ObjectField"
 
 const BaseObject = require "thlua.type.object.BaseObject"
 const class = require "thlua.class"
@@ -20,6 +21,7 @@ function.open TypedObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode)
 	self._task = nTask
 	self._keyRefer=vManager:AsyncUnion(nTask)
 	self._valueDict=false@OrFalse(Dict(clazz.IAtomType, clazz.UAllType))
+	self._fieldDict={}@Dict(clazz.IAtomType, clazz.ObjectField)
 	self._nextKey=false@OrFalse(clazz.UAllType)
 	self._nextValue=false@OrFalse(clazz.UAtomUnion)
 	self._nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion)
@@ -161,35 +163,30 @@ function TypedObject:isSingleton()
 	return false
 end
 
-function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.UAllType):Ret(False)
+function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType, clazz.ObjectField):Ret(False)
 	const nKey = self._keyRefer:getTypeAwait():includeAtom(vType)
 	if nKey then
-		return nKey, assert(self._valueDict)[nKey]!
+		local nField = self._fieldDict[nKey]
+		if not nField then
+			nField = ObjectField.new(self._node, self, nKey, assert(self._valueDict)[nKey]!:checkAtomUnion())
+		end
+		return nKey, nField
 	else
 		return false
 	end
 end
 
 function TypedObject:meta_get(vContext, vType)
-	const nRet = self:_getValue(vContext, vType)
-	vContext:addLookupNode(self._node, nRet)
-	vContext:pushFirstAndTuple(nRet)
-	return true
-end
-
-function TypedObject:_getValue(vContext:clazz.OperContext, vType:clazz.IAtomType):Ret(clazz.UAtomUnion)
-	const nKey, nGetValue = self:_keyIncludeAtom(vType)
+	const nKey, nField = self:_keyIncludeAtom(vType)
 	if not nKey then
 		vContext:error("error get("..tostring(vType)..") in struct")
-		return self._manager.type.Nil
+		vContext:pushFirstAndTuple(self._manager.type.Nil)
 	else
-		return nGetValue:checkAtomUnion()
+		const nType = nField:getValueType()
+		vContext:pushFirstAndTuple(nType)
+		vContext:addLookupNode(self._node, nType)
 	end
-end
-
-function TypedObject:native_rawget(vContext, vKeyType)
-	vContext:warn("abstract object take rawget")
-	return self:_getValue(vContext, vKeyType)
+	return true
 end
 
 function TypedObject:meta_bop_func(vContext, vOper)
@@ -205,9 +202,9 @@ function TypedObject:meta_bop_func(vContext, vOper)
 end
 
 function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
-	const nKey, nValue = self:_keyIncludeAtom(vKeyType)
+	const nKey, nField = self:_keyIncludeAtom(vKeyType)
 	if nKey then
-		return nKey, nValue
+		return nKey, nField:getValueType()
 	else
 		return false
 	end

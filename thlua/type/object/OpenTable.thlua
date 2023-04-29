@@ -3,6 +3,7 @@ const StringLiteral = require "thlua.type.basic.StringLiteral"
 const TypedObject = require "thlua.type.object.TypedObject"
 const BaseFunction = require "thlua.type.func.BaseFunction"
 const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
+const OpenField = require "thlua.type.object.OpenField"
 const Nil = require "thlua.type.basic.Nil"
 
 const BaseObject = require "thlua.type.object.BaseObject"
@@ -10,12 +11,6 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.OpenTableField = Struct {
-		valueTerm = clazz.RefineTerm,
-		assignNode = clazz.IAstNode,
-		branch = clazz.Branch,
-		lockCtx = OrFalse(clazz.OperContext),
-	}
 end)
 
 const OpenTable = class@<clazz.OpenTable, false>(BaseObject)
@@ -23,7 +18,7 @@ const OpenTable = class@<clazz.OpenTable, false>(BaseObject)
 function.open OpenTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexStack:clazz.BaseStack)
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
 	self._lexStack = vLexStack
-	self._fieldDict={}@Dict(clazz.IAtomType, OpenTableField)
+	self._fieldDict={}@Dict(clazz.IAtomType, clazz.OpenField)
 	self._metaIndex=false@OrFalse(clazz.BaseFunction, clazz.BaseObject)
 	self._metaNewIndex=false@OrFalse(clazz.BaseFunction, clazz.BaseObject)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
@@ -44,12 +39,7 @@ end
 function OpenTable:initByKeyValueTerm(vNode:clazz.IAstNode, vBranch:clazz.Branch, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.RefineTerm))
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
-		self._fieldDict[k] = {
-			valueTerm = v,
-			assignNode = vNode,
-			branch=vBranch,
-			lockCtx = false,
-		}
+		self._fieldDict[k] = OpenField.new(vNode, self, k, v:getType(), vBranch)
 	end
 end
 
@@ -104,15 +94,14 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 			const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 			if nKeyIncludeType then
 				const nField = self._fieldDict[nKeyIncludeType]!
-				if nField.lockCtx then
+				if nField:getLockCtx() then
 					vContext:error("field is locked"..tostring(vKeyType))
 				else
 					const nTopBranch = vContext:getStack():topBranch()
-					if nField.branch == nTopBranch then
+					if nField:getAssignBranch() == nTopBranch then
 						vContext:warn("field:"..tostring(nKeyIncludeType).." multi assign in one scope")
 					end
-					nField.valueTerm = vValueTerm
-					nField.branch = nTopBranch
+					nField:overrideAssign(vValueTerm:getType(), nTopBranch)
 				end
 			else
 				const nMetaNewIndex = self._metaNewIndex
@@ -146,10 +135,9 @@ function OpenTable:meta_get(vContext, vKeyType)
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
-			const nTerm = nField.valueTerm
-			vContext:addLookupNode(nField.assignNode, nTerm:getType())
-			nField.lockCtx = vContext
-			const nType = nTerm:getType()
+			const nType = nField:getValueType()
+			vContext:addLookupNode(nField:getAssignNode(), nType)
+			nField:lock(vContext)
 			if nType:isUnion() then
 				vContext:warn("open table's field is union")
 			end
@@ -195,12 +183,11 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 				return
 			end
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
-			self._fieldDict[vKeyType] = {
-				valueTerm = vValueTerm,
-				assignNode = vContext:getNode(),
-				branch = vContext:getStack():topBranch(),
-				lockCtx = false,
-			}
+			self._fieldDict[vKeyType] = OpenField.new(
+				vContext:getNode(), self,
+				vKeyType, vValueTerm:getType(),
+				vContext:getStack():topBranch()
+			)
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end
@@ -209,12 +196,7 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 			vContext:error("assign to locked open-table")
 			return
 		end
-		self._fieldDict[nIncludeType] = {
-			valueTerm = vValueTerm,
-			assignNode = vContext:getNode(),
-			branch = vContext:getStack():topBranch(),
-			lockCtx = false,
-		}
+		self._fieldDict[nIncludeType]!:overrideAssign(vValueTerm:getType(), vContext:getStack():topBranch())
 	end
 end
 
@@ -222,18 +204,14 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
-		const nTerm = nField.valueTerm
-		nField.lockCtx = vContext
-		return nTerm:getType()
+		nField:lock(vContext)
+		return nField:getValueType()
 	else
 		const nNil = self._manager.type.Nil
 		if not self._locked then
-			self._fieldDict[vKeyType] = {
-				valueTerm=vContext:RefineTerm(nNil),
-				assignNode = vContext:getNode(),
-				branch=vContext:getStack():topBranch(),
-				lockCtx=vContext
-			}
+			const nField = OpenField.new(vContext:getNode(), self, vKeyType, nNil, vContext:getStack():topBranch())
+			nField:lock(vContext)
+			self._fieldDict[vKeyType] = nField
 		end
 		return nNil
 	end
@@ -246,18 +224,18 @@ function OpenTable:native_next(vContext, vInitType)
 	if not nNextDict or not nValueType then
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
-			nNextDict[nKeyAtom] = nField.valueTerm:getType()
+			nNextDict[nKeyAtom] = nField:getValueType()
 		end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
-			const nValueType = nOneField.valueTerm:getType()
+			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
 			if not nNotnilType:isNever() then
 				nNextDict[nOneKey] = nNotnilType
 				nCollection:put(nNotnilType)
 			end
-			nOneField.lockCtx = nOneField.lockCtx or vContext
+			nOneField:lock(vContext)
 		end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
@@ -288,7 +266,7 @@ end
 function OpenTable:memberFunctionFillSelf(vChain:clazz.RecurChain, vSelfTable:clazz.SealTable)
 	const nNotRecursive = vChain:testAndRun(self, function()
 		for _, nField in pairs(self._fieldDict) do
-			const nSelfValue = nField.valueTerm:getType()
+			const nSelfValue = nField:getValueType()
 			if AutoMemberFunction.is(nSelfValue) then
 				if not nSelfValue:needPolyArgs() then
 					nSelfValue:indexAutoFn(vSelfTable)
@@ -310,7 +288,7 @@ end
 function OpenTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
 	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	self._keyType:foreach(function(vType)
-		nDict[vType] = self._fieldDict[vType]!.valueTerm:getType()
+		nDict[vType] = self._fieldDict[vType]!:getValueType()
 	end)
 	return nDict
 end
@@ -319,7 +297,7 @@ function OpenTable:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
 		self._keyType:foreach(function(vType)
 			if StringLiteral.is(vType) then
-				vCompletion:putPair(vType:getLiteral(), self._fieldDict[vType]!.valueTerm:getType())
+				vCompletion:putPair(vType:getLiteral(), self._fieldDict[vType]!:getValueType())
 			end
 		end)
 		const nMetaIndex = self._metaIndex

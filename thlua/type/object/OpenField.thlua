@@ -1,0 +1,41 @@
+
+
+const class = require "thlua.class"
+const ObjectField = require "thlua.type.object.ObjectField"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const OpenField =class@<clazz.OpenField, false>(ObjectField)
+
+function.open OpenField:ctor(vInitNode,vObject,vKey,vValue,vBranch:clazz.Branch)
+	self._assignNode = vInitNode
+	self._branch = vBranch
+	self._lockCtx = false @ OrFalse(clazz.OperContext)
+end
+
+function OpenField:overrideAssign(vValueType:clazz.UAtomUnion, vBranch:clazz.Branch)
+	self._valueType = vValueType
+	self._branch = vBranch
+end
+
+function OpenField:getAssignNode()
+	return self._assignNode
+end
+
+function OpenField:getLockCtx()
+	return self._lockCtx
+end
+
+function OpenField:lock(vContext:clazz.OperContext)
+	if not self._lockCtx then
+		self._lockCtx = vContext
+	end
+end
+
+function OpenField:getAssignBranch()
+	return self._branch
+end
+
+return OpenField

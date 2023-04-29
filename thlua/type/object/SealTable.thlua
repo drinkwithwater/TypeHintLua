@@ -9,6 +9,7 @@ const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.basic.Nil"
 
 const BaseObject = require "thlua.type.object.BaseObject"
+const ObjectField = require "thlua.type.object.ObjectField"
 const class = require "thlua.class"
 
 (@do
@@ -24,7 +25,7 @@ const SealTable = class@<clazz.SealTable, false>(BaseObject)
 function.open SealTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vLexStack:clazz.BaseStack, ...)
 	self._lexStack = vLexStack
 	self._keyType=vManager.type.Never @clazz.UAtomUnion
-	self._fieldDict={}@Dict(clazz.IAtomType, TableField)
+	self._fieldDict={}@Dict(clazz.IAtomType, clazz.ObjectField)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
@@ -43,10 +44,7 @@ end
 function SealTable:initByKeyValue(vNode:clazz.IAstNode, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
-		self._fieldDict[k] = {
-			valueType = v,
-			assignNode = vNode,
-		}
+		self._fieldDict[k] = ObjectField.new(vNode, self, k, v)
 	end
 end
 
@@ -82,9 +80,9 @@ function SealTable:meta_set(vContext, vKeyType, vValueTerm)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		vContext:pushNothing()
-		const nTableField = self._fieldDict[nKeyIncludeType]!
-		const nFieldType = nTableField.valueType
-		vContext:addLookupNode(nTableField.assignNode, nFieldType)
+		const nField = self._fieldDict[nKeyIncludeType]!
+		const nFieldType = nField:getValueType()
+		vContext:addLookupNode(nField:getInitNode(), nFieldType)
 		vContext:includeAndCast(nFieldType, vValueTerm:getType(), "set")
 	else
 		self:native_rawset(vContext, vKeyType, vValueTerm)
@@ -101,8 +99,8 @@ function SealTable:meta_get(vContext, vKeyType)
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
-			vContext:addLookupNode(nField.assignNode, nField.valueType)
-			const nValueType = nField.valueType
+			const nValueType = nField:getValueType()
+			vContext:addLookupNode(nField:getInitNode(), nValueType)
 			if nValueType:isNilable() then
 				nTrigger = NIL_TRIGGER
 				if nIndexType then
@@ -121,8 +119,8 @@ function SealTable:meta_get(vContext, vKeyType)
 			else
 				nInterType:foreach(function(vKeyAtom)
 					const nField = self._fieldDict[vKeyAtom]!
-					vContext:addLookupNode(nField.assignNode, nField.valueType)
-					const nValueType = nField.valueType
+					const nValueType = nField:getValueType()
+					vContext:addLookupNode(nField:getInitNode(), nValueType)
 					if nIndexType then
 						vContext:pushFirstAndTuple(nValueType:notnilType())
 					else
@@ -172,17 +170,14 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 			end
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
-			self._fieldDict[vKeyType] = {
-				valueType = vValueTerm:getType(),
-				assignNode = vContext:getNode(),
-			}
+			self._fieldDict[vKeyType] = ObjectField.new(vContext:getNode(), self, vKeyType, vValueTerm:getType())
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end
 	else
 		const nTableField = self._fieldDict[nIncludeType]!
-		const nFieldType = nTableField.valueType
-		vContext:addLookupNode(nTableField.assignNode, nTableField.valueType)
+		const nFieldType = nTableField:getValueType()
+		vContext:addLookupNode(nTableField:getInitNode(), nFieldType)
 		if not nFieldType:includeAll(vValueTerm:getType()) then
 			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
@@ -194,8 +189,9 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
-		vContext:addLookupNode(nField.assignNode, nField.valueType)
-		return nField.valueType
+		const nValueType = nField:getValueType()
+		vContext:addLookupNode(nField:getInitNode(), nValueType)
+		return nValueType
 	else
 		return self._manager.type.Nil
 	end
@@ -241,12 +237,12 @@ function SealTable:native_next(vContext, vInitType)
 	if not nNextDict or not nValueType then
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
-			nNextDict[nKeyAtom] = nField.valueType
+			nNextDict[nKeyAtom] = nField:getValueType()
 		end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
-			const nValueType = nOneField.valueType
+			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
 			nNextDict[nOneKey] = nNotnilType
 			nCollection:put(nNotnilType)
@@ -287,7 +283,7 @@ end
 function SealTable:memberFunctionFillSelf(vChain:clazz.RecurChain, vSelfTable:clazz.SealTable)
 	const nNotRecursive = vChain:testAndRun(self, function()
 		for _, nField in pairs(self._fieldDict) do
-			const nSelfValue = nField.valueType
+			const nSelfValue = nField:getValueType()
 			if AutoMemberFunction.is(nSelfValue) then
 				if not nSelfValue:needPolyArgs() then
 					nSelfValue:indexAutoFn(vSelfTable)
@@ -307,7 +303,7 @@ end
 function SealTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
 	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	self._keyType:foreach(function(vType)
-		nDict[vType] = self._fieldDict[vType]!.valueType
+		nDict[vType] = self._fieldDict[vType]!:getValueType()
 	end)
 	return nDict
 end
@@ -316,7 +312,7 @@ function SealTable:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
 		self._keyType:foreach(function(vAtomType)
 			if StringLiteral.is(vAtomType) then
-				vCompletion:putPair(vAtomType:getLiteral(), self._fieldDict[vAtomType]!.valueType)
+				vCompletion:putPair(vAtomType:getLiteral(), self._fieldDict[vAtomType]!:getValueType())
 			end
 		end)
 		const nMetaIndex = self._metaIndex
