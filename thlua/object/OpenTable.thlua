@@ -12,6 +12,7 @@ const class = require "thlua.class"
 	let.clazz = import($class).clazz
 	let.OpenTableField = Struct {
 		valueTerm = clazz.RefineTerm,
+		assignNode = clazz.IAstNode,
 		branch = clazz.Branch,
 		lockCtx = OrFalse(clazz.OperContext),
 	}
@@ -45,6 +46,7 @@ function OpenTable:initByKeyValueTerm(vNode:clazz.IAstNode, vBranch:clazz.Branch
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = {
 			valueTerm = v,
+			assignNode = vNode,
 			branch=vBranch,
 			lockCtx = false,
 		}
@@ -105,7 +107,6 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 				if nField.lockCtx then
 					vContext:error("field is locked"..tostring(vKeyType))
 				else
-					vContext:addLookupNode(nField.valueTerm:getNode(), nField.valueTerm:getType())
 					const nTopBranch = vContext:getStack():topBranch()
 					if nField.branch == nTopBranch then
 						vContext:warn("field:"..tostring(nKeyIncludeType).." multi assign in one scope")
@@ -146,7 +147,7 @@ function OpenTable:meta_get(vContext, vKeyType)
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
 			const nTerm = nField.valueTerm
-			vContext:addLookupNode(nTerm:getNode(), nTerm:getType())
+			vContext:addLookupNode(nField.assignNode, nTerm:getType())
 			nField.lockCtx = vContext
 			const nType = nTerm:getType()
 			if nType:isUnion() then
@@ -196,6 +197,7 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			self._fieldDict[vKeyType] = {
 				valueTerm = vValueTerm,
+				assignNode = vContext:getNode(),
 				branch = vContext:getStack():topBranch(),
 				lockCtx = false,
 			}
@@ -209,6 +211,7 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 		end
 		self._fieldDict[nIncludeType] = {
 			valueTerm = vValueTerm,
+			assignNode = vContext:getNode(),
 			branch = vContext:getStack():topBranch(),
 			lockCtx = false,
 		}
@@ -220,7 +223,6 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
 		const nTerm = nField.valueTerm
-		vContext:addLookupNode(nTerm:getNode(), nTerm:getType())
 		nField.lockCtx = vContext
 		return nTerm:getType()
 	else
@@ -228,6 +230,7 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 		if not self._locked then
 			self._fieldDict[vKeyType] = {
 				valueTerm=vContext:RefineTerm(nNil),
+				assignNode = vContext:getNode(),
 				branch=vContext:getStack():topBranch(),
 				lockCtx=vContext
 			}
