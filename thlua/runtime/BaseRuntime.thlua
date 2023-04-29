@@ -41,7 +41,7 @@ const CodeEnv = require "thlua.code.CodeEnv"
 		codeEnv=clazz.CodeEnv,
 		path=OrNil(String),
 		term=OrNil(clazz.RefineTerm),
-		stack=OrNil(clazz.BaseStack),
+		stack=OrNil(clazz.OpenStack),
 	}
 
 end)
@@ -193,10 +193,6 @@ function BaseRuntime:recordApplyContext(vNode:clazz.IAstNode, vContext:clazz.App
 	-- pass
 end
 
-function BaseRuntime:recordLookdownNode(vLookupNode:clazz.IAstNode, vNode:clazz.IAstNode)
-	-- pass
-end
-
 function BaseRuntime:SealStack(...):Ret(clazz.SealStack)
 	return SealStack.new(self, ...)
 end
@@ -243,13 +239,13 @@ function BaseRuntime:_cacheLoadPath(vNode:clazz.IAstNode, vPath:String):Ret(Load
 	return nLoadedState
 end
 
-function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
+function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.RefineTerm, clazz.CodeEnv)
 	const nLoadedState = self:_cacheLoadPath(vNode, vPath)
 	const nTerm = nLoadedState.term
 	if not nTerm then
 		error(Exception.new("recursive require:"..vPath, vNode))
 	end
-	return nTerm, nLoadedState.openFn
+	return nTerm, nLoadedState.codeEnv
 end
 
 function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)

@@ -145,18 +145,18 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(ls
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
 	const nCompletionRuntime = self:checkRuntime()
-	const nNodeList, nErrMsg = nCompletionRuntime:gotoNodeByParams(
+	const nNodeSet, nErrMsg = nCompletionRuntime:gotoNodeByParams(
 		true, nFileUri, nFileState:getSplitCode(),
 		vParams.position.line + 1,
 		vParams.position.character + 1
 	)
-	if not nNodeList then
+	if not nNodeSet then
 		self:info("goto definition fail:", nErrMsg)
 		return nil
 	else
 		const nRetList:List(lsp.Location) = {}
-		for i, nLookupNode in ipairs(nNodeList) do
-			nRetList[i] = {
+		for nLookupNode, _ in pairs(nNodeSet) do
+			nRetList[#nRetList + 1] = {
 				uri=nLookupNode.path,
 				range={
 					start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },

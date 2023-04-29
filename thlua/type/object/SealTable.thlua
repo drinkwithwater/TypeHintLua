@@ -82,7 +82,7 @@ function SealTable:meta_set(vContext, vKeyType, vValueTerm)
 		vContext:pushNothing()
 		const nField = self._fieldDict[nKeyIncludeType]!
 		const nFieldType = nField:getValueType()
-		vContext:addLookupNode(nField:getInitNode(), nFieldType)
+		vContext:addLookTarget(nField)
 		vContext:includeAndCast(nFieldType, vValueTerm:getType(), "set")
 	else
 		self:native_rawset(vContext, vKeyType, vValueTerm)
@@ -100,7 +100,7 @@ function SealTable:meta_get(vContext, vKeyType)
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
 			const nValueType = nField:getValueType()
-			vContext:addLookupNode(nField:getInitNode(), nValueType)
+			vContext:addLookTarget(nField)
 			if nValueType:isNilable() then
 				nTrigger = NIL_TRIGGER
 				if nIndexType then
@@ -120,7 +120,7 @@ function SealTable:meta_get(vContext, vKeyType)
 				nInterType:foreach(function(vKeyAtom)
 					const nField = self._fieldDict[vKeyAtom]!
 					const nValueType = nField:getValueType()
-					vContext:addLookupNode(nField:getInitNode(), nValueType)
+					vContext:addLookTarget(nField)
 					if nIndexType then
 						vContext:pushFirstAndTuple(nValueType:notnilType())
 					else
@@ -177,7 +177,7 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 	else
 		const nTableField = self._fieldDict[nIncludeType]!
 		const nFieldType = nTableField:getValueType()
-		vContext:addLookupNode(nTableField:getInitNode(), nFieldType)
+		vContext:addLookTarget(nTableField)
 		if not nFieldType:includeAll(vValueTerm:getType()) then
 			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
 		end
@@ -190,7 +190,7 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	if nKeyIncludeType then
 		const nField = self._fieldDict[nKeyIncludeType]!
 		const nValueType = nField:getValueType()
-		vContext:addLookupNode(nField:getInitNode(), nValueType)
+		vContext:addLookTarget(nField)
 		return nValueType
 	else
 		return self._manager.type.Nil

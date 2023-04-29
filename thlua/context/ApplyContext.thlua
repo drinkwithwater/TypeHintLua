@@ -7,6 +7,7 @@ const VariableCase = require "thlua.term.VariableCase"
 const Exception = require "thlua.Exception"
 const RecurChain = require "thlua.context.RecurChain"
 const RefineTerm = require "thlua.term.RefineTerm"
+const ObjectField = require "thlua.type.object.ObjectField"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -18,24 +19,45 @@ function.open ApplyContext:ctor(vNode, ...)
 	self._curCase = false @ OrFalse(clazz.VariableCase)
 	self._once = false@Boolean
 	self._recurChain = false @ OrFalse(clazz.RecurChain)
-	self._lookupNodeSet = {} @ Dict(clazz.IAstNode, True)
+	self._lookTargetSet = {} @ Dict(Union(clazz.ObjectField, clazz.CodeEnv), True)
 	self._stack:getRuntime():recordApplyContext(vNode, self)
 	self._finalReturn = false @OrFalse(clazz.UOpenReturn)
 end
 
-function ApplyContext:getLookupNodeSet()
-	return self._lookupNodeSet
-end
-
-function ApplyContext:addLookupNode(vLookupNode:clazz.IAstNode, vType:clazz.UAtomUnion)
-	self._stack:getRuntime():recordLookdownNode(vLookupNode, self._node)
-	if BaseFunction.is(vType) then
-		const nIfLua, nNode = vType:getIfLuaNode()
-		if nIfLua then
-			vLookupNode = nNode
+function ApplyContext:outLookdownNode(vNodeSet:Dict(clazz.IAstNode, True))
+	for nTarget,_ in pairs(self._lookTargetSet) do
+		if ObjectField.is(nTarget) then
+			for nNode, _ in pairs(nTarget:getUseNodeSet()) do
+				vNodeSet[nNode] = true
+			end
 		end
 	end
-	self._lookupNodeSet[vLookupNode] = true
+end
+
+function ApplyContext:outLookupNode(vNodeSet:Dict(clazz.IAstNode, True))
+	for nTarget,_ in pairs(self._lookTargetSet) do
+		if ObjectField.is(nTarget) then
+			local nLookupNode = nTarget:getInitNode()
+			const nValueType = nTarget:getValueType()
+			if BaseFunction.is(nValueType) then
+				const nIfLua, nNode = nValueType:getIfLuaNode()
+				if nIfLua then
+					nLookupNode = nNode
+				end
+			end
+			vNodeSet[nLookupNode] = true
+		else
+			vNodeSet[nTarget:getAstTree()] = true
+		end
+	end
+end
+
+-- object field for goto definition & goto reference, code env for require
+function ApplyContext:addLookTarget(vTarget:Union(clazz.ObjectField, clazz.CodeEnv))
+	self._lookTargetSet[vTarget] = true
+	if ObjectField.is(vTarget) then
+		vTarget:putUseNode(self._node)
+	end
 end
 
 function ApplyContext:recursiveChainTestAndRun(vSelfType:clazz.IAtomType, vFunc:Fn():Ret(Boolean)):Ret(False):Ret(True, Boolean)

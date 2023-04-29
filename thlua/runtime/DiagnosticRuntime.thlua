@@ -13,19 +13,19 @@ const DiagnosticRuntime = class@<clazz.DiagnosticRuntime, false>(CompletionRunti
 
 function.open DiagnosticRuntime:ctor(...)
 	self._diaList={}@List(clazz.Diagnostic)
-	self._nodeToLookdownNode = ListDict@<clazz.IAstNode, clazz.IAstNode>()
 end
 
 function DiagnosticRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
 	vAutoFn:startLateBuild()
 end
 
-function DiagnosticRuntime:recordLookdownNode(vLookupNode:clazz.IAstNode, vNode:clazz.IAstNode)
-	self._nodeToLookdownNode:putOne(vLookupNode, vNode)
-end
-
-function DiagnosticRuntime:exprLookdown(vNode:clazz.IAstNode):Ret(List(clazz.IAstNode))
-	return self._nodeToLookdownNode:get(vNode) or {}
+function DiagnosticRuntime:exprLookdown(vNode:clazz.IAstNode):Ret(Dict(clazz.IAstNode, True))
+	const nNodeSet:Dict(clazz.IAstNode, true) = {}
+	const nCtxList:List(clazz.ApplyContext) = self._nodeToApplyContextList:get(vNode) or {}
+	for _, nContext in ipairs(nCtxList) do
+		nContext:outLookdownNode(nNodeSet)
+	end
+	return nNodeSet
 end
 
 function DiagnosticRuntime:focusSchedule(vFuncList:List(node.Function))
