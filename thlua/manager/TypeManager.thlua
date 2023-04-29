@@ -21,7 +21,8 @@ const AutoTable = require "thlua.type.object.AutoTable"
 const SealTable = require "thlua.type.object.SealTable"
 const OpenFunction = require "thlua.type.func.OpenFunction"
 const TypedFunction = require "thlua.type.func.TypedFunction"
-const PolyFunction = require "thlua.type.func.PolyFunction"
+const TypedPolyFunction = require "thlua.type.func.TypedPolyFunction"
+const SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 const AnyFunction = require "thlua.type.func.AnyFunction"
 const Reference = require "thlua.refer.Reference"
 
@@ -472,13 +473,13 @@ function TypeManager:buildMfn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypedMe
 	return TypedMemberFunction.new(self, vNode, nHeadlessFn)
 end
 
-function TypeManager:buildPfn(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.PolyFunction)
+function TypeManager:buildPfn(vNode:clazz.IAstNode, vFunc:AnyFunction):Ret(clazz.TypedPolyFunction)
 	const nInfo = debug.getinfo(vFunc)
 	const nPolyParNum=nInfo.nparams
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return PolyFunction.new(self, vNode, vFunc, nPolyParNum)
+	return TypedPolyFunction.new(self, vNode, vFunc, nPolyParNum)
 end
 
 function TypeManager:buildFn(vNode:clazz.IAstNode, ...:Truth):Ret(clazz.TypedFunction)
@@ -491,11 +492,11 @@ function TypeManager:checkedFn(...:Truth):Ret(clazz.TypedFunction)
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
-function TypeManager:PolyFunction(vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vStack:OrNil(clazz.BaseStack)):Ret(clazz.PolyFunction)
-	return PolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
+function TypeManager:SealPolyFunction(vNode:clazz.IAstNode, vFunc:AnyFunction, vPolyParNum:Integer, vStack:OrNil(clazz.BaseStack)):Ret(clazz.SealPolyFunction)
+	return SealPolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
 end
 
-function TypeManager:AutoMemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.PolyFunction):Ret(clazz.AutoMemberFunction)
+function TypeManager:AutoMemberFunction(vNode:clazz.IAstNode, vPolyFn:clazz.SealPolyFunction):Ret(clazz.AutoMemberFunction)
 	return AutoMemberFunction.new(self, vNode, vPolyFn)
 end
 

@@ -81,9 +81,8 @@ function SealTable:meta_set(vContext, vKeyType, vValueTerm)
 	if nKeyIncludeType then
 		vContext:pushNothing()
 		const nField = self._fieldDict[nKeyIncludeType]!
-		const nFieldType = nField:getValueType()
 		vContext:addLookTarget(nField)
-		vContext:includeAndCast(nFieldType, vValueTerm:getType(), "set")
+		vContext:includeAndCast(nField:getValueType(), vValueTerm:getType(), "set")
 	else
 		self:native_rawset(vContext, vKeyType, vValueTerm)
 	end
@@ -170,7 +169,9 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 			end
 			-- TODO thinking when to lock this
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
-			self._fieldDict[vKeyType] = ObjectField.new(vContext:getNode(), self, vKeyType, vValueTerm:getType())
+			const nField = ObjectField.new(vContext:getNode(), self, vKeyType, vValueTerm:getType())
+			self._fieldDict[vKeyType] = nField
+			vContext:addLookTarget(nField)
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end

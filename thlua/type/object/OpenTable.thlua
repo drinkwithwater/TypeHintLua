@@ -94,6 +94,7 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 			const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
 			if nKeyIncludeType then
 				const nField = self._fieldDict[nKeyIncludeType]!
+				vContext:addLookTarget(nField)
 				if nField:getLockCtx() then
 					vContext:error("field is locked"..tostring(vKeyType))
 				else
@@ -135,8 +136,8 @@ function OpenTable:meta_get(vContext, vKeyType)
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
 		if nKeyIncludeType then
 			const nField = self._fieldDict[nKeyIncludeType]!
-			const nType = nField:getValueType()
 			vContext:addLookTarget(nField)
+			const nType = nField:getValueType()
 			nField:lock(vContext)
 			if nType:isUnion() then
 				vContext:warn("open table's field is union")
@@ -183,11 +184,13 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 				return
 			end
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
-			self._fieldDict[vKeyType] = OpenField.new(
+			const nField = OpenField.new(
 				vContext:getNode(), self,
 				vKeyType, vValueTerm:getType(),
 				vContext:getStack():topBranch()
 			)
+			self._fieldDict[vKeyType] = nField
+			vContext:addLookTarget(nField)
 		else
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end
@@ -196,7 +199,9 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 			vContext:error("assign to locked open-table")
 			return
 		end
-		self._fieldDict[nIncludeType]!:overrideAssign(vValueTerm:getType(), vContext:getStack():topBranch())
+		const nField = self._fieldDict[nIncludeType]!
+		nField:overrideAssign(vValueTerm:getType(), vContext:getStack():topBranch())
+		vContext:addLookTarget(nField)
 	end
 end
 
