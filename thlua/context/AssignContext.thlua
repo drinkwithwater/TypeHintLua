@@ -242,7 +242,7 @@ function AssignContext:unfoldTermTuple(vTermTuple:clazz.FixedTermTuple, vFunc:Fn
 	const nTail = vTermTuple:getTail()
 	const nRepeatType = nTail and nTail:getRepeatType()
 	nFirstTerm:foreach(function(vAtomType, vCase)
-		const nTypeList:List(clazz.UAtomUnion) = {vAtomType}
+		const nTypeList:List(clazz.UAllType) = {vAtomType}
 		for i=2, #vTermTuple do
 			local nTerm = vTermTuple:get(self, i)
 			const nType = vCase[nTerm:attachImmutVariable()]
@@ -252,7 +252,7 @@ function AssignContext:unfoldTermTuple(vTermTuple:clazz.FixedTermTuple, vFunc:Fn
 				nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
 			end
 		end
-		const nTypeTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList))
+		const nTypeTuple = self._manager:TypeTuple(self._node, nTypeList)
 		const nTypeTuple = nRepeatType and nTypeTuple:Dots(nRepeatType) or nTypeTuple
 		vFunc(vAtomType, nTypeTuple, vCase)
 	end)

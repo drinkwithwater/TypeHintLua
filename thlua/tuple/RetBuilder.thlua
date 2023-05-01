@@ -15,19 +15,19 @@ function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
 end
 
 function RetBuilder:chainRetDots(vNode:clazz.IBaseNode, ...:Any)
-	-- TODO check ... is type
 	const nTypeList:List(clazz.UAllType) = self._dirtyProcessor:easyToTypeList(vNode, ...)
 	const nLen = #nTypeList
-	assert(nLen > 0, "RetDots must take at least 1 value")
+	assert(nLen > 0, vNode:toExc("RetDots must take at least 1 value"))
 	const nDotsType = nTypeList[nLen]!
 	nTypeList[#nTypeList] = nil
-	const nTypeTuple = self._manager:TypeTuple(self._node, table.unpack(nTypeList)):Dots(nDotsType)
+	const nTypeTuple = self._manager:TypeTuple(self._node, nTypeList):Dots(nDotsType)
 	const nTupleList = self._tupleList
 	nTupleList[#nTupleList + 1] = nTypeTuple
 end
 
 function RetBuilder:chainRet(vNode:clazz.IBaseNode, ...:Any)
-	const nTypeTuple = self._manager:TypeTuple(self._node, ...)
+	const nTypeList:List(clazz.UAllType) = self._dirtyProcessor:easyToTypeList(vNode, ...)
+	const nTypeTuple = self._manager:TypeTuple(self._node, nTypeList)
 	const nTupleList = self._tupleList
 	nTupleList[#nTupleList + 1] = nTypeTuple
 end

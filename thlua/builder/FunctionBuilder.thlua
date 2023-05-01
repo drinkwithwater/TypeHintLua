@@ -10,12 +10,11 @@ const ClassFactory = require "thlua.type.func.ClassFactory"
 const ClassTable = require "thlua.type.object.ClassTable"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RetBuilder = require "thlua.tuple.RetBuilder"
-const Node = require "thlua.code.Node"
 const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.node = import($Node).node
+	let.node = import("thlua.code.Node").node
 
 	clazz.AutoFlag = $AutoFlag
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
@@ -92,36 +91,36 @@ function FunctionBuilder:_makeRetTuples(
 	const nRetBuilder:clazz.RetBuilder = RetBuilder.new(self._manager, self._node)
 	const ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
-			error("extends can only be used with function:class")
+			error(self._node:toExc("extends can only be used with function:class"))
 			return vHint
 		end,
 		implements=function(vHint, _)
-			error("impl can only be used with function:class")
+			error(self._node:toExc("impl can only be used with function:class"))
 			return vHint
 		end,
 		isguard=function(vHint, vType)
-			error("isguard can only be used with function.open")
+			error(self._node:toExc("isguard can only be used with function.open"))
 			return vHint
 		end,
 		mapguard=function(vHint, vType)
-			error("mapguard can only be used with function.open")
+			error(self._node:toExc("mapguard can only be used with function.open"))
 			return vHint
 		end,
 		RetDots=function(vHint, vFirst, ...)
-			nRetBuilder:chainRetDots(Node.newDebugNode(), vFirst, ...)
+			nRetBuilder:chainRetDots(self._node, vFirst, ...)
 			return vHint
 		end,
 		Ret=function(vHint, ...)
-			nRetBuilder:chainRet(Node.newDebugNode(), ...)
+			nRetBuilder:chainRet(self._node, ...)
 			return vHint
 		end,
 		Err=function(vHint, vErrType)
-			nRetBuilder:chainErr(Node.newDebugNode(), vErrType)
+			nRetBuilder:chainErr(self._node, vErrType)
 			return vHint
 		end,
 	})
 	if not ok then
-		error(Exception.new(tostring(err), self._node))
+		error(self._node:toExc(tostring(err)))
 	end
 	if nRetBuilder:isEmpty() then
 		return false
@@ -172,7 +171,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			return nParTuple, nRetTuples, function()
 				if self._pass then
 					if not nParTuple or not nRetTuples then
-						error("pass function can't take auto return or auto parameter")
+						error(self._node:toExc("pass function can't take auto return or auto parameter"))
 					end
 					return nParTuple, nRetTuples
 				else
@@ -180,12 +179,12 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
 						nNewStack:error("auto parameter deduce failed")
-						error("auto parameter deduce failed")
+						error(self._node:toExc("auto parameter deduce failed"))
 					end
 					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple(), nErrType)
 					if not nRetTuples then
 						nNewStack:error("auto return deduce failed")
-						error("auto return deduce failed")
+						error(self._node:toExc("auto return deduce failed"))
 					end
 					return nParTuple, nRetTuples
 				end
@@ -219,33 +218,33 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, {}, false)
 		const ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
-				error("extends can only be used with function:class")
+				error(self._node:toExc("extends can only be used with function:class"))
 				return vHint
 			end,
 			implements=function(vHint, _)
-				error("impl can only be used with function:class")
+				error(self._node:toExc("impl can only be used with function:class"))
 				return vHint
 			end,
 			RetDots=function(vHint, vFirst, ...)
-				error("open function can't take RetDots")
+				error(self._node:toExc("open function can't take RetDots"))
 				return vHint
 			end,
 			Ret=function(vHint, ...)
-				error("open function can't take Ret")
+				error(self._node:toExc("open function can't take Ret"))
 				return vHint
 			end,
 			Err=function(vHint, _)
-				error("open function can't take Err")
+				error(self._node:toExc("open function can't take Err"))
 				return vHint
 			end,
 			isguard=function(vHint, vType)
-				assert(not nSetted, "isguard can only use once here")
+				assert(not nSetted, self._node:toExc("isguard can only use once here"))
 				nGuardFn:lateInitFromIsGuard(vType)
 				return vHint
 			end,
 			mapguard=function(vHint, vDict)
 				const nMapObject = self._manager:buildInterface(self._node, vDict)
-				assert(not nSetted, "isguard can only use once here")
+				assert(not nSetted, self._node:toExc("isguard can only use once here"))
 				nGuardFn:lateInitFromMapGuard(nMapObject)
 				return vHint
 			end,
@@ -270,15 +269,15 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	local nReferOrNil:OrNil(clazz.TypeReference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
 		class=function(vHint, vRefer)
-			assert(vRefer and Reference.is(vRefer), "impl's first arg must be a Reference")
+			assert(vRefer and Reference.is(vRefer), self._node:toExc("impl's first arg must be a Reference"))
 			nReferOrNil = vRefer
 			return vHint
 		end,
 	})
 	if not ok then
-		error(Exception.new(tostring(err), self._node))
+		error(self._node:toExc(tostring(err)))
 	end
-	const nRefer = assert(nReferOrNil, "reference not setted when function:class")
+	const nRefer = assert(nReferOrNil, self._node:toExc("reference not setted when function:class"))
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
 		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface, OrNil(clazz.UAllType))
@@ -295,22 +294,23 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					return vHint
 				end,
 				Ret=function(vHint, ...)
-					error("class function can't take Ret")
+					error(self._node:toExc("class function can't take Ret"))
 					return vHint
 				end,
 				RetDots=function(vHint, vFirst, ...)
-					error("class function can't take RetDots")
+					error(self._node:toExc("class function can't take RetDots"))
 					return vHint
 				end,
 				Err=function(vHint, vErrType)
-					nErrType = self._dirtyProcessor:easyToType(Node.newDebugNode(), vErrType)
+					nErrType = self._dirtyProcessor:easyToType(self._node, vErrType)
 					return vHint
 				end,
 				isguard=function(vHint, vType)
+					error(self._node:toExc("isguard can only be used with function.open"))
 					return vHint
 				end,
 				mapguard=function(vHint, vType)
-					error("mapguard can only be used with function.open")
+					error(self._node:toExc("mapguard can only be used with function.open"))
 					return vHint
 				end,
 			})
@@ -321,7 +321,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			if nExtendsArg then
 				const nType = nExtendsArg:checkAtomUnion()
 				if nType:isUnion() then
-					error("base class can't be union")
+					error(self._node:toExc("base class can't be union"))
 				end
 				if ClassTable.is(nType) then
 					nExtendsTable = nType
@@ -329,7 +329,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					if nType == self._manager.type.False or nType == self._manager.type.Nil then
 						-- false or nil means no base class
 					else
-						error("base class type must be ClassTable")
+						error(self._node:toExc("base class type must be ClassTable"))
 					end
 				end
 			end
@@ -337,7 +337,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			if nImplementsArg then
 				const nType = nImplementsArg:checkAtomUnion()
 				if nType:isUnion() then
-					error("interface can't be union")
+					error(self._node:toExc("interface can't be union"))
 				end
 				if Interface.is(nType) then
 					nImplementsInterface = nType
@@ -369,14 +369,14 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			nClassTable:waitInit()
 			const nParTermTuple = nGenParam!(false)
 			const nParTuple = nParTermTuple:checkTypeTuple()
-			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, nClassTable), nErrType)
+			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nErrType)
 			return nParTuple, nRetTuples, function()
 				nNewStack:setClassTable(nClassTable)
 				nGenFunc!()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:error("auto parameter deduce failed")
-					error("auto parameter deduce failed")
+					error(self._node:toExc("auto parameter deduce failed"))
 				end
 				nClassTable:onBuildFinish()
 				return nParTuple, nRetTuples
@@ -410,7 +410,7 @@ function FunctionBuilder:build():Ret(clazz.BaseFunction)
 		return self:_buildOpen()
 	elseif nAttrSet.class then
 		if self._member then
-			error(Exception.new("class factory can't be member-function-like", self._node))
+			error(self._node:toExc("class factory can't be member-function-like"))
 		end
 		return self:_buildClass()
 	else

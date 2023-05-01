@@ -88,7 +88,11 @@ function SlowServer:publishException(vException:Union(clazz.Exception, String))
 		nNode = self._runtime!:getNode()
 		nMsg = "root error:"..tostring(vException)
 	end
-	const nFileState = self._fileStateDict[nNode.path]!
+	const nFileState = self._fileStateDict[nNode.path]
+	if not nFileState then
+		self:error("exception in unknown file:", nNode.path)
+		return
+	end
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",

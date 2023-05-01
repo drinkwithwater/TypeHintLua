@@ -444,24 +444,12 @@ function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(cl
 	return nLiteralType
 end
 
-function TypeManager:TypeTuple(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.TypeTuple)
-	local nTypeList:List(clazz.UAllType) = {}
-	for i=1, select("#", ...) do
-		local nArg = select(i, ...)
-		assert(nArg, "tuple can't take false or nil value")
-		if Reference.is(nArg) then
-			nTypeList[i] = nArg
-		elseif BaseUnionType.is(nArg) or BaseAtomType.is(nArg) then
-			nTypeList[i] = nArg
-		else
-			error("type expected here...")
-		end
-	end
-	return TypeTuple.new(self, vNode, nTypeList)
+function TypeManager:TypeTuple(vNode:clazz.IBaseNode, vTypeList:List(clazz.UAllType)):Ret(clazz.TypeTuple)
+	return TypeTuple.new(self, vNode, vTypeList)
 end
 
 function TypeManager:VoidRetTuples(vNode:clazz.IBaseNode, vErrType:OrNil(clazz.UAllType)):Ret(clazz.RetTuples)
-	return RetTuples.new(self, vNode, {self:TypeTuple(vNode)}, vErrType or false)
+	return RetTuples.new(self, vNode, {self:TypeTuple(vNode, {})}, vErrType or false)
 end
 
 function TypeManager:SingleRetTuples(vNode:clazz.IBaseNode, vTypeTuple:clazz.UTypeTuple, vErrType:OrNil(clazz.UAllType)):Ret(clazz.RetTuples)
@@ -482,13 +470,13 @@ function TypeManager:buildPfn(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(claz
 	return TypedPolyFunction.new(self, vNode, vFunc, nPolyParNum)
 end
 
-function TypeManager:buildFn(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.TypedFunction)
-	local nParTuple = self:TypeTuple(vNode, ...)
+function TypeManager:buildFn(vNode:clazz.IBaseNode, ...:Any):Ret(clazz.TypedFunction)
+	local nParTuple = self:TypeTuple(vNode, self._dirtyProcessor:easyToTypeList(vNode, ...))
 	return TypedFunction.new(self, vNode, nParTuple, false)
 end
 
-function TypeManager:checkedFn(...:Truth):Ret(clazz.TypedFunction)
-	local nParTuple = self:TypeTuple(self._rootNode, ...)
+function TypeManager:checkedFn(...:Any):Ret(clazz.TypedFunction)
+	local nParTuple = self:TypeTuple(self._rootNode, self._dirtyProcessor:easyToTypeList(self._rootNode, ...))
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 

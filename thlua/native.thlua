@@ -71,11 +71,11 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 		end),
 		next=nManager.builtin.next,
 		ipairs=nManager:metaNativeOpenFunction(function(vContext, vType)
-			const nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.inext, vType, nManager:Literal(0))
+			const nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.inext, vType, nManager:Literal(0)})
 			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
 		pairs=nManager:metaNativeOpenFunction(function(vContext, vType)
-			const nTypeTuple = vType:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), nManager.builtin.next, vType, nManager.type.Nil)
+			const nTypeTuple = vType:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.next, vType, nManager.type.Nil})
 			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
 		rawequal=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
@@ -124,13 +124,13 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 						end
 						const nFinalType = nCollection:mergeToAtomUnion()
 						if nRepeatType then
-							return nManager:TypeTuple(vContext:getNode()):Dots(nRepeatType):makeTermTuple(vContext)
+							return nManager:TypeTuple(vContext:getNode(), {}):Dots(nRepeatType):makeTermTuple(vContext)
 						else
-							const nReList:List(clazz.UAtomUnion) = {}
+							const nReList:List(clazz.UAllType) = {}
 							for i=2, #vTermTuple do
 								nReList[#nReList + 1] = nFinalType
 							end
-							return nManager:TypeTuple(vContext:getNode(), table.unpack(nReList)):makeTermTuple(vContext)
+							return nManager:TypeTuple(vContext:getNode(), nReList):makeTermTuple(vContext)
 						end
 					else
 						vContext:error("select's first value must be number or number-literal")
@@ -227,7 +227,7 @@ function native.make_table(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
 			local nFirstTerm = vTermTuple:get(vContext, 1)
 			local nType = nFirstTerm:getType()
 			checkList(vContext, nType, "sort")
-			return vManager:TypeTuple(vContext:getNode()):makeTermTuple(vContext)
+			return vManager:TypeTuple(vContext:getNode(), {}):makeTermTuple(vContext)
 		end),
 		concat=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstTerm = vTermTuple:get(vContext, 1)

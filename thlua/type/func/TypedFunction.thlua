@@ -31,19 +31,18 @@ function TypedFunction:attachRetBuilder():Ret(clazz.RetBuilder)
 	return nRetBuilder
 end
 
-function TypedFunction:chainDots(vNode:clazz.IBaseNode, vType:Any)
-	const nDebugNode = Node.newDebugNode()
+function TypedFunction:chainDots(vDebugNode:clazz.IBaseNode, vType:Any)
 	if self._retTuples then
-		error(nDebugNode:toExc("fn building is finish, can't call Dots(...)"))
+		error(vDebugNode:toExc("fn building is finish, can't call Dots(...)"))
 	end
 	if self._retBuilder then
-		error(nDebugNode:toExc("fn can't call Dots after Ret(...) or RetDots(...)"))
+		error(vDebugNode:toExc("fn can't call Dots after Ret(...) or RetDots(...)"))
 	end
 	local nParTuple = self._parTuple
 	if TypeTupleDots.is(nParTuple) then
-		error(nDebugNode:toExc("use Dots but tuple has dots"))
+		error(vDebugNode:toExc("use Dots but tuple has dots"))
 	end
-	const nType = self._dirtyProcessor:easyToType(nDebugNode, vType)
+	const nType = self._dirtyProcessor:easyToType(vDebugNode, vType)
 	self._parTuple = nParTuple:Dots(nType)
 end
 
@@ -56,21 +55,21 @@ end
 function TypedFunction:RetDots(...):Ret(clazz.TypedFunction)
 	const nDebugNode = Node.newDebugNode()
 	-- TODO check ... is type
-	assert(not self._retTuples, "fn building is finish, can't call RetDots")
+	assert(not self._retTuples, nDebugNode:toExc("fn building is finish, can't call RetDots"))
 	self:attachRetBuilder():chainRetDots(nDebugNode, ...)
 	return self
 end
 
 function TypedFunction:Ret(...):Ret(clazz.TypedFunction)
 	const nDebugNode = Node.newDebugNode()
-	assert(not self._retTuples, "fn building is finish, can't call Ret")
+	assert(not self._retTuples, nDebugNode:toExc("fn building is finish, can't call Ret"))
 	self:attachRetBuilder():chainRet(nDebugNode, ...)
 	return self
 end
 
 function TypedFunction:Err(...):Ret(clazz.TypedFunction)
 	const nDebugNode = Node.newDebugNode()
-	assert(not self._retTuples, "fn building is finish, can't call RetDots")
+	assert(not self._retTuples, nDebugNode:toExc("fn building is finish, can't call Err"))
 	self:attachRetBuilder():chainErr(nDebugNode, ...)
 	return self
 end
