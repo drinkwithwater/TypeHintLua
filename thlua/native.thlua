@@ -98,7 +98,11 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 		select=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			const nFirstType = vTermTuple:get(vContext, 1):getType()
 			if nFirstType == nManager:Literal("#") then
-				return vContext:RefineTerm(nManager.type.Integer)
+				if vTermTuple:getTail() then
+					return vContext:RefineTerm(nManager.type.Integer)
+				else
+					return vContext:RefineTerm(nManager:Literal(#vTermTuple-1))
+				end
 			else
 				if NumberLiteral.is(nFirstType) then
 					local nStart = nFirstType:getLiteral()
@@ -192,86 +196,10 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 		end),
 	}
 
-	global.table=native.make_table(nManager)
-
-	-- global.next = vRuntime.func.next
 	const nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
     nGlobalTable:setName("_G")
 
 	return nGlobalTable
-end
-
-function native.make_table(vManager:clazz.TypeManager):Ret(clazz.AutoTable)
-	const function checkList(vContext:clazz.OperContext, vType:clazz.UAtomUnion, vKey:String):Ret(clazz.UAtomUnion)
-		--[[
-		const nNumber = vManager.type.Number
-		const nElementCollection = vManager:TypeCollection()
-		vType:foreach(function(vSubType)
-			const nLenType = vSubType:meta_len(vContext)
-			if not Number.is(nLenType) then
-				vContext:error("table."..vKey.." must take list-like variable")
-				return
-			end
-			const nValue = vSubType:meta_get(vContext, nNumber)
-			nElementCollection:put(nValue)
-		end)
-		return nElementCollection:mergeToAtomUnion()]]
-		-- checkList TODO
-		return vContext:getTypeManager().type.Never
-	end
-	const table:StringToAtomUnion = {
-		sort=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nFirstTerm = vTermTuple:get(vContext, 1)
-			local nType = nFirstTerm:getType()
-			checkList(vContext, nType, "sort")
-			return vManager:TypeTuple(vContext:getNode(), {}):makeTermTuple(vContext)
-		end),
-		concat=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nFirstTerm = vTermTuple:get(vContext, 1)
-			local nType = nFirstTerm:getType()
-			checkList(vContext, nType, "concat")
-			return vContext:FixedTermTuple({vContext:RefineTerm(vManager.type.String)})
-		end),
-		insert=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nFirstTerm = vTermTuple:get(vContext, 1)
-			local nType = nFirstTerm:getType()
-			checkList(vContext, nType, "insert")
-			return vContext:FixedTermTuple({})
-		end),
-		remove=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			local nFirstTerm = vTermTuple:get(vContext, 1)
-			local nType = nFirstTerm:getType()
-			-- const nRetType = checkList(vContext, nType, "remove")
-			-- return vContext:FixedTermTuple({vContext:RefineTerm(nRetType)})
-			return vContext:FixedTermTuple({})
-		end),
-		unpack=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			--[[local nFirstTerm = vTermTuple:get(vContext, 1)
-			local nType = nFirstTerm:getType()
-			local nNumber = vManager.type.Number
-			local nCollection = vManager:TypeCollection()
-			nType:foreach(function(vSubType)
-				local nLenType = vSubType:meta_len(vContext)
-				if not (Number.is(nLenType) or NumberLiteral.is(nLenType)) then
-					vContext:error("__len must return number when concat")
-					return
-				end
-				local nValueType = vSubType:meta_get(vContext, nNumber)
-				nCollection:put(nValueType)
-			end)
-			local nRetType = nCollection:mergeToAtomUnion()
-			return vManager:TypeTuple(vContext:getNode()):Dots(nRetType:notnilType()):makeTermTuple(vContext)]]
-			return vContext:FixedTermTuple({})
-		end),
-		move=vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			-- move TODO
-			-- vContext:error("table move")
-			return vTermTuple:get(vContext, 5)
-		end)
-	}
-	local nTable = native._toTable(vManager, table)
-	nTable:setName("table")
-	return nTable
 end
 
 function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
