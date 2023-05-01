@@ -294,7 +294,7 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.Type
 	nNewRefer:setUnionAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
-			local nItem = self._dirtyProcessor:easyToType(l[i])
+			local nItem = self._dirtyProcessor:easyToType(vNode, l[i])
 			if Reference.is(nItem) then
 				const nAsyncType = nItem:waitTypeCom():getTypeNowait()
 				if nAsyncType:isAsync() then
@@ -332,8 +332,8 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
-			const nValueType = self._dirtyProcessor:easyToType(nValue)
-			const nKeyType = self._dirtyProcessor:easyToType(nKey)
+			const nValueType = self._dirtyProcessor:easyToType(vNode, nValue)
+			const nKeyType = self._dirtyProcessor:easyToType(vNode, nKey)
 			nIndependentList[#nIndependentList + 1] = nKeyType
 			nKeyType:checkAtomUnion():foreach(function(vAtomType)
 				nKeyList[#nKeyList + 1] = vAtomType

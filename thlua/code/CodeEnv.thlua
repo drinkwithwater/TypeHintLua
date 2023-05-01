@@ -39,7 +39,7 @@ function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), 
 	if not vChunkWithInject then
 		const nAst, nErr = ParseEnv.parse(nSplitCode:getContent())
 		if not nAst then
-			self:_prepareNode(nErr, false)
+			self:_prepareBaseNode(nErr)
 			error(Exception.new(nErr[1], nErr))
 		end
 		self._astTree = nAst
@@ -51,15 +51,19 @@ function:class(clazz.CodeEnv) CodeEnv.new(vCode:Union(String, clazz.SplitCode), 
 	return self
 end
 
-function.pass CodeEnv:_prepareNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
+function.pass CodeEnv:_prepareBaseNode(vNode:node.IBaseNode)
+	vNode.path = self._chunkName
+	vNode.l, vNode.c = self._code:fixupPos(vNode.pos, vNode)
+	Node.bind(vNode)
+end
+
+function.pass CodeEnv:_prepareAstNode(vNode:node.IAstNode, vParent:OrFalse(node.IAstNode))
 	const nNodeList = self._nodeList
 	const nIndex = #nNodeList + 1
 	nNodeList[nIndex] = vNode
 	vNode.index = nIndex
 	vNode.parent = vParent or nil
-	vNode.path = self._chunkName
-	vNode.l, vNode.c = self._code:fixupPos(vNode.pos, vNode)
-	Node.bind(vNode)
+	self:_prepareBaseNode(vNode)
 end
 
 function CodeEnv:_prepare()
@@ -69,7 +73,7 @@ function CodeEnv:_prepare()
 	const nStack:List(node.IAstNode) = {}
 	const nVisitor = VisitorExtend(function(visitor:node.IVisitor, vNode:node.IAstNode)
 		-- 1. prepare
-		self:_prepareNode(vNode, nStack[#nStack] or false)
+		self:_prepareAstNode(vNode, nStack[#nStack] or false)
 		-- 2. recurive visit
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)

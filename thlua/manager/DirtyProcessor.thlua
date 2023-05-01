@@ -13,26 +13,27 @@ end)
 
 function:class(clazz.DirtyProcessor) DirtyProcessor.new(vTypeManager:clazz.TypeManager)
     const self = setmetatable({.class
-        _manager = vTypeManager
+        _manager = vTypeManager,
+		_runtime = vTypeManager:getRuntime()
     }, DirtyProcessor)
     return self
 end
 
-function DirtyProcessor:easyToType(vData:Any):Ret(clazz.UAllType)
+function DirtyProcessor:easyToType(vNode:clazz.IBaseNode, vData:Any):Ret(clazz.UAllType)
 	const nOkay, nType = self:peasyToType(vData)
 	if nOkay then
 		return nType
 	else
-		error(nType)
+		error(self._runtime:makeException(vNode, nType))
 	end
 end
 
-function.pass DirtyProcessor:easyToTypeList(...:Any):Ret(List(clazz.UAllType))
-	const l = {...}
+function DirtyProcessor:easyToTypeList(vNode, ...:Any):Ret(List(clazz.UAllType))
+	const l:List(Any) = {...}
 	for i=1,#l do
-		l[i] = self:easyToType(l[i])
+		l[i] = self:easyToType(vNode, l[i])
 	end
-	return l
+	return l @? List(clazz.UAllType)
 end
 
 function DirtyProcessor:peasyToType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)

@@ -99,8 +99,8 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 	-- TODO better style?
 	if type(vDst) == "string" then
 		const nPath = vDst @> String
-		const nNode = Node.newDebugNode(3)
-		const nLoadedState = self:_cacheLoadPath(Node.newDebugNode(3), nPath)
+		const nNode = Node.newDebugNode()
+		const nLoadedState = self:_cacheLoadPath(Node.newDebugNode(), nPath)
 		const nStack = nLoadedState.stack
 		if not nStack then
 			error(Exception.new("recursive import:"..nPath, nNode))
@@ -248,8 +248,8 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 	return nTerm, nLoadedState.openFn
 end
 
-function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)
-	local nSpace = Namespace.new(self._manager, Node.newDebugNode(4))
+function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Namespace)
+	local nSpace = Namespace.new(self._manager, vNode)
 	return nSpace
 end
 
@@ -281,14 +281,14 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 	local nManager = self._manager
 	for k,v in pairs(l) do
 		nGlobal[k]=function(...)
-			return nManager[v](nManager, Node.newDebugNode(3), ...)
+			return nManager[v](nManager, Node.newDebugNode(), ...)
 		end
 	end
 	nGlobal.Literal=function(v)
 		return nManager:Literal(v)
 	end
 	nGlobal.namespace=function()
-		return self:TreeNamespace():getLocalTable()
+		return self:TreeNamespace(Node.newDebugNode()):getLocalTable()
 	end
 	nGlobal.lock=function(vType)
 		vType:foreach(function(vAtom)
@@ -309,7 +309,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 		end
 	end
 	nGlobal.print=function(...)
-		self:nodeInfo(Node.newDebugNode(3), ...)
+		self:nodeInfo(Node.newDebugNode(), ...)
 	end
 	const nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
@@ -371,6 +371,10 @@ end
 
 function BaseRuntime:getNode():Ret(clazz.IBaseNode)
 	return self._node
+end
+
+function BaseRuntime:makeException(vNode:clazz.IBaseNode, vMsg:String)
+	return Exception.new(vMsg, vNode)
 end
 
 function BaseRuntime:getTypeManager():Ret(clazz.TypeManager)

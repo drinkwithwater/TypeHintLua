@@ -13,10 +13,10 @@ let.IBaseNode = Interface {
 	posEnd=Number,
 	l=Number,
 	c=Number,
-	index=Integer,
 }
 
 let.IAstNode = ExtendInterface(let.IBaseNode, Interface {
+	index=Integer,
 	parent=OrNil(node.IAstNode),
 })
 
@@ -381,15 +381,15 @@ node.Error = ExtendStruct({
 	tag = "Error",
 	[1] = String,
 	[2] = OrNil(node.InjectTrace),
-}, let.IAstNode)
+}, let.IVirtualNode)
 
 node.Debug = ExtendStruct({
 	tag = "Debug",
-}, let.IAstNode)
+}, let.IVirtualNode)
 
 node.Root = ExtendStruct ({
 	tag="Root",
-}, let.IAstNode)
+}, let.IVirtualNode)
 
 end)
 
@@ -424,9 +424,9 @@ function.pass Node.newRootNode(vFileName:String):Ret(node.Root)
 	return setmetatable({tag = "Root", pos=1, posEnd=1, l=1, c=1, path=vFileName}, Node)
 end
 
-function.pass Node.newDebugNode(vDepth:Integer):Ret(node.Debug)
+function.pass Node.newDebugNode(vDepth:OrNil(Integer)):Ret(node.Debug)
 	-- TODO, fix pos & posEnd
-	local nInfo = debug.getinfo(vDepth)
+	local nInfo = debug.getinfo(vDepth or 3)
 	return setmetatable({tag = "Debug", pos=1, posEnd=1, l=nInfo.currentline, c=1, path=nInfo.source}, Node)
 end
 
