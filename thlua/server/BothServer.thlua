@@ -1,0 +1,32 @@
+
+const SlowServer = require "thlua.server.SlowServer"
+const class = require "thlua.class"
+
+(@do
+	let.clazz=import($class).clazz
+	let.lsp=import("thlua.server.protocol").lsp
+	let.node=import("thlua.code.Node").node
+end)
+const BothServer = class@<lsp.BothServer, false>(SlowServer)
+
+function BothServer:getInitializeResult():Ret(lsp.InitializeResult)
+	self:info("slow & fast both server")
+	return {
+		capabilities = {
+			textDocumentSync = {
+				openClose = true,
+				change = 2, -- 1 is non-incremental, 2 is incremental
+				save = { includeText = true },
+			},
+			definitionProvider = true,
+			referencesProvider = true,
+			hoverProvider = true,
+			completionProvider = {
+				triggerCharacters = {".",":"},
+				resolveProvider = false
+			},
+		},
+	}
+end
+
+return BothServer
