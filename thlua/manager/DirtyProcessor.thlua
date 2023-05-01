@@ -1,4 +1,5 @@
 
+const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
@@ -19,12 +20,16 @@ function:class(clazz.DirtyProcessor) DirtyProcessor.new(vTypeManager:clazz.TypeM
     return self
 end
 
+function DirtyProcessor:makeDirtyException(vNode:clazz.IBaseNode, vMsg:String):Ret(clazz.Exception)
+	return Exception.new(vMsg, vNode)
+end
+
 function DirtyProcessor:easyToType(vNode:clazz.IBaseNode, vData:Any):Ret(clazz.UAllType)
 	const nOkay, nType = self:peasyToType(vData)
 	if nOkay then
 		return nType
 	else
-		error(self._runtime:makeException(vNode, nType))
+		error(self:makeDirtyException(vNode, nType))
 	end
 end
 

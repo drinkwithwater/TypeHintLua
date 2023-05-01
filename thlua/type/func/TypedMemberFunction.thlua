@@ -1,4 +1,5 @@
 
+const Node = require "thlua.code.Node"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 
@@ -32,21 +33,23 @@ function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vV
 	return nResult
 end
 
-function TypedMemberFunction:Dots(vType:clazz.UAllType):Ret(clazz.MemberFunction)
-	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Dots")
-	nHeadlessFn:Dots(vType)
+function TypedMemberFunction:Dots(vType:Any):Ret(clazz.MemberFunction)
+	self._headlessFn:chainDots(Node.newDebugNode(), vType)
 	return self
 end
 
-function TypedMemberFunction:RetDots(vFirst:clazz.UAllType, ...:clazz.UAllType):Ret(clazz.MemberFunction)
-	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Ret")
-	nHeadlessFn:RetDots(vFirst, ...)
+function TypedMemberFunction:RetDots(...:Any):Ret(clazz.MemberFunction)
+	self._headlessFn:attachRetBuilder():chainRetDots(Node.newDebugNode(), ...)
 	return self
 end
 
-function TypedMemberFunction:Ret(...:clazz.UAllType):Ret(clazz.MemberFunction)
-	const nHeadlessFn = assert(self._headlessFn, "member function without wildfn can't take :Ret")
-	nHeadlessFn:Ret(...)
+function TypedMemberFunction:Ret(...:Any):Ret(clazz.MemberFunction)
+	self._headlessFn:attachRetBuilder():chainRet(Node.newDebugNode(), ...)
+	return self
+end
+
+function TypedMemberFunction:Err(...:Any):Ret(clazz.MemberFunction)
+	self._headlessFn:attachRetBuilder():chainErr(Node.newDebugNode(), ...)
 	return self
 end
 

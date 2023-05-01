@@ -10,10 +10,12 @@ const ClassFactory = require "thlua.type.func.ClassFactory"
 const ClassTable = require "thlua.type.object.ClassTable"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RetBuilder = require "thlua.tuple.RetBuilder"
+const Node = require "thlua.code.Node"
+const class = require "thlua.class"
 
 (@do
-	let.clazz = import("thlua.type.TypeClass").clazz
-	let.node = import("thlua.code.Node").node
+	let.clazz = import($class).clazz
+	let.node = import($Node).node
 
 	clazz.AutoFlag = $AutoFlag
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
@@ -29,9 +31,9 @@ const RetBuilder = require "thlua.tuple.RetBuilder"
 	clazz.FnSuffixHint = Struct {
 		extends=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		implements=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
-		Ret=Fn(clazz.FnSuffixHint):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
-		Err=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
-		RetDots=Fn(clazz.FnSuffixHint, clazz.UAllType):Dots(clazz.UAllType):Ret(clazz.FnSuffixHint),
+		Ret=Fn(clazz.FnSuffixHint):Dots(Any):Ret(clazz.FnSuffixHint),
+		Err=Fn(clazz.FnSuffixHint, Any):Ret(clazz.FnSuffixHint),
+		RetDots=Fn(clazz.FnSuffixHint, Any):Dots(Any):Ret(clazz.FnSuffixHint),
 		isguard=Fn(clazz.FnSuffixHint, clazz.UAllType):Ret(clazz.FnSuffixHint),
 		mapguard=Fn(clazz.FnSuffixHint, Dict(Truth, Truth)):Ret(clazz.FnSuffixHint),
 	}
@@ -58,9 +60,11 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 )
+	const nManager = vStack:getTypeManager()
 	const self = {.class
 		_stack=vStack,
-		_manager=vStack:getTypeManager(),
+		_manager=nManager,
+		_dirtyProcessor=nManager:getDirtyProcessor(),
 		_node=vNode,
 		_lexCapture=vUpState,
 		_prefixHint=vPrefixHint,
@@ -104,15 +108,15 @@ function FunctionBuilder:_makeRetTuples(
 			return vHint
 		end,
 		RetDots=function(vHint, vFirst, ...)
-			nRetBuilder:RetDots(vFirst, ...)
+			nRetBuilder:chainRetDots(Node.newDebugNode(), vFirst, ...)
 			return vHint
 		end,
 		Ret=function(vHint, ...)
-			nRetBuilder:Ret(...)
+			nRetBuilder:chainRet(Node.newDebugNode(), ...)
 			return vHint
 		end,
 		Err=function(vHint, vErrType)
-			nRetBuilder:Err(vErrType)
+			nRetBuilder:chainErr(Node.newDebugNode(), vErrType)
 			return vHint
 		end,
 	})
@@ -299,7 +303,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					return vHint
 				end,
 				Err=function(vHint, vErrType)
-					nErrType = vErrType
+					nErrType = self._dirtyProcessor:easyToType(Node.newDebugNode(), vErrType)
 					return vHint
 				end,
 				isguard=function(vHint, vType)

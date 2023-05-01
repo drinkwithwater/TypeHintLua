@@ -1,9 +1,11 @@
 
 
 const Enum = require "thlua.Enum"
+const Exception = require "thlua.Exception"
 
 (@do
 
+let.Exception = import($Exception).clazz.Exception
 let.node = namespace()
 
 let.IBaseNode = Interface {
@@ -13,6 +15,7 @@ let.IBaseNode = Interface {
 	posEnd=Number,
 	l=Number,
 	c=Number,
+	toExc=Fn(let.IBaseNode,String):Ret(Exception),
 }
 
 let.IAstNode = ExtendInterface(let.IBaseNode, Interface {
@@ -418,6 +421,10 @@ Node.__index=Node
 function Node.__tostring(self:node.IAstNode):Ret(String)
 	local before = self.path..":".. self.l ..(self.c > 0 and ("," .. self.c) or "")
 	return before
+end
+
+function Node.toExc(vNode:node.IBaseNode, vMsg:String):Ret(Exception)
+	return Exception.new(vMsg, vNode)
 end
 
 function.pass Node.newRootNode(vFileName:String):Ret(node.Root)
