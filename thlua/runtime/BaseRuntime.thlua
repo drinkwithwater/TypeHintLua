@@ -31,7 +31,7 @@ const CodeEnv = require "thlua.code.CodeEnv"
 	}
 
 	clazz.Diagnostic = Struct {
-		node=clazz.IAstNode,
+		node=clazz.IBaseNode,
 		msg=String,
 		severity=Union(1,2,3,4),
 	}
@@ -99,8 +99,8 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 	-- TODO better style?
 	if type(vDst) == "string" then
 		const nPath = vDst @> String
-		const nNode = Node.getDebugNode(3)
-		const nLoadedState = self:_cacheLoadPath(Node.getDebugNode(3), nPath)
+		const nNode = Node.newDebugNode(3)
+		const nLoadedState = self:_cacheLoadPath(Node.newDebugNode(3), nPath)
 		const nStack = nLoadedState.stack
 		if not nStack then
 			error(Exception.new("recursive import:"..nPath, nNode))
@@ -189,7 +189,7 @@ function BaseRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	-- pass
 end
 
-function BaseRuntime:recordApplyContext(vNode:clazz.IAstNode, vContext:clazz.ApplyContext)
+function BaseRuntime:recordApplyContext(vNode:clazz.IBaseNode, vContext:clazz.ApplyContext)
 	-- pass
 end
 
@@ -201,7 +201,7 @@ function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
 	return OpenStack.new(self, ...)
 end
 
-function BaseRuntime:_cacheLoadFile(vNode:clazz.IAstNode, vFileName:String):Ret(LoadedState)
+function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret(LoadedState)
 	local nLoadedState = self._loadedDict[vFileName]
 	if not nLoadedState then
 		const nCodeEnv = self._loader.thluaParseFile(self, vFileName)
@@ -220,7 +220,7 @@ function BaseRuntime:_cacheLoadFile(vNode:clazz.IAstNode, vFileName:String):Ret(
 	return nLoadedState
 end
 
-function BaseRuntime:_cacheLoadPath(vNode:clazz.IAstNode, vPath:String):Ret(LoadedState)
+function BaseRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(LoadedState)
 	local nFileName = self._pathToFileName[vPath]
 	if not nFileName then
 		const nOkay, nSearchFileName = self._loader.thluaSearch(self, vPath)
@@ -239,7 +239,7 @@ function BaseRuntime:_cacheLoadPath(vNode:clazz.IAstNode, vPath:String):Ret(Load
 	return nLoadedState
 end
 
-function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
+function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
 	const nLoadedState = self:_cacheLoadPath(vNode, vPath)
 	const nTerm = nLoadedState.term
 	if not nTerm then
@@ -249,7 +249,7 @@ function BaseRuntime:require(vNode:clazz.IAstNode, vPath:String):Ret(clazz.Refin
 end
 
 function BaseRuntime:TreeNamespace():Ret(clazz.Namespace)
-	local nSpace = Namespace.new(self._manager, Node.getDebugNode(4))
+	local nSpace = Namespace.new(self._manager, Node.newDebugNode(4))
 	return nSpace
 end
 
@@ -281,7 +281,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 	local nManager = self._manager
 	for k,v in pairs(l) do
 		nGlobal[k]=function(...)
-			return nManager[v](nManager, Node.getDebugNode(3), ...)
+			return nManager[v](nManager, Node.newDebugNode(3), ...)
 		end
 	end
 	nGlobal.Literal=function(v)
@@ -309,7 +309,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 		end
 	end
 	nGlobal.print=function(...)
-		self:nodeInfo(Node.getDebugNode(3), ...)
+		self:nodeInfo(Node.newDebugNode(3), ...)
 	end
 	const nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
@@ -325,7 +325,7 @@ function BaseRuntime:RootNamespace():Ret(clazz.Namespace)
 	return nSpace
 end
 
-function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IAstNode):Ret(clazz.Letspace)
+function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IBaseNode):Ret(clazz.Letspace)
 	local nSpace = Letspace.new(self._manager, vRegionNode, nil, vParentLet)
 	nSpace:trySetKey("")
 	return nSpace
@@ -336,11 +336,11 @@ function BaseRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)
 	return nHeadContext:RefineTerm(self._globalTable)
 end
 
-function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:Truth)
 	-- pass
 end
 
-function BaseRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNode, ...:Truth)
 	local logged = false
 	while OpenStack.is(vStack) do
 		print("[ERROR] "..tostring(vNode), ...)
@@ -354,22 +354,22 @@ function BaseRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IAstNode
 	end
 end
 
-function BaseRuntime:nodeError(vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:nodeError(vNode:clazz.IBaseNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
-function BaseRuntime:nodeWarn(vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:nodeWarn(vNode:clazz.IBaseNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
-function BaseRuntime:nodeInfo(vNode:clazz.IAstNode, ...:Truth)
+function BaseRuntime:nodeInfo(vNode:clazz.IBaseNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end
 
-function BaseRuntime:getNode():Ret(clazz.IAstNode)
+function BaseRuntime:getNode():Ret(clazz.IBaseNode)
 	return self._node
 end
 

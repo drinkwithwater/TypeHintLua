@@ -6,7 +6,7 @@ const Enum = require "thlua.Enum"
 
 let.node = namespace()
 
-let.IAstNode = Interface {
+let.IBaseNode = Interface {
 	tag=String,
 	path=String,
 	pos=Number,
@@ -14,8 +14,15 @@ let.IAstNode = Interface {
 	l=Number,
 	c=Number,
 	index=Integer,
-	parent=OrNil(node.IAstNode),
 }
+
+let.IAstNode = ExtendInterface(let.IBaseNode, Interface {
+	parent=OrNil(node.IAstNode),
+})
+
+let.IVirtualNode = ExtendInterface(let.IBaseNode, Interface {
+	parent=Nil,
+})
 
 let.ILen = Interface({}, {
 	__len=Integer,
@@ -349,8 +356,11 @@ for k,v in _G.pairs(__node) do
 	nodeTypeList[#nodeTypeList + 1] = v
 end
 
-
 node.IAstNode = let.IAstNode
+
+node.IVirtualNode = let.IVirtualNode
+
+node.IBaseNode = let.IBaseNode
 
 node.UTupleExpr = Union(node.Call, node.Invoke, node.Dots)
 
@@ -371,6 +381,10 @@ node.Error = ExtendStruct({
 	tag = "Error",
 	[1] = String,
 	[2] = OrNil(node.InjectTrace),
+}, let.IAstNode)
+
+node.Debug = ExtendStruct({
+	tag = "Debug",
 }, let.IAstNode)
 
 node.Root = ExtendStruct ({
@@ -410,10 +424,10 @@ function.pass Node.newRootNode(vFileName:String):Ret(node.Root)
 	return setmetatable({tag = "Root", pos=1, posEnd=1, l=1, c=1, path=vFileName}, Node)
 end
 
-function.pass Node.getDebugNode(vDepth:Integer):Ret(node.IAstNode)
+function.pass Node.newDebugNode(vDepth:Integer):Ret(node.Debug)
 	-- TODO, fix pos & posEnd
 	local nInfo = debug.getinfo(vDepth)
-	return setmetatable({tag = "Root", pos=1, posEnd=1, l=nInfo.currentline, c=1, path=nInfo.source}, Node)
+	return setmetatable({tag = "Debug", pos=1, posEnd=1, l=nInfo.currentline, c=1, path=nInfo.source}, Node)
 end
 
 function.pass Node.bind(vRawNode:AnyObject):Ret(node.IAstNode)

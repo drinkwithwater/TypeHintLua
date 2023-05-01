@@ -12,7 +12,7 @@ const OpenStack = class@<clazz.OpenStack, false>(InstStack)
 
 function.open OpenStack:ctor(
 	vRuntime:clazz.BaseRuntime,
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vUpState:OrFalse(clazz.LexCapture),
 	vBodyFn:clazz.OpenFunction,
 	vApplyStack:clazz.BaseStack,
@@ -34,7 +34,7 @@ function OpenStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UAllType)
 	self._errCollection:put(vType)
 end
 
-function OpenStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
+function OpenStack:RETURN(vNode:clazz.IBaseNode, vTermTuple:clazz.UTermTuple)
 	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
 	table.insert(self._retList, vTermTuple)
 	self:topBranch():setStop()
@@ -44,7 +44,7 @@ function OpenStack:mergeEndErrType():Ret(clazz.UAtomUnion)
 	return self._errCollection:mergeToAtomUnion()
 end
 
-function OpenStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
+function OpenStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 	self:getNamespace():close()
 	const nRetList = self._retList
 	const nLen = #nRetList

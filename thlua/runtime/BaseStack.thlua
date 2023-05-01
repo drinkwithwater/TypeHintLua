@@ -49,7 +49,7 @@ const BaseStack = class@<clazz.BaseStack, false>()
 
 function.open BaseStack:ctor(
 	vRuntime:clazz.BaseRuntime,
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vUpState:OrFalse(clazz.LexCapture),
 	...
 )
@@ -71,7 +71,7 @@ function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UAllType)
 	error("check error in OpenStack or SealStack")
 end
 
-function BaseStack:anyNodeMetaGet(vNode:clazz.IAstNode, vSelfTerm:clazz.RefineTerm, vKeyTerm:clazz.RefineTerm, vNotnil:Boolean):Ret(clazz.RefineTerm)
+function BaseStack:anyNodeMetaGet(vNode:clazz.IBaseNode, vSelfTerm:clazz.RefineTerm, vKeyTerm:clazz.RefineTerm, vNotnil:Boolean):Ret(clazz.RefineTerm)
 	return self:withOnePushContext(vNode, function(vContext)
 		vSelfTerm:foreach(function(vSelfType, vVariableCase)
 			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
@@ -88,7 +88,7 @@ function BaseStack:anyNodeMetaGet(vNode:clazz.IAstNode, vSelfTerm:clazz.RefineTe
 end
 
 function BaseStack:prepareMetaCall(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.MorePushContext)
@@ -108,7 +108,7 @@ function BaseStack:prepareMetaCall(
 	end)
 end
 
---[[function.open BaseStack:nodePcall(vNode:clazz.IAstNode, vFunc, ...)
+--[[function.open BaseStack:nodePcall(vNode:clazz.IBaseNode, vFunc, ...)
 	const ok, err = xpcall(vFunc, function(exc:Union(String, clazz.Exception)):Ret(clazz.Exception)
 		if Exception.is(exc) then
 			return exc
@@ -138,24 +138,24 @@ function BaseStack:newClassFactory(vNode:node.Function, ...):Ret(clazz.ClassFact
 	return nFactory
 end
 
-function BaseStack:newOpenFunction(vNode:clazz.IAstNode, vUpState:OrNil(False, clazz.LexCapture)):Ret(clazz.OpenFunction)
+function BaseStack:newOpenFunction(vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexCapture)):Ret(clazz.OpenFunction)
 	const nOpenFn = OpenFunction.new(self._manager, vNode, vUpState)
 	return nOpenFn
 end
 
-function BaseStack:withOnePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.OnePushContext)
+function BaseStack:withOnePushContext(vNode:clazz.IBaseNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.OnePushContext)
 	const nCtx = OnePushContext.new(vNode, self, self._manager, vNotnil or false)
 	vFunc(nCtx)
 	return nCtx
 end
 
-function BaseStack:withMorePushContext(vNode:clazz.IAstNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.MorePushContext)
+function BaseStack:withMorePushContext(vNode:clazz.IBaseNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.MorePushContext)
 	const nCtx = MorePushContext.new(vNode, self, self._manager)
 	vFunc(nCtx)
 	return nCtx
 end
 
-function BaseStack:withMorePushContextWithCase(vNode:clazz.IAstNode, vTermOrTuple:Union(clazz.FixedTermTuple, clazz.RefineTerm), vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.MorePushContext)
+function BaseStack:withMorePushContextWithCase(vNode:clazz.IBaseNode, vTermOrTuple:Union(clazz.FixedTermTuple, clazz.RefineTerm), vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.MorePushContext)
 	const nCtx = MorePushContext.new(vNode, self, self._manager)
 	const nTerm = TermTuple.isFixed(vTermOrTuple) and vTermOrTuple:checkFixed(nCtx, 1) or vTermOrTuple
 	nTerm:foreach(function(vType, vCase)
@@ -166,23 +166,23 @@ function BaseStack:withMorePushContextWithCase(vNode:clazz.IAstNode, vTermOrTupl
 	return nCtx
 end
 
-function BaseStack:newNoPushContext(vNode:clazz.IAstNode)
+function BaseStack:newNoPushContext(vNode:clazz.IBaseNode)
 	return NoPushContext.new(vNode, self, self._manager)
 end
 
-function BaseStack:newLogicContext(vNode:clazz.IAstNode):Ret(clazz.LogicContext)
+function BaseStack:newLogicContext(vNode:clazz.IBaseNode):Ret(clazz.LogicContext)
 	return LogicContext.new(vNode, self, self._manager)
 end
 
-function BaseStack:newOperContext(vNode:clazz.IAstNode):Ret(clazz.OperContext)
+function BaseStack:newOperContext(vNode:clazz.IBaseNode):Ret(clazz.OperContext)
 	return OperContext.new(vNode, self, self._manager)
 end
 
-function BaseStack:newReturnContext(vNode:clazz.IAstNode):Ret(clazz.ReturnContext)
+function BaseStack:newReturnContext(vNode:clazz.IBaseNode):Ret(clazz.ReturnContext)
 	return ReturnContext.new(vNode, self, self._manager)
 end
 
-function BaseStack:newAssignContext(vNode:clazz.IAstNode):Ret(clazz.AssignContext)
+function BaseStack:newAssignContext(vNode:clazz.IBaseNode):Ret(clazz.AssignContext)
 	return AssignContext.new(vNode, self, self._manager)
 end
 
@@ -193,7 +193,7 @@ end
 function BaseStack:seal()
 end
 
-function BaseStack:_nodeTerm(vNode:clazz.IAstNode, vType:clazz.UAllType)
+function BaseStack:_nodeTerm(vNode:clazz.IBaseNode, vType:clazz.UAllType)
 	return RefineTerm.new(vNode, vType:checkAtomUnion())
 end
 
@@ -218,7 +218,7 @@ function BaseStack:info(...:Truth)
 	self._runtime:nodeInfo(self._node, ...)
 end
 
-function BaseStack:getNode():Ret(clazz.IAstNode)
+function BaseStack:getNode():Ret(clazz.IBaseNode)
 	return self._node
 end
 

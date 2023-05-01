@@ -26,7 +26,7 @@ const Reference = class@<clazz.TypeReference, clazz.IType>()
 
 Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
 	-- TODO, cast
-	const nNode = Node.getDebugNode(3)
+	const nNode = Node.newDebugNode(3)
 	const nArgList:List(clazz.UAllType) = self._manager:getDirtyProcessor():easyToTypeList(...)
 	const nKey = self._manager:signTemplateArgs(nArgList)
 	const nCom = self._com
@@ -71,8 +71,8 @@ function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(Str
 	self._task = nTask
 	self._key=vKeyOrFalse
 	self._callDict={}@Dict(String, clazz.TypeReference)
-	self._assignNode=false@OrFalse(clazz.IAstNode)
-	self._referNodes={}@List(clazz.IAstNode)
+	self._assignNode=false@OrFalse(clazz.IBaseNode)
+	self._referNodes={}@List(clazz.IBaseNode)
 	self.id=vManager:genTypeId()
 	self.bits=false
 	self._assignComEvent = nTask:makeEvent()
@@ -125,7 +125,7 @@ function Reference:_setComAndWakeup(vCom:UReferCom)
 	self._assignComEvent:wakeup()
 end
 
-function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
+function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	self._task:runAsync(function()
@@ -145,7 +145,7 @@ function Reference:setAssignAsync(vNode:clazz.IAstNode, vGetFunc:Fn():Ret(Any))
 	end)
 end
 
-function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vParNum:Integer)
+function Reference:setTemplateAsync(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParNum:Integer)
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
 	self._assignNode = vNode
 	const nCom = TemplateReferCom.new(self._manager, self, vFunc, vParNum)
@@ -155,7 +155,7 @@ function Reference:setTemplateAsync(vNode:clazz.IAstNode, vFunc:AnyFunction, vPa
 end
 
 function Reference:setUnionAsync(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vGetList:Fn():Ret(List(clazz.IAtomType), OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion))))
 )
 	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
@@ -168,15 +168,15 @@ function Reference:setUnionAsync(
 	self:_setComAndWakeup(nCom)
 end
 
-function Reference:getAssignNode():Ret(OrFalse(clazz.IAstNode))
+function Reference:getAssignNode():Ret(OrFalse(clazz.IBaseNode))
 	return self._assignNode
 end
 
-function Reference:getReferNode():Ret(List(clazz.IAstNode))
+function Reference:getReferNode():Ret(List(clazz.IBaseNode))
 	return self._referNodes
 end
 
-function Reference:pushReferNode(vNode:clazz.IAstNode)
+function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
 end

@@ -16,7 +16,7 @@ const SealStack = class@<clazz.SealStack, false>(InstStack)
 
 function.open SealStack:ctor(
 	vRuntime:clazz.BaseRuntime,
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vUpState:OrFalse(clazz.LexCapture),
 	vBodyFn:Union(clazz.ClassFactory, clazz.AutoFunction)
 )
@@ -76,7 +76,7 @@ function SealStack:RAISE_ERROR(vContext:clazz.OperContext, vRaiseErr:clazz.UAllT
 	end
 end
 
-function SealStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
+function SealStack:RETURN(vNode:clazz.IBaseNode, vTermTuple:clazz.UTermTuple)
 	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
 	const nRetContext = self:newReturnContext(vNode)
 	table.insert(self._retList, vTermTuple)
@@ -91,7 +91,7 @@ function SealStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
 	self:topBranch():setStop()
 end
 
-function SealStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
+function SealStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 	self:getNamespace():close()
 	const nBodyFn = self._bodyFn
 	const nRetList = self._retList

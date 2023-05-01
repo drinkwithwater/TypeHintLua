@@ -21,10 +21,10 @@ end)
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
-	self._focusNodeSet = {} @ Dict(clazz.IAstNode, True)
-	self._nodeToAutoFnList = ListDict@<clazz.IAstNode, clazz.AutoFunction>()
+	self._focusNodeSet = {} @ Dict(clazz.IBaseNode, True)
+	self._nodeToAutoFnList = ListDict@<clazz.IBaseNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
-	self._nodeToApplyContextList = ListDict@<clazz.IAstNode, clazz.ApplyContext>()
+	self._nodeToApplyContextList = ListDict@<clazz.IBaseNode, clazz.ApplyContext>()
 end
 
 function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
@@ -35,7 +35,7 @@ function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
 	end
 end
 
-function.pass CompletionRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IAstNode, ...:Truth)
+function.pass CompletionRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:Truth)
 	--const nServer = self._loader
 	--nServer:info(vNode, ...)
 end
@@ -44,7 +44,7 @@ function CompletionRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
 	self._nodeToBranchList:putOne(vNode, vBranch)
 end
 
-function CompletionRuntime:recordApplyContext(vNode:clazz.IAstNode, vContext:clazz.ApplyContext)
+function CompletionRuntime:recordApplyContext(vNode:clazz.IBaseNode, vContext:clazz.ApplyContext)
 	self._nodeToApplyContextList:putOne(vNode, vContext)
 end
 
@@ -139,7 +139,7 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	return nFieldCompletion
 end
 
-function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLine:Integer, vColumn:Integer):Ret(False, String):Ret(Dict(clazz.IAstNode, True))
+function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLine:Integer, vColumn:Integer):Ret(False, String):Ret(Dict(clazz.IBaseNode, True))
 	const nSuccEnv = self:getCodeEnv(vFileUri)
 	if not nSuccEnv then
 		return false, "goto failed, success compiled code not found"
@@ -198,8 +198,8 @@ function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, 
 		or self:injectLookdown(nInjectTrace.pos, nBlockNode, nInjectFn)
 end
 
-function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(Dict(clazz.IAstNode, True))
-	local nNodeSet:Dict(clazz.IAstNode, True) = {}
+function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(Dict(clazz.IBaseNode, True))
+	local nNodeSet:Dict(clazz.IBaseNode, True) = {}
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if TypeReference.is(vResult) then
 			const nAssignNode = vResult:getAssignNode()
@@ -216,13 +216,13 @@ function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block
 	return nNodeSet
 end
 
-function CompletionRuntime:injectLookdown(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(Dict(clazz.IAstNode, True))
+function CompletionRuntime:injectLookdown(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(Dict(clazz.IBaseNode, True))
 	-- lookdown implement in DiagnosticRuntime
 	return {}
 end
 
-function CompletionRuntime:exprLookup(vNode:clazz.IAstNode):Ret(Dict(clazz.IAstNode, True))
-	const nNodeSet:Dict(clazz.IAstNode, true) = {}
+function CompletionRuntime:exprLookup(vNode:clazz.IBaseNode):Ret(Dict(clazz.IBaseNode, True))
+	const nNodeSet:Dict(clazz.IBaseNode, true) = {}
 	const nCtxList:List(clazz.ApplyContext) = self._nodeToApplyContextList:get(vNode) or {}
 	for _, nContext in ipairs(nCtxList) do
 		nContext:outLookupNode(nNodeSet)
@@ -230,7 +230,7 @@ function CompletionRuntime:exprLookup(vNode:clazz.IAstNode):Ret(Dict(clazz.IAstN
 	return nNodeSet
 end
 
-function CompletionRuntime:exprLookdown(vNode:clazz.IAstNode):Ret(Dict(clazz.IAstNode, True))
+function CompletionRuntime:exprLookdown(vNode:clazz.IBaseNode):Ret(Dict(clazz.IBaseNode, True))
 	-- lookdown implement in DiagnosticRuntime
 	return {}
 end

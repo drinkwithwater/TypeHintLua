@@ -36,7 +36,7 @@ end)
 
 const InstStack = class@<clazz.InstStack, false>(BaseStack)
 
-function InstStack:AUTO(vNode:clazz.IAstNode):Ret(clazz.AutoFlag)
+function InstStack:AUTO(vNode:clazz.IBaseNode):Ret(clazz.AutoFlag)
 	return AutoFlag
 end
 
@@ -52,7 +52,7 @@ end
 
 -- pack explist to termtuple or lazyfunc
 function InstStack:EXPRLIST_REPACK(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vLazy:Boolean,
 	l:List(Union(clazz.UTermTuple, clazz.UAutoTerm, Fn():Ret(clazz.UAutoTerm)))
 ):Ret(clazz.UTermTuple):Ret(Fn():Ret(clazz.UTermTuple))
@@ -112,7 +112,7 @@ end
 
 -- unpack explist to vNum term | termtuple
 function InstStack:EXPRLIST_UNPACK(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vNum:Number,
 	...:Union(clazz.RefineTerm, clazz.FixedTermTuple)
 ):RetDots(clazz.RefineTerm)
@@ -170,7 +170,7 @@ function InstStack:META_SET(
 end
 
 function InstStack:META_CALL(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.UOpenReturn)
@@ -208,7 +208,7 @@ function InstStack:META_INVOKE(
 end
 
 function InstStack:META_EQ_NE(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vIsEq:Boolean,
 	vLeftTerm:clazz.RefineTerm,
 	vRightTerm:clazz.RefineTerm
@@ -242,7 +242,7 @@ function InstStack:META_EQ_NE(
 end
 
 function InstStack:META_BOP_SOME(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vOper:String,
 	vLeftTerm:clazz.RefineTerm,
 	vRightTerm:clazz.RefineTerm
@@ -289,7 +289,7 @@ function InstStack:META_BOP_SOME(
 end
 
 function InstStack:META_UOP(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vOper:String,
 	vData:clazz.RefineTerm
 ):Ret(clazz.RefineTerm)
@@ -313,7 +313,7 @@ function InstStack:META_UOP(
 	return nUopContext:mergeToRefineTerm(nTypeCaseList)
 end
 
-function InstStack:CHUNK_TYPE(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
+function InstStack:CHUNK_TYPE(vNode:clazz.IBaseNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
 	return vTerm:getType()
 end
 
@@ -331,13 +331,13 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function InstStack:TABLE_NEW(vNode:clazz.IAstNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
+function InstStack:TABLE_NEW(vNode:clazz.IBaseNode, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)
 end
 
-function InstStack:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
+function InstStack:EVAL(vNode:clazz.IBaseNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	if RefineTerm.is(vTerm) then
 		return vTerm:getType()
 	else
@@ -346,7 +346,7 @@ function InstStack:EVAL(vNode:clazz.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	end
 end
 
-function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
+function InstStack:CAST_HINT(vNode:clazz.IBaseNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:Any):Ret(clazz.RefineTerm)
 	const nCastContext = self:newAssignContext(vNode)
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
@@ -380,7 +380,7 @@ function InstStack:CAST_HINT(vNode:clazz.IAstNode, vTerm:clazz.RefineTerm, vCast
 	end
 end
 
-function InstStack:NIL_TERM(vNode:clazz.IAstNode)
+function InstStack:NIL_TERM(vNode:clazz.IBaseNode)
 	return self:_nodeTerm(vNode, self._manager.type.Nil)
 end
 
@@ -388,7 +388,7 @@ function InstStack:HINT_TERM(vNode:node.HintTerm, vType:clazz.UAllType)
 	return self:_nodeTerm(vNode, vType:checkAtomUnion())
 end
 
-function InstStack:LITERAL_TERM(vNode:clazz.IAstNode, vValue:Union(String, Number, Boolean))
+function InstStack:LITERAL_TERM(vNode:clazz.IBaseNode, vValue:Union(String, Number, Boolean))
 	const nType = self._manager:Literal(vValue)
 	return self:_nodeTerm(vNode, nType)
 end
@@ -408,7 +408,7 @@ function InstStack:SYMBOL_GET(vNode:node.Ident_use, vDefineNode:node.Ident_def, 
 end
 
 function InstStack:PARAM_PACKOUT(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vList:List(clazz.UAutoTerm),
 	vDots:OrFalse(clazz.UTermTuple)
 ):Ret(clazz.UTermTuple)
@@ -439,7 +439,7 @@ function InstStack:PARAM_UNPACK(
 end
 
 function InstStack:PARAM_NODOTS_UNPACK(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vTermTuple:OrFalse(clazz.UTermTuple),
 	vParNum:Integer
 )
@@ -512,7 +512,7 @@ end
 
 
 function InstStack:IF_ONE(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vTerm:clazz.RefineTerm,
 	vTrueFunction:Fn(), vBlockNode:node.Block
 )
@@ -527,7 +527,7 @@ function InstStack:IF_ONE(
 end
 
 function InstStack:IF_TWO(
-	vNode:clazz.IAstNode,
+	vNode:clazz.IBaseNode,
 	vTerm:clazz.RefineTerm,
 	vTrueFunction:Fn(), vTrueBlock:node.Block,
 	vFalseFunction:Fn(), vFalseBlock:OrNil(node.Block)
@@ -639,7 +639,7 @@ function InstStack:FOR_NUM(
 	end, vBlockNode)
 end
 
-function InstStack:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
+function InstStack:LOGIC_OR(vNode:clazz.IBaseNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	const nOrContext = self:newLogicContext(vNode)
 	const nLeftTrueTerm = nOrContext:logicTrueTerm(vLeftTerm)
 	const nLeftFalseCase = vLeftTerm:caseFalse()
@@ -655,7 +655,7 @@ function InstStack:LOGIC_OR(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vR
 	end
 end
 
-function InstStack:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
+function InstStack:LOGIC_AND(vNode:clazz.IBaseNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	const nAndContext = self:newLogicContext(vNode)
 	const nLeftFalseTerm = nAndContext:logicFalseTerm(vLeftTerm)
 	const nLeftTrueCase = vLeftTerm:caseTrue()
@@ -671,20 +671,20 @@ function InstStack:LOGIC_AND(vNode:clazz.IAstNode, vLeftTerm:clazz.RefineTerm, v
 	end
 end
 
-function InstStack:LOGIC_NOT(vNode:clazz.IAstNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
+function InstStack:LOGIC_NOT(vNode:clazz.IBaseNode, vData:clazz.RefineTerm):Ret(clazz.RefineTerm)
 	const nNotContext = self:newLogicContext(vNode)
 	return nNotContext:logicNotTerm(vData)
 end
 
-function InstStack:BREAK(vNode:clazz.IAstNode)
+function InstStack:BREAK(vNode:clazz.IBaseNode)
 	self:topBranch():setStop()
 end
 
-function InstStack:RETURN(vNode:clazz.IAstNode, vTermTuple:clazz.UTermTuple)
+function InstStack:RETURN(vNode:clazz.IBaseNode, vTermTuple:clazz.UTermTuple)
 	error("implement RETURN in OpenStack or SealStack")
 end
 
-function InstStack:END(vNode:clazz.IAstNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
+function InstStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 	error("implement END in OpenStack or SealStack")
 	return self._fastOper:FixedTermTuple({}), self._manager.type.String
 end
@@ -709,7 +709,7 @@ function InstStack:INJECT_GET(
 	return vInjectGetter(vNode)
 end
 
-function InstStack:INJECT_BEGIN(vNode:clazz.IAstNode):Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
+function InstStack:INJECT_BEGIN(vNode:clazz.IBaseNode):Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
 	const nSpace = assert(self._letspace)
 	return nSpace:export()
 end

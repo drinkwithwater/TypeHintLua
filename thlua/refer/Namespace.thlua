@@ -17,7 +17,7 @@ Namespace.__tostring=function(self):Ret(String)
 	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.TypeReference)), ...)
+function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.TypeReference)), ...)
 	self._manager=vManager
 	self._key2type={} @ Dict(clazz.IAtomType, clazz.LocalSpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
@@ -32,7 +32,7 @@ function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IAstNode, v
 	return self
 end
 
-function Namespace:assertSpaceKeyType(vNode:clazz.IAstNode, vKey:Any):Ret(clazz.IAtomType)
+function Namespace:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
 	const nOkay, nType = self._manager:getDirtyProcessor():peasyToType(vKey)
 	if not nOkay then
 		error(Exception.new(nType, vNode))
@@ -56,7 +56,7 @@ function Namespace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
 	return false
 end
 
-function Namespace:localGet(vNode:clazz.IAstNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
+function Namespace:localGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
 	const rawgetV = self._key2type[vKeyType]
 	if rawgetV then
 		return rawgetV
@@ -73,7 +73,7 @@ function Namespace:localGet(vNode:clazz.IAstNode, vKeyType:clazz.IAtomType):Ret(
 	return refer
 end
 
-function Namespace:localSet(vNode:clazz.IAstNode, vKeyType:clazz.IAtomType, vNewValue:Any)
+function Namespace:localSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vNewValue:Any)
 	if self._closed then
 		error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
 	end
