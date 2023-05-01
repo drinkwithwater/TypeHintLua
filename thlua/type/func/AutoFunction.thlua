@@ -16,20 +16,20 @@ end
 
 function.open AutoFunction:ctor(...)
 	self._castTypeFn=false@OrFalse(clazz.TypedFunction)
-	self._firstAssign = false @OrFalse(clazz.AssignContext)
+	self._firstCallCtx = false @OrFalse(clazz.ApplyContext)
+end
+
+function AutoFunction:meta_call(vContext, vTermTuple)
+	self._firstCallCtx = vContext
+	const nTypeFn = self:getFnAwait()
+	return nTypeFn:meta_call(vContext, vTermTuple)
 end
 
 function AutoFunction:isCastable()
-	return not self._firstAssign
+	return not self._firstCallCtx
 end
 
-function AutoFunction:setAssigned(vContext)
-	if not self._firstAssign then
-		self._firstAssign = vContext
-	end
-end
-
-function AutoFunction:checkWhenCast(vTypeFn:clazz.TypedFunction):Ret(Boolean)
+function AutoFunction:checkWhenCast(vContext:clazz.OperContext, vTypeFn:clazz.TypedFunction):Ret(Boolean)
 	if self._builderFn then
 		const nOldTypeFn = self._castTypeFn
 		if not nOldTypeFn then
@@ -41,7 +41,7 @@ function AutoFunction:checkWhenCast(vTypeFn:clazz.TypedFunction):Ret(Boolean)
 				-- donothing
 			else
 				-- TODO
-				--vContext:error("auto-function cast to multi type", self._node)
+				vContext:error("auto-function cast to multi type", self._node)
 			end
 		end
 		return true
