@@ -77,13 +77,14 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
         thluaGlobalFile=function(vRuntime, vPackage)
             vPackage = vPackage or "global"
             const nCodeEnv = self._globalToEnv[vPackage]
+            const nFileName = "@virtual-file:"..vPackage
             if not nCodeEnv then
                 const nContent = require("thlua.global."..vPackage) @? String
-                const nCodeEnv = CodeEnv.new(nContent!, "@virtual-file:"..vPackage)
+                const nCodeEnv = CodeEnv.new(nContent!, nFileName)
                 self._globalToEnv[vPackage] = nCodeEnv
-                return nCodeEnv
+                return nCodeEnv, nFileName
             else
-                return nCodeEnv
+                return nCodeEnv, nFileName
             end
         end
     })

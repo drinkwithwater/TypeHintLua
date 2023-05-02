@@ -27,7 +27,7 @@ const CodeEnv = require "thlua.code.CodeEnv"
 	clazz.FileLoader = Struct {
 		thluaSearch=Fn(clazz.BaseRuntime, String):Ret(Boolean, String),
 		thluaParseFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
-		thluaGlobalFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
+		thluaGlobalFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv, String),
 	}
 
 	clazz.Diagnostic = Struct {
@@ -66,8 +66,9 @@ const DefaultLoader:clazz.FileLoader = {
 	end,
 	thluaGlobalFile=function.pass(vRuntime, vPackage)
 		local nContent:String = require("thlua.global."..vPackage)
+		const nFileName = "@virtual-file:"..vPackage
 		const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
-		return nCodeEnv
+		return nCodeEnv, nFileName
 	end
 }
 
@@ -146,14 +147,9 @@ function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(Strin
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
 			for _, pkg in ipairs(nGlobalPackage) do
-				const nCodeEnv = self._loader.thluaGlobalFile(self, pkg)
-				const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
-				const nContext = self._rootStack:newNoPushContext(self._node)
-				const nTermTuple = nContext:FixedTermTuple({})
-				const nReturn = nOpenFn:meta_open_call(nContext, nTermTuple, true)
+				const nLoadedState = self:_cacheLoadGlobal(pkg)
 				if pkg == "string" then
-					const nRetTerm = TermTuple.is(nReturn) and nReturn:get(nContext, 1) or nReturn
-					const nRetType = nRetTerm:getType()
+					const nRetType = nLoadedState.term!:getType()
 					assert(not nRetType:isUnion(), "string lib's return can't be union")
 					self._manager:lateInitStringLib(nRetType)
 				end
@@ -199,6 +195,22 @@ end
 
 function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
 	return OpenStack.new(self, ...)
+end
+
+function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
+	const nCodeEnv, nFileName = self._loader.thluaGlobalFile(self, vPkg)
+	const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
+	const nContext = self._rootStack:newNoPushContext(self._node)
+	const nTermTuple = nContext:FixedTermTuple({})
+	const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
+	const nLoadedState:LoadedState = {
+		openFn=nOpenFn,
+		codeEnv=nCodeEnv,
+		term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext),
+		stack = nStack,
+	}
+	self._loadedDict[nFileName] = nLoadedState
+	return nLoadedState
 end
 
 function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret(LoadedState)
