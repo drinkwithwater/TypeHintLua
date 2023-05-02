@@ -129,7 +129,7 @@ function InstStack:EXPRLIST_UNPACK(
 					-- self._runtime:nodeError(vNode, "exprlist_unpack but right tuple value not enough")
 				-- end
 			else
-				self._runtime:nodeError(vNode, "exprlist_unpack but right value not enough")
+				nUnpackContext:error("exprlist_unpack but right value not enough")
 				re[i] = nUnpackContext:RefineTerm(self._manager.type.Nil)
 			end
 		else
@@ -279,7 +279,7 @@ function InstStack:META_BOP_SOME(
 								nRightFunc:meta_call(vContext, nTermTuple)
 							end)
 						else
-							self._runtime:nodeError(vNode, "invalid bop:"..vOper)
+							vContext:error("invalid bop:"..vOper)
 						end
 					end
 				end)
@@ -341,8 +341,7 @@ function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	if RefineTerm.is(vTerm) then
 		return vTerm:getType()
 	else
-		self:getRuntime():nodeError(vNode, "hint eval fail")
-		error("hint eval fail")
+		error(vNode:toExc("hint eval fail"))
 	end
 end
 
@@ -596,7 +595,7 @@ function InstStack:FOR_IN(vNode:node.Forin, vFunc:Fn(clazz.FixedTermTuple), vNex
 	local nFirstTerm = nTuple:get(nForContext, 1)
 	const nFirstType = nFirstTerm:getType()
 	if not nFirstType:isNilable() then
-		self:getRuntime():nodeError(vNode, "FOR_IN must receive function with nilable return")
+		nForContext:error("FOR_IN must receive function with nilable return")
 		return
 	end
 	if nFirstType:notnilType():isNever() then

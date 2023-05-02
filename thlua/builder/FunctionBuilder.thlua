@@ -77,12 +77,6 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	return self
 end
 
-function FunctionBuilder:error(...:Truth)
-	if not self._pass then
-		self._stack:getRuntime():nodeError(self._node, ...)
-	end
-end
-
 function FunctionBuilder:_makeRetTuples(
 	vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint),
 	vTypeList:List(clazz.UAllType),
@@ -138,7 +132,9 @@ function FunctionBuilder:_makeRetTuples(
 				end
 			end)
 			if hasSome and not hasVoid then
-				self:error("hint return something but block has no RetStat")
+				if not self._pass then
+					self._stack:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
+				end
 			end
 		end
 	end
@@ -164,7 +160,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			const nHintRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType)
 			if nHintRetTuples and nCastRet then
 				if not nCastRet:includeTuples(nHintRetTuples) then
-					nNewStack:error("hint return not match when cast")
+					nNewStack:inplaceOper():error("hint return not match when cast")
 				end
 			end
 			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples(self._node))
@@ -178,12 +174,13 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 					const nRetTermTuple, nErrType = nGenFunc()
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
-						nNewStack:error("auto parameter deduce failed")
+						nNewStack:inplaceOper():error("auto parameter deduce failed")
 						error(self._node:toExc("auto parameter deduce failed"))
 					end
 					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple(), nErrType)
 					if not nRetTuples then
-						nNewStack:error("auto return deduce failed")
+						-- TODO, this case never happen, thinking how return deduce failed?
+						nNewStack:inplaceOper():error("auto return deduce failed")
 						error(self._node:toExc("auto return deduce failed"))
 					end
 					return nParTuple, nRetTuples
@@ -375,7 +372,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 				nGenFunc!()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
-					nNewStack:error("auto parameter deduce failed")
+					nNewStack:inplaceOper():error("auto parameter deduce failed")
 					error(self._node:toExc("auto parameter deduce failed"))
 				end
 				nClassTable:onBuildFinish()

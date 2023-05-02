@@ -353,16 +353,16 @@ function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:
 end
 
 function BaseRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNode, ...:Truth)
-	local logged = false
+	print("[ERROR] "..tostring(vNode), ...)
+	self:_save(1, vNode, ...)
+	const nPrefix = "(trace)"
 	while OpenStack.is(vStack) do
-		print("[ERROR] "..tostring(vNode), ...)
-		self:_save(1, vNode, ...)
+		const nStackNode = vStack:getNode()
+		if nStackNode ~= vNode and not vStack:isRequire() then
+			print("[ERROR] "..tostring(nStackNode), nPrefix, ...)
+			self:_save(1, nStackNode, nPrefix, ...)
+		end
 		vStack = vStack:getApplyStack()
-		logged = true
-	end
-	if vStack ~= self._rootStack or not logged then
-		print("[ERROR] "..tostring(vNode), ...)
-		self:_save(1, vNode, ...)
 	end
 end
 
