@@ -3,6 +3,7 @@ const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const SpaceTable = require "thlua.refer.SpaceTable"
+const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
 const NameLocation= require "thlua.refer.NameLocation"
 const Node = require "thlua.code.Node"
 const class = require "thlua.class"
@@ -92,6 +93,8 @@ function Namespace:localSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vNe
 		if nAssignSpace then
 			nAssignSpace:trySetKey(tostring(vKeyType))
 			self._key2type[vKeyType] = vNewValue @? clazz.LocalSpaceTable
+		elseif SpaceBuiltin.is(vNewValue) then
+            error(Exception.new("space-builtin function can't assign between space"..tostring(vKeyType), vNode))
 		else
 			const refer = self._manager:Reference(tostring(vKeyType))
 			refer:setAssignAsync(vNode, function() return vNewValue end)

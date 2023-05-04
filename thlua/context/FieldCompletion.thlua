@@ -5,6 +5,11 @@ const MemberFunction = require "thlua.type.func.MemberFunction"
 const BaseFunction = require "thlua.type.func.BaseFunction"
 const ClassFactory = require "thlua.type.func.ClassFactory"
 const Reference = require "thlua.refer.Reference"
+const SpaceTable = require "thlua.refer.SpaceTable"
+const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
+
+const TemplateReferCom = require "thlua.refer.TemplateReferCom"
+const TypeReferCom = require "thlua.refer.TypeReferCom"
 
 const NumberLiteral = require "thlua.type.basic.NumberLiteral"
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
@@ -57,10 +62,21 @@ function FieldCompletion:putField(vKey:String, vValue:clazz.UAllType)
 end
 
 function FieldCompletion:putSpaceField(vKey:String, vValue:clazz.LocalSpaceValue)
-	if Reference.is(vValue) then
-		self._keyToKind[vKey] = CompletionKind.TypeParameter
-	else
+	if SpaceTable.checkSpace(vValue) then
 		self._keyToKind[vKey] = CompletionKind.Module
+	elseif SpaceBuiltin.is(vValue) then
+		self._keyToKind[vKey] = CompletionKind.Function
+	elseif Reference.is(vValue) then
+		const nCom = vValue:getComNowait()
+		if TypeReferCom.is(nCom) then
+			self._keyToKind[vKey] = CompletionKind.Class
+		elseif TemplateReferCom.is(nCom) then
+			self._keyToKind[vKey] = CompletionKind.Function
+		else
+			self._keyToKind[vKey] = CompletionKind.Variable
+		end
+	else
+		self._keyToKind[vKey] = CompletionKind.Class
 	end
 end
 

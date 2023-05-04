@@ -10,6 +10,7 @@ const Namespace = require "thlua.refer.Namespace"
 const Letspace = require "thlua.refer.Letspace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
+const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
 
 const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
@@ -292,37 +293,37 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 	}
 	local nManager = self._manager
 	for k,v in pairs(l) do
-		nGlobal[k]=function(...)
-			return nManager[v](nManager, Node.newDebugNode(), ...)
-		end
+		nGlobal[k]=SpaceBuiltin.new(function(vNode, ...)
+			return nManager[v](nManager, vNode, ...)
+		end, k)
 	end
-	nGlobal.Literal=function(v)
+	nGlobal.Literal=SpaceBuiltin.new(function(vNode, v)
 		return nManager:Literal(v)
-	end
-	nGlobal.namespace=function()
-		return self:TreeNamespace(Node.newDebugNode()):getLocalTable()
-	end
-	nGlobal.lock=function(vType)
+	end, "Literal")
+	nGlobal.namespace=SpaceBuiltin.new(function(vNode)
+		return self:TreeNamespace(vNode):getLocalTable()
+	end, "namespace")
+	nGlobal.lock=SpaceBuiltin.new(function(vNode, vType)
 		vType:foreach(function(vAtom)
 			vAtom:setLocked()
 		end)
-	end
-	nGlobal.import=function(vPath)
+	end, "lock")
+	nGlobal.import=SpaceBuiltin.new(function(vNode, vPath)
 		return self:import(vPath)
-	end
-	nGlobal.setPath=function(vPath)
+	end, "import")
+	nGlobal.setPath=SpaceBuiltin.new(function(vNode, vPath)
 		self._searchPath = vPath
-	end
-	nGlobal.foreachPair=function(vObject, vFunc)
+	end, "setPath")
+	nGlobal.foreachPair=SpaceBuiltin.new(function(vNode, vObject, vFunc)
 		const vObject = vObject:checkAtomUnion()
 		const d = vObject:copyValueDict(vObject)
 		for k,v in pairs(d) do
 			vFunc(k,v)
 		end
-	end
-	nGlobal.print=function(...)
-		self:nodeInfo(Node.newDebugNode(), ...)
-	end
+	end, "foreachPair")
+	nGlobal.print=SpaceBuiltin.new(function(vNode, ...)
+		self:nodeInfo(vNode, ...)
+	end)
 	const nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
 		nRetGlobal[self._manager:Literal(k)] = v

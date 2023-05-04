@@ -1,0 +1,27 @@
+
+const Node = require "thlua.code.Node"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const SpaceBuiltin = {}
+SpaceBuiltin.__index = SpaceBuiltin
+SpaceBuiltin.__tostring=function(self:clazz.SpaceBuiltin):Ret(String)
+    return "SpaceBuiltin-"..self._name
+end
+SpaceBuiltin.__call=function(self:clazz.SpaceBuiltin, ...:Any):Ret(Any)
+    return self._func(Node.newDebugNode(), ...)
+end
+
+function:class(clazz.SpaceBuiltin) SpaceBuiltin.new(vFunc:AnyFunction, vName:String)
+    return setmetatable({.class
+        _func=vFunc,
+        _name=vName,
+    }, SpaceBuiltin)
+end
+
+function.open SpaceBuiltin.is(v):isguard(clazz.SpaceBuiltin)
+    return getmetatable(v) == SpaceBuiltin
+end
+
+return SpaceBuiltin
