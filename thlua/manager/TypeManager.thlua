@@ -7,7 +7,7 @@ const Exception = require "thlua.Exception"
 const Never = require "thlua.type.union.Never"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const String = require "thlua.type.basic.String"
-const NumberLiteral = require "thlua.type.basic.NumberLiteral"
+const FloatLiteral = require "thlua.type.basic.FloatLiteral"
 const Number = require "thlua.type.basic.Number"
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 const Integer = require "thlua.type.basic.Integer"
@@ -33,7 +33,7 @@ const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
 const TypedMemberFunction = require "thlua.type.func.TypedMemberFunction"
 
 const StringLiteralUnion = require "thlua.type.union.StringLiteralUnion"
-const NumberLiteralUnion = require "thlua.type.union.NumberLiteralUnion"
+const MixingNumberUnion = require "thlua.type.union.MixingNumberUnion"
 const ObjectUnion = require "thlua.type.union.ObjectUnion"
 const FuncUnion = require "thlua.type.union.FuncUnion"
 const FalsableUnion = require "thlua.type.union.FalsableUnion"
@@ -114,7 +114,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
-		_floatLiteralDict = {}@Dict(Number, clazz.NumberLiteral),
+		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
 		_integerLiteralDict = {}@Dict(Integer, clazz.IntegerLiteral),
 		_sbLiteralDict={}@Struct {[String]=clazz.StringLiteral, [Boolean]=OrNil(clazz.BooleanLiteral)},
 		_unionSignToType=setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion),
@@ -183,7 +183,7 @@ function TypeManager:lateInitStringLib(vStringLib:clazz.IAtomType)
 end
 
 function TypeManager:isLiteral(vType:clazz.IAtomType):Ret(Boolean)
-	if StringLiteral.is(vType) or NumberLiteral.is(vType) or IntegerLiteral.is(vType) or BooleanLiteral.is(vType) then
+	if StringLiteral.is(vType) or FloatLiteral.is(vType) or IntegerLiteral.is(vType) or BooleanLiteral.is(vType) then
 		return true
 	else
 		return false
@@ -432,7 +432,7 @@ function TypeManager:stackNativeOpenFunction(vFn):Ret(clazz.OpenFunction)
 	return nOpenFn
 end
 
-function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(clazz.NumberLiteral, clazz.IntegerLiteral, clazz.StringLiteral, clazz.BooleanLiteral))
+function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(clazz.FloatLiteral, clazz.IntegerLiteral, clazz.StringLiteral, clazz.BooleanLiteral))
 	const t = type(vValue)
 	if t == "number" then
 		if math.type(vValue) == "integer" then
@@ -447,7 +447,7 @@ function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(cl
 			const nLiteralDict = self._floatLiteralDict
 			local nLiteralType = nLiteralDict[vValue]
 			if not nLiteralType then
-				nLiteralType = NumberLiteral.new(self, vValue)
+				nLiteralType = FloatLiteral.new(self, vValue)
 				nLiteralDict[vValue] = nLiteralType
 			end
 			return nLiteralType
@@ -700,7 +700,7 @@ end
 function TypeManager:literal2Primitive(vType:clazz.UAtomUnion):Ret(clazz.UAtomUnion)
 	if BooleanLiteral.is(vType) then
 		return self.type.Boolean:checkAtomUnion()
-	elseif NumberLiteral.is(vType) then
+	elseif FloatLiteral.is(vType) then
 		return self.type.Number
 	elseif IntegerLiteral.is(vType) then
 		return self.type.Integer

@@ -1,5 +1,5 @@
 
-const NumberLiteral = require "thlua.type.basic.NumberLiteral"
+const FloatLiteral = require "thlua.type.basic.FloatLiteral"
 const Number = require "thlua.type.basic.Number"
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 const IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
@@ -12,23 +12,23 @@ const class = require "thlua.class"
 
 (@let.clazz = import($class).clazz)
 
-const NumberLiteralUnion = class@<clazz.NumberLiteralUnion, false>(BaseUnionType)
+const MixingNumberUnion = class@<clazz.MixingNumberUnion, false>(BaseUnionType)
 
-function.open NumberLiteralUnion:ctor(vTypeManager:clazz.TypeManager)
-	self._floatLiteralSet={} @Dict(clazz.NumberLiteral, True)
+function.open MixingNumberUnion:ctor(vTypeManager:clazz.TypeManager)
+	self._floatLiteralSet={} @Dict(clazz.FloatLiteral, True)
 	self._integerPart=false@OrFalse(clazz.Integer, clazz.IntegerLiteralUnion, clazz.IntegerLiteral)
 	self.bits=TYPE_BITS.NUMBER
 end
 
-function NumberLiteralUnion:updateUnify()
+function MixingNumberUnion:updateUnify()
 	const nIntegerPart = self._integerPart
 	if IntegerLiteralUnion.is(nIntegerPart) then
 		self._integerPart = self._manager:_unifyUnion(nIntegerPart) @> clazz.IntegerLiteralUnion
 	end
 end
 
-function NumberLiteralUnion:putAwait(vType)
-	if NumberLiteral.is(vType) then
+function MixingNumberUnion:putAwait(vType)
+	if FloatLiteral.is(vType) then
 		self._floatLiteralSet[vType] = true
 	elseif Integer.is(vType) then
 		self._integerPart = vType
@@ -53,7 +53,7 @@ function NumberLiteralUnion:putAwait(vType)
 	end
 end
 
-function NumberLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
+function MixingNumberUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Number.is(vType) or Truth.is(vType) then
 		return self
 	elseif Integer.is(vType) then
@@ -63,8 +63,8 @@ function NumberLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 	end
 end
 
-function NumberLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
-	if NumberLiteral.is(vType) then
+function MixingNumberUnion:assumeIncludeAtom(vAssumeSet, vType, _)
+	if FloatLiteral.is(vType) then
 		if self._floatLiteralSet[vType] then
 			return vType
 		else
@@ -76,7 +76,7 @@ function NumberLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 	end
 end
 
-function NumberLiteralUnion:foreach(vFunc)
+function MixingNumberUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._floatLiteralSet) do
 		vFunc(nLiteralType)
 	end
@@ -86,4 +86,4 @@ function NumberLiteralUnion:foreach(vFunc)
 	end
 end
 
-return NumberLiteralUnion
+return MixingNumberUnion
