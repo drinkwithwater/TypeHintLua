@@ -1,6 +1,9 @@
 
 const NumberLiteral = require "thlua.type.basic.NumberLiteral"
 const Number = require "thlua.type.basic.Number"
+const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
+const IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
+const Integer = require "thlua.type.basic.Integer"
 const Truth = require "thlua.type.basic.Truth"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 
@@ -12,13 +15,39 @@ const class = require "thlua.class"
 const NumberLiteralUnion = class@<clazz.NumberLiteralUnion, false>(BaseUnionType)
 
 function.open NumberLiteralUnion:ctor(vTypeManager:clazz.TypeManager)
-	self._literalSet={} @Dict(clazz.NumberLiteral, True)
+	self._floatLiteralSet={} @Dict(clazz.NumberLiteral, True)
+	self._integerPart=false@OrFalse(clazz.Integer, clazz.IntegerLiteralUnion, clazz.IntegerLiteral)
 	self.bits=TYPE_BITS.NUMBER
+end
+
+function NumberLiteralUnion:updateUnify()
+	const nIntegerPart = self._integerPart
+	if IntegerLiteralUnion.is(nIntegerPart) then
+		self._integerPart = self._manager:_unifyUnion(nIntegerPart) @> clazz.IntegerLiteralUnion
+	end
 end
 
 function NumberLiteralUnion:putAwait(vType)
 	if NumberLiteral.is(vType) then
-		self._literalSet[vType] = true
+		self._floatLiteralSet[vType] = true
+	elseif Integer.is(vType) then
+		self._integerPart = vType
+	elseif IntegerLiteral.is(vType) then
+		const nIntegerPart = self._integerPart
+		if not nIntegerPart then
+			self._integerPart = vType
+		elseif IntegerLiteral.is(nIntegerPart) then
+			const nIntegerUnion = IntegerLiteralUnion.new(self._manager)
+			nIntegerUnion:putAwait(vType)
+			nIntegerUnion:putAwait(nIntegerPart)
+			self._integerPart = nIntegerUnion
+		elseif IntegerLiteralUnion.is(nIntegerPart) then
+			nIntegerPart:putAwait(vType)
+		elseif Integer.is(nIntegerPart) then
+			-- pass
+		else
+			error("set put wrong")
+		end
 	else
 		error("set put wrong")
 	end
@@ -27,6 +56,8 @@ end
 function NumberLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Number.is(vType) or Truth.is(vType) then
 		return self
+	elseif Integer.is(vType) then
+		return self._integerPart
 	else
 		return self:assumeIncludeAtom(nil, vType)
 	end
@@ -34,19 +65,24 @@ end
 
 function NumberLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 	if NumberLiteral.is(vType) then
-		if self._literalSet[vType] then
+		if self._floatLiteralSet[vType] then
 			return vType
 		else
 			return false
 		end
 	else
-		return false
+		const nIntegerPart = self._integerPart
+		return nIntegerPart and nIntegerPart:assumeIncludeAtom(vAssumeSet, vType, _)
 	end
 end
 
 function NumberLiteralUnion:foreach(vFunc)
-	for nLiteralType, v in pairs(self._literalSet) do
+	for nLiteralType, v in pairs(self._floatLiteralSet) do
 		vFunc(nLiteralType)
+	end
+	const nIntegerPart = self._integerPart
+	if nIntegerPart then
+		nIntegerPart:foreach(vFunc)
 	end
 end
 

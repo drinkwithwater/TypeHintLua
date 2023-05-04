@@ -3,6 +3,8 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 
 const StringLiteralUnion = require "thlua.type.union.StringLiteralUnion"
 const NumberLiteralUnion = require "thlua.type.union.NumberLiteralUnion"
+const IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
+const NumberLiteral = require "thlua.type.basic.NumberLiteral"
 const ObjectUnion = require "thlua.type.union.ObjectUnion"
 const FuncUnion = require "thlua.type.union.FuncUnion"
 const ComplexUnion = require "thlua.type.union.ComplexUnion"
@@ -31,41 +33,45 @@ const TrueBitToTrue = {
 
 const TypeCollection = {}
 TypeCollection.__index=TypeCollection
-TypeCollection.__len=function(self)
-	return self.count
-end
 
 function:class(clazz.TypeCollection) TypeCollection.new(vManager:clazz.TypeManager)
 	const self = setmetatable({.class
 		_manager=vManager,
 		_type=vManager.type,
-		bitsToSet={} @ Dict(Number,Dict(clazz.IAtomType,True)),
-		bits=0 @ Number,
- 		count=0 @ Number,
+		_bitsToSet={} @ Dict(Number,Dict(clazz.IAtomType,True)),
+		_metaSet={} @ Dict(Truth, True),
+		_bits=0 @ Number,
+ 		_count=0 @ Number,
 	}, TypeCollection)
 	return self
 end
 
-function TypeCollection:_putOne(vType:clazz.IAtomType)
-	local nBitsToSet = self.bitsToSet
-	local nBits = vType.bits
-	local nSet = nBitsToSet[nBits]
-	if not nSet then
-		nSet = {}
-		nBitsToSet[nBits] = nSet
-	end
-	if not nSet[vType] then
-		nSet[vType] = true
-		self.count = self.count + 1
-	end
-end
 
 function TypeCollection:put(vType:clazz.UAllType)
 	const nType = vType:checkAtomUnion()
-	nType:foreach(function(vSubType)
-		self.bits = self.bits | vSubType.bits
-		self:_putOne(vSubType)
+	const nBitsToSet = self._bitsToSet
+	const nMetaSet = self._metaSet
+	local nCurBits = self._bits
+	local nCurCount = self._count
+	nType:foreach(function(vAtomType)
+		nCurBits = nCurBits | vAtomType.bits
+		-- 1. put into type set
+		const nAtomBits = vAtomType.bits
+		local nSet = nBitsToSet[nAtomBits]
+		if not nSet then
+			nSet = {}
+			nBitsToSet[nAtomBits] = nSet
+		end
+		if not nSet[vAtomType] then
+			nSet[vAtomType] = true
+			nCurCount = nCurCount + 1
+		end
+		-- 2. put into meta set
+		const nMeta = getmetatable(vAtomType)
+		nMetaSet[nMeta!] = true
 	end)
+	self._bits = nCurBits
+	self._count = nCurCount
 end
 
 function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomType, True)):Ret(clazz.UAtomUnion)
@@ -73,11 +79,20 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 	if vBit == TYPE_BITS.TRUE then
 		return self._type.True
 	elseif vBit == TYPE_BITS.NUMBER then
-		local nNumberType = self._type.Number
+		const nNumberType = self._type.Number
 		if vSet[nNumberType] then
 			return nNumberType
 		end
-		nUnionType = NumberLiteralUnion.new(self._manager)
+		const nHasFloatLiteral = self._metaSet[NumberLiteral.meta]
+		const nIntegerType = self._type.Integer
+		if vSet[nIntegerType] and not nHasFloatLiteral then
+			return nIntegerType
+		end
+		if nHasFloatLiteral then
+			nUnionType = NumberLiteralUnion.new(self._manager)
+		else
+			nUnionType = IntegerLiteralUnion.new(self._manager)
+		end
 	elseif vBit == TYPE_BITS.STRING then
 		local nStringType = self._type.String
 		if vSet[nStringType] then
@@ -100,15 +115,15 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 end
 
 function TypeCollection:mergeToAtomUnion():Ret(clazz.UAtomUnion)
-	local nBits = self.bits
+	local nBits = self._bits
 	-- 1. fast type
 	if nBits == 0 then
 		-- 1) bits=0 for never
 		return self._type.Never
 	else
 		-- 2). count == 1 for only one type, some bit for only one type
-		if self.count == 1 or FastTypeBitsToTrue[nBits] then
-			const nOneType = (next(self.bitsToSet[nBits]))
+		if self._count == 1 or FastTypeBitsToTrue[nBits] then
+			const nOneType = (next(self._bitsToSet[nBits]))
 			return (assert(nOneType, "logic error when type merge"))
 		end
 	end
@@ -116,7 +131,7 @@ function TypeCollection:mergeToAtomUnion():Ret(clazz.UAtomUnion)
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
 	-- 2. make true part
 	local nTrueBitToType:Dict(Number, clazz.UAtomUnion) = {}
-	for nBit, nSet in pairs(self.bitsToSet) do
+	for nBit, nSet in pairs(self._bitsToSet) do
 		if TrueBitToTrue[nBit] then
 			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
 		end

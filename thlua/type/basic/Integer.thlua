@@ -1,0 +1,46 @@
+
+const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const Integer = class@<clazz.Integer, false>(BaseAtomType)
+
+function.open Integer:ctor(vManager:clazz.TypeManager)
+	self.bits=TYPE_BITS.NUMBER
+end
+
+function Integer:detailString(v, vVerbose)
+	return "Integer"
+end
+
+function Integer:meta_uop_some(vContext, vOper)
+	return self
+end
+
+function Integer:native_getmetatable(vContext)
+	return self._manager.type.Nil
+end
+
+function Integer:native_type()
+	return self._manager:Literal("number")
+end
+
+function Integer:assumeIncludeAtom(vAssumetSet, vType, _)
+	if IntegerLiteral.is(vType) then
+		return self
+	elseif self == vType then
+		return self
+	else
+		return false
+	end
+end
+
+function Integer:isSingleton()
+	return false
+end
+
+return Integer

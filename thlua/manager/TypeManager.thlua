@@ -9,6 +9,8 @@ const StringLiteral = require "thlua.type.basic.StringLiteral"
 const String = require "thlua.type.basic.String"
 const NumberLiteral = require "thlua.type.basic.NumberLiteral"
 const Number = require "thlua.type.basic.Number"
+const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
+const Integer = require "thlua.type.basic.Integer"
 const BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 const Nil = require "thlua.type.basic.Nil"
 const Thread = require "thlua.type.basic.Thread"
@@ -94,6 +96,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 			True = BooleanLiteral.new(vManager, true),
 			Thread = Thread.new(vManager),
 			Number = Number.new(vManager),
+			Integer = Integer.new(vManager),
 			String = String.new(vManager),
 			Truth = Truth.new(vManager),
 			AnyFunction = AnyFunction.new(vManager, vRootNode),
@@ -101,7 +104,6 @@ function:class(clazz.TypeManager) TypeManager.new(
 			Any = nil @! clazz.TypeReference,
 			AnyObject = nil @! clazz.Interface,
 		}
-		self.Integer = self.Number
 		return self
 	end
 	const self = setmetatable({.class
@@ -111,7 +113,9 @@ function:class(clazz.TypeManager) TypeManager.new(
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
-		_literalDict={}@Struct {[Number]=clazz.NumberLiteral, [String]=clazz.StringLiteral, [Boolean]=OrNil(clazz.BooleanLiteral)},
+		_floatLiteralDict = {}@Dict(Number, clazz.NumberLiteral),
+		_integerLiteralDict = {}@Dict(Integer, clazz.IntegerLiteral),
+		_sbLiteralDict={}@Struct {[String]=clazz.StringLiteral, [Boolean]=OrNil(clazz.BooleanLiteral)},
 		_unionSignToType=setmetatable({}, {__mode="v"}) @ Dict(String, clazz.UAtomUnion),
 		_typeIdCounter=0@Integer,
 		_rootNode=vRootNode,
@@ -419,29 +423,46 @@ function TypeManager:stackNativeOpenFunction(vFn):Ret(clazz.OpenFunction)
 	return nOpenFn
 end
 
-function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(clazz.NumberLiteral, clazz.StringLiteral, clazz.BooleanLiteral))
-	const nLiteralDict = self._literalDict
-	local nLiteralType = nLiteralDict[vValue]
-	if not nLiteralType then
-		const t = type(vValue)
-		if t == "number" then
-			nLiteralType = NumberLiteral.new(self, vValue)
-			nLiteralDict[vValue] = nLiteralType
-		elseif t == "string" then
-			nLiteralType = StringLiteral.new(self, vValue)
-			nLiteralDict[vValue] = nLiteralType
-		elseif t == "boolean" then
-			if vValue then
-				nLiteralType = self.type.True
-			else
-				nLiteralType = self.type.False
+function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(clazz.NumberLiteral, clazz.IntegerLiteral, clazz.StringLiteral, clazz.BooleanLiteral))
+	const t = type(vValue)
+	if t == "number" then
+		if math.type(vValue) == "integer" then
+			const nLiteralDict = self._integerLiteralDict
+			local nLiteralType = nLiteralDict[vValue]
+			if not nLiteralType then
+				nLiteralType = IntegerLiteral.new(self, vValue)
+				nLiteralDict[vValue] = nLiteralType
 			end
-			nLiteralDict[vValue] = nLiteralType
+			return nLiteralType
 		else
-			error("literal must take number or string value"..t)
+			const nLiteralDict = self._floatLiteralDict
+			local nLiteralType = nLiteralDict[vValue]
+			if not nLiteralType then
+				nLiteralType = NumberLiteral.new(self, vValue)
+				nLiteralDict[vValue] = nLiteralType
+			end
+			return nLiteralType
 		end
+	else
+		const nLiteralDict = self._sbLiteralDict
+		local nLiteralType = nLiteralDict[vValue]
+		if not nLiteralType then
+			if t == "string" then
+				nLiteralType = StringLiteral.new(self, vValue)
+				nLiteralDict[vValue] = nLiteralType
+			elseif t == "boolean" then
+				if vValue then
+					nLiteralType = self.type.True
+				else
+					nLiteralType = self.type.False
+				end
+				nLiteralDict[vValue] = nLiteralType
+			else
+				error("literal must take boolean or number or string value but got:"..tostring(t))
+			end
+		end
+		return nLiteralType
 	end
-	return nLiteralType
 end
 
 function TypeManager:TypeTuple(vNode:clazz.IBaseNode, vTypeList:List(clazz.UAllType)):Ret(clazz.TypeTuple)
@@ -672,6 +693,8 @@ function TypeManager:literal2Primitive(vType:clazz.UAtomUnion):Ret(clazz.UAtomUn
 		return self.type.Boolean:checkAtomUnion()
 	elseif NumberLiteral.is(vType) then
 		return self.type.Number
+	elseif IntegerLiteral.is(vType) then
+		return self.type.Integer
 	elseif StringLiteral.is(vType) then
 		return self.type.String
 	else
