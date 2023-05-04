@@ -1,8 +1,18 @@
 
 const class = require "thlua.class"
+const CompletionKind = require "thlua.context.CompletionKind"
+const MemberFunction = require "thlua.type.func.MemberFunction"
+const BaseFunction = require "thlua.type.func.BaseFunction"
+const ClassFactory = require "thlua.type.func.ClassFactory"
+const Reference = require "thlua.refer.Reference"
+
+const NumberLiteral = require "thlua.type.basic.NumberLiteral"
+const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
+const StringLiteral = require "thlua.type.basic.StringLiteral"
+const BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 
 (@do
-	let.clazz = import("thlua.type.TypeClass").clazz
+	let.clazz = import($class).clazz
 	clazz.ICompletion = Interface {
 		putCompletion=Mfn(clazz.FieldCompletion)
 	}
@@ -12,11 +22,46 @@ const FieldCompletion = class@<clazz.FieldCompletion, false>()
 
 function.open FieldCompletion:ctor()
 	self._passDict = {}@Dict(clazz.IAtomType, True)
-	self._keyToType = {}@Dict(String, True)
+	self._keyToKind = {}@Dict(String, Integer)
 end
 
-function FieldCompletion:putPair(vKey:String, vValue:Union(Truth, False))
-	self._keyToType[vKey] = true
+const LiteralMetaDict:Dict(Truth, True) = {
+	[StringLiteral.meta]= true,
+	[IntegerLiteral.meta]= true,
+	[NumberLiteral.meta]= true,
+	[BooleanLiteral.meta]= true,
+}
+
+const function isLiteral(vType:clazz.UAtomUnion):Ret(Boolean)
+	const nMeta = getmetatable(vType)
+	if nMeta and LiteralMetaDict[nMeta] then
+		return true
+	else
+		return false
+	end
+end
+
+function FieldCompletion:putField(vKey:String, vValue:clazz.UAllType)
+	const nType = vValue:checkAtomUnion()
+	if MemberFunction.is(nType) then
+		self._keyToKind[vKey] = CompletionKind.Method
+	elseif ClassFactory.is(nType) then
+		self._keyToKind[vKey] = CompletionKind.Function
+	elseif BaseFunction.is(nType) then
+		self._keyToKind[vKey] = CompletionKind.Function
+	elseif isLiteral(nType) then
+		self._keyToKind[vKey] = CompletionKind.Constant
+	else
+		self._keyToKind[vKey] = CompletionKind.Field
+	end
+end
+
+function FieldCompletion:putSpaceField(vKey:String, vValue:clazz.LocalSpaceValue)
+	if Reference.is(vValue) then
+		self._keyToKind[vKey] = CompletionKind.TypeParameter
+	else
+		self._keyToKind[vKey] = CompletionKind.Module
+	end
 end
 
 function FieldCompletion:testAndSetPass(vAtomType:clazz.IAtomType):Ret(Boolean)
@@ -28,9 +73,9 @@ function FieldCompletion:testAndSetPass(vAtomType:clazz.IAtomType):Ret(Boolean)
 	end
 end
 
-function FieldCompletion:foreach(vOnPair:Fn(String, Truth))
-	for k,v in pairs(self._keyToType) do
-		vOnPair(k,v)
+function FieldCompletion:foreach(vOnPair:Fn(String, Integer))
+	for k,v in pairs(self._keyToKind) do
+		vOnPair(k, v)
 	end
 end
 
