@@ -116,7 +116,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 						return vContext:FixedTermTuple({})
 					end
 				else
-					if IntegerLiteral.is(nFirstType) then
+					if Integer.is(nFirstType) then
 						const nCollection = nManager:TypeCollection()
 						for i=2, #vTermTuple do
 							const nType = vTermTuple:get(vContext, i):getType()
@@ -137,7 +137,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 							return nManager:TypeTuple(vContext:getNode(), nReList):makeTermTuple(vContext)
 						end
 					else
-						vContext:error("select's first value must be number or number-literal")
+						vContext:error("select's first value must be integer or integer-literal")
 						return vContext:FixedTermTuple({})
 					end
 				end
@@ -203,15 +203,15 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 end
 
 function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
-	local nNumber = vManager.type.Number
+	local nInteger = vManager.type.Integer
 	local nNil = vManager.type.Nil
 	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 		const nFirstTerm = vTermTuple:get(vContext, 1)
 		--local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
-		local nNotNilValue = vContext:getStack():anyNodeMetaGet(vContext:getNode(), nFirstTerm, vContext:RefineTerm(nNumber), true):getType()
+		local nNotNilValue = vContext:getStack():anyNodeMetaGet(vContext:getNode(), nFirstTerm, vContext:RefineTerm(nInteger), true):getType()
 		local nValueTerm = vContext:RefineTerm(vManager:checkedUnion(nNotNilValue, nNil))
 		local nKeyValue:Dict(clazz.IAtomType, clazz.UAtomUnion) = {
-			[nNumber]=nNotNilValue,
+			[nInteger]=nNotNilValue,
 			[nNil]=nNil,
 		}
 		local nTypeCaseList:List(clazz.TypeCasePair) = {}
@@ -257,8 +257,9 @@ function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 end
 
 function native.make_mathematic(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
-	local nNumber = vManager.type.Number
-	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
+	-- TODO, case for float
+	local nInteger = vManager.type.Integer
+	return vManager:checkedFn(nInteger, nInteger):Ret(nInteger)
 end
 
 function native.make_comparison(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
@@ -267,8 +268,8 @@ function native.make_comparison(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 end
 
 function native.make_bitwise(vManager:clazz.TypeManager):Ret(clazz.TypedFunction)
-	local nNumber = vManager.type.Number
-	return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
+	local nInteger = vManager.type.Integer
+	return vManager:checkedFn(nInteger, nInteger):Ret(nInteger)
 end
 
 function native.make_concat(vManager:clazz.TypeManager):Ret(clazz.TypedFunction)
