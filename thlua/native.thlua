@@ -8,6 +8,8 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 const Integer = require "thlua.type.basic.Integer"
+const NumberLiteral = require "thlua.type.basic.NumberLiteral"
+const Number = require "thlua.type.basic.Number"
 const Truth = require "thlua.type.basic.Truth"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
@@ -256,10 +258,32 @@ function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	end)
 end
 
-function native.make_mathematic(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
-	-- TODO, case for float
-	local nInteger = vManager.type.Integer
-	return vManager:checkedFn(nInteger, nInteger):Ret(nInteger)
+function native.make_mathematic(vManager:clazz.TypeManager, vIsDivide:OrNil(True)):Ret(clazz.IAtomType)
+	const nNumber = vManager.type.Number
+	if vIsDivide then
+		return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
+	end
+	const nInteger = vManager.type.Integer
+	return vManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		const nOperCtx = vStack:inplaceOper()
+		const nType1 = vTermTuple:checkFixed(nOperCtx, 1):getType()
+		const nType2 = vTermTuple:checkFixed(nOperCtx, 2):getType()
+		local nHasFloat = false
+		const nEachFn:Fn(clazz.IAtomType) = function(vAtomType)
+			if NumberLiteral.is(vAtomType) or Number.is(vAtomType) then
+				nHasFloat = true
+			elseif not (IntegerLiteral.is(vAtomType) or Integer.is(vAtomType)) then
+				nOperCtx:error("math operator must take number")
+			end
+		end
+		nType1:foreach(nEachFn)
+		nType2:foreach(nEachFn)
+		if nHasFloat then
+			return nOperCtx:FixedTermTuple({nOperCtx:RefineTerm(nNumber)})
+		else
+			return nOperCtx:FixedTermTuple({nOperCtx:RefineTerm(nInteger)})
+		end
+	end)
 end
 
 function native.make_comparison(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
