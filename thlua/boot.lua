@@ -4,21 +4,9 @@ local boot = {}
 
 boot.path = ""
 
-function boot.compile(chunk, chunkName)
-	return ParseEnv.compile(chunk, chunkName)
-end
+boot.compile = ParseEnv.compile
 
-function boot.load(chunk, chunkName, ...)
-	local luaCode, err = boot.compile(chunk, chunkName)
-	if not luaCode then
-		return false, err
-	end
-	local f, err = load(luaCode, chunkName, ...)
-	if not f then
-		return false, err
-	end
-	return f
-end
+boot.load = ParseEnv.load
 
 function boot.searcher(name)
 	local fileName, err1 = package.searchpath(name, boot.path)

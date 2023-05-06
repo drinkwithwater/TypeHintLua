@@ -47,6 +47,9 @@ return require "thlua.boot"
 class Packer(object):
     def __init__(self):
         self.pathContentList = []
+        with open("./thlua/code/ParseEnv.lua") as fi:
+            content = fi.read()
+        self.parserContent = content
 
     def scanRoot(self):
         self.scan("./thlua")
@@ -84,7 +87,10 @@ class Packer(object):
         with open("thlua.lua", "w") as fo:
             content = "".join(l)
             fo.write(content)
-        with open("../pyhello/thlua.lua", "w") as fo:
+
+    def buildCompilerOnly(self):
+        l = ["return (function()", self.parserContent, " end)().compile"]
+        with open("compile.lua", "w") as fo:
             content = "".join(l)
             fo.write(content)
 
@@ -137,5 +143,6 @@ class Packer(object):
 packer = Packer()
 packer.scanRoot()
 packer.build()
+#packer.buildCompilerOnly()
 packer.buildForVSC()
 packer.buildForWeb()

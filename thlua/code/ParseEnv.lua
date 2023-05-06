@@ -801,4 +801,16 @@ function ParseEnv.parse(vContent)
 	end
 end
 
+function ParseEnv.load(chunk, chunkName, ...)
+	local luaCode, err = ParseEnv.compile(chunk, chunkName)
+	if not luaCode then
+		return false, err
+	end
+	local f, err = load(luaCode, chunkName, ...)
+	if not f then
+		return false, err
+	end
+	return f
+end
+
 return ParseEnv
