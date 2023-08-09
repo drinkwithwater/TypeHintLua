@@ -18,12 +18,10 @@ set(LUA_SRC_PATH 3rd/lua)
 
 #begin lua-rapidjson
 set (RAPIDJSON_SRC
-	3rd/lua-rapidjson/src/Document.cpp
-	3rd/lua-rapidjson/src/rapidjson.cpp
-	3rd/lua-rapidjson/src/Schema.cpp
-	3rd/lua-rapidjson/src/values.cpp
+	3rd/lua-rapidjson/source/rapidjson.cpp
+	3rd/xlua/i64lib.c
 )
-list(APPEND THIRDPART_INC 3rd/lua-rapidjson/rapidjson/include 3rd/lua-rapidjson/src)
+list(APPEND THIRDPART_INC 3rd/lua-rapidjson/include 3rd/xlua)
 set (THIRDPART_SRC ${THIRDPART_SRC} ${RAPIDJSON_SRC})
 #end lua-rapidjson
 
