@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import { workspace, ExtensionContext, Diagnostic } from 'vscode';
+import * as os from 'os';
 
 import {
 	LanguageClient,
@@ -20,8 +21,20 @@ let fastClient: LanguageClient;
 let slowClient: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-	const serverCommand = context.asAbsolutePath(
-		path.join('server', 'lua.exe')
+	let luaBin = "lua.exe"
+	if(os.platform() == "win32") {
+		luaBin = "lua.exe";
+	} else if (os.platform() == "linux"){
+		luaBin = "linux_lua";
+	} else if (os.platform() == "darwin"){
+		if(os.arch() == "x64"){
+			luaBin = "osx_x64_lua";
+		} else {
+			luaBin = "osx_arm_lua";
+		}
+	}
+	let serverCommand = context.asAbsolutePath(
+		path.join('server', luaBin)
 	);
 	const serverCommandArg1 = context.asAbsolutePath(
 		path.join('server', 'thlua.lua')
