@@ -179,6 +179,7 @@ local tagC=setmetatable({
 })
 
 local hintC={
+	-- short hint
 	wrap=function(isStat, pattBegin, pattBody, pattEnd)
 		pattBody = Cenv * pattBody / function(env, ...) return {...} end
 		return Cenv *
@@ -192,6 +193,7 @@ local hintC={
 			return nHintSpace
 		end
 	end,
+	-- long hint
 	long=function()
 		local name = tagC.String(vvA.Name)
 		local colonInvoke = name * symbA"(" * vv.ExprListOrEmpty * symbA")";
@@ -236,15 +238,16 @@ local hintC={
 			end
 		end
 	end,
-	char=function(char)
-		return lpeg.Cmt(Cenv*Cpos*lpeg.P(char), function(_, i, env, pos)
+	-- string to be true or false
+	take=function(patt)
+		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
 			if not env.hinting then
-				env:markDel(pos, pos)
+				env:markDel(pos, posEnd-1)
 				return true
 			else
 				return false
 			end
-		end)
+		end) * vv.Skip
 	end,
 }
 
@@ -349,7 +352,9 @@ local G = lpeg.P { "TypeHintLua";
 		return true
 	end);
 
-	NotnilHint = hintC.char("!") * vv.Skip;
+	NotnilHint = hintC.take(lpeg.P("!"));
+
+	KeyConstHint = hintC.take(lpeg.P("const")*-vv.NameRest);
 
 	AtCastHint = hintC.wrap(
 		false,
@@ -400,7 +405,8 @@ local G = lpeg.P { "TypeHintLua";
 
 	Constructor = (function()
 		local Pair = tagC.Pair(
-          ((symb"[" * vvA.Expr * symbA"]") + tagC.String(vv.Name)) *
+          lpeg.Cg(vv.KeyConstHint*cc(true) + cc(false), "isConst") *
+		  ((symb"[" * vvA.Expr * symbA"]") + tagC.String(vv.Name)) *
           symb"=" * vv.Expr)
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
