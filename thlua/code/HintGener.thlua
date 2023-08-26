@@ -311,18 +311,24 @@ local TagToVisiting:RealTraverser = {
 		end
 		return self:stkWrap(node).TABLE_NEW(
 			self:visitLongHint(node.hintLong),
+			tostring(node.isConst),
 			self:fnRetWrap(self:listWrap(self:concatList@<Union(node.Pair, node.Expr)>(node, function(i, vTableItem)
 				if vTableItem.tag ~= "Pair" then
 					if i==#node and tailDots then
 						return "nil"
 					else
-						return self:listWrap(
-							self:stkWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
-							self:visit(vTableItem)
-						)
+						return self:dictWrap({
+							isConst="false",
+							key=self:stkWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
+							value=self:visit(vTableItem)
+						})
 					end
 				else
-					return self:listWrap(self:visit(vTableItem[1]), self:visit(vTableItem[2]))
+					return self:dictWrap({
+						isConst=tostring(vTableItem.isConst),
+						key=self:visit(vTableItem[1]),
+						value=self:visit(vTableItem[2])
+					})
 				end
 			end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
 		)

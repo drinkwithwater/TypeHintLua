@@ -354,7 +354,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	NotnilHint = hintC.take(lpeg.P("!"));
 
-	KeyConstHint = hintC.take(lpeg.P("const")*-vv.NameRest);
+	TableConstHint = hintC.take(lpeg.P("const")*-vv.NameRest);
 
 	AtCastHint = hintC.wrap(
 		false,
@@ -405,13 +405,14 @@ local G = lpeg.P { "TypeHintLua";
 
 	Constructor = (function()
 		local Pair = tagC.Pair(
-          lpeg.Cg(vv.KeyConstHint*cc(true) + cc(false), "isConst") *
+          lpeg.Cg(vv.TableConstHint*cc(true) + cc(false), "isConst") *
 		  ((symb"[" * vvA.Expr * symbA"]") + tagC.String(vv.Name)) *
           symb"=" * vv.Expr)
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
 		local FieldList = (Field * (fieldsep * Field)^0 * fieldsep^-1)^-1
-		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
+		return tagC.Table(lpeg.Cg(vv.TableConstHint*cc(true) + cc(false), "isConst") *
+			symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
 	end)();
 
 	IdentUse = Cpos*vv.Name*(vv.NotnilHint * cc(true) + cc(false))*Cpos/parF.identUse;

@@ -34,6 +34,7 @@ const LogicContext = require "thlua.context.LogicContext"
 	let.node = import("thlua.code.Node").node
 end)
 
+-- instruction stack
 const InstStack = class@<clazz.InstStack, false>(BaseStack)
 
 function InstStack:AUTO(vNode:node.IAstNode):Ret(clazz.AutoFlag)
@@ -331,7 +332,7 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
+function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vIsConst:Boolean, vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)

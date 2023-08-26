@@ -12,11 +12,12 @@ const TableBuilder = {}
 end)
 
 (@do
-	let.Pair = Struct {
-		[1]=clazz.RefineTerm,
-		[2]=clazz.RefineTerm,
+	let.TermPair = Struct {
+		isConst=Boolean,
+		key=clazz.RefineTerm,
+		value=clazz.RefineTerm,
 	}
-	let.PairMaker = Fn():Ret(List(Pair), Integer, clazz.FixedTermTuple)
+	let.PairMaker = Fn():Ret(List(TermPair), Integer, clazz.FixedTermTuple)
 end)
 
 TableBuilder.__index=TableBuilder
@@ -49,31 +50,33 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	const nStack = self._stack
 	const nManager = nStack:getTypeManager()
 	const vList, vDotsStart, vDotsTuple = self._pairMaker()
-	const nTermDict:Dict(clazz.IAtomType, clazz.RefineTerm) = {}
 	const nTypePairList:List(Struct {clazz.UAtomUnion, clazz.UAtomUnion}) = {}
+	const nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for i, nPair in ipairs(vList) do
-		const nKey = nPair[1]:getType()
-		const nTerm = nPair[2]
+		const nKey = nPair.key:getType()
+		const nTerm = nPair.value
 		local nValue = nTerm:getType()
 		if nKey:isUnion() or not nKey:isSingleton() then
 			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
 			if OpenTable.is(vNewTable) then
 				self._stack:getRuntime():nodeError(self._node, "open table can only take singleton type as key")
+			else
+				nTypePairList[i] = {nKey, nValue}
 			end
 		else
-			nTermDict[nKey] = nPair[2]
+			nTypePairList[i] = {nKey, nValue}
 		end
-		nTypePairList[i] = {nKey, nValue}
 	end
 	if vDotsTuple then
 		const nTypeTuple = vDotsTuple:checkTypeTuple()
 		const nRepeatType = nTypeTuple:getRepeatType()
 		if nRepeatType then
-			nTypePairList[#nTypePairList + 1] = {
-				nManager.type.Integer, nManager:checkedUnion(nRepeatType, nManager.type.Nil)
-			}
 			if OpenTable.is(vNewTable) then
 				self._stack:getRuntime():nodeError(self._node, "open table can only take singleton type as key")
+			else
+				nTypePairList[#nTypePairList + 1] = {
+					nManager.type.Integer, nManager:checkedUnion(nRepeatType, nManager.type.Nil)
+				}
 			end
 		else
 			for i=1, #nTypeTuple do
@@ -82,7 +85,6 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 				nTypePairList[#nTypePairList + 1] = {
 					nKey, nTerm:getType()
 				}
-				nTermDict[nKey] = nTerm
 			end
 		end
 	end
@@ -96,16 +98,12 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 			end)
 		end
 	end
+	const nKeyUnion, nTypeDict = nManager:typeMapReduce@<clazz.UAtomUnion>(nTypePairList, function(vList)
+		return nManager:unionReduceType(vList)
+	end)
 	if OpenTable.is(vNewTable) then
-		const nCollection = nManager:TypeCollection()
-		for k,v in pairs(nTermDict) do
-			nCollection:put(k)
-		end
-		vNewTable:initByKeyValueTerm(self._node, self._stack:topBranch(), nCollection:mergeToAtomUnion(), nTermDict)
+		vNewTable:initByBranchKeyValue(self._node, self._stack:topBranch(), nKeyUnion, nTypeDict)
 	else
-		const nKeyUnion, nTypeDict = nManager:typeMapReduce@<clazz.UAtomUnion>(nTypePairList, function(vList)
-			return nManager:unionReduceType(vList)
-		end)
 		vNewTable:initByKeyValue(self._node, nKeyUnion, nTypeDict)
 	end
 end
