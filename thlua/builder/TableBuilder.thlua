@@ -13,7 +13,9 @@ end)
 
 (@do
 	let.TermPair = Struct {
+		node=node.IAstNode,
 		isConst=Boolean,
+		isLiteral=Boolean,
 		key=clazz.RefineTerm,
 		value=clazz.RefineTerm,
 	}
@@ -30,6 +32,7 @@ function:class(let.TableBuilder) TableBuilder.new(vStack:clazz.BaseStack,
 	return setmetatable({.class
 		_stack=vStack,
 		_node=vNode,
+		_isConst=vNode.isConst,
 		_hintInfo=vHintInfo,
 		_pairMaker=vPairMaker,
 		_selfInitDict=false@Union(False, Dict(clazz.UAllType, clazz.UAllType)),
@@ -51,11 +54,13 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	const nManager = nStack:getTypeManager()
 	const vList, vDotsStart, vDotsTuple = self._pairMaker()
 	const nTypePairList:List(Struct {clazz.UAtomUnion, clazz.UAtomUnion}) = {}
-	const nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for i, nPair in ipairs(vList) do
 		const nKey = nPair.key:getType()
 		const nTerm = nPair.value
 		local nValue = nTerm:getType()
+		if nPair.isLiteral and not (self._isConst or nPair.isConst) then
+			-- nValue = self._stack:getTypeManager():literal2Primitive(nValue)
+		end
 		if nKey:isUnion() or not nKey:isSingleton() then
 			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
 			if OpenTable.is(vNewTable) then
@@ -69,7 +74,7 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	end
 	if vDotsTuple then
 		const nTypeTuple = vDotsTuple:checkTypeTuple()
-		const nRepeatType = nTypeTuple:getRepeatType()
+		local nRepeatType = nTypeTuple:getRepeatType()
 		if nRepeatType then
 			if OpenTable.is(vNewTable) then
 				self._stack:getRuntime():nodeError(self._node, "open table can only take singleton type as key")
@@ -81,9 +86,9 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 		else
 			for i=1, #nTypeTuple do
 				const nKey = nManager:Literal(vDotsStart + i - 1)
-				const nTerm = assert(vDotsTuple:rawget(i))
+				local nType = assert(vDotsTuple:rawget(i)):getType()
 				nTypePairList[#nTypePairList + 1] = {
-					nKey, nTerm:getType()
+					nKey, nType
 				}
 			end
 		end

@@ -332,7 +332,7 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vIsConst:Boolean, vPairMaker:PairMaker):Ret(clazz.RefineTerm)
+function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)
@@ -469,7 +469,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType), vAssignLiteral:OrNil(Boolean)):Ret(clazz.USymbol)
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
@@ -491,7 +491,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		nTerm = nTermInHolder
 		const nFromType = nTerm:getType()
 		-- convert string literal to string, number literal to number, boolean literal to boolean
-		if vModify and vKind == Enum.SymbolKind_LOCAL then
+		if vKind == Enum.SymbolKind_LOCAL and vAssignLiteral then
 			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
 				nTerm = nSymbolContext:RefineTerm(nToType)
