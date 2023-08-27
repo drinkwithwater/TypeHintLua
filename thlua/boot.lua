@@ -1,37 +1,4 @@
-local ParseEnv = require "thlua.code.ParseEnv"
-
-local boot = {}
-
-boot.path = ""
-
-boot.compile = ParseEnv.compile
-
-boot.load = ParseEnv.load
-
-function boot.searcher(name)
-	local fileName, err1 = package.searchpath(name, boot.path)
-	if not fileName then
-		return err1
-	end
-	local file, err2 = io.open(fileName, "r")
-	if not file then
-		return err2
-	end
-	local thluaCode = file:read("*a")
-	file:close()
-	return assert(boot.load(thluaCode, fileName))
-end
-
-local patch = false
-
--- patch for load thlua code in lua
-function boot.patch()
-	if not patch then
-		boot.path = package.path:gsub("[.]lua", ".thlua")
-		table.insert(package.searchers, boot.searcher)
-		patch = true
-	end
-end
+local boot = require "thlua.code.ParseEnv"
 
 -- start check from a main file
 function boot.runCheck(vMainFileName)

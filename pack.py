@@ -50,6 +50,9 @@ class Packer(object):
         with open("./thlua/code/ParseEnv.lua") as fi:
             content = fi.read()
         self.parserContent = content
+        with open("./3rd/lulpeg.lua") as fi:
+            content = fi.read()
+        self.lulpegContent = content
 
     def scanRoot(self):
         self.scan("./thlua")
@@ -89,9 +92,10 @@ class Packer(object):
             fo.write(content)
 
     def buildCompilerOnly(self):
-        l = ["return (function()", self.parserContent, " end)().compile"]
-        with open("compile.lua", "w") as fo:
-            content = "".join(l)
+        l = ["package.preload['lulpeg']=function(...) ",
+                self.lulpegContent, " end", self.parserContent]
+        with open("thlua.lua", "w") as fo:
+            content = "\n".join(l)
             fo.write(content)
 
     def buildForVSC(self):
@@ -142,7 +146,7 @@ class Packer(object):
 
 packer = Packer()
 packer.scanRoot()
-packer.build()
-#packer.buildCompilerOnly()
+#packer.build()
+packer.buildCompilerOnly()
 packer.buildForVSC()
 packer.buildForWeb()

@@ -5,7 +5,13 @@ and generates an Abstract Syntax Tree.
 Some code modify from
 https://github.com/andremm/typedlua and https://github.com/Alloyed/lua-lsp
 ]]
-local lpeg = require "lpeg"
+local ok, lpeg = pcall(require, "lpeg")
+if not ok then
+	ok, lpeg = pcall(require, "lulpeg")
+	if not ok then
+		error("lpeg or lulpeg not found")
+	end
+end
 lpeg.setmaxstack(1000)
 lpeg.locale(lpeg)
 
@@ -784,11 +790,12 @@ function ParseEnv:genLuaCode()
 	return table.concat(nContents)
 end
 
+local boot = {}
 -- return luacode | false, errmsg
-function ParseEnv.compile(vContent, vChunkName)
+function boot.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
 	local nEnv = ParseEnv.new(vContent)
-	local nAstOrFalse, nEnvOrErr = ParseEnv.parse(vContent)
+	local nAstOrFalse, nEnvOrErr = boot.parse(vContent)
 	if not nAstOrFalse then
 		local nLineNum = select(2, vContent:sub(1, nEnvOrErr.pos):gsub('\n', '\n'))
 		local nMsg = vChunkName..":".. nLineNum .." ".. nEnvOrErr[1]
@@ -799,7 +806,7 @@ function ParseEnv.compile(vContent, vChunkName)
 end
 
 -- return false, errorNode | return chunkNode, parseEnv
-function ParseEnv.parse(vContent)
+function boot.parse(vContent)
 	local nEnv = ParseEnv.new(vContent)
 	local nAstOrErr = nEnv:getAstOrErr()
 	if nAstOrErr.tag == "Error" then
@@ -809,8 +816,8 @@ function ParseEnv.parse(vContent)
 	end
 end
 
-function ParseEnv.load(chunk, chunkName, ...)
-	local luaCode, err = ParseEnv.compile(chunk, chunkName)
+function boot.load(chunk, chunkName, ...)
+	local luaCode, err = boot.compile(chunk, chunkName)
 	if not luaCode then
 		return false, err
 	end
@@ -821,4 +828,30 @@ function ParseEnv.load(chunk, chunkName, ...)
 	return f
 end
 
-return ParseEnv
+boot.path = package.path:gsub("[.]lua", ".thlua")
+
+function boot.searcher(name)
+	local fileName, err1 = package.searchpath(name, boot.path)
+	if not fileName then
+		return err1
+	end
+	local file, err2 = io.open(fileName, "r")
+	if not file then
+		return err2
+	end
+	local thluaCode = file:read("*a")
+	file:close()
+	return assert(boot.load(thluaCode, fileName))
+end
+
+local patch = false
+
+-- patch for load thlua code in lua
+function boot.patch()
+	if not patch then
+		table.insert(package.searchers, boot.searcher)
+		patch = true
+	end
+end
+
+return boot
