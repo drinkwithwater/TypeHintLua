@@ -354,7 +354,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	NotnilHint = hintC.take(lpeg.P("!"));
 
-	TableConstHint = hintC.take(lpeg.P("const")*-vv.NameRest);
+	ValueConstHint = hintC.take(lpeg.P("const")*-vv.NameRest);
 
 	AtCastHint = hintC.wrap(
 		false,
@@ -404,15 +404,11 @@ local G = lpeg.P { "TypeHintLua";
 	end;
 
 	Constructor = (function()
-		local Pair = tagC.Pair(
-          lpeg.Cg(vv.TableConstHint*cc(true) + cc(false), "isConst") *
-		  ((symb"[" * vvA.Expr * symbA"]") + tagC.String(vv.Name)) *
-          symb"=" * vv.Expr)
+		local Pair = tagC.Pair(((symb"[" * vvA.Expr * symbA"]") + tagC.String(vv.Name)) * symb"=" * vv.Expr)
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
 		local FieldList = (Field * (fieldsep * Field)^0 * fieldsep^-1)^-1
-		return tagC.Table(lpeg.Cg(vv.TableConstHint*cc(true) + cc(false), "isConst") *
-			symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
+		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
 	end)();
 
 	IdentUse = Cpos*vv.Name*(vv.NotnilHint * cc(true) + cc(false))*Cpos/parF.identUse;
@@ -453,13 +449,18 @@ local G = lpeg.P { "TypeHintLua";
 	end)();
 
 	SimpleExpr = Cpos * (
-						vv.String +
-						tagC.Number(token(vv.Number)) +
+						(vv.ValueConstHint * cc(true) + cc(false)) * (
+							vv.String +
+							tagC.Number(token(vv.Number)) +
+							tagC.False(kw"false") +
+							tagC.True(kw"true") +
+							vv.Constructor
+						)/function(isConst, t)
+							t.isConst = isConst
+							return t
+						end +
 						tagC.Nil(kw"nil") +
-						tagC.False(kw"false") +
-						tagC.True(kw"true") +
 						vv.FuncDef +
-						vv.Constructor +
 						vv.SuffixedExpr +
 						tagC.Dots(symb"...") +
 						vv.EvalExpr

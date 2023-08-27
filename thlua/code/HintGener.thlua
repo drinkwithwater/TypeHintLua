@@ -23,8 +23,13 @@ end)())
 
 end)
 
-const function isLiteralTag(vTag:String):Ret(Boolean)
-	return vTag == "String" or vTag == "Number" or vTag == "True" or vTag == "False"
+const function autoPrimitive(vExpr:node.Expr):Ret(Boolean)
+	const nTag = vExpr.tag
+	if nTag == "String" or nTag == "Number" or nTag == "True" or nTag == "False" then
+		return not vExpr.isConst
+	else
+		return false
+	end
 end
 
 local TagToVisiting:RealTraverser = {
@@ -213,9 +218,8 @@ local TagToVisiting:RealTraverser = {
 					return "nil"
 				end, ", "),
 			self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
-				const nCurExpr = nExprList[i]!
-				const nIsLiteral = isLiteralTag(nCurExpr and nCurExpr.tag or "")
-				return self:visitIdentDef(vIdent, "____lo"..i, nil, nIsLiteral or nil)
+				const nCurExpr = nExprList[i]
+				return self:visitIdentDef(vIdent, "____lo"..i, nil, nCurExpr and autoPrimitive(nCurExpr) or nil)
 			end, " ")
 		}
 	end,
@@ -325,8 +329,7 @@ local TagToVisiting:RealTraverser = {
 					else
 						return self:dictWrap({
 							node=self:codeNode(vTableItem),
-							isConst=tostring(node.isConst),
-							isLiteral=tostring(isLiteralTag(vTableItem.tag)),
+							autoPrimitive=tostring(autoPrimitive(vTableItem)),
 							key=self:stkWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
 							value=self:visit(vTableItem)
 						})
@@ -334,8 +337,7 @@ local TagToVisiting:RealTraverser = {
 				else
 					return self:dictWrap({
 						node=self:codeNode(vTableItem),
-						isConst="false",
-						isLiteral=tostring(isLiteralTag(vTableItem[2].tag)),
+						autoPrimitive=tostring(autoPrimitive(vTableItem[2])),
 						key=self:visit(vTableItem[1]),
 						value=self:visit(vTableItem[2])
 					})
@@ -511,14 +513,14 @@ function HintGener:codeNode(vNode:node.IAstNode):Ret(String)
 	return "____nodes["..vNode.index.."]"
 end
 
-function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, vIsParamOrRec:OrNil(True), vAssignLiteral:OrNil(True)):Ret(UGenResult)
+function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, vIsParamOrRec:OrNil(True), vAutoPrimitive:OrNil(True)):Ret(UGenResult)
 	const nHintShort = vIdentNode.hintShort
 	return {
 		line=vIdentNode.l,
 		" ", self:stkWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
 			vValue, vIsParamOrRec and "nil" or (nHintShort and self:fixIHintSpace(nHintShort) or "nil"),
-			tostring(vAssignLiteral)
+			tostring(vAutoPrimitive)
 		)
 	}
 end

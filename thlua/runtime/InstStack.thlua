@@ -469,7 +469,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType), vAssignLiteral:OrNil(Boolean)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType), vAutoPrimitive:OrNil(Boolean)):Ret(clazz.USymbol)
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
@@ -491,7 +491,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		nTerm = nTermInHolder
 		const nFromType = nTerm:getType()
 		-- convert string literal to string, number literal to number, boolean literal to boolean
-		if vKind == Enum.SymbolKind_LOCAL and vAssignLiteral then
+		if vKind == Enum.SymbolKind_LOCAL and vAutoPrimitive then
 			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
 				nTerm = nSymbolContext:RefineTerm(nToType)

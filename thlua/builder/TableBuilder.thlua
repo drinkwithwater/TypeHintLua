@@ -14,8 +14,7 @@ end)
 (@do
 	let.TermPair = Struct {
 		node=node.IAstNode,
-		isConst=Boolean,
-		isLiteral=Boolean,
+		autoPrimitive=Boolean,
 		key=clazz.RefineTerm,
 		value=clazz.RefineTerm,
 	}
@@ -58,8 +57,8 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 		const nKey = nPair.key:getType()
 		const nTerm = nPair.value
 		local nValue = nTerm:getType()
-		if nPair.isLiteral and not (self._isConst or nPair.isConst) then
-			-- nValue = self._stack:getTypeManager():literal2Primitive(nValue)
+		if nPair.autoPrimitive and not self._isConst then
+			nValue = self._stack:getTypeManager():literal2Primitive(nValue)
 		end
 		if nKey:isUnion() or not nKey:isSingleton() then
 			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
