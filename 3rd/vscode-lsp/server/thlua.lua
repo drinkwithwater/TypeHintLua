@@ -956,7 +956,7 @@ function TableBuilder:_build(vNewTable )
 		local nTerm = nPair.value
 		local nValue = nTerm:getType()
 		if nPair.autoPrimitive and not self._isConst then
-			nValue = self._stack:getTypeManager():literal2Primitive(nValue)
+			   
 		end
 		if nKey:isUnion() or not nKey:isSingleton() then
 			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
@@ -1886,7 +1886,7 @@ function HintGener:fixIHintSpace(vHintSpace)
 			local nLast = nil
 			for s in string.gmatch(v[1], "[^\n]*") do
 				nLast = {
-					line =  true,
+					line = true,
 					" ", s, " "
 				}
 				nResult[#nResult + 1] = nLast
@@ -3160,7 +3160,8 @@ local G = lpeg.P { "TypeHintLua";
 	end)();
 
 	SimpleExpr = Cpos * (
-						(vv.ValueConstHint * cc(true) + cc(false)) * (
+						-- (vv.ValueConstHint * cc(true) + cc(false)) * (
+						cc(false) * (
 							vv.String +
 							tagC.Number(token(vv.Number)) +
 							tagC.False(kw"false") +
@@ -4992,7 +4993,7 @@ function FieldCompletion:ctor()
 	self._keyToKind = {} 
 end
 
-local LiteralMetaDict  =  {
+local LiteralMetaDict  = {
 	[StringLiteral.meta]= true,
 	[IntegerLiteral.meta]= true,
 	[FloatLiteral.meta]= true,
@@ -9853,7 +9854,7 @@ function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode
 			end
 			local nDefineNode = nIdentNode.defineIdent
 			if nDefineNode then
-				return {[nDefineNode]= true}
+				return {[nDefineNode]=true}
 			      
 			end
 		else
@@ -10999,7 +11000,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.SeverityEnum'] = function (...)
 
-return  {
+return {
 	Error = 1,
 	Warn = 2,
 	Info = 3,
@@ -11640,7 +11641,7 @@ function BothServer:getInitializeResult()
 	return {
 		capabilities = {
 			textDocumentSync = {
-				change =  2,       
+				change = 2,       
 				openClose = true,
 				save = { includeText = true },
 			},
@@ -11692,7 +11693,7 @@ function FastServer:getInitializeResult()
 	return {
 		capabilities = {
 			textDocumentSync = {
-				change =  2,       
+				change = 2,       
 				openClose = true,
 				save = { includeText = true },
 			},
@@ -12212,7 +12213,7 @@ function SlowServer:getInitializeResult()
 	return {
 		capabilities = {
 			textDocumentSync = {
-				change =  2,       
+				change = 2,       
 				openClose = true,
 				save = { includeText = true },
 			},
