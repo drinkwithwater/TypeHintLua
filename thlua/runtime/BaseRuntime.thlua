@@ -321,6 +321,21 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Ty
 			vFunc(k,v)
 		end
 	end, "foreachPair")
+	nGlobal.literal=SpaceBuiltin.new(function(vNode, vType)
+		vType = vType:checkAtomUnion()
+		if vType:isUnion() then
+			return nil
+		else
+			if self._manager:isLiteral(vType) then
+				return vType:getLiteral()
+			else
+				return nil
+			end
+		end
+	end, "literal")
+	nGlobal.same=SpaceBuiltin.new(function(vNode, vType1, vType2)
+		return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
+	end, "same")
 	nGlobal.print=SpaceBuiltin.new(function(vNode, ...)
 		self:nodeInfo(vNode, ...)
 	end, "print")
