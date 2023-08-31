@@ -1062,6 +1062,7 @@ local META_FIELD = {
 	__len=1,
 	__bor=1,
 	__band=1,
+	__pairs=1,
 	    
 }
 
@@ -3083,10 +3084,10 @@ local G = lpeg.P { "TypeHintLua";
 		vv.DoStat + vv.ApplyOrAssignStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
-	HintTerm = suffixedExprByPrimary(
+	--[[HintTerm = suffixedExprByPrimary(
 		tagC.HintTerm(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
 		vv.PrimaryExpr
-	);
+	);]]
 
 	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") * Cpos / function(env, pos, ...)
 		local l = {...}
@@ -3099,7 +3100,7 @@ local G = lpeg.P { "TypeHintLua";
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
 		vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.HintTerm + vvA.SimpleExpr) * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
 
   -- hint & eval end }}}
 
@@ -8148,6 +8149,10 @@ Namespace.__tostring=function(self)
 	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
+function Namespace:__pairs(self)
+	return next, self._key2type, nil
+end
+
 function Namespace:ctor(vManager, vNode, vIndexTable , ...)
 	self._manager=vManager
 	self._key2type={}          
@@ -9131,6 +9136,21 @@ function BaseRuntime:buildSimpleGlobal()
 			vFunc(k,v)
 		end
 	end, "foreachPair")
+	nGlobal.literal=SpaceBuiltin.new(function(vNode, vType)
+		vType = vType:checkAtomUnion()
+		if vType:isUnion() then
+			return nil
+		else
+			if self._manager:isLiteral(vType) then
+				return vType:getLiteral()
+			else
+				return nil
+			end
+		end
+	end, "literal")
+	nGlobal.same=SpaceBuiltin.new(function(vNode, vType1, vType2)
+		return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
+	end, "same")
 	nGlobal.print=SpaceBuiltin.new(function(vNode, ...)
 		self:nodeInfo(vNode, ...)
 	end, "print")

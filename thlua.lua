@@ -3357,10 +3357,10 @@ local G = lpeg.P { "TypeHintLua";
 		vv.DoStat + vv.ApplyOrAssignStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
 	symbA(")"));
 
-	HintTerm = suffixedExprByPrimary(
+	--[[HintTerm = suffixedExprByPrimary(
 		tagC.HintTerm(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
 		vv.PrimaryExpr
-	);
+	);]]
 
 	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") * Cpos / function(env, pos, ...)
 		local l = {...}
@@ -3373,7 +3373,7 @@ local G = lpeg.P { "TypeHintLua";
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
 		vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.HintTerm + vvA.SimpleExpr) * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
 
   -- hint & eval end }}}
 
