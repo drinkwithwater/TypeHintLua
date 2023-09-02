@@ -1184,7 +1184,7 @@ function CodeEnv.new(vCode , vChunkName, vChunkWithInject)
 		_nodeList = {},
 		_typingCode = "--[[no gen code ]]",
 		_astTree = nil,
-		_parseEnv = nil,
+		_luaCode = "",
 		_typingFn = nil,
 	}, CodeEnv)
 	if not vChunkWithInject then
@@ -1194,7 +1194,7 @@ function CodeEnv.new(vCode , vChunkName, vChunkWithInject)
 			error(Exception.new(nErr[1], nErr))
 		end
 		self._astTree = nAst
-		self._parseEnv = nErr
+		self._luaCode = nErr
 	else
 		self._astTree = vChunkWithInject
 	end
@@ -1386,8 +1386,8 @@ function CodeEnv.genInjectFnByError(vSplitCode, vFileUri, vWrongContent)
 	end
 end
 
-function CodeEnv:genLuaCode()
-	return self._parseEnv:genLuaCode()
+function CodeEnv:getLuaCode()
+	return self._luaCode
 end
 
 return CodeEnv
@@ -3501,13 +3501,13 @@ local boot = {}
 -- return luacode | false, errmsg
 function boot.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
-	local nAstOrFalse, nEnvOrErr = boot.parse(vContent)
+	local nAstOrFalse, nCodeOrErr = boot.parse(vContent)
 	if not nAstOrFalse then
-		local nLineNum = select(2, vContent:sub(1, nEnvOrErr.pos):gsub('\n', '\n'))
-		local nMsg = vChunkName..":".. nLineNum .." ".. nEnvOrErr[1]
+		local nLineNum = select(2, vContent:sub(1, nCodeOrErr.pos):gsub('\n', '\n'))
+		local nMsg = vChunkName..":".. nLineNum .." ".. nCodeOrErr[1]
 		return false, nMsg
 	else
-		return nEnvOrErr:genLuaCode()
+		return nCodeOrErr
 	end
 end
 
@@ -3518,7 +3518,7 @@ function boot.parse(vContent)
 	if nAstOrErr.tag == "Error" then
 		return false, nAstOrErr
 	else
-		return nAstOrErr, nEnv
+		return nAstOrErr, nEnv:genLuaCode()
 	end
 end
 
@@ -12194,11 +12194,12 @@ function PlayGround:_update(vName, vInput)
     return {
         syntaxErr=false,
         diaList=json.array(nAfterDiaList),
-        luaContent=nCodeEnv:genLuaCode()
+        luaContent=nCodeEnv:getLuaCode()
     }
 end
 
 return PlayGround
+
 end end
 --thlua.server.PlayGround end ==========)
 

@@ -795,24 +795,24 @@ local boot = {}
 -- return luacode | false, errmsg
 function boot.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
-	local nAstOrFalse, nEnvOrErr = boot.parse(vContent)
+	local nAstOrFalse, nCodeOrErr = boot.parse(vContent)
 	if not nAstOrFalse then
-		local nLineNum = select(2, vContent:sub(1, nEnvOrErr.pos):gsub('\n', '\n'))
-		local nMsg = vChunkName..":".. nLineNum .." ".. nEnvOrErr[1]
+		local nLineNum = select(2, vContent:sub(1, nCodeOrErr.pos):gsub('\n', '\n'))
+		local nMsg = vChunkName..":".. nLineNum .." ".. nCodeOrErr[1]
 		return false, nMsg
 	else
-		return nEnvOrErr:genLuaCode()
+		return nCodeOrErr
 	end
 end
 
--- return false, errorNode | return chunkNode, parseEnv
+-- return false, errorNode | return chunkNode, string
 function boot.parse(vContent)
 	local nEnv = ParseEnv.new(vContent)
 	local nAstOrErr = nEnv:getAstOrErr()
 	if nAstOrErr.tag == "Error" then
 		return false, nAstOrErr
 	else
-		return nAstOrErr, nEnv
+		return nAstOrErr, nEnv:genLuaCode()
 	end
 end
 
