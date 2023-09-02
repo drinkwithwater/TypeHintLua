@@ -3744,7 +3744,7 @@ function ParseEnv:genLuaCode()
 				-- 2. replace hint code with space and newline
 				local nFinishPos = nPosToChange[nStartPos]
 				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-				nContents[#nContents + 1] = nHintCode:gsub("%S", "")
+				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
 				nPreFinishPos = nFinishPos
 			--[[elseif type(nChange) == "string" then
 				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
@@ -3774,7 +3774,6 @@ local boot = {}
 -- return luacode | false, errmsg
 function boot.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
-	local nEnv = ParseEnv.new(vContent)
 	local nAstOrFalse, nEnvOrErr = boot.parse(vContent)
 	if not nAstOrFalse then
 		local nLineNum = select(2, vContent:sub(1, nEnvOrErr.pos):gsub('\n', '\n'))
@@ -3796,7 +3795,13 @@ function boot.parse(vContent)
 	end
 end
 
+local load = load
 function boot.load(chunk, chunkName, ...)
+	local f, err = load(chunk, chunkName, ...)
+	if f then
+		-- if lua parse success, just return
+		return f
+	end
 	local luaCode, err = boot.compile(chunk, chunkName)
 	if not luaCode then
 		return false, err
