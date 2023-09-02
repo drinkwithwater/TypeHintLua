@@ -3511,7 +3511,7 @@ function boot.compile(vContent, vChunkName)
 	end
 end
 
--- return false, errorNode | return chunkNode, parseEnv
+-- return false, errorNode | return chunkNode, string
 function boot.parse(vContent)
 	local nEnv = ParseEnv.new(vContent)
 	local nAstOrErr = nEnv:getAstOrErr()
@@ -3540,28 +3540,25 @@ function boot.load(chunk, chunkName, ...)
 	return f
 end
 
-boot.path = package.path:gsub("[.]lua", ".thlua")
-
-function boot.searcher(name)
-	local fileName, err1 = package.searchpath(name, boot.path)
-	if not fileName then
-		return err1
-	end
-	local file, err2 = io.open(fileName, "r")
-	if not file then
-		return err2
-	end
-	local thluaCode = file:read("*a")
-	file:close()
-	return assert(boot.load(thluaCode, fileName))
-end
-
 local patch = false
 
 -- patch for load thlua code in lua
 function boot.patch()
 	if not patch then
-		table.insert(package.searchers, boot.searcher)
+		local path = package.path:gsub("[.]lua", ".thlua")
+		table.insert(package.searchers, function(name)
+			local fileName, err1 = package.searchpath(name, path)
+			if not fileName then
+				return err1
+			end
+			local file, err2 = io.open(fileName, "r")
+			if not file then
+				return err2
+			end
+			local thluaCode = file:read("*a")
+			file:close()
+			return assert(boot.load(thluaCode, fileName))
+		end)
 		patch = true
 	end
 end
