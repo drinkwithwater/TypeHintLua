@@ -1,0 +1,65 @@
+
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require "thlua.class"
+
+
+(@let.clazz = import($class).clazz)
+
+const Enum = class@<clazz.Enum, false>(BaseAtomType)
+
+function.open Enum:ctor(vManager:clazz.TypeManager, vSuperType:clazz.UAtomUnion)
+    self._superType = vSuperType
+    self._task = vManager:getScheduleManager():newTask()
+    self._set = {} @ Dict(clazz.IAtomType, True)
+    self._toAddList = {} @ List(clazz.UAllType)
+    self._addEvent = false @ OrFalse(clazz.ScheduleEvent)
+	self.bits = vSuperType.bits
+    self._task:runAsync(function()
+        while true do
+            const nAddList = self._toAddList
+            if #nAddList == 0 then
+                const nEvent = vManager:getScheduleManager():makeEvent()
+                self._addEvent = nEvent
+                nEvent:wait()
+                self._addEvent = false
+            end
+            self._toAddList = {}
+            for i=1,#nAddList do
+                const nType = nAddList[i]!
+                nType:foreachAwait(function(vAtomType)
+                    self._set[vAtomType] = true
+                end)
+            end
+        end
+    end)
+end
+
+function Enum:addType(vType:clazz.UAllType)
+    const nAddList = self._toAddList
+    nAddList[#nAddList + 1] = vType
+    const nAddEvent = self._addEvent
+    if nAddEvent then
+        nAddEvent:wakeup()
+    end
+end
+
+function Enum:native_type()
+    const nSuperType = self._superType
+    if nSuperType:isUnion() then
+        return self._manager.type.String
+    else
+        return nSuperType:native_type()
+    end
+end
+
+function Enum:detailString(vCache, vVerbose)
+    return "Enum("..self._superType:detailString(vCache, vVerbose)..")"
+end
+
+function Enum:isSingleton()
+	return false
+end
+
+return Enum

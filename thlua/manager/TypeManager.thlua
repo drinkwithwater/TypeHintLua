@@ -14,6 +14,7 @@ const Integer = require "thlua.type.basic.Integer"
 const BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 const Nil = require "thlua.type.basic.Nil"
 const Thread = require "thlua.type.basic.Thread"
+const Enum = require "thlua.type.basic.Enum"
 const LightUserdata = require "thlua.type.basic.LightUserdata"
 const Truth = require "thlua.type.basic.Truth"
 const TypedObject = require "thlua.type.object.TypedObject"
@@ -300,6 +301,29 @@ function TypeManager:checkedUnion(...:clazz.UAllType):Ret(clazz.UAtomUnion)
 		end)
 	end
 	return nCollection:mergeToAtomUnion()
+end
+
+function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:Truth):Ret(clazz.TypeReference)
+	const nNewRefer = self:Reference(false)
+	nNewRefer:setUnionAsync(vNode, function()
+		const nType = self._dirtyProcessor:easyToType(vNode, vArgType)
+		const nSuperType = Reference.is(nType) and nType:waitTypeCom():getTypeAwait() or nType
+		return {Enum.new(self, nSuperType)}
+	end)
+	return nNewRefer
+end
+
+function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:Truth, ...:Truth)
+	-- TODO, put this in an async thread
+	const nType = self._dirtyProcessor:easyToType(vNode, vEnumType)
+	local nEnumType = nType:checkAtomUnion()
+	assert(Enum.is(nEnumType), Exception.new("enum must take Enum as first arg", vNode))
+	local l = {...}
+	const nLen = select("#", ...)
+	for i=1, nLen do
+		local nItem = self._dirtyProcessor:easyToType(vNode, l[i])
+		nEnumType:addType(nItem)
+	end
 end
 
 function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.TypeReference)
