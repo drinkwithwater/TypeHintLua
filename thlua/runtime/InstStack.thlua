@@ -550,8 +550,12 @@ function InstStack:IF_TWO(
 	end
 end
 
-function InstStack:REPEAT(vNode:node.Repeat, vFunc:Fn(), vTerm:clazz.RefineTerm)
-	self:_withBranch(VariableCase.new(), vFunc, vNode[1])
+function InstStack:REPEAT(vNode:node.Repeat, vFunc:Fn(), vUntilFn:Fn():Ret(clazz.RefineTerm))
+	self:_withBranch(VariableCase.new(), function()
+		vFunc()
+		-- TODO filter case for vUntilFn's return
+		vUntilFn()
+	end, vNode[1])
 end
 
 function InstStack:WHILE(vNode:node.While, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
