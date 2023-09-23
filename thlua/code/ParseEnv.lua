@@ -85,6 +85,13 @@ local function kwA(str)
   return kw(str) + throw("expect keyword '"..str.."'")
 end
 
+local function kwLoopEnd(str)
+  return lpeg.Cmt(Cenv*Cpos*kw(str), function(_, _, env, pos)
+	env:continueMarkLabel(pos)
+	return true
+  end) + throw("expect keyword '"..str.."'")
+end
+
 local exprF = {
 	binOp=function(e1, op, e2)
 		if not op then
@@ -109,7 +116,7 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env:markParenWrap(pos-1, hintShort.pos-1)
+				env:markParenWrap(pos, hintShort.pos)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -290,7 +297,7 @@ local function suffixedExprByPrimary(primaryExpr)
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env:markParenWrap(pos-1, curExpr.posEnd-1)
+					env:markParenWrap(pos, curExpr.posEnd)
 				end
 			end
 			return true, expr
@@ -536,7 +543,10 @@ local G = lpeg.P { "TypeHintLua";
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
-	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
+	RetStat = lpeg.Cmt(Cenv * Cpos * kw("return") * vv.ExprListOrEmpty * symb(";")^-1 * Cpos, function(_,_,env,pos,exprList,posEnd)
+		env:continueMarkReturn(pos, posEnd)
+		return true, {tag="Return", exprList, pos=pos, posEnd=posEnd}
+	end);
 
 	Stat = (function()
 		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
@@ -571,22 +581,26 @@ local G = lpeg.P { "TypeHintLua";
 		end)()
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
+		local ContinueStat = Cenv*Cpos*kw"continue"*Cpos*vv.HintBegin*vv.HintEnd/function(env,pos,posEnd)
+			env:continueMarkGoto(pos)
+			return true, {tag="Continue",pos=pos,posEnd=posEnd}
+		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
-		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwA"until" * vvA.Expr)
+		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwLoopEnd"until" * vvA.Expr)
 		local IfStat = tagC.If(kw("if") * vvA.Expr * kwA("then") * vv.Block *
 			(kw("elseif") * vvA.Expr * kwA("then") * vv.Block)^0 *
 			(kw("else") * vv.Block)^-1 *
 			kwA("end"))
-		local WhileStat = tagC.While(kw("while") * vvA.Expr * kwA("do") * vv.Block * kwA("end"))
+		local WhileStat = tagC.While(kw("while") * vvA.Expr * kwA("do") * vv.Block * kwLoopEnd("end"))
 		local ForStat = (function()
 			local ForBody = kwA("do") * vv.Block
 			local ForNum = tagC.Fornum(vv.IdentDefN * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.ForinIdentList * kwA("in") * vvA.ExprList * ForBody)
-			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA("end")
+			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwLoopEnd("end")
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
 		return vv.StatHintSpace +
-         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat +
+         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
 				 vv.DoStat + vv.ApplyOrAssignStat + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
@@ -625,7 +639,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Keywords  = lpeg.P"and" + "break" + "do" + "elseif" + "else" + "end"
 		+ "false" + "for" + "function" + "goto" + "if" + "in"
 		+ "local" + "nil" + "not" + "or" + "repeat" + "return"
-		+ "then" + "true" + "until" + "while" + "const"
+		+ "then" + "true" + "until" + "while" + "const" + "continue"
 		local Reserved = Keywords * -vv.NameRest
 		return token(-Reserved * lpeg.C(RawName));
 	end)();
@@ -697,13 +711,13 @@ function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vS
 	return nHintSpace
 end
 
--- @ hint for invoke & call , need to add paren
+-- '@' when hint for invoke and call, need to add paren
 -- eg.
 --   aFunc() @ Integer -> (aFunc())
 -- so mark paren here
 function ParseEnv:markParenWrap(vStartPos, vFinishPos)
 	self._posToChange[vStartPos] = "("
-	self._posToChange[vFinishPos] = ")"
+	self._posToChange[vFinishPos-1] = ")"
 end
 
 -- hint script to be delete
@@ -711,9 +725,25 @@ function ParseEnv:markDel(vStartPos, vFinishPos)
 	self._posToChange[vStartPos] = vFinishPos
 end
 
--- local convert to const
+-- local -> const
 function ParseEnv:markConst(vStartPos)
 	self._posToChange[vStartPos] = "const"
+end
+
+-- continue -> goto continue
+function ParseEnv:continueMarkGoto(vStartPos)
+	self._posToChange[vStartPos] = "goto"
+end
+
+-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
+function ParseEnv:continueMarkLabel(vStartPos)
+	self._posToChange[vStartPos] = "::continue::"
+end
+
+-- return xxx -> do return xxx end
+function ParseEnv:continueMarkReturn(vStartPos, vFinishPos)
+	self._posToChange[vStartPos] = "do"
+	self._posToChange[vFinishPos] = "end"
 end
 
 function ParseEnv:assertWithLineNum()
@@ -753,9 +783,7 @@ function ParseEnv:genLuaCode()
 	local nPreFinishPos = 0
 	for _, nStartPos in pairs(nStartPosList) do
 		if nStartPos <= nPreFinishPos then
-			-- hint in hint
-			-- TODO replace in hint script
-			-- continue
+			-- do nothing in hint space
 		else
 			local nChange = nPosToChange[nStartPos]
 			if type(nChange) == "number" then
@@ -773,15 +801,30 @@ function ParseEnv:genLuaCode()
 				nContents[#nContents + 1] = nChange
 				nPreFinishPos = nStartPos]]
 			elseif nChange == "const" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
 				nContents[#nContents + 1] = "local"
 				nPreFinishPos = nStartPos + 4
-			elseif nChange == "(" or nChange == ")" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nLuaCode
+			elseif nChange == "(" then
+				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nChange
+				nPreFinishPos = nStartPos-1
+			elseif nChange == ")" then
+				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos)
 				nContents[#nContents + 1] = nChange
 				nPreFinishPos = nStartPos
+			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = nChange
+				nContents[#nContents + 1] = " "
+				nPreFinishPos = nStartPos-1
+			elseif nChange == "end" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = " "
+				nContents[#nContents + 1] = nChange
+				nContents[#nContents + 1] = " "
+				nPreFinishPos = nStartPos-1
 			else
 				error("unexpected branch")
 			end
