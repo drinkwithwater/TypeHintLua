@@ -333,6 +333,11 @@ local G = lpeg.P { "TypeHintLua";
 	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
   -- hint & eval begin {{{
+	HintAssetNot = lpeg.Cmt(Cenv, function(_, i, env)
+		assert(not env.hinting, env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
+		return true
+	end);
+
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
 		if not env.hinting then
 			env.hinting = true
@@ -484,38 +489,36 @@ local G = lpeg.P { "TypeHintLua";
 
 	SuffixedExpr = suffixedExprByPrimary(vv.PrimaryExpr);
 
-	ApplyOrAssignStat = (function()
-		return lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
-			if not ... then
-				if first.tag == "Call" or first.tag == "Invoke" then
-					return true, first
-				else
-					error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
-				end
+	ApplyOrAssignStat = lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
+		if not ... then
+			if first.tag == "Call" or first.tag == "Invoke" then
+				return true, first
 			else
-				local nVarList = {
-					tag="VarList", pos=first.pos, posEnd = 0,
-					first, ...
-				}
-				local nExprList = nVarList[#nVarList]
-				nVarList[#nVarList] = nil
-				nVarList.posEnd = nVarList[#nVarList].posEnd
-				for _, varExpr in ipairs(nVarList) do
-					if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
-						error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
-					elseif varExpr.notnil then
-						error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
-					end
-				end
-				return true, {
-					tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
-					nVarList,nExprList
-				}
+				error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
 			end
-		end)
-	end)();
+		else
+			local nVarList = {
+				tag="VarList", pos=first.pos, posEnd = 0,
+				first, ...
+			}
+			local nExprList = nVarList[#nVarList]
+			nVarList[#nVarList] = nil
+			nVarList.posEnd = nVarList[#nVarList].posEnd
+			for _, varExpr in ipairs(nVarList) do
+				if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
+					error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
+				elseif varExpr.notnil then
+					error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
+				end
+			end
+			return true, {
+				tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
+				nVarList,nExprList
+			}
+		end
+	end);
 
-	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,pos,env)
+	Block = lpeg.Cmt(Cenv, function(_,pos,env)
 		if not env.hinting then
 			--local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
 			--print(pos, nLineNum)
@@ -526,12 +529,12 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		return true
-	end) * vv.Stat^0 * vv.RetStat^-1 * lpeg.Cmt(Cenv, function(_,_,env)
+	end) * tagC.Block(vv.Stat^0 * vv.RetStat^-1) * lpeg.Cmt(Cenv, function(_,_,env)
 		if not env.hinting then
 			env.scopeTraceList[#env.scopeTraceList] = nil
 		end
 		return true
-	end));
+	end);
 	DoStat = tagC.Do(kw"do" * lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA"end");
 	FuncBody = (function()
 		local IdentDefTList = vv.IdentDefT * (symb(",") * vv.IdentDefT)^0;
@@ -555,7 +558,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
-				Cenv * Cpos * kw"const" * vv.HintBegin * vv.HintEnd * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
+				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
 					env:markConst(pos)
 					t.isConst = true
 					return t
@@ -581,9 +584,9 @@ local G = lpeg.P { "TypeHintLua";
 		end)()
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
-		local ContinueStat = Cenv*Cpos*kw"continue"*Cpos*vv.HintBegin*vv.HintEnd/function(env,pos,posEnd)
-			env:continueMarkGoto(pos)
-			return true, {tag="Continue",pos=pos,posEnd=posEnd}
+		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
+			env:continueMarkGoto(node.pos)
+			return node
 		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
 		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwLoopEnd"until" * vvA.Expr)
