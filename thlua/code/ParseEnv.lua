@@ -85,13 +85,6 @@ local function kwA(str)
   return kw(str) + throw("expect keyword '"..str.."'")
 end
 
-local function kwLoopEnd(str)
-  return lpeg.Cmt(Cenv*Cpos*kw(str), function(_, _, env, pos)
-	env:continueMarkLabel(pos)
-	return true
-  end) + throw("expect keyword '"..str.."'")
-end
-
 local exprF = {
 	binOp=function(e1, op, e2)
 		if not op then
@@ -546,10 +539,7 @@ local G = lpeg.P { "TypeHintLua";
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
-	RetStat = lpeg.Cmt(Cenv * Cpos * kw("return") * vv.ExprListOrEmpty * symb(";")^-1 * Cpos, function(_,_,env,pos,exprList,posEnd)
-		env:continueMarkReturn(pos, posEnd)
-		return true, {tag="Return", exprList, pos=pos, posEnd=posEnd}
-	end);
+	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
 
 	Stat = (function()
 		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
@@ -582,6 +572,19 @@ local G = lpeg.P { "TypeHintLua";
 				}
 			end
 		end)()
+		local function loopMark(loopNode, env)
+			local blockNode = loopNode.tag == "Repeat" and loopNode[1] or loopNode[#loopNode]
+			assert(blockNode.tag == "Block")
+			local last = blockNode[#blockNode]
+			if last then
+				if last.tag == "Return" then
+					env:continueMarkLoopEnd(last.pos, blockNode.posEnd)
+				else
+					env:continueMarkLoopEnd(false, blockNode.posEnd)
+				end
+			end
+			return loopNode
+		end
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
 		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
@@ -589,17 +592,17 @@ local G = lpeg.P { "TypeHintLua";
 			return node
 		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
-		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwLoopEnd"until" * vvA.Expr)
+		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwA"until" * vvA.Expr) * Cenv / loopMark
 		local IfStat = tagC.If(kw("if") * vvA.Expr * kwA("then") * vv.Block *
 			(kw("elseif") * vvA.Expr * kwA("then") * vv.Block)^0 *
 			(kw("else") * vv.Block)^-1 *
 			kwA("end"))
-		local WhileStat = tagC.While(kw("while") * vvA.Expr * kwA("do") * vv.Block * kwLoopEnd("end"))
+		local WhileStat = tagC.While(kw"while" * vvA.Expr * kwA"do" * vv.Block * kwA"end") * Cenv / loopMark
 		local ForStat = (function()
 			local ForBody = kwA("do") * vv.Block
 			local ForNum = tagC.Fornum(vv.IdentDefN * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.ForinIdentList * kwA("in") * vvA.ExprList * ForBody)
-			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwLoopEnd("end")
+			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
 		return vv.StatHintSpace +
@@ -738,15 +741,15 @@ function ParseEnv:continueMarkGoto(vStartPos)
 	self._posToChange[vStartPos] = "goto"
 end
 
--- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
-function ParseEnv:continueMarkLabel(vStartPos)
-	self._posToChange[vStartPos] = "::continue::"
-end
-
 -- return xxx -> do return xxx end
-function ParseEnv:continueMarkReturn(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = "do"
-	self._posToChange[vFinishPos] = "end"
+-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
+function ParseEnv:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
+	if vRetStartPos then
+		self._posToChange[vRetStartPos] = "do"
+		self._posToChange[vEndStartPos] = "end ::continue::"
+	else
+		self._posToChange[vEndStartPos] = "::continue::"
+	end
 end
 
 function ParseEnv:assertWithLineNum()
@@ -815,16 +818,9 @@ function ParseEnv:genLuaCode()
 				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos)
 				nContents[#nContents + 1] = nChange
 				nPreFinishPos = nStartPos
-			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" then
+			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" or nChange == "end ::continue::"then
 				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
 				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nContents[#nContents + 1] = " "
-				nPreFinishPos = nStartPos-1
-			elseif nChange == "end" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = " "
 				nContents[#nContents + 1] = nChange
 				nContents[#nContents + 1] = " "
 				nPreFinishPos = nStartPos-1
