@@ -29,8 +29,8 @@ Enum.CastKind_CONIL = "@!"
 Enum.CastKind_FORCE = "@?"
 Enum.CastKind_POLY = "@<"
 
-return Enum
-
+do return Enum
+ end 
 end end
 --thlua.Enum end ==========)
 
@@ -46,16 +46,16 @@ local class = require "thlua.class"
 
 local Exception = class ()
 Exception.__tostring=function(t)
-	return "Exception:"..tostring(t.node)..":"..t.msg
-end
+	do return "Exception:"..tostring(t.node)..":"..t.msg
+ end end
 
 function Exception:ctor(vMsg, vNode)
 	self.msg = tostring(vMsg)
 	self.node = vNode
 end
 
-return Exception
-
+do return Exception
+ end 
 end end
 --thlua.Exception end ==========)
 
@@ -82,7 +82,7 @@ function TestCase.new(vScript)
 		if nLine:match("--E$") then
 			nLineToResult[#nLineList] = 0
 		end
-	end
+	::continue:: end
 	local self = setmetatable({
 		_runtime = nil  ,
 		_script = vScript,
@@ -98,23 +98,23 @@ function TestCase.new(vScript)
 				if not ok then
 					error(nCodeEnv)
 				end
-				return nCodeEnv
-			else
+				do return nCodeEnv
+			 end else
 				error("test case can only parse its script")
 			end
 		end,
 		thluaGlobalFile=function(vRuntime, vPackage)
 			local nContent = require("thlua.global."..vPackage)
 			local nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
-			return nCodeEnv
-		end
+			do return nCodeEnv
+		 end end
 	})
-	return self
-end
+	do return self
+ end end
 
 function TestCase:getRuntime()
-	return self._runtime
-end
+	do return self._runtime
+ end end
 
 function TestCase.go(vScript, vName)
 	if not vName then
@@ -142,12 +142,12 @@ function TestCase.go(vScript, vName)
 			else
 				nLineToResult[nLine] = nDiagnostic.msg
 			end
-		end
-	end
+		::continue:: end
+	::continue:: end
 	local l    = {}
 	for nLine, nResult in pairs(nLineToResult) do
 		l[#l + 1] = {nLine, nResult}
-	end
+	::continue:: end
 	for _, nPair in pairs(l) do
 		local nLine, nResult = nPair[1], nPair[2]
 		if nResult == 0 then
@@ -157,12 +157,12 @@ function TestCase.go(vScript, vName)
 		else
 			print(nLine, "ok")
 		end
-	end
+	::continue:: end
 end
 
 
-return TestCase
-
+do return TestCase
+ end 
 end end
 --thlua.TestCase end ==========)
 
@@ -170,8 +170,8 @@ end end
 do local _ENV = _ENV
 packages['thlua.auto.AutoFlag'] = function (...)
 
-return {}
-
+do return {}
+ end 
 end end
 --thlua.auto.AutoFlag end ==========)
 
@@ -189,8 +189,8 @@ local Exception = require "thlua.Exception"
 local AutoHolder = {}
 AutoHolder.__index = AutoHolder
 AutoHolder.__tostring = function(self)
-	return "auto@"..tostring(self._node)
-end
+	do return "auto@"..tostring(self._node)
+ end end
 
 function AutoHolder.new(vNode , vContext)
 	local self = setmetatable({
@@ -198,14 +198,14 @@ function AutoHolder.new(vNode , vContext)
 		_context=vContext,
 		_term=false
 	}, AutoHolder)
-	return self
-end
+	do return self
+ end end
 
 function AutoHolder:checkRefineTerm(vContext)
 	local nTerm = self._term
 	if nTerm then
-		return nTerm
-	else
+		do return nTerm
+	 end else
 		error(Exception.new("undeduced auto param is used", vContext:getNode()))
 	end
 end
@@ -213,28 +213,28 @@ end
 function AutoHolder:setAutoCastType(vContext, vType)
 	local nTerm = vContext:RefineTerm(vType)
 	self._term = nTerm
-	return nTerm
-end
+	do return nTerm
+ end end
 
 function AutoHolder:getRefineTerm()
-	return self._term
-end
+	do return self._term
+ end end
 
 function AutoHolder:getType()
 	local nTerm = self._term
-	return nTerm and nTerm:getType()
-end
+	do return nTerm and nTerm:getType()
+ end end
 
 function AutoHolder:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function AutoHolder.is(t)
-	return getmetatable(t) == AutoHolder
-end
+	do return getmetatable(t) == AutoHolder
+ end end
 
-return AutoHolder
-
+do return AutoHolder
+ end 
 end end
 --thlua.auto.AutoHolder end ==========)
 
@@ -260,46 +260,46 @@ function AutoTail.new(vNode, vContext, vInit)
 		_holderList=vInit or {},
 		_sealTail=false  ,
 	}, AutoTail)
-	return self
-end
+	do return self
+ end end
 
 function AutoTail:getMore(vContext, vMore)
 	local nList = self._holderList
 	local nHolder = nList[vMore]
 	if nHolder then
-		return nHolder
-	else
+		do return nHolder
+	 end else
 		local nSealTail = self._sealTail
 		if not nSealTail then
 			for i=#nList + 1, vMore do
 				nList[i] = AutoHolder.new(self._node, self._context)
-			end
-			return nList[vMore]
-		else
+			::continue:: end
+			do return nList[vMore]
+		 end else
 			if nSealTail == true then
-				return vContext:NilTerm()
-			else
-				return nSealTail:getMore(vContext, vMore - #nList)
-			end
+				do return vContext:NilTerm()
+			 end else
+				do return nSealTail:getMore(vContext, vMore - #nList)
+			 end end
 		end
 	end
 end
 
 function AutoTail:openTailFrom(vContext, vFrom)
 	if vFrom == 1 then
-		return self
-	elseif vFrom > 1 then
+		do return self
+	 end elseif vFrom > 1 then
 		local nSelfHolderList = self._holderList
 		local nSelfLen = #nSelfHolderList
 		local nNewHolderList = {}
 		for i=vFrom, nSelfLen do
 			nNewHolderList[#nNewHolderList + 1] = nSelfHolderList[i]
 			nSelfHolderList[i] = nil
-		end
+		::continue:: end
 		local nNewAutoTail = AutoTail.new(self._node, self._context, nNewHolderList)
 		self._sealTail = nNewAutoTail
-		return nNewAutoTail
-	else
+		do return nNewAutoTail
+	 end else
 		error("openTailFrom must take from > 0")
 	end
 end
@@ -316,8 +316,8 @@ end
 function AutoTail:recurPutTermWithTail(vList) 
 	local nTail = self._sealTail
 	if not nTail then
-		return self
-	end
+		do return self
+	 end end
 	for i,v in ipairs(self._holderList) do
 		local nTerm = v:getRefineTerm()
 		if nTerm then
@@ -325,15 +325,15 @@ function AutoTail:recurPutTermWithTail(vList)
 		else
 			vList[#vList + 1] = v
 		end
-	end
+	::continue:: end
 	if nTail == true then
-		return false
-	else
+		do return false
+	 end else
 		if AutoTail.is(nTail) then
-			return nTail:recurPutTermWithTail(vList)
-		else
-			return nTail
-		end
+			do return nTail:recurPutTermWithTail(vList)
+		 end else
+			do return nTail
+		 end end
 	end
 end
 
@@ -344,48 +344,48 @@ function AutoTail:_recurPutTypeWhenCheckout(vList, vSeal)
 		if nType then
 			vList[#vList + 1] = nType
 		else
-			return false
-		end
-	end
+			do return false
+		 end end
+	::continue:: end
 	local nTail = self._sealTail
 	if not nTail then
 		if vSeal then
 			self._sealTail = true
-			return true
-		else
-			return false
-		end
+			do return true
+		 end else
+			do return false
+		 end end
 	elseif nTail == true then
-		return true
-	elseif AutoTail.is(nTail) then
-		return nTail:_recurPutTypeWhenCheckout(vList, vSeal)
-	else
-		return nTail:getRepeatType()
-	end
+		do return true
+	 end elseif AutoTail.is(nTail) then
+		do return nTail:_recurPutTypeWhenCheckout(vList, vSeal)
+	 end else
+		do return nTail:getRepeatType()
+	 end end
 end
 
 function AutoTail:checkTypeTuple(vSeal)
 	local nList = {}
 	local nDotsType = self:_recurPutTypeWhenCheckout(nList, vSeal or false)
 	if not nDotsType then
-		return false
-	else
+		do return false
+	 end else
 		local nContext = self._context
 		local nTuple = nContext:getTypeManager():TypeTuple(nContext:getNode(), nList)
 		if nDotsType == true then
-			return nTuple
-		else
-			return nTuple:withDots(nDotsType)
-		end
+			do return nTuple
+		 end else
+			do return nTuple:withDots(nDotsType)
+		 end end
 	end
 end
 
 function AutoTail.is(t)
-	return getmetatable(t) == AutoTail
-end
+	do return getmetatable(t) == AutoTail
+ end end
 
-return AutoTail
-
+do return AutoTail
+ end 
 end end
 --thlua.auto.AutoTail end ==========)
 
@@ -452,10 +452,10 @@ local DoBuilder = {}
 DoBuilder.__index=DoBuilder
 
 function DoBuilder.new(vContext, vNode)
-	return setmetatable({
+	do return setmetatable({
 		pass=false,
 	}, DoBuilder)
-end
+ end end
 
 function DoBuilder:build(vHintInfo)
 	if vHintInfo.attrSet.pass then
@@ -463,8 +463,8 @@ function DoBuilder:build(vHintInfo)
 	end
 end
 
-return DoBuilder
-
+do return DoBuilder
+ end 
 end end
 --thlua.builder.DoBuilder end ==========)
 
@@ -545,10 +545,10 @@ function FunctionBuilder.new(
 	}
 	for k,v in pairs(vInfo) do
 		self[k] = v
-	end
+	::continue:: end
 	setmetatable(self, FunctionBuilder)
-	return self
-end
+	do return self
+ end end
 
 function FunctionBuilder:_makeRetTuples(
 	vSuffixHint,
@@ -559,39 +559,39 @@ function FunctionBuilder:_makeRetTuples(
 	local ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
 			error(self._node:toExc("extends can only be used with function:class"))
-			return vHint
-		end,
+			do return vHint
+		 end end,
 		implements=function(vHint, _)
 			error(self._node:toExc("impl can only be used with function:class"))
-			return vHint
-		end,
+			do return vHint
+		 end end,
 		isguard=function(vHint, vType)
 			error(self._node:toExc("isguard can only be used with function.open"))
-			return vHint
-		end,
+			do return vHint
+		 end end,
 		mapguard=function(vHint, vType)
 			error(self._node:toExc("mapguard can only be used with function.open"))
-			return vHint
-		end,
+			do return vHint
+		 end end,
 		RetDots=function(vHint, vFirst, ...)
 			nRetBuilder:chainRetDots(self._node, vFirst, ...)
-			return vHint
-		end,
+			do return vHint
+		 end end,
 		Ret=function(vHint, ...)
 			nRetBuilder:chainRet(self._node, ...)
-			return vHint
-		end,
+			do return vHint
+		 end end,
 		Err=function(vHint, vErrType)
 			nRetBuilder:chainErr(self._node, vErrType)
-			return vHint
-		end,
+			do return vHint
+		 end end,
 	})
 	if not ok then
 		error(self._node:toExc(tostring(err)))
 	end
 	if nRetBuilder:isEmpty() then
-		return false
-	end
+		do return false
+	 end end
 	local nRetTuples = nRetBuilder:build()
 	if not self._hasRetSome then
 		if nRetTuples and not self._pass then
@@ -611,8 +611,8 @@ function FunctionBuilder:_makeRetTuples(
 			end
 		end
 	end
-	return nRetTuples
-end
+	do return nRetTuples
+ end end
 
 function FunctionBuilder:_buildInnerFn()  
 	local nNode = self._node
@@ -637,13 +637,13 @@ function FunctionBuilder:_buildInnerFn()
 				end
 			end
 			local nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples(self._node))
-			return nParTuple, nRetTuples, function()
+			do return nParTuple, nRetTuples, function()
 				if self._pass then
 					if not nParTuple or not nRetTuples then
 						error(self._node:toExc("pass function can't take auto return or auto parameter"))
 					end
-					return nParTuple, nRetTuples
-				else
+					do return nParTuple, nRetTuples
+				 end else
 					local nRetTermTuple, nErrType = nGenFunc()
 					local nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
@@ -656,28 +656,28 @@ function FunctionBuilder:_buildInnerFn()
 						nNewStack:inplaceOper():error("auto return deduce failed")
 						error(self._node:toExc("auto return deduce failed"))
 					end
-					return nParTuple, nRetTuples
-				end
+					do return nParTuple, nRetTuples
+				 end end
 			end
-		end)
-		return nAutoFn
-	end
+		 end end)
+		do return nAutoFn
+	 end end
 	if not self._member then
 		if nPolyParNum <= 0 then
 			local ret = nFnMaker({}, false)
 			self._stack:getSealStack():scheduleSealType(ret)
-			return ret
-		else
-			return self._manager:SealPolyFunction(self._node, function(...)
-				return nFnMaker({...}, false)
-			end, nPolyParNum, self._stack)
-		end
+			do return ret
+		 end else
+			do return self._manager:SealPolyFunction(self._node, function(...)
+				do return nFnMaker({...}, false)
+			 end end, nPolyParNum, self._stack)
+		 end end
 	else
 		local nPolyFn = self._manager:SealPolyFunction(self._node, function(self, ...)
-			return nFnMaker({...}, self)
-		end, nPolyParNum + 1, self._stack)
-		return self._manager:AutoMemberFunction(self._node, nPolyFn)
-	end
+			do return nFnMaker({...}, self)
+		 end end, nPolyParNum + 1, self._stack)
+		do return self._manager:AutoMemberFunction(self._node, nPolyFn)
+	 end end
 end
 
 function FunctionBuilder:_buildOpen()
@@ -689,47 +689,47 @@ function FunctionBuilder:_buildOpen()
 		local ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
 				error(self._node:toExc("extends can only be used with function:class"))
-				return vHint
-			end,
+				do return vHint
+			 end end,
 			implements=function(vHint, _)
 				error(self._node:toExc("impl can only be used with function:class"))
-				return vHint
-			end,
+				do return vHint
+			 end end,
 			RetDots=function(vHint, vFirst, ...)
 				error(self._node:toExc("open function can't take RetDots"))
-				return vHint
-			end,
+				do return vHint
+			 end end,
 			Ret=function(vHint, ...)
 				error(self._node:toExc("open function can't take Ret"))
-				return vHint
-			end,
+				do return vHint
+			 end end,
 			Err=function(vHint, _)
 				error(self._node:toExc("open function can't take Err"))
-				return vHint
-			end,
+				do return vHint
+			 end end,
 			isguard=function(vHint, vType)
 				assert(not nSetted, self._node:toExc("isguard can only use once here"))
 				nGuardFn:lateInitFromIsGuard(vType)
-				return vHint
-			end,
+				do return vHint
+			 end end,
 			mapguard=function(vHint, vDict)
 				local nMapObject = self._manager:buildInterface(self._node, vDict)
 				assert(not nSetted, self._node:toExc("isguard can only use once here"))
 				nGuardFn:lateInitFromMapGuard(nMapObject)
-				return vHint
-			end,
+				do return vHint
+			 end end,
 		})
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
-		return nGuardFn
-	else
-		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
+		do return nGuardFn
+	 end else
+		do return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
 			local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyArgs, false)
 			nGenParam(vTermTuple)
-			return nGenFunc()
-		end)
-	end
+			do return nGenFunc()
+		 end end)
+	 end end
 end
 
 function FunctionBuilder:_buildClass() 
@@ -741,8 +741,8 @@ function FunctionBuilder:_buildClass()
 		class=function(vHint, vRefer)
 			assert(vRefer and Reference.is(vRefer), self._node:toExc("impl's first arg must be a Reference"))
 			nReferOrNil = vRefer
-			return vHint
-		end,
+			do return vHint
+		 end end,
 	})
 	if not ok then
 		error(self._node:toExc(tostring(err)))
@@ -757,32 +757,32 @@ function FunctionBuilder:_buildClass()
 			local ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
 					nImplementsArg = vInterface
-					return vHint
-				end,
+					do return vHint
+				 end end,
 				extends=function(vHint, vBaseClass)
 					nExtendsArg = vBaseClass
-					return vHint
-				end,
+					do return vHint
+				 end end,
 				Ret=function(vHint, ...)
 					error(self._node:toExc("class function can't take Ret"))
-					return vHint
-				end,
+					do return vHint
+				 end end,
 				RetDots=function(vHint, vFirst, ...)
 					error(self._node:toExc("class function can't take RetDots"))
-					return vHint
-				end,
+					do return vHint
+				 end end,
 				Err=function(vHint, vErrType)
 					nErrType = self._dirtyProcessor:easyToType(self._node, vErrType)
-					return vHint
-				end,
+					do return vHint
+				 end end,
 				isguard=function(vHint, vType)
 					error(self._node:toExc("isguard can only be used with function.open"))
-					return vHint
-				end,
+					do return vHint
+				 end end,
 				mapguard=function(vHint, vType)
 					error(self._node:toExc("mapguard can only be used with function.open"))
-					return vHint
-				end,
+					do return vHint
+				 end end,
 			})
 			if not ok then
 				error(Exception.new(tostring(err), self._node))
@@ -819,8 +819,8 @@ function FunctionBuilder:_buildClass()
 					end
 				end
 			end
-			return nExtendsTable, nImplementsInterface, nErrType
-		end
+			do return nExtendsTable, nImplementsInterface, nErrType
+		 end end
 		local nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
 		local nClassTable = nFactory:getClassTable()
 		local nNewStack = nFactory:getBuildStack()
@@ -833,14 +833,14 @@ function FunctionBuilder:_buildClass()
 			nGenFunc = nGenFunc_
 			local nExtends, nImplements, nErrType_ = nInterfaceGetter(nSuffixHint)
 			nErrType = nErrType_
-			return nExtends, nImplements
-		end)
+			do return nExtends, nImplements
+		 end end)
 		nFactory:initAsync(function()
 			nClassTable:waitInit()
 			local nParTermTuple = nGenParam(false)
 			local nParTuple = nParTermTuple:checkTypeTuple()
 			local nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nErrType)
-			return nParTuple, nRetTuples, function()
+			do return nParTuple, nRetTuples, function()
 				nNewStack:setClassTable(nClassTable)
 				nGenFunc()
 				local nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
@@ -849,47 +849,47 @@ function FunctionBuilder:_buildClass()
 					error(self._node:toExc("auto parameter deduce failed"))
 				end
 				nClassTable:onBuildFinish()
-				return nParTuple, nRetTuples
-			end
-		end)
-		return nFactory
-	end
+				do return nParTuple, nRetTuples
+			 end end
+		 end end)
+		do return nFactory
+	 end end
 	if nPolyParNum <= 0 then
 		local nFactory = nFnMaker({})
 		nRefer:setAssignAsync(self._node, function()
-			return nFactory:getClassTable(true)
-		end)
+			do return nFactory:getClassTable(true)
+		 end end)
 		self._stack:getSealStack():scheduleSealType(nFactory)
-		return nFactory
-	else
+		do return nFactory
+	 end else
 		local nPolyFn = self._manager:SealPolyFunction(self._node, function(...)
-			return nFnMaker({...})
-		end, nPolyParNum, self._stack)
+			do return nFnMaker({...})
+		 end end, nPolyParNum, self._stack)
 		nRefer:setTemplateAsync(self._node, function(...)
 			local nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
-			return nFactory:getClassTable(true)
-		end, nPolyParNum)
-		return nPolyFn
-	end
+			do return nFactory:getClassTable(true)
+		 end end, nPolyParNum)
+		do return nPolyFn
+	 end end
 end
 
 function FunctionBuilder:build()
 	local nAttrSet = self._prefixHint.attrSet
 	if nAttrSet.open then
-		return self:_buildOpen()
-	elseif nAttrSet.class then
+		do return self:_buildOpen()
+	 end elseif nAttrSet.class then
 		if self._member then
 			error(self._node:toExc("class factory can't be member-function-like"))
 		end
-		return self:_buildClass()
-	else
-		return self:_buildInnerFn()
-	end
+		do return self:_buildClass()
+	 end else
+		do return self:_buildInnerFn()
+	 end end
 end
 
-return FunctionBuilder
-
+do return FunctionBuilder
+ end 
 end end
 --thlua.builder.FunctionBuilder end ==========)
 
@@ -926,7 +926,7 @@ function TableBuilder.new(vStack,
 	vHintInfo,
 	vPairMaker
 )
-	return setmetatable({
+	do return setmetatable({
 		_stack=vStack,
 		_node=vNode,
 		_isConst=vNode.isConst,
@@ -934,16 +934,16 @@ function TableBuilder.new(vStack,
 		_pairMaker=vPairMaker,
 		_selfInitDict=false  ,
 	}, TableBuilder)
-end
+ end end
 
 function TableBuilder._makeLongHint(self)
-	return {
+	do return {
 		Init=function(vLongHint, vInitDict )
 			self._selfInitDict = vInitDict
-			return vLongHint
-		end,
+			do return vLongHint
+		 end end,
 	}
-end
+ end end
 
 function TableBuilder:_build(vNewTable )
 	      
@@ -968,7 +968,7 @@ function TableBuilder:_build(vNewTable )
 		else
 			nTypePairList[i] = {nKey, nValue}
 		end
-	end
+	::continue:: end
 	if vDotsTuple then
 		local nTypeTuple = vDotsTuple:checkTypeTuple()
 		local nRepeatType = nTypeTuple:getRepeatType()
@@ -987,7 +987,7 @@ function TableBuilder:_build(vNewTable )
 				nTypePairList[#nTypePairList + 1] = {
 					nKey, nType
 				}
-			end
+			::continue:: end
 		end
 	end
 	local nSelfInitDict = self._selfInitDict
@@ -998,11 +998,11 @@ function TableBuilder:_build(vNewTable )
 					vSubKey, nManager:checkedUnion(nValue, nManager.type.Nil)
 				}
 			end)
-		end
+		::continue:: end
 	end
 	local nKeyUnion, nTypeDict = nManager:typeMapReduce(nTypePairList, function(vList)
-		return nManager:unionReduceType(vList)
-	end)
+		do return nManager:unionReduceType(vList)
+	 end end)
 	if OpenTable.is(vNewTable) then
 		vNewTable:initByBranchKeyValue(self._node, self._stack:topBranch(), nKeyUnion, nTypeDict)
 	else
@@ -1022,8 +1022,8 @@ function TableBuilder:build()
 	if nAttrSet.class then
 		local nNewTable = assert(nStack:getClassTable(), "only function:class(xxx) can build table hint with {.class")
 		self:_build(nNewTable)
-		return nNewTable
-	else
+		do return nNewTable
+	 end else
 		if nAttrSet.open then
 			if self._selfInitDict then
 				self._selfInitDict = false
@@ -1031,17 +1031,17 @@ function TableBuilder:build()
 			end
 			local nNewTable = OpenTable.new(nManager, self._node, self._stack)
 			self:_build(nNewTable)
-			return nNewTable
-		else
+			do return nNewTable
+		 end else
 			local nNewTable = AutoTable.new(nManager, self._node, self._stack)
 			self:_build(nNewTable)
-			return nNewTable
-		end
+			do return nNewTable
+		 end end
 	end
 end
 
-return TableBuilder
-
+do return TableBuilder
+ end 
 end end
 --thlua.builder.TableBuilder end ==========)
 
@@ -1086,8 +1086,8 @@ local function class (super)
 				create(class_type,...)
 			end
 			setmetatable(obj, class_type.meta)
-			return obj
-		end
+			do return obj
+		 end end
 	local vtbl={}
 	local meta={
 		__index=vtbl
@@ -1098,20 +1098,20 @@ local function class (super)
 			while cur_type do
 				if cur_type == if_type then
 					type2is[if_type] = true
-					return true
-				else
+					do return true
+				 end else
 					cur_type = cur_type.super
 				end
-			end
+			::continue:: end
 			type2is[if_type] = false
-			return false
-		end
+			do return false
+		 end end
 	}) )  
 	class_type.is=function(v)
 		local nClassType = meta2class[getmetatable(v) or 1]
 		local nIsDict = nClassType and nClassType.isDict
-		return nIsDict and nIsDict[class_type] or false
-	end
+		do return nIsDict and nIsDict[class_type] or false
+	 end end
 	class_type.meta=meta
 	class2meta[class_type]=meta
 	meta2class[meta]=class_type
@@ -1130,19 +1130,19 @@ local function class (super)
 		local super_meta = class2meta[super]
 		for k,v in pairs(super_meta.__index) do
 			vtbl[k] = v
-		end
+		::continue:: end
 		for k,v in pairs(super_meta) do
 			if k ~= "__index" then
 				meta[k] = v
 			end
-		end
+		::continue:: end
 	end
 
-	return class_type
-end
+	do return class_type
+ end end
 
-return class
-
+do return class
+ end 
 end end
 --thlua.class end ==========)
 
@@ -1199,8 +1199,8 @@ function CodeEnv.new(vCode , vChunkName, vChunkWithInject)
 		self._astTree = vChunkWithInject
 	end
 	self._typingFn = (self:_buildTypingFn() ) 
-	return self
-end
+	do return self
+ end end
 
 function CodeEnv:_prepareBaseNode(vNode)
 	vNode.path = self._chunkName
@@ -1258,24 +1258,24 @@ function CodeEnv:_buildTypingFn()
 		    
 		error(Exception.new(tostring(nInfo), self._astTree))
 	end
-	return nFunc
-end
+	do return nFunc
+ end end
 
 function CodeEnv:getNodeList()
-	return self._nodeList
-end
+	do return self._nodeList
+ end end
 
 function CodeEnv:getAstTree()
-	return self._astTree
-end
+	do return self._astTree
+ end end
 
 function CodeEnv:getTypingCode()
-	return self._typingCode
-end
+	do return self._typingCode
+ end end
 
 function CodeEnv:getTypingFn()
-	return self._typingFn
-end
+	do return self._typingFn
+ end end
 
 function CodeEnv:makeFocusList(vNode)
 	local nCurNode = vNode
@@ -1288,9 +1288,9 @@ function CodeEnv:makeFocusList(vNode)
 			end
 		end
 		nCurNode = nCurNode.parent
-	end
-	return nFocusList
-end
+	::continue:: end
+	do return nFocusList
+ end end
 
 function CodeEnv:traceBlockRegion(vTraceList) 
 	local nRetBlock = self._astTree[3]
@@ -1302,15 +1302,15 @@ function CodeEnv:traceBlockRegion(vTraceList)
 		else
 			nRetBlock = nNextBlock
 		end
-	end
-	return nRetBlock, self:makeFocusList(nRetBlock)
-end
+	::continue:: end
+	do return nRetBlock, self:makeFocusList(nRetBlock)
+ end end
 
 function CodeEnv:searchHintExprBySuffix(vPos)  
 	local nPair = self._searcher:searchHintSuffixPair(vPos)
 	if not nPair then
-		return false
-	end
+		do return false
+	 end end
 	local nRetBlock = nil
 	local nPrefixNode = nPair[1]
 	    
@@ -1326,47 +1326,47 @@ function CodeEnv:searchHintExprBySuffix(vPos)
 			end
 		end
 		nCurNode = nCurNode.parent
-	end
+	::continue:: end
 	if not nRetBlock then
-		return false
-	end
-	return nPrefixNode, nRetBlock, self:makeFocusList(nPrefixNode)
-end
+		do return false
+	 end end
+	do return nPrefixNode, nRetBlock, self:makeFocusList(nPrefixNode)
+ end end
 
 function CodeEnv:searchExprBySuffix(vPos) 
 	local nPair = self._searcher:searchSuffixPair(vPos)
 	if not nPair then
-		return false
-	end
+		do return false
+	 end end
 	local nPrefixNode = nPair[1]
-	return nPrefixNode, self:makeFocusList(nPrefixNode)
-end
+	do return nPrefixNode, self:makeFocusList(nPrefixNode)
+ end end
 
 function CodeEnv:searchIdent(vPos)
-	return self._searcher:searchIdent(vPos)
-end
+	do return self._searcher:searchIdent(vPos)
+ end end
 
 function CodeEnv:getChunkName()
-	return self._chunkName
-end
+	do return self._chunkName
+ end end
 
 function CodeEnv:getSplitCode()
-	return self._code
-end
+	do return self._code
+ end end
 
 function CodeEnv.is(v)
-	return getmetatable(v) == CodeEnv
-end
+	do return getmetatable(v) == CodeEnv
+ end end
 
 function CodeEnv.genInjectFnByError(vSplitCode, vFileUri, vWrongContent) 
 	local nRightAst, nErrNode = ParseEnv.parse(vWrongContent)
 	if nRightAst then
-		return false
-	end
+		do return false
+	 end end
 	local nInjectTrace = nErrNode[2]
 	if not nInjectTrace then
-		return false
-	end
+		do return false
+	 end end
 	local nChunk = nInjectTrace.capture
 	local nOkay, nInjectFn = pcall(function()
 		assert(nChunk.injectNode)
@@ -1375,23 +1375,23 @@ function CodeEnv.genInjectFnByError(vSplitCode, vFileUri, vWrongContent)
 			    
 		
 		local nRawInjectFn = (nFocusEnv:getTypingFn() ) 
-		return function(vStack, vGetter)
-			return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)
-		end
-	end)
+		do return function(vStack, vGetter)
+			do return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)
+		 end end
+	 end end)
 	if nOkay then
-		return nInjectFn, nInjectTrace
-	else
-		return false
-	end
+		do return nInjectFn, nInjectTrace
+	 end else
+		do return false
+	 end end
 end
 
 function CodeEnv:getLuaCode()
-	return self._luaCode
-end
+	do return self._luaCode
+ end end
 
-return CodeEnv
-
+do return CodeEnv
+ end 
 end end
 --thlua.code.CodeEnv end ==========)
 
@@ -1426,44 +1426,44 @@ packages['thlua.code.HintGener'] = function (...)
 local function autoPrimitive(vExpr)
 	local nTag = vExpr.tag
 	if nTag == "String" or nTag == "Number" or nTag == "True" or nTag == "False" then
-		return not vExpr.isConst
-	else
-		return false
-	end
+		do return not vExpr.isConst
+	 end else
+		do return false
+	 end end
 end
 
 local TagToVisiting = {
 	Chunk=function(self, node)
 		local nInjectNode = node.injectNode
 		if not nInjectNode then
-			return {
+			do return {
 				'local ____nodes,____stk,____globalTerm=... ',
 				self:visitIdentDef(node[1], "____globalTerm"),
 				" return ", self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 			}
-		else
+		 end else
 			if nInjectNode.tag ~= "HintSpace" then
-				return {
+				do return {
 					'local ____nodes,____stk,____injectGetter=... ',
 					"local let, _ENV, _G = ____stk:INJECT_BEGIN() ",
 					" return ", self:visit(nInjectNode),
 				}
-			else
-				return {
+			 end else
+				do return {
 					'local ____nodes,____stk,____injectGetter=... ',
 					"local let, _ENV, _G = ____stk:INJECT_BEGIN() ",
 					" return ", self:fixIHintSpace(nInjectNode),
 				}
-			end
+			 end end
 		end
 	end,
 	HintTerm=function(self, node)
-		return self:stkWrap(node).HINT_TERM(self:fixIHintSpace(node[1]))
-	end,
+		do return self:stkWrap(node).HINT_TERM(self:fixIHintSpace(node[1]))
+	 end end,
 	Block=function(self, node)
-		return self:concatList(node, function(i, vStatNode)
-			return self:visit(vStatNode)
-		end, " ")
+		do return self:concatList(node, function(i, vStatNode)
+			do return self:visit(vStatNode)
+		 end end, " ")
 		    
 		   
 		   
@@ -1491,96 +1491,96 @@ local TagToVisiting = {
 				
 			
 		
-	end,
+	 end end,
 	Do=function(self, node)
-		return self:rgnWrap(node).DO(
+		do return self:rgnWrap(node).DO(
 			self:visitLongHint(node.hintLong),
 			self:fnWrap()(self:visit(node[1]))
 		)
-	end,
+	 end end,
 	Set=function(self, node)
-		return {
+		do return {
 			" local ", self:concatList(node[1], function(i,v)
-				return "____set_a"..i
-			end, ","),
+				do return "____set_a"..i
+			 end end, ","),
 			"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2])),
 			self:concatList(node[1], function(i, vVarNode)
 				if vVarNode.tag == "Ident" then
 					local nDefineIdent = vVarNode.defineIdent
 					if nDefineIdent then
-						return self:stkWrap(vVarNode).SYMBOL_SET(
+						do return self:stkWrap(vVarNode).SYMBOL_SET(
 							self:codeNode(nDefineIdent),
 							"____set_a"..i
 						)
-					else
+					 end else
 						local nIdentENV = vVarNode.isGetFrom
 						if self._chunk.injectNode and nIdentENV == self._chunk[1] then
 							     
-							return ""
-						else
-							return self:stkWrap(vVarNode).GLOBAL_SET(
+							do return ""
+						 end else
+							do return self:stkWrap(vVarNode).GLOBAL_SET(
 								self:codeNode(nIdentENV  ),
 								"____set_a"..i
 							)
-						end
+						 end end
 					end
 				else
-					return self:stkWrap(vVarNode).META_SET(
+					do return self:stkWrap(vVarNode).META_SET(
 						self:visit(vVarNode[1]),
 						self:visit(vVarNode[2]),
 						"____set_a"..i
 					)
-				end
+				 end end
 			end, " ")
 		}
-	end,
+	 end end,
 	While=function(self, node)
-		return self:rgnWrap(node).WHILE(
+		do return self:rgnWrap(node).WHILE(
 			self:visit(node[1]),
 			self:fnWrap()(self:visit(node[2]))
 		)
-	end,
+	 end end,
 	Repeat=function(self, node)
-		return self:rgnWrap(node).REPEAT(
+		do return self:rgnWrap(node).REPEAT(
 			self:fnWrap()(self:visit(node[1])),
-			self:visit(node[2])
+			self:fnWrap()(self:visit(node[2]))
 		)
-	end,
+	 end end,
 	If=function(self, node)
 		local function put(exprNode, blockNode, nextIndex, level)
 			local nNext1Node, nNext2Node = node[nextIndex], node[nextIndex + 1]
 			if nNext1Node then
 				if nNext2Node then
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
-					return self:rgnWrap(node).IF_TWO(
+					do return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
 						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
 						self:fnWrap()(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
 					)
-				else
+				 end else
 					assert(nNext1Node.tag == "Block")
-					return self:rgnWrap(node).IF_TWO(
+					do return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
 						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
 						self:fnWrap()(self:visit(nNext1Node)), self:codeNode(nNext1Node)
 					)
-				end
+				 end end
 			else
-				return self:rgnWrap(node).IF_ONE(
+				do return self:rgnWrap(node).IF_ONE(
 					self:visit(exprNode),
 					self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode)
 				)
-			end
+			 end end
 		end
 		local nExpr, nBlock = node[1], node[2]
 		assert(nExpr.tag ~= "Block" and nBlock.tag == "Block", "if statement error")
-		return put(nExpr, nBlock, 3, 1)
-	end,
+		do return put(nExpr, nBlock, 3, 1)
+	 end end,
 	Fornum=function(self, node)
 		local nHasStep = node[5] and true or false
 		local nBlockNode = node[5] or node[4]
 		assert(nBlockNode.tag == "Block", "4th or 5th node must be block")
-		return self:rgnWrap(node).FOR_NUM(
+		do return self:rgnWrap(node).FOR_NUM(
 			self:visit(node[2]), self:visit(node[3]), nHasStep and self:visit(node[4]) or "nil",
 			self:fnWrap("____fornum")(
 				self:visitIdentDef(node[1], "____fornum"),
@@ -1588,66 +1588,69 @@ local TagToVisiting = {
 			),
 			self:codeNode(nBlockNode)
 		)
-	end,
+	 end end,
 	Forin=function(self, node)
-		return {
+		do return {
 			"local ____n_t_i=", self:stkWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
 			self:rgnWrap(node).FOR_IN(self:fnWrap("____iterTuple")(
 				"local ", self:concatList(node[1], function(i, vNode)
-					return "____forin"..i
-				end, ","),
+					do return "____forin"..i
+				 end end, ","),
 				"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
 				self:concatList(node[1], function(i, vIdent)
-					return self:visitIdentDef(vIdent, "____forin"..i)
-				end, " "),
+					do return self:visitIdentDef(vIdent, "____forin"..i)
+				 end end, " "),
 				self:visit(node[3])
 			), "____n_t_i")
 		}
-	end,
+	 end end,
 	Local=function(self, node)
 		local nExprList = node[2]
-		return {
+		do return {
 			line=node.l,
 			"local ", self:concatList(node[1], function(i, vNode)
-				return "____lo"..i
-			end, ","), "=",
+				do return "____lo"..i
+			 end end, ","), "=",
 			#node[2] > 0
 				and self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), self:visit(node[2]))
 				or self:concatList(node[1], function(i, vNode)
 					  
-					return "nil"
-				end, ", "),
+					do return "nil"
+				 end end, ", "),
 			self:concatList(node[1], function(i, vIdent)
 				local nCurExpr = nExprList[i]
-				return self:visitIdentDef(vIdent, "____lo"..i, nil, nCurExpr and autoPrimitive(nCurExpr) or nil)
-			end, " ")
+				do return self:visitIdentDef(vIdent, "____lo"..i, nil, nCurExpr and autoPrimitive(nCurExpr) or nil)
+			 end end, " ")
 		}
-	end,
+	 end end,
 	Localrec=function(self, node)
 		  
-		return self:visitIdentDef(node[1], self:visit(node[2]), true)
-	end,
+		do return self:visitIdentDef(node[1], self:visit(node[2]), true)
+	 end end,
 	Goto=function(self, node)
 		  
-		return {}
-	end,
+		do return {}
+	 end end,
 	Label=function(self, node)
 		  
-		return {}
-	end,
+		do return {}
+	 end end,
 	Return=function(self, node)
-		return self:rgnWrap(node).RETURN(
+		do return self:rgnWrap(node).RETURN(
 			self:stkWrap(node).EXPRLIST_REPACK(
 				"false",
 				self:listWrap(self:visit(node[1]))
 			)
 		)
-	end,
+	 end end,
+	Continue=function(self, node)
+		do return self:rgnWrap(node).CONTINUE()
+	 end end,
 	Break=function(self, node)
-		return self:rgnWrap(node).BREAK()
-	end,
+		do return self:rgnWrap(node).BREAK()
+	 end end,
 	Call=function(self, node)
-		return self:stkAutoUnpack(node,
+		do return self:stkAutoUnpack(node,
 			self:stkWrap(node).META_CALL(
 				self:visit(node[1]),
 				self:stkWrap(node).EXPRLIST_REPACK(
@@ -1656,10 +1659,10 @@ local TagToVisiting = {
 				)
 			)
 		)
-	end,
+	 end end,
 	Invoke=function(self, node)
 		local nHintPolyArgs = node.hintPolyArgs
-		return self:stkAutoUnpack(node,
+		do return self:stkAutoUnpack(node,
 			self:stkWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
@@ -1670,42 +1673,42 @@ local TagToVisiting = {
 				)
 			)
 		)
-	end,
+	 end end,
 	HintSpace=function(self, node)
 		if node.kind == "StatHintSpace" then
 			         
-			return {
+			do return {
 				line = node.l,
 				" local ____hintStat=function() ",
 				self:fixIHintSpace(node),
 				" end ____hintStat() "
 			}
-		else
+		 end else
 			error("visit long space or short space in other function")
-			return {}
-		end
+			do return {}
+		 end end
 	end,
 	Dots=function(self, node)
-		return self:stkAutoUnpack(node, "____vDOTS")
-	end,
+		do return self:stkAutoUnpack(node, "____vDOTS")
+	 end end,
 	Nil=function(self, node)
-		return self:stkWrap(node).NIL_TERM()
-	end,
+		do return self:stkWrap(node).NIL_TERM()
+	 end end,
 	True=function(self, node)
-		return self:stkWrap(node).LITERAL_TERM("true")
-	end,
+		do return self:stkWrap(node).LITERAL_TERM("true")
+	 end end,
 	False=function(self, node)
-		return self:stkWrap(node).LITERAL_TERM("false")
-	end,
+		do return self:stkWrap(node).LITERAL_TERM("false")
+	 end end,
 	Number=function(self, node)
-		return self:stkWrap(node).LITERAL_TERM(self:codeNodeValue(node))
-	end,
+		do return self:stkWrap(node).LITERAL_TERM(self:codeNodeValue(node))
+	 end end,
 	String=function(self, node)
-		return self:stkWrap(node).LITERAL_TERM(self:codeNodeValue(node))
-	end,
+		do return self:stkWrap(node).LITERAL_TERM(self:codeNodeValue(node))
+	 end end,
 	Function=function(self, node)
-		return self:visitFunc(node)
-	end,
+		do return self:visitFunc(node)
+	 end end,
 	Table=function(self, node)
 		local count = 0
 		local i2i  = {}
@@ -1719,90 +1722,90 @@ local TagToVisiting = {
 					tailDots = nItem
 				end
 			end
-		end
-		return self:stkWrap(node).TABLE_NEW(
+		::continue:: end
+		do return self:stkWrap(node).TABLE_NEW(
 			self:visitLongHint(node.hintLong),
 			self:fnRetWrap(self:listWrap(self:concatList (node, function(i, vTableItem)
 				if vTableItem.tag ~= "Pair" then
 					if i==#node and tailDots then
-						return "nil"
-					else
-						return self:dictWrap({
+						do return "nil"
+					 end else
+						do return self:dictWrap({
 							node=self:codeNode(vTableItem),
 							autoPrimitive=tostring(autoPrimitive(vTableItem)),
 							key=self:stkWrap(vTableItem).LITERAL_TERM(tostring(i2i[i])),
 							value=self:visit(vTableItem)
 						})
-					end
+					 end end
 				else
-					return self:dictWrap({
+					do return self:dictWrap({
 						node=self:codeNode(vTableItem),
 						autoPrimitive=tostring(autoPrimitive(vTableItem[2])),
 						key=self:visit(vTableItem[1]),
 						value=self:visit(vTableItem[2])
 					})
-				end
+				 end end
 			end, ",")), tostring(count), tailDots and self:visit(tailDots) or "nil")
 		)
-	end,
+	 end end,
 	Op=function(self, node)
 		local nLogicOpSet  = {["or"]=1,["not"]=1,["and"]=1}
 		local nOper = node[1]
 		if nLogicOpSet[nOper] then
 			if nOper == "not" then
-				return self:rgnWrap(node).LOGIC_NOT(
+				do return self:rgnWrap(node).LOGIC_NOT(
 					self:visit(node[2])
 				)
-			elseif nOper == "or" then
-				return self:rgnWrap(node).LOGIC_OR(
+			 end elseif nOper == "or" then
+				do return self:rgnWrap(node).LOGIC_OR(
 					self:visit(node[2]), self:fnRetWrap(self:visit(node[3]))
 				)
-			elseif nOper == "and" then
-				return self:rgnWrap(node).LOGIC_AND(
+			 end elseif nOper == "and" then
+				do return self:rgnWrap(node).LOGIC_AND(
 					self:visit(node[2]), self:fnRetWrap(self:visit(node[3]))
 				)
-			else
+			 end else
 				error("invalid case branch")
 			end
 		else
 			local nRight = node[3]
 			if not nRight then
-				return self:stkWrap(node).META_UOP(
+				do return self:stkWrap(node).META_UOP(
 					"\""..node[1].."\"",
 					self:visit(node[2])
 				)
-			elseif node[1] == "==" then
-				return self:stkWrap(node).META_EQ_NE(
+			 end elseif node[1] == "==" then
+				do return self:stkWrap(node).META_EQ_NE(
 					"true",
 					self:visit(node[2]),
 					self:visit(nRight)
 				)
-			elseif node[1] == "~=" then
-				return self:stkWrap(node).META_EQ_NE(
+			 end elseif node[1] == "~=" then
+				do return self:stkWrap(node).META_EQ_NE(
 					"false",
 					self:visit(node[2]),
 					self:visit(nRight)
 				)
-			else
-				return self:stkWrap(node).META_BOP_SOME(
+			 end else
+				do return self:stkWrap(node).META_BOP_SOME(
 					"\""..node[1].."\"",
 					self:visit(node[2]),
 					self:visit(nRight)
 				)
-			end
+			 end end
 		end
 	end,
 	HintAt=function(self, node)
 		local nHintShort = node.hintShort
-		return self:stkWrap(node).CAST_HINT(
+		do return self:stkWrap(node).CAST_HINT(
 			{"(", self:visit(node[1]), ")"},
 			string.format("%q", nHintShort.castKind),
 			self:fixIHintSpace(nHintShort)
 		)
-	end,
+	 end end,
 	Paren=function(self, node)
-		return self:visit(node[1])
-	end,
+		do return self:visit(node[1])
+	 end end,
 	Ident=function(self, node)
 		assert(node.kind ~= "def")
 		local nDefineIdent = node.defineIdent
@@ -1811,60 +1814,61 @@ local TagToVisiting = {
 			local nParent = node.parent
 			while nParent.tag == "Paren" do
 				nParent = nParent.parent
-			end
+			::continue:: end
 			local nParentTag = nParent.tag
 			local nParentParentTag = nParent.parent.tag
 			if nParentTag == "ExprList" then
 				local nSymbolGet = self:stkWrap(node).SYMBOL_GET(symbol, "true")
+
 				if nParentParentTag == "Invoke" or nParentParentTag == "Call" then
 					  
-					return self:fnRetWrap(nSymbolGet)
-				else
-					return nSymbolGet
-				end
+					do return self:fnRetWrap(nSymbolGet)
+				 end else
+					do return nSymbolGet
+				 end end
 			else
-				return self:stkWrap(node).SYMBOL_GET(symbol, "false")
-			end
+				do return self:stkWrap(node).SYMBOL_GET(symbol, "false")
+			 end end
 		else
 			local nIdentENV = node.isGetFrom
 			if self._chunk.injectNode and nIdentENV == self._chunk[1] then
-				return self:stkWrap(node).INJECT_GET(
+				do return self:stkWrap(node).INJECT_GET(
 					"____injectGetter"
 				)
-			else
-				return self:stkWrap(node).GLOBAL_GET(
+			 end else
+				do return self:stkWrap(node).GLOBAL_GET(
 					self:codeNode(nIdentENV  )
 				)
-			end
+			 end end
 		end
 	end,
 	Index=function(self, node)
-		return self:stkWrap(node).META_GET(
+		do return self:stkWrap(node).META_GET(
 			self:visit(node[1]), self:visit(node[2]),
 			tostring(node.notnil or false)
 		)
-	end,
+	 end end,
 	ExprList=function(self, node)
-		return self:concatList(node, function(i, expr)
-			return self:visit(expr)
-		end, ",")
-	end,
+		do return self:concatList(node, function(i, expr)
+			do return self:visit(expr)
+		 end end, ",")
+	 end end,
 	ParList=function(self, node)
 		error("implement in other way")
-		return self:concatList (node, function(i, vParNode)
-			return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "____vDOTS"
-		end, ",")
-	end,
+		do return self:concatList (node, function(i, vParNode)
+			do return vParNode.tag == "Ident" and "____v_"..vParNode[1]..vParNode.index or "____vDOTS"
+		 end end, ",")
+	 end end,
 	VarList=function(self, node)
-		return self:concatList(node, function(i, varNode)
-			return self:visit(varNode)
-		end, ",")
-	end,
+		do return self:concatList(node, function(i, varNode)
+			do return self:visit(varNode)
+		 end end, ",")
+	 end end,
 	IdentList=function(self, node)
-		return self:concatList(node, function(i, identNode)
-			return self:visit(identNode)
-		end, ",")
-	end,
+		do return self:concatList(node, function(i, identNode)
+			do return self:visit(identNode)
+		 end end, ",")
+	 end end,
 }
 
 local HintGener = {}
@@ -1874,10 +1878,10 @@ function HintGener:visit(vNode)
 	local nUnionNode = vNode
 	local nFunc = TagToVisiting[nUnionNode.tag]
 	if nFunc then
-		return nFunc(self, nUnionNode)
-	else
-		return ""
-	end
+		do return nFunc(self, nUnionNode)
+	 end else
+		do return ""
+	 end end
 end
 
 function HintGener:fixIHintSpace(vHintSpace)
@@ -1891,7 +1895,7 @@ function HintGener:fixIHintSpace(vHintSpace)
 					" ", s, " "
 				}
 				nResult[#nResult + 1] = nLast
-			end
+			::continue:: end
 			if nLast then
 				nLast.line = nil
 			end
@@ -1901,21 +1905,21 @@ function HintGener:fixIHintSpace(vHintSpace)
 				line=v.endLine, " "
 			}
 		end
-	end
-	return nResult
-end
+	::continue:: end
+	do return nResult
+ end end
 
 function HintGener:codeNodeValue(vNode )
-	return "____nodes["..vNode.index.."][1]"
-end
+	do return "____nodes["..vNode.index.."][1]"
+ end end
 
 function HintGener:codeNode(vNode)
-	return "____nodes["..vNode.index.."]"
-end
+	do return "____nodes["..vNode.index.."]"
+ end end
 
 function HintGener:visitIdentDef(vIdentNode, vValue, vIsParamOrRec, vAutoPrimitive)
 	local nHintShort = vIdentNode.hintShort
-	return {
+	do return {
 		line=vIdentNode.l,
 		" ", self:stkWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
@@ -1923,21 +1927,21 @@ function HintGener:visitIdentDef(vIdentNode, vValue, vIsParamOrRec, vAutoPrimiti
 			tostring(vAutoPrimitive)
 		)
 	}
-end
+ end end
 
 function HintGener:fnWrap(...)
 	local nArgsString = table.concat({...}, ",")
-	return function(...)
+	do return function(...)
 		local nList = {...}
 		local nResult = { " function(", nArgsString, ") " }
 		for i=1, #nList do
 			nResult[#nResult+1] = nList[i]
 			nResult[#nResult+1] = " "
-		end
+		::continue:: end
 		nResult[#nResult+1] = " end "
-		return nResult
-	end
-end
+		do return nResult
+	 end end
+ end end
 
 function HintGener:fnRetWrap(...)
 	local nList = {...}
@@ -1947,10 +1951,10 @@ function HintGener:fnRetWrap(...)
 		if i~=#nList then
 			nResult[#nResult+1] = ","
 		end
-	end
+	::continue:: end
 	nResult[#nResult+1] = " end "
-	return nResult
-end
+	do return nResult
+ end end
 
 function HintGener:dictWrap(vDict )
 	local nList = {}
@@ -1960,10 +1964,10 @@ function HintGener:dictWrap(vDict )
 		nList[#nList + 1] = "="
 		nList[#nList + 1] = v
 		nList[#nList + 1] = ","
-	end
+	::continue:: end
 	nList[#nList + 1] = "}"
-	return nList
-end
+	do return nList
+ end end
 
 function HintGener:listWrap(...)
 	local nList = {...}
@@ -1973,10 +1977,10 @@ function HintGener:listWrap(...)
 		if i~=#nList then
 			nResult[#nResult+1] = ","
 		end
-	end
+	::continue:: end
 	nResult[#nResult+1] = "}"
-	return nResult
-end
+	do return nResult
+ end end
 
 
 	  
@@ -2014,14 +2018,14 @@ end
 	
 
 function HintGener:stkWrap(vNode) 
-	return setmetatable({}, {
+	do return setmetatable({}, {
 		__index=function(t,vName)
-			return function(...)
-				return self:prefixInvoke("____stk", vName, vNode, ...)
-			end
-		end,
+			do return function(...)
+				do return self:prefixInvoke("____stk", vName, vNode, ...)
+			 end end
+		 end end,
 	})
-end
+ end end
 
 
 	  
@@ -2043,17 +2047,18 @@ end
 		
 		
 		
+		
 	
 
 function HintGener:rgnWrap(vNode) 
-	return setmetatable({}, {
+	do return setmetatable({}, {
 		__index=function(t,vName)
-			return function(...)
-				return self:prefixInvoke("____stk", vName, vNode, ...)
-			end
-		end,
+			do return function(...)
+				do return self:prefixInvoke("____stk", vName, vNode, ...)
+			 end end
+		 end end,
 	})
-end
+ end end
 
 function HintGener:prefixInvoke(vPrefix, vName, vNode, ...)
 	local nList = {...}
@@ -2064,10 +2069,10 @@ function HintGener:prefixInvoke(vPrefix, vName, vNode, ...)
 	for i=1, #nList do
 		nResult[#nResult+1] = ","
 		nResult[#nResult+1] = nList[i]
-	end
+	::continue:: end
 	nResult[#nResult+1] = ")"
-	return nResult
-end
+	do return nResult
+ end end
 
 function HintGener:stkAutoUnpack(vNode, vInner)
 	local nParent = vNode.parent
@@ -2082,18 +2087,18 @@ function HintGener:stkAutoUnpack(vNode, vInner)
 		end
 	end
 	if nAutoUnpack then
-		return self:stkWrap(vNode).EXPRLIST_UNPACK("1", vInner)
-	else
-		return vInner
-	end
+		do return self:stkWrap(vNode).EXPRLIST_UNPACK("1", vInner)
+	 end else
+		do return vInner
+	 end end
 end
 
 function HintGener:chunkLongHint()
-	return self:dictWrap({
+	do return self:dictWrap({
 		attrSet="{open=1}",
 		caller="function(____longHint) return ____longHint end"
 	})
-end
+ end end
 
 function HintGener:visitLongHint(vHintSpace)
 	local nCallGen = (vHintSpace and #vHintSpace.evalScriptList > 0) and {
@@ -2103,12 +2108,12 @@ function HintGener:visitLongHint(vHintSpace)
 	local l = {}
 	for i=1, #nAttrList do
 		l[#l + 1] = nAttrList[i] .. "=1"
-	end
-	return self:dictWrap({
+	::continue:: end
+	do return self:dictWrap({
 		attrSet=self:listWrap(table.unpack(l)),
 		caller=self:fnWrap("____longHint")("return ____longHint", nCallGen)
 	})
-end
+ end end
 
 function HintGener:visitFunc(vNode )
 	local nIsChunk = vNode.tag == "Chunk"
@@ -2127,13 +2132,13 @@ function HintGener:visitFunc(vNode )
 	if nPolyParList and nPolyParNum > 0 then
 		nPolyUnpack = {
 			" local ", self:concatList(nPolyParList, function(_, vPolyPar)
-				return vPolyPar
-			end, ","), "=", self:concatList(nPolyParList, function(i, vPolyPar)
-				return "____polyArgs["..tostring(i).."]"
-			end, ",")
+				do return vPolyPar
+			 end end, ","), "=", self:concatList(nPolyParList, function(i, vPolyPar)
+				do return "____polyArgs["..tostring(i).."]"
+			 end end, ",")
 		}
 	end
-	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
+	do return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
 		_polyParNum=tostring(nPolyParNum),
@@ -2158,24 +2163,24 @@ function HintGener:visitFunc(vNode )
 								"(____self or ", nHintType, ")"
 							}
 						end
-						return {
+						do return {
 							"local ____tempv"..i.."=",
 							self:rgnWrap(vParNode).PARAM_UNPACK("____termArgs", tostring(i), nHintType),
 							self:visitIdentDef(vParNode, "____tempv"..i, true)
 						}
-					else
-						return {
+					 end else
+						do return {
 							"____vDOTS=",
 							self:rgnWrap(vParNode).PARAM_DOTS_UNPACK("____termArgs", tostring(nParamNum), nHintType)
 						}
-					end
+					 end end
 				end, " "),
 				nLastDots and "" or self:rgnWrap(nParList).PARAM_NODOTS_UNPACK("____termArgs", tostring(nParamNum)),
 				" return ", self:rgnWrap(nParList).PARAM_PACKOUT(
 					self:listWrap(self:concatList (nParList, function(i, vParNode)
 						if vParNode.tag ~= "Dots" then
-							return "____tempv"..i
-						end
+							do return "____tempv"..i
+						 end end
 					end, ",")),
 					(nLastDots) and "____vDOTS" or tostring(false)
 				)
@@ -2188,7 +2193,7 @@ function HintGener:visitFunc(vNode )
 		)
 	  
 	)
-end
+ end end
 
 function HintGener:concatList(
 	vList,
@@ -2200,16 +2205,16 @@ function HintGener:concatList(
 	for i=1,nLen do
 		nResult[#nResult + 1] = vFunc(i, vList[i])
 		nResult[#nResult + 1] = i~=nLen and vSep or nil
-	end
-	return nResult
-end
+	::continue:: end
+	do return nResult
+ end end
 
 function HintGener.new(vChunk)
 	local self = setmetatable({
 		_chunk=vChunk,
 	}, HintGener)
-	return self
-end
+	do return self
+ end end
 
 function HintGener:genCode()
 	local nBufferList = {}
@@ -2221,11 +2226,11 @@ function HintGener:genCode()
 				while nLineCount < nLine do
 					nBufferList[#nBufferList+1] = "\n"
 					nLineCount = nLineCount + 1
-				end
+				::continue:: end
 			end
 			for _, v in ipairs(vResult) do
 				recurAppend(v, vDepth+1)
-			end
+			::continue:: end
 			if nLine == true then
 				nBufferList[#nBufferList+1] = "\n"
 				nLineCount = nLineCount + 1
@@ -2236,11 +2241,11 @@ function HintGener:genCode()
 	end
 	recurAppend(self:visit(self._chunk), 0)
 	local re = table.concat(nBufferList)
-	return re
-end
+	do return re
+ end end
 
-return HintGener
-
+do return HintGener
+ end 
 end end
 --thlua.code.HintGener end ==========)
 
@@ -2303,6 +2308,7 @@ local Exception = require "thlua.Exception"
   
 
    
+	
 	
 	
 	
@@ -2432,6 +2438,10 @@ local Exception = require "thlua.Exception"
 
   
 	  
+	  
+ 
+
+  
 	  
  
 
@@ -2674,30 +2684,30 @@ Node.__index=Node
 
 function Node.__tostring(self)
 	local before = self.path..":".. self.l ..(self.c > 0 and ("," .. self.c) or "")
-	return before
-end
+	do return before
+ end end
 
 function Node.toExc(vNode, vMsg)
-	return Exception.new(vMsg, vNode)
-end
+	do return Exception.new(vMsg, vNode)
+ end end
 
 function Node.newRootNode(vFileName)
-	return setmetatable({tag = "Root", pos=1, posEnd=1, l=1, c=1, path=vFileName}, Node)
-end
+	do return setmetatable({tag = "Root", pos=1, posEnd=1, l=1, c=1, path=vFileName}, Node)
+ end end
 
 function Node.newDebugNode(vDepth)
 	     
 	local nInfo = debug.getinfo(vDepth or 3)
-	return setmetatable({tag = "Debug", pos=1, posEnd=1, l=nInfo.currentline, c=1, path=nInfo.source}, Node)
-end
+	do return setmetatable({tag = "Debug", pos=1, posEnd=1, l=nInfo.currentline, c=1, path=nInfo.source}, Node)
+ end end
 
 function Node.bind(vRawNode)
-	return setmetatable(vRawNode, Node)
-end
+	do return setmetatable(vRawNode, Node)
+ end end
 
-return Node
+do return Node
 
-
+ end 
 end end
 --thlua.code.Node end ==========)
 
@@ -2791,6 +2801,13 @@ local function kwA(str)
   return kw(str) + throw("expect keyword '"..str.."'")
 end
 
+local function kwLoopEnd(str)
+  return lpeg.Cmt(Cenv*Cpos*kw(str), function(_, _, env, pos)
+	env:continueMarkLabel(pos)
+	return true
+  end) + throw("expect keyword '"..str.."'")
+end
+
 local exprF = {
 	binOp=function(e1, op, e2)
 		if not op then
@@ -2815,7 +2832,7 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env:markParenWrap(pos-1, hintShort.pos-1)
+				env:markParenWrap(pos, hintShort.pos)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -2996,7 +3013,7 @@ local function suffixedExprByPrimary(primaryExpr)
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env:markParenWrap(pos-1, curExpr.posEnd-1)
+					env:markParenWrap(pos, curExpr.posEnd)
 				end
 			end
 			return true, expr
@@ -3032,6 +3049,11 @@ local G = lpeg.P { "TypeHintLua";
 	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
   -- hint & eval begin {{{
+	HintAssetNot = lpeg.Cmt(Cenv, function(_, i, env)
+		assert(not env.hinting, env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
+		return true
+	end);
+
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
 		if not env.hinting then
 			env.hinting = true
@@ -3183,38 +3205,36 @@ local G = lpeg.P { "TypeHintLua";
 
 	SuffixedExpr = suffixedExprByPrimary(vv.PrimaryExpr);
 
-	ApplyOrAssignStat = (function()
-		return lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
-			if not ... then
-				if first.tag == "Call" or first.tag == "Invoke" then
-					return true, first
-				else
-					error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
-				end
+	ApplyOrAssignStat = lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
+		if not ... then
+			if first.tag == "Call" or first.tag == "Invoke" then
+				return true, first
 			else
-				local nVarList = {
-					tag="VarList", pos=first.pos, posEnd = 0,
-					first, ...
-				}
-				local nExprList = nVarList[#nVarList]
-				nVarList[#nVarList] = nil
-				nVarList.posEnd = nVarList[#nVarList].posEnd
-				for _, varExpr in ipairs(nVarList) do
-					if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
-						error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
-					elseif varExpr.notnil then
-						error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
-					end
-				end
-				return true, {
-					tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
-					nVarList,nExprList
-				}
+				error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
 			end
-		end)
-	end)();
+		else
+			local nVarList = {
+				tag="VarList", pos=first.pos, posEnd = 0,
+				first, ...
+			}
+			local nExprList = nVarList[#nVarList]
+			nVarList[#nVarList] = nil
+			nVarList.posEnd = nVarList[#nVarList].posEnd
+			for _, varExpr in ipairs(nVarList) do
+				if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
+					error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
+				elseif varExpr.notnil then
+					error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
+				end
+			end
+			return true, {
+				tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
+				nVarList,nExprList
+			}
+		end
+	end);
 
-	Block = tagC.Block(lpeg.Cmt(Cenv, function(_,pos,env)
+	Block = lpeg.Cmt(Cenv, function(_,pos,env)
 		if not env.hinting then
 			--local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
 			--print(pos, nLineNum)
@@ -3225,12 +3245,12 @@ local G = lpeg.P { "TypeHintLua";
 			end
 		end
 		return true
-	end) * vv.Stat^0 * vv.RetStat^-1 * lpeg.Cmt(Cenv, function(_,_,env)
+	end) * tagC.Block(vv.Stat^0 * vv.RetStat^-1) * lpeg.Cmt(Cenv, function(_,_,env)
 		if not env.hinting then
 			env.scopeTraceList[#env.scopeTraceList] = nil
 		end
 		return true
-	end));
+	end);
 	DoStat = tagC.Do(kw"do" * lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block * kwA"end");
 	FuncBody = (function()
 		local IdentDefTList = vv.IdentDefT * (symb(",") * vv.IdentDefT)^0;
@@ -3242,7 +3262,10 @@ local G = lpeg.P { "TypeHintLua";
 			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
 	end)();
 
-	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
+	RetStat = lpeg.Cmt(Cenv * Cpos * kw("return") * vv.ExprListOrEmpty * symb(";")^-1 * Cpos, function(_,_,env,pos,exprList,posEnd)
+		env:continueMarkReturn(pos, posEnd)
+		return true, {tag="Return", exprList, pos=pos, posEnd=posEnd}
+	end);
 
 	Stat = (function()
 		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
@@ -3251,7 +3274,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
-				Cenv * Cpos * kw"const" * vv.HintBegin * vv.HintEnd * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
+				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
 					env:markConst(pos)
 					t.isConst = true
 					return t
@@ -3277,22 +3300,26 @@ local G = lpeg.P { "TypeHintLua";
 		end)()
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
+		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
+			env:continueMarkGoto(node.pos)
+			return node
+		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
-		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwA"until" * vvA.Expr)
+		local RepeatStat = tagC.Repeat(kw"repeat" * vv.Block * kwLoopEnd"until" * vvA.Expr)
 		local IfStat = tagC.If(kw("if") * vvA.Expr * kwA("then") * vv.Block *
 			(kw("elseif") * vvA.Expr * kwA("then") * vv.Block)^0 *
 			(kw("else") * vv.Block)^-1 *
 			kwA("end"))
-		local WhileStat = tagC.While(kw("while") * vvA.Expr * kwA("do") * vv.Block * kwA("end"))
+		local WhileStat = tagC.While(kw("while") * vvA.Expr * kwA("do") * vv.Block * kwLoopEnd("end"))
 		local ForStat = (function()
 			local ForBody = kwA("do") * vv.Block
 			local ForNum = tagC.Fornum(vv.IdentDefN * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.ForinIdentList * kwA("in") * vvA.ExprList * ForBody)
-			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA("end")
+			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwLoopEnd("end")
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
 		return vv.StatHintSpace +
-         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat +
+         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
 				 vv.DoStat + vv.ApplyOrAssignStat + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
@@ -3331,7 +3358,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Keywords  = lpeg.P"and" + "break" + "do" + "elseif" + "else" + "end"
 		+ "false" + "for" + "function" + "goto" + "if" + "in"
 		+ "local" + "nil" + "not" + "or" + "repeat" + "return"
-		+ "then" + "true" + "until" + "while" + "const"
+		+ "then" + "true" + "until" + "while" + "const" + "continue"
 		local Reserved = Keywords * -vv.NameRest
 		return token(-Reserved * lpeg.C(RawName));
 	end)();
@@ -3403,13 +3430,13 @@ function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vS
 	return nHintSpace
 end
 
--- @ hint for invoke & call , need to add paren
+-- '@' when hint for invoke and call, need to add paren
 -- eg.
 --   aFunc() @ Integer -> (aFunc())
 -- so mark paren here
 function ParseEnv:markParenWrap(vStartPos, vFinishPos)
 	self._posToChange[vStartPos] = "("
-	self._posToChange[vFinishPos] = ")"
+	self._posToChange[vFinishPos-1] = ")"
 end
 
 -- hint script to be delete
@@ -3417,9 +3444,25 @@ function ParseEnv:markDel(vStartPos, vFinishPos)
 	self._posToChange[vStartPos] = vFinishPos
 end
 
--- local convert to const
+-- local -> const
 function ParseEnv:markConst(vStartPos)
 	self._posToChange[vStartPos] = "const"
+end
+
+-- continue -> goto continue
+function ParseEnv:continueMarkGoto(vStartPos)
+	self._posToChange[vStartPos] = "goto"
+end
+
+-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
+function ParseEnv:continueMarkLabel(vStartPos)
+	self._posToChange[vStartPos] = "::continue::"
+end
+
+-- return xxx -> do return xxx end
+function ParseEnv:continueMarkReturn(vStartPos, vFinishPos)
+	self._posToChange[vStartPos] = "do"
+	self._posToChange[vFinishPos] = "end"
 end
 
 function ParseEnv:assertWithLineNum()
@@ -3459,9 +3502,7 @@ function ParseEnv:genLuaCode()
 	local nPreFinishPos = 0
 	for _, nStartPos in pairs(nStartPosList) do
 		if nStartPos <= nPreFinishPos then
-			-- hint in hint
-			-- TODO replace in hint script
-			-- continue
+			-- do nothing in hint space
 		else
 			local nChange = nPosToChange[nStartPos]
 			if type(nChange) == "number" then
@@ -3479,15 +3520,30 @@ function ParseEnv:genLuaCode()
 				nContents[#nContents + 1] = nChange
 				nPreFinishPos = nStartPos]]
 			elseif nChange == "const" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
 				nContents[#nContents + 1] = "local"
 				nPreFinishPos = nStartPos + 4
-			elseif nChange == "(" or nChange == ")" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nLuaCode
+			elseif nChange == "(" then
+				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nChange
+				nPreFinishPos = nStartPos-1
+			elseif nChange == ")" then
+				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos)
 				nContents[#nContents + 1] = nChange
 				nPreFinishPos = nStartPos
+			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = nChange
+				nContents[#nContents + 1] = " "
+				nPreFinishPos = nStartPos-1
+			elseif nChange == "end" then
+				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
+				nContents[#nContents + 1] = nLuaCode
+				nContents[#nContents + 1] = " "
+				nContents[#nContents + 1] = nChange
+				nContents[#nContents + 1] = " "
+				nPreFinishPos = nStartPos-1
 			else
 				error("unexpected branch")
 			end
@@ -3599,14 +3655,14 @@ local TagToVisiting = {
 	Chunk=function(self, vNode)
 		self:rawVisit(vNode)
 		table.sort(self._identList, function(a, b)
-			return a.pos < b.pos
-		end)
+			do return a.pos < b.pos
+		 end end)
 		table.sort(self._suffixPairList, function(a, b)
-			return a.pos < b.pos
-		end)
+			do return a.pos < b.pos
+		 end end)
 		table.sort(self._hintSuffixPairList, function(a, b)
-			return a.pos < b.pos
-		end)
+			do return a.pos < b.pos
+		 end end)
 	end,
 	HintEval=function(self, vNode)
 		self:reverseInHint(false)
@@ -3677,44 +3733,44 @@ function SearchVisitor.new(vSplitCode)
 		_suffixPairList = {},
 		_hintSuffixPairList = {},
 	}, SearchVisitor)
-	return self
-end
+	do return self
+ end end
 
 function SearchVisitor:searchSuffixPair(vPos)
 	local nIndex, nPair = self._code:binSearch(self._suffixPairList, vPos)
 	if not nIndex then
-		return false
-	end
+		do return false
+	 end end
 	if vPos < nPair.pos or vPos >= nPair.posEnd then
-		return false
-	end
-	return nPair
-end
+		do return false
+	 end end
+	do return nPair
+ end end
 
 function SearchVisitor:searchHintSuffixPair(vPos)
 	local nIndex, nPair = self._code:binSearch(self._hintSuffixPairList, vPos)
 	if not nIndex then
-		return false
-	end
+		do return false
+	 end end
 	if vPos < nPair.pos or vPos >= nPair.posEnd then
-		return false
-	end
-	return nPair
-end
+		do return false
+	 end end
+	do return nPair
+ end end
 
 function SearchVisitor:searchIdent(vPos)
 	local nIndex, nNode = self._code:binSearch(self._identList, vPos)
 	if not nIndex then
-		return false
-	end
+		do return false
+	 end end
 	if vPos >= nNode.pos + #nNode[1] or vPos > nNode.posEnd then
-		return false
-	end
-	return nNode
-end
+		do return false
+	 end end
+	do return nNode
+ end end
 
-return SearchVisitor
-
+do return SearchVisitor
+ end 
 end end
 --thlua.code.SearchVisitor end ==========)
 
@@ -3764,9 +3820,9 @@ local function split(vContent)
 			nLineList[#nLineList + 1] = vContent:sub(nStartPos, nFinishPos)
 			nStartPos = nFinishPos + 1
 		end
-	end
-	return nLineList, nLinePosList
-end
+	::continue:: end
+	do return nLineList, nLinePosList
+ end end
 
 function SplitCode:ctor(vContent, ...)
 	self._content = vContent
@@ -3775,11 +3831,11 @@ end
 
 function SplitCode:binSearch(vList, vPos) 
 	if #vList <= 0 then
-		return false
-	end
+		do return false
+	 end end
 	if vPos < vList[1].pos then
-		return false
-	end
+		do return false
+	 end end
 	local nLeft = 1
 	local nRight = #vList
 	local count = 0
@@ -3795,9 +3851,9 @@ function SplitCode:binSearch(vList, vPos)
 			nLeft = nMiddle
 			nRight = nMiddle
 		end
-	end
-	return nLeft, vList[nLeft]
-end
+	::continue:: end
+	do return nLeft, vList[nLeft]
+ end end
 
 function SplitCode:lcToPos(vLine, c)
 	local nLinePos = self._linePosList
@@ -3805,16 +3861,16 @@ function SplitCode:lcToPos(vLine, c)
 	local nLineCount = #nLinePos
 	if nLineInfo then
 		if c <= 1 then
-			return nLineInfo.pos
-		else
-			return nLineInfo.pos + c - 1
-		end
+			do return nLineInfo.pos
+		 end else
+			do return nLineInfo.pos + c - 1
+		 end end
 	else
 		if vLine > nLineCount then
-			return #self._content + 1
-		else
-			return 1
-		end
+			do return #self._content + 1
+		 end else
+			do return 1
+		 end end
 	end
 end
 
@@ -3822,25 +3878,25 @@ function SplitCode:fixupPos(vPos, vNode)
 	local line, lineInfo = self:binSearch(self._linePosList, vPos)
 	if not line or not lineInfo then
 		if vPos > #self._content then
-			return #self._linePosList + 1, 1
-		else
-			return 1, 1
-		end
+			do return #self._linePosList + 1, 1
+		 end else
+			do return 1, 1
+		 end end
 	else
-		return line, vPos - lineInfo.pos + 1
-	end
+		do return line, vPos - lineInfo.pos + 1
+	 end end
 end
 
 function SplitCode:getContent()
-	return self._content
-end
+	do return self._content
+ end end
 
 function SplitCode:getLine(vLine)
-	return self._lineList[vLine]
-end
+	do return self._lineList[vLine]
+ end end
 
-return SplitCode
-
+do return SplitCode
+ end 
 end end
 --thlua.code.SplitCode end ==========)
 
@@ -3891,7 +3947,7 @@ local TagToVisiting = {
 		end
 		for i=1, #node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	While=function(self, stm)
 		self:withScope(stm[2], nil, function()
@@ -3928,7 +3984,7 @@ local TagToVisiting = {
 		self:withScope(nBlockNode, nil, function()
 			for i, name in ipairs(stm[1]) do
 				self:symbolDefine(name, Enum.SymbolKind_ITER)
-			end
+			::continue:: end
 			self:realVisit(nBlockNode)
 		end)
 	end,
@@ -3958,7 +4014,7 @@ local TagToVisiting = {
 						nParFullHint = false
 					end
 				end
-			end
+			::continue:: end
 			local nHintLong = func.hintSuffix
 			if nHintLong then
 				self:realVisit(nHintLong)
@@ -3988,7 +4044,7 @@ local TagToVisiting = {
 			else
 				self:realVisit(subNode)
 			end
-		end
+		::continue:: end
 	end,
 	Block=function(self, stm)
 		self:rawVisit(stm)
@@ -3999,7 +4055,7 @@ local TagToVisiting = {
 		 
 		for i, name in ipairs(nIdentList) do
 			self:symbolDefine(name, stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
-		end
+		::continue:: end
 	end,
 	Set=function(self, stm)
 		local nVarList = stm[1]
@@ -4008,7 +4064,7 @@ local TagToVisiting = {
 			if var.tag == "Ident" then
 				self:symbolUse(var, true)
 			end
-		end
+		::continue:: end
 		self:rawVisit(stm)
 	end,
 	Localrec=function(self, stm)
@@ -4033,7 +4089,7 @@ local TagToVisiting = {
 				if name.tag == "dots" then
 					self:dotsDefine(name)
 				end
-			end
+			::continue:: end
 			self:realVisit(nBlockNode)
 			local nInjectNode = chunk.injectNode
 			if nInjectNode then
@@ -4048,7 +4104,7 @@ local TagToVisiting = {
 		else
 			for i=1, #node do
 				self:realVisit(node[i])
-			end
+			::continue:: end
 		end
 		self:reverseInHint(false)
 	end,
@@ -4098,8 +4154,8 @@ function SymbolVisitor:withScope(vBlockNode, vFuncOrChunk, vInnerCall)
 	assert(vBlockNode.tag == "Block", "node tag must be Block but get "..tostring(vBlockNode.tag))
 	if self._inHintSpace then
 		self:withHintBlock(vBlockNode, vFuncOrChunk  , vInnerCall)
-		return
-	end
+		do return
+	 end end
 	vBlockNode.subBlockList = {}
 	local nScopeStack = self._scopeStack
 	local nStackLen = #nScopeStack
@@ -4196,16 +4252,16 @@ end
 function SymbolVisitor:symbolUse(vIdentNode, vIsAssign)
 	if self._inHintSpace then
 		self:hintSymbolUse(vIdentNode, vIsAssign)
-		return
-	end
+		do return
+	 end end
 	local nScope = self._scopeStack[#self._scopeStack]
 	local nDefineNode = nScope.symbolTable[vIdentNode[1]]
 	if not nDefineNode then
 		local nEnvIdent = nScope.symbolTable._ENV
 		vIdentNode.isGetFrom = nEnvIdent
 		vIdentNode.defineIdent = false
-		return
-	end
+		do return
+	 end end
 	if vIsAssign then
 		if nDefineNode.symbolKind == Enum.SymbolKind_CONST then
 			error(Exception.new("cannot assign to const variable '"..vIdentNode[1].."'", vIdentNode))
@@ -4228,11 +4284,11 @@ function SymbolVisitor.new(vCode)
 		_hintStack={} ,
 		_hintFuncStack={},
 	}, SymbolVisitor)
-	return self
-end
+	do return self
+ end end
 
-return SymbolVisitor
-
+do return SymbolVisitor
+ end 
 end end
 --thlua.code.SymbolVisitor end ==========)
 
@@ -4279,7 +4335,7 @@ local TagToTraverse = {
 	Block=function(self, node)
 		for i=1,#node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 
 	 
@@ -4305,7 +4361,7 @@ local TagToTraverse = {
 	If=function(self, node)
 		for i=1,#node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	Forin=function(self, node)
 		self:realVisit(node[1])
@@ -4334,6 +4390,8 @@ local TagToTraverse = {
 	end,
 	Return=function(self, node)
 		self:realVisit(node[1])
+	end,
+	Continue=function(self, node)
 	end,
 	Break=function(self, node)
 	end,
@@ -4388,7 +4446,7 @@ local TagToTraverse = {
 		end
 		for i=1, #node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	Op=function(self, node)
 		self:realVisit(node[2])
@@ -4423,22 +4481,22 @@ local TagToTraverse = {
 	ParList=function(self, node)
 		for i=1,#node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	ExprList=function(self, node)
 		for i=1,#node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	VarList=function(self, node)
 		for i=1,#node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	IdentList=function(self, node)
 		for i=1,#node do
 			self:realVisit(node[i])
-		end
+		::continue:: end
 	end,
 	Pair=function(self, node)
 		self:realVisit(node[1])
@@ -4450,7 +4508,7 @@ local TagToTraverse = {
 		else
 			for i=1, #node do
 				self:realVisit(node[i])
-			end
+			::continue:: end
 		end
 	end,
 	HintScript=function(self, node)
@@ -4476,8 +4534,8 @@ local function VisitorExtend(vDictOrFunc)
 		function t:rawVisit(node)
 			TagToTraverse[node.tag](self, node)
 		end
-		return t
-	elseif nType == "function" then
+		do return t
+	 end elseif nType == "function" then
 		
 			   
 				
@@ -4492,14 +4550,14 @@ local function VisitorExtend(vDictOrFunc)
 				TagToTraverse[vNode.tag](self, vNode)
 			end
 		}
-		return t
-	else
+		do return t
+	 end else
 		error("VisitorExtend must take a function or dict for override")
 	end
 end
 
-return VisitorExtend
-
+do return VisitorExtend
+ end 
 end end
 --thlua.code.VisitorExtend end ==========)
 
@@ -4537,16 +4595,16 @@ function ApplyContext:outLookdownNode(vNodeSet )
 		if ObjectField.is(nTarget) then
 			for nNode, _ in pairs(nTarget:getUseNodeSet()) do
 				vNodeSet[nNode] = true
-			end
+			::continue:: end
 		else
 			local nUseNodeSet = nTarget:getUseNodeSet()
 			if nUseNodeSet then
 				for nNode, _ in pairs(nUseNodeSet) do
 					vNodeSet[nNode] = true
-				end
+				::continue:: end
 			end
 		end
-	end
+	::continue:: end
 end
 
 function ApplyContext:outLookupNode(vNodeSet )
@@ -4564,7 +4622,7 @@ function ApplyContext:outLookupNode(vNodeSet )
 		else
 			vNodeSet[nTarget:getNode()] = true
 		end
-	end
+	::continue:: end
 end
 
             
@@ -4593,8 +4651,8 @@ function ApplyContext:recursiveChainTestAndRun(vSelfType, vFunc)
 		nRecurChain = RecurChain.new()
 		self._recurChain = nRecurChain
 	end
-	return nRecurChain:testAndRun(vSelfType, vFunc)
-end
+	do return nRecurChain:testAndRun(vSelfType, vFunc)
+ end end
 
 function ApplyContext:withCase(vCase, vFunc)
 	assert(not self._curCase, "apply context case in case error")
@@ -4651,11 +4709,11 @@ function ApplyContext:raiseError(vErrType)
 end
 
 function ApplyContext:getFinalReturn()
-	return self._finalReturn
-end
+	do return self._finalReturn
+ end end
 
-return ApplyContext
-
+do return ApplyContext
+ end 
 end end
 --thlua.context.ApplyContext end ==========)
 
@@ -4704,7 +4762,7 @@ function AssignContext:matchArgsToTypeDots(
 	for i=vParNum + 1, #vTermTuple do
 		local nTerm = vTermTuple:get(self, i)
 		nTailTermList[#nTailTermList + 1] = self:assignTermToType(nTerm, vHintDots)
-	end
+	::continue:: end
 	local nTermTail = vTermTuple:getTail()
 	if AutoTail.is(nTermTail) then
 		local nMore = vParNum - #vTermTuple
@@ -4714,8 +4772,8 @@ function AssignContext:matchArgsToTypeDots(
 			nTermTail:sealTailFrom(self, nMore + 1, vHintDots)
 		end
 	end
-	return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
-end
+	do return self:UTermTupleByTail({}, DotsTail.new(self, vHintDots))
+ end end
 
 function AssignContext:matchArgsToAutoDots(
 	vNode,
@@ -4725,21 +4783,21 @@ function AssignContext:matchArgsToAutoDots(
 	local nTailTermList = {}
 	for i=vParNum + 1, #vTermTuple do
 		nTailTermList[#nTailTermList + 1] = vTermTuple:get(self, i)
-	end
+	::continue:: end
 	local nTermTail = vTermTuple:getTail()
 	if not AutoTail.is(nTermTail) then
 		if nTermTail then
-			return self:UTermTupleByTail(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
-		else
-			return self:UTermTupleByTail(nTailTermList)
-		end
+			do return self:UTermTupleByTail(nTailTermList, DotsTail.new(self, nTermTail:getRepeatType()))
+		 end else
+			do return self:UTermTupleByTail(nTailTermList)
+		 end end
 	else
 		local nMore = vParNum - #vTermTuple
 		if nMore <= 0 then
-			return self:UTermTupleByTail(nTailTermList, nTermTail)
-		else
-			return self:UTermTupleByTail(nTailTermList, nTermTail:openTailFrom(self, nMore + 1))
-		end
+			do return self:UTermTupleByTail(nTailTermList, nTermTail)
+		 end else
+			do return self:UTermTupleByTail(nTailTermList, nTermTail:openTailFrom(self, nMore + 1))
+		 end end
 	end
 end
 
@@ -4751,7 +4809,7 @@ function AssignContext:matchArgsToNoDots(
 	for i=vParNum + 1, #vTermTuple do
 		vTermTuple:get(self, i)
 		self:error("parameters is not enough")
-	end
+	::continue:: end
 	local nTermTail = vTermTuple:getTail()
 	if AutoTail.is(nTermTail) then
 		local nMore = vParNum - #vTermTuple
@@ -4773,12 +4831,12 @@ function AssignContext:matchArgsToTypeTuple(
 		local nAutoTerm = vTermTuple:get(self, i)
 		local nHintType = vTypeTuple:get(i)
 		self:assignTermToType(nAutoTerm, nHintType)
-	end
+	::continue:: end
 	for i=#vTermTuple + 1, nParNum do
 		local nAutoTerm = vTermTuple:get(self, i)
 		local nHintType = vTypeTuple:get(i)
 		self:assignTermToType(nAutoTerm, nHintType)
-	end
+	::continue:: end
 	local nDotsType = vTypeTuple:getRepeatType()
 	if nDotsType then
 		self:matchArgsToTypeDots(vNode, vTermTuple, nParNum, nDotsType)
@@ -4832,16 +4890,16 @@ function AssignContext:tryIncludeCast(
 		end
 	end)
 	if not nIncludeSucc then
-		return false
-	else
+		do return false
+	 end else
 		if nPutFnPart then
 			nCollection:put(nDstFnPart)
 		end
 		if not nCastSucc and nPutObjPart then
 			nCollection:put(nDstObjPart)
 		end
-		return nCollection:mergeToAtomUnion(), nCastSucc
-	end
+		do return nCollection:mergeToAtomUnion(), nCastSucc
+	 end end
 end
 
 function AssignContext:includeAndCast(vDstType, vSrcType, vWhen)
@@ -4863,8 +4921,8 @@ function AssignContext:includeAndCast(vDstType, vSrcType, vWhen)
 			self:error("type not match")
 		end
 	end
-	return nIncludeType
-end
+	do return nIncludeType
+ end end
 
 function AssignContext:assignTermToType(vAutoTerm, vDstType)
 	local nSrcType = vAutoTerm:getType()
@@ -4875,8 +4933,8 @@ function AssignContext:assignTermToType(vAutoTerm, vDstType)
 		self:includeAndCast(nDstType, nSrcType)
 	end
 	      
-	return self:RefineTerm(nDstType)
-end
+	do return self:RefineTerm(nDstType)
+ end end
 
 function AssignContext:finish()
 	assert(not self._finish, "context finish can only called once")
@@ -4884,8 +4942,8 @@ function AssignContext:finish()
 end
 
 function AssignContext:newAutoFnCastDict()
-	return ListDict ()
-end
+	do return ListDict ()
+ end end
 
 function AssignContext:runLateCast(vDict)
 	vDict:forKList(function(vAutoFn, vTypeFnList)
@@ -4893,7 +4951,7 @@ function AssignContext:runLateCast(vDict)
 			if TypedFunction.is(nTypeFn) then
 				vAutoFn:checkWhenCast(self, nTypeFn)
 			end
-		end
+		::continue:: end
 	end)
 end
 
@@ -4901,8 +4959,8 @@ function AssignContext:unfoldTermTuple(vTermTuple, vFunc  )
 	local nFirstTerm = vTermTuple:get(self, 1)
 	if #vTermTuple == 0 then
 		vFunc(nFirstTerm:getType(), vTermTuple:checkTypeTuple(), nil)
-		return
-	end
+		do return
+	 end end
 	local nTail = vTermTuple:getTail()
 	local nRepeatType = nTail and nTail:getRepeatType()
 	nFirstTerm:foreach(function(vAtomType, vCase)
@@ -4915,15 +4973,15 @@ function AssignContext:unfoldTermTuple(vTermTuple, vFunc  )
 			else
 				nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
 			end
-		end
+		::continue:: end
 		local nTypeTuple = self._manager:TypeTuple(self._node, nTypeList)
 		local nTypeTuple = nRepeatType and nTypeTuple:withDots(nRepeatType) or nTypeTuple
 		vFunc(vAtomType, nTypeTuple, vCase)
 	end)
 end
 
-return AssignContext
-
+do return AssignContext
+ end 
 end end
 --thlua.context.AssignContext end ==========)
 
@@ -4931,7 +4989,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.context.CompletionKind'] = function (...)
 
-return {
+do return {
     Text = 1,
     Method = 2,
     Function = 3,
@@ -4957,7 +5015,7 @@ return {
     Event = 23,
     Operator = 24,
     TypeParameter = 25,
-}
+} end 
 end end
 --thlua.context.CompletionKind end ==========)
 
@@ -5006,10 +5064,10 @@ local LiteralMetaDict  = {
 local function isLiteral(vType)
 	local nMeta = getmetatable(vType)
 	if nMeta and LiteralMetaDict[nMeta] then
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
 function FieldCompletion:putField(vKey, vValue)
@@ -5048,21 +5106,21 @@ end
 
 function FieldCompletion:testAndSetPass(vAtomType)
 	if self._passDict[vAtomType] then
-		return false
-	else
+		do return false
+	 end else
 		self._passDict[vAtomType] = true
-		return true
-	end
+		do return true
+	 end end
 end
 
 function FieldCompletion:foreach(vOnPair )
 	for k,v in pairs(self._keyToKind) do
 		vOnPair(k, v)
-	end
+	::continue:: end
 end
 
-return FieldCompletion
-
+do return FieldCompletion
+ end 
 end end
 --thlua.context.FieldCompletion end ==========)
 
@@ -5095,8 +5153,8 @@ function LogicContext:logicCombineTerm(vLeft, vRight, vRightAndCase)
 	vRight:foreach(function(vType, vCase)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase & vRightAndCase}
 	end)
-	return self:mergeToRefineTerm(nTypeCaseList)
-end
+	do return self:mergeToRefineTerm(nTypeCaseList)
+ end end
 
 function LogicContext:logicNotTerm(vTerm)
 	local nTypeCaseList = {}
@@ -5107,27 +5165,27 @@ function LogicContext:logicNotTerm(vTerm)
 	vTerm:falseEach(function(vType, vCase)
 		nTypeCaseList[#nTypeCaseList + 1] = { nBuiltinType.True, vCase }
 	end)
-	return self:mergeToRefineTerm(nTypeCaseList)
-end
+	do return self:mergeToRefineTerm(nTypeCaseList)
+ end end
 
 function LogicContext:logicTrueTerm(vTerm)
 	local nTypeCaseList = {}
 	vTerm:trueEach(function(vType, vCase)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
 	end)
-	return self:mergeToRefineTerm(nTypeCaseList)
-end
+	do return self:mergeToRefineTerm(nTypeCaseList)
+ end end
 
 function LogicContext:logicFalseTerm(vTerm)
 	local nTypeCaseList = {}
 	vTerm:falseEach(function(vType, vCase)
 		nTypeCaseList[#nTypeCaseList + 1] = {vType, vCase}
 	end)
-	return self:mergeToRefineTerm(nTypeCaseList)
-end
+	do return self:mergeToRefineTerm(nTypeCaseList)
+ end end
 
-return LogicContext
-
+do return LogicContext
+ end 
 end end
 --thlua.context.LogicContext end ==========)
 
@@ -5196,15 +5254,15 @@ function MorePushContext:pcallMergeReturn(vErrType)
 		else
 			nTypeCaseTuple[3] = self._manager:TypeTuple(self._node, {nTrue})
 		end
-	end
+	::continue:: end
 	nRetList[#nRetList + 1] = {
 		nFalse, VariableCase.new(), self._manager:TypeTuple(self._node, {nFalse, vErrType})
 	}
 	if self._retMaxLength < 2 then
 		self._retMaxLength = 2
 	end
-	return self:mergeReturn()
-end
+	do return self:mergeReturn()
+ end end
 
 function MorePushContext:mergeReturn()
 	    
@@ -5213,8 +5271,8 @@ function MorePushContext:mergeReturn()
 	local nRepeatType = self._retRepCollection:mergeToAtomUnion()
 	local nRepeatType = (not nRepeatType:isNever()) and nRepeatType or false
 	if nMaxLength <= 0 then
-		return self:FixedTermTuple({}, nRepeatType)
-	end
+		do return self:FixedTermTuple({}, nRepeatType)
+	 end end
 	local nTermList = {}
 	      
 	for i=2,nMaxLength do
@@ -5223,10 +5281,10 @@ function MorePushContext:mergeReturn()
 			local nTypeTuple = nType1TupleCase[3]
 			local nType = nTypeTuple and nTypeTuple:get(i) or self._manager.type.Nil
 			nCollection:put(nType)
-		end
+		::continue:: end
 		local nTypeI = nCollection:mergeToAtomUnion()
 		nTermList[i] = self:RefineTerm(nTypeI)
-	end
+	::continue:: end
 	    
 	local nTypeCaseList = {}
 	for _, nType1TupleCase in pairs(nRetList) do
@@ -5236,17 +5294,17 @@ function MorePushContext:mergeReturn()
 		for i=2,nMaxLength do
 			local nType = nTypeTuple and nTypeTuple:get(i):checkAtomUnion() or self._manager.type.Nil
 			nCase:put_and(nTermList[i]:attachImmutVariable(), nType)
-		end
+		::continue:: end
 		nTypeCaseList[#nTypeCaseList + 1] = {
 			nType1, nCase
 		}
-	end
+	::continue:: end
 	nTermList[1] = self:mergeToRefineTerm(nTypeCaseList)
-	return self:FixedTermTuple(nTermList, nRepeatType)
-end
+	do return self:FixedTermTuple(nTermList, nRepeatType)
+ end end
 
-return MorePushContext
-
+do return MorePushContext
+ end 
 end end
 --thlua.context.MorePushContext end ==========)
 
@@ -5275,8 +5333,8 @@ function NoPushContext:pushRetTuples(vRetTuples)
 	self:pushNothing()
 end
 
-return NoPushContext
-
+do return NoPushContext
+ end 
 end end
 --thlua.context.NoPushContext end ==========)
 
@@ -5325,12 +5383,12 @@ function OnePushContext:mergeFirst()
 		nTypeCaseList[#nTypeCaseList + 1] = {
 			nType1, nCase
 		}
-	end
-	return self:mergeToRefineTerm(nTypeCaseList)
-end
+	::continue:: end
+	do return self:mergeToRefineTerm(nTypeCaseList)
+ end end
 
-return OnePushContext
-
+do return OnePushContext
+ end 
 end end
 --thlua.context.OnePushContext end ==========)
 
@@ -5373,22 +5431,22 @@ function OperContext:ctor(
 end
 
 function OperContext:newException(vMsg)
-	return Exception.new(vMsg, self._node)
-end
+	do return Exception.new(vMsg, self._node)
+ end end
 
 function OperContext:UTermTupleByAppend(vTermList, vTermTuple  )
 	if TermTuple.is(vTermTuple) then
 		for i=1, #vTermTuple do
 			local nTerm = vTermTuple:rawget(i)
 			vTermList[#vTermList + 1] = nTerm
-		end
-		return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
-	else
+		::continue:: end
+		do return self:UTermTupleByTail(vTermList, vTermTuple:getTail())
+	 end else
 		if vTermTuple then
 			vTermList[#vTermList + 1] = vTermTuple
 		end
-		return self:UTermTupleByTail(vTermList, false)
-	end
+		do return self:UTermTupleByTail(vTermList, false)
+	 end end
 end
 
 function OperContext:UTermTupleByTail(vTermList, vTail  )
@@ -5396,8 +5454,8 @@ function OperContext:UTermTupleByTail(vTermList, vTail  )
 		vTail = vTail:recurPutTermWithTail(vTermList)
 	end
 	if AutoTail.is(vTail) then
-		return TermTuple.new(self, true, vTermList, vTail or false, false)
-	end
+		do return TermTuple.new(self, true, vTermList, vTail or false, false)
+	 end end
 	local nHasAuto = false
 	if not nHasAuto then
 		for i=1, #vTermList do
@@ -5411,36 +5469,36 @@ function OperContext:UTermTupleByTail(vTermList, vTail  )
 					vTermList[i] = nAuto
 				end
 			end
-		end
+		::continue:: end
 	end
 	if nHasAuto then
-		return TermTuple.new(self, true, vTermList, vTail or false, false)
-	else
-		return TermTuple.new(self, false, vTermList  , vTail or false, false)
-	end
+		do return TermTuple.new(self, true, vTermList, vTail or false, false)
+	 end else
+		do return TermTuple.new(self, false, vTermList  , vTail or false, false)
+	 end end
 end
 
 function OperContext:FixedTermTuple(vTermList, vDotsType , vTypeTuple)
 	if vDotsType then
 		local nTail = DotsTail.new(self, vDotsType)
-		return TermTuple.new(self, false, vTermList, nTail, vTypeTuple or false)
-	else
-		return TermTuple.new(self, false, vTermList, false, vTypeTuple or false)
-	end
+		do return TermTuple.new(self, false, vTermList, nTail, vTypeTuple or false)
+	 end else
+		do return TermTuple.new(self, false, vTermList, false, vTypeTuple or false)
+	 end end
 end
 
 function OperContext:RefineTerm(vType)
-	return RefineTerm.new(self._node, vType:checkAtomUnion())
-end
+	do return RefineTerm.new(self._node, vType:checkAtomUnion())
+ end end
 
 function OperContext:NeverTerm()
-	return RefineTerm.new(self._node, self._manager.type.Never)
-end
+	do return RefineTerm.new(self._node, self._manager.type.Never)
+ end end
 
 local function orReduceCase(vCaseList)
 	if #vCaseList == 1 then
-		return vCaseList[1]
-	end
+		do return vCaseList[1]
+	 end end
 	local nNewCase = VariableCase.new()
 	local nFirstCase = vCaseList[1]
 	for nImmutVariable, nLeftType in pairs(nFirstCase) do
@@ -5455,24 +5513,24 @@ local function orReduceCase(vCaseList)
 				nPass = true
 				break
 			end
-		end
+		::continue:: end
 		if not nPass then
 			nNewCase[nImmutVariable] = nFinalType
 		end
-	end
-	return nNewCase
-end
+	::continue:: end
+	do return nNewCase
+ end end
 
 function OperContext:mergeToRefineTerm(vTypeCasePairList)
 	local nKeyUnion, nTypeDict = self._manager:typeMapReduce(vTypeCasePairList, function(vList)
-		return orReduceCase(vList)
-	end)
-	return RefineTerm.new(self._node, nKeyUnion, nTypeDict)
-end
+		do return orReduceCase(vList)
+	 end end)
+	do return RefineTerm.new(self._node, nKeyUnion, nTypeDict)
+ end end
 
 function OperContext:NilTerm()
-	return RefineTerm.new(self._node, self._manager.type.Nil)
-end
+	do return RefineTerm.new(self._node, self._manager.type.Nil)
+ end end
 
 function OperContext:error(...)
 	self._stack:getRuntime():stackNodeError(self._stack, self._node, ...)
@@ -5488,23 +5546,23 @@ function OperContext:info(...)
 end
 
 function OperContext:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function OperContext:getRuntime()
-	return self._stack:getRuntime()
-end
+	do return self._stack:getRuntime()
+ end end
 
 function OperContext:getTypeManager()
-	return self._manager
-end
+	do return self._manager
+ end end
 
 function OperContext:getStack()
-	return self._stack
-end
+	do return self._stack
+ end end
 
-return OperContext
-
+do return OperContext
+ end 
 end end
 --thlua.context.OperContext end ==========)
 
@@ -5528,16 +5586,16 @@ function RecurChain:testAndRun(vSelfType, vFunc)
 	local nChain = self._curPushChain
 	for i=1, #nChain do
 		if nChain[i] == vSelfType then
-			return false
-		end
-	end
+			do return false
+		 end end
+	::continue:: end
 	nChain[#nChain + 1] = vSelfType
 	local nRet = vFunc()
 	nChain[#nChain] = nil
-	return true, nRet
-end
+	do return true, nRet
+ end end
 
-return RecurChain
+do return RecurChain end 
 end end
 --thlua.context.RecurChain end ==========)
 
@@ -5576,10 +5634,10 @@ function ReturnContext:returnMatchTuples(
 	end)
 	if nOneMatchSucc then
 		self:runLateCast(nAutoFnCastDict)
-		return true, nOneCastSucc
-	else
-		return false
-	end
+		do return true, nOneCastSucc
+	 end else
+		do return false
+	 end end
 end
 
 function ReturnContext:tryMatchCast(
@@ -5593,42 +5651,42 @@ function ReturnContext:tryMatchCast(
 		local nSrcType = vSrcTuple:get(i):checkAtomUnion()
 		local nIncludeType, nCastSucc = self:tryIncludeCast(vAutoFnCastDict, nDstType, nSrcType)
 		if not nIncludeType then
-			return false
-		else
+			do return false
+		 end else
 			nCastResult = nCastResult and nCastSucc
 		end
-	end
+	::continue:: end
 	for i=#vSrcTuple + 1, #vDstTuple do
 		local nDstType = vDstTuple:get(i):checkAtomUnion()
 		local nSrcType = vSrcTuple:get(i):checkAtomUnion()
 		local nIncludeType, nCastSucc = self:tryIncludeCast(vAutoFnCastDict, nDstType, nSrcType)
 		if not nIncludeType then
-			return false
-		else
+			do return false
+		 end else
 			nCastResult = nCastResult and nCastSucc
 		end
-	end
+	::continue:: end
 	local nSrcRepeatType = vSrcTuple:getRepeatType()
 	if nSrcRepeatType then
 		local nDstRepeatType = vDstTuple:getRepeatType()
 		if not nDstRepeatType then
-			return false
-		elseif not nDstRepeatType:includeAll(nSrcRepeatType) then
-			return false
-		end
+			do return false
+		 end elseif not nDstRepeatType:includeAll(nSrcRepeatType) then
+			do return false
+		 end end
 	end
-	return true, nCastResult
-end
+	do return true, nCastResult
+ end end
 
-return ReturnContext
-
+do return ReturnContext
+ end 
 end end
 --thlua.context.ReturnContext end ==========)
 
 --thlua.global.basic begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.basic'] = function (...)
-return [[
+do return [[
 
 _ENV._G = _ENV
 
@@ -5690,14 +5748,14 @@ end
 function.pass _ENV.rawget(a:Any, b:Any):Ret(Any)
 end
 
-]]
+]] end 
 end end
 --thlua.global.basic end ==========)
 
 --thlua.global.coroutine begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.coroutine'] = function (...)
-return [[
+do return [[
 
 const coroutine = {}
 
@@ -5727,14 +5785,14 @@ end
 
 _ENV.coroutine = coroutine
 
-]]
+]] end 
 end end
 --thlua.global.coroutine end ==========)
 
 --thlua.global.debug begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.debug'] = function (...)
-return [[
+do return [[
 
 
 const debug = {}
@@ -5838,14 +5896,14 @@ end
 _ENV.debug = debug
 
 ]]
-
+ end 
 end end
 --thlua.global.debug end ==========)
 
 --thlua.global.io begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.io'] = function (...)
-return [[
+do return [[
 
 (@let.ReadMode = Union(
     Integer, "n", "a", "l", "L"
@@ -5923,14 +5981,14 @@ end
 
 _ENV.io = io
 
-]]
+]] end 
 end end
 --thlua.global.io end ==========)
 
 --thlua.global.math begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.math'] = function (...)
-return [[
+do return [[
 
 const math = {}
 
@@ -6014,14 +6072,14 @@ end
 
 _ENV.math = math
 
-]]
+]] end 
 end end
 --thlua.global.math end ==========)
 
 --thlua.global.os begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.os'] = function (...)
-return [[
+do return [[
 
 const os = {}
 
@@ -6033,14 +6091,14 @@ end
 
 _ENV.os = os
 
-]]
+]] end 
 end end
 --thlua.global.os end ==========)
 
 --thlua.global.package begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.package'] = function (...)
-return [[
+do return [[
 
 const package = {}
 
@@ -6052,14 +6110,14 @@ package.config = ""@String
 _ENV.package = package
 
 ]]
-
+ end 
 end end
 --thlua.global.package end ==========)
 
 --thlua.global.string begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.string'] = function (...)
-return [[
+do return [[
 
 const string = {}
 
@@ -6144,14 +6202,14 @@ _ENV.string = string
 
 return string
 
-]]
+]] end 
 end end
 --thlua.global.string end ==========)
 
 --thlua.global.table begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.table'] = function (...)
-return [[
+do return [[
 
 const table = {}
 
@@ -6201,20 +6259,20 @@ end
 
 _ENV.table = table
 
-]]
+]] end 
 end end
 --thlua.global.table end ==========)
 
 --thlua.global.utf8 begin ==========(
 do local _ENV = _ENV
 packages['thlua.global.utf8'] = function (...)
-return [[
+do return [[
 
 const utf8 = {}
 
 _ENV.utf8 = utf8
 
-]]
+]] end 
 end end
 --thlua.global.utf8 end ==========)
 
@@ -6240,18 +6298,18 @@ function DirtyProcessor.new(vTypeManager)
         _manager = vTypeManager,
 		_runtime = vTypeManager:getRuntime()
     }, DirtyProcessor)
-    return self
-end
+    do return self
+ end end
 
 function DirtyProcessor:makeDirtyException(vNode, vMsg)
-	return Exception.new(vMsg, vNode)
-end
+	do return Exception.new(vMsg, vNode)
+ end end
 
 function DirtyProcessor:easyToType(vNode, vData)
 	local nOkay, nType = self:peasyToType(vData)
 	if nOkay then
-		return nType
-	else
+		do return nType
+	 end else
 		error(self:makeDirtyException(vNode, nType))
 	end
 end
@@ -6260,29 +6318,29 @@ function DirtyProcessor:easyToTypeList(vNode, ...)
 	local l = {...}
 	for i=1,#l do
 		l[i] = self:easyToType(vNode, l[i])
-	end
-	return l  
-end
+	::continue:: end
+	do return l  
+ end end
 
 function DirtyProcessor:peasyToType(vData)  
 	local t = type(vData)
 	if t == "table" then
 		if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
-			return true, vData
-		else
-			return false, "to type failed"
-		end
+			do return true, vData
+		 end else
+			do return false, "to type failed"
+		 end end
 	elseif t == "number" or t == "string" or t == "boolean"then
-		return true, self._manager:Literal(vData    )
-	else
-		return false, "easyToType("..t..") invalid"
-	end
+		do return true, self._manager:Literal(vData    )
+	 end else
+		do return false, "easyToType("..t..") invalid"
+	 end end
 end
 
 function DirtyProcessor:checkObjectMetaCom(vNode, vData)
 end
 
-return DirtyProcessor
+do return DirtyProcessor end 
 end end
 --thlua.manager.DirtyProcessor end ==========)
 
@@ -6294,7 +6352,7 @@ packages['thlua.manager.ListDict'] = function (...)
 	  
 
 
-return function  ()
+do return function  ()
     local t = {
         _keyToList={}  ,
     }
@@ -6315,33 +6373,33 @@ return function  ()
             else
                 for i,v in ipairs(vList) do
                     nList[#nList + 1] = v
-                end
+                ::continue:: end
             end
         end)
     end
     function t:get(k)
-        return self._keyToList[k]
-    end
+        do return self._keyToList[k]
+     end end
     function t:pop(k)
         local nList = self._keyToList[k]
         self._keyToList[k] = nil
-        return nList
-    end
+        do return nList
+     end end
     function t:forKV(vFunc )
         for k,vList in pairs(self._keyToList) do
             for _, v in ipairs(vList) do
                 vFunc(k,v)
-            end
-        end
+            ::continue:: end
+        ::continue:: end
     end
     function t:forKList(vFunc )
         for k,vList in pairs(self._keyToList) do
             vFunc(k,vList)
-        end
+        ::continue:: end
     end
-    return t
-end
-
+    do return t
+ end end
+ end 
 end end
 --thlua.manager.ListDict end ==========)
 
@@ -6355,12 +6413,12 @@ ScheduleEvent.__index = ScheduleEvent
   
 
 function ScheduleEvent.new(vManager, vThread)
-	return setmetatable({
+	do return setmetatable({
 		_scheduleManager=vManager,
 		_selfCo=vThread,
 		_coToSid={} ,
 	}, ScheduleEvent)
-end
+ end end
 
 function ScheduleEvent:wait()
 	local nCoToSid = self._coToSid
@@ -6380,16 +6438,16 @@ function ScheduleEvent:wakeup()
 		local nManager = self._scheduleManager
 		for co, sid in pairs(nCoToSid) do
 			nManager:coWakeup(co, sid)
-		end
+		::continue:: end
 	end
 end
 
 function ScheduleEvent:isWaken()
-	return not self._coToSid
-end
+	do return not self._coToSid
+ end end
 
-return ScheduleEvent
-
+do return ScheduleEvent
+ end 
 end end
 --thlua.manager.ScheduleEvent end ==========)
 
@@ -6424,8 +6482,8 @@ end
 function ScheduleManager:newTask(vStack)
 	local nTask = ScheduleTask.new(self, vStack)
 	self._coToTask[nTask:getSelfCo()] = nTask
-	return nTask
-end
+	do return nTask
+ end end
 
 function ScheduleManager:coWait(vWaitCo, vWaitSid, vDependCo)
 	assert(vWaitCo == coroutine.running(), "wait co must be current co")
@@ -6455,7 +6513,7 @@ function ScheduleManager:coWait(vWaitCo, vWaitSid, vDependCo)
 					break
 				end
 			end
-		end
+		::continue:: end
 		if nCurCo then
 			   
 			error("recursive build type:"..tostring(self._coToTask[nCurCo]))
@@ -6475,11 +6533,11 @@ function ScheduleManager:coWakeup(vWaitCo, vWaitSid)
 	if not nWaitingInfo then
 		   
 		print("session is cancel when wakeup")
-		return
-	elseif vWaitSid ~= nWaitingInfo.waitSid then
+		do return
+	 end elseif vWaitSid ~= nWaitingInfo.waitSid then
 		print("wait sid not match when wakeup")
-		return
-	end
+		do return
+	 end end
 	self._coToWaitingInfo[vWaitCo] = nil
 	self._coToScheduleParam[vWaitCo] = true
 	local nTask = self._coToTask[coroutine.running()]
@@ -6505,23 +6563,23 @@ function ScheduleManager:_schedule()
 			self._coToScheduleParam = {}  
 			for co, param in pairs(nCoToParam) do
 				assert(coroutine.resume(co, param))
-			end
+			::continue:: end
 		end
-	end
+	::continue:: end
 end
 
 function ScheduleManager:genSessionId()
 	local nNewId = self._sessionIdCounter + 1
 	self._sessionIdCounter = nNewId
-	return nNewId
-end
+	do return nNewId
+ end end
 
 function ScheduleManager:makeEvent(vThread)
-	return ScheduleEvent.new(self, vThread)
-end
+	do return ScheduleEvent.new(self, vThread)
+ end end
 
-return ScheduleManager
-
+do return ScheduleManager
+ end 
 end end
 --thlua.manager.ScheduleManager end ==========)
 
@@ -6563,31 +6621,31 @@ function ScheduleTask:ctor(vScheduleManager, vStack)
 end
 
 function ScheduleTask:getSelfCo()
-	return self._selfCo
-end
+	do return self._selfCo
+ end end
 
 function ScheduleTask:canWaitType()
-	return not self._stack
-end
+	do return not self._stack
+ end end
 
 function ScheduleTask:runAsync(vFunc)
 	self._scheduleManager:coStart(self._selfCo, vFunc)
 end
 
 function ScheduleTask:getStack()
-	return self._stack
-end
+	do return self._stack
+ end end
 
 function ScheduleTask:makeEvent()
-	return self._scheduleManager:makeEvent(self._selfCo)
-end
+	do return self._scheduleManager:makeEvent(self._selfCo)
+ end end
 
 function ScheduleTask:makeWildEvent()
-	return self._scheduleManager:makeEvent()
-end
+	do return self._scheduleManager:makeEvent()
+ end end
 
-return ScheduleTask
-
+do return ScheduleTask
+ end 
 end end
 --thlua.manager.ScheduleTask end ==========)
 
@@ -6641,8 +6699,8 @@ function TypeCollection.new(vManager)
 		_bits=0  ,
  		_count=0  ,
 	}, TypeCollection)
-	return self
-end
+	do return self
+ end end
 
 
 function TypeCollection:put(vType)
@@ -6675,17 +6733,17 @@ end
 function TypeCollection:_makeSimpleTrueType(vBit, vSet )
 	local nUnionType = nil
 	if vBit == TYPE_BITS.TRUE then
-		return self._type.True
-	elseif vBit == TYPE_BITS.NUMBER then
+		do return self._type.True
+	 end elseif vBit == TYPE_BITS.NUMBER then
 		local nNumberType = self._type.Number
 		if vSet[nNumberType] then
-			return nNumberType
-		end
+			do return nNumberType
+		 end end
 		local nHasFloatLiteral = self._metaSet[FloatLiteral.meta]
 		local nIntegerType = self._type.Integer
 		if vSet[nIntegerType] and not nHasFloatLiteral then
-			return nIntegerType
-		end
+			do return nIntegerType
+		 end end
 		if nHasFloatLiteral then
 			nUnionType = MixingNumberUnion.new(self._manager)
 		else
@@ -6694,38 +6752,38 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet )
 	elseif vBit == TYPE_BITS.STRING then
 		local nStringType = self._type.String
 		if vSet[nStringType] then
-			return nStringType
-		end
+			do return nStringType
+		 end end
 		nUnionType = StringLiteralUnion.new(self._manager)
 	elseif vBit == TYPE_BITS.OBJECT then
 		nUnionType = ObjectUnion.new(self._manager)
 	elseif vBit == TYPE_BITS.FUNCTION then
 		nUnionType = FuncUnion.new(self._manager)
 	elseif vBit == TYPE_BITS.THREAD then
-		return self._type.Thread
-	elseif vBit == TYPE_BITS.LIGHTUSERDATA then
-		return self._type.LightUserdata
-	else
+		do return self._type.Thread
+	 end elseif vBit == TYPE_BITS.LIGHTUSERDATA then
+		do return self._type.LightUserdata
+	 end else
 		error("bit can't be="..tostring(vBit))
 	end
 	for nType, _ in pairs(vSet) do
 		nUnionType:putAwait(nType)
-	end
-	return self._manager:_unifyUnion(nUnionType)
-end
+	::continue:: end
+	do return self._manager:_unifyUnion(nUnionType)
+ end end
 
 function TypeCollection:mergeToAtomUnion()
 	local nBits = self._bits
 	   
 	if nBits == 0 then
 		    
-		return self._type.Never
-	else
+		do return self._type.Never
+	 end else
 		              
 		if self._count == 1 or FastBitsSet[nBits] then
 			local nOneType = (next(self._bitsToSet[nBits]))
-			return (assert(nOneType, "logic error when type merge"))
-		end
+			do return (assert(nOneType, "logic error when type merge"))
+		 end end
 	end
 	local nTruableBits = nBits & (~ (TYPE_BITS.NIL | TYPE_BITS.FALSE))
 	local nFalsableBits = nBits & (TYPE_BITS.NIL | TYPE_BITS.FALSE)
@@ -6735,7 +6793,7 @@ function TypeCollection:mergeToAtomUnion()
 		if TrueBitSet[nBit] then
 			nTrueBitToType[nBit] = self:_makeSimpleTrueType(nBit, nSet)
 		end
-	end
+	::continue:: end
 	local nTrueType = self._type.Never
 	if TrueBitSet[nTruableBits] then
 		        
@@ -6750,19 +6808,19 @@ function TypeCollection:mergeToAtomUnion()
 	end
 	    
 	if nFalsableBits == 0 then
-		return nTrueType
-	else
+		do return nTrueType
+	 end else
 		local nUnionType = FalsableUnion.new(self._manager, nTrueType, nFalsableBits)
-		return self._manager:_unifyUnion(nUnionType)
-	end
+		do return self._manager:_unifyUnion(nUnionType)
+	 end end
 end
 
 function TypeCollection.is(vData)
-	return getmetatable(vData) == TypeCollection
-end
+	do return getmetatable(vData) == TypeCollection
+ end end
 
-return TypeCollection
-
+do return TypeCollection
+ end 
 end end
 --thlua.manager.TypeCollection end ==========)
 
@@ -6785,6 +6843,7 @@ local Integer = require "thlua.type.basic.Integer"
 local BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 local Nil = require "thlua.type.basic.Nil"
 local Thread = require "thlua.type.basic.Thread"
+local Enum = require "thlua.type.basic.Enum"
 local LightUserdata = require "thlua.type.basic.LightUserdata"
 local Truth = require "thlua.type.basic.Truth"
 local TypedObject = require "thlua.type.object.TypedObject"
@@ -6853,8 +6912,8 @@ local function makeBuiltinFunc(vManager)
 			concat=native.make_concat(vManager),
 		},
 	}
-	return self
-end
+	do return self
+ end end
 
 function TypeManager.new(
 	vRuntime,
@@ -6878,8 +6937,8 @@ function TypeManager.new(
 			Any = nil  ,
 			AnyObject = nil  ,
 		}
-		return self
-	end
+		do return self
+	 end end
 	local self = setmetatable({
 		_runtime=vRuntime,
 		  
@@ -6903,8 +6962,8 @@ function TypeManager.new(
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
 	self.generic.Dict = self:buildTemplate(vRootNode, function(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
-		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
-	end)
+		do return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
+	 end end)
 	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond,v1,v2)
 		local nType = vCond
 		if Reference.is(vCond) then
@@ -6913,20 +6972,20 @@ function TypeManager.new(
 		if nType:isUnion() then
 			error("Cond's first value can't be union")
 		end
-		return (nType == self.type.Nil or nType == self.type.False) and v2 or v1
-	end)
+		do return (nType == self.type.Nil or nType == self.type.False) and v2 or v1
+	 end end)
 	self.generic.IDict = self:buildTemplate(vRootNode, function(vKey,vValue)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
-		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__Next=vKey})
-	end)
+		do return self:buildInterface(vRootNode, {[vKey]=vValue}, {__Next=vKey})
+	 end end)
 	self.generic.List = self:buildTemplate(vRootNode, function(vValue)
 		assert(vValue, "value can't be nil when build List")
-		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
-	end)
+		do return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
+	 end end)
 	self.generic.IList = self:buildTemplate(vRootNode, function(vValue)
 		assert(vValue, "value can't be nil when build IList")
-		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
-	end)
+		do return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+	 end end)
 	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
@@ -6938,14 +6997,14 @@ function TypeManager.new(
 		local nKeyRefer, _ = nObject:getKeyTypes()
 		local nRefer = self:Reference(false)
 		nRefer:setUnionAsync(nObject:getNode(), function()
-			return nKeyRefer:getListAwait(), function()
+			do return nKeyRefer:getListAwait(), function()
 				nKeyRefer:getTypeAwait()
 			end
-		end)
-		return nRefer
-	end)
-	return self
-end
+		 end end)
+		do return nRefer
+	 end end)
+	do return self
+ end end
 
 function TypeManager:lateInit()
 	self.builtin = makeBuiltinFunc(self)
@@ -6957,26 +7016,26 @@ end
 
 function TypeManager:isLiteral(vType)
 	if StringLiteral.is(vType) or FloatLiteral.is(vType) or IntegerLiteral.is(vType) or BooleanLiteral.is(vType) then
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
 function TypeManager:_checkAllType(vData)
 	if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
-		return vData
-	end
-	return false
-end
+		do return vData
+	 end end
+	do return false
+ end end
 
 function TypeManager:TypeCollection()
-	return TypeCollection.new(self)
-end
+	do return TypeCollection.new(self)
+ end end
 
 function TypeManager:AsyncUnion(vTask)
-	return AsyncUnion.new(self, vTask)
-end
+	do return AsyncUnion.new(self, vTask)
+ end end
 
 function TypeManager:_buildCombineObject(vNode, vIsInterface, vObjectList)
 	local nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
@@ -7018,7 +7077,7 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vObjectList)
 			for _, nKeyType in ipairs(nKeyRefer:getListAwait()) do
 				nKeyList[#nKeyList + 1] = nKeyType
 				nKeyValuePairList[#nKeyValuePairList + 1] = {nKeyType, nValueDict[nKeyType]}
-			end
+			::continue:: end
 			nMetaEventComList[#nMetaEventComList + 1] = nTypedObject:getMetaEventCom() or nil
 			if nIntersectNextKey then
 				if nNextKey then
@@ -7032,10 +7091,10 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vObjectList)
 					nIntersectNextKey = false
 				end
 			end
-		end
+		::continue:: end
 		local _, nFinalValueDict = self:typeMapReduce(nKeyValuePairList, function(vList)
-			return self:intersectReduceType(vNode, vList)
-		end)
+			do return self:intersectReduceType(vNode, vList)
+		 end end)
 		local nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 		if #nMetaEventComList > 0 then
 			local nNewEventCom = self:makeMetaEventCom(nNewObject)
@@ -7047,20 +7106,20 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vObjectList)
 		       
 		nNewObject:lateCheck()
 	end)
-	return nNewObject
-end
+	do return nNewObject
+ end end
 
 function TypeManager:buildExtendStruct(vNode, vFirst  ,
 	... )
 	local nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst   )
 	local l = {nStruct, ...}
-	return self:_buildCombineObject(vNode, false, l)
-end
+	do return self:_buildCombineObject(vNode, false, l)
+ end end
 
 function TypeManager:buildExtendInterface(vNode, ... )
 	local l = {...}
-	return self:_buildCombineObject(vNode, true, l)
-end
+	do return self:_buildCombineObject(vNode, true, l)
+ end end
 
 function TypeManager:checkedUnion(...)
 	local l = {...}
@@ -7069,8 +7128,31 @@ function TypeManager:checkedUnion(...)
 		l[i]:checkAtomUnion():foreach(function(vAtomType)
 			nCollection:put(vAtomType)
 		end)
-	end
-	return nCollection:mergeToAtomUnion()
+	::continue:: end
+	do return nCollection:mergeToAtomUnion()
+ end end
+
+function TypeManager:buildEnum(vNode, vArgType)
+	local nNewRefer = self:Reference(false)
+	nNewRefer:setUnionAsync(vNode, function()
+		local nType = self._dirtyProcessor:easyToType(vNode, vArgType)
+		local nSuperType = Reference.is(nType) and nType:waitTypeCom():getTypeAwait() or nType
+		do return {Enum.new(self, nSuperType)}
+	 end end)
+	do return nNewRefer
+ end end
+
+function TypeManager:addEnum(vNode, vEnumType, ...)
+	       
+	local nType = self._dirtyProcessor:easyToType(vNode, vEnumType)
+	local nEnumType = nType:checkAtomUnion()
+	assert(Enum.is(nEnumType), Exception.new("enum must take Enum as first arg", vNode))
+	local l = {...}
+	local nLen = select("#", ...)
+	for i=1, nLen do
+		local nItem = self._dirtyProcessor:easyToType(vNode, l[i])
+		nEnumType:addType(nItem)
+	::continue:: end
 end
 
 function TypeManager:buildUnion(vNode, ...)
@@ -7096,19 +7178,19 @@ function TypeManager:buildUnion(vNode, ...)
 					nTypeList[#nTypeList + 1] = vAtom
 				end)
 			end
-		end
-		return nTypeList
-	end)
-	return nNewRefer
-end
+		::continue:: end
+		do return nTypeList
+	 end end)
+	do return nNewRefer
+ end end
 
 function TypeManager:buildInterface(vNode, vTable, vMetaEventDict )
-	return self:_buildTypedObject(vNode, vTable, vMetaEventDict, true)
-end
+	do return self:_buildTypedObject(vNode, vTable, vMetaEventDict, true)
+ end end
 
 function TypeManager:buildStruct(vNode, vTable, vMetaEventDict )
-	return self:_buildTypedObject(vNode, vTable, vMetaEventDict, false)
-end
+	do return self:_buildTypedObject(vNode, vTable, vMetaEventDict, false)
+ end end
 
 function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict , vIsInterface)  
 	local nNextKey = vMetaEventDict and vMetaEventDict.__Next or false
@@ -7129,7 +7211,7 @@ function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict , vIsInterf
 					nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
 				end
 			end)
-		end
+		::continue:: end
 		local nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
 		if vMetaEventDict then
 			local nNewEventCom = self:makeMetaEventCom(nNewObject)
@@ -7143,32 +7225,32 @@ function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict , vIsInterf
 			error("Object's key must be independent")
 		end
 	end)
-	return nNewObject
-end
+	do return nNewObject
+ end end
 
 function TypeManager:buildIDict(vNode, vKey, vValue)
-	return self:buildInterface(vNode, {[vKey]=vValue})
-end
+	do return self:buildInterface(vNode, {[vKey]=vValue})
+ end end
 
 function TypeManager:buildDict(vNode, vKey, vValue)
-	return self:buildStruct(vNode, {[vKey]=vValue}, {__Next=vKey})
-end
+	do return self:buildStruct(vNode, {[vKey]=vValue}, {__Next=vKey})
+ end end
 
 function TypeManager:buildIList(vNode, vValue)
-	return self:buildInterface(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
-end
+	do return self:buildInterface(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+ end end
 
 function TypeManager:buildList(vNode, vValue)
-	return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __Next=self.type.Integer})
-end
+	do return self:buildStruct(vNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer, __Next=self.type.Integer})
+ end end
 
 function TypeManager:buildOrNil(vNode, ...)
-	return self:buildUnion(vNode, self.type.Nil, ...)
-end
+	do return self:buildUnion(vNode, self.type.Nil, ...)
+ end end
 
 function TypeManager:buildOrFalse(vNode, ...)
-	return self:buildUnion(vNode, self.type.False, ...)
-end
+	do return self:buildUnion(vNode, self.type.False, ...)
+ end end
 
 function TypeManager:_unifyUnion(vNewType)
 	local nSign = vNewType:unionSign()
@@ -7177,10 +7259,10 @@ function TypeManager:_unifyUnion(vNewType)
 	if not nOldType then
 		vNewType:initWithTypeId(self:genTypeId())
 		nSignToType[nSign] = vNewType
-		return vNewType
-	else
-		return nOldType
-	end
+		do return vNewType
+	 end else
+		do return nOldType
+	 end end
 end
 
 function TypeManager:atomRecordTypeUnionSign(vType)
@@ -7190,20 +7272,20 @@ end
 function TypeManager:metaNativeOpenFunction(vFn)
 	local nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
 	nOpenFn:lateInitFromMetaNative(vFn)
-	return nOpenFn
-end
+	do return nOpenFn
+ end end
 
 function TypeManager:fixedNativeOpenFunction(vFn)
 	local nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
 	nOpenFn:lateInitFromOperNative(vFn)
-	return nOpenFn
-end
+	do return nOpenFn
+ end end
 
 function TypeManager:stackNativeOpenFunction(vFn)
 	local nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
 	nOpenFn:lateInitFromAutoNative(vFn)
-	return nOpenFn
-end
+	do return nOpenFn
+ end end
 
 function TypeManager:Literal(vValue  )   
 	local t = type(vValue)
@@ -7215,16 +7297,16 @@ function TypeManager:Literal(vValue  )
 				nLiteralType = IntegerLiteral.new(self, vValue)
 				nLiteralDict[vValue] = nLiteralType
 			end
-			return nLiteralType
-		else
+			do return nLiteralType
+		 end else
 			local nLiteralDict = self._floatLiteralDict
 			local nLiteralType = nLiteralDict[vValue]
 			if not nLiteralType then
 				nLiteralType = FloatLiteral.new(self, vValue)
 				nLiteralDict[vValue] = nLiteralType
 			end
-			return nLiteralType
-		end
+			do return nLiteralType
+		 end end
 	else
 		local nLiteralDict = self._sbLiteralDict
 		local nLiteralType = nLiteralDict[vValue]
@@ -7243,26 +7325,26 @@ function TypeManager:Literal(vValue  )
 				error("literal must take boolean or number or string value but got:"..tostring(t))
 			end
 		end
-		return nLiteralType
-	end
+		do return nLiteralType
+	 end end
 end
 
 function TypeManager:TypeTuple(vNode, vTypeList)
-	return TypeTuple.new(self, vNode, vTypeList)
-end
+	do return TypeTuple.new(self, vNode, vTypeList)
+ end end
 
 function TypeManager:VoidRetTuples(vNode, vErrType)
-	return RetTuples.new(self, vNode, {self:TypeTuple(vNode, {})}, vErrType or false)
-end
+	do return RetTuples.new(self, vNode, {self:TypeTuple(vNode, {})}, vErrType or false)
+ end end
 
 function TypeManager:SingleRetTuples(vNode, vTypeTuple, vErrType)
-	return RetTuples.new(self, vNode, {vTypeTuple}, vErrType or false)
-end
+	do return RetTuples.new(self, vNode, {vTypeTuple}, vErrType or false)
+ end end
 
 function TypeManager:buildMfn(vNode, ...)
 	local nHeadlessFn = self:buildFn(vNode, ...)
-	return TypedMemberFunction.new(self, vNode, nHeadlessFn)
-end
+	do return TypedMemberFunction.new(self, vNode, nHeadlessFn)
+ end end
 
 function TypeManager:buildPfn(vNode, vFunc)
 	local nInfo = debug.getinfo(vFunc)
@@ -7270,36 +7352,36 @@ function TypeManager:buildPfn(vNode, vFunc)
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return TypedPolyFunction.new(self, vNode, vFunc, nPolyParNum)
-end
+	do return TypedPolyFunction.new(self, vNode, vFunc, nPolyParNum)
+ end end
 
 function TypeManager:buildFn(vNode, ...)
 	local nParTuple = self:TypeTuple(vNode, self._dirtyProcessor:easyToTypeList(vNode, ...))
-	return TypedFunction.new(self, vNode, nParTuple, false)
-end
+	do return TypedFunction.new(self, vNode, nParTuple, false)
+ end end
 
 function TypeManager:checkedFn(...)
 	local nParTuple = self:TypeTuple(self._rootNode, self._dirtyProcessor:easyToTypeList(self._rootNode, ...))
-	return TypedFunction.new(self, self._rootNode, nParTuple, false)
-end
+	do return TypedFunction.new(self, self._rootNode, nParTuple, false)
+ end end
 
 function TypeManager:SealPolyFunction(vNode, vFunc, vPolyParNum, vStack)
-	return SealPolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
-end
+	do return SealPolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
+ end end
 
 function TypeManager:AutoMemberFunction(vNode, vPolyFn)
-	return AutoMemberFunction.new(self, vNode, vPolyFn)
-end
+	do return AutoMemberFunction.new(self, vNode, vPolyFn)
+ end end
 
 function TypeManager:TypedFunction(vNode, vParTuple, vRetTuples)
 	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
 	assert(RetTuples.is(vRetTuples))
-	return TypedFunction.new(self, vNode, vParTuple, vRetTuples)
-end
+	do return TypedFunction.new(self, vNode, vParTuple, vRetTuples)
+ end end
 
 function TypeManager:makeMetaEventCom(vObject )
-	return MetaEventCom.new(self, vObject)
-end
+	do return MetaEventCom.new(self, vObject)
+ end end
 
 function TypeManager:buildTemplate(vNode, vFunc)
 	local nInfo = debug.getinfo(vFunc)
@@ -7307,19 +7389,19 @@ function TypeManager:buildTemplate(vNode, vFunc)
 	if nInfo.isvararg then
 		error("template's parameter number is undetermined")
 	end
-	return self:buildTemplateWithParNum(vNode, vFunc, nParNum)
-end
+	do return self:buildTemplateWithParNum(vNode, vFunc, nParNum)
+ end end
 
 function TypeManager:buildTemplateWithParNum(vNode, vFunc, vParNum)
 	local nRefer = self:Reference(false)
 	nRefer:setTemplateAsync(vNode, vFunc, vParNum)
-	return nRefer
-end
+	do return nRefer
+ end end
 
 function TypeManager:Reference(vName )
 	local nRefer = Reference.new(self, vName)
-	return nRefer
-end
+	do return nRefer
+ end end
 
 function TypeManager:typeCheckIndependent(vList, vFinalType)
 	local nLeftCount = 0
@@ -7327,13 +7409,13 @@ function TypeManager:typeCheckIndependent(vList, vFinalType)
 		v:checkAtomUnion():foreach(function(_)
 			nLeftCount = nLeftCount + 1
 		end)
-	end
+	::continue:: end
 	local nRightCount = 0
 	vFinalType:foreach(function(_)
 		nRightCount = nRightCount + 1
 	end)
-	return nRightCount == nLeftCount
-end
+	do return nRightCount == nLeftCount
+ end end
 
 function TypeManager:typeMapReduce(
 	vTypePairList  ,
@@ -7347,7 +7429,7 @@ function TypeManager:typeMapReduce(
 			nPair[1] = nFieldType
 		end
 		nCollection:put(nFieldType)
-	end
+	::continue:: end
 	local nKeyUnion = nCollection:mergeToAtomUnion()
 	   
 	local nTypeToList  = {}
@@ -7363,33 +7445,33 @@ function TypeManager:typeMapReduce(
 				nList[#nList + 1] = nValueType
 			end
 		end)
-	end
+	::continue:: end
 	   
 	local nTypeDict  = {}
 	for k,v in pairs(nTypeToList) do
 		nTypeDict[k] = vReduceFn(v)
-	end
-	return nKeyUnion, nTypeDict
-end
+	::continue:: end
+	do return nKeyUnion, nTypeDict
+ end end
 
 function TypeManager:unionReduceType(vList)
 	if #vList == 1 then
-		return vList[1]
-	end
+		do return vList[1]
+	 end end
 	local nCollection = self:TypeCollection()
 	for _, nType in ipairs(vList) do
 		nType:foreach(function(vAtomType)
 			nCollection:put(vAtomType)
 		end)
-	end
-	return nCollection:mergeToAtomUnion()
-end
+	::continue:: end
+	do return nCollection:mergeToAtomUnion()
+ end end
 
 function TypeManager:intersectReduceType(vNode, vList)
 	local nFirst = vList[1]
 	if #vList == 1 then
-		return nFirst
-	end
+		do return nFirst
+	 end end
 	local nRefer = self:Reference(false)
 	nRefer:setUnionAsync(vNode, function()
 		local nFinalType = nFirst:checkAtomUnion()
@@ -7401,7 +7483,7 @@ function TypeManager:intersectReduceType(vNode, vList)
 			else
 				nFinalType = nInterType
 			end
-		end
+		::continue:: end
 		local nAtomList = {}
 		nFinalType:foreach(function(vAtomType)
 			nAtomList[#nAtomList + 1] = vAtomType
@@ -7409,26 +7491,26 @@ function TypeManager:intersectReduceType(vNode, vList)
 		if nFinalType:isNever() then
 			error("object intersect can't has never field")
 		end
-		return nAtomList, function()
-			return nFinalType
-		end
-	end)
-	return nRefer
-end
+		do return nAtomList, function()
+			do return nFinalType
+		 end end
+	 end end)
+	do return nRefer
+ end end
 
 function TypeManager:makePair(vLeft, vRight)
 	local nLeftId, nRightId = vLeft.id, vRight.id
 	assert(nLeftId ~= 0 and nRightId ~=0, "use id ==0")
-	return TypeRelation.shiftPair(nLeftId, nRightId)
-end
+	do return TypeRelation.shiftPair(nLeftId, nRightId)
+ end end
 
 function TypeManager:makeDuPair(vLeft, vRight)  
 	local nLeftId, nRightId = vLeft.id, vRight.id
 	if nLeftId < nRightId then
-		return false, TypeRelation.shiftPair(nLeftId, nRightId), TypeRelation.shiftPair(nRightId, nLeftId)
-	else
-		return true, TypeRelation.shiftPair(nRightId, nLeftId), TypeRelation.shiftPair(nLeftId, nRightId)
-	end
+		do return false, TypeRelation.shiftPair(nLeftId, nRightId), TypeRelation.shiftPair(nRightId, nLeftId)
+	 end else
+		do return true, TypeRelation.shiftPair(nRightId, nLeftId), TypeRelation.shiftPair(nLeftId, nRightId)
+	 end end
 end
 
 function TypeManager:attachPairRelation(vLeft, vRight, vWaitCreate)
@@ -7451,69 +7533,69 @@ function TypeManager:attachPairRelation(vLeft, vRight, vWaitCreate)
 		end
 	end
 	if not nResult then
-		return nil
-	end
+		do return nil
+	 end end
 	if nInverse then
 		if nResult == ">" then
-			return "<"
-		elseif nResult == "<" then
-			return ">"
-		else
-			return nResult
-		end
+			do return "<"
+		 end elseif nResult == "<" then
+			do return ">"
+		 end else
+			do return nResult
+		 end end
 	else
-		return nResult
-	end
+		do return nResult
+	 end end
 end
 
 function TypeManager:getRuntime()
-	return self._runtime
-end
+	do return self._runtime
+ end end
 
 function TypeManager:literal2Primitive(vType)
 	if BooleanLiteral.is(vType) then
-		return self.type.Boolean:checkAtomUnion()
-	elseif FloatLiteral.is(vType) then
-		return self.type.Number
-	elseif IntegerLiteral.is(vType) then
-		return self.type.Integer
-	elseif StringLiteral.is(vType) then
-		return self.type.String
-	else
-		return vType
-	end
+		do return self.type.Boolean:checkAtomUnion()
+	 end elseif FloatLiteral.is(vType) then
+		do return self.type.Number
+	 end elseif IntegerLiteral.is(vType) then
+		do return self.type.Integer
+	 end elseif StringLiteral.is(vType) then
+		do return self.type.String
+	 end else
+		do return vType
+	 end end
 end
 
 function TypeManager:signTemplateArgs(vTypeList)
 	local nIdList = {}
 	for i=1,#vTypeList do
 		nIdList[i] = vTypeList[i].id
-	end
-	return table.concat(nIdList, "-")
-end
+	::continue:: end
+	do return table.concat(nIdList, "-")
+ end end
 
 function TypeManager:genTypeId()
 	local nNewId = self._typeIdCounter + 1
 	self._typeIdCounter = nNewId
-	return nNewId
-end
+	do return nNewId
+ end end
 
 function TypeManager:dump()
 	for k,v in pairs(self._unionSignToType) do
 		print(k, tostring(v))
-	end
+	::continue:: end
 end
 
 function TypeManager:getScheduleManager()
-	return self._scheduleManager
-end
+	do return self._scheduleManager
+ end end
 
 function TypeManager:getDirtyProcessor()
-	return self._dirtyProcessor
-end
+	do return self._dirtyProcessor
+ end end
 
-return TypeManager
-
+do return TypeManager
+ end 
 end end
 --thlua.manager.TypeManager end ==========)
 
@@ -7548,22 +7630,22 @@ function TypeRelation.new(vManager)
         _smallIdObj = nil,
         _bigIdObj = nil,
     }, TypeRelation)
-    return self
-end
+    do return self
+ end end
 
 local function shiftPair(vId1, vId2)
-	return (vId1 << 32) + vId2
-end
+	do return (vId1 << 32) + vId2
+ end end
 TypeRelation.shiftPair = shiftPair
 
 function TypeRelation:getAwait()
     self._buildEvent:wait()
-    return assert(self._result)
-end
+    do return assert(self._result)
+ end end
 
 function TypeRelation:getNowait()
-    return self._result
-end
+    do return self._result
+ end end
 
 function TypeRelation:buildByObject(vLeft, vRight)
     if vLeft.id > vRight.id then
@@ -7599,7 +7681,7 @@ function TypeRelation:buildByObject(vLeft, vRight)
     end)
 end
 
-return TypeRelation
+do return TypeRelation end 
 end end
 --thlua.manager.TypeRelation end ==========)
 
@@ -7635,21 +7717,21 @@ function native._toTable(vManager, vTable)
 		nPairList[#nPairList + 1] = {
 			vManager:Literal(k), v
 		}
-	end
+	::continue:: end
   local nKeyUnion, nTypeDict = vManager:typeMapReduce(nPairList, function(vList)
-		return vManager:unionReduceType(vList)
-	end)
+		do return vManager:unionReduceType(vList)
+	 end end)
 	local nTable = AutoTable.new(vManager, vManager:getRuntime():getNode(), vManager:getRuntime():getRootStack())
 	nTable:initByKeyValue(vManager:getRuntime():getNode(), nKeyUnion, nTypeDict)
-	return nTable
-end
+	do return nTable
+ end end
 
 function native.make(vRuntime)
 	local nManager = vRuntime:getTypeManager()
 	local global = {
 		 
 		setmetatable=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+			do return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nTerm1 = vTermTuple:checkFixed(vContext, 1)
 				local nType1 = nTerm1:getType()
 				local nType2 = vTermTuple:checkFixed(vContext, 2):getType()
@@ -7667,7 +7749,7 @@ function native.make(vRuntime)
 				end
 				vContext:nativeOpenReturn(nTerm1)
 			end):mergeFirst()
-		end),
+		 end end),
 		getmetatable=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(vContext, 1)
 			local nTypeCaseList = {}
@@ -7677,8 +7759,8 @@ function native.make(vRuntime)
 					vVariableCase,
 				}
 			end)
-			return vContext:mergeToRefineTerm(nTypeCaseList)
-		end),
+			do return vContext:mergeToRefineTerm(nTypeCaseList)
+		 end end),
 		next=nManager.builtin.next,
 		ipairs=nManager:metaNativeOpenFunction(function(vContext, vType)
 			local nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.inext, vType, nManager:Literal(0)})
@@ -7692,8 +7774,8 @@ function native.make(vRuntime)
 			 
 			 
 			print("rawequal TODO")
-			return vContext:RefineTerm(nManager.type.Boolean)
-		end),
+			do return vContext:RefineTerm(nManager.type.Boolean)
+		 end end),
 		type=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(vContext, 1)
 			local nTypeCaseList = {}
@@ -7702,59 +7784,59 @@ function native.make(vRuntime)
 					vType:native_type(), vVariableCase
 				}
 			end)
-			return vContext:mergeToRefineTerm(nTypeCaseList)
-		end),
+			do return vContext:mergeToRefineTerm(nTypeCaseList)
+		 end end),
 		  
 		select=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			local nFirstType = vTermTuple:get(vContext, 1):getType()
 			if nFirstType == nManager:Literal("#") then
 				if vTermTuple:getTail() then
-					return vContext:RefineTerm(nManager.type.Integer)
-				else
-					return vContext:RefineTerm(nManager:Literal(#vTermTuple-1))
-				end
+					do return vContext:RefineTerm(nManager.type.Integer)
+				 end else
+					do return vContext:RefineTerm(nManager:Literal(#vTermTuple-1))
+				 end end
 			else
 				if IntegerLiteral.is(nFirstType) then
 					local nStart = nFirstType:getLiteral()
 					if nStart > 0 then
-						return vTermTuple:select(vContext, nStart + 1)
-					elseif nStart < 0 then
+						do return vTermTuple:select(vContext, nStart + 1)
+					 end elseif nStart < 0 then
 						vContext:error("select first < 0 TODO")
-						return vContext:FixedTermTuple({})
-					else
+						do return vContext:FixedTermTuple({})
+					 end else
 						vContext:error("select's first arguments is zero")
-						return vContext:FixedTermTuple({})
-					end
+						do return vContext:FixedTermTuple({})
+					 end end
 				else
 					if Integer.is(nFirstType) then
 						local nCollection = nManager:TypeCollection()
 						for i=2, #vTermTuple do
 							local nType = vTermTuple:get(vContext, i):getType()
 							nCollection:put(nType)
-						end
+						::continue:: end
 						local nRepeatType = vTermTuple:getRepeatType()
 						if nRepeatType then
 							nCollection:put(nRepeatType)
 						end
 						local nFinalType = nCollection:mergeToAtomUnion()
 						if nRepeatType then
-							return nManager:TypeTuple(vContext:getNode(), {}):withDots(nRepeatType):makeTermTuple(vContext)
-						else
+							do return nManager:TypeTuple(vContext:getNode(), {}):withDots(nRepeatType):makeTermTuple(vContext)
+						 end else
 							local nReList = {}
 							for i=2, #vTermTuple do
 								nReList[#nReList + 1] = nFinalType
-							end
-							return nManager:TypeTuple(vContext:getNode(), nReList):makeTermTuple(vContext)
-						end
+							::continue:: end
+							do return nManager:TypeTuple(vContext:getNode(), nReList):makeTermTuple(vContext)
+						 end end
 					else
 						vContext:error("select's first value must be integer or integer-literal")
-						return vContext:FixedTermTuple({})
-					end
+						do return vContext:FixedTermTuple({})
+					 end end
 				end
 			end
 		end),
 		require=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
-			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+			do return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nFileName = vTermTuple:get(vContext, 1):getType()
 				if StringLiteral.is(nFileName) then
 					local nPath = nFileName:getLiteral()
@@ -7766,56 +7848,56 @@ function native.make(vRuntime)
 					vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Any))
 				end
 			end):mergeFirst()
-		end),
+		 end end),
 		load=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 			 
-			return vContext:RefineTerm(nManager.type.AnyFunction)
-		end),
+			do return vContext:RefineTerm(nManager.type.AnyFunction)
+		 end end),
 		       
 		pcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
 			local nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			local nArgs = vTermTuple:select(nHeadContext, 2)
-			local nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc, function() return nArgs end)
-			return nCallContext:pcallMergeReturn(vStack:mergeEndErrType())
-		end),
+			local nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc, function() do return nArgs  end end)
+			do return nCallContext:pcallMergeReturn(vStack:mergeEndErrType())
+		 end end),
 		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
 			local nFunc1 = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			local nFunc2 = vTermTuple:get(nHeadContext, 2):checkRefineTerm(nHeadContext)
 			local nArgs = vTermTuple:select(nHeadContext, 3)
-			local nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc1, function() return nArgs end)
+			local nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc1, function() do return nArgs  end end)
 			local nErrType = vStack:mergeEndErrType()
-			local nHandleContext = vStack:prepareMetaCall(vStack:getNode(), nFunc2, function() return nCallContext:FixedTermTuple({nCallContext:RefineTerm(nErrType)}) end)
+			local nHandleContext = vStack:prepareMetaCall(vStack:getNode(), nFunc2, function() do return nCallContext:FixedTermTuple({nCallContext:RefineTerm(nErrType)})  end end)
 			local nHandleReturn = nHandleContext:mergeReturn()
 			local nType = RefineTerm.is(nHandleReturn) and nHandleReturn:getType() or nHandleReturn:get(nHandleContext, 1):getType()
-			return nCallContext:pcallMergeReturn(nType)
-		end),
+			do return nCallContext:pcallMergeReturn(nType)
+		 end end),
 		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			local nOperCtx = vStack:inplaceOper()
 			vStack:getApplyStack():nativeError(nOperCtx, vTermTuple:checkFixed(nOperCtx, 1))
-			return nOperCtx:FixedTermTuple({})
-		end),
+			do return nOperCtx:FixedTermTuple({})
+		 end end),
 		assert=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
 			local nFirst = vTermTuple:checkFixed(nHeadContext, 1)
 			local nSecond = vTermTuple:rawget(2)
 			vStack:getApplyStack():nativeAssert(nHeadContext, nFirst, nSecond and nSecond:checkRefineTerm(nHeadContext))
 			local nLogicContext = vStack:newLogicContext(vStack:getNode())
-			return vStack:inplaceOper():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
-		end),
+			do return vStack:inplaceOper():FixedTermTuple({nLogicContext:logicTrueTerm(nFirst)})
+		 end end),
 	}
 
 	local nGlobalTable = native._toTable(vRuntime:getTypeManager(), global)
     nGlobalTable:setName("_G")
 
-	return nGlobalTable
-end
+	do return nGlobalTable
+ end end
 
 function native.make_inext(vManager)
 	local nInteger = vManager.type.Integer
 	local nNil = vManager.type.Nil
-	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+	do return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 		local nFirstTerm = vTermTuple:get(vContext, 1)
 		    
 		local nNotNilValue = vContext:getStack():anyNodeMetaGet(vContext:getNode(), nFirstTerm, vContext:RefineTerm(nInteger), true):getType()
@@ -7831,14 +7913,14 @@ function native.make_inext(vManager)
 			nTypeCaseList[#nTypeCaseList + 1] = {
 				nOneKey, nCase
 			}
-		end
+		::continue:: end
 		local nKeyTerm = vContext:mergeToRefineTerm(nTypeCaseList)
-		return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
-	end)
-end
+		do return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
+	 end end)
+ end end
 
 function native.make_next(vManager)
-	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+	do return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
 		local nType1 = vTermTuple:get(vContext, 1):getType()
 		nType1 = nType1:trueType()
 		local nType2 = vTermTuple:get(vContext, 2):getType()
@@ -7848,8 +7930,8 @@ function native.make_next(vManager)
 			else
 				vContext:error("TODO: next Union type")
 			end
-			return vContext:FixedTermTuple({vContext:NilTerm(), vContext:NilTerm()})
-		else
+			do return vContext:FixedTermTuple({vContext:NilTerm(), vContext:NilTerm()})
+		 end else
 			local nValueType, nKeyValue = nType1:native_next(vContext, nType2)
 			local nValueTerm = vContext:RefineTerm(nValueType)
 			local nTypeCaseList = {}
@@ -7859,20 +7941,20 @@ function native.make_next(vManager)
 				nTypeCaseList[#nTypeCaseList + 1] = {
 					nOneKey, nCase
 				}
-			end
+			::continue:: end
 			local nKeyTerm = vContext:mergeToRefineTerm(nTypeCaseList)
-			return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
-		end
+			do return vContext:FixedTermTuple({nKeyTerm, nValueTerm})
+		 end end
 	end)
-end
+ end end
 
 function native.make_mathematic(vManager, vIsDivide)
 	local nNumber = vManager.type.Number
 	if vIsDivide then
-		return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
-	end
+		do return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
+	 end end
 	local nInteger = vManager.type.Integer
-	return vManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+	do return vManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 		local nOperCtx = vStack:inplaceOper()
 		local nType1 = vTermTuple:checkFixed(nOperCtx, 1):getType()
 		local nType2 = vTermTuple:checkFixed(nOperCtx, 2):getType()
@@ -7887,31 +7969,31 @@ function native.make_mathematic(vManager, vIsDivide)
 		nType1:foreach(nEachFn)
 		nType2:foreach(nEachFn)
 		if nHasFloat then
-			return nOperCtx:FixedTermTuple({nOperCtx:RefineTerm(nNumber)})
-		else
-			return nOperCtx:FixedTermTuple({nOperCtx:RefineTerm(nInteger)})
-		end
+			do return nOperCtx:FixedTermTuple({nOperCtx:RefineTerm(nNumber)})
+		 end else
+			do return nOperCtx:FixedTermTuple({nOperCtx:RefineTerm(nInteger)})
+		 end end
 	end)
-end
+ end end
 
 function native.make_comparison(vManager)
 	local nNumber = vManager.type.Number
-	return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
-end
+	do return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
+ end end
 
 function native.make_bitwise(vManager)
 	local nInteger = vManager.type.Integer
-	return vManager:checkedFn(nInteger, nInteger):Ret(nInteger)
-end
+	do return vManager:checkedFn(nInteger, nInteger):Ret(nInteger)
+ end end
 
 function native.make_concat(vManager)
 	local nType = vManager:checkedUnion(vManager.type.String, vManager.type.Number)
-	return vManager:checkedFn(nType, nType):Ret(vManager.type.String)
-end
+	do return vManager:checkedFn(nType, nType):Ret(vManager.type.String)
+ end end
 
-return native
+do return native
 
-
+ end 
 end end
 --thlua.native end ==========)
 
@@ -7933,11 +8015,11 @@ function AsyncUnion.__tostring(self)
 	if nTypeList then
 		for i, v in ipairs(nTypeList) do
 			l[i] = tostring(v)
-		end
-		return "AsyncUnion("..table.concat(l, ",")..")"
-	else
-		return "AsyncUnion(?)"
-	end
+		::continue:: end
+		do return "AsyncUnion("..table.concat(l, ",")..")"
+	 end else
+		do return "AsyncUnion(?)"
+	 end end
 end
 
 function AsyncUnion:ctor(vManager, vTask)
@@ -7951,26 +8033,26 @@ function AsyncUnion:ctor(vManager, vTask)
 end
 
 function AsyncUnion:getResultType()
-	return self._resultType
-end
+	do return self._resultType
+ end end
 
 function AsyncUnion:getTypeAwait()
 	if not self._resultType then
 		self._resultBuildEvent:wait()
 	end
-	return (assert(self._resultType, "result type not setted"))
-end
+	do return (assert(self._resultType, "result type not setted"))
+ end end
 
 function AsyncUnion:getMayRecursive()
-	return self._mayRecursive
-end
+	do return self._mayRecursive
+ end end
 
 function AsyncUnion:getListAwait()
 	if not self._typeList then
 		self._listBuildEvent:wait()
 	end
-	return (assert(self._typeList, "type list not setted"))
-end
+	do return (assert(self._typeList, "type list not setted"))
+ end end
 
 function AsyncUnion:setAtomList(vAtomList, vLateRunner)
 	assert(not self._typeList, "type list has been setted")
@@ -7980,15 +8062,15 @@ function AsyncUnion:setAtomList(vAtomList, vLateRunner)
 		if v:mayRecursive() then
 			self._mayRecursive = true
 		end
-	end
+	::continue:: end
 	self._listBuildEvent:wakeup()
 	if vLateRunner then
 		local nResultType = vLateRunner()
 		if nResultType then
 			self._resultType = nResultType
 			self._resultBuildEvent:wakeup()
-			return nResultType
-		end
+			do return nResultType
+		 end end
 	end
 	      
 	local nResultType = nil
@@ -8000,13 +8082,13 @@ function AsyncUnion:setAtomList(vAtomList, vLateRunner)
 		local nCollection = self._manager:TypeCollection()
 		for _, v in ipairs(vAtomList) do
 			nCollection:put(v)
-		end
+		::continue:: end
 		nResultType = nCollection:mergeToAtomUnion()
 	end
 	self._resultType = nResultType
 	self._resultBuildEvent:wakeup()
-	return nResultType
-end
+	do return nResultType
+ end end
 
 function AsyncUnion:foreachAwait(vFunc)
 	local nResultType = self._resultType
@@ -8016,16 +8098,16 @@ function AsyncUnion:foreachAwait(vFunc)
 		local nListType = self:getListAwait()
 		for _, v in ipairs(nListType) do
 			vFunc(v)
-		end
+		::continue:: end
 	end
 end
 
 function AsyncUnion:isAsync()
-	return true
-end
+	do return true
+ end end
 
-return AsyncUnion
-
+do return AsyncUnion
+ end 
 end end
 --thlua.refer.AsyncUnion end ==========)
 
@@ -8045,8 +8127,8 @@ local Reference = require "thlua.refer.Reference"
 
 local Letspace = class (Namespace)
 Letspace.__tostring=function(self)
-	return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
-end
+	do return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
+ end end
 
 function Letspace:ctor(vManager, vNode, _, vParentSpace)
     self._parentSpace = vParentSpace
@@ -8055,29 +8137,29 @@ function Letspace:ctor(vManager, vNode, _, vParentSpace)
 end
 
 function Letspace:parentHasKey(vKeyType)
-	return self._parentSpace:pureGet(vKeyType) and true or false
-end
+	do return self._parentSpace:pureGet(vKeyType) and true or false
+ end end
 
 function Letspace:pureGet(vKeyType)
-	return self._key2type[vKeyType] or self._parentSpace:pureGet(vKeyType)
-end
+	do return self._key2type[vKeyType] or self._parentSpace:pureGet(vKeyType)
+ end end
 
 function Letspace:globalGet(vNode, vKeyType)
     local nValue = self:pureGet(vKeyType)
     if nValue then
-        return nValue
-    else
+        do return nValue
+     end else
         error(Exception.new("key with empty value, key="..tostring(vKeyType), vNode))
     end
 end
 
 function Letspace:getGlobalTable()
-    return self._globalTable
-end
+    do return self._globalTable
+ end end
 
 function Letspace:export()  
-    return self._localTable, self._envTable, self._globalTable
-end
+    do return self._localTable, self._envTable, self._globalTable
+ end end
 
 function Letspace:spaceTablePutCompletion(vSpaceTable, vCompletion)
     local nWhat = getmetatable(vSpaceTable).__what
@@ -8097,8 +8179,8 @@ function Letspace:spaceTablePutCompletion(vSpaceTable, vCompletion)
     end
 end
 
-return Letspace
-
+do return Letspace
+ end 
 end end
 --thlua.refer.Letspace end ==========)
 
@@ -8116,15 +8198,15 @@ local class = require "thlua.class"
 local NameLocation = class ()
 
 function NameLocation.__tostring(self)
-    return "NameLocation tostring TODO"
-end
+    do return "NameLocation tostring TODO"
+ end end
 
 function NameLocation:ctor(vSpace, vKey)
     self._space = vSpace
     self._key = vKey
 end
 
-return NameLocation
+do return NameLocation end 
 end end
 --thlua.refer.NameLocation end ==========)
 
@@ -8148,8 +8230,8 @@ local class = require "thlua.class"
 
 local Namespace = class ()
 Namespace.__tostring=function(self)
-	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
-end
+	do return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
+ end end
 
 function Namespace:ctor(vManager, vNode, vIndexTable , ...)
 	self._manager=vManager
@@ -8161,10 +8243,10 @@ function Namespace:ctor(vManager, vNode, vIndexTable , ...)
 	if vIndexTable then   
 		for k,v in pairs(vIndexTable) do
 			self._key2type[k] = v
-		end
+		::continue:: end
 	end
-	return self
-end
+	do return self
+ end end
 
 function Namespace:assertSpaceKeyType(vNode, vKey)
 	local nOkay, nType = self._manager:getDirtyProcessor():peasyToType(vKey)
@@ -8176,25 +8258,25 @@ function Namespace:assertSpaceKeyType(vNode, vKey)
 		nFinalKey = nFinalKey:checkAtomUnion()
 	end
 	if not nFinalKey:isUnion() then
-		return nFinalKey
-	else
+		do return nFinalKey
+	 end else
 		error(Exception.new("namespace's key can't be union type", vNode))
 	end
 end
 
 function Namespace:pureGet(vKeyType)
-	return self._key2type[vKeyType]
-end
+	do return self._key2type[vKeyType]
+ end end
 
 function Namespace:parentHasKey(vKeyType)
-	return false
-end
+	do return false
+ end end
 
 function Namespace:localGet(vNode, vKeyType)
 	local rawgetV = self._key2type[vKeyType]
 	if rawgetV then
-		return rawgetV
-	end
+		do return rawgetV
+	 end end
     if self:parentHasKey(vKeyType) then
         error(Exception.new("'let' can only get symbol in current level key="..tostring(vKeyType), vNode))
     end
@@ -8204,8 +8286,8 @@ function Namespace:localGet(vNode, vKeyType)
 	local refer = self._manager:Reference(tostring(vKeyType))
 	refer:pushReferNode(vNode)
 	self._key2type[vKeyType] = refer
-	return refer
-end
+	do return refer
+ end end
 
 function Namespace:localSet(vNode, vKeyType, vNewValue)
 	if self._closed then
@@ -8214,7 +8296,7 @@ function Namespace:localSet(vNode, vKeyType, vNewValue)
 	local rawgetV = self._key2type[vKeyType]
 	if rawgetV then
 		if Reference.is(rawgetV) then
-			rawgetV:setAssignAsync(vNode, function() return vNewValue end)
+			rawgetV:setAssignAsync(vNode, function() do return vNewValue  end end)
 		else
 			error(Exception.new("assign conflict: key="..tostring(vKeyType), vNode))
 		end
@@ -8230,7 +8312,7 @@ function Namespace:localSet(vNode, vKeyType, vNewValue)
             error(Exception.new("space-builtin function can't assign between space"..tostring(vKeyType), vNode))
 		else
 			local refer = self._manager:Reference(tostring(vKeyType))
-			refer:setAssignAsync(vNode, function() return vNewValue end)
+			refer:setAssignAsync(vNode, function() do return vNewValue  end end)
 			self._key2type[vKeyType] = refer
 		end
 	end
@@ -8258,34 +8340,34 @@ function Namespace:putCompletion(vCompletion)
 		if StringLiteral.is(k) then
 			vCompletion:putSpaceField(k:getLiteral(), v)
 		end
-	end
+	::continue:: end
 end
 
 function Namespace:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function Namespace:getGlobalTable()
-	return false
-end
+	do return false
+ end end
 
 function Namespace:getLocalTable()
-	return self._localTable
-end
+	do return self._localTable
+ end end
 
 SpaceTable.checkSpace = function (v)
 	local nMeta = getmetatable(v)
 	if type(nMeta) == "table" then
 		local self = nMeta.__namespace
 		if Namespace.is(self) then
-			return self
-		end
+			do return self
+		 end end
 	end
-	return nil
-end
+	do return nil
+ end end
 
-return Namespace
-
+do return Namespace
+ end 
 end end
 --thlua.refer.Namespace end ==========)
 
@@ -8325,8 +8407,8 @@ Reference.__call=function(self, ...)
 	local nKey = self._manager:signTemplateArgs(nArgList)
 	local nCom = self._com
 	if TemplateReferCom.is(nCom) then
-		return nCom:call(nNode, nKey, nArgList)
-	elseif nCom then
+		do return nCom:call(nNode, nKey, nArgList)
+	 end elseif nCom then
 		error(Exception.new("template reference expected here", nNode))
 	end
 	local nDict = self._callDict
@@ -8335,26 +8417,26 @@ Reference.__call=function(self, ...)
 		nRefer = self._manager:Reference(false)
 		nRefer:setAssignAsync(nNode, function()
 			local nCom = self:waitTemplateCom()
-			return nCom:call(nNode, nKey, nArgList)
-		end)
+			do return nCom:call(nNode, nKey, nArgList)
+		 end end)
 		nDict[nKey] = nRefer
 	end
-	return nRefer
-end
+	do return nRefer
+ end end
 
 function Reference.__tostring(self)
-	return self:detailString({}, false)
-end
+	do return self:detailString({}, false)
+ end end
 
 function Reference.__bor(vLeft, vRight)
-	return vLeft._manager:checkedUnion(vLeft, vRight)
-end
+	do return vLeft._manager:checkedUnion(vLeft, vRight)
+ end end
 
 function Reference.__band(vLeft, vRight)
 	local nTypeOrFalse = vLeft:safeIntersect(vRight)
 	if nTypeOrFalse then
-		return nTypeOrFalse
-	else
+		do return nTypeOrFalse
+	 end else
 		error("unexpected intersect")
 	end
 end
@@ -8374,45 +8456,45 @@ function Reference:ctor(vManager, vKeyOrFalse)
 end
 
 function Reference:getKey()
-	return self._key
-end
+	do return self._key
+ end end
 
 function Reference:detailString(v, vVerbose)
 	local nCom = self._com
 	if not nCom then
-		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
-	else
+		do return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
+	 end else
 		if TypeReferCom.is(nCom) then
-			return "TypeReference("..tostring(nCom:getTypeNowait())..")"
-		else
-			return "TemplateReference("..(tostring(self._key) or tostring(self._assignNode))..")"
-		end
+			do return "TypeReference("..tostring(nCom:getTypeNowait())..")"
+		 end else
+			do return "TemplateReference("..(tostring(self._key) or tostring(self._assignNode))..")"
+		 end end
 	end
 end
 
 function Reference:getComNowait()
-	return self._com
-end
+	do return self._com
+ end end
 
 function Reference:getComAwait()
 	if not self._com then
 		self._assignComEvent:wait()
 	end
 	local nCom = assert(self._com, "com not setted after wait finish")
-	return nCom
-end
+	do return nCom
+ end end
 
 function Reference:waitTypeCom()
 	local nCom = self:getComAwait()
 	assert(TypeReferCom.is(nCom), "type reference expected, but get template reference")
-	return nCom
-end
+	do return nCom
+ end end
 
 function Reference:waitTemplateCom()
 	local nCom = self:getComAwait()
 	assert(TemplateReferCom.is(nCom), "template reference expected, but get some other reference")
-	return nCom
-end
+	do return nCom
+ end end
 
 function Reference:_setComAndWakeup(vCom)
 	self._com = vCom
@@ -8463,12 +8545,12 @@ function Reference:setUnionAsync(
 end
 
 function Reference:getAssignNode()
-	return self._assignNode
-end
+	do return self._assignNode
+ end end
 
 function Reference:getReferNode()
-	return self._referNodes
-end
+	do return self._referNodes
+ end end
 
 function Reference:pushReferNode(vNode)
 	local nNodes = self._referNodes
@@ -8476,12 +8558,12 @@ function Reference:pushReferNode(vNode)
 end
 
 function Reference:checkAtomUnion()
-	return self:waitTypeCom():getTypeAwait()
-end
+	do return self:waitTypeCom():getTypeAwait()
+ end end
 
 function Reference:isReference()
-	return true
-end
+	do return true
+ end end
 
 function Reference:foreachAwait(vFunc)
 	local nResultType = self:waitTypeCom():getTypeNowait()
@@ -8491,100 +8573,100 @@ function Reference:foreachAwait(vFunc)
 		local nListType = nResultType:getListAwait()
 		for _, v in ipairs(nListType) do
 			vFunc(v)
-		end
+		::continue:: end
 	end
 end
 
 function Reference:intersectAtom(vRightType)
 	local nType = self:checkAtomUnion()
-	return nType:intersectAtom(vRightType)
-end
+	do return nType:intersectAtom(vRightType)
+ end end
 
 function Reference:includeAtom(vRightType)
 	local nType = self:checkAtomUnion()
-	return nType:includeAtom(vRightType)
-end
+	do return nType:includeAtom(vRightType)
+ end end
 
 function Reference:assumeIntersectSome(vAssumeSet, vRight)
 	local nResultType = self:waitTypeCom():getTypeNowait()
 	if not nResultType:isAsync() then
-		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
-	else
+		do return nResultType:assumeIntersectSome(vAssumeSet, vRight)
+	 end else
 		local nSomeIntersect = false
 		local nTypeList = nResultType:getListAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if nSomeIntersect then
-				return
-			end
+				do return
+			 end end
 			local nCurIntersect = false
 			for _, nType in ipairs(nTypeList) do
 				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
 					nCurIntersect = true
 					break
 				end
-			end
+			::continue:: end
 			if nCurIntersect then
 				nSomeIntersect = true
 			end
 		end)
-		return nSomeIntersect
-	end
+		do return nSomeIntersect
+	 end end
 end
 
 function Reference:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	local nResultType = self:waitTypeCom():getTypeNowait()
 	if not nResultType:isAsync() then
-		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	else
+		do return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	 end else
 		local nAllInclude = true
 		local nTypeList = nResultType:getListAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if not nAllInclude then
-				return
-			end
+				do return
+			 end end
 			local nCurInclude = false
 			for _, nType in ipairs(nTypeList) do
 				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
 					nCurInclude = true
 					break
 				end
-			end
+			::continue:: end
 			if not nCurInclude then
 				nAllInclude = false
 			end
 		end)
-		return nAllInclude
-	end
+		do return nAllInclude
+	 end end
 end
 
 function Reference:unionSign()
-	return tostring(self.id)
-end
+	do return tostring(self.id)
+ end end
 
 function Reference:safeIntersect(vRight)
-	return self:checkAtomUnion():safeIntersect(vRight)
-end
+	do return self:checkAtomUnion():safeIntersect(vRight)
+ end end
 
 function Reference:includeAll(vRight)
-	return self:assumeIncludeAll(nil, vRight)
-end
+	do return self:assumeIncludeAll(nil, vRight)
+ end end
 
 function Reference:intersectSome(vRight)
-	return self:assumeIntersectSome(nil, vRight)
-end
+	do return self:assumeIntersectSome(nil, vRight)
+ end end
 
 function Reference:mayRecursive()
 	local nTypeCom = self:waitTypeCom()
 	local nResultType = nTypeCom:getTypeNowait()
 	if nResultType:isAsync() then
-		return nResultType:getMayRecursive()
-	else
-		return nResultType:mayRecursive()
-	end
+		do return nResultType:getMayRecursive()
+	 end else
+		do return nResultType:mayRecursive()
+	 end end
 end
 
-return Reference
-
+do return Reference
+ end 
 end end
 --thlua.refer.Reference end ==========)
 
@@ -8600,25 +8682,25 @@ local class = require "thlua.class"
 local SpaceBuiltin = {}
 SpaceBuiltin.__index = SpaceBuiltin
 SpaceBuiltin.__tostring=function(self)
-    return "BuiltinFn-"..self._name
-end
+    do return "BuiltinFn-"..self._name
+ end end
 SpaceBuiltin.__call=function(self, ...)
-    return self._func(Node.newDebugNode(), ...)
-end
+    do return self._func(Node.newDebugNode(), ...)
+ end end
 
 function SpaceBuiltin.new(vFunc, vName)
-    return setmetatable({
+    do return setmetatable({
         _func=vFunc,
         _name=vName,
     }, SpaceBuiltin)
-end
+ end end
 
 function SpaceBuiltin.is(v)
-    return getmetatable(v) == SpaceBuiltin
-end
+    do return getmetatable(v) == SpaceBuiltin
+ end end
 
-return SpaceBuiltin
-
+do return SpaceBuiltin
+ end 
 end end
 --thlua.refer.SpaceBuiltin end ==========)
 
@@ -8638,71 +8720,71 @@ local SpaceTable = {}
 
 local function __createBaseTable(vSpace)
 	  
-	return setmetatable({}, {
+	do return setmetatable({}, {
 		__index={},
 		__tostring=function(_)
-			return tostring(vSpace).."->BaseSpaceTable"
-		end,
+			do return tostring(vSpace).."->BaseSpaceTable"
+		 end end,
 		__what=false ,
 		__namespace=vSpace,
 	})
-end
+ end end
 
 function SpaceTable.createLocalTable(vSpace, vKeyToType )
-    return setmetatable({
+    do return setmetatable({
     }, {
 		__index=function(_,k)
 			local nNode = Node.newDebugNode()
 			local nKeyType = vSpace:assertSpaceKeyType(nNode, k)
-			return vSpace:localGet(nNode, nKeyType)
-		end,
+			do return vSpace:localGet(nNode, nKeyType)
+		 end end,
 		__newindex=function(_,k,newV)
 			local nNode = Node.newDebugNode()
 			local nKeyType = vSpace:assertSpaceKeyType(nNode, k)
 			vSpace:localSet(nNode, nKeyType, newV)
 		end,
 		__tostring=function(_)
-			return tostring(vSpace).."->SpaceTable"
-		end,
+			do return tostring(vSpace).."->SpaceTable"
+		 end end,
 		__what=false,
 		__namespace=vSpace,
     })
-end
+ end end
 
 function SpaceTable.createEnvTable(vSpace, vKeyToType )
-    return setmetatable({
+    do return setmetatable({
     }, {
 		__index=function(_,k) 
 			local nNode = Node.newDebugNode()
 			local nKeyType = vSpace:assertSpaceKeyType(nNode, k)
-			return vSpace:globalGet(nNode, nKeyType)
-		end,
+			do return vSpace:globalGet(nNode, nKeyType)
+		 end end,
 		__newindex=function(t,k,v)
 			local nNode = Node.newDebugNode()
 			error(Exception.new("global can't assign", nNode))
 		end,
 		__tostring=function(_)
-			return tostring(vSpace).."-_ENV"
-		end,
+			do return tostring(vSpace).."-_ENV"
+		 end end,
 		__what="_ENV",
 		__namespace=vSpace,
     })
-end
+ end end
 
 function SpaceTable.createGlobalTable(vSelfSpace, vParentSpace)
     local nMeta = vParentSpace:getGlobalTable() or _G
     local self = setmetatable({}, {
         __index=nMeta  ,
         __tostring=function(_)
-			return tostring(vSelfSpace).."-_G"
-        end,
+			do return tostring(vSelfSpace).."-_G"
+         end end,
 		__what="_G",
         __namespace=vSelfSpace,
     })
-    return self
-end
+    do return self
+ end end
 
-return SpaceTable
+do return SpaceTable end 
 end end
 --thlua.refer.SpaceTable end ==========)
 
@@ -8730,8 +8812,8 @@ function TemplateReferCom.new(
 		_func=vFunc,
 		_cache={} ,
 	}, TemplateReferCom)
-	return self
-end
+	do return self
+ end end
 
 function TemplateReferCom:call(vNode, vKey, vArgList)
 	local nFn = self._func
@@ -8742,19 +8824,19 @@ function TemplateReferCom:call(vNode, vKey, vArgList)
 			if #vArgList ~= self._parNum then
 				error(Exception.new("template args num not match", vNode))
 			end
-			return nFn(table.unpack(vArgList))
-		end)
+			do return nFn(table.unpack(vArgList))
+		 end end)
 		self._cache[vKey] = nRefer
 	end
-	return nRefer
-end
+	do return nRefer
+ end end
 
 function TemplateReferCom.is(self)
-	return getmetatable(self) == TemplateReferCom
-end
+	do return getmetatable(self) == TemplateReferCom
+ end end
 
-return TemplateReferCom
-
+do return TemplateReferCom
+ end 
 end end
 --thlua.refer.TemplateReferCom end ==========)
 
@@ -8783,12 +8865,12 @@ function TypeReferCom.new(
 		_asyncType=nIsAsync and vAssignType or false,
 		_readyType=(not nIsAsync) and vAssignType or false,
 	}, TypeReferCom)
-	return self
-end
+	do return self
+ end end
 
 function TypeReferCom:getTypeNowait() 
-	return assert(self._readyType or self._asyncType)
-end
+	do return assert(self._readyType or self._asyncType)
+ end end
 
 function TypeReferCom:getTypeAwait()
 	local nReadyType = self._readyType
@@ -8796,15 +8878,15 @@ function TypeReferCom:getTypeAwait()
 		nReadyType = assert(self._asyncType):getTypeAwait()
 		self._readyType = nReadyType
 	end
-	return nReadyType
-end
+	do return nReadyType
+ end end
 
 function TypeReferCom.is(self)
-	return getmetatable(self) == TypeReferCom
-end
+	do return getmetatable(self) == TypeReferCom
+ end end
 
-return TypeReferCom
-
+do return TypeReferCom
+ end 
 end end
 --thlua.refer.TypeReferCom end ==========)
 
@@ -8864,10 +8946,10 @@ local DefaultLoader = {
 	thluaSearch=function(vRuntime, vPath)
 		local fileName, err1 = package.searchpath(vPath, vRuntime:getSearchPath() or "./?.thlua;./?.d.thlua")
 		if not fileName then
-			return false, err1
-		end
-		return true, fileName
-	end,
+			do return false, err1
+		 end end
+		do return true, fileName
+	 end end,
 	thluaParseFile=function(vRuntime, vFileName)
 		local file, err = io.open(vFileName, "r")
 		if not file then
@@ -8876,14 +8958,14 @@ local DefaultLoader = {
 		local nContent = assert(file:read("*a"), "file "..vFileName.. " read fail")
 		file:close()
 		local nCodeEnv = CodeEnv.new(nContent, vFileName)
-		return nCodeEnv
-	end,
+		do return nCodeEnv
+	 end end,
 	thluaGlobalFile=function(vRuntime, vPackage)
 		local nContent = require("thlua.global."..vPackage)
 		local nFileName = "@virtual-file:"..vPackage
 		local nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
-		return nCodeEnv, nFileName
-	end
+		do return nCodeEnv, nFileName
+	 end end
 }
 
 local BaseRuntime = class ()
@@ -8904,10 +8986,10 @@ end
 function BaseRuntime:getCodeEnv(vFileName)
 	local nState = self._loadedDict[vFileName]
 	if nState then
-		return nState.codeEnv
-	else
-		return false
-	end
+		do return nState.codeEnv
+	 end else
+		do return false
+	 end end
 end
 
 function BaseRuntime:import(vDst)
@@ -8921,13 +9003,13 @@ function BaseRuntime:import(vDst)
 			error(Exception.new("recursive import:"..nPath, nNode))
 		end
 		local nSpace = nStack:getNamespace()
-		return nSpace:getLocalTable()
-	elseif BaseAtomType.is(vDst) then
+		do return nSpace:getLocalTable()
+	 end elseif BaseAtomType.is(vDst) then
 		local nStack = vDst:findRequireStack()
 		if nStack then
 			local nSpace = nStack:getNamespace()
-			return nSpace:getLocalTable()
-		else
+			do return nSpace:getLocalTable()
+		 end else
 			error("import can only take type in a require stack"..debug.traceback())
 		end
 	else
@@ -8967,14 +9049,14 @@ function BaseRuntime:pmain(vRootFileUri)
 					assert(not nRetType:isUnion(), "string lib's return can't be union")
 					self._manager:lateInitStringLib(nRetType)
 				end
-			end
-			return false, false, function()
+			::continue:: end
+			do return false, false, function()
 				local nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
 				local nParTuple = self._manager:TypeTuple(self._node, {})
 				local nRetTuples = self._manager:VoidRetTuples(self._node)
-				return nParTuple, nRetTuples
-			end
-		end)
+				do return nParTuple, nRetTuples
+			 end end
+		 end end)
 		nAutoFn:startPreBuild()
 		nAutoFn:startLateBuild()
 	end)
@@ -8988,8 +9070,8 @@ function BaseRuntime:pmain(vRootFileUri)
 	local t2 = os.clock()
 	print(t2-t1)
 	 
-	return ok, err
-end
+	do return ok, err
+ end end
 
 function BaseRuntime:lateSchedule(vAutoFn)
 	error("implement lateSchedule function in extends class")
@@ -9004,12 +9086,12 @@ function BaseRuntime:recordApplyContext(vNode, vContext)
 end
 
 function BaseRuntime:SealStack(...)
-	return SealStack.new(self, ...)
-end
+	do return SealStack.new(self, ...)
+ end end
 
 function BaseRuntime:OpenStack(...)
-	return OpenStack.new(self, ...)
-end
+	do return OpenStack.new(self, ...)
+ end end
 
 function BaseRuntime:_cacheLoadGlobal(vPkg)
 	local nCodeEnv, nFileName = self._loader.thluaGlobalFile(self, vPkg)
@@ -9024,8 +9106,8 @@ function BaseRuntime:_cacheLoadGlobal(vPkg)
 		stack = nStack,
 	}
 	self._loadedDict[nFileName] = nLoadedState
-	return nLoadedState
-end
+	do return nLoadedState
+ end end
 
 function BaseRuntime:_cacheLoadFile(vNode, vFileName)
 	local nLoadedState = self._loadedDict[vFileName]
@@ -9043,8 +9125,8 @@ function BaseRuntime:_cacheLoadFile(vNode, vFileName)
 		nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
 		nLoadedState.stack = nStack
 	end
-	return nLoadedState
-end
+	do return nLoadedState
+ end end
 
 function BaseRuntime:_cacheLoadPath(vNode, vPath)
 	local nFileName = self._pathToFileName[vPath]
@@ -9062,8 +9144,8 @@ function BaseRuntime:_cacheLoadPath(vNode, vPath)
 		self:nodeWarn(vNode, "mixing path:'"..nOldPath.."','"..vPath.."'")
 	end
 	nLoadedState.path = vPath
-	return nLoadedState
-end
+	do return nLoadedState
+ end end
 
 function BaseRuntime:require(vNode, vPath) 
 	local nLoadedState = self:_cacheLoadPath(vNode, vPath)
@@ -9071,23 +9153,24 @@ function BaseRuntime:require(vNode, vPath)
 	if not nTerm then
 		error(Exception.new("recursive require:"..vPath, vNode))
 	end
-	return nTerm, nLoadedState.openFn
-end
+	do return nTerm, nLoadedState.openFn
+ end end
 
 function BaseRuntime:TreeNamespace(vNode)
 	local nSpace = Namespace.new(self._manager, vNode)
-	return nSpace
-end
+	do return nSpace
+ end end
 
 function BaseRuntime:buildSimpleGlobal() 
 	local nGlobal = {}
 	for k,v in pairs(self._manager.type) do
 		nGlobal[k] = v
-	end
+	::continue:: end
 	for k,v in pairs(self._manager.generic) do
 		nGlobal[k] = v
-	end
+	::continue:: end
 	local l = {
+		Enum="buildEnum",
 		Union="buildUnion",
 		Struct="buildStruct",
 		Interface="buildInterface",
@@ -9107,23 +9190,26 @@ function BaseRuntime:buildSimpleGlobal()
 	local nManager = self._manager
 	for k,v in pairs(l) do
 		nGlobal[k]=SpaceBuiltin.new(function(vNode, ...)
-			return nManager[v](nManager, vNode, ...)
-		end, k)
-	end
+			do return nManager[v](nManager, vNode, ...)
+		 end end, k)
+	::continue:: end
 	nGlobal.Literal=SpaceBuiltin.new(function(vNode, v)
-		return nManager:Literal(v)
-	end, "Literal")
+		do return nManager:Literal(v)
+	 end end, "Literal")
+	nGlobal.enum=SpaceBuiltin.new(function(vNode, vEnumType, ...)
+		do return nManager:addEnum(vNode, vEnumType, ...)
+	 end end, "enum")
 	nGlobal.namespace=SpaceBuiltin.new(function(vNode)
-		return self:TreeNamespace(vNode):getLocalTable()
-	end, "namespace")
+		do return self:TreeNamespace(vNode):getLocalTable()
+	 end end, "namespace")
 	nGlobal.lock=SpaceBuiltin.new(function(vNode, vType)
 		vType:foreach(function(vAtom)
 			vAtom:setLocked()
 		end)
 	end, "lock")
 	nGlobal.import=SpaceBuiltin.new(function(vNode, vPath)
-		return self:import(vPath)
-	end, "import")
+		do return self:import(vPath)
+	 end end, "import")
 	nGlobal.setPath=SpaceBuiltin.new(function(vNode, vPath)
 		self._searchPath = vPath
 	end, "setPath")
@@ -9132,50 +9218,50 @@ function BaseRuntime:buildSimpleGlobal()
 		local d = vObject:copyValueDict(vObject)
 		for k,v in pairs(d) do
 			vFunc(k,v)
-		end
+		::continue:: end
 	end, "foreachPair")
 	nGlobal.literal=SpaceBuiltin.new(function(vNode, vType)
 		vType = vType:checkAtomUnion()
 		if vType:isUnion() then
-			return nil
-		else
+			do return nil
+		 end else
 			if self._manager:isLiteral(vType) then
-				return vType:getLiteral()
-			else
-				return nil
-			end
+				do return vType:getLiteral()
+			 end else
+				do return nil
+			 end end
 		end
 	end, "literal")
 	nGlobal.same=SpaceBuiltin.new(function(vNode, vType1, vType2)
-		return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
-	end, "same")
+		do return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
+	 end end, "same")
 	nGlobal.print=SpaceBuiltin.new(function(vNode, ...)
 		self:nodeInfo(vNode, ...)
 	end, "print")
 	local nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
 		nRetGlobal[self._manager:Literal(k)] = v
-	end
-	return nRetGlobal
-end
+	::continue:: end
+	do return nRetGlobal
+ end end
 
 function BaseRuntime:RootNamespace()
 	local nSpace = Namespace.new(self._manager, self._node, self:buildSimpleGlobal())
 	nSpace:trySetKey("")
 	nSpace:close()
-	return nSpace
-end
+	do return nSpace
+ end end
 
 function BaseRuntime:LetNamespace(vParentLet, vRegionNode)
 	local nSpace = Letspace.new(self._manager, vRegionNode, nil, vParentLet)
 	nSpace:trySetKey("")
-	return nSpace
-end
+	do return nSpace
+ end end
 
 function BaseRuntime:makeGlobalTerm()
 	local nHeadContext = self._rootStack:inplaceOper()
-	return nHeadContext:RefineTerm(self._globalTable)
-end
+	do return nHeadContext:RefineTerm(self._globalTable)
+ end end
 
 function BaseRuntime:_save(vSeverity, vNode, ...)
 	 
@@ -9192,7 +9278,7 @@ function BaseRuntime:stackNodeError(vStack, vNode, ...)
 			self:_save(1, nStackNode, nPrefix, ...)
 		end
 		vStack = vStack:getApplyStack()
-	end
+	::continue:: end
 end
 
 function BaseRuntime:nodeError(vNode, ...)
@@ -9211,31 +9297,31 @@ function BaseRuntime:nodeInfo(vNode, ...)
 end
 
 function BaseRuntime:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function BaseRuntime:makeException(vNode, vMsg)
-	return Exception.new(vMsg, vNode)
-end
+	do return Exception.new(vMsg, vNode)
+ end end
 
 function BaseRuntime:getTypeManager()
-	return self._manager
-end
+	do return self._manager
+ end end
 
 function BaseRuntime:getScheduleManager()
-	return self._scheduleManager
-end
+	do return self._scheduleManager
+ end end
 
 function BaseRuntime:getRootStack()
-	return self._rootStack
-end
+	do return self._rootStack
+ end end
 
 function BaseRuntime:getSearchPath()
-	return self._searchPath
-end
+	do return self._searchPath
+ end end
 
-return BaseRuntime
-
+do return BaseRuntime
+ end 
 end end
 --thlua.runtime.BaseRuntime end ==========)
 
@@ -9316,7 +9402,7 @@ function BaseStack:RAISE_ERROR(vContext, vType)
 end
 
 function BaseStack:anyNodeMetaGet(vNode, vSelfTerm, vKeyTerm, vNotnil)
-	return self:withOnePushContext(vNode, function(vContext)
+	do return self:withOnePushContext(vNode, function(vContext)
 		vSelfTerm:foreach(function(vSelfType, vVariableCase)
 			vKeyTerm:foreach(function(vKeyType, vKeyVariableCase)
 				vContext:withCase(vVariableCase & vKeyVariableCase, function()
@@ -9329,7 +9415,7 @@ function BaseStack:anyNodeMetaGet(vNode, vSelfTerm, vKeyTerm, vNotnil)
 			end)
 		end)
 	end, vNotnil):mergeFirst()
-end
+ end end
 
 function BaseStack:prepareMetaCall(
 	vNode,
@@ -9337,7 +9423,7 @@ function BaseStack:prepareMetaCall(
 	vLazyFunc
 )
 	local nNil = self._manager.type.Nil
-	return self:withMorePushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
+	do return self:withMorePushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
 		local nArgTermTuple = nil
 		self:_withBranch(vCase, function()
 			nArgTermTuple = vLazyFunc()
@@ -9350,7 +9436,7 @@ function BaseStack:prepareMetaCall(
 			vContext:error("TODO call by a non-function value, type="..tostring(vFuncType))
 		end
 	end)
-end
+ end end
 
    
 	      
@@ -9369,35 +9455,35 @@ end
 
 
 function BaseStack:getClassTable()
-	return self:getSealStack():getClassTable()
-end
+	do return self:getSealStack():getClassTable()
+ end end
 
 function BaseStack:newAutoFunction(vNode , ...)
 	local nAutoFn = AutoFunction.new(self._manager, vNode, ...)
-	return nAutoFn
-end
+	do return nAutoFn
+ end end
 
 function BaseStack:newClassFactory(vNode, ...)
 	local nFactory = ClassFactory.new(self._manager, vNode, ...)
-	return nFactory
-end
+	do return nFactory
+ end end
 
 function BaseStack:newOpenFunction(vNode, vUpState )
 	local nOpenFn = OpenFunction.new(self._manager, vNode, vUpState)
-	return nOpenFn
-end
+	do return nOpenFn
+ end end
 
 function BaseStack:withOnePushContext(vNode, vFunc, vNotnil)
 	local nCtx = OnePushContext.new(vNode, self, self._manager, vNotnil or false)
 	vFunc(nCtx)
-	return nCtx
-end
+	do return nCtx
+ end end
 
 function BaseStack:withMorePushContext(vNode, vFunc)
 	local nCtx = MorePushContext.new(vNode, self, self._manager)
 	vFunc(nCtx)
-	return nCtx
-end
+	do return nCtx
+ end end
 
 function BaseStack:withMorePushContextWithCase(vNode, vTermOrTuple , vFunc  )
 	local nCtx = MorePushContext.new(vNode, self, self._manager)
@@ -9407,28 +9493,28 @@ function BaseStack:withMorePushContextWithCase(vNode, vTermOrTuple , vFunc  )
 			vFunc(nCtx, vType, vCase)
 		end)
 	end)
-	return nCtx
-end
+	do return nCtx
+ end end
 
 function BaseStack:newNoPushContext(vNode)
-	return NoPushContext.new(vNode, self, self._manager)
-end
+	do return NoPushContext.new(vNode, self, self._manager)
+ end end
 
 function BaseStack:newLogicContext(vNode)
-	return LogicContext.new(vNode, self, self._manager)
-end
+	do return LogicContext.new(vNode, self, self._manager)
+ end end
 
 function BaseStack:newOperContext(vNode)
-	return OperContext.new(vNode, self, self._manager)
-end
+	do return OperContext.new(vNode, self, self._manager)
+ end end
 
 function BaseStack:newReturnContext(vNode)
-	return ReturnContext.new(vNode, self, self._manager)
-end
+	do return ReturnContext.new(vNode, self, self._manager)
+ end end
 
 function BaseStack:newAssignContext(vNode)
-	return AssignContext.new(vNode, self, self._manager)
-end
+	do return AssignContext.new(vNode, self, self._manager)
+ end end
 
 function BaseStack:getSealStack()
 	error("getSealStack not implement in BaseStack")
@@ -9438,29 +9524,29 @@ function BaseStack:seal()
 end
 
 function BaseStack:_nodeTerm(vNode, vType)
-	return RefineTerm.new(vNode, vType:checkAtomUnion())
-end
+	do return RefineTerm.new(vNode, vType:checkAtomUnion())
+ end end
 
 function BaseStack:inplaceOper()
-	return self._fastOper
-end
+	do return self._fastOper
+ end end
 
 function BaseStack:getNamespace()
 	local nSpace = self._letspace
-	return assert(nSpace, "space is false when get")
-end
+	do return assert(nSpace, "space is false when get")
+ end end
 
 function BaseStack:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function BaseStack:getRuntime()
-	return self._runtime
-end
+	do return self._runtime
+ end end
 
 function BaseStack:getTypeManager()
-	return self._manager
-end
+	do return self._manager
+ end end
 
 function BaseStack:_withBranch(vVariableCase, vFunc, vNode)
 	local nStack = self._branchStack
@@ -9471,13 +9557,13 @@ function BaseStack:_withBranch(vVariableCase, vFunc, vNode)
 	nStack[nNewLen] = nNewBranch
 	vFunc()
 	nStack[nNewLen] = nil
-	return nNewBranch
-end
+	do return nNewBranch
+ end end
 
 function BaseStack:topBranch()
 	local nStack = self._branchStack
-	return nStack[#nStack]
-end
+	do return nStack[#nStack]
+ end end
 
 function BaseStack:nativeError(vContext, vTerm)
 	self:RAISE_ERROR(vContext, vTerm:getType())
@@ -9495,11 +9581,11 @@ function BaseStack:nativeAssert(vContext, vFirstTerm, vSecondTerm)
 end
 
 function BaseStack:findRequireStack()
-	return false
-end
+	do return false
+ end end
 
-return BaseStack
-
+do return BaseStack
+ end 
 end end
 --thlua.runtime.BaseStack end ==========)
 
@@ -9521,8 +9607,8 @@ local Branch = {}
 
 Branch.__index = Branch
 Branch.__tostring = function(self)
-	return "Branch@"..tostring(self._node)
-end
+	do return "Branch@"..tostring(self._node)
+ end end
 
 function Branch.new(vStack, vVariableCase, vPreBranch, vNode)
 	   
@@ -9546,16 +9632,16 @@ function Branch.new(vStack, vVariableCase, vPreBranch, vNode)
 		assert(vNode.tag == "Block")
 		vStack:getRuntime():recordBranch(vNode, self)
 	end
-	return self
-end
+	do return self
+ end end
 
 function Branch:immutGet(vContext, vImmutVariable, vNotnil)
 	local nTerm = vImmutVariable:filterTerm(vContext, self._curCase)
 	if vNotnil then
-		return nTerm:notnilTerm()
-	else
-		return nTerm
-	end
+		do return nTerm:notnilTerm()
+	 end else
+		do return nTerm
+	 end end
 end
 
 function Branch:mutGet(vContext, vLocalSymbol, vNotnil)
@@ -9565,42 +9651,42 @@ function Branch:mutGet(vContext, vLocalSymbol, vNotnil)
 		nImmutVariable = vLocalSymbol:makeVariable()
 		self.symbolToVariable[vLocalSymbol] = nImmutVariable
 	end
-	return self:immutGet(vContext, nImmutVariable, vNotnil)
-end
+	do return self:immutGet(vContext, nImmutVariable, vNotnil)
+ end end
 
 function Branch:SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
 	local nSymbolContext = self._stack:newOperContext(vNode)
 	local nSymbol = self:getSymbolByNode(vDefineNode)
 	if LocalSymbol.is(nSymbol) then
-		return self:mutGet(nSymbolContext, nSymbol, vNode.notnil or false)
-	elseif ImmutVariable.is(nSymbol) then
-		return self:immutGet(nSymbolContext, nSymbol, vNode.notnil or false)
-	else
+		do return self:mutGet(nSymbolContext, nSymbol, vNode.notnil or false)
+	 end elseif ImmutVariable.is(nSymbol) then
+		do return self:immutGet(nSymbolContext, nSymbol, vNode.notnil or false)
+	 end else
 		    
 		local nTerm = nSymbol:getRefineTerm()
 		if nTerm then
-			return self:immutGet(nSymbolContext, nTerm:attachImmutVariable(), vNode.notnil or false)
-		else
+			do return self:immutGet(nSymbolContext, nTerm:attachImmutVariable(), vNode.notnil or false)
+		 end else
 			if not vAllowAuto then
 				error(nSymbolContext:newException("auto term can't be used when it's undeduced:"..tostring(nSymbol)))
 			else
 				if vNode.notnil then
 					error(nSymbolContext:newException("auto term can't take notnil cast "..tostring(nSymbol)))
 				end
-				return nSymbol
-			end
+				do return nSymbol
+			 end end
 		end
 	end
 end
 
 function Branch:setSymbolByNode(vNode, vSymbol)
 	self._nodeToSymbol[vNode] = vSymbol
-	return vSymbol
-end
+	do return vSymbol
+ end end
 
 function Branch:getSymbolByNode(vNode)
-	return self._nodeToSymbol[vNode]
-end
+	do return self._nodeToSymbol[vNode]
+ end end
 
 function Branch:mutMark(vSymbol, vImmutVariable)
 	self.symbolToVariable[vSymbol] = vImmutVariable
@@ -9637,7 +9723,7 @@ function Branch:mergeOneBranch(vContext, vOneBranch, vOtherCase)
 					nSymbolToVariable[nLocalSymbol] = nLocalSymbol:makeVariable(nMergeType)
 				end
 			end
-		end
+		::continue:: end
 	end
 end
 
@@ -9646,15 +9732,15 @@ function Branch:mergeTwoBranch(vContext, vTrueBranch, vFalseBranch)
 	local nFalseStop = vFalseBranch:getStop()
 	if nTrueStop and nFalseStop then
 		self._stop = true
-		return
-	end
+		do return
+	 end end
 	local nModLocalSymbolDict  = {}
 	for nLocalSymbol, _ in pairs(vTrueBranch.symbolToVariable) do
 		nModLocalSymbolDict[nLocalSymbol] = true
-	end
+	::continue:: end
 	for nLocalSymbol, _ in pairs(vFalseBranch.symbolToVariable) do
 		nModLocalSymbolDict[nLocalSymbol] = true
-	end
+	::continue:: end
 	for nLocalSymbol, _ in pairs(nModLocalSymbolDict) do
 		if self.symbolToVariable[nLocalSymbol] then
 			local nType
@@ -9670,7 +9756,7 @@ function Branch:mergeTwoBranch(vContext, vTrueBranch, vFalseBranch)
 			local nImmutVariable = nLocalSymbol:makeVariable(nType)
 			self.symbolToVariable[nLocalSymbol] = nImmutVariable
 		end
-	end
+	::continue:: end
 	local nAndCase
 	if nFalseStop then
 		nAndCase = vTrueBranch._headCase
@@ -9693,19 +9779,19 @@ function Branch:setStop()
 end
 
 function Branch:getCase()
-	return self._curCase
-end
+	do return self._curCase
+ end end
 
 function Branch:getStop()
-	return self._stop
-end
+	do return self._stop
+ end end
 
 function Branch:getStack()
-	return self._stack  
-end
+	do return self._stack  
+ end end
 
-return Branch
-
+do return Branch
+ end 
 end end
 --thlua.runtime.Branch end ==========)
 
@@ -9772,19 +9858,19 @@ function CompletionRuntime:focusSchedule(vFuncList)
 		if nList then
 			for i=1,#nList do
 				nAutoFnList[#nAutoFnList + 1] = nList[i]
-			end
+			::continue:: end
 		end
-	end
+	::continue:: end
 	for _, nAutoFn in ipairs(nAutoFnList) do
 		nAutoFn:startLateBuild()
-	end
+	::continue:: end
 end
 
 function CompletionRuntime:_injectForeach(vTracePos, vBlockNode, vFn, vCallback  )
 	local nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
-		return
-	end
+		do return
+	 end end
 	       
 	for _, nBranch in pairs(nBranchList) do
 		local nStack = nBranch:getStack()
@@ -9794,33 +9880,33 @@ function CompletionRuntime:_injectForeach(vTracePos, vBlockNode, vFn, vCallback 
 			local nDefineIdent = vBlockNode.symbolTable[nName]
 			while nDefineIdent and nDefineIdent.pos > vTracePos do
 				nDefineIdent = nDefineIdent.lookupIdent
-			end
+			::continue:: end
 			if nDefineIdent then
 				local nAutoTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
 				if RefineTerm.is(nAutoTerm) then
-					return nAutoTerm
-				else
-					return nStack:NIL_TERM(vIdent)
-				end
+					do return nAutoTerm
+				 end else
+					do return nStack:NIL_TERM(vIdent)
+				 end end
 			end
 			    
 			local nName = "_ENV"
 			local nDefineIdent = vBlockNode.symbolTable[nName]
 			while nDefineIdent and nDefineIdent.pos > vTracePos do
 				nDefineIdent = nDefineIdent.lookupIdent
-			end
+			::continue:: end
 			if nDefineIdent then
 				local nEnvTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
 				assert(RefineTerm.is(nEnvTerm), "auto can't be used here")
 				local nAutoTerm = nStack:META_GET(vIdent, nEnvTerm, nStack:LITERAL_TERM(vIdent, vIdent[1]), false)
 				if RefineTerm.is(nAutoTerm) then
-					return nAutoTerm
-				else
-					return nStack:NIL_TERM(vIdent)
-				end
+					do return nAutoTerm
+				 end else
+					do return nStack:NIL_TERM(vIdent)
+				 end end
 			else
-				return nStack:NIL_TERM(vIdent)
-			end
+				do return nStack:NIL_TERM(vIdent)
+			 end end
 		end)
 		if RefineTerm.is(nResult) then
 			vCallback(nResult)
@@ -9835,7 +9921,7 @@ function CompletionRuntime:_injectForeach(vTracePos, vBlockNode, vFn, vCallback 
 				end
 			end
 		end
-	end
+	::continue:: end
 end
 
 function CompletionRuntime:injectCompletion(vTracePos, vBlockNode, vFn, vServer)
@@ -9850,38 +9936,38 @@ function CompletionRuntime:injectCompletion(vTracePos, vBlockNode, vFn, vServer)
 			end
 		end
 	end)
-	return nFieldCompletion
-end
+	do return nFieldCompletion
+ end end
 
 function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode, vLine, vColumn)  
 	local nSuccEnv = self:getCodeEnv(vFileUri)
 	if not nSuccEnv then
-		return false, "goto failed, success compiled code not found"
-	end
+		do return false, "goto failed, success compiled code not found"
+	 end end
 	local nSuccSplitCode = nSuccEnv:getSplitCode()
 	local nPos = nSuccSplitCode:lcToPos(vLine, vColumn)
 	if nSuccSplitCode:getLine(vLine) ~= vDirtySplitCode:getLine(vLine) or nPos ~= vDirtySplitCode:lcToPos(vLine, vColumn) then
-		return false, "goto failed, code is dirty before pos"
-	end
+		do return false, "goto failed, code is dirty before pos"
+	 end end
 	     
 	local nIdentNode = nSuccEnv:searchIdent(nPos)
 	if nIdentNode then
 		if vIsLookup then
 			if nIdentNode.kind == "def" then
-				return false, "goto failed, lookup not work for Ident_def"
-			end
+				do return false, "goto failed, lookup not work for Ident_def"
+			 end end
 			local nDefineNode = nIdentNode.defineIdent
 			if nDefineNode then
-				return {[nDefineNode]=true}
+				do return {[nDefineNode]=true}
 			      
-			end
+			 end end
 		else
 			if nIdentNode.kind == "use" and nIdentNode.defineIdent then
-				return false, "goto failed, lookdown not work for Ident_use"
-			end
+				do return false, "goto failed, lookdown not work for Ident_use"
+			 end end
 			if nIdentNode.kind == "def" then
-				return false, "symbol find reference TODO"
-			end
+				do return false, "symbol find reference TODO"
+			 end end
 		end
 	end
 	   
@@ -9890,27 +9976,27 @@ function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode
 		self:focusSchedule(nFocusList)
 		local nNodeSet = vIsLookup and self:exprLookup(nExprNode) or self:exprLookdown(nExprNode)
 		if not next(nNodeSet) then
-			return false, "no lookup or lookdown expr node searched, node="..tostring(nExprNode)..",tag="..(nExprNode.tag)
-		end
-		return nNodeSet
-	end
+			do return false, "no lookup or lookdown expr node searched, node="..tostring(nExprNode)..",tag="..(nExprNode.tag)
+		 end end
+		do return nNodeSet
+	 end end
 	    
 	local nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
 	if not nHintExprNode then
-		return false, "no target expr"
-	end
+		do return false, "no target expr"
+	 end end
 	local nExprContent = nSuccSplitCode:getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
 	local nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
 	local nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSuccSplitCode, vFileUri, nWrongContent)
 	if not nInjectFn then
-		return false, "gen inject fn fail"
-	end
+		do return false, "gen inject fn fail"
+	 end end
 	self:focusSchedule(nFocusList)
 	      
-	return vIsLookup
+	do return vIsLookup
 		and self:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
 		or self:injectLookdown(nInjectTrace.pos, nBlockNode, nInjectFn)
-end
+ end end
 
 function CompletionRuntime:injectLookup(vTracePos, vBlockNode, vFn) 
 	local nNodeSet  = {}
@@ -9927,30 +10013,30 @@ function CompletionRuntime:injectLookup(vTracePos, vBlockNode, vFn)
 			end
 		end
 	end)
-	return nNodeSet
-end
+	do return nNodeSet
+ end end
 
 function CompletionRuntime:injectLookdown(vTracePos, vBlockNode, vFn) 
 	    
-	return {}
-end
+	do return {}
+ end end
 
 function CompletionRuntime:exprLookup(vNode) 
 	local nNodeSet  = {}
 	local nCtxList = self._nodeToApplyContextList:get(vNode) or {}
 	for _, nContext in ipairs(nCtxList) do
 		nContext:outLookupNode(nNodeSet)
-	end
-	return nNodeSet
-end
+	::continue:: end
+	do return nNodeSet
+ end end
 
 function CompletionRuntime:exprLookdown(vNode) 
 	    
-	return {}
-end
+	do return {}
+ end end
 
-return CompletionRuntime
-
+do return CompletionRuntime
+ end 
 end end
 --thlua.runtime.CompletionRuntime end ==========)
 
@@ -9983,9 +10069,9 @@ function DiagnosticRuntime:exprLookdown(vNode)
 	local nCtxList = self._nodeToApplyContextList:get(vNode) or {}
 	for _, nContext in ipairs(nCtxList) do
 		nContext:outLookdownNode(nNodeSet)
-	end
-	return nNodeSet
-end
+	::continue:: end
+	do return nNodeSet
+ end end
 
 function DiagnosticRuntime:focusSchedule(vFuncList)
 	  
@@ -9995,7 +10081,7 @@ function DiagnosticRuntime:_save(vSeverity, vNode, ...)
 	local l = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
-	end
+	::continue:: end
 	local nMsg = table.concat(l, " ")
 	local nDiaList = self._diaList
 	nDiaList[#nDiaList + 1] = {
@@ -10015,12 +10101,12 @@ function DiagnosticRuntime:getAllDiagnostic()
 			nFileToDiaList[nPath] = nList
 		end
 		nList[#nList + 1] = nDia
-	end
-	return nFileToDiaList
-end
+	::continue:: end
+	do return nFileToDiaList
+ end end
 
-return DiagnosticRuntime
-
+do return DiagnosticRuntime
+ end 
 end end
 --thlua.runtime.DiagnosticRuntime end ==========)
 
@@ -10067,8 +10153,8 @@ local LogicContext = require "thlua.context.LogicContext"
 local InstStack = class (BaseStack)
 
 function InstStack:AUTO(vNode)
-	return AutoFlag
-end
+	do return AutoFlag
+ end end
 
 function InstStack:BEGIN(vLexStack, vBlockNode)  
 	assert(not self._letspace, "context can only begin once")
@@ -10077,8 +10163,8 @@ function InstStack:BEGIN(vLexStack, vBlockNode)
 	self._branchStack[1]=nRootBranch
 	local nSpace = self._runtime:LetNamespace(vLexStack:getNamespace(), vBlockNode)
 	self._letspace = nSpace
-	return nSpace:export()
-end
+	do return nSpace:export()
+ end end
 
       
 function InstStack:EXPRLIST_REPACK(
@@ -10092,8 +10178,8 @@ function InstStack:EXPRLIST_REPACK(
 	local nLast = l[nLastIndex]
 	if not nLast then
 		reFunc = function()
-			return nPackContext:FixedTermTuple({})
-		end
+			do return nPackContext:FixedTermTuple({})
+		 end end
 	else
 		local repackWithoutLast = function()
 			local nTermList = {}
@@ -10111,14 +10197,14 @@ function InstStack:EXPRLIST_REPACK(
 				else
 					error("unexcept branch")
 				end
-			end
-			return nTermList
-		end
+			::continue:: end
+			do return nTermList
+		 end end
 		  
 		if TermTuple.is(nLast) then
 			reFunc = function()
-				return nPackContext:UTermTupleByAppend(repackWithoutLast(), nLast)
-			end
+				do return nPackContext:UTermTupleByAppend(repackWithoutLast(), nLast)
+			 end end
 		else
 			reFunc = function()
 				local nTermList = repackWithoutLast()
@@ -10129,15 +10215,15 @@ function InstStack:EXPRLIST_REPACK(
 				else
 					error("unexcept branch")
 				end
-				return nPackContext:UTermTupleByAppend(nTermList, false)
-			end
+				do return nPackContext:UTermTupleByAppend(nTermList, false)
+			 end end
 		end
 	end
 	if vLazy then
-		return reFunc
-	else
-		return reFunc()
-	end
+		do return reFunc
+	 end else
+		do return reFunc()
+	 end end
 end
 
        
@@ -10170,9 +10256,9 @@ function InstStack:EXPRLIST_UNPACK(
 				re[i] = cur
 			end
 		end
-	end
-	return table.unpack(re)
-end
+	::continue:: end
+	do return table.unpack(re)
+ end end
 
   
 function InstStack:META_GET(
@@ -10181,8 +10267,8 @@ function InstStack:META_GET(
 	vKeyTerm,
 	vNotnil
 )
-	return self:anyNodeMetaGet(vNode, vSelfTerm, vKeyTerm, vNode.notnil or false)
-end
+	do return self:anyNodeMetaGet(vNode, vSelfTerm, vKeyTerm, vNode.notnil or false)
+ end end
 
 function InstStack:META_SET(
 	vNode ,
@@ -10205,8 +10291,8 @@ function InstStack:META_CALL(
 	vLazyFunc
 )
 	local nCtx = self:prepareMetaCall(vNode, vFuncTerm, vLazyFunc)
-	return nCtx:mergeReturn()
-end
+	do return nCtx:mergeReturn()
+ end end
 
 function InstStack:META_INVOKE(
 	vNode,
@@ -10217,7 +10303,7 @@ function InstStack:META_INVOKE(
 )
 	assert(vPolyArgs, "poly args can't be nil here")
 	local nNil = self._manager.type.Nil
-	return self:withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
+	do return self:withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
 		if vSelfType == nNil then
 			vContext:error("nil as invoke self")
 		else
@@ -10235,7 +10321,7 @@ function InstStack:META_INVOKE(
 			end)
 		end
 	end):mergeReturn()
-end
+ end end
 
 function InstStack:META_EQ_NE(
 	vNode,
@@ -10268,8 +10354,8 @@ function InstStack:META_EQ_NE(
 			nTypeCaseList[#nTypeCaseList + 1] = {nReType, vLeftVariableCase & vRightVariableCase}
 		end)
 	end)
-	return nCmpContext:mergeToRefineTerm(nTypeCaseList)
-end
+	do return nCmpContext:mergeToRefineTerm(nTypeCaseList)
+ end end
 
 function InstStack:META_BOP_SOME(
 	vNode,
@@ -10277,7 +10363,7 @@ function InstStack:META_BOP_SOME(
 	vLeftTerm,
 	vRightTerm
 )
-	return self:withOnePushContext(vNode, function(vContext)
+	do return self:withOnePushContext(vNode, function(vContext)
 		vLeftTerm:foreach(function(vLeftType, vLeftVariableCase)
 			local nLeftHigh, nLeftFunc = vLeftType:meta_bop_func(vContext, vOper)
 			if nLeftHigh then
@@ -10316,7 +10402,7 @@ function InstStack:META_BOP_SOME(
 			end
 		end)
 	end):mergeFirst()
-end
+ end end
 
 function InstStack:META_UOP(
 	vNode,
@@ -10340,12 +10426,12 @@ function InstStack:META_UOP(
 			}
 		end)
 	end
-	return nUopContext:mergeToRefineTerm(nTypeCaseList)
-end
+	do return nUopContext:mergeToRefineTerm(nTypeCaseList)
+ end end
 
 function InstStack:CHUNK_TYPE(vNode, vTerm)
-	return vTerm:getType()
-end
+	do return vTerm:getType()
+ end end
 
 function InstStack:FUNC_NEW(vNode ,
 	vFnNewInfo,
@@ -10357,20 +10443,20 @@ function InstStack:FUNC_NEW(vNode ,
 		branch=nBranch,
 		uvCase=nBranch:getCase(),
 	}, vFnNewInfo, vPrefixHint, vParRetMaker):build()
-	return self:_nodeTerm(vNode, nFnType)
-end
+	do return self:_nodeTerm(vNode, nFnType)
+ end end
 
   
 function InstStack:TABLE_NEW(vNode, vHintInfo, vPairMaker)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	local nTableType = nBuilder:build()
-	return self:_nodeTerm(vNode, nTableType)
-end
+	do return self:_nodeTerm(vNode, nTableType)
+ end end
 
 function InstStack:EVAL(vNode, vTerm)
 	if RefineTerm.is(vTerm) then
-		return vTerm:getType()
-	else
+		do return vTerm:getType()
+	 end else
 		error(vNode:toExc("hint eval fail"))
 	end
 end
@@ -10389,8 +10475,8 @@ function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
 				nTypeCaseList[#nTypeCaseList + 1] = {vType, vVariableCase}
 			end
 		end)
-		return nCastContext:mergeToRefineTerm(nTypeCaseList)
-	else
+		do return nCastContext:mergeToRefineTerm(nTypeCaseList)
+	 end else
 		local nDst = assert(..., "hint type can't be nil")
 		local nDstType = self._manager:getDirtyProcessor():easyToType(vNode, nDst):checkAtomUnion()
 		local nSrcType = vTerm:getType()
@@ -10405,22 +10491,22 @@ function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
 		elseif vCastKind ~= Enum.CastKind_FORCE then
 			vContext:error("unexcepted castkind:"..tostring(vCastKind))
 		end
-		return nCastContext:RefineTerm(nDstType)
-	end
+		do return nCastContext:RefineTerm(nDstType)
+	 end end
 end
 
 function InstStack:NIL_TERM(vNode)
-	return self:_nodeTerm(vNode, self._manager.type.Nil)
-end
+	do return self:_nodeTerm(vNode, self._manager.type.Nil)
+ end end
 
 function InstStack:HINT_TERM(vNode, vType)
-	return self:_nodeTerm(vNode, vType:checkAtomUnion())
-end
+	do return self:_nodeTerm(vNode, vType:checkAtomUnion())
+ end end
 
 function InstStack:LITERAL_TERM(vNode, vValue  )
 	local nType = self._manager:Literal(vValue)
-	return self:_nodeTerm(vNode, nType)
-end
+	do return self:_nodeTerm(vNode, nType)
+ end end
 
 function InstStack:SYMBOL_SET(vNode, vDefineNode, vTerm)
 	local nBranch = self:topBranch()
@@ -10433,16 +10519,16 @@ function InstStack:SYMBOL_SET(vNode, vDefineNode, vTerm)
 end
 
 function InstStack:SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
-	return self:topBranch():SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
-end
+	do return self:topBranch():SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
+ end end
 
 function InstStack:PARAM_PACKOUT(
 	vNode,
 	vList,
 	vDots
 )
-	return self._headContext:UTermTupleByAppend(vList, vDots)
-end
+	do return self._headContext:UTermTupleByAppend(vList, vDots)
+ end end
 
 function InstStack:PARAM_UNPACK(
 	vNode,
@@ -10453,18 +10539,18 @@ function InstStack:PARAM_UNPACK(
 	local nHeadContext = self._headContext
 	if vHintType == AutoFlag then
 		if vTermTuple then
-			return vTermTuple:get(nHeadContext, vIndex)
-		else
-			return AutoHolder.new(vNode, nHeadContext)
-		end
+			do return vTermTuple:get(nHeadContext, vIndex)
+		 end else
+			do return AutoHolder.new(vNode, nHeadContext)
+		 end end
 	else
 		if vTermTuple then
 			local nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
 			nHeadContext:assignTermToType(nAutoTerm, vHintType)
 		end
 		     
-		return nHeadContext:RefineTerm(vHintType)
-	end
+		do return nHeadContext:RefineTerm(vHintType)
+	 end end
 end
 
 function InstStack:PARAM_NODOTS_UNPACK(
@@ -10485,16 +10571,16 @@ function InstStack:PARAM_DOTS_UNPACK(
 )
 	if vTermTuple then
 		if vHintDots == AutoFlag then
-			return self._headContext:matchArgsToAutoDots(vNode, vTermTuple, vParNum)
-		else
-			return self._headContext:matchArgsToTypeDots(vNode, vTermTuple, vParNum, vHintDots)
-		end
+			do return self._headContext:matchArgsToAutoDots(vNode, vTermTuple, vParNum)
+		 end else
+			do return self._headContext:matchArgsToTypeDots(vNode, vTermTuple, vParNum, vHintDots)
+		 end end
 	else
 		if vHintDots == AutoFlag then
-			return self._headContext:UTermTupleByTail({}, AutoTail.new(vNode, self._headContext))
-		else
-			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, vHintDots))
-		end
+			do return self._headContext:UTermTupleByTail({}, AutoTail.new(vNode, self._headContext))
+		 end else
+			do return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, vHintDots))
+		 end end
 	end
 end
 
@@ -10515,8 +10601,8 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType, vAut
 			elseif vKind == Enum.SymbolKind_LOCAL then
 				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
-			return nTopBranch:setSymbolByNode(vNode, nTerm)
-		end
+			do return nTopBranch:setSymbolByNode(vNode, nTerm)
+		 end end
 		nTerm = nTermInHolder
 		local nFromType = nTerm:getType()
 		             
@@ -10532,11 +10618,11 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType, vAut
 	if vModify then
 		local nLocalSymbol = LocalSymbol.new(nSymbolContext, vNode, nTerm:getType(), nTerm)
 		self:topBranch():mutMark(nLocalSymbol, nImmutVariable)
-		return nTopBranch:setSymbolByNode(vNode, nLocalSymbol)
-	else
+		do return nTopBranch:setSymbolByNode(vNode, nLocalSymbol)
+	 end else
 		nImmutVariable:setNode(vNode)
-		return nTopBranch:setSymbolByNode(vNode, nImmutVariable)
-	end
+		do return nTopBranch:setSymbolByNode(vNode, nImmutVariable)
+	 end end
 end
 
 
@@ -10579,8 +10665,12 @@ function InstStack:IF_TWO(
 	end
 end
 
-function InstStack:REPEAT(vNode, vFunc, vTerm)
-	self:_withBranch(VariableCase.new(), vFunc, vNode[1])
+function InstStack:REPEAT(vNode, vFunc, vUntilFn)
+	self:_withBranch(VariableCase.new(), function()
+		vFunc()
+		      
+		vUntilFn()
+	end, vNode[1])
 end
 
 function InstStack:WHILE(vNode, vTerm, vTrueFunction)
@@ -10601,21 +10691,21 @@ function InstStack:FOR_IN(vNode, vFunc, vNextSelfInit)
 	local nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
 		nForContext:error("FOR_IN iterator error, arguments number must be 1 or 2 or 3")
-		return
-	end
+		do return
+	 end end
 	local nNext = vNextSelfInit:get(nForContext, 1)
 	local nTuple = self:META_CALL(vNode, nNext, function ()
 		if nLenNext == 1 then
-			return nForContext:FixedTermTuple({})
-		else
+			do return nForContext:FixedTermTuple({})
+		 end else
 			local nSelf = vNextSelfInit:get(nForContext, 2)
 			if nLenNext == 2 then
-				return nForContext:FixedTermTuple({nSelf})
-			else
+				do return nForContext:FixedTermTuple({nSelf})
+			 end else
 				if nLenNext == 3 then
 					local nInit = vNextSelfInit:get(nForContext, 3)
-					return nForContext:FixedTermTuple({nSelf, nInit})
-				else
+					do return nForContext:FixedTermTuple({nSelf, nInit})
+				 end else
 					error("NextSelfInit tuple must be 3, this branch is impossible")
 				end
 			end
@@ -10626,15 +10716,15 @@ function InstStack:FOR_IN(vNode, vFunc, vNextSelfInit)
 	local nFirstType = nFirstTerm:getType()
 	if not nFirstType:isNilable() then
 		nForContext:error("FOR_IN must receive function with nilable return")
-		return
-	end
+		do return
+	 end end
 	if nFirstType:notnilType():isNever() then
-		return
-	end
+		do return
+	 end end
 	nFirstTerm:foreach(function(vAtomType, vCase)
 		if vAtomType:isNilable() then
-			return
-		end
+			do return
+		 end end
 		local nTermList = {nForContext:RefineTerm(vAtomType)}
 		   
 			  
@@ -10646,7 +10736,7 @@ function InstStack:FOR_IN(vNode, vFunc, vNextSelfInit)
 				nTerm = nForContext:RefineTerm(nType)
 			end
 			nTermList[i] = nTerm
-		end
+		::continue:: end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
 		self:_withBranch(vCase, function()
 			vFunc(nNewTuple)
@@ -10673,15 +10763,15 @@ function InstStack:LOGIC_OR(vNode, vLeftTerm, vRightFunction)
 	local nLeftTrueTerm = nOrContext:logicTrueTerm(vLeftTerm)
 	local nLeftFalseCase = vLeftTerm:caseFalse()
 	if not nLeftFalseCase then
-		return nLeftTrueTerm
-	else
+		do return nLeftTrueTerm
+	 end else
 		local nRightTerm = nil
 		self:_withBranch(nLeftFalseCase, function()
 			nRightTerm = vRightFunction()
 		end)
 		assert(nRightTerm, "term must be true value here")
-		return nOrContext:logicCombineTerm(nLeftTrueTerm, nRightTerm, nLeftFalseCase)
-	end
+		do return nOrContext:logicCombineTerm(nLeftTrueTerm, nRightTerm, nLeftFalseCase)
+	 end end
 end
 
 function InstStack:LOGIC_AND(vNode, vLeftTerm, vRightFunction)
@@ -10689,23 +10779,27 @@ function InstStack:LOGIC_AND(vNode, vLeftTerm, vRightFunction)
 	local nLeftFalseTerm = nAndContext:logicFalseTerm(vLeftTerm)
 	local nLeftTrueCase = vLeftTerm:caseTrue()
 	if not nLeftTrueCase then
-		return nLeftFalseTerm
-	else
+		do return nLeftFalseTerm
+	 end else
 		local nRightTerm = nil
 		self:_withBranch(nLeftTrueCase, function()
 			nRightTerm = vRightFunction()
 		end)
 		assert(nRightTerm, "term must be true value here")
-		return nAndContext:logicCombineTerm(nLeftFalseTerm, nRightTerm, nLeftTrueCase)
-	end
+		do return nAndContext:logicCombineTerm(nLeftFalseTerm, nRightTerm, nLeftTrueCase)
+	 end end
 end
 
 function InstStack:LOGIC_NOT(vNode, vData)
 	local nNotContext = self:newLogicContext(vNode)
-	return nNotContext:logicNotTerm(vData)
-end
+	do return nNotContext:logicNotTerm(vData)
+ end end
 
 function InstStack:BREAK(vNode)
+	self:topBranch():setStop()
+end
+
+function InstStack:CONTINUE(vNode)
 	self:topBranch():setStop()
 end
 
@@ -10715,14 +10809,14 @@ end
 
 function InstStack:END(vNode) 
 	error("implement END in OpenStack or SealStack")
-	return self._fastOper:FixedTermTuple({}), self._manager.type.String
-end
+	do return self._fastOper:FixedTermTuple({}), self._manager.type.String
+ end end
 
 function InstStack:GLOBAL_GET(vNode, vIdentENV)
 	local nEnvTerm = self:SYMBOL_GET(vNode, vIdentENV, false)
 	assert(not AutoHolder.is(nEnvTerm), "auto can't be used here")
-	return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
-end
+	do return self:META_GET(vNode, nEnvTerm, self:LITERAL_TERM(vNode, vNode[1]), false)
+ end end
 
 function InstStack:GLOBAL_SET(vNode, vIdentENV, vValueTerm)
 	local nEnvTerm = self:SYMBOL_GET(vNode, vIdentENV, false)
@@ -10735,16 +10829,16 @@ function InstStack:INJECT_GET(
 	vNode,
 	vInjectGetter
 )
-	return vInjectGetter(vNode)
-end
+	do return vInjectGetter(vNode)
+ end end
 
 function InstStack:INJECT_BEGIN(vNode)  
 	local nSpace = assert(self._letspace)
-	return nSpace:export()
-end
+	do return nSpace:export()
+ end end
 
-return InstStack
-
+do return InstStack
+ end 
 end end
 --thlua.runtime.InstStack end ==========)
 
@@ -10780,8 +10874,8 @@ function OpenStack:ctor(
 end
 
 function OpenStack:isRequire()
-	return self._isRequire
-end
+	do return self._isRequire
+ end end
 
 function OpenStack:RAISE_ERROR(vContext, vType)
 	self._errCollection:put(vType)
@@ -10794,18 +10888,18 @@ function OpenStack:RETURN(vNode, vTermTuple)
 end
 
 function OpenStack:mergeEndErrType()
-	return self._errCollection:mergeToAtomUnion()
-end
+	do return self._errCollection:mergeToAtomUnion()
+ end end
 
 function OpenStack:END(vNode) 
 	self:getNamespace():close()
 	local nRetList = self._retList
 	local nLen = #nRetList
 	if nLen == 0 then
-		return self._fastOper:FixedTermTuple({}), self._errCollection:mergeToAtomUnion()
-	elseif nLen == 1 then
-		return nRetList[1], self._errCollection:mergeToAtomUnion()
-	else
+		do return self._fastOper:FixedTermTuple({}), self._errCollection:mergeToAtomUnion()
+	 end elseif nLen == 1 then
+		do return nRetList[1], self._errCollection:mergeToAtomUnion()
+	 end else
 		error("TODO : open-function has more than one return")
 	end
 end
@@ -10817,22 +10911,22 @@ function OpenStack:findRequireStack()
 		if OpenStack.is(nApplyStack) then
 			nStack = nApplyStack
 		else
-			return false
-		end
-	end
-	return nStack
-end
+			do return false
+		 end end
+	::continue:: end
+	do return nStack
+ end end
 
 function OpenStack:getSealStack()
-	return self._applyStack:getSealStack()
-end
+	do return self._applyStack:getSealStack()
+ end end
 
 function OpenStack:getApplyStack()
-	return self._applyStack
-end
+	do return self._applyStack
+ end end
 
-return OpenStack
-
+do return OpenStack
+ end 
 end end
 --thlua.runtime.OpenStack end ==========)
 
@@ -10872,8 +10966,8 @@ function SealStack:setClassTable(vClassTable)
 end
 
 function SealStack:getClassTable()
-	return self._classTable
-end
+	do return self._classTable
+ end end
 
 function SealStack:_returnCheck(vContext, vTypeTuple)
 	local nBodyFn = self._bodyFn
@@ -10939,22 +11033,22 @@ function SealStack:END(vNode)
 	if AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples() then
 		local nLen = #nRetList
 		if nLen == 0 then
-			return self._fastOper:FixedTermTuple({}), self._manager.type.String
-		elseif nLen == 1 then
-			return nRetList[1], self._manager.type.String
-		else
+			do return self._fastOper:FixedTermTuple({}), self._manager.type.String
+		 end elseif nLen == 1 then
+			do return nRetList[1], self._manager.type.String
+		 end else
 			local nFirstTuple = nRetList[1]:checkTypeTuple()
 			for i=2,#nRetList do
 				local nOtherTuple = nRetList[i]:checkTypeTuple()
 				if not (nFirstTuple:includeTuple(nOtherTuple) and nOtherTuple:includeTuple(nFirstTuple)) then
 					error("auto-function can't implicit return mixing type, explicit hint with :Ret(xxx) ")
 				end
-			end
-			return nRetList[1], self._manager.type.String
-		end
+			::continue:: end
+			do return nRetList[1], self._manager.type.String
+		 end end
 	else
-		return nil, nil
-	end
+		do return nil, nil
+	 end end
 end
 
 function SealStack:seal()
@@ -10963,18 +11057,18 @@ function SealStack:seal()
 	for fn, v in pairs(nClassFnSet) do
 		fn:startPreBuild()
 		fn:startLateBuild()
-	end
+	::continue:: end
 	local nAutoFnSet = assert(self._autoFnSet, "maker set must be true here")
 	self._autoFnSet = false
 	for fn, v in pairs(nAutoFnSet) do
 		fn:startPreBuild()
 		self._runtime:lateSchedule(fn)
-	end
+	::continue:: end
 end
 
 function SealStack:getSealStack()
-	return self
-end
+	do return self
+ end end
 
 function SealStack:scheduleSealType(vType)
 	if ClassFactory.is(vType) then
@@ -11002,15 +11096,15 @@ function SealStack:rootSetNamespace(vRootSpace)
 end
 
 function SealStack:getBodyFn()
-	return self._bodyFn  
-end
+	do return self._bodyFn  
+ end end
 
 function SealStack:isRoot()
-	return not self._lexCapture
-end
+	do return not self._lexCapture
+ end end
 
-return SealStack
-
+do return SealStack
+ end 
 end end
 --thlua.runtime.SealStack end ==========)
 
@@ -11018,12 +11112,12 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.SeverityEnum'] = function (...)
 
-return {
+do return {
 	Error = 1,
 	Warn = 2,
 	Info = 3,
 	Hint = 4,
-}
+} end 
 end end
 --thlua.runtime.SeverityEnum end ==========)
 
@@ -11179,8 +11273,8 @@ local ApiServer = class (BaseServer)
 function ApiServer:ctor(...)
 	self._methodHandler = {
 		initialize=function(vParam)
-			return self:onInitialize(vParam)
-		end,
+			do return self:onInitialize(vParam)
+		 end end,
 		shutdown=function()
 			self:onShutdown()
 		end,
@@ -11188,68 +11282,68 @@ function ApiServer:ctor(...)
 			self:onExit()
 		end,
 		["textDocument/didOpen"]=function(vParam)
-			return self:onDidOpen(vParam)
-		end,
+			do return self:onDidOpen(vParam)
+		 end end,
 		["textDocument/didChange"]=function(vParam)
-			return self:onDidChange(vParam)
-		end,
+			do return self:onDidChange(vParam)
+		 end end,
 		["textDocument/didSave"]=function(vParam)
-			return self:onDidSave(vParam)
-		end,
+			do return self:onDidSave(vParam)
+		 end end,
 		["textDocument/didClose"]=function(vParam)
-			return self:onDidClose(vParam)
-		end,
+			do return self:onDidClose(vParam)
+		 end end,
 		["textDocument/completion"]=function(vParam)
 			local ok, ret = pcall(function()
-				return self:onCompletion(vParam)
-			end)
+				do return self:onCompletion(vParam)
+			 end end)
 			if not ok then
 				self:error("onCompletion error", tostring(ret))
 			end
-			return ok and ret or json.array({})
-		end,
+			do return ok and ret or json.array({})
+		 end end,
 		["textDocument/definition"]=function(vParam)
 			local ok, ret = pcall(function()
-				return self:onDefinition(vParam)
-			end)
+				do return self:onDefinition(vParam)
+			 end end)
 			if not ok then
 				self:error("onDefinition error", tostring(ret))
 			end
-			return ok and ret or json.array({})
-		end,
+			do return ok and ret or json.array({})
+		 end end,
 		["textDocument/typeDefinition"]=function(vParam)
 			local ok, ret = pcall(function()
-				return self:onTypeDefinition(vParam)
-			end)
+				do return self:onTypeDefinition(vParam)
+			 end end)
 			if not ok then
 				self:error("onTypeDefinition error", tostring(ret))
 			end
-			return ok and ret or json.array({})
-		end,
+			do return ok and ret or json.array({})
+		 end end,
 		["textDocument/references"]=function(vParam)
 			local ok, ret = pcall(function()
-				return self:onReferences(vParam)
-			end)
+				do return self:onReferences(vParam)
+			 end end)
 			if not ok then
 				self:error("onReferences error", tostring(ret))
 			end
-			return ok and ret or json.array({})
-		end,
+			do return ok and ret or json.array({})
+		 end end,
 		["textDocument/hover"]=function(vParam)
 			local ok, ret = pcall(function()
-				return self:onHover(vParam)
-			end)
+				do return self:onHover(vParam)
+			 end end)
 			if not ok then
 				self:error("onHover error", tostring(ret))
 			end
-			return ok and ret or json.array({})
-		end,
+			do return ok and ret or json.array({})
+		 end end,
 	}
 end
 
 function ApiServer:getMethodHandler()
-	return self._methodHandler
-end
+	do return self._methodHandler
+ end end
 
 function ApiServer:getInitializeResult()
 	error("getInitializeResult not implement in ApiServer")
@@ -11268,8 +11362,8 @@ function ApiServer:onInitialize(vParams)
 	if root then
 		self:setRoot(root)
 	end
-	return self:getInitializeResult()
-end
+	do return self:getInitializeResult()
+ end end
 
 function ApiServer:onShutdown()
 	self.shutdown=true
@@ -11296,25 +11390,25 @@ function ApiServer:onDidClose(vParams)
 end
 
 function ApiServer:onDefinition(vParams)
-	return nil
-end
+	do return nil
+ end end
 
 function ApiServer:onCompletion(vParams)
-	return {}
-end
+	do return {}
+ end end
 
 function ApiServer:onHover(vParams)
 end
 
 function ApiServer:onReferences(vParams)
-	return nil
-end
+	do return nil
+ end end
 
 function ApiServer:onTypeDefinition(vParams)
 end
 
-return ApiServer
-
+do return ApiServer
+ end 
 end end
 --thlua.server.ApiServer end ==========)
 
@@ -11355,14 +11449,14 @@ function BaseServer:attachFileState(vFileUri)
 	if not nFileState then
 		local nNewState = FileState.new(vFileUri)
 		self._fileStateDict[vFileUri] = nNewState
-		return nNewState
-	else
-		return nFileState
-	end
+		do return nNewState
+	 end else
+		do return nFileState
+	 end end
 end
 
 function BaseServer:makeLoader()
-	return {
+	do return {
 		thluaSearch=function(vRuntime, vPath)
 			local nSearchPath = vRuntime:getSearchPath() or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
 			local nList = {}
@@ -11372,14 +11466,14 @@ function BaseServer:makeLoader()
 				if not nSet[nAbsPath] then
 					nList[#nList + 1] = nAbsPath
 				end
-			end
+			::continue:: end
 			local nSearchPath = table.concat(nList, ";")
 			local fileName, err1 = package.searchpath(vPath, nSearchPath)
 			if not fileName then
-				return false, err1
-			end
-			return true, self:pathToUri(fileName)
-		end,
+				do return false, err1
+			 end end
+			do return true, self:pathToUri(fileName)
+		 end end,
 		thluaParseFile=function(vRuntime, vFileUri)
 			if not self._fileStateDict[vFileUri] then
 				local nFilePath = self:uriToPath(vFileUri)
@@ -11391,8 +11485,8 @@ function BaseServer:makeLoader()
 				file:close()
 				self:attachFileState(vFileUri):syncContent(nContent, -1)
 			end
-			return self._fileStateDict[vFileUri]:checkLatestEnv()
-		end,
+			do return self._fileStateDict[vFileUri]:checkLatestEnv()
+		 end end,
 		thluaGlobalFile=function(vRuntime, vPackage)
 			local nFilePath = self._globalPath.."/"..vPackage..".d.thlua"
 			local nFileUri = self:pathToUri(nFilePath)
@@ -11405,14 +11499,14 @@ function BaseServer:makeLoader()
 				file:close()
 				self:attachFileState(nFileUri):syncContent(nContent, -1)
             end
-			return self._fileStateDict[nFileUri]:checkLatestEnv(), nFileUri
-		end,
+			do return self._fileStateDict[nFileUri]:checkLatestEnv(), nFileUri
+		 end end,
 	}
-end
+ end end
 
 function BaseServer:checkFileState(vFileUri)
-	return (assert(self._fileStateDict[vFileUri], "file not existed:"..vFileUri))
-end
+	do return (assert(self._fileStateDict[vFileUri], "file not existed:"..vFileUri))
+ end end
 
 function BaseServer:mainLoop()
 	self:notify("$/status/report", {
@@ -11422,12 +11516,12 @@ function BaseServer:mainLoop()
 	self:info("global path:", self._globalPath)
 	while not self.shutdown do
 		self:rpc()
-	end
+	::continue:: end
 end
 
 local function reqToStr(vRequest)
-	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
-end
+	do return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
+ end end
 
 function BaseServer:rpc()
 	local request = self:readRequest()
@@ -11439,8 +11533,8 @@ function BaseServer:rpc()
 		else
 			self:warn(reqToStr(request), "method name not set")
 		end
-		return
-	end
+		do return
+	 end end
 	local handler = self:getMethodHandler()[methodName]
 	if not handler then
 		if nId then
@@ -11448,8 +11542,8 @@ function BaseServer:rpc()
 		else
 			self:warn(reqToStr(request), "method not found")
 		end
-		return
-	end
+		do return
+	 end end
 	local result = handler(request.params)
 	if result then
 		if nId then
@@ -11458,8 +11552,8 @@ function BaseServer:rpc()
 		else
 			self:warn(reqToStr(request), "request without id ")
 		end
-		return
-	else
+		do return
+	 end else
 		if nId then
 			self:warn(reqToStr(request), "request with id but no resposne")
 		end
@@ -11485,7 +11579,7 @@ function BaseServer:readRequest()
 		if key == "Content-Length" then
 			length = assert(math.tointeger(val), "Content-Length can't convert to integer"..tostring(val))
 		end
-	end
+	::continue:: end
 
 	if length < 0 then
 		error("Content-Length failed in rpc")
@@ -11506,8 +11600,8 @@ function BaseServer:readRequest()
 		error("json-rpc is not 2.0, "..tostring(req.jsonrpc))
 	end
 	     
-	return req
-end
+	do return req
+ end end
 
 function BaseServer:writeError(vId  , vCode, vMsg, vData)
 	self:_write({
@@ -11539,10 +11633,10 @@ end
 
 function BaseServer:getPlatform()
 	if package.config:sub(1,1) == "\\" then
-		return "win"
-	else
-		return "not-win"
-	end
+		do return "win"
+	 end else
+		do return "not-win"
+	 end end
 end
 
 function BaseServer:_write(vPacket)
@@ -11569,9 +11663,9 @@ function BaseServer:packToString(vDepth, ...)
 	local l = {nPrefix}  
 	for i=1,select("#", ...) do
 		l[#l + 1] = tostring(select(i, ...))
-	end
-	return table.concat(l, " ")
-end
+	::continue:: end
+	do return table.concat(l, " ")
+ end end
 
 function BaseServer:error(...)
 	local str = self:packToString(3, ...)
@@ -11615,28 +11709,28 @@ function BaseServer:uriToPath(vUri)
 	local nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
 		local num = (assert(tonumber(c, 16)) ) 
 		local char = string.char(num)
-		return char
-	end)
+		do return char
+	 end end)
 	if self:getPlatform() == "win" then
-		return (nPath:gsub("^file:///", ""):gsub("/$", ""))
-	else
-		return (nPath:gsub("^file://", ""):gsub("/$", ""))
-	end
+		do return (nPath:gsub("^file:///", ""):gsub("/$", ""))
+	 end else
+		do return (nPath:gsub("^file://", ""):gsub("/$", ""))
+	 end end
 end
 
 function BaseServer:pathToUri(vPath)
 	if self:getPlatform() == "win" then
 		local nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
-			return driver:lower().."%3A"
-		end)
-		return "file:///"..nUri
-	else
-		return "file://"..vPath
-	end
+			do return driver:lower().."%3A"
+		 end end)
+		do return "file:///"..nUri
+	 end else
+		do return "file://"..vPath
+	 end end
 end
 
-return BaseServer
-
+do return BaseServer
+ end 
 end end
 --thlua.server.BaseServer end ==========)
 
@@ -11656,7 +11750,7 @@ local BothServer = class (SlowServer)
 
 function BothServer:getInitializeResult()
 	self:info("slow & fast both server")
-	return {
+	do return {
 		capabilities = {
 			textDocumentSync = {
 				change = 2,       
@@ -11672,9 +11766,9 @@ function BothServer:getInitializeResult()
 			},
 		},
 	}
-end
+ end end
 
-return BothServer
+do return BothServer end 
 end end
 --thlua.server.BothServer end ==========)
 
@@ -11708,7 +11802,7 @@ end
 
 function FastServer:getInitializeResult()
 	self:info("fast server")
-	return {
+	do return {
 		capabilities = {
 			textDocumentSync = {
 				change = 2,       
@@ -11731,7 +11825,7 @@ function FastServer:getInitializeResult()
 			  
 		},
 	}
-end
+ end end
 
 function FastServer:rerun(vFileUri)
 	local rootFileUri = lpath.isfile(self._rootPath .. "/throot.thlua")
@@ -11755,8 +11849,8 @@ function FastServer:rerun(vFileUri)
 end
 
 function FastServer:checkRuntime()
-	return assert(self._runtime)
-end
+	do return assert(self._runtime)
+ end end
 
 function FastServer:onDidChange(vParams)
 	local nFileUri = vParams.textDocument.uri
@@ -11792,7 +11886,7 @@ function FastServer:onDidChange(vParams)
 				diagnostics=json.array(nDiaList),
 			},
 		})
-	end
+	::continue:: end
 end
 
 function FastServer:onDidOpen(vParams)
@@ -11821,8 +11915,8 @@ function FastServer:onDidSave(vParams)
 end
 
 function FastServer:lookup(vParams)  
-	return nil
-end
+	do return nil
+ end end
 
 function FastServer:onDefinition(vParams)
 	local nFileUri = vParams.textDocument.uri
@@ -11835,8 +11929,8 @@ function FastServer:onDefinition(vParams)
 	)
 	if not nNodeSet then
 		self:info("goto definition fail:", nErrMsg)
-		return nil
-	else
+		do return nil
+	 end else
 		local nRetList = {}
 		for nLookupNode, _ in pairs(nNodeSet) do
 			nRetList[#nRetList + 1] = {
@@ -11846,9 +11940,9 @@ function FastServer:onDefinition(vParams)
 					["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c - 1 },
 				}
 			}
-		end
-		return nRetList
-	end
+		::continue:: end
+		do return nRetList
+	 end end
 end
 
 function FastServer:onCompletion(vParams)
@@ -11859,8 +11953,8 @@ function FastServer:onCompletion(vParams)
 	local nSuccEnv = self:checkRuntime():getCodeEnv(nFileUri)
 	if not nSuccEnv then
 		self:info("completion fail for some code error", nFileUri)
-		return nil
-	end
+		do return nil
+	 end end
 	   
 	local nSplitCode = nFileState:getSplitCode()
 	local nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
@@ -11868,8 +11962,8 @@ function FastServer:onCompletion(vParams)
 	    
 	local nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
 	if not nInjectFn then
-		return nil
-	end
+		do return nil
+	 end end
 	             
 	local nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
 	local nBlockNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
@@ -11878,8 +11972,8 @@ function FastServer:onCompletion(vParams)
 	local nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
 	if not nFieldCompletion then
 		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
-		return nil
-	end
+		do return nil
+	 end end
 	local nRetList = {}
 	nFieldCompletion:foreach(function(vKey, vKind)
 		nRetList[#nRetList + 1] = {
@@ -11887,8 +11981,8 @@ function FastServer:onCompletion(vParams)
 			kind=vKind,
 		}
 	end)
-	return json.array(nRetList)
-end
+	do return json.array(nRetList)
+ end end
 
 function FastServer:onHover(vParams)
 	
@@ -11910,8 +12004,8 @@ function FastServer:onHover(vParams)
 	
 end
 
-return FastServer
-
+do return FastServer
+ end 
 end end
 --thlua.server.FastServer end ==========)
 
@@ -11947,29 +12041,29 @@ end
 function FileState:onSaveAndGetChange()
 	if self._changeState then
 		self._changeState = false
-		return true
-	end
-	return false
-end
+		do return true
+	 end end
+	do return false
+ end end
 
 function FileState:getWellformedRange(vRange)
 	local nStart = vRange.start
 	local nEnd = vRange["end"]
 	if nStart.line > nEnd.line or (nStart.line == nEnd.line and nStart.character > nEnd.character) then
-		return { start=nEnd, ["end"]=nStart }
-	else
-		return vRange
-	end
+		do return { start=nEnd, ["end"]=nStart }
+	 end else
+		do return vRange
+	 end end
 end
 
 function FileState:syncChangeMayRerun(vParams)
 	local nCanRerun = self:syncChangeNoRerun(vParams)
 	if nCanRerun then
 		self._changeState = false
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
 function FileState:syncChangeNoRerun(vParams)
@@ -12001,19 +12095,19 @@ function FileState:syncChangeNoRerun(vParams)
 		if not self._changeState then
 			self._changeState = CHANGE_ANYTHING
 		end
-	end
+	::continue:: end
 	self._splitCode = nSplitCode
 	self._version = vParams.textDocument.version
 	local nRight = self:_checkRight()
 	if nRight then
 		if self._changeState == CHANGE_NONBLANK and nLineChange then
-			return true
-		else
-			return false
-		end
+			do return true
+		 end else
+			do return false
+		 end end
 	else
-		return false
-	end
+		do return false
+	 end end
 end
 
 function FileState:_checkRight()
@@ -12021,63 +12115,63 @@ function FileState:_checkRight()
 	if nOkay then
 		self._rightEnv = nCodeEnv
 		self._errOrEnv = nCodeEnv
-		return true
-	else
+		do return true
+	 end else
 		if type(nCodeEnv) == "table" then
 			self._errOrEnv = nCodeEnv
 		end
-		return false
-	end
+		do return false
+	 end end
 end
 
 function FileState:syncContent(vContent, vVersion)
 	self._version = vVersion
 	self._splitCode = SplitCode.new(vContent)
 	self._changeState = false
-	return self:_checkRight()
-end
+	do return self:_checkRight()
+ end end
 
 function FileState:getRightEnv()
-	return self._rightEnv
-end
+	do return self._rightEnv
+ end end
 
 function FileState:contentMismatch(vContent)
 	local nSplitCode = self._splitCode
 	local nContent = nSplitCode:getContent()
 	if nContent ~= vContent then
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
 function FileState:getLatestException()
 	local nLatest = self._errOrEnv
 	if Exception.is(nLatest) then
-		return nLatest
-	end
-	return false
-end
+		do return nLatest
+	 end end
+	do return false
+ end end
 
 function FileState:checkLatestEnv()
 	local nLatest = self._errOrEnv
 	if CodeEnv.is(nLatest) then
-		return nLatest
-	else
+		do return nLatest
+	 end else
 		error(nLatest)
 	end
 end
 
 function FileState:getSplitCode()
-	return self._splitCode
-end
+	do return self._splitCode
+ end end
 
 function FileState:getVersion()
-	return self._version
-end
+	do return self._version
+ end end
 
-return FileState
-
+do return FileState
+ end 
 end end
 --thlua.server.FileState end ==========)
 
@@ -12121,8 +12215,8 @@ end
 function PlayGround:update(vName, vData)
     local nInput = (json.decode(vData) ) 
     local ret = self:_update(vName, nInput)
-    return json.encode(ret)
-end
+    do return json.encode(ret)
+ end end
 
 function PlayGround:_update(vName, vInput)
     local nContent = vInput.content
@@ -12147,19 +12241,19 @@ function PlayGround:_update(vName, vInput)
             }  
             nDia.msg = nCodeEnv.msg
         end
-        return {
+        do return {
             syntaxErr=true,
             diaList=json.array({nDia} ),
             luaContent=tostring(nCodeEnv),
         }
-    end
+     end end
     local nRuntime = DiagnosticRuntime.new({
         thluaSearch=function(vRuntime, vPath)
-            return false, "can't use require on playground"
-        end,
+            do return false, "can't use require on playground"
+         end end,
         thluaParseFile=function(vRuntime, vFileName)
-            return CodeEnv.new(self._splitCode, vFileName)
-        end,
+            do return CodeEnv.new(self._splitCode, vFileName)
+         end end,
         thluaGlobalFile=function(vRuntime, vPackage)
             vPackage = vPackage or "global"
             local nCodeEnv = self._globalToEnv[vPackage]
@@ -12168,10 +12262,10 @@ function PlayGround:_update(vName, vInput)
                 local nContent = (require("thlua.global."..vPackage) ) 
                 local nCodeEnv = CodeEnv.new(nContent, nFileName)
                 self._globalToEnv[vPackage] = nCodeEnv
-                return nCodeEnv, nFileName
-            else
-                return nCodeEnv, nFileName
-            end
+                do return nCodeEnv, nFileName
+             end else
+                do return nCodeEnv, nFileName
+             end end
         end
     })
     local nRunOkay, nExc = nRuntime:pmain(vName)
@@ -12187,16 +12281,16 @@ function PlayGround:_update(vName, vInput)
                 path=dia.node.path
             }  ,
         }
-    end
-    return {
+    ::continue:: end
+    do return {
         syntaxErr=false,
         diaList=json.array(nAfterDiaList),
         luaContent=nCodeEnv:getLuaCode()
     }
-end
+ end end
 
-return PlayGround
-
+do return PlayGround
+ end 
 end end
 --thlua.server.PlayGround end ==========)
 
@@ -12224,12 +12318,12 @@ local class = require "thlua.class"
 local SlowServer = class (FastServer)
 
 function SlowServer:checkDiagnosticRuntime()
-	return (assert(self._runtime) ) 
-end
+	do return (assert(self._runtime) ) 
+ end end
 
 function SlowServer:getInitializeResult()
 	self:info("slow server")
-	return {
+	do return {
 		capabilities = {
 			textDocumentSync = {
 				change = 2,       
@@ -12239,7 +12333,7 @@ function SlowServer:getInitializeResult()
 			referencesProvider = true,
 		},
 	}
-end
+ end end
 
 function SlowServer:publishNormal()
 	local nRuntime = self:checkDiagnosticRuntime()
@@ -12270,7 +12364,7 @@ function SlowServer:publishNormal()
 				message=nMsg,
 				severity=dia.severity,
 			}
-		end
+		::continue:: end
 		self:_write({
 			jsonrpc = "2.0",
 			method = "textDocument/publishDiagnostics",
@@ -12280,7 +12374,7 @@ function SlowServer:publishNormal()
 				diagnostics=json.array(nDiaList),
 			},
 		})
-	end
+	::continue:: end
 end
 
 function SlowServer:publishException(vException )
@@ -12296,8 +12390,8 @@ function SlowServer:publishException(vException )
 	local nFileState = self._fileStateDict[nNode.path]
 	if not nFileState then
 		self:error("exception in unknown file:", nNode.path)
-		return
-	end
+		do return
+	 end end
 	self:_write({
 		jsonrpc = "2.0",
 		method = "textDocument/publishDiagnostics",
@@ -12337,8 +12431,8 @@ function SlowServer:rerun(vFileUri)
 			self._runtime = nRuntime
 		end
 		self:publishException(exc   )
-		return
-	else
+		do return
+	 end else
 		self._runtime = nRuntime
 		collectgarbage()
 		self:publishNormal()
@@ -12378,8 +12472,8 @@ function SlowServer:onReferences(vParams)
 	)
 	if not nNodeSet then
 		self:info("find references fail:", nErrMsg)
-		return nil
-	else
+		do return nil
+	 end else
 		local nRetList = {}
 		for nLookupNode, _ in pairs(nNodeSet) do
 			nRetList[#nRetList + 1] = {
@@ -12389,13 +12483,13 @@ function SlowServer:onReferences(vParams)
 					["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c + 10 },
 				}
 			}
-		end
-		return nRetList
-	end
+		::continue:: end
+		do return nRetList
+	 end end
 end
 
-return SlowServer
-
+do return SlowServer
+ end 
 end end
 --thlua.server.SlowServer end ==========)
 
@@ -12589,11 +12683,11 @@ local ErrorCodes = {
 
 
 
-return {
+do return {
 	ErrorCodes=ErrorCodes,
 	SeverityEnum=SeverityEnum,
 }
-
+ end 
 end end
 --thlua.server.protocol end ==========)
 
@@ -12604,19 +12698,19 @@ packages['thlua.term.ImmutVariable'] = function (...)
 local ImmutVariable = {}
 ImmutVariable.__index=ImmutVariable
 ImmutVariable.__tostring=function(self)
-	return "const-"..tostring(next(self._symbolSet) or self._node)
-end
+	do return "const-"..tostring(next(self._symbolSet) or self._node)
+ end end
 
   
 
 function ImmutVariable.new(vTerm)
-	return setmetatable({
+	do return setmetatable({
 		_originTerm=vTerm,
 		_termByFilter={} ,
 		_symbolSet={}  ,
 		_node=false
 	}, ImmutVariable)
-end
+ end end
 
 function ImmutVariable:setNode(vNode)
 	self._node = vNode
@@ -12627,8 +12721,8 @@ function ImmutVariable:addSymbol(vSymbol)
 end
 
 function ImmutVariable:getType()
-	return self._originTerm:getType()
-end
+	do return self._originTerm:getType()
+ end end
 
 function ImmutVariable:filterTerm(vContext, vCase)
 	local nOriginTerm = self._originTerm
@@ -12638,27 +12732,27 @@ function ImmutVariable:filterTerm(vContext, vCase)
 			local nTermByFilter = self._termByFilter
 			local nTerm = nTermByFilter[nType]
 			if nTerm then
-				return nTerm
-			end
+				do return nTerm
+			 end end
 			local nTerm = nOriginTerm:filter(vContext, nType)
 			nTerm:initVariable(self)
 			nTermByFilter[nType] = nTerm
-			return nTerm
-		else
+			do return nTerm
+		 end else
 			vContext:error("TODO type is never when get symbol"..tostring(self))
-			return vContext:NeverTerm()
-		end
+			do return vContext:NeverTerm()
+		 end end
 	else
-		return nOriginTerm
-	end
+		do return nOriginTerm
+	 end end
 end
 
 function ImmutVariable.is(v)
-	return getmetatable(v) == ImmutVariable
-end
+	do return getmetatable(v) == ImmutVariable
+ end end
 
-return ImmutVariable
-
+do return ImmutVariable
+ end 
 end end
 --thlua.term.ImmutVariable end ==========)
 
@@ -12674,44 +12768,44 @@ local ImmutVariable = require "thlua.term.ImmutVariable"
 local LocalSymbol = {}
 LocalSymbol.__index=LocalSymbol
 LocalSymbol.__tostring=function(self)
-	return "LocalSymbol-"..tostring(self._node).."-"..tostring(self._type)
-end
+	do return "LocalSymbol-"..tostring(self._node).."-"..tostring(self._type)
+ end end
 
 function LocalSymbol.new(vContext,
 		vNode, vType, vRawTerm)
-	return setmetatable({
+	do return setmetatable({
 		_context=vContext,
 		_node=vNode,
 		_type=vType,
 		_rawTerm=vRawTerm,
 	}, LocalSymbol)
-end
+ end end
 
 function LocalSymbol:makeVariable(vType)
 	local nTerm = self._context:RefineTerm(vType or self._type)
 	local nVariable = nTerm:attachImmutVariable()
 	nVariable:addSymbol(self)
-	return nVariable
-end
+	do return nVariable
+ end end
 
 function LocalSymbol:getType()
-	return self._type
-end
+	do return self._type
+ end end
 
 function LocalSymbol:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function LocalSymbol:getName()
-	return tostring(self._node)
-end
+	do return tostring(self._node)
+ end end
 
 function LocalSymbol.is(v)
-	return getmetatable(v) == LocalSymbol
-end
+	do return getmetatable(v) == LocalSymbol
+ end end
 
-return LocalSymbol
-
+do return LocalSymbol
+ end 
 end end
 --thlua.term.LocalSymbol end ==========)
 
@@ -12731,9 +12825,9 @@ RefineTerm.__tostring=function(self)
 	local l = {}
 	for nType, nVariableCase in pairs(self._typeToCase) do
 		l[#l + 1] = tostring(nType) .."=>"..tostring(nVariableCase)
-	end
-	return "RefineTerm("..table.concat(l, ",")..")"
-end
+	::continue:: end
+	do return "RefineTerm("..table.concat(l, ",")..")"
+ end end
 
 function RefineTerm.new(
 	vNode,
@@ -12751,22 +12845,22 @@ function RefineTerm.new(
 			self._typeToCase[vType] = VariableCase.new()
 		end
 	end)
-	return self
-end
+	do return self
+ end end
 
 function RefineTerm:checkRefineTerm(vContext)
-	return self
-end
+	do return self
+ end end
 
 function RefineTerm:foreach(func )
 	for nType, nVariableCase in pairs(self._typeToCase) do
 		func(nType, nVariableCase)
-	end
+	::continue:: end
 end
 
 function RefineTerm.is(v)
-	return getmetatable(v) == RefineTerm
-end
+	do return getmetatable(v) == RefineTerm
+ end end
 
 function RefineTerm:caseTrue()
 	local reCase = nil
@@ -12778,8 +12872,8 @@ function RefineTerm:caseTrue()
 			reCase = reCase | nCase
 		end
 	end)
-	return reCase
-end
+	do return reCase
+ end end
 
 function RefineTerm:caseNotnil()
 	local reCase = nil
@@ -12793,8 +12887,8 @@ function RefineTerm:caseNotnil()
 			end
 		end
 	end)
-	return reCase
-end
+	do return reCase
+ end end
 
     
 function RefineTerm:caseFalse()
@@ -12807,8 +12901,8 @@ function RefineTerm:caseFalse()
 			reCase = reCase | nCase
 		end
 	end)
-	return reCase
-end
+	do return reCase
+ end end
 
 function RefineTerm:falseEach(vFunc )
 	local nTypeToCase = self._typeToCase
@@ -12825,12 +12919,12 @@ function RefineTerm:trueEach(vFunc )
 end
 
 function RefineTerm:getRefineTerm()
-	return self
-end
+	do return self
+ end end
 
 function RefineTerm:getType()
-	return self._type
-end
+	do return self._type
+ end end
 
 function RefineTerm:initVariable(vImmutVariable)
 	assert(not self._symbolVariable, "term can only set symbolvariable once")
@@ -12842,16 +12936,16 @@ function RefineTerm:initVariable(vImmutVariable)
 			nNewVariableCase:put_and(nImmutVariable, nType)
 		end
 		self._typeToCase[nType] = nNewVariableCase
-	end
+	::continue:: end
 end
 
 function RefineTerm:includeAtomCase(vType)  
 	local nIncludeType = self._type:includeAtom(vType)
 	if nIncludeType then
-		return nIncludeType, self._typeToCase[nIncludeType]
-	else
-		return false, nil
-	end
+		do return nIncludeType, self._typeToCase[nIncludeType]
+	 end else
+		do return false, nil
+	 end end
 end
 
 function RefineTerm:filter(vContext, vType)
@@ -12865,8 +12959,8 @@ function RefineTerm:filter(vContext, vType)
 			nTypeCaseList[#nTypeCaseList + 1] = {vSubType, VariableCase.new()}
 		end
 	end)
-	return vContext:mergeToRefineTerm(nTypeCaseList)
-end
+	do return vContext:mergeToRefineTerm(nTypeCaseList)
+ end end
 
 function RefineTerm:attachImmutVariable()
 	local nImmutVariable = self._symbolVariable
@@ -12874,19 +12968,19 @@ function RefineTerm:attachImmutVariable()
 		nImmutVariable = ImmutVariable.new(self)
 		self:initVariable(nImmutVariable)
 	end
-	return nImmutVariable
-end
+	do return nImmutVariable
+ end end
 
 function RefineTerm:notnilTerm()
 	local nNotnilTerm = self._notnilTerm
 	if nNotnilTerm then
-		return nNotnilTerm
-	end
+		do return nNotnilTerm
+	 end end
 	local nType = self._type
 	if not nType:isNilable() then
 		self._notnilTerm = self
-		return self
-	end
+		do return self
+	 end end
 	local nTypeToCase  = {}
 	nType:foreach(function(vAtomType)
 		if not Nil.is(vAtomType) then
@@ -12895,11 +12989,11 @@ function RefineTerm:notnilTerm()
 	end)
 	local nTerm = RefineTerm.new(self._node, nType:notnilType(), nTypeToCase)
 	self._notnilTerm = nTerm
-	return nTerm
-end
+	do return nTerm
+ end end
 
-return RefineTerm
-
+do return RefineTerm
+ end 
 end end
 --thlua.term.RefineTerm end ==========)
 
@@ -12920,9 +13014,9 @@ VariableCase.__bor=function(vLeftVariableCase, vRightVariableCase)
 		if nRightType then
 			nNewVariableCase[nImmutVariable] = nLeftType | nRightType
 		end
-	end
-	return nNewVariableCase
-end
+	::continue:: end
+	do return nNewVariableCase
+ end end
 VariableCase.__band=function(vLeftVariableCase, vRightVariableCase)
 	local nNewVariableCase = VariableCase.new()
 	for nImmutVariable, nLeftType in pairs(vLeftVariableCase) do
@@ -12932,29 +13026,29 @@ VariableCase.__band=function(vLeftVariableCase, vRightVariableCase)
 		else
 			nNewVariableCase[nImmutVariable] = nLeftType
 		end
-	end
+	::continue:: end
 	for nImmutVariable, nRightType in pairs(vRightVariableCase) do
 		if not vLeftVariableCase[nImmutVariable] then
 			nNewVariableCase[nImmutVariable] = nRightType
 		end
-	end
-	return nNewVariableCase
-end
+	::continue:: end
+	do return nNewVariableCase
+ end end
 VariableCase.__tostring=function(self)
 	local l={"VariableCase("}
 	for nImmutVariable, vType in pairs(self) do
 		l[#l + 1] = tostring(nImmutVariable).."->"..tostring(vType)
-	end
+	::continue:: end
 	l[#l + 1] = ")"
-	return table.concat(l,"|")
-end
+	do return table.concat(l,"|")
+ end end
 
 function VariableCase.new()
-	return setmetatable({
+	do return setmetatable({
 		
 	
 	}, VariableCase)
-end
+ end end
 
 function VariableCase:put_and(vImmutVariable, vType)
 	local nCurType = self[vImmutVariable]
@@ -12969,24 +13063,24 @@ function VariableCase:copy()
 	local nCopy = VariableCase.new()
 	for k,v in pairs(self) do
 		nCopy:put_and(k, v)
-	end
-	return nCopy
-end
+	::continue:: end
+	do return nCopy
+ end end
 
 function VariableCase:empty()
 	if next(self) then
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
 function VariableCase.is(t)
-	return getmetatable(t) == VariableCase
-end
+	do return getmetatable(t) == VariableCase
+ end end
 
-return VariableCase
-
+do return VariableCase
+ end 
 end end
 --thlua.term.VariableCase end ==========)
 
@@ -13006,32 +13100,32 @@ function DotsTail.new(vContext, vRepeatType)
 		_termList={},
 		_repeatType=vRepeatType,
 	}, DotsTail)
-	return self
-end
+	do return self
+ end end
 
 function DotsTail:getRepeatType()
-	return self._repeatType
-end
+	do return self._repeatType
+ end end
 
 function DotsTail:getMore(vContext, vMore)
 	local nTermList = self._termList
 	local nTerm = nTermList[vMore]
 	if nTerm then
-		return nTerm
-	else
+		do return nTerm
+	 end else
 		for i=#nTermList + 1, vMore do
 			nTermList[i] = vContext:RefineTerm(self._repeatType:checkAtomUnion():withnilType())
-		end
-		return nTermList[vMore]
-	end
+		::continue:: end
+		do return nTermList[vMore]
+	 end end
 end
 
 function DotsTail.is(t)
-	return getmetatable(t) == DotsTail
-end
+	do return getmetatable(t) == DotsTail
+ end end
 
-return DotsTail
-
+do return DotsTail
+ end 
 end end
 --thlua.tuple.DotsTail end ==========)
 
@@ -13077,20 +13171,20 @@ function RetBuilder:chainErr(vNode, vErrType)
 end
 
 function RetBuilder:isEmpty()
-	return #self._tupleList == 0 and not self._errType
-end
+	do return #self._tupleList == 0 and not self._errType
+ end end
 
 function RetBuilder:build()
 	local nTupleList = self._tupleList
 	if #nTupleList == 0 then
-		return self._manager:VoidRetTuples(self._node, self._errType or nil)
-	else
-		return RetTuples.new(self._manager, self._node, nTupleList, self._errType)
-	end
+		do return self._manager:VoidRetTuples(self._node, self._errType or nil)
+	 end else
+		do return RetTuples.new(self._manager, self._node, nTupleList, self._errType)
+	 end end
 end
 
-return RetBuilder
-
+do return RetBuilder
+ end 
 end end
 --thlua.tuple.RetBuilder end ==========)
 
@@ -13105,8 +13199,8 @@ local class = require "thlua.class"
 local RetTuples = class ()
 
 RetTuples.__tostring=function(self)
-	return self:detailString({}, false)
-end
+	do return self:detailString({}, false)
+ end end
 
 function RetTuples:ctor(
 	vManager,
@@ -13119,7 +13213,7 @@ function RetTuples:ctor(
 	for _, nTuple in ipairs(vTupleList) do
 		local nFirst = nTuple:get(1)
 		nFirstToTuple[nFirst] = nTuple
-	end
+	::continue:: end
 	local nTask = vManager:getScheduleManager():newTask()
 	local nAsyncFirstType = vManager:AsyncUnion(nTask)
 	self._node=vNode
@@ -13138,7 +13232,7 @@ function RetTuples:ctor(
 			nFirst:foreach(function(vAtomType)
 				nFirstAtomList[#nFirstAtomList + 1] = vAtomType
 			end)
-		end
+		::continue:: end
 		local nAtomUnion = nAsyncFirstType:setAtomList(nFirstAtomList)
 		if not vManager:typeCheckIndependent(nIndependentList, nAtomUnion) then
 			error("return tuples' first type must be independent")
@@ -13150,55 +13244,55 @@ function RetTuples:detailString(vCache , vVerbose)
 	local re = {}
 	for _, t in pairs(self._firstToTuple) do
 		re[#re+1] = t:detailString(vCache, vVerbose)
-	end
-	return "("..table.concat(re, "|")..")"
-end
+	::continue:: end
+	do return "("..table.concat(re, "|")..")"
+ end end
 
 function RetTuples:assumeIncludeTuples(vAssumeSet , vRetTuples)
 	for _, t in pairs(vRetTuples._firstToTuple) do
 		if not self:assumeIncludeTuple(vAssumeSet, t) then
-			return false
-		end
-	end
+			do return false
+		 end end
+	::continue:: end
 	if not self._errType:assumeIncludeAll(vAssumeSet, vRetTuples._errType) then
-		return false
-	end
-	return true
-end
+		do return false
+	 end end
+	do return true
+ end end
 
 function RetTuples:includeTuples(vRetTuples)
-	return self:assumeIncludeTuples(nil, vRetTuples)
-end
+	do return self:assumeIncludeTuples(nil, vRetTuples)
+ end end
 
 function RetTuples:assumeIncludeTuple(vAssumeSet , vRightTypeTuple)
 	for _, t in pairs(self._firstToTuple) do
 		if t:assumeIncludeTuple(vAssumeSet, vRightTypeTuple) then
-			return true
-		end
-	end
-	return false
-end
+			do return true
+		 end end
+	::continue:: end
+	do return false
+ end end
 
 function RetTuples:includeTuple(vRightTypeTuple)
-	return self:assumeIncludeTuple(nil, vRightTypeTuple)
-end
+	do return self:assumeIncludeTuple(nil, vRightTypeTuple)
+ end end
 
 function RetTuples:foreachWithFirst(vFunc )
 	for nFirst, nTuple in pairs(self._firstToTuple) do
 		vFunc(nTuple, nFirst)
-	end
+	::continue:: end
 end
 
 function RetTuples:getFirstType()
-	return self._firstType:getTypeAwait()
-end
+	do return self._firstType:getTypeAwait()
+ end end
 
 function RetTuples:getErrType()
-	return self._errType:checkAtomUnion()
-end
+	do return self._errType:checkAtomUnion()
+ end end
 
-return RetTuples
-
+do return RetTuples
+ end 
 end end
 --thlua.tuple.RetTuples end ==========)
 
@@ -13225,21 +13319,21 @@ function TermTuple:__tostring()
 	local re = {}
 	for i=1, #self do
 		re[i] = tostring(self._list[i]:getType())
-	end
+	::continue:: end
 	local nTail = self._tail
 	if nTail then
 		re[#re + 1] = tostring(nTail) .."*"
 	end
 	if self._auto then
-		return "AutoTermTuple("..table.concat(re, ",")..")"
-	else
-		return "FixedTermTuple("..table.concat(re, ",")..")"
-	end
+		do return "AutoTermTuple("..table.concat(re, ",")..")"
+	 end else
+		do return "FixedTermTuple("..table.concat(re, ",")..")"
+	 end end
 end
 
 function TermTuple:__len()
-	return #self._list
-end
+	do return #self._list
+ end end
 
 function TermTuple.new(
 	vContext,
@@ -13256,48 +13350,48 @@ function TermTuple.new(
 		_typeTuple=vTypeTuple,
 		_auto=vAuto,
 	}, TermTuple)
-	return self
-end
+	do return self
+ end end
 
 function TermTuple:select(vContext, i) 
 	local nList = {}
 	for n=i,#self._list do
 		nList[#nList + 1] = self._list[n]
-	end
+	::continue:: end
 	     
 	if self._auto then
-		return self._context:UTermTupleByTail(nList, self._tail)
-	else
-		return self._context:FixedTermTuple(nList, self:getRepeatType())
-	end
+		do return self._context:UTermTupleByTail(nList, self._tail)
+	 end else
+		do return self._context:FixedTermTuple(nList, self:getRepeatType())
+	 end end
 end
 
 function TermTuple:rawget(i)
-	return self._list[i]
-end
+	do return self._list[i]
+ end end
 
 function TermTuple:checkFixed(vContext, i)
 	local nTerm = self:get(vContext, i)
-	return nTerm:checkRefineTerm(vContext)
-end
+	do return nTerm:checkRefineTerm(vContext)
+ end end
 
 function TermTuple:get(vContext, i)
 	local nMore = i - #self
 	if nMore <= 0 then
-		return self._list[i]
-	else
+		do return self._list[i]
+	 end else
 		local nTail = self._tail
 		if nTail then
-			return nTail:getMore(vContext, nMore)
-		else
-			return vContext:RefineTerm(self._manager.type.Nil)
-		end
+			do return nTail:getMore(vContext, nMore)
+		 end else
+			do return vContext:RefineTerm(self._manager.type.Nil)
+		 end end
 	end
 end
 
 function TermTuple:getContext()
-	return self._context
-end
+	do return self._context
+ end end
 
 function TermTuple:checkTypeTuple(vSeal)  
 	if self._auto then
@@ -13305,34 +13399,34 @@ function TermTuple:checkTypeTuple(vSeal)
 		for i,v in ipairs(self._list) do
 			local nType = v:getType()
 			if not nType then
-				return false
-			end
+				do return false
+			 end end
 			nTypeList[i] = nType
-		end
+		::continue:: end
 		local nTail = self._tail
 		if AutoTail.is(nTail) then
 			local nTailTuple = nTail:checkTypeTuple(vSeal)
 			if not nTailTuple then
-				return false
-			else
+				do return false
+			 end else
 				for i=1,#nTailTuple do
 					nTypeList[#nTypeList + 1] = nTailTuple:get(i)
-				end
+				::continue:: end
 				local nFinalTuple = self._manager:TypeTuple(self._context:getNode(), nTypeList)
 				local nRepeatType = nTailTuple:getRepeatType()
 				if nRepeatType then
-					return nFinalTuple:withDots(nRepeatType)
-				else
-					return nFinalTuple
-				end
+					do return nFinalTuple:withDots(nRepeatType)
+				 end else
+					do return nFinalTuple
+				 end end
 			end
 		else
 			local nTuple = self._manager:TypeTuple(self._context:getNode(), nTypeList)
 			if not nTail then
-				return nTuple
-			else
-				return nTuple:withDots(nTail:getRepeatType())
-			end
+				do return nTuple
+			 end else
+				do return nTuple:withDots(nTail:getRepeatType())
+			 end end
 		end
 	else
 		local nTypeTuple = self._typeTuple
@@ -13340,47 +13434,47 @@ function TermTuple:checkTypeTuple(vSeal)
 			local nList = {}
 			for i,v in ipairs(self._list) do
 				nList[i] = v:getType()
-			end
+			::continue:: end
 			nTypeTuple = self._manager:TypeTuple(self._context:getNode(), nList)
 			local nTail = self._tail
 			if nTail then
 				nTypeTuple = nTypeTuple:withDots(nTail:getRepeatType())
 			end
 			self._typeTuple = nTypeTuple
-			return nTypeTuple
-		else
-			return nTypeTuple
-		end
+			do return nTypeTuple
+		 end else
+			do return nTypeTuple
+		 end end
 	end
 end
 
 function TermTuple:getTail()
-	return self._tail
-end
+	do return self._tail
+ end end
 
 function TermTuple:getRepeatType()
 	local nTail = self._tail
 	if DotsTail.is(nTail) then
-		return nTail:getRepeatType()
-	else
-		return false
-	end
+		do return nTail:getRepeatType()
+	 end else
+		do return false
+	 end end
 end
 
 function TermTuple.is(t)
-	return getmetatable(t) == TermTuple
-end
+	do return getmetatable(t) == TermTuple
+ end end
 
 function TermTuple.isAuto(t)
-	return getmetatable(t) == TermTuple and t._auto
-end
+	do return getmetatable(t) == TermTuple and t._auto
+ end end
 
 function TermTuple.isFixed(t)
-	return getmetatable(t) == TermTuple and not t._auto
-end
+	do return getmetatable(t) == TermTuple and not t._auto
+ end end
 
-return TermTuple
-
+do return TermTuple
+ end 
 end end
 --thlua.tuple.TermTuple end ==========)
 
@@ -13399,75 +13493,75 @@ local function TupleClass()
 	local t = {}
 	t.__index=t
 	t.__tostring=function(self)
-		return self:detailString({}, false)
-	end
+		do return self:detailString({}, false)
+	 end end
 	function t.__len(self)
-		return #self._list
-	end
+		do return #self._list
+	 end end
 	function t:detailStringIfFirst(vCache , vVerbose, vHasFirst)
 		local re = {}
 		local nStartIndex = vHasFirst and 1 or 2
 		for i=nStartIndex, #self do
 			re[#re + 1] = self._list[i]:detailString(vCache, vVerbose)
-		end
+		::continue:: end
 		local nRepeatType = self:getRepeatType()
 		if nRepeatType then
 			re[#re + 1] = nRepeatType:detailString(vCache, vVerbose) .."*"
 		end
-		return "Tuple("..table.concat(re, ",")..")"
-	end
+		do return "Tuple("..table.concat(re, ",")..")"
+	 end end
 	function t:detailString(vCache , vVerbose)
-		return self:detailStringIfFirst(vCache, vVerbose, true)
-	end
+		do return self:detailStringIfFirst(vCache, vVerbose, true)
+	 end end
 	function t:makeTermTuple(vContext)
 		local nTermList = {}
 		for i=1, #self do
 			nTermList[i] = vContext:RefineTerm(self._list[i])
-		end
-		return vContext:FixedTermTuple(nTermList, self:getRepeatType(), self)
-	end
+		::continue:: end
+		do return vContext:FixedTermTuple(nTermList, self:getRepeatType(), self)
+	 end end
 	function t:assumeIncludeTuple(vAssumeSet , vRightTypeTuple)
 		local nLeftRepeatType = self:getRepeatType()
 		local nRightRepeatType = vRightTypeTuple:getRepeatType()
 		if (not nLeftRepeatType) and nRightRepeatType then
-			return false
-		end
+			do return false
+		 end end
 		if nLeftRepeatType and nRightRepeatType then
 			if not nLeftRepeatType:assumeIncludeAll(vAssumeSet, nRightRepeatType) then
-				return false
-			end
+				do return false
+			 end end
 		end
 		     
 		for i=1, #vRightTypeTuple do
 			local nLeftType = self._list[i] or nLeftRepeatType
 			if not nLeftType then
-				return false
-			end
+				do return false
+			 end end
 			if not nLeftType:assumeIncludeAll(vAssumeSet, vRightTypeTuple:get(i)) then
-				return false
-			end
-		end
+				do return false
+			 end end
+		::continue:: end
 		for i=#vRightTypeTuple + 1, #self do
 			local nLeftType = self._list[i]:checkAtomUnion()
 			if not nLeftType:isNilable() then
-				return false
-			end
+				do return false
+			 end end
 			if nRightRepeatType then
 				if not nLeftType:assumeIncludeAll(vAssumeSet, nRightRepeatType) then
-					return false
-				end
+					do return false
+				 end end
 			end
-		end
-		return true
-	end
+		::continue:: end
+		do return true
+	 end end
 	function t:includeTuple(vRightTypeTuple)
-		return self:assumeIncludeTuple(nil, vRightTypeTuple)
-	end
-	return t
-end
+		do return self:assumeIncludeTuple(nil, vRightTypeTuple)
+	 end end
+	do return t
+ end end
 
-return TupleClass
-
+do return TupleClass
+ end 
 end end
 --thlua.tuple.TupleClass end ==========)
 
@@ -13489,36 +13583,36 @@ function TypeTuple.new(vManager, vNode, vList)
 		_node=vNode,
 		_list=vList,
 	}, TypeTuple)
-	return self
-end
+	do return self
+ end end
 
 function TypeTuple:getRepeatType()
-	return false
-end
+	do return false
+ end end
 
 function TypeTuple:withDots(vType)
 	local nWithNil = self._manager:buildUnion(self._node, vType, self._manager.type.Nil)
-	return TypeTupleDots.new(self._manager, self._node, self._list, vType, nWithNil)
-end
+	do return TypeTupleDots.new(self._manager, self._node, self._list, vType, nWithNil)
+ end end
 
 function TypeTuple:leftAppend(vType)
-	return TypeTuple.new(self._manager, self._node, {vType, table.unpack(self._list)})
-end
+	do return TypeTuple.new(self._manager, self._node, {vType, table.unpack(self._list)})
+ end end
 
 function TypeTuple:get(i)
-	return self._list[i] or self._manager.type.Nil
-end
+	do return self._list[i] or self._manager.type.Nil
+ end end
 
 function TypeTuple:select(i)
-	return self._manager:TypeTuple(self._node, {table.unpack(self._list, i)})
-end
+	do return self._manager:TypeTuple(self._node, {table.unpack(self._list, i)})
+ end end
 
 function TypeTuple.is(t)
-	return getmetatable(t) == TypeTuple
-end
+	do return getmetatable(t) == TypeTuple
+ end end
 
-return TypeTuple
-
+do return TypeTuple
+ end 
 end end
 --thlua.tuple.TypeTuple end ==========)
 
@@ -13545,36 +13639,36 @@ function TypeTupleDots.new(
 		_repeatType=vRepeatType,
 		_repeatTypeWithNil=vRepeatTypeWithNil,
 	}, TypeTupleDots)
-	return self
-end
+	do return self
+ end end
 
 function TypeTupleDots:getRepeatType()
-	return self._repeatType
-end
+	do return self._repeatType
+ end end
 
 function TypeTupleDots:leftAppend(vType)
-	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list)}, self._repeatType, self._repeatTypeWithNil)
-end
+	do return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list)}, self._repeatType, self._repeatTypeWithNil)
+ end end
 
 function TypeTupleDots:get(i)
 	if i <= #self then
-		return self._list[i]
-	else
-		return self._repeatTypeWithNil
-	end
+		do return self._list[i]
+	 end else
+		do return self._repeatTypeWithNil
+	 end end
 end
 
 function TypeTupleDots:select(i)
 	local nList  = {table.unpack(self._list, i)}
-	return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType, self._repeatTypeWithNil)
-end
+	do return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType, self._repeatTypeWithNil)
+ end end
 
 function TypeTupleDots.is(t)
-	return getmetatable(t) == TypeTupleDots
-end
+	do return getmetatable(t) == TypeTupleDots
+ end end
 
-return TypeTupleDots
-
+do return TypeTupleDots
+ end 
 end end
 --thlua.tuple.TypeTupleDots end ==========)
 
@@ -13620,24 +13714,24 @@ local bopNoEq = {
 
 for k,v in pairs(comparison) do
 	bopNoEq[k] = v
-end
+::continue:: end
 
 for k,v in pairs(bitwise) do
 	bopNoEq[k] = v
-end
+::continue:: end
 
 for k,v in pairs(mathematic) do
 	bopNoEq[k] = v
-end
+::continue:: end
 
-return {
+do return {
 	bitwise=bitwise,
 	mathematic=mathematic,
 	comparison=comparison,
 	bopNoEq=bopNoEq,
 	uopNoLen=uopNoLen,
 }
-
+ end 
 end end
 --thlua.type.OPER_ENUM end ==========)
 
@@ -13659,8 +13753,8 @@ local TYPE_BITS = {
 	TRUTH = 0x1FF-3,        
 }
 
-return TYPE_BITS
-
+do return TYPE_BITS
+ end 
 end end
 --thlua.type.TYPE_BITS end ==========)
 
@@ -13784,8 +13878,8 @@ packages['thlua.type.TypeClass'] = function (...)
 
 
 
-return {}
-
+do return {}
+ end 
 end end
 --thlua.type.TypeClass end ==========)
 
@@ -13811,8 +13905,8 @@ function BaseAtomType:ctor(vManager, ...)
 end
 
 function BaseAtomType.__bor(vLeft, vRight)
-	return vLeft._manager:checkedUnion(vLeft, vRight)
-end
+	do return vLeft._manager:checkedUnion(vLeft, vRight)
+ end end
 
 function BaseAtomType:foreach(vFunc)
 	vFunc(self)
@@ -13820,19 +13914,19 @@ end
 
 function BaseAtomType:isSingleton()
 	error(tostring(self).."is singleton TODO")
-	return false
-end
+	do return false
+ end end
 
    
 function BaseAtomType:meta_ipairs(vContext)
 	vContext:error(tostring(self).."'s meta_ipairs not implement")
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:meta_pairs(vContext)
 	vContext:error(tostring(self).."'s meta_pairs not implement")
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:meta_set(vContext, vKeyType, vValueType)
 	vContext:error(tostring(self).." can't take set index")
@@ -13840,8 +13934,8 @@ end
 
 function BaseAtomType:meta_get(vContext, vKeyType)
 	vContext:error(tostring(self).." can't take get index")
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:meta_call(vContext, vTypeTuple)
 	vContext:error(tostring(self).." can't take call")
@@ -13860,31 +13954,31 @@ end
 function BaseAtomType:meta_bop_func(vContext, vOper)
 	if OPER_ENUM.mathematic[vOper] then
 		if vOper == "/" then
-			return false, self._manager.builtin.bop.mathematic_divide
-		else
-			return false, self._manager.builtin.bop.mathematic_notdiv
-		end
+			do return false, self._manager.builtin.bop.mathematic_divide
+		 end else
+			do return false, self._manager.builtin.bop.mathematic_notdiv
+		 end end
 	elseif OPER_ENUM.bitwise[vOper] then
-		return false, self._manager.builtin.bop.bitwise
-	elseif OPER_ENUM.comparison[vOper] then
-		return false, self._manager.builtin.bop.comparison
-	elseif vOper == ".." then
-		return false, self._manager.builtin.bop.concat
-	else
+		do return false, self._manager.builtin.bop.bitwise
+	 end elseif OPER_ENUM.comparison[vOper] then
+		do return false, self._manager.builtin.bop.comparison
+	 end elseif vOper == ".." then
+		do return false, self._manager.builtin.bop.concat
+	 end else
 		vContext:error("invalid bop:"..tostring(vOper))
-		return false, nil
-	end
+		do return false, nil
+	 end end
 end
 
 function BaseAtomType:meta_len(vContext)
 	vContext:error(tostring(self).." can't take len oper")
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
 function BaseAtomType:meta_uop_some(vContext, vOper)
 	vContext:error(tostring(self).." can't take uop :"..vOper)
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
    
 function BaseAtomType:native_next(vContext, vInitType)
@@ -13892,13 +13986,13 @@ function BaseAtomType:native_next(vContext, vInitType)
 end
 
 function BaseAtomType:native_tostring()
-	return self._manager.type.String
-end
+	do return self._manager.type.String
+ end end
 
 function BaseAtomType:native_rawget(vContext, vKeyType)
 	vContext:error(tostring(self).." rawget not implement")
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function BaseAtomType:native_rawset(vContext, vKeyType, vValueType)
 	vContext:error(tostring(self).." rawset not implement")
@@ -13906,60 +14000,60 @@ end
 
 function BaseAtomType:castPoly(vContext, vTypeArgsList)
 	vContext:error("poly cast can't work on this type:"..tostring(self))
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:native_type()
 	print("native_type not implement ")
-	return self._manager.type.String
-end
+	do return self._manager.type.String
+ end end
 
 function BaseAtomType:native_getmetatable(vContext)
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function BaseAtomType:native_setmetatable(vContext, vTable)
 	vContext:error("this type setmetatable not implement")
 end
 
 function BaseAtomType:checkTypedObject()
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:isUnion()
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:checkAtomUnion()
-	return self
-end
+	do return self
+ end end
 
 function BaseAtomType:isNever()
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:isNilable()
-	return false
-end
+	do return false
+ end end
 
 function BaseAtomType:assumeIncludeAtom(vAssumeSet, vRightType, vSelfType)
 	if self == vRightType then
-		return self
-	else
-		return false
-	end
+		do return self
+	 end else
+		do return false
+	 end end
 end
 
 function BaseAtomType:assumeIntersectAtom(vAssumeSet, vRightType)
 	if self == vRightType then
-		return self
-	elseif vRightType:assumeIncludeAtom(nil, self) then
-		return self
-	elseif self:assumeIncludeAtom(nil, vRightType) then
-		return vRightType
-	else
-		return false
-	end
+		do return self
+	 end elseif vRightType:assumeIncludeAtom(nil, self) then
+		do return self
+	 end elseif self:assumeIncludeAtom(nil, vRightType) then
+		do return vRightType
+	 end else
+		do return false
+	 end end
 end
 
 function BaseAtomType:putCompletion(vCompletion)
@@ -13970,11 +14064,11 @@ function BaseAtomType:setLocked()
 end
 
 function BaseAtomType:findRequireStack()
-	return false
-end
+	do return false
+ end end
 
-return BaseAtomType
-
+do return BaseAtomType
+ end 
 end end
 --thlua.type.basic.BaseAtomType end ==========)
 
@@ -13999,33 +14093,33 @@ function BaseReadyType:ctor(vManager, ...)
 end
 
 function BaseReadyType:detailString(_, _)
-	return "detailString not implement"
-end
+	do return "detailString not implement"
+ end end
 
 function BaseReadyType:__tostring()
-	return self:detailString({}, false)
-end
+	do return self:detailString({}, false)
+ end end
 
 function BaseReadyType.__bor(vLeft, vRight)
-	return vLeft._manager:checkedUnion(vLeft, vRight)
-end
+	do return vLeft._manager:checkedUnion(vLeft, vRight)
+ end end
 
 function BaseReadyType.__band(vLeft, vRight)
 	local nTypeOrFalse = vLeft:safeIntersect(vRight)
 	if nTypeOrFalse then
-		return nTypeOrFalse
-	else
+		do return nTypeOrFalse
+	 end else
 		error("unexpected intersect")
 	end
 end
 
 function BaseReadyType:unionSign()
-	return tostring(self.id)
-end
+	do return tostring(self.id)
+ end end
 
 function BaseReadyType:mayRecursive()
-	return false
-end
+	do return false
+ end end
 
 function BaseReadyType:putCompletion(vCompletion)
 end
@@ -14039,8 +14133,8 @@ function BaseReadyType:foreachAwait(vFunc)
 end
 
 function BaseReadyType:isReference()
-	return false
-end
+	do return false
+ end end
 
 
 
@@ -14049,12 +14143,12 @@ end
 
 
 function BaseReadyType:intersectAtom(vRight)
-	return self:assumeIntersectAtom(nil, vRight)
-end
+	do return self:assumeIntersectAtom(nil, vRight)
+ end end
 
 function BaseReadyType:includeAtom(vRight)
-	return self:assumeIncludeAtom(nil, vRight)
-end
+	do return self:assumeIncludeAtom(nil, vRight)
+ end end
 
 function BaseReadyType:assumeIntersectSome(vAssumeSet, vRight)
 	local nSomeIntersect = false
@@ -14063,8 +14157,8 @@ function BaseReadyType:assumeIntersectSome(vAssumeSet, vRight)
 			nSomeIntersect = true
 		end
 	end)
-	return nSomeIntersect
-end
+	do return nSomeIntersect
+ end end
 
 function BaseReadyType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	local nAllInclude = true
@@ -14073,16 +14167,16 @@ function BaseReadyType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 			nAllInclude = false
 		end
 	end)
-	return nAllInclude
-end
+	do return nAllInclude
+ end end
 
 function BaseReadyType:intersectSome(vRight)
-	return self:assumeIntersectSome(nil, vRight)
-end
+	do return self:assumeIntersectSome(nil, vRight)
+ end end
 
 function BaseReadyType:includeAll(vRight)
-	return self:assumeIncludeAll(nil, vRight)
-end
+	do return self:assumeIncludeAll(nil, vRight)
+ end end
 
 function BaseReadyType:safeIntersect(vRight)
 	local nLeft = self
@@ -14090,35 +14184,35 @@ function BaseReadyType:safeIntersect(vRight)
 	if not nRight:isUnion() then
 		local nIntersect = nLeft:assumeIntersectAtom(nil, nRight)
 		if nIntersect == true then
-			return false
-		else
-			return nIntersect or self._manager.type.Never
-		end
+			do return false
+		 end else
+			do return nIntersect or self._manager.type.Never
+		 end end
 	else
 		local nCollection = self._manager:TypeCollection()
 		nRight:foreach(function(vSubType)
 			local nIntersect = nLeft:assumeIntersectAtom(nil, vSubType)
 			if nIntersect then
 				if nIntersect == true then
-					return
-				else
+					do return
+				 end else
 					nCollection:put(nIntersect)
 				end
 			end
 		end)
-		return nCollection:mergeToAtomUnion()
-	end
+		do return nCollection:mergeToAtomUnion()
+	 end end
 end
 
 function BaseReadyType:assumeIncludeAtom(_, _, _)
 	error("not implement")
-	return false
-end
+	do return false
+ end end
 
 function BaseReadyType:assumeIntersectAtom(_, _)
 	error("not implement")
-	return false
-end
+	do return false
+ end end
 
 
 
@@ -14126,32 +14220,32 @@ end
 
 
 function BaseReadyType:isNever()
-	return false
-end
+	do return false
+ end end
 
 function BaseReadyType:notnilType()
-	return self
-end
+	do return self
+ end end
 
 function BaseReadyType:isNilable()
-	return false
-end
+	do return false
+ end end
 
 function BaseReadyType:partTypedObject()
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function BaseReadyType:partTypedFunction()
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function BaseReadyType:falseType()
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function BaseReadyType:trueType()
-	return self
-end
+	do return self
+ end end
 
 function BaseReadyType:withnilType()
 	local nWithNilType = self._withnilType
@@ -14162,18 +14256,18 @@ function BaseReadyType:withnilType()
 		nWithNilType = nCollection:mergeToAtomUnion()
 		self._withnilType = nWithNilType
 	end
-	return nWithNilType
-end
+	do return nWithNilType
+ end end
 
 function BaseReadyType:setAssigned(vContext)
 end
 
 function BaseReadyType:isAsync()
-	return false
-end
+	do return false
+ end end
 
-return BaseReadyType
-
+do return BaseReadyType
+ end 
 end end
 --thlua.type.basic.BaseReadyType end ==========)
 
@@ -14198,40 +14292,112 @@ end
 
 function BooleanLiteral:detailString(v, vVerbose)
 	if vVerbose then
-		return "Literal("..tostring(self.literal)..")"
-	else
-		return self.literal and "True" or "False"
-	end
+		do return "Literal("..tostring(self.literal)..")"
+	 end else
+		do return self.literal and "True" or "False"
+	 end end
 end
 
 function BooleanLiteral:isSingleton()
-	return true
-end
+	do return true
+ end end
 
 function BooleanLiteral:native_type()
-	return self._manager:Literal("boolean")
-end
+	do return self._manager:Literal("boolean")
+ end end
 
 function BooleanLiteral:trueType()
 	if self.literal then
-		return self
-	else
-		return self._manager.type.Never
-	end
+		do return self
+	 end else
+		do return self._manager.type.Never
+	 end end
 end
 
 function BooleanLiteral:falseType()
 	if self.literal then
-		return self._manager.type.Never
-	else
-		return self
-	end
+		do return self._manager.type.Never
+	 end else
+		do return self
+	 end end
 end
 
-return BooleanLiteral
-
+do return BooleanLiteral
+ end 
 end end
 --thlua.type.basic.BooleanLiteral end ==========)
+
+--thlua.type.basic.Enum begin ==========(
+do local _ENV = _ENV
+packages['thlua.type.basic.Enum'] = function (...)
+
+local OPER_ENUM = require "thlua.type.OPER_ENUM"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local BaseAtomType = require "thlua.type.basic.BaseAtomType"
+local class = require "thlua.class"
+
+
+  
+
+local Enum = class (BaseAtomType)
+
+function Enum:ctor(vManager, vSuperType)
+    self._superType = vSuperType
+    self._task = vManager:getScheduleManager():newTask()
+    self._set = {}   
+    self._toAddList = {}  
+    self._addEvent = false  
+	self.bits = vSuperType.bits
+    self._task:runAsync(function()
+        while true do
+            local nAddList = self._toAddList
+            if #nAddList == 0 then
+                local nEvent = vManager:getScheduleManager():makeEvent()
+                self._addEvent = nEvent
+                nEvent:wait()
+                self._addEvent = false
+            end
+            self._toAddList = {}
+            for i=1,#nAddList do
+                local nType = nAddList[i]
+                nType:foreachAwait(function(vAtomType)
+                    self._set[vAtomType] = true
+                end)
+            ::continue:: end
+        ::continue:: end
+    end)
+end
+
+function Enum:addType(vType)
+    local nAddList = self._toAddList
+    nAddList[#nAddList + 1] = vType
+    local nAddEvent = self._addEvent
+    if nAddEvent then
+        nAddEvent:wakeup()
+    end
+end
+
+function Enum:native_type()
+    local nSuperType = self._superType
+    if nSuperType:isUnion() then
+        do return self._manager.type.String
+     end else
+        do return nSuperType:native_type()
+     end end
+end
+
+function Enum:detailString(vCache, vVerbose)
+    do return "Enum("..self._superType:detailString(vCache, vVerbose)..")"
+ end end
+
+function Enum:isSingleton()
+	do return false
+ end end
+
+do return Enum
+ end 
+end end
+--thlua.type.basic.Enum end ==========)
 
 --thlua.type.basic.FloatLiteral begin ==========(
 do local _ENV = _ENV
@@ -14253,33 +14419,33 @@ function FloatLiteral:ctor(vManager, vLiteral)
 end
 
 function FloatLiteral:getLiteral()
-	return self.literal
-end
+	do return self.literal
+ end end
 
 function FloatLiteral:native_type()
-	return self._manager:Literal("number")
-end
+	do return self._manager:Literal("number")
+ end end
 
 function FloatLiteral:meta_uop_some(vContext, vOper)
 	if vOper == "-" then
-		return self._manager:Literal(-self.literal)
-	elseif vOper == "~" then
-		return self._manager:Literal(~self.literal)
-	else
-		return self._manager.type.Never
-	end
+		do return self._manager:Literal(-self.literal)
+	 end elseif vOper == "~" then
+		do return self._manager:Literal(~self.literal)
+	 end else
+		do return self._manager.type.Never
+	 end end
 end
 
 function FloatLiteral:detailString(vCache, vVerbose)
-	return "Literal("..self.literal..")"
-end
+	do return "Literal("..self.literal..")"
+ end end
 
 function FloatLiteral:isSingleton()
-	return true
-end
+	do return true
+ end end
 
-return FloatLiteral
-
+do return FloatLiteral
+ end 
 end end
 --thlua.type.basic.FloatLiteral end ==========)
 
@@ -14302,37 +14468,37 @@ function Integer:ctor(vManager)
 end
 
 function Integer:detailString(v, vVerbose)
-	return "Integer"
-end
+	do return "Integer"
+ end end
 
 function Integer:meta_uop_some(vContext, vOper)
-	return self
-end
+	do return self
+ end end
 
 function Integer:native_getmetatable(vContext)
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function Integer:native_type()
-	return self._manager:Literal("number")
-end
+	do return self._manager:Literal("number")
+ end end
 
 function Integer:assumeIncludeAtom(vAssumetSet, vType, _)
 	if IntegerLiteral.is(vType) then
-		return self
-	elseif self == vType then
-		return self
-	else
-		return false
-	end
+		do return self
+	 end elseif self == vType then
+		do return self
+	 end else
+		do return false
+	 end end
 end
 
 function Integer:isSingleton()
-	return false
-end
+	do return false
+ end end
 
-return Integer
-
+do return Integer
+ end 
 end end
 --thlua.type.basic.Integer end ==========)
 
@@ -14356,33 +14522,33 @@ function IntegerLiteral:ctor(vManager, vLiteral)
 end
 
 function IntegerLiteral:getLiteral()
-	return self.literal
-end
+	do return self.literal
+ end end
 
 function IntegerLiteral:native_type()
-	return self._manager:Literal("number")
-end
+	do return self._manager:Literal("number")
+ end end
 
 function IntegerLiteral:meta_uop_some(vContext, vOper)
 	if vOper == "-" then
-		return self._manager:Literal(-self.literal)
-	elseif vOper == "~" then
-		return self._manager:Literal(~self.literal)
-	else
-		return self._manager.type.Never
-	end
+		do return self._manager:Literal(-self.literal)
+	 end elseif vOper == "~" then
+		do return self._manager:Literal(~self.literal)
+	 end else
+		do return self._manager.type.Never
+	 end end
 end
 
 function IntegerLiteral:detailString(vCache, vVerbose)
-	return "Literal("..self.literal..")"
-end
+	do return "Literal("..self.literal..")"
+ end end
 
 function IntegerLiteral:isSingleton()
-	return true
-end
+	do return true
+ end end
 
-return IntegerLiteral
-
+do return IntegerLiteral
+ end 
 end end
 --thlua.type.basic.IntegerLiteral end ==========)
 
@@ -14403,23 +14569,23 @@ function LightUserdata:ctor(vManager)
 end
 
 function LightUserdata:detailString(vToStringCache, vVerbose)
-	return "LightUserdata"
-end
+	do return "LightUserdata"
+ end end
 
 function LightUserdata:native_getmetatable(vContext)
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function LightUserdata:native_type()
-	return self._manager:Literal("userdata")
-end
+	do return self._manager:Literal("userdata")
+ end end
 
 function LightUserdata:isSingleton()
-	return false
-end
+	do return false
+ end end
 
-return LightUserdata
-
+do return LightUserdata
+ end 
 end end
 --thlua.type.basic.LightUserdata end ==========)
 
@@ -14441,39 +14607,39 @@ function Nil:ctor(vManager)
 end
 
 function Nil:detailString(v, vVerbose)
-	return "Nil"
-end
+	do return "Nil"
+ end end
 
 function Nil:native_getmetatable(vContext)
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function Nil:native_type()
-	return self._manager:Literal("nil")
-end
+	do return self._manager:Literal("nil")
+ end end
 
 function Nil:isSingleton()
-	return true
-end
+	do return true
+ end end
 
 function Nil:trueType()
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function Nil:falseType()
-	return self
-end
+	do return self
+ end end
 
 function Nil:isNilable()
-	return true
-end
+	do return true
+ end end
 
 function Nil:notnilType()
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
-return Nil
-
+do return Nil
+ end 
 end end
 --thlua.type.basic.Nil end ==========)
 
@@ -14498,41 +14664,41 @@ function Number:ctor(vManager)
 end
 
 function Number:detailString(v, vVerbose)
-	return "Number"
-end
+	do return "Number"
+ end end
 
 function Number:meta_uop_some(vContext, vOper)
-	return self
-end
+	do return self
+ end end
 
 function Number:native_getmetatable(vContext)
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function Number:native_type()
-	return self._manager:Literal("number")
-end
+	do return self._manager:Literal("number")
+ end end
 
 function Number:assumeIncludeAtom(vAssumetSet, vType, _)
 	if FloatLiteral.is(vType) then
-		return self
-	elseif IntegerLiteral.is(vType) then
-		return self
-	elseif Integer.is(vType) then
-		return self
-	elseif self == vType then
-		return self
-	else
-		return false
-	end
+		do return self
+	 end elseif IntegerLiteral.is(vType) then
+		do return self
+	 end elseif Integer.is(vType) then
+		do return self
+	 end elseif self == vType then
+		do return self
+	 end else
+		do return false
+	 end end
 end
 
 function Number:isSingleton()
-	return false
-end
+	do return false
+ end end
 
-return Number
-
+do return Number
+ end 
 end end
 --thlua.type.basic.Number end ==========)
 
@@ -14555,45 +14721,45 @@ function String:ctor(vManager)
 end
 
 function String:detailString(v, vVerbose)
-	return "String"
-end
+	do return "String"
+ end end
 
 function String:native_getmetatable(vContext)
-	return self._manager.builtin.string
-end
+	do return self._manager.builtin.string
+ end end
 
 function String:native_type()
-	return self._manager:Literal("string")
-end
+	do return self._manager:Literal("string")
+ end end
 
 function String:meta_len(vContext)
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
 function String:meta_get(vContext, vKeyType)
-	return self._manager.builtin.string:meta_get(vContext, vKeyType)
-end
+	do return self._manager.builtin.string:meta_get(vContext, vKeyType)
+ end end
 
 function String:assumeIncludeAtom(vAssumeSet, vType, _)
 	if StringLiteral.is(vType) then
-		return self
-	elseif self == vType then
-		return self
-	else
-		return false
-	end
+		do return self
+	 end elseif self == vType then
+		do return self
+	 end else
+		do return false
+	 end end
 end
 
 function String:isSingleton()
-	return false
-end
+	do return false
+ end end
 
 function String:putCompletion(vFieldCompletion)
 	self._manager.builtin.string:putCompletion(vFieldCompletion)
 end
 
-return String
-
+do return String
+ end 
 end end
 --thlua.type.basic.String end ==========)
 
@@ -14617,31 +14783,31 @@ function StringLiteral:ctor(vManager, vLiteral)
 end
 
 function StringLiteral:getLiteral()
-	return self.literal
-end
+	do return self.literal
+ end end
 
 function StringLiteral:detailString(v, vVerbose)
-	return "Literal('"..self.literal.."')"
-end
+	do return "Literal('"..self.literal.."')"
+ end end
 
 function StringLiteral:isSingleton()
-	return true
-end
+	do return true
+ end end
 
 function StringLiteral:meta_len(vContext)
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
 function StringLiteral:meta_get(vContext, vKeyType)
-	return self._manager.builtin.string:meta_get(vContext, vKeyType)
-end
+	do return self._manager.builtin.string:meta_get(vContext, vKeyType)
+ end end
 
 function StringLiteral:putCompletion(vFieldCompletion)
 	self._manager.builtin.string:putCompletion(vFieldCompletion)
 end
 
-return StringLiteral
-
+do return StringLiteral
+ end 
 end end
 --thlua.type.basic.StringLiteral end ==========)
 
@@ -14662,23 +14828,23 @@ function Thread:ctor(vManager)
 end
 
 function Thread:detailString(vToStringCache, vVerbose)
-	return "Thread"
-end
+	do return "Thread"
+ end end
 
 function Thread:native_getmetatable(vContext)
-	return self._manager.type.Nil
-end
+	do return self._manager.type.Nil
+ end end
 
 function Thread:native_type()
-	return self._manager:Literal("thread")
-end
+	do return self._manager:Literal("thread")
+ end end
 
 function Thread:isSingleton()
-	return false
-end
+	do return false
+ end end
 
-return Thread
-
+do return Thread
+ end 
 end end
 --thlua.type.basic.Thread end ==========)
 
@@ -14700,32 +14866,32 @@ function Truth:ctor(vManager)
 end
 
 function Truth:detailString(vToStringCache, vVerbose)
-	return "Truth"
-end
+	do return "Truth"
+ end end
 
 function Truth:native_setmetatable(vContext, vMetaTableType)
 end
 
 function Truth:native_getmetatable(vContext)
-	return self
-end
+	do return self
+ end end
 
 function Truth:native_type()
 	   
-	return self._manager.type.String
-end
+	do return self._manager.type.String
+ end end
 
 function Truth:native_rawget(vContext, vKeyType)
-	return self
-end
+	do return self
+ end end
 
 function Truth:native_rawset(vContext, vKeyType, vValueTypeSet)
 end
 
 function Truth:meta_get(vContext, vKeyType)
 	vContext:pushFirstAndTuple(self)
-	return true
-end
+	do return true
+ end end
 
 function Truth:meta_set(vContext, vKeyType, vValueTerm)
 end
@@ -14735,34 +14901,34 @@ function Truth:meta_call(vContext, vTypeTuple)
 end
 
 function Truth:meta_pairs(vContext)
-	return false
-end
+	do return false
+ end end
 
 function Truth:meta_ipairs(vContext)
-	return false
-end
+	do return false
+ end end
 
 function Truth:native_next(vContext, vInitType)
-	return self._manager.type.Never, {}
-end
+	do return self._manager.type.Never, {}
+ end end
 
 function Truth:isSingleton()
-	return false
-end
+	do return false
+ end end
 
 function Truth:assumeIncludeAtom(vAssumeSet, vType, _)
 	local nManagerType = self._manager.type
 	if vType == nManagerType.Nil then
-		return false
-	elseif vType == nManagerType.False then
-		return false
-	else
-		return self
-	end
+		do return false
+	 end elseif vType == nManagerType.False then
+		do return false
+	 end else
+		do return self
+	 end end
 end
 
-return Truth
-
+do return Truth
+ end 
 end end
 --thlua.type.basic.Truth end ==========)
 
@@ -14783,8 +14949,8 @@ local class = require "thlua.class"
 local AnyFunction = class (BaseFunction)
 
 function AnyFunction:detailString(vToStringCache , vVerbose)
-	return "AnyFunction"
-end
+	do return "AnyFunction"
+ end end
 
 function AnyFunction:meta_call(vContext, vTypeTuple)
 	vContext:pushRetTuples(self._manager:VoidRetTuples(vContext:getNode()))
@@ -14792,18 +14958,18 @@ end
 
 function AnyFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
 	if BaseFunction.is(vRight) then
-		return self
-	else
-		return false
-	end
+		do return self
+	 end else
+		do return false
+	 end end
 end
 
 function AnyFunction:mayRecursive()
-	return false
-end
+	do return false
+ end end
 
-return AnyFunction
-
+do return AnyFunction
+ end 
 end end
 --thlua.type.func.AnyFunction end ==========)
 
@@ -14823,8 +14989,8 @@ local class = require "thlua.class"
 
 local AutoFunction = class (SealFunction)
 AutoFunction.__tostring=function(self)
-	return "autofn@"..tostring(self._node)
-end
+	do return "autofn@"..tostring(self._node)
+ end end
 
 function AutoFunction:ctor(...)
 	self._castTypeFn=false
@@ -14834,12 +15000,12 @@ end
 function AutoFunction:meta_call(vContext, vTermTuple)
 	self._firstCallCtx = vContext
 	local nTypeFn = self:getFnAwait()
-	return nTypeFn:meta_call(vContext, vTermTuple)
-end
+	do return nTypeFn:meta_call(vContext, vTermTuple)
+ end end
 
 function AutoFunction:isCastable()
-	return not self._firstCallCtx
-end
+	do return not self._firstCallCtx
+ end end
 
 function AutoFunction:checkWhenCast(vContext, vTypeFn)
 	if self._builderFn then
@@ -14855,19 +15021,19 @@ function AutoFunction:checkWhenCast(vContext, vTypeFn)
 				vContext:error("auto-function cast to multi type", self._node)
 			end
 		end
-		return true
-	else
+		do return true
+	 end else
 		vContext:error("TODO, auto-function cast after building start", self._node)
-		return false
-	end
+		do return false
+	 end end
 end
 
 function AutoFunction:pickCastTypeFn()
-	return self._castTypeFn
-end
+	do return self._castTypeFn
+ end end
 
-return AutoFunction
-
+do return AutoFunction
+ end 
 end end
 --thlua.type.func.AutoFunction end ==========)
 
@@ -14896,8 +15062,8 @@ function AutoMemberFunction:ctor(_, _, vPolyFn)
 end
 
 function AutoMemberFunction:detailString(vToStringCache , vVerbose)
-	return "AutoMemberFunction@"..tostring(self._node)
-end
+	do return "AutoMemberFunction@"..tostring(self._node)
+ end end
 
 function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 	if #vPolyArgs == 0 and self:needPolyArgs() then
@@ -14908,14 +15074,14 @@ function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTup
 end
 
 function AutoMemberFunction:needPolyArgs()
-	return self._polyFn:getPolyParNum() > 1
-end
+	do return self._polyFn:getPolyParNum() > 1
+ end end
 
 function AutoMemberFunction:indexAutoFn(vType)
 	local nFn = self._polyFn:noCtxCastPoly({vType})
 	if AutoFunction.is(nFn) then
-		return nFn
-	else
+		do return nFn
+	 end else
 		error("auto function is expected here")
 	end
 end
@@ -14923,16 +15089,16 @@ end
 function AutoMemberFunction:indexTypeFn(vType)
 	local nFn = self._polyFn:noCtxCastPoly({vType})
 	if AutoFunction.is(nFn) then
-		return nFn:getFnAwait()
-	elseif TypedFunction.is(nFn) then
-		return nFn
-	else
+		do return nFn:getFnAwait()
+	 end elseif TypedFunction.is(nFn) then
+		do return nFn
+	 end else
 		error("class factory can't member function")
 	end
 end
 
-return AutoMemberFunction
-
+do return AutoMemberFunction
+ end 
 end end
 --thlua.type.func.AutoMemberFunction end ==========)
 
@@ -14957,31 +15123,31 @@ function BaseFunction:ctor(vManager, vNode, ...)
 end
 
 function BaseFunction:native_type()
-	return self._manager:Literal("function")
-end
+	do return self._manager:Literal("function")
+ end end
 
 function BaseFunction:detailString(vToStringCache, vVerbose)
-	return "BaseFunction"
-end
+	do return "BaseFunction"
+ end end
 
 function BaseFunction:meta_call(vContext, vTermTuple)
 	error("function "..tostring(self).." can't apply as call")
 end
 
 function BaseFunction:isSingleton()
-	return false
-end
+	do return false
+ end end
 
 function BaseFunction:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function BaseFunction:getUseNodeSet()
-	return self._useNodeSet
-end
+	do return self._useNodeSet
+ end end
 
-return BaseFunction
-
+do return BaseFunction
+ end 
 end end
 --thlua.type.func.BaseFunction end ==========)
 
@@ -15001,8 +15167,8 @@ local class = require "thlua.class"
 
 local ClassFactory = class (SealFunction)
 function ClassFactory.__tostring(self)
-	return "class@"..tostring(self._node)
-end
+	do return "class@"..tostring(self._node)
+ end end
 
 function ClassFactory:ctor(vManager, ...)
 	local nTask = self._task
@@ -15015,8 +15181,8 @@ function ClassFactory:getClassTable(vWaitInit)
 	if vWaitInit then
 		nTable:waitInit()
 	end
-	return nTable
-end
+	do return nTable
+ end end
 
 function ClassFactory:wakeupTableBuild()
 	self._classBuildEvent:wakeup()
@@ -15030,8 +15196,8 @@ function ClassFactory:waitTableBuild()
 	end
 end
 
-return ClassFactory
-
+do return ClassFactory
+ end 
 end end
 --thlua.type.func.ClassFactory end ==========)
 
@@ -15055,11 +15221,11 @@ local class = require "thlua.class"
 local MemberFunction = class (BaseFunction)
 
 function MemberFunction:detailString(vToStringCache , vVerbose)
-	return ""
-end
+	do return ""
+ end end
 
-return MemberFunction
-
+do return MemberFunction
+ end 
 end end
 --thlua.type.func.MemberFunction end ==========)
 
@@ -15090,70 +15256,70 @@ end
 
 function OpenFunction:lateInitFromAutoNative(vNativeFunc)
 	self._func = vNativeFunc
-	return self
-end
+	do return self
+ end end
 
 function OpenFunction:lateInitFromMetaNative(
 	vNativeFunc 
 )
 	local nFn = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
-		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
+		do return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
 			vNativeFunc(vContext, vType)
 		end):mergeReturn(), vStack:mergeEndErrType()
-	end
+	 end end
 	self._func = nFn
-	return self
-end
+	do return self
+ end end
 
 function OpenFunction:lateInitFromOperNative(
 	vNativeFunc   
 )
 	local nFn = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
-		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
-	end
+		do return vNativeFunc(vStack:inplaceOper(), vTermTuple)
+	 end end
 	self._func = nFn
-	return self
-end
+	do return self
+ end end
 
 function OpenFunction:castPoly(vContext, vTypeList)
 	local nPolyWrapper = self._polyWrapper
 	if nPolyWrapper then
-		return nPolyWrapper(vTypeList)
-	else
+		do return nPolyWrapper(vTypeList)
+	 end else
 		vContext:error("this open function can't cast poly")
-		return self
-	end
+		do return self
+	 end end
 end
 
 function OpenFunction:lateInitFromBuilder(vPolyParNum, vFunc    )
 	local nNoPolyFn = function(vStack, vTermTuple)
 		if vPolyParNum == 0 then
-			return vFunc(self, vStack, {}, vTermTuple)
-		else
+			do return vFunc(self, vStack, {}, vTermTuple)
+		 end else
 			vStack:inplaceOper():error("this open function need poly args")
 		end
 	end
 	local nPolyWrapper = function(vList)
-		return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
+		do return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
 			if #vList ~= vPolyParNum then
 				vStack:inplaceOper():error("poly args number not match")
 			end
-			return vFunc(self, vStack, vList, vTermTuple)
-		end)
-	end
+			do return vFunc(self, vStack, vList, vTermTuple)
+		 end end)
+	 end end
 	self._func = nNoPolyFn
 	self._polyWrapper = nPolyWrapper
-	return self
-end
+	do return self
+ end end
 
 function OpenFunction:lateInitFromMapGuard(vMapObject)
 	local nNil = self._manager.type.Nil
 	local nFalse = self._manager.type.False
 	local nFn = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
-		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+		do return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 			local nTerm = vTermTuple:get(vContext, 1)
 			nTerm:foreach(function(vType, vCase)
 				vContext:withCase(vCase, function()
@@ -15169,14 +15335,14 @@ function OpenFunction:lateInitFromMapGuard(vMapObject)
 						else
 							vContext:pushFirstAndTuple(nNil)
 						end
-					end
+					::continue:: end
 				end)
 			end)
 		end):mergeFirst(), vStack:mergeEndErrType()
-	end
+	 end end
 	self._func = nFn
-	return self
-end
+	do return self
+ end end
 
 function OpenFunction:lateInitFromIsGuard(vType)
 	local nTrue = self._manager.type.True
@@ -15184,7 +15350,7 @@ function OpenFunction:lateInitFromIsGuard(vType)
 	local nFn = function(vStack, vTermTuple)
 		local nGuardType = vType:checkAtomUnion()
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
-		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
+		do return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 			local nTerm = vTermTuple:get(vContext, 1)
 			nTerm:foreach(function(vType, vCase)
 				vContext:withCase(vCase, function()
@@ -15201,18 +15367,18 @@ function OpenFunction:lateInitFromIsGuard(vType)
 				end)
 			end)
 		end):mergeFirst(), vStack:mergeEndErrType()
-	end
+	 end end
 	self._func = nFn
-	return self
-end
+	do return self
+ end end
 
 function OpenFunction:detailString(v, vVerbose)
-	return "OpenFunction@"..tostring(self._node)
-end
+	do return "OpenFunction@"..tostring(self._node)
+ end end
 
 function OpenFunction:newStack(vNode, vApplyStack)
-	return self._manager:getRuntime():OpenStack(vNode, self._lexCapture, self, vApplyStack, false)
-end
+	do return self._manager:getRuntime():OpenStack(vNode, self._lexCapture, self, vApplyStack, false)
+ end end
 
 function OpenFunction:meta_call(vContext, vTermTuple)
 	local nRet, nStack = self:meta_open_call(vContext, vTermTuple, false)
@@ -15222,27 +15388,27 @@ end
 
 function OpenFunction:meta_open_call(vContext, vTermTuple, vIsRequire) 
 	local nNewStack = self._manager:getRuntime():OpenStack(vContext:getNode(), self._lexCapture, self, vContext:getStack(), vIsRequire)
-	return self._func(nNewStack, vTermTuple), nNewStack
-end
+	do return self._func(nNewStack, vTermTuple), nNewStack
+ end end
 
 function OpenFunction:findRequireStack()
 	local nLexCapture = self._lexCapture
 	if not nLexCapture then
-		return false
-	end
-	return nLexCapture.branch:getStack():findRequireStack()
-end
+		do return false
+	 end end
+	do return nLexCapture.branch:getStack():findRequireStack()
+ end end
 
 function OpenFunction:isSingleton()
-	return true
-end
+	do return true
+ end end
 
 function OpenFunction:mayRecursive()
-	return false
-end
+	do return false
+ end end
 
-return OpenFunction
-
+do return OpenFunction
+ end 
 end end
 --thlua.type.func.OpenFunction end ==========)
 
@@ -15268,12 +15434,12 @@ function PolyFunction:ctor(vManager, vNode, vFunc, vPolyParNum, ...)
 end
 
 function PolyFunction:detailString(vToStringCache , vVerbose)
-	return "PolyFunction@"..tostring(self._node)
-end
+	do return "PolyFunction@"..tostring(self._node)
+ end end
 
 function PolyFunction:getPolyParNum()
-	return self._polyParNum
-end
+	do return self._polyParNum
+ end end
 
 function PolyFunction:makeFn(vTemplateSign, vTypeList) 
 	error("not implement")
@@ -15284,19 +15450,19 @@ function PolyFunction:noCtxCastPoly(vTypeList)
 	local nAtomUnionList = {}
 	for i=1, #vTypeList do
 		nAtomUnionList[i] = vTypeList[i]:checkAtomUnion()
-	end
+	::continue:: end
 	local nKey = self._manager:signTemplateArgs(nAtomUnionList)
-	return self:makeFn(nKey, nAtomUnionList)
-end
+	do return self:makeFn(nKey, nAtomUnionList)
+ end end
 
 function PolyFunction:castPoly(vContext, vTypeList)
 	local nFn = self:noCtxCastPoly(vTypeList)
-	return nFn:getFnAwait()
-end
+	do return nFn:getFnAwait()
+ end end
 
 function PolyFunction:native_type()
-	return self._manager:Literal("function")
-end
+	do return self._manager:Literal("function")
+ end end
 
 function PolyFunction:meta_call(vContext, vTypeTuple)
 	error("poly function meta_call TODO")
@@ -15304,15 +15470,15 @@ function PolyFunction:meta_call(vContext, vTypeTuple)
 end
 
 function PolyFunction:mayRecursive()
-	return false
-end
+	do return false
+ end end
 
 function PolyFunction:isSingleton()
-	return false
-end
+	do return false
+ end end
 
-return PolyFunction
-
+do return PolyFunction
+ end 
 end end
 --thlua.type.func.PolyFunction end ==========)
 
@@ -15362,8 +15528,8 @@ end
 
 function SealFunction:meta_call(vContext, vTermTuple)
 	local nTypeFn = self:getFnAwait()
-	return nTypeFn:meta_call(vContext, vTermTuple)
-end
+	do return nTypeFn:meta_call(vContext, vTermTuple)
+ end end
 
 function SealFunction:getFnAwait()
 	if not self._typeFn then
@@ -15374,30 +15540,30 @@ function SealFunction:getFnAwait()
 			self._lateBuildEvent:wait()
 		end
 	end
-	return (assert(self._typeFn, "_typeFn must existed here"))
-end
+	do return (assert(self._typeFn, "_typeFn must existed here"))
+ end end
 
 function SealFunction:getBuildStack()
-	return self._buildStack
-end
+	do return self._buildStack
+ end end
 
 function SealFunction:findRequireStack()
 	local nLexCapture = self._lexCapture
 	if not nLexCapture then
-		return false
-	end
-	return nLexCapture.branch:getStack():findRequireStack()
-end
+		do return false
+	 end end
+	do return nLexCapture.branch:getStack():findRequireStack()
+ end end
 
 function SealFunction:getRetTuples()
-	return self._retTuples
-end
+	do return self._retTuples
+ end end
 
 function SealFunction:startPreBuild()
 	local nBuilderFn = self._builderFn
 	if not nBuilderFn then
-		return
-	end
+		do return
+	 end end
 	self._builderFn = false
 	self._task:runAsync(function()
 		local nParTuple, nRetTuples, nLateRunner = nBuilderFn()
@@ -15428,11 +15594,11 @@ end
 
 function SealFunction:findRequireStack()
 	local nLexStack = self._lexStack
-	return nLexStack and nLexStack:findRequireStack() or false
-end
+	do return nLexStack and nLexStack:findRequireStack() or false
+ end end
 
-return SealFunction
-
+do return SealFunction
+ end 
 end end
 --thlua.type.func.SealFunction end ==========)
 
@@ -15461,16 +15627,16 @@ function SealPolyFunction:makeFn(vTemplateSign, vTypeList)
 		if SealFunction.is(nResult) then
 			self._fnDict[vTemplateSign] = nResult
             self._lexStack:getSealStack():scheduleSealType(nResult)
-			return nResult
-		else
+			do return nResult
+		 end else
 			error("poly function must return mono-function type but got:"..tostring(nResult))
 		end
 	else
-		return nFn
-	end
+		do return nFn
+	 end end
 end
 
-return SealPolyFunction
+do return SealPolyFunction end 
 end end
 --thlua.type.func.SealPolyFunction end ==========)
 
@@ -15507,8 +15673,8 @@ function TypedFunction:attachRetBuilder()
 		nRetBuilder = RetBuilder.new(self._manager, self._node)
 		self._retBuilder = nRetBuilder
 	end
-	return nRetBuilder
-end
+	do return nRetBuilder
+ end end
 
 function TypedFunction:chainDots(vDebugNode, vType)
 	if self._retTuples then
@@ -15528,35 +15694,35 @@ end
 function TypedFunction:Dots(vType)
 	local nDebugNode = Node.newDebugNode()
 	self:chainDots(nDebugNode, vType)
-	return self
-end
+	do return self
+ end end
 
 function TypedFunction:RetDots(...)
 	local nDebugNode = Node.newDebugNode()
 	     
 	assert(not self._retTuples, nDebugNode:toExc("fn building is finish, can't call RetDots"))
 	self:attachRetBuilder():chainRetDots(nDebugNode, ...)
-	return self
-end
+	do return self
+ end end
 
 function TypedFunction:Ret(...)
 	local nDebugNode = Node.newDebugNode()
 	assert(not self._retTuples, nDebugNode:toExc("fn building is finish, can't call Ret"))
 	self:attachRetBuilder():chainRet(nDebugNode, ...)
-	return self
-end
+	do return self
+ end end
 
 function TypedFunction:Err(...)
 	local nDebugNode = Node.newDebugNode()
 	assert(not self._retTuples, nDebugNode:toExc("fn building is finish, can't call Err"))
 	self:attachRetBuilder():chainErr(nDebugNode, ...)
-	return self
-end
+	do return self
+ end end
 
 function TypedFunction:finish()
 	self:_buildRetTuples()
-	return self
-end
+	do return self
+ end end
 
 function TypedFunction:_buildRetTuples()
 	local nRetTuples = self._retTuples
@@ -15564,25 +15730,25 @@ function TypedFunction:_buildRetTuples()
 		nRetTuples = self:attachRetBuilder():build()
 		self._retTuples = nRetTuples
 	end
-	return nRetTuples
-end
+	do return nRetTuples
+ end end
 
 function TypedFunction:native_type()
-	return self._manager:Literal("function")
-end
+	do return self._manager:Literal("function")
+ end end
 
 function TypedFunction:detailString(vToStringCache, vVerbose)
 	local nRetTuples = self:_buildRetTuples()
 	local nCache = vToStringCache[self]
 	if nCache then
-		return nCache
-	end
+		do return nCache
+	 end end
 	vToStringCache[self] = "fn-..."
 	local nResult = "fn-" .. self._parTuple:detailString(vToStringCache, vVerbose)..
 									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
 	vToStringCache[self] = nResult
-	return nResult
-end
+	do return nResult
+ end end
 
 function TypedFunction:meta_call(vContext, vTermTuple)
 	local nRetTuples = self:_buildRetTuples()
@@ -15595,63 +15761,63 @@ function TypedFunction:assumeIncludeFn(vAssumeSet , vRight)
 	local nLeftRetTuples = self:_buildRetTuples()
 	local nRightRetTuples = vRight:_buildRetTuples()
 	if not vRight:getParTuple():assumeIncludeTuple(vAssumeSet, self._parTuple) then
-		return false
-	end
+		do return false
+	 end end
 	if not nLeftRetTuples:assumeIncludeTuples(vAssumeSet, nRightRetTuples) then
-		return false
-	end
-	return true
-end
+		do return false
+	 end end
+	do return true
+ end end
 
 function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
 	if self == vRight then
-		return self
-	end
+		do return self
+	 end end
 	if not TypedFunction.is(vRight) then
-		return false
-	end
+		do return false
+	 end end
 	local nMgr = self._manager
 	local nPair = self._manager:makePair(self, vRight)
 	if not vAssumeSet then
-		return self:assumeIncludeFn({[nPair]=true}, vRight) and self
-	end
+		do return self:assumeIncludeFn({[nPair]=true}, vRight) and self
+	 end end
 	local nAssumeResult = vAssumeSet[nPair]
 	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
+		do return nAssumeResult and self
+	 end end
 	vAssumeSet[nPair] = true
 	local nAssumeInclude = self:assumeIncludeFn(vAssumeSet, vRight)
 	if not nAssumeInclude then
 		vAssumeSet[nPair] = false
-		return false
-	else
-		return self
-	end
+		do return false
+	 end else
+		do return self
+	 end end
 end
 
 function TypedFunction:getParTuple()
 	self:_buildRetTuples()
-	return self._parTuple
-end
+	do return self._parTuple
+ end end
 
 function TypedFunction:getRetTuples()
-	return self:_buildRetTuples()
-end
+	do return self:_buildRetTuples()
+ end end
 
 function TypedFunction:partTypedFunction()
-	return self
-end
+	do return self
+ end end
 
 function TypedFunction:mayRecursive()
-	return true
-end
+	do return true
+ end end
 
 function TypedFunction:getFnAwait()
-	return self
-end
+	do return self
+ end end
 
-return TypedFunction
-
+do return TypedFunction
+ end 
 end end
 --thlua.type.func.TypedFunction end ==========)
 
@@ -15682,36 +15848,36 @@ function TypedMemberFunction:detailString(vToStringCache , vVerbose)
 	local nHeadlessFn = self._headlessFn
 	local nCache = vToStringCache[self]
 	if nCache then
-		return nCache
-	end
+		do return nCache
+	 end end
 	local nParTuple = nHeadlessFn:getParTuple()
 	local nRetTuples = nHeadlessFn:getRetTuples()
 	vToStringCache[self] = "member:fn-..."
 	local nResult = "member:fn-" .. nParTuple:detailStringIfFirst(vToStringCache, vVerbose, false)..
 									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
 	vToStringCache[self] = nResult
-	return nResult
-end
+	do return nResult
+ end end
 
 function TypedMemberFunction:Dots(vType)
 	self._headlessFn:chainDots(Node.newDebugNode(), vType)
-	return self
-end
+	do return self
+ end end
 
 function TypedMemberFunction:RetDots(...)
 	self._headlessFn:attachRetBuilder():chainRetDots(Node.newDebugNode(), ...)
-	return self
-end
+	do return self
+ end end
 
 function TypedMemberFunction:Ret(...)
 	self._headlessFn:attachRetBuilder():chainRet(Node.newDebugNode(), ...)
-	return self
-end
+	do return self
+ end end
 
 function TypedMemberFunction:Err(...)
 	self._headlessFn:attachRetBuilder():chainErr(Node.newDebugNode(), ...)
-	return self
-end
+	do return self
+ end end
 
 function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
 	local nTypeFn = self:indexTypeFn(vSelfType)
@@ -15719,26 +15885,26 @@ function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTu
 end
 
 function TypedMemberFunction:needPolyArgs()
-	return false
-end
+	do return false
+ end end
 
 function TypedMemberFunction:getHeadlessFn()
-	return self._headlessFn
-end
+	do return self._headlessFn
+ end end
 
 function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
 	 
 	if self == vRight then
-		return self
-	end
+		do return self
+	 end end
 	if TypedMemberFunction.is(vRight) then
-		return self._headlessFn:assumeIncludeAtom(vAssumeSet, vRight:getHeadlessFn()) and self
-	elseif TypedFunction.is(vRight) then
+		do return self._headlessFn:assumeIncludeAtom(vAssumeSet, vRight:getHeadlessFn()) and self
+	 end elseif TypedFunction.is(vRight) then
 		if vSelfType then
-			return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
-		else
-			return false
-		end
+			do return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
+		 end else
+			do return false
+		 end end
 	end
 end
 
@@ -15746,23 +15912,23 @@ function TypedMemberFunction:indexTypeFn(vSelfType)
 	local nDict = self._typeFnDict
 	local nFn = nDict[vSelfType]
 	if nFn then
-		return nFn
-	else
+		do return nFn
+	 end else
 		local nHeadlessFn = self._headlessFn
 		local nRetTuples = nHeadlessFn:getRetTuples()
 		local nParTuple = nHeadlessFn:getParTuple():leftAppend(vSelfType)
 		local nFn = self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		nDict[vSelfType] = nFn
-		return nFn
-	end
+		do return nFn
+	 end end
 end
 
 function TypedMemberFunction:mayRecursive()
-	return true
-end
+	do return true
+ end end
 
-return TypedMemberFunction
-
+do return TypedMemberFunction
+ end 
 end end
 --thlua.type.func.TypedMemberFunction end ==========)
 
@@ -15788,16 +15954,16 @@ function TypedPolyFunction:makeFn(vTemplateSign, vTypeList)
 		local nResult = (self._makerFn(table.unpack(vTypeList)) ) 
 		if TypedFunction.is(nResult) then
 			self._fnDict[vTemplateSign] = nResult
-			return nResult
-		else
+			do return nResult
+		 end else
 			error("poly function must return mono-function type but got:"..tostring(nResult))
 		end
 	else
-		return nFn
-	end
+		do return nFn
+	 end end
 end
 
-return TypedPolyFunction
+do return TypedPolyFunction end 
 end end
 --thlua.type.func.TypedPolyFunction end ==========)
 
@@ -15833,12 +15999,12 @@ end
 
 function AutoTable:detailString(v, vVerbose)
 	if not self._firstAssign then
-		return "AutoTable@castable@"..tostring(self._node)
-	elseif next(self._castDict) then
-		return "AutoTable@casted@"..tostring(self._node)
-	else
-		return "AutoTable@"..tostring(self._node)
-	end
+		do return "AutoTable@castable@"..tostring(self._node)
+	 end elseif next(self._castDict) then
+		do return "AutoTable@casted@"..tostring(self._node)
+	 end else
+		do return "AutoTable@"..tostring(self._node)
+	 end end
 end
 
 function AutoTable:setName(vName)
@@ -15855,13 +16021,13 @@ function AutoTable:castMatchOne(
 	self._keyType:foreach(function(vTableKey)
 		local vTableValue = self._fieldDict[vTableKey]:getValueType()
 		if not nMatchSucc then
-			return
-		end
+			do return
+		 end end
 		local nMatchKey, nMatchValue = vStruct:indexKeyValue(vTableKey)
 		if not nMatchKey then
 			nMatchSucc = false
-			return
-		end
+			do return
+		 end end
 		nMatchValue = nMatchValue:checkAtomUnion()
 		if TypedMemberFunction.is(nMatchValue) then
 			        
@@ -15870,28 +16036,28 @@ function AutoTable:castMatchOne(
 		local nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, vTableValue)
 		if not nIncludeType or not nCastSucc then
 			nMatchSucc = false
-			return
-		end
+			do return
+		 end end
 		nCopyValueDict[nMatchKey] = nil
 	end)
 	if not nMatchSucc then
-		return false
-	end
+		do return false
+	 end end
 	for k,v in pairs(nCopyValueDict) do
 		if not v:checkAtomUnion():isNilable() then
-			return false
-		end
-	end
-	return nAutoFnCastDict
-end
+			do return false
+		 end end
+	::continue:: end
+	do return nAutoFnCastDict
+ end end
 
 function AutoTable:checkTypedObject()
-	return self._manager.type.AnyObject
-end
+	do return self._manager.type.AnyObject
+ end end
 
 function AutoTable:isCastable()
-	return not self._firstAssign
-end
+	do return not self._firstAssign
+ end end
 
 function AutoTable:setAssigned(vContext)
 	if not self._firstAssign then
@@ -15901,24 +16067,24 @@ function AutoTable:setAssigned(vContext)
 		self._firstAssign = vContext
 		for k, v in pairs(self._fieldDict) do
 			v:getValueType():setAssigned(vContext)
-		end
+		::continue:: end
 	end
 end
 
 function AutoTable:findRequireStack()
-	return self._lexStack:findRequireStack()
-end
+	do return self._lexStack:findRequireStack()
+ end end
 
 function AutoTable:setLocked()
 	self._locked = true
 end
 
 function AutoTable:isLocked()
-	return self._locked
-end
+	do return self._locked
+ end end
 
-return AutoTable
-
+do return AutoTable
+ end 
 end end
 --thlua.type.object.AutoTable end ==========)
 
@@ -15949,30 +16115,30 @@ function BaseObject:ctor(vManager, vNode, ...)
 end
 
 function BaseObject:getMetaEventCom()
-	return self._metaEventCom
-end
+	do return self._metaEventCom
+ end end
 
 function BaseObject:detailString(v, vVerbose)
-	return "BaseObject..."
-end
+	do return "BaseObject..."
+ end end
 
 function BaseObject:meta_uop_some(vContext, vOper)
 	vContext:error("meta uop not implement:")
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function BaseObject:meta_bop_func(vContext, vOper)
 	vContext:error("meta bop not implement:")
-	return false, nil
-end
+	do return false, nil
+ end end
 
 function BaseObject:isSingleton()
-	return false
-end
+	do return false
+ end end
 
 function BaseObject:native_type()
-	return self._manager:Literal("table")
-end
+	do return self._manager:Literal("table")
+ end end
 
 function BaseObject:getValueDict() 
 	error("not implement")
@@ -15982,8 +16148,8 @@ function BaseObject:memberFunctionFillSelf(vChain, vSelfTable)
 	error("TODO base object as __index")
 end
 
-return BaseObject
-
+do return BaseObject
+ end 
 end end
 --thlua.type.object.BaseObject end ==========)
 
@@ -16026,8 +16192,8 @@ function ClassTable:ctor(
 end
 
 function ClassTable:detailString(v, vVerbose)
-	return "ClassTable@"..tostring(self._node)
-end
+	do return "ClassTable@"..tostring(self._node)
+ end end
 
 function ClassTable:waitInit()
 	self._initEvent:wait()
@@ -16074,7 +16240,7 @@ function ClassTable:implInterface()
 				nContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
 			end
 		end
-	end
+	::continue:: end
 end
 
 function ClassTable:ctxWait(vContext)
@@ -16082,16 +16248,16 @@ function ClassTable:ctxWait(vContext)
 end
 
 function ClassTable:getBaseClass()
-	return self._baseClass
-end
+	do return self._baseClass
+ end end
 
 function ClassTable:getInterface()
-	return self._interface
-end
+	do return self._interface
+ end end
 
 function ClassTable:checkTypedObject()
-	return self._interface
-end
+	do return self._interface
+ end end
 
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
 	if ClassTable.is(vType) then
@@ -16103,20 +16269,20 @@ function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
 			else
 				nMatchTable = nBaseClass
 			end
-		end
-		return nMatchTable == self and self or false
-	else
+		::continue:: end
+		do return nMatchTable == self and self or false
+	 end else
 		   
-		return false
-	end
+		do return false
+	 end end
 end
 
 function ClassTable:isLocked()
-	return self._buildFinish
-end
+	do return self._buildFinish
+ end end
 
-return ClassTable
-
+do return ClassTable
+ end 
 end end
 --thlua.type.object.ClassTable end ==========)
 
@@ -16137,128 +16303,128 @@ function Interface:ctor(...)
 end
 
 function Interface:detailString(vToStringCache, vVerbose)
-	return "interface@"..tostring(self._node)
-end
+	do return "interface@"..tostring(self._node)
+ end end
 
 function Interface:assumeIncludeObject(vAssumeSet , vRightObject)
 	if vRightObject._intersectSet[self] then
-		return true
-	end
+		do return true
+	 end end
 	local nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	local nLeftNextKey = self._nextKey
 	if nLeftNextKey then
 		if not nRightNextKey then
-			return false
-		end
+			do return false
+		 end end
 		if not nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey) then
-			return false
-		end
+			do return false
+		 end end
 	end
 	local nRightValueDict = vRightObject:getValueDict()
 	local nRightResultType = nRightKeyRefer:getResultType()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue)
+	do return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue)
 		if nRightResultType then        
 			local nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
 			if not nRightKey then
-				return false
-			end
+				do return false
+			 end end
 			local nRightValue = nRightValueDict[nRightKey]
 			if not nRightValue then
-				return false
-			end
-			return vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) and true
-		else         
+				do return false
+			 end end
+			do return vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) and true
+		 end else         
 			for _, nRightMoreKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightMoreKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					local nRightValue = nRightValueDict[nRightMoreKey]
 					if nRightValue and vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) then
-						return true
-					end
+						do return true
+					 end end
 				end
-			end
-			return false
-		end
+			::continue:: end
+			do return false
+		 end end
 	end)
-end
+ end end
 
 function Interface:assumeIntersectAtom(vAssumeSet, vRightType)
 	if not Interface.is(vRightType) then
 		if self == vRightType then
-			return self
-		elseif vRightType:assumeIncludeAtom(nil, self) then
-			return self
-		elseif self:assumeIncludeAtom(nil, vRightType) then
-			return vRightType
-		else
-			return false
-		end
+			do return self
+		 end elseif vRightType:assumeIncludeAtom(nil, self) then
+			do return self
+		 end elseif self:assumeIncludeAtom(nil, vRightType) then
+			do return vRightType
+		 end else
+			do return false
+		 end end
 	end
 	if self == vRightType then
-		return self
-	end
+		do return self
+	 end end
 	local nRightStruct = vRightType
 	local nMgr = self._manager
 	local nRelation = nMgr:attachPairRelation(self, nRightStruct, not vAssumeSet)
 	if nRelation then
 		if nRelation == ">" then
-			return vRightType
-		elseif nRelation == "<" then
-			return self
-		elseif nRelation == "=" then
-			return self
-		elseif nRelation == "&" then
-			return true
-		else
-			return false
-		end
+			do return vRightType
+		 end elseif nRelation == "<" then
+			do return self
+		 end elseif nRelation == "=" then
+			do return self
+		 end elseif nRelation == "&" then
+			do return true
+		 end else
+			do return false
+		 end end
 	end
 	assert(vAssumeSet, "assume set must be existed here")
 	local _, nLRPair, nRLPair = self._manager:makeDuPair(self, nRightStruct)
 	local nAssumeResult = vAssumeSet[nLRPair]
 	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
+		do return nAssumeResult and self
+	 end end
 	vAssumeSet[nLRPair] = true
 	vAssumeSet[nRLPair] = true
 	local nAssumeIntersect = self:assumeIntersectInterface(vAssumeSet, nRightStruct)
 	if not nAssumeIntersect then
 		vAssumeSet[nLRPair] = false
 		vAssumeSet[nRLPair] = false
-		return false
-	else
-		return true
-	end
+		do return false
+	 end else
+		do return true
+	 end end
 end
 
 function Interface:assumeIntersectInterface(vAssumeSet , vRightObject)
 	local nRightValueDict = vRightObject:getValueDict()
 	local nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	local nRightResultType = nRightKeyRefer:getResultType()
-	return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue)
+	do return self:_everyWith(vRightObject, function(vLeftKey, vLeftValue)
 		if nRightResultType then        
 			local nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, vLeftKey)
 			if not nRightKey then
-				return true
-			end
+				do return true
+			 end end
 			local nRightValue = nRightValueDict[nRightKey]
 			if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
-				return true
-			else
-				return false
-			end
+				do return true
+			 end else
+				do return false
+			 end end
 		else
 			for _, nRightKey in ipairs(nRightKeyRefer:getListAwait()) do
 				if nRightKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					local nRightValue = nRightValueDict[nRightKey]
 					if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
-						return true
-					end
+						do return true
+					 end end
 				end
-			end
-			return false
-		end
+			::continue:: end
+			do return false
+		 end end
 	end)
-end
+ end end
 
 function Interface:meta_set(vContext, vKeyType, vValueType)
 	vContext:error("interface is readonly")
@@ -16268,8 +16434,8 @@ function Interface:native_rawset(vContext, vKeyType, vValueType)
 	vContext:error("interface is readonly")
 end
 
-return Interface
-
+do return Interface
+ end 
 end end
 --thlua.type.object.Interface end ==========)
 
@@ -16315,60 +16481,60 @@ function MetaEventCom.new(vManager, vSelfType )
 		_name=false,
 		_close=false,
 	}, MetaEventCom)
-	return self
-end
+	do return self
+ end end
 
 function MetaEventCom:getBopFunc(vBopEvent)
 	local nField = self._bopDict[vBopEvent]
-	return nField and (nField.typeFn or nField.autoFn:getFnAwait())
-end
+	do return nField and (nField.typeFn or nField.autoFn:getFnAwait())
+ end end
 
 function MetaEventCom:getLenType()
-	return self._uopLen
-end
+	do return self._uopLen
+ end end
 
 function MetaEventCom:getPairsFunc()
 	local nField = self._pairs
-	return nField and (nField.typeFn or nField.autoFn:getFnAwait())
-end
+	do return nField and (nField.typeFn or nField.autoFn:getFnAwait())
+ end end
 
 local function buildFieldFromFn(vContext, vEvent, vMethodFn,
 	vTypeFnOrNil)
 	if vMethodFn:isUnion() then
 		vContext:error("meta method can't be union type, event:"..vEvent)
-		return nil
-	elseif TypedFunction.is(vMethodFn) then
-		return {
+		do return nil
+	 end elseif TypedFunction.is(vMethodFn) then
+		do return {
 			typeFn=vMethodFn
 		}
-	elseif AutoMemberFunction.is(vMethodFn) then
+	 end elseif AutoMemberFunction.is(vMethodFn) then
 		if vTypeFnOrNil then
 			local nSelfType = vTypeFnOrNil:getParTuple():get(1)
 			local nAutoFn = vMethodFn:indexAutoFn(nSelfType)
 			nAutoFn:checkWhenCast(vContext, vTypeFnOrNil)
-			return {
+			do return {
 				typeFn=vTypeFnOrNil,
 			}
-		else
+		 end else
 			vContext:error("member function cast to type fn in meta field TODO")
-			return nil
-		end
+			do return nil
+		 end end
 	elseif AutoFunction.is(vMethodFn) then
 		if vTypeFnOrNil then
 			vMethodFn:checkWhenCast(vContext, vTypeFnOrNil)
-			return {
+			do return {
 				typeFn=vTypeFnOrNil,
 			}
-		else
-			return {
+		 end else
+			do return {
 				autoFn=vMethodFn
 			}
-		end
+		 end end
 	elseif not Nil.is(vMethodFn) then
 		vContext:error("meta method type must be function or nil, event:"..vEvent)
 	end
-	return nil
-end
+	do return nil
+ end end
 
 function MetaEventCom:initByTable(vContext, vMetaTable )
 	local nSelfType = self._selfType
@@ -16377,7 +16543,7 @@ function MetaEventCom:initByTable(vContext, vMetaTable )
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
 		local nMethodType = vMetaTable:native_rawget(vContext, nManager:Literal(nEvent))
 		self._bopDict[nEvent] = buildFieldFromFn(vContext, nEvent, nMethodType)
-	end
+	::continue:: end
 	local nEqFn = vMetaTable:native_rawget(vContext, nManager:Literal("__eq"))
 	if not Nil.is(nEqFn) then
 		vContext:error("TODO meta logic for bop __eq", tostring(nEqFn))
@@ -16403,18 +16569,18 @@ end
 
 local function buildFieldFromAllType(vEvent, vTypeFn)
 	if not vTypeFn then
-		return nil
-	end
+		do return nil
+	 end end
 	if Reference.is(vTypeFn) then
 		vTypeFn = vTypeFn:waitTypeCom():getTypeAwait()
 	end
 	if not TypedFunction.is(vTypeFn) then
 		error("meta field "..vEvent.." must be single type-function")
 	else
-		return {
+		do return {
 			typeFn=vTypeFn
 		}
-	end
+	 end end
 end
 
 function MetaEventCom:initByEventDict(vActionDict )
@@ -16422,7 +16588,7 @@ function MetaEventCom:initByEventDict(vActionDict )
 	   
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
 		self._bopDict[nEvent] = buildFieldFromAllType(nEvent, vActionDict[nEvent])
-	end
+	::continue:: end
 	if vActionDict["__eq"] then
 		print("__eq in action table TODO")
 	end
@@ -16454,22 +16620,22 @@ function MetaEventCom:mergeField(
 				nRetField = nField
 			end
 		end
-	end
-	return nRetField
-end
+	::continue:: end
+	do return nRetField
+ end end
 
 function MetaEventCom:initByMerge(vComList)
 	self._pairs = self:mergeField("__pairs", vComList, function(vCom)
-		return vCom._pairs
-	end)
+		do return vCom._pairs
+	 end end)
 	self._ipairs = self:mergeField("__ipairs", vComList, function(vCom)
-		return vCom._ipairs
-	end)
+		do return vCom._ipairs
+	 end end)
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
 		self._bopDict[nEvent] = self:mergeField(nEvent, vComList, function(vCom)
-			return vCom._bopDict[nEvent] or false
-		end) or nil
-	end
+			do return vCom._bopDict[nEvent] or false
+		 end end) or nil
+	::continue:: end
 	local nFinalUopLen = false
 	for _, vCom in ipairs(vComList) do
 		local nUopLen = vCom._uopLen
@@ -16480,12 +16646,12 @@ function MetaEventCom:initByMerge(vComList)
 				nFinalUopLen = nUopLen
 			end
 		end
-	end
+	::continue:: end
 	self._uopLen = nFinalUopLen
 end
 
-return MetaEventCom
-
+do return MetaEventCom
+ end 
 end end
 --thlua.type.object.MetaEventCom end ==========)
 
@@ -16510,31 +16676,31 @@ function ObjectField:ctor(vInitNode, vObjectType, vKeyType, vValueType, ...)
 end
 
 function ObjectField:getUseNodeSet()
-    return self._useNodeSet
-end
+    do return self._useNodeSet
+ end end
 
 function ObjectField:putUseNode(vNode)
     self._useNodeSet[vNode] = true
 end
 
 function ObjectField:getObjectType()
-    return self._objectType
-end
+    do return self._objectType
+ end end
 
 function ObjectField:getKeyType()
-    return self._keyType
-end
+    do return self._keyType
+ end end
 
 function ObjectField:getInitNode()
-    return self._initNode
-end
+    do return self._initNode
+ end end
 
 function ObjectField:getValueType()
-    return self._valueType
-end
+    do return self._valueType
+ end end
 
-return ObjectField
-
+do return ObjectField
+ end 
 end end
 --thlua.type.object.ObjectField end ==========)
 
@@ -16564,12 +16730,12 @@ function OpenField:overrideAssign(vValueType, vBranch)
 end
 
 function OpenField:getAssignNode()
-	return self._assignNode
-end
+	do return self._assignNode
+ end end
 
 function OpenField:getLockCtx()
-	return self._lockCtx
-end
+	do return self._lockCtx
+ end end
 
 function OpenField:lock(vContext)
 	if not self._lockCtx then
@@ -16578,10 +16744,10 @@ function OpenField:lock(vContext)
 end
 
 function OpenField:getAssignBranch()
-	return self._branch
-end
+	do return self._branch
+ end end
 
-return OpenField
+do return OpenField end 
 end end
 --thlua.type.object.OpenField end ==========)
 
@@ -16618,30 +16784,30 @@ function OpenTable:ctor(vManager, vNode, vLexStack)
 end
 
 function OpenTable:detailString(v, vVerbose)
-	return "OpenTable@"..tostring(self._node)
-end
+	do return "OpenTable@"..tostring(self._node)
+ end end
 
 function OpenTable:meta_len(vContext)
 	 
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
 function OpenTable:initByBranchKeyValue(vNode, vBranch, vKeyType, vValueDict )
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = OpenField.new(vNode, self, k, v, vBranch)
-	end
+	::continue:: end
 end
 
 function OpenTable:native_getmetatable(vContext)
-	return self._metaTable or self._manager.type.Nil
-end
+	do return self._metaTable or self._manager.type.Nil
+ end end
 
 function OpenTable:native_setmetatable(vContext, vMetaTableType)
 	if self._metaTable then
 		vContext:error("can only setmetatable once for one table")
-		return
-	end
+		do return
+	 end end
 	self._metaTable = vMetaTableType
 	             
 	      
@@ -16712,8 +16878,8 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 				end
 			end
 		end
-		return true
-	end)
+		do return true
+	 end end)
 	if nNotRecursive then
 		  
 	else
@@ -16748,21 +16914,21 @@ function OpenTable:meta_get(vContext, vKeyType)
 			if BaseFunction.is(nMetaIndex) then
 				local nTermTuple = vContext:FixedTermTuple({vContext:RefineTerm(self), vContext:RefineTerm(vKeyType)})
 				nMetaIndex:meta_call(vContext, nTermTuple)
-				return true
-			elseif BaseObject.is(nMetaIndex) then
+				do return true
+			 end elseif BaseObject.is(nMetaIndex) then
 				local nNextOkay = nMetaIndex:meta_get(vContext, vKeyType)
-				return nTrigger ~= NONE_TRIGGER or nNextOkay
-			else
+				do return nTrigger ~= NONE_TRIGGER or nNextOkay
+			 end else
 				vContext:pushFirstAndTuple(self:native_rawget(vContext, vKeyType))
-				return nTrigger ~= NONE_TRIGGER
-			end
+				do return nTrigger ~= NONE_TRIGGER
+			 end end
 		else
-			return true
-		end
+			do return true
+		 end end
 	end)
 	if nNotRecursive then
-		return nOkay
-	else
+		do return nOkay
+	 end else
 		error("opentable's __index chain recursive")
 	end
 end
@@ -16775,8 +16941,8 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 			   
 			if self._locked then
 				vContext:error("assign to locked open-table")
-				return
-			end
+				do return
+			 end end
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			local nField = OpenField.new(
 				vContext:getNode(), self,
@@ -16791,8 +16957,8 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 	else
 		if self._locked then
 			vContext:error("assign to locked open-table")
-			return
-		end
+			do return
+		 end end
 		local nField = self._fieldDict[nIncludeType]
 		nField:overrideAssign(vValueTerm:getType(), vContext:getStack():topBranch())
 		vContext:addLookTarget(nField)
@@ -16804,16 +16970,16 @@ function OpenTable:native_rawget(vContext, vKeyType)
 	if nKeyIncludeType then
 		local nField = self._fieldDict[nKeyIncludeType]
 		nField:lock(vContext)
-		return nField:getValueType()
-	else
+		do return nField:getValueType()
+	 end else
 		local nNil = self._manager.type.Nil
 		if not self._locked then
 			local nField = OpenField.new(vContext:getNode(), self, vKeyType, nNil, vContext:getStack():topBranch())
 			nField:lock(vContext)
 			self._fieldDict[vKeyType] = nField
 		end
-		return nNil
-	end
+		do return nNil
+	 end end
 end
 
 function OpenTable:native_next(vContext, vInitType)
@@ -16824,7 +16990,7 @@ function OpenTable:native_next(vContext, vInitType)
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
 			nNextDict[nKeyAtom] = nField:getValueType()
-		end
+		::continue:: end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
@@ -16835,15 +17001,15 @@ function OpenTable:native_next(vContext, vInitType)
 				nCollection:put(nNotnilType)
 			end
 			nOneField:lock(vContext)
-		end
+		::continue:: end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict
 	end
-	return nValueType, nNextDict
-end
+	do return nValueType, nNextDict
+ end end
 
 function OpenTable:meta_pairs(vContext)
 	
@@ -16854,13 +17020,13 @@ function OpenTable:meta_pairs(vContext)
 			      
 		
 	
-	return false
-end
+	do return false
+ end end
 
 function OpenTable:meta_ipairs(vContext)
 	vContext:error("TODO:open table use __ipairs as meta field")
-	return false
-end
+	do return false
+ end end
 
 function OpenTable:memberFunctionFillSelf(vChain, vSelfTable)
 	local nNotRecursive = vChain:testAndRun(self, function()
@@ -16871,9 +17037,9 @@ function OpenTable:memberFunctionFillSelf(vChain, vSelfTable)
 					nSelfValue:indexAutoFn(vSelfTable)
 				end
 			end
-		end
-		return true
-	end)
+		::continue:: end
+		do return true
+	 end end)
 	if nNotRecursive then
 		local nMetaIndex = self._metaIndex
 		if nMetaIndex then
@@ -16889,8 +17055,8 @@ function OpenTable:getValueDict()
 	self._keyType:foreach(function(vType)
 		nDict[vType] = self._fieldDict[vType]:getValueType()
 	end)
-	return nDict
-end
+	do return nDict
+ end end
 
 function OpenTable:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
@@ -16907,23 +17073,23 @@ function OpenTable:putCompletion(vCompletion)
 end
 
 function OpenTable:findRequireStack()
-	return self._lexStack:findRequireStack()
-end
+	do return self._lexStack:findRequireStack()
+ end end
 
 function OpenTable:isSingleton()
-	return true
-end
+	do return true
+ end end
 
 function OpenTable:setLocked()
 	self._locked = true
 end
 
 function OpenTable:isLocked()
-	return self._locked
-end
+	do return self._locked
+ end end
 
-return OpenTable
-
+do return OpenTable
+ end 
 end end
 --thlua.type.object.OpenTable end ==========)
 
@@ -16967,8 +17133,8 @@ end
 
 function SealTable:meta_len(vContext)
 	 
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
 function SealTable:ctxWait(vContext)
 end
@@ -16977,7 +17143,7 @@ function SealTable:initByKeyValue(vNode, vKeyType, vValueDict )
 	self._keyType = vKeyType
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = ObjectField.new(vNode, self, k, v)
-	end
+	::continue:: end
 end
 
 function SealTable:onSetMetaTable(vContext)
@@ -16986,8 +17152,8 @@ end
 function SealTable:native_setmetatable(vContext, vMetaTableType)
 	if self._metaTable then
 		vContext:error("can only setmetatable once for one table")
-		return
-	end
+		do return
+	 end end
 	self._metaTable = vMetaTableType
 	     
 	assert(not self._metaEventCom, "meta event has been setted")
@@ -17074,14 +17240,14 @@ function SealTable:meta_get(vContext, vKeyType)
 				nOkay = true
 			end
 		end
-		return nOkay
-	end)
+		do return nOkay
+	 end end)
 	if nNotRecursive then
-		return nOkay
-	else
+		do return nOkay
+	 end else
 		vContext:pushFirstAndTuple(self._manager.type.Nil)
-		return false
-	end
+		do return false
+	 end end
 end
 
 function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
@@ -17092,12 +17258,12 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			if self:isLocked() then
 				vContext:error("table is locked")
-				return
-			else
+				do return
+			 end else
 				if self._lexStack:getSealStack() ~= vContext:getStack():getSealStack() then
 					vContext:error("table new field in wrong scope")
-					return
-				end
+					do return
+				 end end
 			end
 			      
 			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
@@ -17124,16 +17290,16 @@ function SealTable:native_rawget(vContext, vKeyType)
 		local nField = self._fieldDict[nKeyIncludeType]
 		local nValueType = nField:getValueType()
 		vContext:addLookTarget(nField)
-		return nValueType
-	else
-		return self._manager.type.Nil
-	end
+		do return nValueType
+	 end else
+		do return self._manager.type.Nil
+	 end end
 end
 
 function SealTable:meta_ipairs(vContext)
 	self:ctxWait(vContext)
-	return false
-end
+	do return false
+ end end
 
 function SealTable:meta_pairs(vContext)
 	self:ctxWait(vContext)
@@ -17144,22 +17310,22 @@ function SealTable:meta_pairs(vContext)
 			print("meta_pairs TODO")
 		end
 	else
-		return false
-	end
+		do return false
+	 end end
 end
 
 function SealTable:setMetaIndex(vContext, vIndexType, vNewIndexType)
 	if not vIndexType then
-		return
-	end
+		do return
+	 end end
 	if vIndexType:isUnion() then
 		vContext:info("union type as __index TODO")
-		return
-	end
+		do return
+	 end end
 	if vIndexType:isNilable() then
 		vContext:info("TODO, impl interface if setmetatable without index")
-		return
-	end
+		do return
+	 end end
 	self._metaIndex = vIndexType
 end
 
@@ -17171,7 +17337,7 @@ function SealTable:native_next(vContext, vInitType)
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
 			nNextDict[nKeyAtom] = nField:getValueType()
-		end
+		::continue:: end
 		local nNil = self._manager.type.Nil
 		local nCollection = self._manager:TypeCollection()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
@@ -17179,26 +17345,26 @@ function SealTable:native_next(vContext, vInitType)
 			local nNotnilType = nValueType:notnilType()
 			nNextDict[nOneKey] = nNotnilType
 			nCollection:put(nNotnilType)
-		end
+		::continue:: end
 		nCollection:put(nNil)
 		nValueType = nCollection:mergeToAtomUnion()
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict
 	end
-	return nValueType, nNextDict
-end
+	do return nValueType, nNextDict
+ end end
 
 function SealTable:native_getmetatable(vContext)
 	self:ctxWait(vContext)
-	return self._metaTable or self._manager.type.Nil
-end
+	do return self._metaTable or self._manager.type.Nil
+ end end
 
 function SealTable:meta_uop_some(vContext, vOper)
 	self:ctxWait(vContext)
 	vContext:error("meta uop TODO:"..tostring(vOper))
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function SealTable:meta_bop_func(vContext, vOper)
 	self:ctxWait(vContext)
@@ -17207,11 +17373,11 @@ function SealTable:meta_bop_func(vContext, vOper)
 	if nCom then
 		local nMethodFn = nCom:getBopFunc(nMethodEvent)
 		if nMethodFn then
-			return true, nMethodFn
-		end
+			do return true, nMethodFn
+		 end end
 	end
-	return false, nil
-end
+	do return false, nil
+ end end
 
 function SealTable:memberFunctionFillSelf(vChain, vSelfTable)
 	local nNotRecursive = vChain:testAndRun(self, function()
@@ -17222,15 +17388,15 @@ function SealTable:memberFunctionFillSelf(vChain, vSelfTable)
 					nSelfValue:indexAutoFn(vSelfTable)
 				end
 			end
-		end
+		::continue:: end
 		local nMetaIndex = self._metaIndex
 		if nMetaIndex then
 			if BaseObject.is(nMetaIndex) then
 				nMetaIndex:memberFunctionFillSelf(vChain, vSelfTable)
 			end
 		end
-		return true
-	end)
+		do return true
+	 end end)
 end
 
 function SealTable:getValueDict() 
@@ -17238,8 +17404,8 @@ function SealTable:getValueDict()
 	self._keyType:foreach(function(vType)
 		nDict[vType] = self._fieldDict[vType]:getValueType()
 	end)
-	return nDict
-end
+	do return nDict
+ end end
 
 function SealTable:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
@@ -17257,11 +17423,11 @@ end
 
 function SealTable:isLocked()
 	error("isLocked not implement")
-	return false
-end
+	do return false
+ end end
 
-return SealTable
-
+do return SealTable
+ end 
 end end
 --thlua.type.object.SealTable end ==========)
 
@@ -17283,14 +17449,14 @@ function Struct:ctor(...)
 end
 
 function Struct:detailString(vToStringCache, vVerbose)
-	return "Struct@"..tostring(self._node)
-end
+	do return "Struct@"..tostring(self._node)
+ end end
 
 function Struct:assumeIncludeObject(vAssumeSet , vRightObject)
 	local nAssumeInclude = false
 	if not Struct.is(vRightObject) then
-		return false
-	end
+		do return false
+	 end end
 	local nRightValueDict = vRightObject:copyValueDict(self)
 	local nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	local nLeftNextKey = self._nextKey
@@ -17298,39 +17464,39 @@ function Struct:assumeIncludeObject(vAssumeSet , vRightObject)
 		local nLR = nLeftNextKey:assumeIncludeAll(vAssumeSet, nRightNextKey)
 		local nRL = nRightNextKey:assumeIncludeAll(vAssumeSet, nLeftNextKey)
 		if not (nLR and nRL) then
-			return false
-		end
+			do return false
+		 end end
 	elseif nLeftNextKey or nRightNextKey then
-		return false
-	end
+		do return false
+	 end end
 	local function isMatchedKeyValue(
 		vLeftKey, vLeftValue,
 		vRightKey, vRightValue)
 		if not vRightValue:assumeIncludeAll(vAssumeSet, vLeftValue) then
-			return false
-		end
+			do return false
+		 end end
 		if not vLeftValue:assumeIncludeAll(vAssumeSet, vRightValue) then
-			return false
-		end
+			do return false
+		 end end
 		if not vLeftKey:assumeIncludeAtom(vAssumeSet, vRightKey) then
-			return false
-		end
-		return true
-	end
+			do return false
+		 end end
+		do return true
+	 end end
 	local nRightResultType = nRightKeyRefer:getResultType()
 	if not self:_everyWith(vRightObject, function(nLeftKey, nLeftValue)
 		if nRightResultType then        
 			local nRightKey = nRightResultType:assumeIncludeAtom(vAssumeSet, nLeftKey)
 			if not nRightKey then
-				return false
-			end
+				do return false
+			 end end
 			local nRightValue = nRightValueDict[nRightKey]
 			if not nRightValue then
-				return false
-			end
+				do return false
+			 end end
 			if not isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then
-				return false
-			end
+				do return false
+			 end end
 			nRightValueDict[nRightKey] = nil
 		else         
 			local nMatchedKey = nil
@@ -17342,21 +17508,21 @@ function Struct:assumeIncludeObject(vAssumeSet , vRightObject)
 						break
 					end
 				end
-			end
+			::continue:: end
 			if not nMatchedKey then
-				return false
-			end
+				do return false
+			 end end
 			nRightValueDict[nMatchedKey] = nil
 		end
-		return true
-	end) then
-		return false
-	end
+		do return true
+	 end end) then
+		do return false
+	 end end
 	if next(nRightValueDict) then
-		return false
-	end
-	return true
-end
+		do return false
+	 end end
+	do return true
+ end end
 
 function Struct:meta_set(vContext, vKeyType, vValueTerm)
 	vContext:pushNothing()
@@ -17370,8 +17536,8 @@ function Struct:meta_set(vContext, vKeyType, vValueTerm)
 	end
 end
 
-return Struct
-
+do return Struct
+ end 
 end end
 --thlua.type.object.Struct end ==========)
 
@@ -17433,57 +17599,57 @@ function TypedObject:_everyWith(vRightObject, vFunc )
 	for nLeftKey, nLeftValue in pairs(nValueDict) do
 		if not nLeftValue:mayRecursive() then
 			if not vFunc(nLeftKey, nLeftValue) then
-				return false
-			end
+				do return false
+			 end end
 		end
-	end
+	::continue:: end
 	for nLeftKey, nLeftValue in pairs(nValueDict) do
 		if nLeftValue:mayRecursive() then
 			if not vFunc(nLeftKey, nLeftValue) then
-				return false
-			end
+				do return false
+			 end end
 		end
-	end
-	return true
-end
+	::continue:: end
+	do return true
+ end end
 
 function TypedObject:assumeIncludeObject(vAssumeSet , vRightObject)
 	error("assume include Object not implement")
-	return false
-end
+	do return false
+ end end
 
 function TypedObject:assumeIncludeAtom(vAssumeSet, vRightType, _)
 	local nRightStruct = vRightType:checkTypedObject()
 	if not nRightStruct then
-		return false
-	end
+		do return false
+	 end end
 	if self == nRightStruct then
-		return self
-	end
+		do return self
+	 end end
 	local nMgr = self._manager
 	local nRelation = nMgr:attachPairRelation(self, nRightStruct, not vAssumeSet)
 	if nRelation then
 		if nRelation == ">" or nRelation == "=" then
-			return self
-		else
-			return false
-		end
+			do return self
+		 end else
+			do return false
+		 end end
 	else
 		assert(vAssumeSet, "assume set must be existed here")
 	end
 	local nPair = self._manager:makePair(self, nRightStruct)
 	local nAssumeResult = vAssumeSet[nPair]
 	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
+		do return nAssumeResult and self
+	 end end
 	vAssumeSet[nPair] = true
 	local nAssumeInclude = self:assumeIncludeObject(vAssumeSet, nRightStruct)
 	if not nAssumeInclude then
 		vAssumeSet[nPair] = false
-		return false
-	else
-		return self
-	end
+		do return false
+	 end else
+		do return self
+	 end end
 end
 
 function TypedObject:meta_len(vContext)
@@ -17491,25 +17657,25 @@ function TypedObject:meta_len(vContext)
 	if nCom then
 		local nType = nCom:getLenType()
 		if nType then
-			return nType
-		end
+			do return nType
+		 end end
 	end
 	vContext:error(self, "object take # oper, but _len action not setted")
-	return self._manager.type.Integer
-end
+	do return self._manager.type.Integer
+ end end
 
 function TypedObject:meta_uop_some(vContext, vOper)
 	vContext:error("other oper invalid:"..tostring(vOper))
-	return self._manager.type.Never
-end
+	do return self._manager.type.Never
+ end end
 
 function TypedObject:meta_pairs(vContext)
-	return false
-end
+	do return false
+ end end
 
 function TypedObject:meta_ipairs(vContext)
-	return false
-end
+	do return false
+ end end
 
 function TypedObject:native_next(vContext, vInitType)
 	local nValueDict = self:getValueDict()
@@ -17517,8 +17683,8 @@ function TypedObject:native_next(vContext, vInitType)
 	local nNil = self._manager.type.Nil
 	if not nNextKey then
 		vContext:error("this object can not take next")
-		return nNil, {[nNil]=nNil}
-	end
+		do return nNil, {[nNil]=nNil}
+	 end end
 	local nNextValue = self._nextValue
 	local nNextDict = self._nextDict
 	if not nNextValue then
@@ -17536,12 +17702,12 @@ function TypedObject:native_next(vContext, vInitType)
 		self._nextValue = nNextValue
 		self._nextDict = nNextDict
 	end
-	return nNextValue, nNextDict
-end
+	do return nNextValue, nNextDict
+ end end
 
 function TypedObject:isSingleton()
-	return false
-end
+	do return false
+ end end
 
 function TypedObject:_keyIncludeAtom(vType) 
 	local nKey = self._keyRefer:getTypeAwait():includeAtom(vType)
@@ -17550,10 +17716,10 @@ function TypedObject:_keyIncludeAtom(vType)
 		if not nField then
 			nField = ObjectField.new(self._node, self, nKey, assert(self._valueDict)[nKey]:checkAtomUnion())
 		end
-		return nKey, nField
-	else
-		return false
-	end
+		do return nKey, nField
+	 end else
+		do return false
+	 end end
 end
 
 function TypedObject:meta_get(vContext, vType)
@@ -17566,8 +17732,8 @@ function TypedObject:meta_get(vContext, vType)
 		vContext:pushFirstAndTuple(nType)
 		vContext:addLookTarget(nField)
 	end
-	return true
-end
+	do return true
+ end end
 
 function TypedObject:meta_bop_func(vContext, vOper)
 	local nMethodEvent = OPER_ENUM.bopNoEq[vOper]
@@ -17575,19 +17741,19 @@ function TypedObject:meta_bop_func(vContext, vOper)
 	if nCom then
 		local nFn = nCom:getBopFunc(nMethodEvent)
 		if nFn then
-			return true, nFn
-		end
+			do return true, nFn
+		 end end
 	end
-	return false, nil
-end
+	do return false, nil
+ end end
 
 function TypedObject:indexKeyValue(vKeyType) 
 	local nKey, nField = self:_keyIncludeAtom(vKeyType)
 	if nKey then
-		return nKey, nField:getValueType()
-	else
-		return false
-	end
+		do return nKey, nField:getValueType()
+	 end else
+		do return false
+	 end end
 end
 
 function TypedObject:buildAsync(vFunc)
@@ -17597,13 +17763,13 @@ function TypedObject:buildAsync(vFunc)
 end
 
 function TypedObject:detailString(vToStringCache, vVerbose)
-	return "TypedObject..."
-end
+	do return "TypedObject..."
+ end end
 
 function TypedObject:getValueDict() 
 	self._keyRefer:getListAwait()
-	return (assert(self._valueDict, "member list is not setted after waiting"))
-end
+	do return (assert(self._valueDict, "member list is not setted after waiting"))
+ end end
 
 function TypedObject:copyValueDict(vSelfObject ) 
 	local nValueDict  = {}
@@ -17613,38 +17779,38 @@ function TypedObject:copyValueDict(vSelfObject )
 		else
 			nValueDict[k] = v:indexTypeFn(vSelfObject)
 		end
-	end
-	return nValueDict
-end
+	::continue:: end
+	do return nValueDict
+ end end
 
 function TypedObject:getMetaEventCom()
 	self._keyRefer:getListAwait()
-	return self._metaEventCom
-end
+	do return self._metaEventCom
+ end end
 
 function TypedObject:getKeyTypes() 
-	return self._keyRefer, self._nextKey
-end
+	do return self._keyRefer, self._nextKey
+ end end
 
 function TypedObject:checkTypedObject()
-	return self
-end
+	do return self
+ end end
 
 function TypedObject:native_type()
-	return self._manager:Literal("table")
-end
+	do return self._manager:Literal("table")
+ end end
 
 function TypedObject:partTypedObject()
-	return self
-end
+	do return self
+ end end
 
 function TypedObject:mayRecursive()
-	return true
-end
+	do return true
+ end end
 
 function TypedObject:getNode()
-	return self._node
-end
+	do return self._node
+ end end
 
 function TypedObject:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
@@ -17657,11 +17823,11 @@ function TypedObject:putCompletion(vCompletion)
 end
 
 function TypedObject:native_getmetatable(vContext)
-	return self._manager:checkedUnion(self._manager.type.Nil, self._manager.type.Truth)
-end
+	do return self._manager:checkedUnion(self._manager.type.Nil, self._manager.type.Truth)
+ end end
 
-return TypedObject
-
+do return TypedObject
+ end 
 end end
 --thlua.type.object.TypedObject end ==========)
 
@@ -17683,8 +17849,8 @@ function BaseUnionType:ctor(...)
 end
 
 function BaseUnionType:getAtomList()
-    return self._atomList
-end
+    do return self._atomList
+ end end
 
 function BaseUnionType:detailString(vCache, vVerbose)
     local l = {}
@@ -17692,14 +17858,14 @@ function BaseUnionType:detailString(vCache, vVerbose)
         l[#l+1] = vType
     end)
     table.sort(l, function(vLeft, vRight)
-        return vLeft.id < vRight.id
-    end)
+        do return vLeft.id < vRight.id
+     end end)
     local sl = {}
     for i=1, #l do
         sl[i] = l[i]:detailString(vCache, vVerbose)
-    end
-    return "Union("..table.concat(sl,",")..")"
-end
+    ::continue:: end
+    do return "Union("..table.concat(sl,",")..")"
+ end end
 
 function BaseUnionType:initWithTypeId(vTypeId)
     assert(self.id == 0, "newunion's id must be 0")
@@ -17711,8 +17877,8 @@ function BaseUnionType:initWithTypeId(vTypeId)
 end
 
 function BaseUnionType:isUnion()
-    return true
-end
+    do return true
+ end end
 
 function BaseUnionType:unionSign()
     local nSign = self._unionSign
@@ -17725,8 +17891,8 @@ function BaseUnionType:unionSign()
         nSign = table.concat(l, "-")
         self._unionSign = nSign
     end
-    return nSign
-end
+    do return nSign
+ end end
 
 function BaseUnionType:putAwait(vType)
     error("this union type can't call putAwait to build itself")
@@ -17739,8 +17905,8 @@ function BaseUnionType:setAssigned(vContext)
 end
 
 function BaseUnionType:checkAtomUnion()
-	return self
-end
+	do return self
+ end end
 
 function BaseUnionType:putCompletion(v)
     self:foreach(function(vType)
@@ -17748,7 +17914,7 @@ function BaseUnionType:putCompletion(v)
     end)
 end
 
-return BaseUnionType
+do return BaseUnionType end 
 end end
 --thlua.type.union.BaseUnionType end ==========)
 
@@ -17773,58 +17939,58 @@ end
 function ComplexUnion:mayRecursive()
 	local nBitToType = self._bitToType
 	if nBitToType[TYPE_BITS.OBJECT] or nBitToType[TYPE_BITS.FUNCTION] then
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
 function ComplexUnion:partTypedObject()
 	local re = self._bitToType[TYPE_BITS.OBJECT] or self._manager.type.Never
-	return re:partTypedObject()
-end
+	do return re:partTypedObject()
+ end end
 
 function ComplexUnion:partTypedFunction()
 	local re = self._bitToType[TYPE_BITS.FUNCTION] or self._manager.type.Never
-	return re:partTypedFunction()
-end
+	do return re:partTypedFunction()
+ end end
 
 function ComplexUnion:foreach(vFunc)
 	for nBits, nType in pairs(self._bitToType) do
 		nType:foreach(vFunc)
-	end
+	::continue:: end
 end
 
 function ComplexUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
 	local nSimpleType = self._bitToType[vType.bits]
 	if nSimpleType then
-		return nSimpleType:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
-	else
-		return false
-	end
+		do return nSimpleType:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	 end else
+		do return false
+	 end end
 end
 
 function ComplexUnion:assumeIntersectAtom(vAssumeSet, vType)
 	local nSimpleType = self._bitToType[vType.bits]
 	if nSimpleType then
-		return nSimpleType:assumeIntersectAtom(vAssumeSet, vType)
-	elseif Truth.is(vType) then
-		return self
-	else
-		return false
-	end
+		do return nSimpleType:assumeIntersectAtom(vAssumeSet, vType)
+	 end elseif Truth.is(vType) then
+		do return self
+	 end else
+		do return false
+	 end end
 end
 
 function ComplexUnion:isNilable()
 	if self._bitToType[TYPE_BITS.NIL] then
-		return true
-	else
-		return false
-	end
+		do return true
+	 end else
+		do return false
+	 end end
 end
 
-return ComplexUnion
-
+do return ComplexUnion
+ end 
 end end
 --thlua.type.union.ComplexUnion end ==========)
 
@@ -17889,22 +18055,22 @@ function FalsableUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
 		local nTrueType = self._trueType
 		if nTrueType == self._manager.type.Never then
-			return false
-		else
-			return nTrueType
-		end
+			do return false
+		 end else
+			do return nTrueType
+		 end end
 	else
 		local nTrueIntersect = self._trueType:assumeIntersectAtom(vAssumeSet, vType)
 		if nTrueIntersect then
-			return nTrueIntersect
-		else
+			do return nTrueIntersect
+		 end else
 			if self._nil and vType == self._manager.type.Nil then
-				return self._nil
-			elseif self._false and vType == self._manager.type.False then
-				return self._false
-			else
-				return false
-			end
+				do return self._nil
+			 end elseif self._false and vType == self._manager.type.False then
+				do return self._false
+			 end else
+				do return false
+			 end end
 		end
 	end
 end
@@ -17912,48 +18078,48 @@ end
 function FalsableUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
 	local nTrueInclude = self._trueType:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
 	if nTrueInclude then
-		return nTrueInclude
-	else
+		do return nTrueInclude
+	 end else
 		if self._nil and vType == self._manager.type.Nil then
-			return self._nil
-		elseif self._false and vType == self._manager.type.False then
-			return self._false
-		else
-			return false
-		end
+			do return self._nil
+		 end elseif self._false and vType == self._manager.type.False then
+			do return self._false
+		 end else
+			do return false
+		 end end
 	end
 end
 
 function FalsableUnion:isNilable()
-	return self._nil and true
-end
+	do return self._nil and true
+ end end
 
 function FalsableUnion:partTypedObject()
-	return self._trueType:partTypedObject()
-end
+	do return self._trueType:partTypedObject()
+ end end
 
 function FalsableUnion:partTypedFunction()
-	return self._trueType:partTypedFunction()
-end
+	do return self._trueType:partTypedFunction()
+ end end
 
 function FalsableUnion:mayRecursive()
-	return self._trueType:mayRecursive()
-end
+	do return self._trueType:mayRecursive()
+ end end
 
 function FalsableUnion:trueType()
-	return self._trueType
-end
+	do return self._trueType
+ end end
 
 function FalsableUnion:notnilType()
-	return self._notnilType
-end
+	do return self._notnilType
+ end end
 
 function FalsableUnion:falseType()
-	return self._falseType or self._manager.type.Never
-end
+	do return self._falseType or self._manager.type.Never
+ end end
 
-return FalsableUnion
-
+do return FalsableUnion
+ end 
 end end
 --thlua.type.union.FalsableUnion end ==========)
 
@@ -17990,18 +18156,18 @@ end
 function FuncUnion:foreach(vFunc)
 	for nType, _ in pairs(self._openFnDict) do
 		vFunc(nType)
-	end
+	::continue:: end
 	local nAnyFn = self._anyFn
 	if not nAnyFn then
 		for nType, _ in pairs(self._typeFnDict) do
 			vFunc(nType)
-		end
+		::continue:: end
 		for nType, _ in pairs(self._typeMfnDict) do
 			vFunc(nType)
-		end
+		::continue:: end
 		for nType, _ in pairs(self._notTypeFnDict) do
 			vFunc(nType)
-		end
+		::continue:: end
 	else
 		vFunc(nAnyFn)
 	end
@@ -18009,8 +18175,8 @@ end
 
 function FuncUnion:putAwait(vType)
 	if self:includeAtom(vType) then
-		return
-	end
+		do return
+	 end end
 	if OpenFunction.is(vType) then
 		self._openFnDict[vType] = true
 	elseif AnyFunction.is(vType) then
@@ -18032,10 +18198,10 @@ function FuncUnion:putAwait(vType)
 					error("unexpected intersect when union function")
 				end
 			end
-		end
+		::continue:: end
 		for _, nTypeFn in pairs(nDeleteList) do
 			self._typeFnDict[nTypeFn] = nil
-		end
+		::continue:: end
 		self._typeFnDict[vType] = true
 	elseif TypedMemberFunction.is(vType) then
 		   
@@ -18049,10 +18215,10 @@ function FuncUnion:putAwait(vType)
 					error("unexpected intersect when union function")
 				end
 			end
-		end
+		::continue:: end
 		for _, nTypeFn in pairs(nDeleteList) do
 			self._typeMfnDict[nTypeFn] = nil
-		end
+		::continue:: end
 		self._typeMfnDict[vType] = true
 	elseif BaseFunction.is(vType) then
 		self._notTypeFnDict[vType] = true
@@ -18063,11 +18229,11 @@ end
 
 function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
-		return self
-	end
+		do return self
+	 end end
 	if self:includeAtom(vType) then
-		return vType
-	end
+		do return vType
+	 end end
 	if TypedFunction.is(vType) or TypedMemberFunction.is(vType) then
 		local nCollection = self._manager:TypeCollection()
 		self:foreach(function(vSubType)
@@ -18075,66 +18241,66 @@ function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
 				nCollection:put(vSubType)
 			end
 		end)
-		return nCollection:mergeToAtomUnion()
-	end
-	return false
-end
+		do return nCollection:mergeToAtomUnion()
+	 end end
+	do return false
+ end end
 
 function FuncUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
 	if OpenFunction.is(vType) then
 		if self._openFnDict[vType] then
-			return vType
-		else
-			return false
-		end
+			do return vType
+		 end else
+			do return false
+		 end end
 	elseif TypedFunction.is(vType) then
 		for nTypeFn, _ in pairs(self._typeFnDict) do
 			if nTypeFn:assumeIncludeAtom(vAssumeSet, vType, vSelfType) then
-				return nTypeFn
-			end
-		end
+				do return nTypeFn
+			 end end
+		::continue:: end
 	elseif TypedMemberFunction.is(vType) then
 		for nTypeFn, _ in pairs(self._typeMfnDict) do
 			if nTypeFn:assumeIncludeAtom(vAssumeSet, vType, vSelfType) then
-				return nTypeFn
-			end
-		end
+				do return nTypeFn
+			 end end
+		::continue:: end
 	elseif BaseFunction.is(vType) then
 		if self._notTypeFnDict[vType] then
-			return vType
-		else
-			return false
-		end
+			do return vType
+		 end else
+			do return false
+		 end end
 	end
-	return false
-end
+	do return false
+ end end
 
 function FuncUnion:partTypedFunction()
 	local nTypedPart = self._typedPart
 	if nTypedPart then
-		return nTypedPart
-	else
+		do return nTypedPart
+	 end else
 		if not next(self._notTypeFnDict) and not next(self._openFnDict) and not self._anyFn then
 			self._typedPart = self
-			return self
-		else
+			do return self
+		 end else
 			local nCollection = self._manager:TypeCollection()
 			for k,v in pairs(self._typeFnDict) do
 				nCollection:put(k)
-			end
+			::continue:: end
 			local nTypedPart = nCollection:mergeToAtomUnion()
 			self._typedPart = nTypedPart
-			return nTypedPart
-		end
+			do return nTypedPart
+		 end end
 	end
 end
 
 function FuncUnion:mayRecursive()
-	return true
-end
+	do return true
+ end end
 
-return FuncUnion
-
+do return FuncUnion
+ end 
 end end
 --thlua.type.union.FuncUnion end ==========)
 
@@ -18170,32 +18336,32 @@ end
 
 function IntegerLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Integer.is(vType) or Number.is(vType) or Truth.is(vType) then
-		return self
-	else
-		return self:assumeIncludeAtom(nil, vType)
-	end
+		do return self
+	 end else
+		do return self:assumeIncludeAtom(nil, vType)
+	 end end
 end
 
 function IntegerLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 	if IntegerLiteral.is(vType) then
 		if self._literalSet[vType] then
-			return vType
-		else
-			return false
-		end
+			do return vType
+		 end else
+			do return false
+		 end end
 	else
-		return false
-	end
+		do return false
+	 end end
 end
 
 function IntegerLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
-	end
+	::continue:: end
 end
 
-return IntegerLiteralUnion
-
+do return IntegerLiteralUnion
+ end 
 end end
 --thlua.type.union.IntegerLiteralUnion end ==========)
 
@@ -18259,39 +18425,39 @@ end
 
 function MixingNumberUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Number.is(vType) or Truth.is(vType) then
-		return self
-	elseif Integer.is(vType) then
-		return self._integerPart
-	else
-		return self:assumeIncludeAtom(nil, vType)
-	end
+		do return self
+	 end elseif Integer.is(vType) then
+		do return self._integerPart
+	 end else
+		do return self:assumeIncludeAtom(nil, vType)
+	 end end
 end
 
 function MixingNumberUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 	if FloatLiteral.is(vType) then
 		if self._floatLiteralSet[vType] then
-			return vType
-		else
-			return false
-		end
+			do return vType
+		 end else
+			do return false
+		 end end
 	else
 		local nIntegerPart = self._integerPart
-		return nIntegerPart and nIntegerPart:assumeIncludeAtom(vAssumeSet, vType, _)
-	end
+		do return nIntegerPart and nIntegerPart:assumeIncludeAtom(vAssumeSet, vType, _)
+	 end end
 end
 
 function MixingNumberUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._floatLiteralSet) do
 		vFunc(nLiteralType)
-	end
+	::continue:: end
 	local nIntegerPart = self._integerPart
 	if nIntegerPart then
 		nIntegerPart:foreach(vFunc)
 	end
 end
 
-return MixingNumberUnion
-
+do return MixingNumberUnion
+ end 
 end end
 --thlua.type.union.MixingNumberUnion end ==========)
 
@@ -18312,30 +18478,30 @@ function Never:ctor(vManager)
 end
 
 function Never:detailString(vStringCache, vVerbose)
-	return "Never"
-end
+	do return "Never"
+ end end
 
 function Never:foreach(vFunc)
 end
 
 function Never:assumeIncludeAtom(vAssumeSet, vType, _)
-	return false
-end
+	do return false
+ end end
 
 function Never:assumeIntersectAtom(vAssumeSet, vType)
-	return false
-end
+	do return false
+ end end
 
 function Never:unionSign()
-	return ""
-end
+	do return ""
+ end end
 
 function Never:isNever()
-    return true
-end
+    do return true
+ end end
 
-return Never
-
+do return Never
+ end 
 end end
 --thlua.type.union.Never end ==========)
 
@@ -18368,36 +18534,36 @@ end
 function ObjectUnion:foreach(vFunc)
 	for nType, _ in pairs(self._typedObjectDict) do
 		vFunc(nType)
-	end
+	::continue:: end
 	for nType, _ in pairs(self._sealTableDict) do
 		vFunc(nType)
-	end
+	::continue:: end
 	for nType, _ in pairs(self._openTableDict) do
 		vFunc(nType)
-	end
+	::continue:: end
 end
 
 function ObjectUnion:putAwait(vType)
 	if self:includeAtom(vType) then
-		return
-	end
+		do return
+	 end end
 	if not BaseObject.is(vType) then
 		error("object-type unexpected")
 	end
 	if OpenTable.is(vType) then
 		self._openTableDict[vType] = true
-		return
-	end
+		do return
+	 end end
 	   
 	local nDeleteList1 = {}
 	for nSealTable, _ in pairs(self._sealTableDict) do
 		if vType:includeAtom(nSealTable) then
 			nDeleteList1[#nDeleteList1 + 1] = nSealTable
 		end
-	end
+	::continue:: end
 	for _, nSealTable in pairs(nDeleteList1) do
 		self._sealTableDict[nSealTable] = nil
-	end
+	::continue:: end
 	if SealTable.is(vType) then
 		self._sealTableDict[vType] = true
 	elseif TypedObject.is(vType) then
@@ -18412,10 +18578,10 @@ function ObjectUnion:putAwait(vType)
 					error("unexpected intersect when union object")
 				end
 			end
-		end
+		::continue:: end
 		for _, nTypedObject in pairs(nDeleteList2) do
 			self._typedObjectDict[nTypedObject] = nil
-		end
+		::continue:: end
 		self._typedObjectDict[vType] = true
 	else
 		error("object-type unexpected???")
@@ -18424,11 +18590,11 @@ end
 
 function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if Truth.is(vType) then
-		return self
-	end
+		do return self
+	 end end
 	if not BaseObject.is(vType) then
-		return false
-	end
+		do return false
+	 end end
 	local nCollection = self._manager:TypeCollection()
 	local nExplicitCount = 0
 	self:foreach(function(vSubType)
@@ -18443,57 +18609,57 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 		end
 	end)
 	if not nExplicitCount then
-		return true
-	else
-		return nExplicitCount > 0 and nCollection:mergeToAtomUnion()
-	end
+		do return true
+	 end else
+		do return nExplicitCount > 0 and nCollection:mergeToAtomUnion()
+	 end end
 end
 
 function ObjectUnion:partTypedObject()
 	local nTypedPart = self._typedPart
 	if nTypedPart then
-		return nTypedPart
-	else
+		do return nTypedPart
+	 end else
 		if not next(self._openTableDict) and not next(self._sealTableDict) then
 			self._typedPart = self
-			return self
-		else
+			do return self
+		 end else
 			local nCollection = self._manager:TypeCollection()
 			for k,v in pairs(self._typedObjectDict) do
 				nCollection:put(k)
-			end
+			::continue:: end
 			local nTypedPart = nCollection:mergeToAtomUnion()
 			self._typedPart = nTypedPart
-			return nTypedPart
-		end
+			do return nTypedPart
+		 end end
 	end
 end
 
 function ObjectUnion:mayRecursive()
-	return true
-end
+	do return true
+ end end
 
 function ObjectUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 	if OpenTable.is(vType) then
-		return self._openTableDict[vType] and vType or false
-	end
+		do return self._openTableDict[vType] and vType or false
+	 end end
 	if SealTable.is(vType) then
 		for nTable, _ in pairs(self._sealTableDict) do
 			if nTable:assumeIncludeAtom(vAssumeSet, vType) then
-				return nTable
-			end
-		end
+				do return nTable
+			 end end
+		::continue:: end
 	end
 	for nObject, _ in pairs(self._typedObjectDict) do
 		if nObject:assumeIncludeAtom(vAssumeSet, vType) then
-			return nObject
-		end
-	end
-	return false
-end
+			do return nObject
+		 end end
+	::continue:: end
+	do return false
+ end end
 
-return ObjectUnion
-
+do return ObjectUnion
+ end 
 end end
 --thlua.type.union.ObjectUnion end ==========)
 
@@ -18528,32 +18694,32 @@ end
 
 function StringLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if String.is(vType) or Truth.is(vType) then
-		return self
-	else
-		return self:assumeIncludeAtom(nil, vType)
-	end
+		do return self
+	 end else
+		do return self:assumeIncludeAtom(nil, vType)
+	 end end
 end
 
 function StringLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 	if StringLiteral.is(vType) then
 		if self._literalSet[vType] then
-			return vType
-		else
-			return false
-		end
+			do return vType
+		 end else
+			do return false
+		 end end
 	else
-		return false
-	end
+		do return false
+	 end end
 end
 
 function StringLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
-	end
+	::continue:: end
 end
 
-return StringLiteralUnion
-
+do return StringLiteralUnion
+ end 
 end end
 --thlua.type.union.StringLiteralUnion end ==========)
 
