@@ -2658,6 +2658,11 @@ local Exception = require "thlua.Exception"
 	
  
 
+   
+	
+	
+
+
 
 
 local Node = {}
@@ -3851,18 +3856,19 @@ function SplitCode:binSearch(vList, vPos)
 	return nLeft, vList[nLeft]
 end
 
-function SplitCode:lcToPos(vLine, c)
-	local nLinePos = self._linePosList
-	local nLineInfo = nLinePos[vLine]
-	local nLineCount = #nLinePos
-	if nLineInfo then
-		if c <= 1 then
-			return nLineInfo.pos
+function SplitCode:lspToPos(vLspPos)
+	local nLineOffset = vLspPos.line + 1
+	local nLinePos = self._linePosList[nLineOffset]
+	if nLinePos then
+		local nLineStr = self._lineList[nLineOffset]
+		local nCharOffset = utf8.offset(nLineStr, vLspPos.character + 1)
+		if nCharOffset <= 1 then
+			return nLinePos.pos
 		else
-			return nLineInfo.pos + c - 1
+			return nLinePos.pos + nCharOffset - 1
 		end
 	else
-		if vLine > nLineCount then
+		if nLineOffset + 1 > #self._linePosList then
 			return #self._content + 1
 		else
 			return 1
@@ -9935,14 +9941,14 @@ function CompletionRuntime:injectCompletion(vTracePos, vBlockNode, vFn, vServer)
 	return nFieldCompletion
 end
 
-function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode, vLine, vColumn)  
+function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode, vLspPos)  
 	local nSuccEnv = self:getCodeEnv(vFileUri)
 	if not nSuccEnv then
 		return false, "goto failed, success compiled code not found"
 	end
 	local nSuccSplitCode = nSuccEnv:getSplitCode()
-	local nPos = nSuccSplitCode:lcToPos(vLine, vColumn)
-	if nSuccSplitCode:getLine(vLine) ~= vDirtySplitCode:getLine(vLine) or nPos ~= vDirtySplitCode:lcToPos(vLine, vColumn) then
+	local nPos = nSuccSplitCode:lspToPos(vLspPos)
+	if nSuccSplitCode:getLine(vLspPos.line + 1) ~= vDirtySplitCode:getLine(vLspPos.line + 1) or nPos ~= vDirtySplitCode:lspToPos(vLspPos) then
 		return false, "goto failed, code is dirty before pos"
 	end
 	     
@@ -11919,10 +11925,7 @@ function FastServer:onDefinition(vParams)
 	local nFileState = self:checkFileState(nFileUri)
 	local nCompletionRuntime = self:checkRuntime()
 	local nNodeSet, nErrMsg = nCompletionRuntime:gotoNodeByParams(
-		true, nFileUri, nFileState:getSplitCode(),
-		vParams.position.line + 1,
-		vParams.position.character + 1
-	)
+		true, nFileUri, nFileState:getSplitCode(), vParams.position)
 	if not nNodeSet then
 		self:info("goto definition fail:", nErrMsg)
 		return nil
@@ -11953,7 +11956,7 @@ function FastServer:onCompletion(vParams)
 	end
 	   
 	local nSplitCode = nFileState:getSplitCode()
-	local nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
+	local nPos = nSplitCode:lspToPos(vParams.position)
 	local nWrongContent = nSplitCode:getContent():sub(1, nPos-1)
 	    
 	local nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
@@ -12074,8 +12077,8 @@ function FileState:syncChangeNoRerun(vParams)
 			local nContent = nSplitCode:getContent()
 			local nRangeStart = nRange.start
 			local nRangeEnd = nRange["end"]
-			local nStartPos = nSplitCode:lcToPos(nRangeStart.line + 1, nRangeStart.character + 1)
-			local nFinishPos = nSplitCode:lcToPos(nRangeEnd.line + 1, nRangeEnd.character + 1)
+			local nStartPos = nSplitCode:lspToPos(nRangeStart)
+			local nFinishPos = nSplitCode:lspToPos(nRangeEnd)
 			local nNewContent = nContent:sub(1, nStartPos - 1) .. nChangeText .. nContent:sub(nFinishPos, #nContent)
 			local nRemoveText = nContent:sub(nStartPos, nFinishPos-1)
 			if nChangeText:find("[\r\n]") or nRemoveText:find("[\r\n]") then
@@ -12462,10 +12465,7 @@ function SlowServer:onReferences(vParams)
 	local nFileState = self:checkFileState(nFileUri)
 	local nDiagnosticRuntime = self:checkDiagnosticRuntime()
 	local nNodeSet, nErrMsg = nDiagnosticRuntime:gotoNodeByParams(
-		false, nFileUri, nFileState:getSplitCode(),
-		vParams.position.line + 1,
-		vParams.position.character + 1
-	)
+		false, nFileUri, nFileState:getSplitCode(), vParams.position)
 	if not nNodeSet then
 		self:info("find references fail:", nErrMsg)
 		return nil
