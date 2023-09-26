@@ -4,8 +4,10 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from 'path';
+import * as vscode from 'vscode';
 import { workspace, ExtensionContext, Diagnostic } from 'vscode';
 import * as os from 'os';
+import {spawn} from 'child_process'
 
 import {
 	LanguageClient,
@@ -33,9 +35,30 @@ export function activate(context: ExtensionContext) {
 			luaBin = "osx_arm_lua";
 		}
 	}
-	let serverCommand = context.asAbsolutePath(
+	let luaCommand = context.asAbsolutePath(
 		path.join('server', luaBin)
 	);
+	context.subscriptions.push(vscode.commands.registerCommand("TypeHintLua.runCode", ()=>{
+		const term = vscode.window.createOutputChannel("TypeHintLua");
+		const activeEditor = vscode.window.activeTextEditor;
+		if(activeEditor){
+			//For Getting File Path
+			let filePath = activeEditor.document.uri.fsPath;
+			term.show();
+			const process = spawn(luaCommand, [filePath]);
+			process.stdout.on('data', (data) => {
+				term.append(data);
+			});
+
+			process.stderr.on('data', (data) => {
+				term.append(data);
+			});
+
+			process.on('close', (code) => {
+			});
+		}
+	}));
+
 	const serverCommandArg1 = context.asAbsolutePath(
 		path.join('server', 'thlua.lua')
 	);
@@ -60,7 +83,7 @@ export function activate(context: ExtensionContext) {
 		'TypeHintLua_slow',
 		'TypeHintLua_slow',
 		{ // server option
-			command : serverCommand,
+			command : luaCommand,
 			args: [serverCommandArg1, "slow", serverCommandArg3]
 		},
 		clientOptions
@@ -70,7 +93,7 @@ export function activate(context: ExtensionContext) {
 		'TypeHintLua_fast',
 		'TypeHintLua_fast',
 		{ // server option
-			command : serverCommand,
+			command : luaCommand,
 			args: [serverCommandArg1, "fast", serverCommandArg3]
 		},
 		clientOptions
