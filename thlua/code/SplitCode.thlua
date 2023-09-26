@@ -76,18 +76,19 @@ function SplitCode:binSearch@<TValue>(vList:List(TValue), vPos:Integer):Ret(Fals
 	return nLeft, vList[nLeft]!
 end
 
-function SplitCode:lcToPos(vLine:Integer, c:Integer):Ret(Integer)
-	const nLinePos = self._linePosList
-	const nLineInfo = nLinePos[vLine]
-	const nLineCount = #nLinePos
-	if nLineInfo then
-		if c <= 1 then
-			return nLineInfo.pos
+function SplitCode:lspToPos(vLspPos:node.LspPos):Ret(Integer)
+	const nLineOffset = vLspPos.line + 1
+	const nLinePos = self._linePosList[nLineOffset]
+	if nLinePos then
+		const nLineStr = self._lineList[nLineOffset]!
+		const nCharOffset = utf8.offset(nLineStr, vLspPos.character + 1)
+		if nCharOffset <= 1 then
+			return nLinePos.pos
 		else
-			return nLineInfo.pos + c - 1
+			return nLinePos.pos + nCharOffset - 1
 		end
 	else
-		if vLine > nLineCount then
+		if nLineOffset + 1 > #self._linePosList then
 			return #self._content + 1
 		else
 			return 1

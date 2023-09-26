@@ -146,10 +146,7 @@ function FastServer:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(ls
 	const nFileState = self:checkFileState(nFileUri)
 	const nCompletionRuntime = self:checkRuntime()
 	const nNodeSet, nErrMsg = nCompletionRuntime:gotoNodeByParams(
-		true, nFileUri, nFileState:getSplitCode(),
-		vParams.position.line + 1,
-		vParams.position.character + 1
-	)
+		true, nFileUri, nFileState:getSplitCode(), vParams.position)
 	if not nNodeSet then
 		self:info("goto definition fail:", nErrMsg)
 		return nil
@@ -180,7 +177,7 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	end
 	-- 2. cut code
 	const nSplitCode = nFileState:getSplitCode()
-	const nPos = nSplitCode:lcToPos(vParams.position.line+1, vParams.position.character+1)
+	const nPos = nSplitCode:lspToPos(vParams.position)
 	const nWrongContent = nSplitCode:getContent():sub(1, nPos-1)
 	-- 3. parsing with error
 	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)

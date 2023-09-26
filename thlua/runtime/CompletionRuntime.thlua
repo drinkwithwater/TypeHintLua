@@ -139,14 +139,14 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	return nFieldCompletion
 end
 
-function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLine:Integer, vColumn:Integer):Ret(False, String):Ret(Dict(clazz.IBaseNode, True))
+function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLspPos:node.LspPos):Ret(False, String):Ret(Dict(clazz.IBaseNode, True))
 	const nSuccEnv = self:getCodeEnv(vFileUri)
 	if not nSuccEnv then
 		return false, "goto failed, success compiled code not found"
 	end
 	const nSuccSplitCode = nSuccEnv:getSplitCode()
-	const nPos = nSuccSplitCode:lcToPos(vLine, vColumn)
-	if nSuccSplitCode:getLine(vLine) ~= vDirtySplitCode:getLine(vLine) or nPos ~= vDirtySplitCode:lcToPos(vLine, vColumn) then
+	const nPos = nSuccSplitCode:lspToPos(vLspPos)
+	if nSuccSplitCode:getLine(vLspPos.line + 1) ~= vDirtySplitCode:getLine(vLspPos.line + 1) or nPos ~= vDirtySplitCode:lspToPos(vLspPos) then
 		return false, "goto failed, code is dirty before pos"
 	end
 	-- 1. lookup Ident_use and Ident_def
