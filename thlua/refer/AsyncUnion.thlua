@@ -20,25 +20,17 @@ function AsyncUnion.__tostring(self:clazz.AsyncUnion)
 	end
 end
 
-function.open AsyncUnion:ctor(vManager:clazz.TypeManager, vTask:clazz.ScheduleTask, vReadyType:OrNil(clazz.UAtomUnion))
+function.open AsyncUnion:ctor(vManager:clazz.TypeManager)
+	const nTask = vManager:getScheduleManager():newTask()
 	self._manager=vManager
-	self._task = vTask
+	self._task = nTask
+	self._assignNode = false@OrFalse(clazz.IBaseNode)
 	self._mayRecursive=false@Boolean
 	self._typeList=false@OrFalse(List(clazz.IAtomType))
 	self._resultType=false@OrFalse(clazz.UAtomUnion)
-	self._listBuildEvent=vTask:makeEvent()
-	self._resultBuildEvent=vTask:makeEvent()
+	self._listBuildEvent=nTask:makeEvent()
+	self._resultBuildEvent=nTask:makeEvent()
 	self.id=vManager:genTypeId()
-	if vReadyType then
-		const nList = {} @ List(clazz.IAtomType)
-		vReadyType:foreach(function(vType)
-			nList[#nList + 1] = vType
-		end)
-		self._typeList = nList
-		self._resultType = vReadyType
-		self._listBuildEvent:wakeup()
-		self._resultBuildEvent:wakeup()
-	end
 end
 
 function AsyncUnion:detailString(v, vVerbose)
@@ -83,8 +75,24 @@ function AsyncUnion:getListAwait():Ret(List(clazz.IAtomType))
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function AsyncUnion:setAtomList(vAtomList:List(clazz.IAtomType), vLateRunner:OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion)))):Ret(clazz.UAtomUnion)
-	assert(not self._typeList, "type list has been setted")
+function AsyncUnion:setAssignAsync(vNode:clazz.IBaseNode, vResultType:clazz.UAtomUnion)
+	assert(not self._assignNode, "async type has setted")
+	self._assignNode = vNode
+	const nList = {} @ List(clazz.IAtomType)
+	vResultType:foreach(function(vType)
+		nList[#nList + 1] = vType
+	end)
+	self._typeList = nList
+	self._resultType = vResultType
+	self._task:runAsync(function()
+		self._listBuildEvent:wakeup()
+		self._resultBuildEvent:wakeup()
+	end)
+end
+
+function AsyncUnion:setListAsync(vNode:clazz.IBaseNode, vAtomList:List(clazz.IAtomType), vLateRunner:OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion))))
+	assert(not self._assignNode, "async type has setted")
+	self._assignNode = vNode
 	-- step 1. set list
 	self._typeList = vAtomList
 	for k, v in ipairs(vAtomList) do

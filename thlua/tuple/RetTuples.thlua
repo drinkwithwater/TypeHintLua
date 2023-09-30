@@ -22,7 +22,7 @@ function.open RetTuples:ctor(
 		nFirstToTuple[nFirst] = nTuple
 	end
 	const nTask = vManager:getScheduleManager():newTask()
-	const nAsyncFirstType = vManager:AsyncUnion(nTask)
+	const nAsyncFirstType = vManager:AsyncUnion()
 	self._node=vNode
 	self._task = nTask
 	self._manager=vManager
@@ -40,7 +40,8 @@ function.open RetTuples:ctor(
 				nFirstAtomList[#nFirstAtomList + 1] = vAtomType
 			end)
 		end
-		const nAtomUnion = nAsyncFirstType:setAtomList(nFirstAtomList)
+		nAsyncFirstType:setListAsync(vNode, nFirstAtomList)
+		const nAtomUnion = nAsyncFirstType:checkAtomUnion()
 		if not vManager:typeCheckIndependent(nIndependentList, nAtomUnion) then
 			error("return tuples' first type must be independent")
 		end

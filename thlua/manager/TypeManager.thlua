@@ -208,8 +208,8 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:AsyncUnion(vTask:clazz.ScheduleTask, vReadyType:OrNil(clazz.UAtomUnion)):Ret(clazz.AsyncUnion)
-	return AsyncUnion.new(self, vTask, vReadyType)
+function TypeManager:AsyncUnion():Ret(clazz.AsyncUnion)
+	return AsyncUnion.new(self)
 end
 
 function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vObjectList:List(clazz.UAllType)):Ret(clazz.TypedObject)
@@ -270,7 +270,8 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		const _, nFinalValueDict = self:typeMapReduce@<clazz.UAllType>(nKeyValuePairList, function(vList)
 			return self:intersectReduceType(vNode, vList)
 		end)
-		const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
+		vAsyncKey:setListAsync(vNode, nKeyList)
+		const nKeyAtomUnion = vAsyncKey:checkAtomUnion()
 		if #nMetaEventComList > 0 then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByMerge(nMetaEventComList)
@@ -391,7 +392,8 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 				end
 			end)
 		end
-		const nKeyAtomUnion = vAsyncKey:setAtomList(nKeyList)
+		vAsyncKey:setListAsync(vNode, nKeyList)
+		const nKeyAtomUnion = vAsyncKey:checkAtomUnion()
 		if vMetaEventDict then
 			const nNewEventCom = self:makeMetaEventCom(nNewObject)
 			nNewEventCom:initByEventDict(vMetaEventDict)
