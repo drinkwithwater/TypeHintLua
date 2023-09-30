@@ -137,7 +137,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 	end)
 	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
 		local nType = vCond
-		if Reference.is(vCond) then
+		if Reference.is(vCond) or AsyncUnion.is(vCond) then
 			nType = vCond:checkAtomUnion()
 		end
 		if nType:isUnion() then
@@ -309,11 +309,12 @@ end
 
 function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:Truth):Ret(clazz.TypeReference)
 	const nNewRefer = self:Reference(false)
-	nNewRefer:setUnionAsync(vNode, function()
+	error("build Enum TODO")
+	--[[nNewRefer:setUnionAsync(vNode, function()
 		const nType = self._dirtyProcessor:easyToType(vNode, vArgType)
 		const nSuperType = Reference.is(nType) and nType:waitTypeCom():getTypeAwait() or nType
 		return {Enum.new(self, nSuperType)}
-	end)
+	end)]]
 	return nNewRefer
 end
 
@@ -348,6 +349,9 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.Type
 						nTypeList[#nTypeList + 1] = vAtom
 					end)
 				end
+			elseif AsyncUnion.is(nItem) then
+				const nList = nItem:getListAwait()
+				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
 				nItem:foreach(function(vAtom)
 					nTypeList[#nTypeList + 1] = vAtom

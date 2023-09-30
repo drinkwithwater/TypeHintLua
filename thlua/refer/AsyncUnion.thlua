@@ -5,7 +5,7 @@ const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const AsyncUnion = class@<clazz.AsyncUnion, false>()
+const AsyncUnion = class@<clazz.AsyncUnion, clazz.IType>()
 
 function AsyncUnion.__tostring(self:clazz.AsyncUnion)
 	const l:List(String) = {}
@@ -28,6 +28,7 @@ function.open AsyncUnion:ctor(vManager:clazz.TypeManager, vTask:clazz.ScheduleTa
 	self._resultType=false@OrFalse(clazz.UAtomUnion)
 	self._listBuildEvent=vTask:makeEvent()
 	self._resultBuildEvent=vTask:makeEvent()
+	self.id=vManager:genTypeId()
 	if vReadyType then
 		const nList = {} @ List(clazz.IAtomType)
 		vReadyType:foreach(function(vType)
@@ -38,6 +39,22 @@ function.open AsyncUnion:ctor(vManager:clazz.TypeManager, vTask:clazz.ScheduleTa
 		self._listBuildEvent:wakeup()
 		self._resultBuildEvent:wakeup()
 	end
+end
+
+function AsyncUnion:detailString(v, vVerbose)
+	return "AsyncUnion detail string TODO"
+	--[[
+	const nCom = self._com
+	if not nCom then
+		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
+	else
+		if AsyncUnion.is(nCom) then
+			return "TypeReference("..tostring(nCom:getTypeNowait())..")"
+		else
+			return "TemplateReference("..(tostring(self._key) or tostring(self._assignNode))..")"
+		end
+	end
+	]]
 end
 
 function AsyncUnion:getResultType():Ret(OrFalse(clazz.UAtomUnion))
@@ -55,7 +72,7 @@ function AsyncUnion:getTypeAwait():Ret(clazz.UAtomUnion)
 	return (assert(self._resultType, "result type not setted"))
 end
 
-function AsyncUnion:getMayRecursive():Ret(Boolean)
+function AsyncUnion:mayRecursive():Ret(Boolean)
 	return self._mayRecursive
 end
 
@@ -114,7 +131,103 @@ function AsyncUnion:foreachAwait(vFunc:Fn(clazz.IAtomType))
 	end
 end
 
+function AsyncUnion:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	const nResultType = self:getTypeNowait()
+	if not nResultType:isAsync() then
+		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	else
+		local nAllInclude:Boolean = true
+		const nTypeList = nResultType:getListAwait()
+		vRight:foreachAwait(function(vAtomType)
+			if not nAllInclude then
+				return
+			end
+			local nCurInclude:Boolean = false
+			for _, nType in ipairs(nTypeList) do
+				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
+					nCurInclude = true
+					break
+				end
+			end
+			if not nCurInclude then
+				nAllInclude = false
+			end
+		end)
+		return nAllInclude
+	end
+end
+
+function AsyncUnion:assumeIntersectSome(vAssumeSet, vRight)
+	const nResultType = self:getTypeNowait()
+	if not nResultType:isAsync() then
+		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
+	else
+		local nSomeIntersect:Boolean = false
+		const nTypeList = nResultType:getListAwait()
+		vRight:foreachAwait(function(vAtomType)
+			if nSomeIntersect then
+				return
+			end
+			local nCurIntersect:Boolean = false
+			for _, nType in ipairs(nTypeList) do
+				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
+					nCurIntersect = true
+					break
+				end
+			end
+			if nCurIntersect then
+				nSomeIntersect = true
+			end
+		end)
+		return nSomeIntersect
+	end
+end
+
+function AsyncUnion:foreachAwait(vFunc)
+	const nResultType = self:getTypeNowait()
+	if not nResultType:isAsync() then
+		nResultType:foreach(vFunc)
+	else
+		local nListType = nResultType:getListAwait()
+		for _, v in ipairs(nListType) do
+			vFunc(v)
+		end
+	end
+end
+
+function AsyncUnion:checkAtomUnion():Ret(clazz.UAtomUnion)
+	return self:getTypeAwait()
+end
+
+function AsyncUnion:intersectAtom(vRightType)
+	return self:getTypeAwait():intersectAtom(vRightType)
+end
+
+function AsyncUnion:includeAtom(vRightType)
+	return self:getTypeAwait():includeAtom(vRightType)
+end
+
+function AsyncUnion:includeAll(vRight)
+	return self:assumeIncludeAll(nil, vRight)
+end
+
+function AsyncUnion:safeIntersect(vRight)
+	return self:getTypeAwait():safeIntersect(vRight)
+end
+
+function AsyncUnion:intersectSome(vRight)
+	return self:assumeIntersectSome(nil, vRight)
+end
+
 function AsyncUnion:isAsync():Ret(True)
+	return true
+end
+
+function AsyncUnion:unionSign()
+	return tostring(self.id)
+end
+
+function AsyncUnion:isReference():Ret(True)
 	return true
 end
 

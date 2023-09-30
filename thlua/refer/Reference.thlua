@@ -193,77 +193,23 @@ function Reference:isReference():Ret(True)
 end
 
 function Reference:foreachAwait(vFunc)
-	const nResultType = self:waitTypeCom():getTypeNowait()
-	if not nResultType:isAsync() then
-		nResultType:foreach(vFunc)
-	else
-		local nListType = nResultType:getListAwait()
-		for _, v in ipairs(nListType) do
-			vFunc(v)
-		end
-	end
+	return self:waitTypeCom():foreachAwait(vFunc)
 end
 
 function Reference:intersectAtom(vRightType)
-	const nType = self:checkAtomUnion()
-	return nType:intersectAtom(vRightType)
+	return self:waitTypeCom():intersectAtom(vRightType)
 end
 
 function Reference:includeAtom(vRightType)
-	const nType = self:checkAtomUnion()
-	return nType:includeAtom(vRightType)
+	return self:waitTypeCom():includeAtom(vRightType)
 end
 
 function Reference:assumeIntersectSome(vAssumeSet, vRight)
-	const nResultType = self:waitTypeCom():getTypeNowait()
-	if not nResultType:isAsync() then
-		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
-	else
-		local nSomeIntersect:Boolean = false
-		const nTypeList = nResultType:getListAwait()
-		vRight:foreachAwait(function(vAtomType)
-			if nSomeIntersect then
-				return
-			end
-			local nCurIntersect:Boolean = false
-			for _, nType in ipairs(nTypeList) do
-				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
-					nCurIntersect = true
-					break
-				end
-			end
-			if nCurIntersect then
-				nSomeIntersect = true
-			end
-		end)
-		return nSomeIntersect
-	end
+	return self:waitTypeCom():assumeIntersectSome(vAssumeSet, vRight)
 end
 
 function Reference:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	const nResultType = self:waitTypeCom():getTypeNowait()
-	if not nResultType:isAsync() then
-		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	else
-		local nAllInclude:Boolean = true
-		const nTypeList = nResultType:getListAwait()
-		vRight:foreachAwait(function(vAtomType)
-			if not nAllInclude then
-				return
-			end
-			local nCurInclude:Boolean = false
-			for _, nType in ipairs(nTypeList) do
-				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
-					nCurInclude = true
-					break
-				end
-			end
-			if not nCurInclude then
-				nAllInclude = false
-			end
-		end)
-		return nAllInclude
-	end
+	return self:waitTypeCom():assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 end
 
 function Reference:unionSign()
@@ -271,25 +217,19 @@ function Reference:unionSign()
 end
 
 function Reference:safeIntersect(vRight)
-	return self:checkAtomUnion():safeIntersect(vRight)
+	return self:waitTypeCom():safeIntersect(vRight)
 end
 
 function Reference:includeAll(vRight)
-	return self:assumeIncludeAll(nil, vRight)
+	return self:waitTypeCom():includeAll(vRight)
 end
 
 function Reference:intersectSome(vRight)
-	return self:assumeIntersectSome(nil, vRight)
+	return self:waitTypeCom():intersectSome(vRight)
 end
 
 function Reference:mayRecursive()
-	const nTypeCom = self:waitTypeCom()
-	const nResultType = nTypeCom:getTypeNowait()
-	if nResultType:isAsync() then
-		return nResultType:getMayRecursive()
-	else
-		return nResultType:mayRecursive()
-	end
+	return self:waitTypeCom():mayRecursive()
 end
 
 function.open Reference.is(v):isguard(clazz.TypeReference)
