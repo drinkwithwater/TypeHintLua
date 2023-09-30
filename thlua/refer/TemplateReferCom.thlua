@@ -8,34 +8,34 @@ TemplateReferCom.__index = TemplateReferCom
 
 function:class(clazz.TemplateReferCom) TemplateReferCom.new(
 	vManager:clazz.TypeManager,
-	vRefer:clazz.TypeReference,
+	vNode:clazz.IBaseNode,
 	vFunc:AnyFunction,
 	vParNum:Integer
 )
 	const self = setmetatable({.class
 		_manager=vManager,
-		_refer=vRefer,
+		_node=vNode,
 		_parNum=vParNum,
 		_func=vFunc,
-		_cache={}@Dict(String, clazz.TypeReference),
+		_cache={}@Dict(String, clazz.AsyncUnion),
 	}, TemplateReferCom)
 	return self
 end
 
-function TemplateReferCom:call(vNode:clazz.IBaseNode, vKey:String, vArgList:List(clazz.UAllType)):Ret(clazz.TypeReference)
+function TemplateReferCom:call(vNode:clazz.IBaseNode, vKey:String, vArgList:List(clazz.UAllType)):Ret(clazz.AsyncUnion)
 	const nFn = self._func
-	local nRefer = self._cache[vKey]
-	if not nRefer then
-		nRefer = self._manager:Reference(false)
-		nRefer:setAssignAsync(vNode, function()
+	local nTypeCom = self._cache[vKey]
+	if not nTypeCom then
+		nTypeCom = self._manager:AsyncUnion()
+		nTypeCom:setTypeAsync(vNode, function()
 			if #vArgList ~= self._parNum then
 				error(Exception.new("template args num not match", vNode))
 			end
-			return nFn(table.unpack(vArgList))
+			return self._manager:getDirtyProcessor():easyToMustType(vNode, nFn(table.unpack(vArgList)))
 		end)
-		self._cache[vKey] = nRefer
+		self._cache[vKey] = nTypeCom
 	end
-	return nRefer
+	return nTypeCom
 end
 
 function.open TemplateReferCom.is(self):isguard(clazz.TemplateReferCom)

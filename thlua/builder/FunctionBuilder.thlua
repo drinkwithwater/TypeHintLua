@@ -392,11 +392,14 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		const nPolyFn = self._manager:SealPolyFunction(self._node, function(...:clazz.UAllType)
 			return nFnMaker({...})
 		end, nPolyParNum, self._stack)
-		nRefer:setTemplateAsync(self._node, function(...:clazz.UAllType)
+		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UAllType)
 			const nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
 			return nFactory:getClassTable(true)
 		end, nPolyParNum)
+		nRefer:setAssignAsync(self._node, function()
+			return nTemplateCom
+		end)
 		return nPolyFn
 	end
 end

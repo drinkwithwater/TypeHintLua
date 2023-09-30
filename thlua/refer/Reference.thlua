@@ -25,7 +25,7 @@ end)
 
 const Reference = {}
 Reference.__index = Reference
-Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
+Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.AsyncUnion)
 	-- TODO, cast
 	const nNode = Node.newDebugNode()
 	const nArgList:List(clazz.UAllType) = self._manager:getDirtyProcessor():easyToAllTypeList(nNode, ...)
@@ -37,16 +37,16 @@ Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeRefer
 		error(Exception.new("template reference expected here", nNode))
 	end
 	const nDict = self._callDict
-	local nRefer = nDict[nKey]
-	if not nRefer then
-		nRefer = self._manager:Reference(false)
-		nRefer:setAssignAsync(nNode, function()
+	local nTypeCom = nDict[nKey]
+	if not nTypeCom then
+		nTypeCom = self._manager:AsyncUnion()
+		nTypeCom:setTypeAsync(nNode, function()
 			const nCom = self:waitTemplateCom()
 			return nCom:call(nNode, nKey, nArgList)
 		end)
-		nDict[nKey] = nRefer
+		nDict[nKey] = nTypeCom
 	end
-	return nRefer
+	return nTypeCom
 end
 
 function Reference.__tostring(self:clazz.TypeReference):Ret(String)
@@ -59,7 +59,7 @@ function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vK
 		_manager = vManager,
 		_task = nTask,
 		_key=vKeyOrFalse,
-		_callDict={}@Dict(String, clazz.TypeReference),
+		_callDict={}@Dict(String, clazz.AsyncUnion),
 		_assignNode=false@OrFalse(clazz.IBaseNode),
 		_referNodes={}@List(clazz.IBaseNode),
 		id=vManager:genTypeId(),
@@ -124,10 +124,12 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 		if Reference.is(nAssignValue) then
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
+		elseif TemplateReferCom.is(nAssignValue) then
+			self:_setComAndWakeup(nAssignValue)
+		elseif AsyncUnion.is(nAssignValue) then
+			self:_setComAndWakeup(nAssignValue)
 		else
-			if AsyncUnion.is(nAssignValue) then
-				self:_setComAndWakeup(nAssignValue)
-			elseif BaseAtomType.is(nAssignValue) then
+			if BaseAtomType.is(nAssignValue) then
 				const nCom = self._manager:AsyncUnion()
 				nCom:setTypeAsync(vNode, function()
 					return nAssignValue
@@ -143,15 +145,6 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 				error("namespace assign a non-type value")
 			end
 		end
-	end)
-end
-
-function Reference:setTemplateAsync(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParNum:Integer)
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
-	self._assignNode = vNode
-	const nCom = TemplateReferCom.new(self._manager, self, vFunc, vParNum)
-	self._task:runAsync(function()
-		self:_setComAndWakeup(nCom)
 	end)
 end
 

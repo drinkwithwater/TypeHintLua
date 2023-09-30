@@ -75,19 +75,26 @@ function AsyncUnion:getListAwait():Ret(List(clazz.IAtomType))
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function AsyncUnion:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UAtomUnion))
+function AsyncUnion:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
 		const nResultType = vFn()
-		const nList = {} @ List(clazz.IAtomType)
-		nResultType:foreach(function(vType)
-			nList[#nList + 1] = vType
-		end)
-		self._typeList = nList
-		self._resultType = nResultType
-		self._listBuildEvent:wakeup()
-		self._resultBuildEvent:wakeup()
+		if AsyncUnion.is(nResultType) then
+			self._typeList = nResultType:getListAwait()
+			self._listBuildEvent:wakeup()
+			self._resultType = nResultType:getTypeAwait()
+			self._resultBuildEvent:wakeup()
+		else
+			const nList = {} @ List(clazz.IAtomType)
+			nResultType:foreach(function(vType)
+				nList[#nList + 1] = vType
+			end)
+			self._typeList = nList
+			self._resultType = nResultType
+			self._listBuildEvent:wakeup()
+			self._resultBuildEvent:wakeup()
+		end
 	end)
 end
 
