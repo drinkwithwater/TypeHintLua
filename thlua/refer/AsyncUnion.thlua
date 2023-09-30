@@ -75,56 +75,54 @@ function AsyncUnion:getListAwait():Ret(List(clazz.IAtomType))
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function AsyncUnion:setAssignAsync(vNode:clazz.IBaseNode, vResultType:clazz.UAtomUnion)
+function AsyncUnion:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UAtomUnion))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
-	const nList = {} @ List(clazz.IAtomType)
-	vResultType:foreach(function(vType)
-		nList[#nList + 1] = vType
-	end)
-	self._typeList = nList
-	self._resultType = vResultType
 	self._task:runAsync(function()
+		const nResultType = vFn()
+		const nList = {} @ List(clazz.IAtomType)
+		nResultType:foreach(function(vType)
+			nList[#nList + 1] = vType
+		end)
+		self._typeList = nList
+		self._resultType = nResultType
 		self._listBuildEvent:wakeup()
 		self._resultBuildEvent:wakeup()
 	end)
 end
 
-function AsyncUnion:setListAsync(vNode:clazz.IBaseNode, vAtomList:List(clazz.IAtomType), vLateRunner:OrNil(Fn():Ret(OrFalse(clazz.UAtomUnion))))
+function AsyncUnion:setListAsync(vNode:clazz.IBaseNode, vGetListLateRunner:Fn():Ret(List(clazz.IAtomType), OrNil(Fn(clazz.UAtomUnion))))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
-	-- step 1. set list
-	self._typeList = vAtomList
-	for k, v in ipairs(vAtomList) do
-		if v:mayRecursive() then
-			self._mayRecursive = true
+	self._task:runAsync(function()
+		const nAtomList, nLateRunner = vGetListLateRunner()
+		-- step 1. set list
+		self._typeList = nAtomList
+		for k, v in ipairs(nAtomList) do
+			if v:mayRecursive() then
+				self._mayRecursive = true
+			end
 		end
-	end
-	self._listBuildEvent:wakeup()
-	if vLateRunner then
-		const nResultType = vLateRunner()
-		if nResultType then
-			self._resultType = nResultType
-			self._resultBuildEvent:wakeup()
-			return nResultType
+		self._listBuildEvent:wakeup()
+		-- step 2. merge to result type
+		local nResultType:OrNil(clazz.UAtomUnion) = nil
+		if #nAtomList == 0 then
+			nResultType = self._manager.type.Never
+		elseif #nAtomList == 1 then
+			nResultType = nAtomList[1]!
+		else
+			local nCollection = self._manager:TypeCollection()
+			for _, v in ipairs(nAtomList) do
+				nCollection:put(v)
+			end
+			nResultType = nCollection:mergeToAtomUnion()
 		end
-	end
-	-- step 2. merge to result type
-	local nResultType:OrNil(clazz.UAtomUnion) = nil
-	if #vAtomList == 0 then
-		nResultType = self._manager.type.Never
-	elseif #vAtomList == 1 then
-		nResultType = vAtomList[1]!
-	else
-		local nCollection = self._manager:TypeCollection()
-		for _, v in ipairs(vAtomList) do
-			nCollection:put(v)
+		self._resultType = nResultType
+		self._resultBuildEvent:wakeup()
+		if nLateRunner then
+			nLateRunner(nResultType)
 		end
-		nResultType = nCollection:mergeToAtomUnion()
-	end
-	self._resultType = nResultType
-	self._resultBuildEvent:wakeup()
-	return nResultType
+	end)
 end
 
 function AsyncUnion:foreachAwait(vFunc:Fn(clazz.IAtomType))
