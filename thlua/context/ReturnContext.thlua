@@ -43,8 +43,8 @@ function ReturnContext:tryMatchCast(
 ):Ret(False):Ret(True, Boolean)
 	local nCastResult = true
 	for i=1, #vSrcTuple do
-		const nDstType = vDstTuple:get(i):checkAtomUnion()
-		const nSrcType = vSrcTuple:get(i):checkAtomUnion()
+		const nDstType = vDstTuple:get(i):mustType():checkAtomUnion()
+		const nSrcType = vSrcTuple:get(i):mustType():checkAtomUnion()
 		const nIncludeType, nCastSucc = self:tryIncludeCast(vAutoFnCastDict, nDstType, nSrcType)
 		if not nIncludeType then
 			return false
@@ -53,8 +53,8 @@ function ReturnContext:tryMatchCast(
 		end
 	end
 	for i=#vSrcTuple + 1, #vDstTuple do
-		const nDstType = vDstTuple:get(i):checkAtomUnion()
-		const nSrcType = vSrcTuple:get(i):checkAtomUnion()
+		const nDstType = vDstTuple:get(i):mustType():checkAtomUnion()
+		const nSrcType = vSrcTuple:get(i):mustType():checkAtomUnion()
 		const nIncludeType, nCastSucc = self:tryIncludeCast(vAutoFnCastDict, nDstType, nSrcType)
 		if not nIncludeType then
 			return false
@@ -67,7 +67,7 @@ function ReturnContext:tryMatchCast(
 		const nDstRepeatType = vDstTuple:getRepeatType()
 		if not nDstRepeatType then
 			return false
-		elseif not nDstRepeatType:includeAll(nSrcRepeatType) then
+		elseif not nDstRepeatType:mustType():includeAll(nSrcRepeatType:mustType()) then
 			return false
 		end
 	end

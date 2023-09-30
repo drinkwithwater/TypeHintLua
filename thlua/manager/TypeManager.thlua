@@ -139,7 +139,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.generic.Cond = self:rootBuildTemplate("Cond", vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
 		local nType = vCond
 		if Reference.is(vCond) or AsyncUnion.is(vCond) then
-			nType = vCond:checkAtomUnion()
+			nType = vCond:mustType():checkAtomUnion()
 		end
 		if nType:isUnion() then
 			error("Cond's first value can't be union")
@@ -161,7 +161,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.generic.KeyOf = self:rootBuildTemplate("KeyOf", vRootNode, function(vOneType:clazz.UAllType)
 		local nObject = vOneType
 		if Reference.is(vOneType) then
-			nObject = vOneType:checkAtomUnion()
+			nObject = vOneType:mustType():checkAtomUnion()
 		end
 		if not TypedObject.is(nObject) then
 			error("key of can only worked on object function")
@@ -169,7 +169,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		const nKeyRefer, _ = nObject:getKeyTypes()
 		const nAsyncUnion = self:AsyncUnion()
 		nAsyncUnion:setTypeAsync(nObject:getNode(), function()
-			return nKeyRefer:getTypeAwait()
+			return nKeyRefer
 		end)
 		return nAsyncUnion
 	end)
@@ -190,10 +190,6 @@ function TypeManager:isLiteral(vType:clazz.IAtomType):Ret(Boolean)
 	else
 		return false
 	end
-end
-
-function TypeManager:toAtomUnion(vData:clazz.UAllType):Ret(clazz.UAtomUnion)
-	-- TODO
 end
 
 function TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
@@ -227,7 +223,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		for i=1,#vObjectList do
 			local nTypedObject = vObjectList[i]!
 			if Reference.is(nTypedObject) then
-				nTypedObject = nTypedObject:checkAtomUnion()
+				nTypedObject = nTypedObject:mustType():checkAtomUnion()
 			end
 			if not TypedObject.is(nTypedObject) then
 				error("Interface or Struct is expected here")
@@ -330,7 +326,7 @@ end
 
 function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:Truth, ...:Truth)
 	-- TODO, put this in an async thread
-	const nType = self._dirtyProcessor:easyToAllType(vNode, vEnumType)
+	const nType = self._dirtyProcessor:easyToMustType(vNode, vEnumType)
 	local nEnumType = nType:checkAtomUnion()
 	assert(Enum.is(nEnumType), Exception.new("enum must take Enum as first arg", vNode))
 	local l = {...}
@@ -376,7 +372,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 	const nNextKey = vMetaEventDict and vMetaEventDict.__Next or false
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
-		const nIndependentList:List(clazz.UAllType) = {}
+		const nIndependentList:List(clazz.UMustType) = {}
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, clazz.UMustType) = {}
 		for nKey, nValue in pairs(vTable) do
@@ -591,7 +587,7 @@ function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReferen
 	return nRefer
 end
 
-function TypeManager:typeCheckIndependent(vList:IList(clazz.UAllType), vFinalType:clazz.UAtomUnion):Ret(Boolean)
+function TypeManager:typeCheckIndependent(vList:IList(clazz.UMustType), vFinalType:clazz.UAtomUnion):Ret(Boolean)
 	local nLeftCount = 0
 	for k,v in ipairs(vList) do
 		v:checkAtomUnion():foreach(function(_)

@@ -57,7 +57,7 @@ function AsyncUnion:getTypeNowait():Ret(Union(clazz.AsyncUnion, clazz.UAtomUnion
 	return self._resultType or self
 end
 
-function AsyncUnion:getTypeAwait():Ret(clazz.UAtomUnion)
+function AsyncUnion:checkAtomUnion():Ret(clazz.UAtomUnion)
 	if not self._resultType then
 		self._resultBuildEvent:wait()
 	end
@@ -83,7 +83,7 @@ function AsyncUnion:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMust
 		if AsyncUnion.is(nResultType) then
 			self._typeList = nResultType:getListAwait()
 			self._listBuildEvent:wakeup()
-			self._resultType = nResultType:getTypeAwait()
+			self._resultType = nResultType:checkAtomUnion()
 			self._resultBuildEvent:wakeup()
 		else
 			const nList = {} @ List(clazz.IAtomType)
@@ -208,16 +208,12 @@ function AsyncUnion:foreachAwait(vFunc)
 	end
 end
 
-function AsyncUnion:checkAtomUnion():Ret(clazz.UAtomUnion)
-	return self:getTypeAwait()
-end
-
 function AsyncUnion:intersectAtom(vRightType)
-	return self:getTypeAwait():intersectAtom(vRightType)
+	return self:checkAtomUnion():intersectAtom(vRightType)
 end
 
 function AsyncUnion:includeAtom(vRightType)
-	return self:getTypeAwait():includeAtom(vRightType)
+	return self:checkAtomUnion():includeAtom(vRightType)
 end
 
 function AsyncUnion:includeAll(vRight)
@@ -225,7 +221,7 @@ function AsyncUnion:includeAll(vRight)
 end
 
 function AsyncUnion:safeIntersect(vRight)
-	return self:getTypeAwait():safeIntersect(vRight)
+	return self:checkAtomUnion():safeIntersect(vRight)
 end
 
 function AsyncUnion:intersectSome(vRight)

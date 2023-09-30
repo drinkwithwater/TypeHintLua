@@ -363,7 +363,7 @@ function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastK
 		return nCastContext:mergeToRefineTerm(nTypeCaseList)
 	else
 		const nDst = assert(..., "hint type can't be nil")
-		const nDstType = self._manager:getDirtyProcessor():easyToAllType(vNode, nDst):checkAtomUnion()
+		const nDstType = self._manager:getDirtyProcessor():easyToMustType(vNode, nDst):checkAtomUnion()
 		const nSrcType = vTerm:getType()
 		if vCastKind == Enum.CastKind_CONIL then
 			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), Enum.CastKind_CONIL)
@@ -384,8 +384,9 @@ function InstStack:NIL_TERM(vNode:node.IAstNode)
 	return self:_nodeTerm(vNode, self._manager.type.Nil)
 end
 
-function InstStack:HINT_TERM(vNode:node.HintTerm, vType:clazz.UAllType)
-	return self:_nodeTerm(vNode, vType:checkAtomUnion())
+function InstStack:HINT_TERM(vNode:node.HintTerm, vItem:Any)
+	const nType = self._manager:getDirtyProcessor():easyToMustType(vNode, vItem):checkAtomUnion()
+	return self:_nodeTerm(vNode, nType)
 end
 
 function InstStack:LITERAL_TERM(vNode:node.IAstNode, vValue:Union(String, Number, Boolean))

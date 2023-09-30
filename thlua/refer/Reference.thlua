@@ -53,17 +53,16 @@ function Reference.__tostring(self:clazz.TypeReference):Ret(String)
 	return self:detailString({}, false)
 end
 
-function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String)):implements(clazz.IType)
+function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String))
 	const nTask = vManager:getScheduleManager():newTask()
 	const self = setmetatable({.class
 		_manager = vManager,
+		id=vManager:genTypeId(),
 		_task = nTask,
 		_key=vKeyOrFalse,
 		_callDict={}@Dict(String, clazz.AsyncUnion),
 		_assignNode=false@OrFalse(clazz.IBaseNode),
 		_referNodes={}@List(clazz.IBaseNode),
-		id=vManager:genTypeId(),
-		bits=false,
 		_assignComEvent = nTask:makeEvent(),
 		_com=false@OrFalse(UReferCom),
 	}, Reference)
@@ -74,7 +73,7 @@ function Reference:getKey():Ret(OrFalse(String))
 	return self._key
 end
 
-function Reference:detailString(v, vVerbose)
+function Reference:detailString(v:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	const nCom = self._com
 	if not nCom then
 		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
@@ -100,10 +99,6 @@ function Reference:getComAwait():Ret(UReferCom)
 end
 
 function Reference:mustType():Ret(clazz.AsyncUnion)
-	return self:waitTypeCom()
-end
-
-function Reference:waitTypeCom():Ret(clazz.AsyncUnion)
 	const nCom = self:getComAwait()
 	assert(AsyncUnion.is(nCom), "type reference expected, but get template reference")
 	return nCom
@@ -165,52 +160,8 @@ function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:checkAtomUnion():Ret(clazz.UAtomUnion)
-	return self:waitTypeCom():getTypeAwait()
-end
-
 function Reference:isReference():Ret(True)
 	return true
-end
-
-function Reference:foreachAwait(vFunc)
-	return self:waitTypeCom():foreachAwait(vFunc)
-end
-
-function Reference:intersectAtom(vRightType)
-	return self:waitTypeCom():intersectAtom(vRightType)
-end
-
-function Reference:includeAtom(vRightType)
-	return self:waitTypeCom():includeAtom(vRightType)
-end
-
-function Reference:assumeIntersectSome(vAssumeSet, vRight)
-	return self:waitTypeCom():assumeIntersectSome(vAssumeSet, vRight)
-end
-
-function Reference:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	return self:waitTypeCom():assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-end
-
-function Reference:unionSign()
-	return tostring(self.id)
-end
-
-function Reference:safeIntersect(vRight)
-	return self:waitTypeCom():safeIntersect(vRight)
-end
-
-function Reference:includeAll(vRight)
-	return self:waitTypeCom():includeAll(vRight)
-end
-
-function Reference:intersectSome(vRight)
-	return self:waitTypeCom():intersectSome(vRight)
-end
-
-function Reference:mayRecursive()
-	return self:waitTypeCom():mayRecursive()
 end
 
 function Reference:getManager()

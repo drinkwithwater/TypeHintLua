@@ -127,9 +127,7 @@ const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UAllType
 	if not vTypeFn then
 		return nil
 	end
-	if Reference.is(vTypeFn) then
-		vTypeFn = vTypeFn:waitTypeCom():getTypeAwait()
-	end
+	vTypeFn = vTypeFn:mustType():checkAtomUnion()
 	if not TypedFunction.is(vTypeFn) then
 		error("meta field "..vEvent.." must be single type-function")
 	else
@@ -151,7 +149,7 @@ function MetaEventCom:initByEventDict(vActionDict:Dict(String, clazz.UAllType))
 	-- 2. build uop
 	local nLenType = vActionDict["__len"]
 	if nLenType then
-		nLenType = nLenType:checkAtomUnion()
+		nLenType = nLenType:mustType():checkAtomUnion()
 		if not nManager.type.Integer:includeAll(nLenType) then
 			error("len type must be subtype of Integer")
 		end

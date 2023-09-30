@@ -95,9 +95,11 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	const nSelfInitDict = self._selfInitDict
 	if nSelfInitDict then
 		for nKey, nValue in pairs(nSelfInitDict) do
-			nKey:checkAtomUnion():foreach(function(vSubKey)
+			const nKey = nManager:getDirtyProcessor():easyToMustType(self._node, nKey)
+			const nValue = nManager:getDirtyProcessor():easyToMustType(self._node, nValue)
+			nKey:foreachAwait(function(vSubKey)
 				nTypePairList[#nTypePairList + 1] = {
-					vSubKey, nManager:checkedUnion(nValue:mustType(), nManager.type.Nil)
+					vSubKey, nManager:checkedUnion(nValue, nManager.type.Nil)
 				}
 			end)
 		end
