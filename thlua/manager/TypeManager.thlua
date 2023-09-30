@@ -220,10 +220,10 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
 		const nKeyList:List(clazz.IAtomType) = {}
-		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UAllType}) = {}
+		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UMustType}) = {}
 		const nIntersectSet:Dict(clazz.TypedObject, True) = {}
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
-		local nIntersectNextKey:OrFalse(clazz.UAllType) = self.type.Any
+		local nIntersectNextKey:OrFalse(clazz.UMustType) = self.type.Any
 		for i=1,#vObjectList do
 			local nTypedObject = vObjectList[i]!
 			if Reference.is(nTypedObject) then
@@ -266,7 +266,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 				end
 			end
 		end
-		const _, nFinalValueDict = self:typeMapReduce@<clazz.UAllType>(nKeyValuePairList, function(vList)
+		const _, nFinalValueDict = self:typeMapReduce@<clazz.UMustType>(nKeyValuePairList, function(vList)
 			return self:intersectReduceType(vNode, vList)
 		end)
 		return nKeyList, function(vKeyAtomUnion)
@@ -296,7 +296,7 @@ function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:Union(clazz
 	return self:_buildCombineObject(vNode, true, l)
 end
 
-function TypeManager:checkedIntersect(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
+function TypeManager:checkedIntersect(vLeft:clazz.UMustType, vRight:clazz.UMustType):Ret(clazz.UAtomUnion)
 	const nLeft = vLeft:checkAtomUnion()
 	const nTypeOrFalse = nLeft:safeIntersect(vRight)
 	if nTypeOrFalse then
@@ -306,8 +306,8 @@ function TypeManager:checkedIntersect(vLeft:clazz.UAllType, vRight:clazz.UAllTyp
 	end
 end
 
-function TypeManager:checkedUnion(...:clazz.UAllType):Ret(clazz.UAtomUnion)
-	const l:List(clazz.UAllType) = {...}
+function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
+	const l:List(clazz.UMustType) = {...}
 	const nCollection = self:TypeCollection()
 	for i=1, select("#", ...) do
 		l[i]!:checkAtomUnion():foreach(function(vAtomType)
@@ -348,18 +348,8 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.Asyn
 	nAsyncUnion:setListAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
-			local nItem = self._dirtyProcessor:easyToAllType(vNode, l[i])
-			if Reference.is(nItem) then
-				const nAsyncType = nItem:waitTypeCom():getTypeNowait()
-				if nAsyncType:isAsync() then
-					const nList = nAsyncType:getListAwait()
-					table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
-				else
-					nAsyncType:foreach(function(vAtom)
-						nTypeList[#nTypeList + 1] = vAtom
-					end)
-				end
-			elseif AsyncUnion.is(nItem) then
+			local nItem = self._dirtyProcessor:easyToMustType(vNode, l[i])
+			if AsyncUnion.is(nItem) then
 				const nList = nItem:getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
@@ -382,15 +372,16 @@ function TypeManager:buildStruct(vNode:clazz.IBaseNode, vTable:Dict(Truth,Truth)
 end
 
 function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
+	-- TODO check vMetaEventDict
 	const nNextKey = vMetaEventDict and vMetaEventDict.__Next or false
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
 		const nIndependentList:List(clazz.UAllType) = {}
 		const nKeyList:List(clazz.IAtomType) = {}
-		const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
+		const nValueDict:Dict(clazz.IAtomType, clazz.UMustType) = {}
 		for nKey, nValue in pairs(vTable) do
-			const nValueType = self._dirtyProcessor:easyToAllType(vNode, nValue)
-			const nKeyType = self._dirtyProcessor:easyToAllType(vNode, nKey)
+			const nValueType = self._dirtyProcessor:easyToMustType(vNode, nValue)
+			const nKeyType = self._dirtyProcessor:easyToMustType(vNode, nKey)
 			nIndependentList[#nIndependentList + 1] = nKeyType
 			nKeyType:checkAtomUnion():foreach(function(vAtomType)
 				nKeyList[#nKeyList + 1] = vAtomType
@@ -405,9 +396,9 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 			if vMetaEventDict then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				nNewEventCom:initByEventDict(vMetaEventDict)
-				nNewObject:lateInit({}, nValueDict, nNextKey, nNewEventCom)
+				nNewObject:lateInit({}, nValueDict, nNextKey and nNextKey:mustType(), nNewEventCom)
 			else
-				nNewObject:lateInit({}, nValueDict, nNextKey, false)
+				nNewObject:lateInit({}, nValueDict, nNextKey and nNextKey:mustType(), false)
 			end
 			nNewObject:lateCheck()
 			if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
@@ -664,7 +655,7 @@ function TypeManager:unionReduceType(vList:IList(clazz.UAtomUnion)):Ret(clazz.UA
 	return nCollection:mergeToAtomUnion()
 end
 
-function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(clazz.UAllType)):Ret(clazz.UAllType)
+function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(clazz.UMustType)):Ret(clazz.UMustType)
 	const nFirst = vList[1]!
 	if #vList == 1 then
 		return nFirst

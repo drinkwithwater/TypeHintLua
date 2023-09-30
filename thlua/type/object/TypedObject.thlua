@@ -18,15 +18,15 @@ const TypedObject = class@<clazz.TypedObject, false>(BaseObject)
 
 function.open TypedObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
 	self._keyRefer=vManager:AsyncUnion()
-	self._valueDict=false@OrFalse(Dict(clazz.IAtomType, clazz.UAllType))
+	self._valueDict=false@OrFalse(Dict(clazz.IAtomType, clazz.UMustType))
 	self._fieldDict={}@Dict(clazz.IAtomType, clazz.ObjectField)
-	self._nextKey=false@OrFalse(clazz.UAllType)
+	self._nextKey=false@OrFalse(clazz.UMustType)
 	self._nextValue=false@OrFalse(clazz.UAtomUnion)
 	self._nextDict={}@Dict(clazz.IAtomType, clazz.UAtomUnion)
 	self._intersectSet={}@Dict(clazz.TypedObject, True)
 end
 
-function TypedObject:lateInit(vIntersectSet:Dict(clazz.TypedObject,True), vValueDict:Dict(clazz.IAtomType, clazz.UAllType), vNextKey:OrFalse(clazz.UAllType), vMetaEventCom:OrFalse(clazz.MetaEventCom))
+function TypedObject:lateInit(vIntersectSet:Dict(clazz.TypedObject,True), vValueDict:Dict(clazz.IAtomType, clazz.UMustType), vNextKey:OrFalse(clazz.UMustType), vMetaEventCom:OrFalse(clazz.MetaEventCom))
 	self._nextKey = vNextKey
 	self._intersectSet = vIntersectSet
 	self._metaEventCom = vMetaEventCom
@@ -46,7 +46,7 @@ function TypedObject:lateCheck()
 	end
 end
 
-function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.IAtomType, clazz.UAllType):Ret(Boolean)):Ret(Boolean)
+function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.IAtomType, clazz.UMustType):Ret(Boolean)):Ret(Boolean)
 	const nValueDict = self:getValueDict()
 	for nLeftKey, nLeftValue in pairs(nValueDict) do
 		if not nLeftValue:mayRecursive() then
@@ -199,7 +199,7 @@ function TypedObject:meta_bop_func(vContext, vOper)
 	return false, nil
 end
 
-function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UAllType)
+function TypedObject:indexKeyValue(vKeyType:clazz.IAtomType):Ret(False):Ret(clazz.IAtomType, clazz.UMustType)
 	const nKey, nField = self:_keyIncludeAtom(vKeyType)
 	if nKey then
 		return nKey, nField:getValueType()
@@ -216,13 +216,13 @@ function TypedObject:detailString(vToStringCache, vVerbose)
 	return "TypedObject..."
 end
 
-function TypedObject:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAllType))
+function TypedObject:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UMustType))
 	self._keyRefer:getListAwait()
 	return (assert(self._valueDict, "member list is not setted after waiting"))
 end
 
-function TypedObject:copyValueDict(vSelfObject:Union(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UAllType))
-	const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
+function TypedObject:copyValueDict(vSelfObject:Union(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UMustType))
+	const nValueDict:Dict(clazz.IAtomType, clazz.UMustType) = {}
 	for k,v in pairs(self:getValueDict()) do
 		if not TypedMemberFunction.is(v) then
 			nValueDict[k] = v
@@ -238,7 +238,7 @@ function TypedObject:getMetaEventCom():Ret(OrFalse(clazz.MetaEventCom))
 	return self._metaEventCom
 end
 
-function TypedObject:getKeyTypes():Ret(clazz.AsyncUnion, OrFalse(clazz.UAllType))
+function TypedObject:getKeyTypes():Ret(clazz.AsyncUnion, OrFalse(clazz.UMustType))
 	return self._keyRefer, self._nextKey
 end
 
