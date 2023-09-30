@@ -2,13 +2,14 @@
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
+-- const ReferState = require "thlua.refer.ReferState"
 
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 
-const TypeReferCom = require "thlua.refer.TypeReferCom"
+const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
@@ -19,11 +20,11 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.UReferCom = Union(clazz.TypeReferCom, clazz.TemplateReferCom)
+	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom)
 end)
 
-const Reference = class@<clazz.TypeReference, clazz.IType>()
-
+const Reference = {}
+Reference.__index = Reference
 Reference.__call=function(self:clazz.TypeReference, ...:Any):Ret(clazz.TypeReference)
 	-- TODO, cast
 	const nNode = Node.newDebugNode()
@@ -65,18 +66,21 @@ function Reference.__band(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz
 	end
 end
 
-function.open Reference:ctor(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String))
+function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String)):implements(clazz.IType)
 	const nTask = vManager:getScheduleManager():newTask()
-	self._manager = vManager
-	self._task = nTask
-	self._key=vKeyOrFalse
-	self._callDict={}@Dict(String, clazz.TypeReference)
-	self._assignNode=false@OrFalse(clazz.IBaseNode)
-	self._referNodes={}@List(clazz.IBaseNode)
-	self.id=vManager:genTypeId()
-	self.bits=false
-	self._assignComEvent = nTask:makeEvent()
-	self._com=false@OrFalse(UReferCom)
+	const self = setmetatable({.class
+		_manager = vManager,
+		_task = nTask,
+		_key=vKeyOrFalse,
+		_callDict={}@Dict(String, clazz.TypeReference),
+		_assignNode=false@OrFalse(clazz.IBaseNode),
+		_referNodes={}@List(clazz.IBaseNode),
+		id=vManager:genTypeId(),
+		bits=false,
+		_assignComEvent = nTask:makeEvent(),
+		_com=false@OrFalse(UReferCom),
+	}, Reference)
+	return self
 end
 
 function Reference:getKey():Ret(OrFalse(String))
@@ -88,7 +92,7 @@ function Reference:detailString(v, vVerbose)
 	if not nCom then
 		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
 	else
-		if TypeReferCom.is(nCom) then
+		if AsyncUnion.is(nCom) then
 			return "TypeReference("..tostring(nCom:getTypeNowait())..")"
 		else
 			return "TemplateReference("..(tostring(self._key) or tostring(self._assignNode))..")"
@@ -108,9 +112,9 @@ function Reference:getComAwait():Ret(UReferCom)
 	return nCom
 end
 
-function Reference:waitTypeCom():Ret(Union(clazz.TypeReferCom))
+function Reference:waitTypeCom():Ret(Union(clazz.AsyncUnion))
 	const nCom = self:getComAwait()
-	assert(TypeReferCom.is(nCom), "type reference expected, but get template reference")
+	assert(AsyncUnion.is(nCom), "type reference expected, but get template reference")
 	return nCom
 end
 
@@ -134,10 +138,10 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
 		elseif BaseAtomType.is(nAssignValue) then
-			const nCom = TypeReferCom.new(self._manager, self._task, nAssignValue)
+			const nCom = AsyncUnion.new(self._manager, self._task, nAssignValue)
 			self:_setComAndWakeup(nCom)
 		elseif BaseUnionType.is(nAssignValue) then
-			const nCom = TypeReferCom.new(self._manager, self._task, nAssignValue)
+			const nCom = AsyncUnion.new(self._manager, self._task, nAssignValue)
 			self:_setComAndWakeup(nCom)
 		else
 			error("namespace assign a non-type value")
@@ -164,8 +168,7 @@ function Reference:setUnionAsync(
 	self._task:runAsync(function()
 		nAsyncUnion:setAtomList(vGetList())
 	end)
-	const nCom = TypeReferCom.new(self._manager, self._task, nAsyncUnion)
-	self:_setComAndWakeup(nCom)
+	self:_setComAndWakeup(nAsyncUnion)
 end
 
 function Reference:getAssignNode():Ret(OrFalse(clazz.IBaseNode))
@@ -287,6 +290,10 @@ function Reference:mayRecursive()
 	else
 		return nResultType:mayRecursive()
 	end
+end
+
+function.open Reference.is(v):isguard(clazz.TypeReference)
+	return getmetatable(v) == Reference
 end
 
 return Reference
