@@ -125,7 +125,7 @@ function Branch:mergeOneBranch(vContext:clazz.OperContext, vOneBranch:clazz.Bran
 					nSymbolToVariable[nLocalSymbol] = nLocalSymbol:makeVariable(nOneType)
 				else
 					const nOtherType = vOtherCase[nBeforeVariable] or self._curCase[nBeforeVariable] or nBeforeVariable:getType()
-					const nMergeType = nOneType | nOtherType
+					const nMergeType = self._stack:getTypeManager():checkedUnion(nOneType, nOtherType)
 					nSymbolToVariable[nLocalSymbol] = nLocalSymbol:makeVariable(nMergeType)
 				end
 			end
@@ -157,7 +157,7 @@ function Branch:mergeTwoBranch(vContext:clazz.OperContext, vTrueBranch:clazz.Bra
 			else
 				const nTrueType = vTrueBranch:mutGet(vContext, nLocalSymbol, false):getType()
 				const nFalseType = vFalseBranch:mutGet(vContext, nLocalSymbol, false):getType()
-				nType = nTrueType | nFalseType
+				nType = self._stack:getTypeManager():checkedUnion(nTrueType, nFalseType)
 			end
 			local nImmutVariable = nLocalSymbol:makeVariable(nType)
 			self.symbolToVariable[nLocalSymbol] = nImmutVariable

@@ -53,19 +53,6 @@ function Reference.__tostring(self:clazz.TypeReference):Ret(String)
 	return self:detailString({}, false)
 end
 
-function Reference.__bor(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
-	return vLeft._manager:checkedUnion(vLeft, vRight)
-end
-
-function Reference.__band(vLeft:clazz.UAllType, vRight:clazz.UAllType):Ret(clazz.UAtomUnion)
-	const nTypeOrFalse = vLeft:safeIntersect(vRight)
-	if nTypeOrFalse then
-		return nTypeOrFalse
-	else
-		error("unexpected intersect")
-	end
-end
-
 function:class(clazz.TypeReference) Reference.new(vManager:clazz.TypeManager, vKeyOrFalse:OrFalse(String)):implements(clazz.IType)
 	const nTask = vManager:getScheduleManager():newTask()
 	const self = setmetatable({.class
@@ -227,6 +214,10 @@ end
 
 function Reference:mayRecursive()
 	return self:waitTypeCom():mayRecursive()
+end
+
+function Reference:getManager()
+	return self._manager
 end
 
 function.open Reference.is(v):isguard(clazz.TypeReference)
