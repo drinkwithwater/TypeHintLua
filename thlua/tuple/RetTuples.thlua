@@ -16,28 +16,26 @@ function.open RetTuples:ctor(
 	vErrType:OrFalse(clazz.UAllType)
 )
 	assert(#vTupleList > 0, "length of tuple list must be bigger than 0 when pass to RetTuples' constructor")
-	const nFirstToTuple:Dict(clazz.UAllType, clazz.UTypeTuple) = {}
-	for _, nTuple in ipairs(vTupleList) do
-		const nFirst = nTuple:get(1)
-		nFirstToTuple[nFirst] = nTuple
-	end
 	const nAsyncFirstType = vManager:AsyncUnion()
 	self._node=vNode
 	self._manager=vManager
 	self._firstType=nAsyncFirstType
-	self._firstToTuple=nFirstToTuple
+	self._firstToTuple=nil@!OrNil(Dict(clazz.UMustType, clazz.UTypeTuple))
 	self._errType = vErrType and self._manager:buildUnion(vNode, self._manager.type.String, vErrType) or self._manager.type.String
 	nAsyncFirstType:setListAsync(vNode, function()
-		const nIndependentList:List(clazz.UAllType) = {}
+		const nIndependentList:List(clazz.UMustType) = {}
 		const nFirstAtomList:List(clazz.IAtomType) = {}
+		const nFirstToTuple:Dict(clazz.UMustType, clazz.UTypeTuple) = {}
 		for _, nTuple in ipairs(vTupleList) do
-			const nFirst = nTuple:get(1):checkAtomUnion()
+			const nFirst = self._manager:getDirtyProcessor():easyToMustType(vNode, nTuple:get(1))
 			assert(not nFirst:isNever(), "can't return never")
 			nIndependentList[#nIndependentList + 1] = nFirst
-			nFirst:foreach(function(vAtomType)
+			nFirstToTuple[nFirst] = nTuple
+			nFirst:foreachAwait(function(vAtomType)
 				nFirstAtomList[#nFirstAtomList + 1] = vAtomType
 			end)
 		end
+		self._firstToTuple = nFirstToTuple
 		return nFirstAtomList, function(vResultType)
 			const nAtomUnion = nAsyncFirstType:checkAtomUnion()
 			if not vManager:typeCheckIndependent(nIndependentList, vResultType) then
@@ -47,16 +45,21 @@ function.open RetTuples:ctor(
 	end)
 end
 
+function RetTuples:waitFirstToTuple():Ret(Dict(clazz.UMustType, clazz.UTypeTuple))
+	self._firstType:getListAwait()
+	return self._firstToTuple!
+end
+
 function RetTuples:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	local re:List(String) = {}
-	for _, t in pairs(self._firstToTuple) do
+	for _, t in pairs(self:waitFirstToTuple()) do
 		re[#re+1] = t:detailString(vCache, vVerbose)
 	end
 	return "("..table.concat(re, "|")..")"
 end
 
 function RetTuples:assumeIncludeTuples(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRetTuples:clazz.RetTuples):Ret(Boolean)
-	for _, t in pairs(vRetTuples._firstToTuple) do
+	for _, t in pairs(vRetTuples:waitFirstToTuple()) do
 		if not self:assumeIncludeTuple(vAssumeSet, t) then
 			return false
 		end
@@ -72,7 +75,7 @@ function RetTuples:includeTuples(vRetTuples:clazz.RetTuples):Ret(Boolean)
 end
 
 function RetTuples:assumeIncludeTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:clazz.UTypeTuple):Ret(Boolean)
-	for _, t in pairs(self._firstToTuple) do
+	for _, t in pairs(self:waitFirstToTuple()) do
 		if t:assumeIncludeTuple(vAssumeSet, vRightTypeTuple) then
 			return true
 		end
@@ -84,8 +87,8 @@ function RetTuples:includeTuple(vRightTypeTuple:clazz.TypeTuple):Ret(Boolean)
 	return self:assumeIncludeTuple(nil, vRightTypeTuple)
 end
 
-function RetTuples:foreachWithFirst(vFunc:Fn(clazz.UTypeTuple, clazz.UAllType):Ret())
-	for nFirst, nTuple in pairs(self._firstToTuple) do
+function RetTuples:foreachWithFirst(vFunc:Fn(clazz.UTypeTuple, clazz.UMustType):Ret())
+	for nFirst, nTuple in pairs(self:waitFirstToTuple()) do
 		vFunc(nTuple, nFirst)
 	end
 end

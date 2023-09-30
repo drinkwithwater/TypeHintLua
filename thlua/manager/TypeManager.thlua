@@ -320,7 +320,7 @@ function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:Truth):Ret(clazz.
 	const nNewRefer = self:Reference(false)
 	error("build Enum TODO")
 	--[[nNewRefer:setUnionAsync(vNode, function()
-		const nType = self._dirtyProcessor:easyToType(vNode, vArgType)
+		const nType = self._dirtyProcessor:easyToAllType(vNode, vArgType)
 		const nSuperType = Reference.is(nType) and nType:waitTypeCom():getTypeAwait() or nType
 		return {Enum.new(self, nSuperType)}
 	end)]]
@@ -329,13 +329,13 @@ end
 
 function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:Truth, ...:Truth)
 	-- TODO, put this in an async thread
-	const nType = self._dirtyProcessor:easyToType(vNode, vEnumType)
+	const nType = self._dirtyProcessor:easyToAllType(vNode, vEnumType)
 	local nEnumType = nType:checkAtomUnion()
 	assert(Enum.is(nEnumType), Exception.new("enum must take Enum as first arg", vNode))
 	local l = {...}
 	const nLen = select("#", ...)
 	for i=1, nLen do
-		local nItem = self._dirtyProcessor:easyToType(vNode, l[i])
+		local nItem = self._dirtyProcessor:easyToAllType(vNode, l[i])
 		nEnumType:addType(nItem)
 	end
 end
@@ -347,7 +347,7 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.Asyn
 	nAsyncUnion:setListAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
-			local nItem = self._dirtyProcessor:easyToType(vNode, l[i])
+			local nItem = self._dirtyProcessor:easyToAllType(vNode, l[i])
 			if Reference.is(nItem) then
 				const nAsyncType = nItem:waitTypeCom():getTypeNowait()
 				if nAsyncType:isAsync() then
@@ -388,8 +388,8 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nValueDict:Dict(clazz.IAtomType, clazz.UAllType) = {}
 		for nKey, nValue in pairs(vTable) do
-			const nValueType = self._dirtyProcessor:easyToType(vNode, nValue)
-			const nKeyType = self._dirtyProcessor:easyToType(vNode, nKey)
+			const nValueType = self._dirtyProcessor:easyToAllType(vNode, nValue)
+			const nKeyType = self._dirtyProcessor:easyToAllType(vNode, nKey)
 			nIndependentList[#nIndependentList + 1] = nKeyType
 			nKeyType:checkAtomUnion():foreach(function(vAtomType)
 				nKeyList[#nKeyList + 1] = vAtomType
@@ -545,12 +545,12 @@ function TypeManager:buildPfn(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(claz
 end
 
 function TypeManager:buildFn(vNode:clazz.IBaseNode, ...:Any):Ret(clazz.TypedFunction)
-	local nParTuple = self:TypeTuple(vNode, self._dirtyProcessor:easyToTypeList(vNode, ...))
+	local nParTuple = self:TypeTuple(vNode, self._dirtyProcessor:easyToAllTypeList(vNode, ...))
 	return TypedFunction.new(self, vNode, nParTuple, false)
 end
 
 function TypeManager:checkedFn(...:Any):Ret(clazz.TypedFunction)
-	local nParTuple = self:TypeTuple(self._rootNode, self._dirtyProcessor:easyToTypeList(self._rootNode, ...))
+	local nParTuple = self:TypeTuple(self._rootNode, self._dirtyProcessor:easyToAllTypeList(self._rootNode, ...))
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
@@ -592,9 +592,9 @@ function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReferen
 	return nRefer
 end
 
-function TypeManager:typeCheckIndependent(vList:List(clazz.UAllType), vFinalType:clazz.UAtomUnion):Ret(Boolean)
+function TypeManager:typeCheckIndependent(vList:IList(clazz.UAllType), vFinalType:clazz.UAtomUnion):Ret(Boolean)
 	local nLeftCount = 0
-	for k,v in pairs(vList) do
+	for k,v in ipairs(vList) do
 		v:checkAtomUnion():foreach(function(_)
 			nLeftCount = nLeftCount + 1
 		end)
