@@ -4731,6 +4731,7 @@ packages['thlua.context.AssignContext'] = function (...)
 local class = require "thlua.class"
 
 local Struct = require "thlua.type.object.Struct"
+local TypedObject = require "thlua.type.object.TypedObject"
 local RefineTerm = require "thlua.term.RefineTerm"
 local VariableCase = require "thlua.term.VariableCase"
 local AutoHolder = require "thlua.auto.AutoHolder"
@@ -4875,7 +4876,7 @@ function AssignContext:tryIncludeCast(
 			nPutObjPart = true
 			local nMatchOne = false
 			nDstObjPart:foreach(function(vAtomType)
-				if Struct.is(vAtomType) then
+				if TypedObject.is(vAtomType) then
 					local nAutoFnCastDict = vSubType:castMatchOne(self, vAtomType)
 					if nAutoFnCastDict then
 						vAutoFnCastDict:putAll(nAutoFnCastDict)
@@ -7155,9 +7156,11 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vObjectList)
 	return nNewObject
 end
 
-function TypeManager:buildExtendStruct(vNode, vFirst  ,
+function TypeManager:buildExtendStruct(vNode, vFirst,
 	... )
-	local nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst   )
+
+	local ok, allType = self._dirtyProcessor:peasyToAllType(vFirst)
+	local nStruct = ok and allType or self:buildStruct(vNode, vFirst)
 	local l = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end
@@ -7234,17 +7237,18 @@ function TypeManager:buildUnion(vNode, ...)
 	return nAsyncUnion
 end
 
-function TypeManager:buildInterface(vNode, vTable, vMetaEventDict )
-	return self:_buildTypedObject(vNode, vTable, vMetaEventDict, true)
+function TypeManager:buildInterface(vNode, vTable, vMetaEventDict)
+	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
+	return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , true)
 end
 
-function TypeManager:buildStruct(vNode, vTable, vMetaEventDict )
-	return self:_buildTypedObject(vNode, vTable, vMetaEventDict, false)
+function TypeManager:buildStruct(vNode, vTable, vMetaEventDict)
+	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
+	return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , false)
 end
 
-function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict , vIsInterface)  
+function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict, vIsInterface)  
 	   
-	local nNextKey = vMetaEventDict and vMetaEventDict.__Next or false
 	local nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
 		local nIndependentList = {}
@@ -7266,10 +7270,20 @@ function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict , vIsInterf
 		return nKeyList, function(vKeyAtomUnion)
 			if vMetaEventDict then
 				local nNewEventCom = self:makeMetaEventCom(nNewObject)
-				nNewEventCom:initByEventDict(vMetaEventDict)
-				nNewObject:lateInit({}, nValueDict, nNextKey and nNextKey:mustType(), nNewEventCom)
+				local nEventToType  = {}
+				for k,v in pairs(vMetaEventDict) do
+					assert(type(k) == "string", "meta event must be string")
+					nEventToType[k  ] = self._dirtyProcessor:easyToMustType(vNode, v)
+				::continue:: end
+				nNewEventCom:initByEventDict(vNode, nEventToType)
+				
+				    
+				          
+				
+				local nNextKey = nEventToType.__Next or false
+				nNewObject:lateInit({}, nValueDict, nNextKey, nNewEventCom)
 			else
-				nNewObject:lateInit({}, nValueDict, nNextKey and nNextKey:mustType(), false)
+				nNewObject:lateInit({}, nValueDict, false, false)
 			end
 			nNewObject:lateCheck()
 			if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
@@ -13669,7 +13683,7 @@ function TypeTupleDots:getRepeatType()
 end
 
 function TypeTupleDots:leftAppend(vType)
-	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list)}, self._repeatType, self._repeatTypeWithNil)
+	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list)}  , self._repeatType, self._repeatTypeWithNil)
 end
 
 function TypeTupleDots:get(i)
@@ -13804,7 +13818,7 @@ packages['thlua.type.TypeClass'] = function (...)
    
    
    
-      
+  
    
 
     
@@ -15032,7 +15046,7 @@ function AutoFunction:checkWhenCast(vContext, vTypeFn)
 		end
 		return true
 	else
-		vContext:error("TODO, auto-function cast after building start", self._node)
+		vContext:warn("TODO, auto-function cast after building start", self._node)
 		return false
 	end
 end
@@ -15983,6 +15997,7 @@ packages['thlua.type.object.AutoTable'] = function (...)
 local StringLiteral = require "thlua.type.basic.StringLiteral"
 local TypedObject = require "thlua.type.object.TypedObject"
 local Struct = require "thlua.type.object.Struct"
+local Interface = require "thlua.type.object.Interface"
 local TypedFunction = require "thlua.type.func.TypedFunction"
 local TypedMemberFunction = require "thlua.type.func.TypedMemberFunction"
 local AutoFunction = require "thlua.type.func.AutoFunction"
@@ -16022,17 +16037,17 @@ end
 
 function AutoTable:castMatchOne(
 	vContext,
-	vStruct
+	vStructOrInterface
 )
 	local nAutoFnCastDict = vContext:newAutoFnCastDict()
-	local nCopyValueDict = vStruct:copyValueDict(self)
+	local nCopyValueDict = vStructOrInterface:copyValueDict(self)
 	local nMatchSucc = true
 	self._keyType:foreach(function(vTableKey)
-		local vTableValue = self._fieldDict[vTableKey]:getValueType()
+		local nTableValue = self._fieldDict[vTableKey]:getValueType()
 		if not nMatchSucc then
 			return
 		end
-		local nMatchKey, nMatchValue = vStruct:indexKeyValue(vTableKey)
+		local nMatchKey, nMatchValue = vStructOrInterface:indexKeyValue(vTableKey)
 		if not nMatchKey then
 			nMatchSucc = false
 			return
@@ -16040,9 +16055,9 @@ function AutoTable:castMatchOne(
 		nMatchValue = nMatchValue:checkAtomUnion()
 		if TypedMemberFunction.is(nMatchValue) then
 			        
-			nMatchValue=nMatchValue:indexTypeFn(vStruct)
+			nMatchValue=nMatchValue:indexTypeFn(vStructOrInterface)
 		end
-		local nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, vTableValue)
+		local nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, nTableValue)
 		if not nIncludeType or not nCastSucc then
 			nMatchSucc = false
 			return
@@ -16590,7 +16605,7 @@ local function buildFieldFromAllType(vEvent, vTypeFn)
 	end
 end
 
-function MetaEventCom:initByEventDict(vActionDict )
+function MetaEventCom:initByEventDict(vNode, vActionDict )
 	local nManager = self._manager
 	   
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
@@ -16602,7 +16617,7 @@ function MetaEventCom:initByEventDict(vActionDict )
 	   
 	local nLenType = vActionDict["__len"]
 	if nLenType then
-		nLenType = nLenType:mustType():checkAtomUnion()
+		nLenType = nLenType:checkAtomUnion()
 		if not nManager.type.Integer:includeAll(nLenType) then
 			error("len type must be subtype of Integer")
 		end
