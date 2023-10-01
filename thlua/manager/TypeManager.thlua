@@ -117,6 +117,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		type=nil @! BuiltinType,
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TypeReference),
+		MetaOrNil=nil @! clazz.UAtomUnion,
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
 		_integerLiteralDict = {}@Dict(Integer, clazz.IntegerLiteral),
@@ -132,6 +133,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.type.Boolean = self:buildUnion(vRootNode, self.type.False, self.type.True)
 	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
+	self.MetaOrNil = self:buildUnion(vRootNode, self.type.Nil, self.type.Truth):checkAtomUnion() -- TODO use object in the future
 	self.generic.Dict = self:rootBuildTemplate("Dict", vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
@@ -582,7 +584,7 @@ function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFun
 	return TemplateReferCom.new(self, vNode, vFunc, vParNum)
 end
 
-function TypeManager:Reference(vName:Union(String, False)):Ret(clazz.TypeReference)
+function TypeManager:Reference(vName:String):Ret(clazz.TypeReference)
 	const nRefer = Reference.new(self, vName)
 	return nRefer
 end

@@ -278,16 +278,16 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
 		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface, OrNil(clazz.UAllType))
-			local nImplementsArg:OrNil(clazz.UAllType) = nil
-			local nExtendsArg:OrNil(clazz.UAllType) = nil
-			local nErrType:OrNil(clazz.UAllType) = nil
+			local nImplementsArg:OrNil(clazz.UMustType) = nil
+			local nExtendsArg:OrNil(clazz.UMustType) = nil
+			local nErrType:OrNil(clazz.UMustType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
-					nImplementsArg = self._dirtyProcessor:easyToAllType(self._node, vInterface)
+					nImplementsArg = self._dirtyProcessor:easyToMustType(self._node, vInterface)
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
-					nExtendsArg = self._dirtyProcessor:easyToAllType(self._node, vBaseClass)
+					nExtendsArg = self._dirtyProcessor:easyToMustType(self._node, vBaseClass)
 					return vHint
 				end,
 				Ret=function(vHint, ...)
@@ -299,7 +299,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					return vHint
 				end,
 				Err=function(vHint, vErrType)
-					nErrType = self._dirtyProcessor:easyToAllType(self._node, vErrType)
+					nErrType = self._dirtyProcessor:easyToMustType(self._node, vErrType)
 					return vHint
 				end,
 				isguard=function(vHint, vType)
@@ -316,7 +316,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			end
 			local nExtendsTable:OrFalse(clazz.ClassTable) = false
 			if nExtendsArg then
-				const nType = nExtendsArg:mustType():checkAtomUnion()
+				const nType = nExtendsArg:checkAtomUnion()
 				if nType:isUnion() then
 					error(self._node:toExc("base class can't be union"))
 				end
@@ -332,7 +332,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			end
 			local nImplementsInterface = nExtendsTable and nExtendsTable:getInterface() or self._manager.type.AnyObject
 			if nImplementsArg then
-				const nType = nImplementsArg:mustType():checkAtomUnion()
+				const nType = nImplementsArg:checkAtomUnion()
 				if nType:isUnion() then
 					error(self._node:toExc("interface can't be union"))
 				end
