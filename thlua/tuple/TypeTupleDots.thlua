@@ -1,24 +1,17 @@
 
-const TupleClass = require "thlua.tuple.TupleClass"
-const TypeTupleDots = TupleClass()
+const BaseTypeTuple = require "thlua.tuple.BaseTypeTuple"
+const class = require "thlua.class"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-function:class(clazz.TypeTupleDots) TypeTupleDots.new(
-	vManager:clazz.TypeManager,
-	vNode:clazz.IBaseNode,
-	vList:IList(clazz.UAllType),
+const TypeTupleDots = class@<clazz.TypeTupleDots, false>(BaseTypeTuple)
+
+function.open TypeTupleDots:ctor(_,_,_,
 	vRepeatType:clazz.UAllType,
 	vRepeatTypeWithNil:clazz.UAllType
 )
-	const self = setmetatable({.class
-		_manager=vManager,
-		_node=vNode,
-		_list=vList,
-		_repeatType=vRepeatType,
-		_repeatTypeWithNil=vRepeatTypeWithNil,
-	}, TypeTupleDots)
-	return self
+	self._repeatType=vRepeatType
+	self._repeatTypeWithNil=vRepeatTypeWithNil
 end
 
 function TypeTupleDots:getRepeatType():Ret(clazz.UMustType)
@@ -40,10 +33,6 @@ end
 function TypeTupleDots:select(i:Integer):Ret(clazz.TypeTupleDots)
 	const nList: List(clazz.UAllType) = {table.unpack(self._list, i)}
 	return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType, self._repeatTypeWithNil)
-end
-
-function.open TypeTupleDots.is(t):isguard(clazz.TypeTupleDots)
-	return getmetatable(t) == TypeTupleDots
 end
 
 return TypeTupleDots

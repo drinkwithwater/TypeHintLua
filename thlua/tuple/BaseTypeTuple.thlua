@@ -1,0 +1,96 @@
+
+const TermTuple = require "thlua.tuple.TermTuple"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+	clazz.UTypeTuple = Union(clazz.TypeTuple, clazz.TypeTupleDots)
+end)
+
+const BaseTypeTuple = class@<clazz.BaseTypeTuple, false>()
+
+function BaseTypeTuple:__tostring()
+	return self:detailString({}, false)
+end
+
+function BaseTypeTuple:__len()
+	return #self._list
+end
+
+function.open BaseTypeTuple:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vList:IList(clazz.UAllType), ...)
+	self._manager = vManager
+	self._node = vNode
+	self._list = vList
+end
+
+function BaseTypeTuple:detailStringIfFirst(vCache:Dict(Truth, String), vVerbose:Boolean, vHasFirst:Boolean):Ret(String)
+	const re:List(String) = {}
+	const nStartIndex = vHasFirst and 1 or 2
+	for i=nStartIndex, #self do
+		re[#re + 1] = self._list[i]!:detailString(vCache, vVerbose)
+	end
+	do.pass
+		const nRepeatType = self._repeatType
+		if nRepeatType then
+			re[#re + 1] = nRepeatType:detailString(vCache, vVerbose) .."*"
+		end
+	end
+	return "Tuple("..table.concat(re, ",")..")"
+end
+
+function BaseTypeTuple:detailString(vCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	return self:detailStringIfFirst(vCache, vVerbose, true)
+end
+
+function BaseTypeTuple:makeTermTuple(vContext:clazz.OperContext):Ret(clazz.FixedTermTuple)
+	const nTermList:List(clazz.RefineTerm) = {}
+	for i=1, #self do
+		nTermList[i] = vContext:RefineTerm(self._list[i]!)
+	end
+	return vContext:FixedTermTuple(nTermList, self:getRepeatType(), self @> clazz.UTypeTuple)
+end
+
+function BaseTypeTuple:assumeIncludeTuple(vAssumeSet:OrNil(Dict(Integer, Boolean)), vRightTypeTuple:clazz.UTypeTuple):Ret(Boolean)
+	const nLeftRepeatType = self:getRepeatType()
+	const nRightRepeatType = vRightTypeTuple:getRepeatType()
+	if (not nLeftRepeatType) and nRightRepeatType then
+		return false
+	end
+	if nLeftRepeatType and nRightRepeatType then
+		if not nLeftRepeatType:assumeIncludeAll(vAssumeSet, nRightRepeatType) then
+			return false
+		end
+	end
+	-- TODO thinking more for nilable
+	for i=1, #vRightTypeTuple do
+		const nLeftType = self._list[i] or nLeftRepeatType
+		if not nLeftType then
+			return false
+		end
+		if not nLeftType:mustType():assumeIncludeAll(vAssumeSet, vRightTypeTuple:get(i):mustType()) then
+			return false
+		end
+	end
+	for i=#vRightTypeTuple + 1, #self do
+		const nLeftType = self._list[i]!:mustType():checkAtomUnion()
+		if not nLeftType:isNilable() then
+			return false
+		end
+		if nRightRepeatType then
+			if not nLeftType:mustType():assumeIncludeAll(vAssumeSet, nRightRepeatType) then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+function BaseTypeTuple:includeTuple(vRightTypeTuple:clazz.UTypeTuple):Ret(Boolean)
+	return self:assumeIncludeTuple(nil, vRightTypeTuple)
+end
+
+function BaseTypeTuple:getRepeatType():Ret(OrFalse(clazz.UMustType))
+	return false
+end
+
+return BaseTypeTuple
