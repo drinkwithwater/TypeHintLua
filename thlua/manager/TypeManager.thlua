@@ -282,9 +282,11 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 	return nNewObject
 end
 
-function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:Union(Dict(Truth, Truth), clazz.UAllType),
+function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpaceAny,
 	...:Union(clazz.TypeReference, clazz.TypedObject)):Ret(clazz.TypedObject)
-	const nStruct = self:_checkAllType(vFirst) or self:buildStruct(vNode, vFirst @> Dict(Truth, Truth))
+
+	const ok, allType = self._dirtyProcessor:peasyToAllType(vFirst)
+	const nStruct = ok and allType or self:buildStruct(vNode, vFirst)
 	const l:List(clazz.UAllType) = {nStruct, ...}
 	return self:_buildCombineObject(vNode, false, l)
 end
@@ -339,7 +341,7 @@ function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:Truth, ...:Truth)
 	end
 end
 
-function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.AsyncUnion)
+function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
 	local l = {...}
 	const nLen = select("#", ...)
 	local nAsyncUnion = self:AsyncUnion()
@@ -361,17 +363,18 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:Truth):Ret(clazz.Asyn
 	return nAsyncUnion
 end
 
-function TypeManager:buildInterface(vNode:clazz.IBaseNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.Interface)
-	return self:_buildTypedObject@<True>(vNode, vTable, vMetaEventDict, true)
+function TypeManager:buildInterface(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, vMetaEventDict:OrNil(clazz.USpaceAny)):Ret(clazz.Interface)
+	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
+	return self:_buildTypedObject@<True>(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), true)
 end
 
-function TypeManager:buildStruct(vNode:clazz.IBaseNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType))):Ret(clazz.Struct)
-	return self:_buildTypedObject@<False>(vNode, vTable, vMetaEventDict, false)
+function TypeManager:buildStruct(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, vMetaEventDict:OrNil(clazz.USpaceAny)):Ret(clazz.Struct)
+	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
+	return self:_buildTypedObject@<False>(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), false)
 end
 
-function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTable:Dict(Truth,Truth), vMetaEventDict:OrNil(Dict(String, clazz.UAllType)), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
+function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTable:clazz.USpaceDict, vMetaEventDict:OrNil(clazz.USpaceDict), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
 	-- TODO check vMetaEventDict
-	const nNextKey = vMetaEventDict and vMetaEventDict.__Next or false
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
 		const nIndependentList:List(clazz.UMustType) = {}
@@ -393,10 +396,20 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 		return nKeyList, function(vKeyAtomUnion)
 			if vMetaEventDict then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
-				nNewEventCom:initByEventDict(vMetaEventDict)
-				nNewObject:lateInit({}, nValueDict, nNextKey and nNextKey:mustType(), nNewEventCom)
+				const nEventToType:Dict(String, clazz.UMustType) = {}
+				for k,v in pairs(vMetaEventDict) do
+					assert(type(k) == "string", "meta event must be string")
+					nEventToType[k @> String] = self._dirtyProcessor:easyToMustType(vNode, v)
+				end
+				nNewEventCom:initByEventDict(vNode, nEventToType)
+				---------------------------------------------------------
+				--- TODO TODO TODO TODO
+				-- TODO define __Next as a meta event in somewhere ????
+				---------------------------------------------------------
+				const nNextKey = nEventToType.__Next or false
+				nNewObject:lateInit({}, nValueDict, nNextKey, nNewEventCom)
 			else
-				nNewObject:lateInit({}, nValueDict, nNextKey and nNextKey:mustType(), false)
+				nNewObject:lateInit({}, nValueDict, false, false)
 			end
 			nNewObject:lateCheck()
 			if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
