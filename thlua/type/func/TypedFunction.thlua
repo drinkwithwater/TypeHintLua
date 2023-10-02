@@ -4,6 +4,7 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const Exception = require "thlua.Exception"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RetBuilder = require "thlua.tuple.RetBuilder"
+const TupleBuilder = require "thlua.tuple.TupleBuilder"
 const Node = require "thlua.code.Node"
 
 const BaseFunction = require "thlua.type.func.BaseFunction"
@@ -14,10 +15,11 @@ const class = require "thlua.class"
 const TypedFunction = class@<clazz.TypedFunction, false>(BaseFunction)
 
 function.open TypedFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode,
-	vParTuple:clazz.UTypeTuple, vRetTuples:OrFalse(clazz.RetTuples)
+	vParTuple:OrFalse(clazz.UTypeTuple), vRetTuples:OrFalse(clazz.RetTuples)
 )
 	self._dirtyProcessor = vManager:getDirtyProcessor()
-	self._retBuilder=false @OrFalse(clazz.RetBuilder) -- RetBuilder.new(vManager, vNode)
+	self._retBuilder=false @OrFalse(clazz.RetBuilder)
+	self._parBuilder=false @OrFalse(clazz.TupleBuilder)
 	self._parTuple=vParTuple
 	self._retTuples=vRetTuples
 end
@@ -31,19 +33,30 @@ function TypedFunction:attachRetBuilder():Ret(clazz.RetBuilder)
 	return nRetBuilder
 end
 
-function TypedFunction:chainDots(vDebugNode:clazz.IBaseNode, vType:Any)
+function TypedFunction:_checkRetNotBuild(vDebugNode:clazz.IBaseNode)
 	if self._retTuples then
 		error(vDebugNode:toExc("fn building is finish, can't call Dots(...)"))
 	end
 	if self._retBuilder then
 		error(vDebugNode:toExc("fn can't call Dots after Ret(...) or RetDots(...)"))
 	end
-	local nParTuple = self._parTuple
-	if TypeTupleDots.is(nParTuple) then
-		error(vDebugNode:toExc("use Dots but tuple has dots"))
+end
+
+function TypedFunction:chainParams(vDebugNode:clazz.IBaseNode, ...:Any)
+	self:_checkRetNotBuild(vDebugNode)
+	if self._parBuilder then
+		error(vDebugNode:toExc("fn params build more than once"))
 	end
-	const nType = self._dirtyProcessor:easyToAllType(vDebugNode, vType)
-	self._parTuple = nParTuple:withDots(nType)
+	self._parBuilder = TupleBuilder.new(self._manager, vDebugNode, false, ...)
+end
+
+function TypedFunction:chainDots(vDebugNode:clazz.IBaseNode, vType:Any)
+	self:_checkRetNotBuild(vDebugNode)
+	const nParBuilder = self._parBuilder
+	if not nParBuilder then
+		error(vDebugNode:toExc("when building fn, Dots(xxx) must work with Fn(...) or Mfn(...)"))
+	end
+	nParBuilder:chainDots(vType)
 end
 
 function TypedFunction:Dots(vType:Any):Ret(clazz.TypedFunction)
@@ -74,13 +87,18 @@ function TypedFunction:Err(...):Ret(clazz.TypedFunction)
 	return self
 end
 
-function TypedFunction:_buildRetTuples():Ret(clazz.RetTuples)
+function TypedFunction:buildParRet():Ret(clazz.UTypeTuple, clazz.RetTuples)
 	local nRetTuples = self._retTuples
 	if not nRetTuples then
 		nRetTuples = self:attachRetBuilder():build()
 		self._retTuples = nRetTuples
 	end
-	return nRetTuples
+	local nParTuple = self._parTuple
+	if not nParTuple then
+		nParTuple = assert(self._parBuilder):build()
+		self._parTuple = nParTuple
+	end
+	return nParTuple, nRetTuples
 end
 
 function TypedFunction:native_type()
@@ -88,29 +106,28 @@ function TypedFunction:native_type()
 end
 
 function TypedFunction:detailString(vToStringCache, vVerbose)
-	const nRetTuples = self:_buildRetTuples()
+	const nParTuple, nRetTuples = self:buildParRet()
 	local nCache = vToStringCache[self]
 	if nCache then
 		return nCache
 	end
 	vToStringCache[self] = "fn-..."
-	const nResult = "fn-" .. self._parTuple:detailString(vToStringCache, vVerbose)..
+	const nResult = "fn-" .. nParTuple:detailString(vToStringCache, vVerbose)..
 									"->"..nRetTuples:detailString(vToStringCache, vVerbose)
 	vToStringCache[self] = nResult
 	return nResult
 end
 
 function TypedFunction:meta_call(vContext, vTermTuple)
-	const nRetTuples = self:_buildRetTuples()
-	const nTypeTuple = self._parTuple
-	vContext:matchArgsToTypeTuple(vContext:getNode(), vTermTuple, nTypeTuple)
+	const nParTuple, nRetTuples = self:buildParRet()
+	vContext:matchArgsToTypeTuple(vContext:getNode(), vTermTuple, nParTuple)
 	vContext:pushRetTuples(nRetTuples)
 end
 
 function TypedFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypedFunction):Ret(Boolean)
-	local nLeftRetTuples = self:_buildRetTuples()
-	local nRightRetTuples = vRight:_buildRetTuples()
-	if not vRight:getParTuple():assumeIncludeTuple(vAssumeSet, self._parTuple) then
+	local nLeftParTuple, nLeftRetTuples = self:buildParRet()
+	local nRightParTuple, nRightRetTuples = vRight:buildParRet()
+	if not nRightParTuple:assumeIncludeTuple(vAssumeSet, nLeftParTuple) then
 		return false
 	end
 	if not nLeftRetTuples:assumeIncludeTuples(vAssumeSet, nRightRetTuples) then
@@ -146,12 +163,13 @@ function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
 end
 
 function TypedFunction:getParTuple():Ret(clazz.UTypeTuple)
-	self:_buildRetTuples()
-	return self._parTuple
+	const par, _ = self:buildParRet()
+	return par
 end
 
 function TypedFunction:getRetTuples():Ret(clazz.RetTuples)
-	return self:_buildRetTuples()
+	const _, ret = self:buildParRet()
+	return ret
 end
 
 function TypedFunction:partTypedFunction()
