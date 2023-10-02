@@ -10,7 +10,7 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	clazz.LocalSpaceValue = Union(clazz.TypeReference, clazz.LocalSpaceTable)
+	clazz.LocalSpaceValue = Union(clazz.Reference, clazz.LocalSpaceTable)
 end)
 
 const Namespace = class@<clazz.Namespace, clazz.ICompletion>()
@@ -18,13 +18,13 @@ Namespace.__tostring=function(self):Ret(String)
 	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.TypeReference)), ...)
+function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.Reference)), ...)
 	self._manager=vManager
 	self._key2type={} @ Dict(clazz.IAtomType, clazz.LocalSpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
 	self._node=vNode
 	self._key=false@Union(False, String)
-	self._localTable = SpaceTable.createLocalTable(self, self._key2type)
+	self._localTable = SpaceTable.createTable(self)
 	if vIndexTable then -- root space
 		for k,v in pairs(vIndexTable) do
 			self._key2type[k] = v
@@ -54,7 +54,7 @@ function Namespace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
 	return false
 end
 
-function Namespace:localGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
+function Namespace:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
 	const rawgetV = self._key2type[vKeyType]
 	if rawgetV then
 		return rawgetV
@@ -71,7 +71,7 @@ function Namespace:localGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret
 	return refer
 end
 
-function Namespace:localSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vNewValue:Any)
+function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vNewValue:Any)
 	if self._closed then
 		error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
 	end

@@ -21,18 +21,18 @@ const function:class(clazz.BaseSpaceTable) __createBaseTable(vSpace:clazz.Namesp
 	})
 end
 
-function:class(clazz.LocalSpaceTable) SpaceTable.createLocalTable(vSpace:clazz.Namespace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue)):extends(clazz.BaseSpaceTable)
+function:class(clazz.LocalSpaceTable) SpaceTable.createTable(vSpace:clazz.Namespace):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
 		__index=function(_:Truth,k:Any):Ret(clazz.LocalSpaceValue)
 			const nNode = Node.newDebugNode()
 			const nKeyType = vSpace:assertSpaceKeyType(nNode, k)
-			return vSpace:localGet(nNode, nKeyType)
+			return vSpace:triggerGet(nNode, nKeyType)
 		end,
 		__newindex=function(_:Truth,k:Any,newV:Any)
 			const nNode = Node.newDebugNode()
 			const nKeyType = vSpace:assertSpaceKeyType(nNode, k)
-			vSpace:localSet(nNode, nKeyType, newV)
+			vSpace:triggerSet(nNode, nKeyType, newV)
 		end,
 		__tostring=function(_)
 			return tostring(vSpace).."->SpaceTable"
@@ -45,7 +45,7 @@ end
 function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letspace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue)):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:Any):Ret(Union(clazz.TypeReference, clazz.LocalSpaceTable))
+		__index=function(_:Truth,k:Any):Ret(Union(clazz.Reference, clazz.LocalSpaceTable))
 			const nNode = Node.newDebugNode()
 			const nKeyType = vSpace:assertSpaceKeyType(nNode, k)
 			return vSpace:globalGet(nNode, nKeyType)

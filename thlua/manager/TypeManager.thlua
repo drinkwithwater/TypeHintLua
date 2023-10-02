@@ -116,7 +116,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		-- type items
 		type=nil @! BuiltinType,
 		builtin=nil @! BuiltinFunc,
-		generic={} @ Dict(String, clazz.TypeReference),
+		generic={} @ Dict(String, clazz.Reference),
 		MetaOrNil=nil @! clazz.UAtomUnion,
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
@@ -275,7 +275,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 end
 
 function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpaceAny,
-	...:Union(clazz.TypeReference, clazz.TypedObject)):Ret(clazz.TypedObject)
+	...:Union(clazz.Reference, clazz.TypedObject)):Ret(clazz.TypedObject)
 
 	const ok, allType = self._dirtyProcessor:peasyToAllType(vFirst)
 	const nStruct = ok and allType or self:buildStruct(vNode, vFirst)
@@ -283,7 +283,7 @@ function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpac
 	return self:_buildCombineObject(vNode, false, l)
 end
 
-function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:Union(clazz.TypeReference, clazz.TypedObject)):Ret(clazz.TypedObject)
+function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:Union(clazz.Reference, clazz.TypedObject)):Ret(clazz.TypedObject)
 	const l:List(clazz.UAllType) = {...}
 	return self:_buildCombineObject(vNode, true, l)
 end
@@ -309,7 +309,7 @@ function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
 	return nCollection:mergeToAtomUnion()
 end
 
-function.pass TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:Truth):Ret(clazz.TypeReference)
+function.pass TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:Truth):Ret(clazz.Reference)
 	error("build Enum TODO")
 	--[[const nNewRefer = self:Reference(false)
 	--[[nNewRefer:setUnionAsync(vNode, function()
@@ -568,7 +568,7 @@ function TypeManager:makeMetaEventCom(vObject:Union(clazz.SealTable, clazz.Typed
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:rootBuildTemplate(vName:String, vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TypeReference)
+function TypeManager:rootBuildTemplate(vName:String, vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.Reference)
 	const nTemplateCom = self:buildTemplate(vNode, vFunc)
 	const nRefer = self:Reference(vName)
 	nRefer:setAssignAsync(vNode, function()
@@ -590,7 +590,7 @@ function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFun
 	return TemplateReferCom.new(self, vNode, vFunc, vParNum)
 end
 
-function TypeManager:Reference(vName:String):Ret(clazz.TypeReference)
+function TypeManager:Reference(vName:String):Ret(clazz.Reference)
 	const nRefer = Reference.new(self, vName)
 	return nRefer
 end
