@@ -17,7 +17,6 @@ end
 function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, _, vParentSpace:clazz.Namespace)
     self._parentSpace = vParentSpace
     self._envTable = SpaceTable.createEnvTable(self, self._key2type)
-    self._globalTable = SpaceTable.createGlobalTable(self, vParentSpace)
 end
 
 function Letspace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
@@ -37,12 +36,8 @@ function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
     end
 end
 
-function Letspace:getGlobalTable():Ret(OrFalse(clazz.GlobalSpaceTable))
-    return self._globalTable
-end
-
-function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
-    return self._localTable, self._envTable, self._globalTable
+function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth)
+    return self._localTable, self._envTable, _G
 end
 
 function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)
@@ -51,13 +46,6 @@ function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCom
         self:putCompletion(vCompletion)
         self._parentSpace:spaceTablePutCompletion(vSpaceTable, vCompletion)
     elseif nWhat == "_G" then
-        --[[
-        for k,v in pairs(self._globalTable) do
-            if type(k) == "string" then
-                vCompletion:putPair(k @> String, v)
-            end
-        end
-        ]]
     else
         self:putCompletion(vCompletion)
     end

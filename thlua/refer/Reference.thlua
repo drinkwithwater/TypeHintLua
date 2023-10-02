@@ -2,7 +2,8 @@
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
--- const ReferState = require "thlua.refer.ReferState"
+const SpaceTable = require "thlua.refer.SpaceTable"
+const StringLiteral = require "thlua.type.basic.StringLiteral"
 
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
@@ -22,8 +23,7 @@ const class = require "thlua.class"
 	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom)
 end)
 
-const Reference = {}
-Reference.__index = Reference
+const Reference = class@<clazz.Reference, clazz.ICompletion>()
 Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.AsyncUnion)
 	-- TODO, cast
 	const nNode = Node.newDebugNode()
@@ -52,20 +52,45 @@ function Reference.__tostring(self:clazz.Reference):Ret(String)
 	return "Reference tostring TODO"
 end
 
-function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:String)
+function.open Reference:ctor(vManager:clazz.TypeManager, vKey:String)
 	const nTask = vManager:getScheduleManager():newTask()
-	const self = setmetatable({.class
-		_manager = vManager,
-		id=vManager:genTypeId(),
-		_task = nTask,
-		_key=vKey,
-		_callDict={}@Dict(String, clazz.AsyncUnion),
-		_assignNode=false@OrFalse(clazz.IBaseNode),
-		_referNodes={}@List(clazz.IBaseNode),
-		_assignComEvent = nTask:makeEvent(),
-		_com=false@OrFalse(UReferCom),
-	}, Reference)
-	return self
+	self._manager = vManager
+	self.id=vManager:genTypeId()
+	self._task = nTask
+	self._key=vKey
+	self._callDict={}@Dict(String, clazz.AsyncUnion)
+	self._assignNode=false@OrFalse(clazz.IBaseNode)
+	self._referNodes={}@List(clazz.IBaseNode)
+	self._assignComEvent = nTask:makeEvent()
+	self._com=false@OrFalse(UReferCom)
+	self._childDict={}@Dict(String, clazz.Reference)
+	self._holder = SpaceTable.newNameHolder(self)
+end
+
+function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
+	assert(type(vKey) == "string")
+	const nKeyStr = vKey @> String
+	local nChild = self._childDict[nKeyStr]
+	if not nChild then
+		nChild = self._manager:Reference(nKeyStr)
+	end
+	nChild:setAssignAsync(vNode, function()
+		return vValue
+	end)
+end
+
+function Reference:getHolder()
+	return self._holder
+end
+
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny)
+	assert(type(vKey) == "string")
+	const nKeyStr = vKey @> String
+	local nChild = self._childDict[nKeyStr]
+	if not nChild then
+		nChild = self._manager:Reference(nKeyStr)
+	end
+	return nChild:getHolder()
 end
 
 function Reference:getComNowait():Ret(OrFalse(UReferCom))
@@ -137,13 +162,17 @@ function Reference:getReferNode():Ret(List(clazz.IBaseNode))
 	return self._referNodes
 end
 
+function Reference:putCompletion(vCompletion)
+	for k,v in pairs(self._childDict) do
+		if StringLiteral.is(k) then
+			vCompletion:putSpaceField(k:getLiteral(), v)
+		end
+	end
+end
+
 function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
-end
-
-function.open Reference.is(v):isguard(clazz.Reference)
-	return getmetatable(v) == Reference
 end
 
 return Reference

@@ -88,7 +88,7 @@ function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, v
 		end
 		const nAssignSpace = SpaceTable.checkSpace(vNewValue)
 		if nAssignSpace then
-			nAssignSpace:trySetKey(tostring(vKeyType))
+			-- nAssignSpace:trySetKey(tostring(vKeyType))
 			self._key2type[vKeyType] = vNewValue @? clazz.LocalSpaceTable
 		elseif SpaceBuiltin.is(vNewValue) then
             error(Exception.new("space-builtin function can't assign between space"..tostring(vKeyType), vNode))
@@ -129,23 +129,8 @@ function Namespace:getNode()
 	return self._node
 end
 
-function Namespace:getGlobalTable():Ret(OrFalse(clazz.GlobalSpaceTable))
-	return false
-end
-
 function Namespace:getLocalTable():Ret(clazz.LocalSpaceTable)
 	return self._localTable
-end
-
-SpaceTable.checkSpace = function.open (v):mapguard({[clazz.Namespace]=clazz.BaseSpaceTable})
-	local nMeta = getmetatable(v)
-	if type(nMeta) == "table" then
-		local self = nMeta.__namespace
-		if Namespace.is(self) then
-			return self
-		end
-	end
-	return nil
 end
 
 return Namespace
