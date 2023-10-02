@@ -453,19 +453,20 @@ function InstStack:PARAM_DOTS_UNPACK(
 	vNode:node.Dots,
 	vTermTuple:OrFalse(clazz.UTermTuple),
 	vParNum:Integer,
-	vHintDots:Union(clazz.AutoFlag, clazz.UAllType)
+	vHintDots:Union(clazz.AutoFlag, clazz.USpaceAny)
 ):Ret(OrFalse(clazz.UTermTuple))
+	const nHintDots = vHintDots == AutoFlag and AutoFlag or self._manager:getDirtyProcessor():easyToMustType(vNode, vHintDots)
 	if vTermTuple then
-		if vHintDots == AutoFlag then
+		if nHintDots == AutoFlag then
 			return self._headContext:matchArgsToAutoDots(vNode, vTermTuple, vParNum)
 		else
-			return self._headContext:matchArgsToTypeDots(vNode, vTermTuple, vParNum, vHintDots)
+			return self._headContext:matchArgsToTypeDots(vNode, vTermTuple, vParNum, nHintDots)
 		end
 	else
-		if vHintDots == AutoFlag then
+		if nHintDots == AutoFlag then
 			return self._headContext:UTermTupleByTail({}, AutoTail.new(vNode, self._headContext))
 		else
-			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, vHintDots))
+			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, nHintDots))
 		end
 	end
 end

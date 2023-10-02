@@ -42,7 +42,7 @@ function TypedFunction:_checkRetNotBuild(vDebugNode:clazz.IBaseNode)
 	end
 end
 
-function TypedFunction:chainParams(vDebugNode:clazz.IBaseNode, ...:Any)
+function TypedFunction:chainParams(vDebugNode:clazz.IBaseNode, ...:clazz.USpaceAny)
 	self:_checkRetNotBuild(vDebugNode)
 	if self._parBuilder then
 		error(vDebugNode:toExc("fn params build more than once"))
@@ -50,7 +50,7 @@ function TypedFunction:chainParams(vDebugNode:clazz.IBaseNode, ...:Any)
 	self._parBuilder = TupleBuilder.new(self._manager, vDebugNode, false, ...)
 end
 
-function TypedFunction:chainDots(vDebugNode:clazz.IBaseNode, vType:Any)
+function TypedFunction:chainDots(vDebugNode:clazz.IBaseNode, vType:clazz.USpaceAny)
 	self:_checkRetNotBuild(vDebugNode)
 	const nParBuilder = self._parBuilder
 	if not nParBuilder then
@@ -95,7 +95,7 @@ function TypedFunction:buildParRet():Ret(clazz.UTypeTuple, clazz.RetTuples)
 	end
 	local nParTuple = self._parTuple
 	if not nParTuple then
-		nParTuple = assert(self._parBuilder):build()
+		nParTuple = assert(self._parBuilder, self._node:toExc("fn must have parBuild or parTuple")):build()
 		self._parTuple = nParTuple
 	end
 	return nParTuple, nRetTuples
