@@ -420,10 +420,11 @@ function InstStack:PARAM_UNPACK(
 	vNode:node.Ident_def,
 	vTermTuple:OrFalse(clazz.UTermTuple), -- false means seal function without cast type
 	vIndex:Integer,
-	vHintType:Union(clazz.AutoFlag, clazz.UAllType)
+	vHintType:Union(clazz.AutoFlag, clazz.USpaceAny)
 ):Ret(clazz.UAutoTerm)
+	const nHintType = vHintType == AutoFlag and AutoFlag or self._manager:getDirtyProcessor():easyToMustType(vNode, vHintType)
 	const nHeadContext = self._headContext
-	if vHintType == AutoFlag then
+	if nHintType == AutoFlag then
 		if vTermTuple then
 			return vTermTuple:get(nHeadContext, vIndex)
 		else
@@ -432,10 +433,10 @@ function InstStack:PARAM_UNPACK(
 	else
 		if vTermTuple then
 			const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
-			nHeadContext:assignTermToType(nAutoTerm, vHintType)
+			nHeadContext:assignTermToType(nAutoTerm, nHintType)
 		end
 		-- TODO check type match here...
-		return nHeadContext:RefineTerm(vHintType)
+		return nHeadContext:RefineTerm(nHintType)
 	end
 end
 
@@ -471,7 +472,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:OrNil(clazz.UAllType), vAutoPrimitive:OrNil(Boolean)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:clazz.USpaceAny, vAutoPrimitive:OrNil(Boolean)):Ret(clazz.USymbol)
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
@@ -479,7 +480,8 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		nSymbolContext:warn("define a symbol without any type")
 	end
 	if vHintType then
-		nTerm = nSymbolContext:assignTermToType(nTerm, vHintType)
+		const nHintType = self._manager:getDirtyProcessor():easyToMustType(vNode, vHintType)
+		nTerm = nSymbolContext:assignTermToType(nTerm, nHintType)
 	else
 		const nTermInHolder = nTerm:getRefineTerm()
 		if not nTermInHolder then
