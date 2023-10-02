@@ -10,7 +10,7 @@ end)
 const HolderState = class@<clazz.HolderState, clazz.ICompletion>()
 
 function.open HolderState:ctor(vManager:clazz.TypeManager, ...)
-	self._childDict={}@Dict(clazz.IAtomType, Union(clazz.Namespace, clazz.Reference))
+	self._childDict={}@Dict(clazz.IAtomType, clazz.HolderState)
 	self._manager = vManager
 	self.id=vManager:genTypeId()
 	self._holder = SpaceTable.createHolder(self)
@@ -29,8 +29,44 @@ function HolderState:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(cla
 	end
 end
 
+function HolderState:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.IAtomType, vValue:clazz.USpaceAny)
+	-- assert(type(vKey) == "string")
+	const nKeyStr = vKey
+	local nChild = self._childDict[nKeyStr]
+	if not nChild then
+		nChild = self._manager:Reference(tostring(nKeyStr))
+		self._childDict[nKeyStr] = nChild
+	end
+	nChild:setAssignAsync(vNode, function()
+		return vValue
+	end)
+end
+
+function HolderState:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.IAtomType)
+	-- assert(type(vKey) == "string")
+	const nKeyStr = vKey
+	local nChild = self._childDict[nKeyStr]
+	if not nChild then
+		nChild = self._manager:Reference(tostring(nKeyStr))
+		self._childDict[nKeyStr] = nChild
+	end
+	if HolderState.is(nChild) then
+		return nChild:getHolder()
+	else
+		return nChild
+	end
+end
+
 function HolderState:getHolder()
-    return self._holder
+	return self._holder
+end
+
+function HolderState:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
+	error(vNode:toExc("this value can't assign"))
+end
+
+function.pass HolderState:mustType():Ret(clazz.AsyncUnion)
+	error("this holder can't be type")
 end
 
 return HolderState

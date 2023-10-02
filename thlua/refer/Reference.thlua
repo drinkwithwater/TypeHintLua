@@ -55,8 +55,6 @@ end
 
 function.open Reference:ctor(vManager:clazz.TypeManager, vKey:String)
 	const nTask = vManager:getScheduleManager():newTask()
-	self._manager = vManager
-	self.id=vManager:genTypeId()
 	self._task = nTask
 	self._key=vKey
 	self._callDict={}@Dict(String, clazz.AsyncUnion)
@@ -64,32 +62,6 @@ function.open Reference:ctor(vManager:clazz.TypeManager, vKey:String)
 	self._referNodes={}@List(clazz.IBaseNode)
 	self._assignComEvent = nTask:makeEvent()
 	self._com=false@OrFalse(UReferCom)
-end
-
-function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.IAtomType, vValue:clazz.USpaceAny)
-	-- assert(type(vKey) == "string")
-	const nKeyStr = vKey
-	local nChild = self._childDict[nKeyStr]
-	if not nChild then
-		nChild = self._manager:Reference(tostring(nKeyStr))
-	end
-	nChild:setAssignAsync(vNode, function()
-		return vValue
-	end)
-end
-
-function Reference:getHolder()
-	return self._holder
-end
-
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.IAtomType)
-	-- assert(type(vKey) == "string")
-	const nKeyStr = vKey
-	local nChild = self._childDict[nKeyStr]
-	if not nChild then
-		nChild = self._manager:Reference(tostring(nKeyStr))
-	end
-	return nChild:getHolder()
 end
 
 function Reference:getComNowait():Ret(OrFalse(UReferCom))

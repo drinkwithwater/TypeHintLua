@@ -4,6 +4,7 @@ const Namespace = require "thlua.refer.Namespace"
 const SpaceTable = require "thlua.refer.SpaceTable"
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
+const HolderState = require "thlua.refer.HolderState"
 
 (@do
 	let.clazz = import($class).clazz
@@ -39,14 +40,18 @@ end
 function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
     const nValue = self:pureGet(vKeyType)
     if nValue then
-        return nValue
+        if HolderState.is(nValue) then
+            return nValue:getHolder()
+        else
+            return nValue
+        end
     else
         error(Exception.new("key with empty value, key="..tostring(vKeyType), vNode))
     end
 end
 
 function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth)
-    return self._letHolder, self._envHolder, _G
+    return self._holder, self._envHolder, _G
 end
 
 function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)

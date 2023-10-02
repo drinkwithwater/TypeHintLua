@@ -2,6 +2,7 @@
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.refer.Reference"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
+const SpaceTable = require "thlua.refer.SpaceTable"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
@@ -49,10 +50,15 @@ end
 function DirtyProcessor:peasyToAllType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
 	local t = type(vData)
 	if t == "table" then
-		if Reference.is(vData) or AsyncUnion.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+		if AsyncUnion.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 			return true, vData
 		else
-			return false, "to type failed"
+			const nState = SpaceTable.checkSpace(vData)
+			if nState then
+				return true, vData
+			else
+				return false, "to type failed"
+			end
 		end
 	elseif t == "number" or t == "string" or t == "boolean"then
 		return true, self._manager:Literal(vData @> Union(Number, String, Boolean))
