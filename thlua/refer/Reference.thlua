@@ -16,6 +16,7 @@ const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const ScheduleTask = require "thlua.manager.ScheduleTask"
 
+const HolderState = require "thlua.refer.HolderState"
 const class = require "thlua.class"
 
 (@do
@@ -23,7 +24,7 @@ const class = require "thlua.class"
 	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom)
 end)
 
-const Reference = class@<clazz.Reference, clazz.ICompletion>()
+const Reference = class@<clazz.Reference, clazz.ICompletion>(HolderState)
 Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.AsyncUnion)
 	-- TODO, cast
 	const nNode = Node.newDebugNode()
@@ -63,16 +64,14 @@ function.open Reference:ctor(vManager:clazz.TypeManager, vKey:String)
 	self._referNodes={}@List(clazz.IBaseNode)
 	self._assignComEvent = nTask:makeEvent()
 	self._com=false@OrFalse(UReferCom)
-	self._childDict={}@Dict(String, clazz.Reference)
-	self._holder = SpaceTable.newNameHolder(self)
 end
 
-function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
-	assert(type(vKey) == "string")
-	const nKeyStr = vKey @> String
+function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.IAtomType, vValue:clazz.USpaceAny)
+	-- assert(type(vKey) == "string")
+	const nKeyStr = vKey
 	local nChild = self._childDict[nKeyStr]
 	if not nChild then
-		nChild = self._manager:Reference(nKeyStr)
+		nChild = self._manager:Reference(tostring(nKeyStr))
 	end
 	nChild:setAssignAsync(vNode, function()
 		return vValue
@@ -83,12 +82,12 @@ function Reference:getHolder()
 	return self._holder
 end
 
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny)
-	assert(type(vKey) == "string")
-	const nKeyStr = vKey @> String
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.IAtomType)
+	-- assert(type(vKey) == "string")
+	const nKeyStr = vKey
 	local nChild = self._childDict[nKeyStr]
 	if not nChild then
-		nChild = self._manager:Reference(nKeyStr)
+		nChild = self._manager:Reference(tostring(nKeyStr))
 	end
 	return nChild:getHolder()
 end

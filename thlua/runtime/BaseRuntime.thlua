@@ -108,12 +108,12 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 			error(Exception.new("recursive import:"..nPath, nNode))
 		end
 		const nSpace = nStack:getNamespace()
-		return nSpace:getLocalTable()
+		return nSpace:getHolder()
 	elseif BaseAtomType.is(vDst) then
 		const nStack = vDst:findRequireStack()
 		if nStack then
 			const nSpace = nStack:getNamespace()
-			return nSpace:getLocalTable()
+			return nSpace:getHolder()
 		else
 			error("import can only take type in a require stack"..debug.traceback())
 		end
@@ -305,7 +305,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 		return nManager:addEnum(vNode, vEnumType, ...)
 	end, "enum")
 	nGlobal.namespace=SpaceBuiltin.new(function(vNode)
-		return self:TreeNamespace(vNode):getLocalTable()
+		return self:TreeNamespace(vNode):getHolder()
 	end, "namespace")
 	nGlobal.lock=SpaceBuiltin.new(function(vNode, vType)
 		vType:foreach(function(vAtom)
@@ -351,14 +351,14 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 end
 
 function BaseRuntime:RootNamespace():Ret(clazz.Namespace)
-	local nSpace = Namespace.new(self._manager, self._node, self:buildSimpleGlobal())
+	local nSpace = Letspace.new(self._manager, self._node, self:buildSimpleGlobal())
 	nSpace:trySetKey("")
 	nSpace:close()
 	return nSpace
 end
 
 function BaseRuntime:LetNamespace(vParentLet:clazz.Namespace, vRegionNode:clazz.IBaseNode):Ret(clazz.Letspace)
-	local nSpace = Letspace.new(self._manager, vRegionNode, nil, vParentLet)
+	local nSpace = Letspace.new(self._manager, vRegionNode, vParentLet)
 	nSpace:trySetKey("")
 	return nSpace
 end

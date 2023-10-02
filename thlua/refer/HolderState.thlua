@@ -1,0 +1,36 @@
+
+const Exception = require "thlua.Exception"
+const SpaceTable = require "thlua.refer.SpaceTable"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const HolderState = class@<clazz.HolderState, clazz.ICompletion>()
+
+function.open HolderState:ctor(vManager:clazz.TypeManager, ...)
+	self._childDict={}@Dict(clazz.IAtomType, Union(clazz.Namespace, clazz.Reference))
+	self._manager = vManager
+	self.id=vManager:genTypeId()
+	self._holder = SpaceTable.createHolder(self)
+end
+
+function HolderState:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
+	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vKey)
+	if not nOkay then
+		error(Exception.new(nType, vNode))
+	end
+	local nFinalKey = nType:checkAtomUnion()
+	if not nFinalKey:isUnion() then
+		return nFinalKey
+	else
+		error(Exception.new("namespace's key can't be union type", vNode))
+	end
+end
+
+function HolderState:getHolder()
+    return self._holder
+end
+
+return HolderState

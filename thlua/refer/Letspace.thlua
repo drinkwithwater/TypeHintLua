@@ -14,17 +14,26 @@ Letspace.__tostring=function(self):Ret(String)
 	return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, _, vParentSpace:clazz.Namespace)
-    self._parentSpace = vParentSpace
-    self._envTable = SpaceTable.createEnvTable(self, self._key2type)
+function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vParentOrGlobalDict:Union(Dict(clazz.IAtomType, clazz.Reference), clazz.Namespace))
+    self._parentSpace = false @ OrFalse(clazz.Namespace)
+    if Namespace.is(vParentOrGlobalDict) then
+        self._parentSpace = vParentOrGlobalDict
+    else
+        for k,v in pairs(vParentOrGlobalDict) do
+            self._childDict[k] = v
+        end
+    end
+    self._envHolder = SpaceTable.createEnvTable(self)
 end
 
 function Letspace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
-	return self._parentSpace:pureGet(vKeyType) and true or false
+    const nParentSpace = self._parentSpace
+	return nParentSpace and nParentSpace:pureGet(vKeyType) and true or false
 end
 
 function Letspace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceValue))
-	return self._key2type[vKeyType] or self._parentSpace:pureGet(vKeyType)
+    const nParentSpace = self._parentSpace
+	return self._childDict[vKeyType] or (nParentSpace and nParentSpace:pureGet(vKeyType) or nil)
 end
 
 function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
@@ -37,14 +46,17 @@ function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
 end
 
 function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth)
-    return self._localTable, self._envTable, _G
+    return self._letHolder, self._envHolder, _G
 end
 
 function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)
     const nWhat = getmetatable(vSpaceTable).__what
     if nWhat == "_ENV" then
         self:putCompletion(vCompletion)
-        self._parentSpace:spaceTablePutCompletion(vSpaceTable, vCompletion)
+        const nParentSpace = self._parentSpace
+        if nParentSpace then
+            nParentSpace:spaceTablePutCompletion(vSpaceTable, vCompletion)
+        end
     elseif nWhat == "_G" then
     else
         self:putCompletion(vCompletion)
