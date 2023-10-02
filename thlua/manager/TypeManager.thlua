@@ -139,10 +139,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
 	self.generic.Cond = self:rootBuildTemplate("Cond", vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
-		local nType = vCond
-		if Reference.is(vCond) or AsyncUnion.is(vCond) then
-			nType = vCond:mustType():checkAtomUnion()
-		end
+		local nType = self:mustType(vCond):checkAtomUnion()
 		if nType:isUnion() then
 			error("Cond's first value can't be union")
 		end
@@ -161,10 +158,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
 	self.generic.KeyOf = self:rootBuildTemplate("KeyOf", vRootNode, function(vOneType:clazz.UAllType)
-		local nObject = vOneType
-		if Reference.is(vOneType) then
-			nObject = vOneType:mustType():checkAtomUnion()
-		end
+		local nObject = self:mustType(vOneType):checkAtomUnion()
 		if not TypedObject.is(nObject) then
 			error("key of can only worked on object function")
 		end
@@ -194,11 +188,12 @@ function TypeManager:isLiteral(vType:clazz.IAtomType):Ret(Boolean)
 	end
 end
 
-function TypeManager:_checkAllType(vData:Any):Ret(OrFalse(clazz.UAllType))
-	if Reference.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+function TypeManager:mustType(vData:clazz.UAllType):Ret(clazz.UMustType)
+	if not Reference.is(vData) then
 		return vData
+	else
+		return vData:mustType()
 	end
-	return false
 end
 
 function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
@@ -223,10 +218,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
 		local nIntersectNextKey:OrFalse(clazz.UMustType) = self.type.Any
 		for i=1,#vObjectList do
-			local nTypedObject = vObjectList[i]!
-			if Reference.is(nTypedObject) then
-				nTypedObject = nTypedObject:mustType():checkAtomUnion()
-			end
+			local nTypedObject = self:mustType(vObjectList[i]!):checkAtomUnion()
 			if not TypedObject.is(nTypedObject) then
 				error("Interface or Struct is expected here")
 				break

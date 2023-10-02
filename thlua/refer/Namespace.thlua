@@ -35,14 +35,11 @@ function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, 
 end
 
 function Namespace:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
-	const nOkay, nType = self._manager:getDirtyProcessor():peasyToAllType(vKey)
+	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vKey)
 	if not nOkay then
 		error(Exception.new(nType, vNode))
 	end
-	local nFinalKey = nType
-	if Reference.is(nFinalKey) or AsyncUnion.is(nFinalKey) then
-		nFinalKey = nFinalKey:mustType():checkAtomUnion()
-	end
+	local nFinalKey = nType:checkAtomUnion()
 	if not nFinalKey:isUnion() then
 		return nFinalKey
 	else

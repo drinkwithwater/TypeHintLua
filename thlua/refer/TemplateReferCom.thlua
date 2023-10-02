@@ -23,17 +23,18 @@ function:class(clazz.TemplateReferCom) TemplateReferCom.new(
 end
 
 function TemplateReferCom:call(vNode:clazz.IBaseNode, vKey:String, vArgList:IList(clazz.UAllType)):Ret(clazz.AsyncUnion)
+	const nDirtyProcessor = self._manager:getDirtyProcessor()
 	const nFn = self._func
 	local nTypeCom = self._cache[vKey]
 	if not nTypeCom then
 		nTypeCom = self._manager:AsyncUnion()
+		self._cache[vKey] = nTypeCom
 		nTypeCom:setTypeAsync(vNode, function()
 			if #vArgList ~= self._parNum then
 				error(Exception.new("template args num not match", vNode))
 			end
-			return self._manager:getDirtyProcessor():easyToMustType(vNode, nFn(table.unpack(vArgList)))
+			return nDirtyProcessor:easyToMustType(vNode, nFn(table.unpack(vArgList)))
 		end)
-		self._cache[vKey] = nTypeCom
 	end
 	return nTypeCom
 end
