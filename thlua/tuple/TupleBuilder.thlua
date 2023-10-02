@@ -1,0 +1,47 @@
+
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const TupleBuilder = class@<clazz.TupleBuilder, false>()
+
+function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vIsRetDots:Boolean, ...:clazz.USpaceAny)
+	self._manager = vManager
+    const nDirtyProcess = vManager:getDirtyProcessor()
+    self._dirtyProcessor = nDirtyProcess
+    if vIsRetDots then
+        const l = nDirtyProcess:easyPack(...)
+        const n = l.n
+        assert(n > 0, vNode:toExc("RetDots must take at least 1 value"))
+        self._list = {n = n-1, table.unpack(l, 1, n-1)} @ clazz.USpaceTuple
+        self._dots = nDirtyProcess:easyToAllType(vNode, l[n]) @ OrFalse(clazz.UAllType)
+    else
+        self._list = nDirtyProcess:easyPack(...)
+        self._dots = false @ OrFalse(clazz.UAllType)
+    end
+	self._node=vNode
+end
+
+function TupleBuilder:chainDots(vDots:clazz.USpaceAny)
+    const nNode = self._node
+    assert(not self._dots, nNode:toExc("Dots has been setted"))
+    self._dots = self._dirtyProcessor:easyToAllType(nNode, vDots)
+end
+
+function TupleBuilder:build():Ret(clazz.UTypeTuple)
+    const nNode = self._node
+    const nSpaceTuple = self._list
+    const nTypeList:List(clazz.UMustType) = {}
+    for i=1, nSpaceTuple.n do
+        nTypeList[i] = self._dirtyProcessor:easyToMustType(nNode, nSpaceTuple[i])
+    end
+    const nTypeTuple = self._manager:TypeTuple(nNode, nTypeList)
+    const nDotsType = self._dots
+    if not nDotsType then
+        return nTypeTuple
+    else
+        return nTypeTuple:withDots(nDotsType)
+    end
+end
+
+return TupleBuilder

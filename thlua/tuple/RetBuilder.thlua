@@ -1,5 +1,6 @@
 
 const RetTuples = require "thlua.tuple.RetTuples"
+const TupleBuilder = require "thlua.tuple.TupleBuilder"
 const class = require "thlua.class"
 
 (@let.clazz = import($class).clazz)
@@ -9,25 +10,19 @@ const RetBuilder = class@<clazz.RetBuilder, false>()
 function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
 	self._manager = vManager
 	self._dirtyProcessor = vManager:getDirtyProcessor()
-	self._tupleList = {} @ List(clazz.UTypeTuple)
+	self._tupleBuilderList = {} @ List(clazz.TupleBuilder)
 	self._errType = false@OrFalse(clazz.UAllType)
 	self._node=vNode
 end
 
 function RetBuilder:chainRetDots(vNode:clazz.IBaseNode, ...:Any)
-	const nTypeList = self._dirtyProcessor:easyToAllTypeList(vNode, ...)
-	const nLen = #nTypeList
-	assert(nLen > 0, vNode:toExc("RetDots must take at least 1 value"))
-	const nTypeTuple = self._manager:TypeTuple(self._node, {table.unpack(nTypeList, 1, nLen - 1)}):withDots(nTypeList[nLen]!)
-	const nTupleList = self._tupleList
-	nTupleList[#nTupleList + 1] = nTypeTuple
+	const nTupleList = self._tupleBuilderList
+	nTupleList[#nTupleList + 1] = TupleBuilder.new(self._manager, vNode, true, ...)
 end
 
 function RetBuilder:chainRet(vNode:clazz.IBaseNode, ...:Any)
-	const nTypeList = self._dirtyProcessor:easyToAllTypeList(vNode, ...)
-	const nTypeTuple = self._manager:TypeTuple(self._node, nTypeList)
-	const nTupleList = self._tupleList
-	nTupleList[#nTupleList + 1] = nTypeTuple
+	const nTupleList = self._tupleBuilderList
+	nTupleList[#nTupleList + 1] = TupleBuilder.new(self._manager, vNode, false, ...)
 end
 
 function RetBuilder:chainErr(vNode:clazz.IBaseNode, vErrType:Any)
@@ -35,15 +30,21 @@ function RetBuilder:chainErr(vNode:clazz.IBaseNode, vErrType:Any)
 end
 
 function RetBuilder:isEmpty()
-	return #self._tupleList == 0 and not self._errType
+	return #self._tupleBuilderList == 0 and not self._errType
 end
 
 function RetBuilder:build():Ret(clazz.RetTuples)
-	const nTupleList = self._tupleList
-	if #nTupleList == 0 then
-		return self._manager:VoidRetTuples(self._node, self._errType or nil)
+	const nBuilderList = self._tupleBuilderList
+	const nErrType = self._errType
+	const nErrMustType = nErrType and self._dirtyProcessor:easyToMustType(self._node, nErrType)
+	if #nBuilderList == 0 then
+		return self._manager:VoidRetTuples(self._node, nErrMustType or nil)
 	else
-		return RetTuples.new(self._manager, self._node, nTupleList, self._errType)
+		const nTupleList = {} @ List(clazz.UTypeTuple)
+		for i,builder in ipairs(nBuilderList) do
+			nTupleList[i] = builder:build()
+		end
+		return RetTuples.new(self._manager, self._node, nTupleList, nErrMustType or false)
 	end
 end
 
