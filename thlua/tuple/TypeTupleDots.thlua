@@ -7,8 +7,8 @@ const class = require "thlua.class"
 const TypeTupleDots = class@<clazz.TypeTupleDots, false>(BaseTypeTuple)
 
 function.open TypeTupleDots:ctor(_,_,_,
-	vRepeatType:clazz.UAllType,
-	vRepeatTypeWithNil:clazz.UAllType
+	vRepeatType:clazz.UMustType,
+	vRepeatTypeWithNil:clazz.UMustType
 )
 	self._repeatType=vRepeatType
 	self._repeatTypeWithNil=vRepeatTypeWithNil
@@ -18,11 +18,11 @@ function TypeTupleDots:getRepeatType():Ret(clazz.UMustType)
 	return self._manager:getDirtyProcessor():easyToMustType(self._node, self._repeatType)
 end
 
-function TypeTupleDots:leftAppend(vType:clazz.UAllType):Ret(clazz.TypeTupleDots)
-	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list)} @ List(clazz.UAllType), self._repeatType, self._repeatTypeWithNil)
+function TypeTupleDots:leftAppend(vType:clazz.UMustType):Ret(clazz.TypeTupleDots)
+	return TypeTupleDots.new(self._manager, self._node, {vType, table.unpack(self._list)}, self._repeatType, self._repeatTypeWithNil)
 end
 
-function TypeTupleDots:get(i:Integer):Ret(clazz.UAllType)
+function TypeTupleDots:get(i:Integer):Ret(clazz.UMustType)
 	if i <= #self then
 		return self._list[i]!
 	else
@@ -31,7 +31,7 @@ function TypeTupleDots:get(i:Integer):Ret(clazz.UAllType)
 end
 
 function TypeTupleDots:select(i:Integer):Ret(clazz.TypeTupleDots)
-	const nList: List(clazz.UAllType) = {table.unpack(self._list, i)}
+	const nList: List(clazz.UMustType) = {table.unpack(self._list, i)}
 	return TypeTupleDots.new(self._manager, self._node, nList, self._repeatType, self._repeatTypeWithNil)
 end
 

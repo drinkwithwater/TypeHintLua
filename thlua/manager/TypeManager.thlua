@@ -521,7 +521,7 @@ function TypeManager:Literal(vValue:Union(String, Number, Boolean)):Ret(Union(cl
 	end
 end
 
-function TypeManager:TypeTuple(vNode:clazz.IBaseNode, vTypeList:IList(clazz.UAllType)):Ret(clazz.TypeTuple)
+function TypeManager:TypeTuple(vNode:clazz.IBaseNode, vTypeList:IList(clazz.UMustType)):Ret(clazz.TypeTuple)
 	return TypeTuple.new(self, vNode, vTypeList)
 end
 
@@ -553,8 +553,8 @@ function TypeManager:buildFn(vNode:clazz.IBaseNode, ...:Any):Ret(clazz.TypedFunc
 	return nFn
 end
 
-function TypeManager:checkedFn(...:Any):Ret(clazz.TypedFunction)
-	local nParTuple = self:TypeTuple(self._rootNode, self._dirtyProcessor:easyToAllTypeList(self._rootNode, ...))
+function TypeManager:checkedFn(...:clazz.UMustType):Ret(clazz.TypedFunction)
+	local nParTuple = self:TypeTuple(self._rootNode, {...})
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
