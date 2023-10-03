@@ -12,7 +12,7 @@ const Letspace = require "thlua.refer.Letspace"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
-const ScheduleEvent = require "thlua.manager.ScheduleEvent"
+const SpaceTable = require "thlua.refer.SpaceTable"
 
 const class = require "thlua.class"
 
@@ -68,6 +68,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 end
 
 function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Namespace))
+	assert(not self._assignNode, "init space called after assignNode")
 	self._assignNode = vNode
 	if vData then
 		const nSpace = Letspace.new(self._manager, vNode, self, vData)
@@ -162,14 +163,20 @@ end
 
 function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
 	const nCom = self._com
-	assert(Namespace.is(nCom), "only namespace com can take init")
+	assert(Namespace.is(nCom), "only namespace com can take index")
 	return nCom:triggerGet(vNode, vKeyType)
 end
 
 function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:Any)
 	const nCom = self._com
-	assert(Namespace.is(nCom), "only namespace com can take init")
+	assert(Namespace.is(nCom), "only namespace com can take newindex")
 	return nCom:triggerSet(vNode, vKeyType, vValue)
+end
+
+function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
+	const nCom = self._com
+	assert(Letspace.is(nCom), "only letspace com can take index")
+	return nCom:globalGet(vNode, vKeyType)
 end
 
 function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)

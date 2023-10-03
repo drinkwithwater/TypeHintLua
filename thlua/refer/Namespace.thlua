@@ -24,20 +24,7 @@ function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, 
 	self._node=vNode
 	self._key=false@Union(False, String)
 	self._refer = vRefer
-	self._localTable = SpaceTable.createTable(self)
-end
-
-function Namespace:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
-	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vKey)
-	if not nOkay then
-		error(Exception.new(nType, vNode))
-	end
-	local nFinalKey = nType:checkAtomUnion()
-	if not nFinalKey:isUnion() then
-		return nFinalKey
-	else
-		error(Exception.new("namespace's key can't be union type", vNode))
-	end
+	self._localTable = SpaceTable.createTable(vRefer)
 end
 
 function Namespace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceValue))
@@ -119,17 +106,6 @@ end
 
 function Namespace:getLocalTable():Ret(clazz.LocalSpaceTable)
 	return self._localTable
-end
-
-SpaceTable.checkSpace = function.open (v):mapguard({[clazz.Namespace]=clazz.BaseSpaceTable})
-	local nMeta = getmetatable(v)
-	if type(nMeta) == "table" then
-		local self = nMeta.__namespace
-		if Namespace.is(self) then
-			return self
-		end
-	end
-	return nil
 end
 
 return Namespace
