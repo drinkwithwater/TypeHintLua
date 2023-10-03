@@ -1,25 +1,22 @@
 
+const class = require "thlua.class"
 const Exception = require "thlua.Exception"
 
-(@let.clazz = import("thlua.type.TypeClass").clazz)
+(@let.clazz = import($class).clazz)
 
-const TemplateReferCom = {}
-TemplateReferCom.__index = TemplateReferCom
+const TemplateReferCom = class@<clazz.TemplateReferCom, false>()
 
-function:class(clazz.TemplateReferCom) TemplateReferCom.new(
+function.open TemplateReferCom:ctor(
 	vManager:clazz.TypeManager,
 	vNode:clazz.IBaseNode,
 	vFunc:AnyFunction,
 	vParNum:Integer
 )
-	const self = setmetatable({.class
-		_manager=vManager,
-		_node=vNode,
-		_parNum=vParNum,
-		_func=vFunc,
-		_cache={}@Dict(String, clazz.AsyncUnion),
-	}, TemplateReferCom)
-	return self
+	self._manager=vManager
+	self._node=vNode
+	self._parNum=vParNum
+	self._func=vFunc
+	self._cache={}@Dict(String, clazz.AsyncUnion)
 end
 
 function TemplateReferCom:call(vNode:clazz.IBaseNode, vKey:String, vArgList:IList(clazz.UAllType)):Ret(clazz.AsyncUnion)
@@ -37,10 +34,6 @@ function TemplateReferCom:call(vNode:clazz.IBaseNode, vKey:String, vArgList:ILis
 		end)
 	end
 	return nTypeCom
-end
-
-function.open TemplateReferCom.is(self):isguard(clazz.TemplateReferCom)
-	return getmetatable(self) == TemplateReferCom
 end
 
 return TemplateReferCom

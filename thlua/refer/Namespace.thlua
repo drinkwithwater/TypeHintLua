@@ -19,7 +19,7 @@ end
 
 function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vRefer:clazz.Reference, ...)
 	self._manager=vManager
-	self._key2type={} @ Dict(clazz.IAtomType, clazz.LocalSpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
+	self._key2child={} @ Dict(clazz.IAtomType, clazz.LocalSpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
 	self._node=vNode
 	self._key=false@Union(False, String)
@@ -41,7 +41,7 @@ function Namespace:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz
 end
 
 function Namespace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceValue))
-	return self._key2type[vKeyType]
+	return self._key2child[vKeyType]
 end
 
 function Namespace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
@@ -49,7 +49,7 @@ function Namespace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
 end
 
 function Namespace:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
-	const rawgetV = self._key2type[vKeyType]
+	const rawgetV = self._key2child[vKeyType]
 	if rawgetV then
 		return rawgetV
 	end
@@ -61,7 +61,7 @@ function Namespace:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):R
 	end
 	const refer = self._manager:Reference(tostring(vKeyType))
 	refer:pushReferNode(vNode)
-	self._key2type[vKeyType] = refer
+	self._key2child[vKeyType] = refer
 	return refer
 end
 
@@ -70,7 +70,7 @@ function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, v
 	if self._closed then
 		error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
 	end
-	const rawgetV = self._key2type[vKeyType]
+	const rawgetV = self._key2child[vKeyType]
 	if rawgetV then
 		if Reference.is(rawgetV) then
 			rawgetV:setAssignAsync(vNode, function() return vNewValue end)
@@ -83,13 +83,13 @@ function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, v
 		end
 		const nAssignSpace = SpaceTable.checkSpace(vNewValue)
 		if nAssignSpace then
-			self._key2type[vKeyType] = vNewValue @? clazz.LocalSpaceTable
+			self._key2child[vKeyType] = vNewValue @? clazz.LocalSpaceTable
 		elseif SpaceBuiltin.is(vNewValue) then
             error(Exception.new("space-builtin function can't assign between space"..tostring(vKeyType), vNode))
 		else
 			const refer = self._manager:Reference(tostring(vKeyType))
 			refer:setAssignAsync(vNode, function() return vNewValue end)
-			self._key2type[vKeyType] = refer
+			self._key2child[vKeyType] = refer
 		end
 	end
 end
@@ -106,7 +106,7 @@ function Namespace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCo
 end
 
 function Namespace:putCompletion(vCompletion)
-	for k,v in pairs(self._key2type) do
+	for k,v in pairs(self._key2child) do
 		if StringLiteral.is(k) then
 			vCompletion:putSpaceField(k:getLiteral(), v)
 		end

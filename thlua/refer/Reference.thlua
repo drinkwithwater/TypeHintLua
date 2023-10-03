@@ -70,9 +70,13 @@ end
 function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Namespace))
 	self._assignNode = vNode
 	if vData then
-		return Letspace.new(self._manager, vNode, self, vData)
+		const nSpace = Letspace.new(self._manager, vNode, self, vData)
+		self._com = nSpace
+		return nSpace
 	else
-		return Namespace.new(self._manager, vNode, self)
+		const nSpace = Namespace.new(self._manager, vNode, self)
+		self._com = nSpace
+		return nSpace
 	end
 end
 
@@ -154,6 +158,31 @@ end
 
 function.open Reference.is(v):isguard(clazz.Reference)
 	return getmetatable(v) == Reference
+end
+
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
+	const nCom = self._com
+	assert(Namespace.is(nCom), "only namespace com can take init")
+	return nCom:triggerGet(vNode, vKeyType)
+end
+
+function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:Any)
+	const nCom = self._com
+	assert(Namespace.is(nCom), "only namespace com can take init")
+	return nCom:triggerSet(vNode, vKeyType, vValue)
+end
+
+function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
+	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vKey)
+	if not nOkay then
+		error(Exception.new(nType, vNode))
+	end
+	local nFinalKey = nType:checkAtomUnion()
+	if not nFinalKey:isUnion() then
+		return nFinalKey
+	else
+		error(Exception.new("namespace's key can't be union type", vNode))
+	end
 end
 
 return Reference
