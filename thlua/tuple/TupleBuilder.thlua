@@ -1,7 +1,13 @@
 
 const class = require "thlua.class"
 
-(@let.clazz = import($class).clazz)
+(@do
+    let.clazz = import($class).clazz
+    let.USpaceTuple = Interface({
+        [Integer]=clazz.USpaceAny,
+        n=Integer,
+    }, {__len=Integer})
+end)
 
 const TupleBuilder = class@<clazz.TupleBuilder, false>()
 
@@ -9,7 +15,7 @@ function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNod
 	self._manager = vManager
     const nDirtyProcessor = vManager:getDirtyProcessor()
     self._dirtyProcessor = nDirtyProcessor
-    self._list = nDirtyProcessor:easyPack(...)
+    self._list = table.pack(...) @ USpaceTuple
     self._dots = nil @ clazz.USpaceAny
 	self._node = vNode
 end
