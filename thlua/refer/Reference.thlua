@@ -14,7 +14,6 @@ const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
-const ScheduleTask = require "thlua.manager.ScheduleTask"
 
 const HolderState = require "thlua.refer.HolderState"
 const class = require "thlua.class"
@@ -25,29 +24,6 @@ const class = require "thlua.class"
 end)
 
 const Reference = class@<clazz.Reference, clazz.ICompletion>(HolderState)
-Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.AsyncUnion)
-	-- TODO, cast
-	const nNode = Node.newDebugNode()
-	const nArgList = self._manager:getDirtyProcessor():easyToAllTypeList(nNode, ...)
-	const nKey = self._manager:signTemplateArgs(nArgList)
-	const nCom = self._com
-	if TemplateReferCom.is(nCom) then
-		return nCom:call(nNode, nKey, nArgList)
-	elseif nCom then
-		error(Exception.new("template reference expected here", nNode))
-	end
-	const nDict = self._callDict
-	local nTypeCom = nDict[nKey]
-	if not nTypeCom then
-		nTypeCom = self._manager:AsyncUnion()
-		nTypeCom:setTypeAsync(nNode, function()
-			const nCom = self:waitTemplateCom()
-			return nCom:call(nNode, nKey, nArgList)
-		end)
-		nDict[nKey] = nTypeCom
-	end
-	return nTypeCom
-end
 
 function Reference.__tostring(self:clazz.Reference):Ret(String)
 	return "Reference tostring TODO"
@@ -98,9 +74,13 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 	self._assignNode = vNode
 	self._task:runAsync(function()
 		const nAssignValue = vGetFunc()
-		if Reference.is(nAssignValue) then
-			const nCom = nAssignValue:getComAwait()
-			self:_setComAndWakeup(nCom)
+		const nSpace = SpaceTable.checkSpace(nAssignValue)
+		if nSpace then
+			if Reference.is(nSpace) then
+				const nCom = nSpace:getComAwait()
+				self:_setComAndWakeup(nCom)
+			else
+			end
 		elseif TemplateReferCom.is(nAssignValue) then
 			self:_setComAndWakeup(nAssignValue)
 		elseif AsyncUnion.is(nAssignValue) then
@@ -144,6 +124,30 @@ end
 function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
+end
+
+function Reference:call(...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
+	-- TODO, cast
+	const nNode = Node.newDebugNode()
+	const nArgList = self._manager:getDirtyProcessor():easyToAllTypeList(nNode, ...)
+	const nKey = self._manager:signTemplateArgs(nArgList)
+	const nCom = self._com
+	if TemplateReferCom.is(nCom) then
+		return nCom:call(nNode, nKey, nArgList)
+	elseif nCom then
+		error(Exception.new("template reference expected here", nNode))
+	end
+	const nDict = self._callDict
+	local nTypeCom = nDict[nKey]
+	if not nTypeCom then
+		nTypeCom = self._manager:AsyncUnion()
+		nTypeCom:setTypeAsync(nNode, function()
+			const nCom = self:waitTemplateCom()
+			return nCom:call(nNode, nKey, nArgList)
+		end)
+		nDict[nKey] = nTypeCom
+	end
+	return nTypeCom
 end
 
 return Reference
