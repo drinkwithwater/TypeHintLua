@@ -18,19 +18,13 @@ Namespace.__tostring=function(self):Ret(String)
 	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vIndexTable:OrNil(Dict(clazz.IAtomType, clazz.Reference)), ...)
+function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...)
 	self._manager=vManager
 	self._key2type={} @ Dict(clazz.IAtomType, clazz.LocalSpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
 	self._node=vNode
 	self._key=false@Union(False, String)
 	self._localTable = SpaceTable.createTable(self)
-	if vIndexTable then -- root space
-		for k,v in pairs(vIndexTable) do
-			self._key2type[k] = v
-		end
-	end
-	return self
 end
 
 function Namespace:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
@@ -127,10 +121,6 @@ end
 
 function Namespace:getNode()
 	return self._node
-end
-
-function Namespace:getGlobalTable():Ret(OrFalse(clazz.GlobalSpaceTable))
-	return false
 end
 
 function Namespace:getLocalTable():Ret(clazz.LocalSpaceTable)

@@ -14,18 +14,28 @@ Letspace.__tostring=function(self):Ret(String)
 	return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, _, vParentSpace:clazz.Namespace)
-    self._parentSpace = vParentSpace
-    self._envTable = SpaceTable.createEnvTable(self, self._key2type)
-    self._globalTable = SpaceTable.createGlobalTable(self, vParentSpace)
+function.open Letspace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vParentOrDict:Union(Dict(clazz.IAtomType, clazz.Reference), clazz.Letspace))
+    self._parentSpace = false @ OrFalse(clazz.Letspace)
+    self._envTable = SpaceTable.createEnvTable(self)
+	if Letspace.is(vParentOrDict) then
+        self._parentSpace = vParentOrDict
+    else
+        assert(not Namespace.is(vParentOrDict))
+        -- root space
+		for k,v in pairs(vParentOrDict) do
+			self._key2type[k] = v
+		end
+	end
 end
 
 function Letspace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
-	return self._parentSpace:pureGet(vKeyType) and true or false
+    const nParent = self._parentSpace
+	return nParent and nParent:pureGet(vKeyType) and true or false
 end
 
 function Letspace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceValue))
-	return self._key2type[vKeyType] or self._parentSpace:pureGet(vKeyType)
+    const nParent = self._parentSpace
+	return self._key2type[vKeyType] or (nParent and nParent:pureGet(vKeyType) or nil)
 end
 
 function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
@@ -37,19 +47,18 @@ function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
     end
 end
 
-function Letspace:getGlobalTable():Ret(OrFalse(clazz.GlobalSpaceTable))
-    return self._globalTable
-end
-
-function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, clazz.GlobalSpaceTable)
-    return self._localTable, self._envTable, self._globalTable
+function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth)
+    return self._localTable, self._envTable, _G
 end
 
 function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)
     const nWhat = getmetatable(vSpaceTable).__what
     if nWhat == "_ENV" then
         self:putCompletion(vCompletion)
-        self._parentSpace:spaceTablePutCompletion(vSpaceTable, vCompletion)
+        const nParent = self._parentSpace
+        if nParent then
+            nParent:spaceTablePutCompletion(vSpaceTable, vCompletion)
+        end
     elseif nWhat == "_G" then
         --[[
         for k,v in pairs(self._globalTable) do

@@ -42,7 +42,7 @@ function:class(clazz.LocalSpaceTable) SpaceTable.createTable(vSpace:clazz.Namesp
     })
 end
 
-function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letspace, vKeyToType:Dict(clazz.IAtomType, clazz.LocalSpaceValue)):extends(clazz.BaseSpaceTable)
+function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letspace):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
 		__index=function(_:Truth,k:Any):Ret(Union(clazz.Reference, clazz.LocalSpaceTable))
@@ -60,19 +60,6 @@ function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vSpace:clazz.Letsp
 		__what="_ENV",
 		__namespace=vSpace,
     })
-end
-
-function:class(clazz.GlobalSpaceTable) SpaceTable.createGlobalTable(vSelfSpace:clazz.Letspace, vParentSpace:clazz.Namespace):extends(clazz.BaseSpaceTable)
-    const nMeta = vParentSpace:getGlobalTable() or _G
-    const self = setmetatable({.class:Init({[Any]=Any})}, {
-        __index=nMeta @ Truth,
-        __tostring=function(_)
-			return tostring(vSelfSpace).."-_G"
-        end,
-		__what="_G",
-        __namespace=vSelfSpace,
-    })
-    return self
 end
 
 return SpaceTable
