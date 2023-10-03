@@ -1,6 +1,5 @@
 
 const Exception = require "thlua.Exception"
-const Reference = require "thlua.refer.Reference"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const SpaceTable = require "thlua.refer.SpaceTable"
@@ -18,12 +17,13 @@ Namespace.__tostring=function(self):Ret(String)
 	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...)
+function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vRefer:clazz.Reference, ...)
 	self._manager=vManager
 	self._key2type={} @ Dict(clazz.IAtomType, clazz.LocalSpaceValue) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
 	self._node=vNode
 	self._key=false@Union(False, String)
+	self._refer = vRefer
 	self._localTable = SpaceTable.createTable(self)
 end
 
@@ -66,6 +66,7 @@ function Namespace:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):R
 end
 
 function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vNewValue:Any)
+	const Reference = require "thlua.refer.Reference"
 	if self._closed then
 		error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
 	end
@@ -82,7 +83,6 @@ function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, v
 		end
 		const nAssignSpace = SpaceTable.checkSpace(vNewValue)
 		if nAssignSpace then
-			nAssignSpace:trySetKey(tostring(vKeyType))
 			self._key2type[vKeyType] = vNewValue @? clazz.LocalSpaceTable
 		elseif SpaceBuiltin.is(vNewValue) then
             error(Exception.new("space-builtin function can't assign between space"..tostring(vKeyType), vNode))
@@ -91,12 +91,6 @@ function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, v
 			refer:setAssignAsync(vNode, function() return vNewValue end)
 			self._key2type[vKeyType] = refer
 		end
-	end
-end
-
-function Namespace:trySetKey(vKey:String)
-	if not self._key then
-		self._key = vKey
 	end
 end
 

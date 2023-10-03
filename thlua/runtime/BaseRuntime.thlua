@@ -262,7 +262,8 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 end
 
 function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Namespace)
-	local nSpace = Namespace.new(self._manager, vNode)
+	const nRefer = self._manager:Reference("")
+	const nSpace = nRefer:initWithSpace@<Nil>(vNode)
 	return nSpace
 end
 
@@ -351,15 +352,16 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 end
 
 function BaseRuntime:RootNamespace():Ret(clazz.Letspace)
-	local nSpace = Letspace.new(self._manager, self._node, self:buildSimpleGlobal())
-	nSpace:trySetKey("")
+	const nRefer = self._manager:Reference("")
+	const nGlobal = self:buildSimpleGlobal()
+	const nSpace = nRefer:initWithSpace@<$nGlobal>(self._node, nGlobal)
 	nSpace:close()
 	return nSpace
 end
 
 function BaseRuntime:LetNamespace(vParentLet:clazz.Letspace, vRegionNode:clazz.IBaseNode):Ret(clazz.Letspace)
-	local nSpace = Letspace.new(self._manager, vRegionNode, vParentLet)
-	nSpace:trySetKey("")
+	const nRefer = self._manager:Reference("")
+	const nSpace = nRefer:initWithSpace@<$vParentLet>(self._node, vParentLet)
 	return nSpace
 end
 

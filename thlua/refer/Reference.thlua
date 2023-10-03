@@ -7,19 +7,18 @@ const Node = require "thlua.code.Node"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
-const AsyncUnion = require "thlua.refer.AsyncUnion"
-
+const Namespace = require "thlua.refer.Namespace"
+const Letspace = require "thlua.refer.Letspace"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
-const ScheduleTask = require "thlua.manager.ScheduleTask"
 
 const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom)
+	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom, clazz.Namespace)
 end)
 
 const Reference = {}
@@ -68,6 +67,15 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 	return self
 end
 
+function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Namespace))
+	self._assignNode = vNode
+	if vData then
+		return Letspace.new(self._manager, vNode, self, vData)
+	else
+		return Namespace.new(self._manager, vNode, self)
+	end
+end
+
 function Reference:getComNowait():Ret(OrFalse(UReferCom))
 	return self._com
 end
@@ -105,6 +113,8 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 		if Reference.is(nAssignValue) then
 			const nCom = nAssignValue:getComAwait()
 			self:_setComAndWakeup(nCom)
+		elseif Namespace.is(nAssignValue) then
+			self:_setComAndWakeup(nAssignValue)
 		elseif TemplateReferCom.is(nAssignValue) then
 			self:_setComAndWakeup(nAssignValue)
 		elseif AsyncUnion.is(nAssignValue) then
