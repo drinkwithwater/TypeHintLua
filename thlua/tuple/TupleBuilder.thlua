@@ -5,27 +5,28 @@ const class = require "thlua.class"
 
 const TupleBuilder = class@<clazz.TupleBuilder, false>()
 
-function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vIsRetDots:Boolean, ...:clazz.USpaceAny)
+function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
 	self._manager = vManager
     const nDirtyProcessor = vManager:getDirtyProcessor()
     self._dirtyProcessor = nDirtyProcessor
-    if vIsRetDots then
-        const l = nDirtyProcessor:easyPack(...)
-        const n = l.n
-        assert(n > 0, vNode:toExc("RetDots must take at least 1 value"))
-        self._list = {n = n-1, table.unpack(l, 1, n-1)} @ clazz.USpaceTuple
-        self._dots = nDirtyProcessor:easyToAllType(vNode, l[n]) @ OrFalse(clazz.UAllType)
-    else
-        self._list = nDirtyProcessor:easyPack(...)
-        self._dots = false @ OrFalse(clazz.UAllType)
-    end
-	self._node=vNode
+    self._list = nDirtyProcessor:easyPack(...)
+    self._dots = nil @ clazz.USpaceAny
+	self._node = vNode
+end
+
+function TupleBuilder:setRetDots()
+    const l = self._list
+    const n = l.n
+    assert(n > 0, self._node:toExc("RetDots must take at least 1 value"))
+    self._list = {n = n-1, table.unpack(l, 1, n-1)}
+    self._dots = l[#l-1]!
 end
 
 function TupleBuilder:chainDots(vDots:clazz.USpaceAny)
     const nNode = self._node
     assert(not self._dots, nNode:toExc("Dots has been setted"))
-    self._dots = self._dirtyProcessor:easyToAllType(nNode, vDots)
+    assert(vDots ~= nil, nNode:toExc("Dots can't take nil"))
+    self._dots = vDots
 end
 
 function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
@@ -37,7 +38,7 @@ function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
     end
     const nTypeTuple = self._manager:TypeTuple(nNode, nTypeList)
     const nDotsType = self._dots
-    if not nDotsType then
+    if nDotsType == nil then
         return nTypeTuple
     else
         const nDotsMustType = self._dirtyProcessor:easyToMustType(nNode, nDotsType)
