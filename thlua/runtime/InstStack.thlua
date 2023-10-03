@@ -183,10 +183,10 @@ function InstStack:META_INVOKE(
 	vNode:node.Invoke,
 	vSelfTerm:clazz.RefineTerm,
 	vName:String,
-	vPolyArgs:List(clazz.UAllType),
+	vPolyArgsGetter:Fn():RetDots(clazz.USpaceAny),
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UOpenReturn)
-	assert(vPolyArgs, "poly args can't be nil here")
+	const nPolyArgs:List(clazz.UAllType) = {vPolyArgsGetter()}
 	const nNil = self._manager.type.Nil
 	return self:withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
 		if vSelfType == nNil then
@@ -199,7 +199,7 @@ function InstStack:META_INVOKE(
 				if vSingleFuncType == nNil then
 					vContext:error("nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
-					vSingleFuncType:meta_invoke(vContext, vSelfType, vPolyArgs, nNewArgTuple)
+					vSingleFuncType:meta_invoke(vContext, vSelfType, nPolyArgs, nNewArgTuple)
 				else
 					vContext:error("TODO non-function type called "..tostring(vSingleFuncType))
 				end
