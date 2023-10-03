@@ -29,7 +29,7 @@ function DirtyProcessor:makeDirtyException(vNode:clazz.IBaseNode, vMsg:String):R
 	return Exception.new(vMsg, vNode)
 end
 
-function DirtyProcessor:easyToAllType(vNode:clazz.IBaseNode, vData:Any):Ret(clazz.UAllType)
+function DirtyProcessor:easyToAllType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UAllType)
 	const nOkay, nType = self:peasyToAllType(vData)
 	if nOkay then
 		return nType
@@ -38,15 +38,15 @@ function DirtyProcessor:easyToAllType(vNode:clazz.IBaseNode, vData:Any):Ret(claz
 	end
 end
 
-function DirtyProcessor:easyToAllTypeList(vNode:clazz.IBaseNode, ...:Any):Ret(IList(clazz.UAllType))
-	const l:List(Any) = {...}
+function DirtyProcessor:easyToAllTypeList(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(IList(clazz.UAllType))
+	const l:List(clazz.USpaceAny) = {...}
 	for i=1,select("#", ...) do
-		l[i] = self:easyToAllType(vNode, l[i])
+		l[i] = self:easyToAllType(vNode, l[i]!)
 	end
 	return l @? IList(clazz.UAllType)
 end
 
-function DirtyProcessor:peasyToAllType(vData:Any):Ret(False, String):Ret(True, clazz.UAllType)
+function DirtyProcessor:peasyToAllType(vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UAllType)
 	local t = type(vData)
 	if t == "table" then
 		if Reference.is(vData) or AsyncUnion.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
@@ -61,7 +61,7 @@ function DirtyProcessor:peasyToAllType(vData:Any):Ret(False, String):Ret(True, c
 	end
 end
 
-function DirtyProcessor:peasyToMustType(vData:Any):Ret(False, String):Ret(True, clazz.UMustType)
+function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UMustType)
 	const ok, ret = self:peasyToAllType(vData)
 	if ok then
 		return true, self._manager:mustType(ret)
@@ -70,7 +70,7 @@ function DirtyProcessor:peasyToMustType(vData:Any):Ret(False, String):Ret(True, 
 	end
 end
 
-function DirtyProcessor:easyToMustType(vNode:clazz.IBaseNode, vData:Any):Ret(clazz.UMustType)
+function DirtyProcessor:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
 	const nOkay, nType = self:peasyToMustType(vData)
 	if nOkay then
 		return nType

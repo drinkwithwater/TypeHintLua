@@ -23,18 +23,22 @@ end
 function:class(clazz.LocalSpaceTable) SpaceTable.createTable(vRefer:clazz.Reference):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:Any):Ret(clazz.LocalSpaceValue)
+		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.LocalSpaceValue)
 			const nNode = Node.newDebugNode()
 			const nKeyType = vRefer:assertSpaceKeyType(nNode, k)
 			return vRefer:triggerGet(nNode, nKeyType)
 		end,
-		__newindex=function(_:Truth,k:Any,newV:Any)
+		__newindex=function(_:Truth,k:clazz.USpaceAny,newV:clazz.USpaceAny)
 			const nNode = Node.newDebugNode()
 			const nKeyType = vRefer:assertSpaceKeyType(nNode, k)
 			vRefer:triggerSet(nNode, nKeyType, newV)
 		end,
 		__tostring=function(_)
 			return tostring("TODO").."->SpaceTable"
+		end,
+		__call=function(_:Truth, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
+			const nNode = Node.newDebugNode()
+			return vRefer:triggerCall(nNode, ...)
 		end,
 		__what=false,
 		__refer=vRefer,
@@ -44,12 +48,12 @@ end
 function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vRefer:clazz.Reference):extends(clazz.BaseSpaceTable)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:Any):Ret(Union(clazz.Reference, clazz.LocalSpaceTable))
+		__index=function(_:Truth,k:clazz.USpaceAny):Ret(Union(clazz.Reference, clazz.LocalSpaceTable))
 			const nNode = Node.newDebugNode()
 			const nKeyType = vRefer:assertSpaceKeyType(nNode, k)
 			return vRefer:globalGet(nNode, nKeyType)
 		end,
-		__newindex=function(t:Truth,k:Any,v:Any)
+		__newindex=function(t:Truth,k:clazz.USpaceAny,v:clazz.USpaceAny)
 			const nNode = Node.newDebugNode()
 			error(Exception.new("global can't assign", nNode))
 		end,

@@ -34,14 +34,19 @@ function:class(let.TableBuilder) TableBuilder.new(vStack:clazz.BaseStack,
 		_isConst=vNode.isConst,
 		_hintInfo=vHintInfo,
 		_pairMaker=vPairMaker,
-		_selfInitDict=false@Union(False, Dict(clazz.UAllType, clazz.UAllType)),
+		_selfInitDict=false@Union(False, Dict(clazz.UMustType, clazz.UMustType)),
 	}, TableBuilder)
 end
 
 function:class(clazz.TableLongHint) TableBuilder._makeLongHint(self:TableBuilder)
+	const nDirtyProcessor = self._stack:getTypeManager():getDirtyProcessor()
 	return {.class
-		Init=function(vLongHint:clazz.TableLongHint, vInitDict:Dict(clazz.UAllType, clazz.UAllType)):Ret(clazz.TableLongHint)
-			self._selfInitDict = vInitDict
+		Init=function(vLongHint:clazz.TableLongHint, vInitDict:clazz.USpaceDict):Ret(clazz.TableLongHint)
+			const t:Dict(clazz.UMustType, clazz.UMustType) = {}
+			for k,v in pairs(vInitDict) do
+				t[nDirtyProcessor:easyToMustType(self._node, k)] = nDirtyProcessor:easyToMustType(self._node, v)
+			end
+			self._selfInitDict = t
 			return vLongHint
 		end,
 	}
@@ -95,8 +100,6 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	const nSelfInitDict = self._selfInitDict
 	if nSelfInitDict then
 		for nKey, nValue in pairs(nSelfInitDict) do
-			const nKey = nManager:getDirtyProcessor():easyToMustType(self._node, nKey)
-			const nValue = nManager:getDirtyProcessor():easyToMustType(self._node, nValue)
 			nKey:foreachAwait(function(vSubKey)
 				nTypePairList[#nTypePairList + 1] = {
 					vSubKey, nManager:checkedUnion(nValue, nManager.type.Nil)

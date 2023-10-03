@@ -23,28 +23,9 @@ end)
 
 const Reference = {}
 Reference.__index = Reference
-Reference.__call=function(self:clazz.Reference, ...:Any):Ret(clazz.AsyncUnion)
-	-- TODO, cast
+Reference.__call=function(self:clazz.Reference, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
 	const nNode = Node.newDebugNode()
-	const nArgList = self._manager:getDirtyProcessor():easyToAllTypeList(nNode, ...)
-	const nKey = self._manager:signTemplateArgs(nArgList)
-	const nCom = self._com
-	if TemplateReferCom.is(nCom) then
-		return nCom:call(nNode, nKey, nArgList)
-	elseif nCom then
-		error(Exception.new("template reference expected here", nNode))
-	end
-	const nDict = self._callDict
-	local nTypeCom = nDict[nKey]
-	if not nTypeCom then
-		nTypeCom = self._manager:AsyncUnion()
-		nTypeCom:setTypeAsync(nNode, function()
-			const nCom = self:waitTemplateCom()
-			return nCom:call(nNode, nKey, nArgList)
-		end)
-		nDict[nKey] = nTypeCom
-	end
-	return nTypeCom
+	return self:triggerCall(nNode, ...)
 end
 
 function Reference.__tostring(self:clazz.Reference):Ret(String)
@@ -179,7 +160,7 @@ function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
 	return nCom:globalGet(vNode, vKeyType)
 end
 
-function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz.IAtomType)
+function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.IAtomType)
 	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vKey)
 	if not nOkay then
 		error(Exception.new(nType, vNode))
@@ -190,6 +171,29 @@ function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:Any):Ret(clazz
 	else
 		error(Exception.new("namespace's key can't be union type", vNode))
 	end
+end
+
+function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
+	-- TODO, cast
+	const nArgList = self._manager:getDirtyProcessor():easyToAllTypeList(vNode, ...)
+	const nKey = self._manager:signTemplateArgs(nArgList)
+	const nCom = self._com
+	if TemplateReferCom.is(nCom) then
+		return nCom:call(vNode, nKey, nArgList)
+	elseif nCom then
+		error(Exception.new("template reference expected here", vNode))
+	end
+	const nDict = self._callDict
+	local nTypeCom = nDict[nKey]
+	if not nTypeCom then
+		nTypeCom = self._manager:AsyncUnion()
+		nTypeCom:setTypeAsync(vNode, function()
+			const nCom = self:waitTemplateCom()
+			return nCom:call(vNode, nKey, nArgList)
+		end)
+		nDict[nKey] = nTypeCom
+	end
+	return nTypeCom
 end
 
 return Reference
