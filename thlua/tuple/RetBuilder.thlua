@@ -11,7 +11,7 @@ function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
 	self._manager = vManager
 	self._dirtyProcessor = vManager:getDirtyProcessor()
 	self._tupleBuilderList = {} @ List(clazz.TupleBuilder)
-	self._errType = false@OrFalse(clazz.UAllType)
+	self._errType = nil @ clazz.USpaceAny
 	self._node=vNode
 end
 
@@ -26,7 +26,8 @@ function RetBuilder:chainRet(vNode:clazz.IBaseNode, ...:Any)
 end
 
 function RetBuilder:chainErr(vNode:clazz.IBaseNode, vErrType:clazz.USpaceAny)
-	self._errType = self._dirtyProcessor:easyToAllType(vNode, vErrType)
+	assert(vErrType ~= nil, vNode:toExc("Err can't take nil value"))
+	self._errType = vErrType
 end
 
 function RetBuilder:isEmpty()

@@ -175,24 +175,19 @@ end
 
 function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
 	-- TODO, cast
-	const nArgList = self._manager:getDirtyProcessor():easyToAllTypeList(vNode, ...)
-	const nKey = self._manager:signTemplateArgs(nArgList)
+	const nArgList:List(clazz.USpaceAny) = {...}
+	const nArgNum = select("#", ...)
 	const nCom = self._com
 	if TemplateReferCom.is(nCom) then
-		return nCom:call(vNode, nKey, nArgList)
+		return nCom:call(vNode, nArgNum, nArgList)
 	elseif nCom then
 		error(Exception.new("template reference expected here", vNode))
 	end
-	const nDict = self._callDict
-	local nTypeCom = nDict[nKey]
-	if not nTypeCom then
-		nTypeCom = self._manager:AsyncUnion()
-		nTypeCom:setTypeAsync(vNode, function()
-			const nCom = self:waitTemplateCom()
-			return nCom:call(vNode, nKey, nArgList)
-		end)
-		nDict[nKey] = nTypeCom
-	end
+	const nTypeCom = self._manager:AsyncUnion()
+	nTypeCom:setTypeAsync(vNode, function()
+		const nCom = self:waitTemplateCom()
+		return nCom:call(vNode, nArgNum, nArgList)
+	end)
 	return nTypeCom
 end
 
