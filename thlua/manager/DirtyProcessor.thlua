@@ -25,44 +25,22 @@ function DirtyProcessor:makeDirtyException(vNode:clazz.IBaseNode, vMsg:String):R
 	return Exception.new(vMsg, vNode)
 end
 
-function DirtyProcessor:easyToAllType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UAllType)
-	const nOkay, nType = self:peasyToAllType(vData)
-	if nOkay then
-		return nType
-	else
-		error(self:makeDirtyException(vNode, nType))
-	end
-end
-
-function DirtyProcessor:easyToAllTypeList(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(IList(clazz.UAllType))
-	const l:List(clazz.USpaceAny) = {...}
-	for i=1,select("#", ...) do
-		l[i] = self:easyToAllType(vNode, l[i]!)
-	end
-	return l @? IList(clazz.UAllType)
-end
-
-function DirtyProcessor:peasyToAllType(vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UAllType)
+function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UMustType)
 	local t = type(vData)
 	if t == "table" then
-		if Reference.is(vData) or AsyncUnion.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+		if AsyncUnion.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 			return true, vData
 		else
-			return false, "to type failed"
+			if Reference.is(vData) then
+				return true, vData:mustType()
+			else
+				return false, "to type failed"
+			end
 		end
 	elseif t == "number" or t == "string" or t == "boolean"then
 		return true, self._manager:Literal(vData @> Union(Number, String, Boolean))
 	else
 		return false, "can't trans "..t.." into type in hint space"
-	end
-end
-
-function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UMustType)
-	const ok, ret = self:peasyToAllType(vData)
-	if ok then
-		return true, self._manager:mustType(ret)
-	else
-		return false, ret
 	end
 end
 
