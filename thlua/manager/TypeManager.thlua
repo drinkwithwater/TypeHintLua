@@ -135,31 +135,31 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
 	self.MetaOrNil = self:buildUnion(vRootNode, self.type.Nil, self.type.Truth):checkAtomUnion() -- TODO use object in the future
-	self.generic.Dict = self:rootBuildTemplate("Dict", vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
+	self.generic.Dict = self:rootBuildTemplate("Dict", vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
-	self.generic.Cond = self:rootBuildTemplate("Cond", vRootNode, function(vCond:clazz.UAllType,v1:clazz.UAllType,v2:clazz.UAllType)
-		local nType = self:mustType(vCond):checkAtomUnion()
+	self.generic.Cond = self:rootBuildTemplate("Cond", vRootNode, function(vCond:clazz.UMustType,v1:clazz.UMustType,v2:clazz.UMustType)
+		local nType = vCond:checkAtomUnion()
 		if nType:isUnion() then
 			error("Cond's first value can't be union")
 		end
 		return (nType == self.type.Nil or nType == self.type.False) and v2 or v1
 	end)
-	self.generic.IDict = self:rootBuildTemplate("IDict", vRootNode, function(vKey:clazz.UAllType,vValue:clazz.UAllType)
+	self.generic.IDict = self:rootBuildTemplate("IDict", vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
 		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
-	self.generic.List = self:rootBuildTemplate("List", vRootNode, function(vValue:clazz.UAllType)
+	self.generic.List = self:rootBuildTemplate("List", vRootNode, function(vValue:clazz.UMustType)
 		assert(vValue, "value can't be nil when build List")
 		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
 	end)
-	self.generic.IList = self:rootBuildTemplate("IList", vRootNode, function(vValue:clazz.UAllType)
+	self.generic.IList = self:rootBuildTemplate("IList", vRootNode, function(vValue:clazz.UMustType)
 		assert(vValue, "value can't be nil when build IList")
 		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:rootBuildTemplate("KeyOf", vRootNode, function(vOneType:clazz.UAllType)
-		local nObject = self:mustType(vOneType):checkAtomUnion()
+	self.generic.KeyOf = self:rootBuildTemplate("KeyOf", vRootNode, function(vOneType:clazz.UMustType)
+		local nObject = vOneType:checkAtomUnion()
 		if not TypedObject.is(nObject) then
 			error("key of can only worked on object function")
 		end
@@ -205,21 +205,22 @@ function TypeManager:AsyncUnion():Ret(clazz.AsyncUnion)
 	return AsyncUnion.new(self)
 end
 
-function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vObjectList:List(clazz.UAllType)):Ret(clazz.TypedObject)
+function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.TypedObject)
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:keySetListAsync(vNode, function()
+		const nObjectList = vTupleBuilder:buildPolyArgs()
 		if vIsInterface then
-			assert(#vObjectList>=1, "Intersect must take at least one arguments")
+			assert(#nObjectList>=1, "Intersect must take at least one arguments")
 		else
-			assert(#vObjectList >= 2, "StructExtend must take at least one interface after struct")
+			assert(#nObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
 		const nKeyList:List(clazz.IAtomType) = {}
 		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UMustType}) = {}
 		const nIntersectSet:Dict(clazz.TypedObject, True) = {}
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
 		local nIntersectNextKey:OrFalse(clazz.UMustType) = self.type.Any
-		for i=1,#vObjectList do
-			local nTypedObject = self:mustType(vObjectList[i]!):checkAtomUnion()
+		for i=1,#nObjectList do
+			local nTypedObject = nObjectList[i]!:checkAtomUnion()
 			if not TypedObject.is(nTypedObject) then
 				error("Interface or Struct is expected here")
 				break
@@ -275,18 +276,17 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 	return nNewObject
 end
 
-function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpaceAny,
-	...:Union(clazz.Reference, clazz.TypedObject)):Ret(clazz.TypedObject)
-
-	const ok, allType = self._dirtyProcessor:peasyToAllType(vFirst)
-	const nStruct = ok and allType or self:buildStruct(vNode, vFirst)
-	const l:List(clazz.UAllType) = {nStruct, ...}
-	return self:_buildCombineObject(vNode, false, l)
+function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpaceAny, ...:clazz.USpaceAny):Ret(clazz.TypedObject)
+	if type(vFirst) == "table" and not getmetatable(vFirst) then
+		vFirst = self:buildStruct(vNode, vFirst)
+	end
+	const nTupleBuilder = self:spacePack(vNode, vFirst, ...)
+	return self:_buildCombineObject(vNode, false, nTupleBuilder)
 end
 
-function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:Union(clazz.Reference, clazz.TypedObject)):Ret(clazz.TypedObject)
-	const l:List(clazz.UAllType) = {...}
-	return self:_buildCombineObject(vNode, true, l)
+function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.TypedObject)
+	const nTupleBuilder = self:spacePack(vNode, ...)
+	return self:_buildCombineObject(vNode, true, nTupleBuilder)
 end
 
 function TypeManager:checkedIntersect(vLeft:clazz.UMustType, vRight:clazz.UMustType):Ret(clazz.UAtomUnion)
