@@ -26,58 +26,14 @@ function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, 
 	self._refer = vRefer
 end
 
-function Namespace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceValue))
-	return self._key2child[vKeyType]
-end
-
-function Namespace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
-	return false
-end
-
-function Namespace:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
-	const rawgetV = self._key2child[vKeyType]
-	if rawgetV then
-		return rawgetV
+function Namespace:getChild(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
+	local rawgetV = self._key2child[vKeyType]
+	if not rawgetV then
+		rawgetV = self._manager:Reference(tostring(vKeyType))
+		rawgetV:pushReferNode(vNode)
+		self._key2child[vKeyType] = rawgetV
 	end
-    if self:parentHasKey(vKeyType) then
-        error(Exception.new("'let' can only get symbol in current level key="..tostring(vKeyType), vNode))
-    end
-	if self._closed then
-		error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
-	end
-	const refer = self._manager:Reference(tostring(vKeyType))
-	refer:pushReferNode(vNode)
-	self._key2child[vKeyType] = refer
-	return refer
-end
-
-function Namespace:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vNewValue:Any)
-	const Reference = require "thlua.refer.Reference"
-	if self._closed then
-		error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
-	end
-	const rawgetV = self._key2child[vKeyType]
-	if rawgetV then
-		if Reference.is(rawgetV) then
-			rawgetV:setAssignAsync(vNode, function() return vNewValue end)
-		else
-			error(Exception.new("assign conflict: key="..tostring(vKeyType), vNode))
-		end
-	else
-		if self:parentHasKey(vKeyType) then
-            error(Exception.new("'let' shadow set key="..tostring(vKeyType), vNode))
-		end
-		const nAssignSpace = SpaceTable.checkSpace(vNewValue)
-		if nAssignSpace then
-			self._key2child[vKeyType] = vNewValue @? clazz.LocalSpaceTable
-		elseif SpaceBuiltin.is(vNewValue) then
-            error(Exception.new("space-builtin function can't assign between space"..tostring(vKeyType), vNode))
-		else
-			const refer = self._manager:Reference(tostring(vKeyType))
-			refer:setAssignAsync(vNode, function() return vNewValue end)
-			self._key2child[vKeyType] = refer
-		end
-	end
+	return rawgetV
 end
 
 function Namespace:close()

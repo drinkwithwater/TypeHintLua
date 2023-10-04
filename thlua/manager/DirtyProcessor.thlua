@@ -1,5 +1,6 @@
 
 const Exception = require "thlua.Exception"
+const SpaceTable = require "thlua.refer.SpaceTable"
 const Reference = require "thlua.refer.Reference"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
@@ -31,10 +32,15 @@ function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String
 		if AsyncUnion.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 			return true, vData
 		else
-			if Reference.is(vData) then
-				return true, vData:mustType()
+			const nRefer = SpaceTable.checkSpace(vData)
+			if nRefer then
+				return true, nRefer:mustType()
 			else
-				return false, "to type failed"
+				if Reference.is(vData) then
+					return true, vData:mustType()
+				else
+					return false, "to type failed"
+				end
 			end
 		end
 	elseif t == "number" or t == "string" or t == "boolean"then

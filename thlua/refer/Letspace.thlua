@@ -37,15 +37,6 @@ function Letspace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.LocalSpaceVa
 	return self._key2child[vKeyType] or (nParent and nParent:pureGet(vKeyType) or nil)
 end
 
-function Letspace:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
-    const nValue = self:pureGet(vKeyType)
-    if nValue then
-        return nValue
-    else
-        error(Exception.new("key with empty value, key="..tostring(vKeyType), vNode))
-    end
-end
-
 function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth)
     return self._refer:getSpaceValue(), self._envTable, _G
 end
@@ -61,6 +52,22 @@ function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCom
     else
         self:putCompletion(vCompletion)
     end
+end
+
+function Letspace:getChild(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
+	local rawgetV = self._key2child[vKeyType]
+	if not rawgetV then
+        if self:parentHasKey(vKeyType) then
+            error(Exception.new("'let' can only get symbol in current level key="..tostring(vKeyType), vNode))
+        end
+        if self._closed then
+            error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
+        end
+        rawgetV = self._manager:Reference(tostring(vKeyType))
+        rawgetV:pushReferNode(vNode)
+        self._key2child[vKeyType] = rawgetV
+	end
+    return rawgetV
 end
 
 return Letspace

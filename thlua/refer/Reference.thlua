@@ -107,25 +107,32 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 			self:_setComAndWakeup(nCom)
 		elseif Namespace.is(nAssignValue) then
 			self:_setComAndWakeup(nAssignValue)
-		elseif TemplateReferCom.is(nAssignValue) then
-			self:_setComAndWakeup(nAssignValue)
-		elseif AsyncUnion.is(nAssignValue) then
-			self:_setComAndWakeup(nAssignValue)
 		else
-			if BaseAtomType.is(nAssignValue) then
-				const nCom = self._manager:AsyncUnion()
-				nCom:setTypeAsync(vNode, function()
-					return nAssignValue
-				end)
-				self:_setComAndWakeup(nCom)
-			elseif BaseUnionType.is(nAssignValue) then
-				const nCom = self._manager:AsyncUnion()
-				nCom:setTypeAsync(vNode, function()
-					return nAssignValue
-				end)
-				self:_setComAndWakeup(nCom)
+			const nRefer = SpaceTable.checkSpace(nAssignValue)
+			if nRefer then
+				self:_setComAndWakeup(nRefer:getComAwait())
+				return
+			end
+			if TemplateReferCom.is(nAssignValue) then
+				self:_setComAndWakeup(nAssignValue)
+			elseif AsyncUnion.is(nAssignValue) then
+				self:_setComAndWakeup(nAssignValue)
 			else
-				error("namespace assign a non-type value")
+				if BaseAtomType.is(nAssignValue) then
+					const nCom = self._manager:AsyncUnion()
+					nCom:setTypeAsync(vNode, function()
+						return nAssignValue
+					end)
+					self:_setComAndWakeup(nCom)
+				elseif BaseUnionType.is(nAssignValue) then
+					const nCom = self._manager:AsyncUnion()
+					nCom:setTypeAsync(vNode, function()
+						return nAssignValue
+					end)
+					self:_setComAndWakeup(nCom)
+				else
+					error("namespace assign a non-type value")
+				end
 			end
 		end
 	end)
@@ -151,19 +158,36 @@ end
 function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
 	const nCom = self._com
 	assert(Namespace.is(nCom), "only namespace com can take index")
-	return nCom:triggerGet(vNode, vKeyType)
+	const nChild = nCom:getChild(vNode, vKeyType)
+	if Reference.is(nChild) then
+		return nChild:getSpaceValue()
+	else
+		return nChild
+	end
 end
 
-function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:Any)
+function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:clazz.USpaceAny)
 	const nCom = self._com
 	assert(Namespace.is(nCom), "only namespace com can take newindex")
-	return nCom:triggerSet(vNode, vKeyType, vValue)
+	const nChild = nCom:getChild(vNode, vKeyType)
+	if Reference.is(nChild) then
+		nChild:setAssignAsync(vNode, function() return vValue end)
+	else
+		error(vNode:toExc("assign conflict: key="..tostring(vKeyType)))
+	end
 end
 
-function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType)
+function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceTable)
 	const nCom = self._com
 	assert(Letspace.is(nCom), "only letspace com can take index")
-	return nCom:globalGet(vNode, vKeyType)
+	const nRefer = nCom:pureGet(vKeyType)
+	if Reference.is(nRefer) then
+		return nRefer:getSpaceValue()
+	elseif not nRefer then
+        error(Exception.new("key with empty value, key="..tostring(vKeyType), vNode))
+	else
+		return nRefer
+	end
 end
 
 function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.IAtomType)
