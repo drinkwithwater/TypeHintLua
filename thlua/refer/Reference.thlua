@@ -2,12 +2,13 @@
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
--- const ReferState = require "thlua.refer.ReferState"
+const OldNamespace = require "thlua.refer.OldNamespace"
 
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
 const Namespace = require "thlua.refer.Namespace"
+const Rootspace = require "thlua.refer.Rootspace"
 const Letspace = require "thlua.refer.Letspace"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
@@ -39,7 +40,6 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 		id=vManager:genTypeId(),
 		_task = nTask,
 		_key=vKey,
-		_callDict={}@Dict(String, clazz.AsyncUnion),
 		_assignNode=false@OrFalse(clazz.IBaseNode),
 		_referNodes={}@List(clazz.IBaseNode),
 		_assignComEvent = nTask:makeEvent(),
@@ -102,18 +102,14 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 	self._assignNode = vNode
 	self._task:runAsync(function()
 		const nAssignValue = vGetFunc()
-		if Reference.is(nAssignValue) then
-			const nCom = nAssignValue:getComAwait()
-			self:_setComAndWakeup(nCom)
-		elseif Namespace.is(nAssignValue) then
-			self:_setComAndWakeup(nAssignValue)
+		if nAssignValue == OldNamespace then -- compatible for old version, TODO remove this
+			const nSpace = Namespace.new(self._manager, vNode, self)
+			self:_setComAndWakeup(nSpace)
 		else
 			const nRefer = SpaceTable.checkSpace(nAssignValue)
 			if nRefer then
 				self:_setComAndWakeup(nRefer:getComAwait())
-				return
-			end
-			if TemplateReferCom.is(nAssignValue) then
+			elseif TemplateReferCom.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
 			elseif AsyncUnion.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
