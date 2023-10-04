@@ -5,22 +5,22 @@ const Exception = require "thlua.Exception"
 
 (@let.clazz = import("thlua.type.TypeClass").clazz)
 
-const AsyncUnion = class@<clazz.AsyncUnion, clazz.IType>()
+const AsyncTypeCom = class@<clazz.AsyncTypeCom, clazz.IType>()
 
-function AsyncUnion.__tostring(self:clazz.AsyncUnion)
+function AsyncTypeCom.__tostring(self:clazz.AsyncTypeCom)
 	const l:List(String) = {}
 	const nTypeList = self._typeList
 	if nTypeList then
 		for i, v in ipairs(nTypeList) do
 			l[i] = tostring(v)
 		end
-		return "AsyncUnion("..table.concat(l, ",")..")"
+		return "AsyncTypeCom("..table.concat(l, ",")..")"
 	else
-		return "AsyncUnion(?)"
+		return "AsyncTypeCom(?)"
 	end
 end
 
-function.open AsyncUnion:ctor(vManager:clazz.TypeManager)
+function.open AsyncTypeCom:ctor(vManager:clazz.TypeManager)
 	const nTask = vManager:getScheduleManager():newTask()
 	self._manager=vManager
 	self._task = nTask
@@ -33,14 +33,14 @@ function.open AsyncUnion:ctor(vManager:clazz.TypeManager)
 	self.id=vManager:genTypeId()
 end
 
-function AsyncUnion:detailString(v, vVerbose)
-	return "AsyncUnion detail string TODO"
+function AsyncTypeCom:detailString(v, vVerbose)
+	return "AsyncTypeCom detail string TODO"
 	--[[
 	const nCom = self._com
 	if not nCom then
 		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
 	else
-		if AsyncUnion.is(nCom) then
+		if AsyncTypeCom.is(nCom) then
 			return "Reference("..tostring(nCom:getTypeNowait())..")"
 		else
 			return "TemplateReference("..(tostring(self._key) or tostring(self._assignNode))..")"
@@ -49,38 +49,38 @@ function AsyncUnion:detailString(v, vVerbose)
 	]]
 end
 
-function AsyncUnion:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+function AsyncTypeCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
 	return self._resultType
 end
 
-function AsyncUnion:getTypeNowait():Ret(Union(clazz.AsyncUnion, clazz.UAtomUnion))
+function AsyncTypeCom:getTypeNowait():Ret(Union(clazz.AsyncTypeCom, clazz.UAtomUnion))
 	return self._resultType or self
 end
 
-function AsyncUnion:checkAtomUnion():Ret(clazz.UAtomUnion)
+function AsyncTypeCom:checkAtomUnion():Ret(clazz.UAtomUnion)
 	if not self._resultType then
 		self._resultBuildEvent:wait()
 	end
 	return (assert(self._resultType, "result type not setted"))
 end
 
-function AsyncUnion:mayRecursive():Ret(Boolean)
+function AsyncTypeCom:mayRecursive():Ret(Boolean)
 	return self._mayRecursive
 end
 
-function AsyncUnion:getListAwait():Ret(List(clazz.IAtomType))
+function AsyncTypeCom:getListAwait():Ret(List(clazz.IAtomType))
 	if not self._typeList then
 		self._listBuildEvent:wait()
 	end
 	return (assert(self._typeList, "type list not setted"))
 end
 
-function AsyncUnion:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
+function AsyncTypeCom:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
 		const nResultType = vFn()
-		if AsyncUnion.is(nResultType) then
+		if AsyncTypeCom.is(nResultType) then
 			self._typeList = nResultType:getListAwait()
 			self._listBuildEvent:wakeup()
 			self._resultType = nResultType:checkAtomUnion()
@@ -98,7 +98,7 @@ function AsyncUnion:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMust
 	end)
 end
 
-function AsyncUnion:setListAsync(vNode:clazz.IBaseNode, vGetListLateRunner:Fn():Ret(List(clazz.IAtomType), OrNil(Fn(clazz.UAtomUnion))))
+function AsyncTypeCom:setListAsync(vNode:clazz.IBaseNode, vGetListLateRunner:Fn():Ret(List(clazz.IAtomType), OrNil(Fn(clazz.UAtomUnion))))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
@@ -132,7 +132,7 @@ function AsyncUnion:setListAsync(vNode:clazz.IBaseNode, vGetListLateRunner:Fn():
 	end)
 end
 
-function AsyncUnion:foreachAwait(vFunc:Fn(clazz.IAtomType))
+function AsyncTypeCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
 	const nResultType = self._resultType
 	if nResultType then
 		nResultType:foreach(vFunc)
@@ -144,7 +144,7 @@ function AsyncUnion:foreachAwait(vFunc:Fn(clazz.IAtomType))
 	end
 end
 
-function AsyncUnion:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+function AsyncTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	const nResultType = self:getTypeNowait()
 	if not nResultType:isAsync() then
 		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
@@ -170,7 +170,7 @@ function AsyncUnion:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	end
 end
 
-function AsyncUnion:assumeIntersectSome(vAssumeSet, vRight)
+function AsyncTypeCom:assumeIntersectSome(vAssumeSet, vRight)
 	const nResultType = self:getTypeNowait()
 	if not nResultType:isAsync() then
 		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
@@ -196,7 +196,7 @@ function AsyncUnion:assumeIntersectSome(vAssumeSet, vRight)
 	end
 end
 
-function AsyncUnion:foreachAwait(vFunc)
+function AsyncTypeCom:foreachAwait(vFunc)
 	const nResultType = self:getTypeNowait()
 	if not nResultType:isAsync() then
 		nResultType:foreach(vFunc)
@@ -208,41 +208,41 @@ function AsyncUnion:foreachAwait(vFunc)
 	end
 end
 
-function AsyncUnion:intersectAtom(vRightType)
+function AsyncTypeCom:intersectAtom(vRightType)
 	return self:checkAtomUnion():intersectAtom(vRightType)
 end
 
-function AsyncUnion:includeAtom(vRightType)
+function AsyncTypeCom:includeAtom(vRightType)
 	return self:checkAtomUnion():includeAtom(vRightType)
 end
 
-function AsyncUnion:includeAll(vRight)
+function AsyncTypeCom:includeAll(vRight)
 	return self:assumeIncludeAll(nil, vRight)
 end
 
-function AsyncUnion:safeIntersect(vRight)
+function AsyncTypeCom:safeIntersect(vRight)
 	return self:checkAtomUnion():safeIntersect(vRight)
 end
 
-function AsyncUnion:intersectSome(vRight)
+function AsyncTypeCom:intersectSome(vRight)
 	return self:assumeIntersectSome(nil, vRight)
 end
 
-function AsyncUnion:isAsync():Ret(True)
+function AsyncTypeCom:isAsync():Ret(True)
 	return true
 end
 
-function AsyncUnion:unionSign()
+function AsyncTypeCom:unionSign()
 	return tostring(self.id)
 end
 
-function AsyncUnion:isNever():Ret(Boolean)
+function AsyncTypeCom:isNever():Ret(Boolean)
 	const nList = self:getListAwait()
 	return #nList <= 0
 end
 
-function AsyncUnion:getManager()
+function AsyncTypeCom:getManager()
 	return self._manager
 end
 
-return AsyncUnion
+return AsyncTypeCom

@@ -2,24 +2,24 @@
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
-const OldNamespace = require "thlua.refer.OldNamespace"
+const OldNamespace = require "thlua.space.OldNamespace"
 
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
-const Namespace = require "thlua.refer.Namespace"
-const Letspace = require "thlua.refer.Letspace"
-const AsyncUnion = require "thlua.refer.AsyncUnion"
-const TemplateReferCom = require "thlua.refer.TemplateReferCom"
-const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
+const Namespace = require "thlua.space.Namespace"
+const Letspace = require "thlua.space.Letspace"
+const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
+const TemplateCom = require "thlua.space.TemplateCom"
+const BuiltinCom = require "thlua.space.BuiltinCom"
 
-const SpaceValue = require "thlua.refer.SpaceValue"
+const SpaceValue = require "thlua.space.SpaceValue"
 
 const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom, clazz.Namespace, clazz.SpaceBuiltin)
+	let.UReferCom = Union(clazz.AsyncTypeCom, clazz.TemplateCom, clazz.Namespace, clazz.BuiltinCom)
 end)
 
 const Reference = {}
@@ -76,15 +76,15 @@ function Reference:getComAwait():Ret(UReferCom)
 	return nCom
 end
 
-function Reference:mustType():Ret(clazz.AsyncUnion)
+function Reference:mustType():Ret(clazz.AsyncTypeCom)
 	const nCom = self:getComAwait()
-	assert(AsyncUnion.is(nCom), "type reference expected, but get template reference")
+	assert(AsyncTypeCom.is(nCom), "type reference expected, but get template reference")
 	return nCom
 end
 
-function Reference:waitTemplateCom():Ret(clazz.TemplateReferCom)
+function Reference:waitTemplateCom():Ret(clazz.TemplateCom)
 	const nCom = self:getComAwait()
-	assert(TemplateReferCom.is(nCom), "template reference expected, but get some other reference")
+	assert(TemplateCom.is(nCom), "template reference expected, but get some other reference")
 	return nCom
 end
 
@@ -105,21 +105,21 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 			const nRefer = SpaceValue.checkRefer(nAssignValue)
 			if nRefer then
 				self:_setComAndWakeup(nRefer:getComAwait())
-			elseif TemplateReferCom.is(nAssignValue) then
+			elseif TemplateCom.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
-			elseif AsyncUnion.is(nAssignValue) then
+			elseif AsyncTypeCom.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
-			elseif SpaceBuiltin.is(nAssignValue) then
+			elseif BuiltinCom.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
 			else
 				if BaseAtomType.is(nAssignValue) then
-					const nCom = self._manager:AsyncUnion()
+					const nCom = self._manager:AsyncTypeCom()
 					nCom:setTypeAsync(vNode, function()
 						return nAssignValue
 					end)
 					self:_setComAndWakeup(nCom)
 				elseif BaseUnionType.is(nAssignValue) then
-					const nCom = self._manager:AsyncUnion()
+					const nCom = self._manager:AsyncTypeCom()
 					nCom:setTypeAsync(vNode, function()
 						return nAssignValue
 					end)
@@ -191,17 +191,17 @@ end
 
 function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
 	const nCom = self._com
-	if SpaceBuiltin.is(nCom) then
+	if BuiltinCom.is(nCom) then
 		return nCom:call(vNode, ...)
 	end
 	const nArgList:List(clazz.USpaceAny) = {...}
 	const nArgNum = select("#", ...)
-	if TemplateReferCom.is(nCom) then
+	if TemplateCom.is(nCom) then
 		return nCom:call(vNode, nArgNum, nArgList)
 	elseif nCom then
 		error(Exception.new("template reference expected here", vNode))
 	end
-	const nTypeCom = self._manager:AsyncUnion()
+	const nTypeCom = self._manager:AsyncTypeCom()
 	nTypeCom:setTypeAsync(vNode, function()
 		const nCom = self:waitTemplateCom()
 		return nCom:call(vNode, nArgNum, nArgList)

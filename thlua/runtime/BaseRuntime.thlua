@@ -6,22 +6,22 @@ const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
-const Namespace = require "thlua.refer.Namespace"
-const Letspace = require "thlua.refer.Letspace"
+const Namespace = require "thlua.space.Namespace"
+const Letspace = require "thlua.space.Letspace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
-const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
+const BuiltinCom = require "thlua.space.BuiltinCom"
 
 const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
 const SealStack = require "thlua.runtime.SealStack"
 const AutoFunction = require "thlua.type.func.AutoFunction"
-const Reference = require "thlua.refer.Reference"
+const Reference = require "thlua.space.Reference"
 
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 const class = require "thlua.class"
 const CodeEnv = require "thlua.code.CodeEnv"
-const OldNamespace = require "thlua.refer.OldNamespace"
+const OldNamespace = require "thlua.space.OldNamespace"
 
 (@do
 	let.clazz = import($class).clazz
@@ -297,38 +297,38 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 	}
 	local nManager = self._manager
 	for k,v in pairs(l) do
-		nGlobal[k]=SpaceBuiltin.new(function(vNode, ...)
+		nGlobal[k]=BuiltinCom.new(function(vNode, ...)
 			return nManager[v](nManager, vNode, ...)
 		end, k)
 	end
-	nGlobal.Literal=SpaceBuiltin.new(function(vNode, v)
+	nGlobal.Literal=BuiltinCom.new(function(vNode, v)
 		return nManager:Literal(v)
 	end, "Literal")
-	nGlobal.enum=SpaceBuiltin.new(function(vNode, vEnumType, ...)
+	nGlobal.enum=BuiltinCom.new(function(vNode, vEnumType, ...)
 		return nManager:addEnum(vNode, vEnumType, ...)
 	end, "enum")
-	nGlobal.namespace=SpaceBuiltin.new(function(vNode)
+	nGlobal.namespace=BuiltinCom.new(function(vNode)
 		return OldNamespace
 	end, "namespace")
-	nGlobal.lock=SpaceBuiltin.new(function(vNode, vType)
+	nGlobal.lock=BuiltinCom.new(function(vNode, vType)
 		vType:foreach(function(vAtom)
 			vAtom:setLocked()
 		end)
 	end, "lock")
-	nGlobal.import=SpaceBuiltin.new(function(vNode, vPath)
+	nGlobal.import=BuiltinCom.new(function(vNode, vPath)
 		return self:import(vPath)
 	end, "import")
-	nGlobal.setPath=SpaceBuiltin.new(function(vNode, vPath)
+	nGlobal.setPath=BuiltinCom.new(function(vNode, vPath)
 		self._searchPath = vPath
 	end, "setPath")
-	nGlobal.foreachPair=SpaceBuiltin.new(function(vNode, vObject, vFunc)
+	nGlobal.foreachPair=BuiltinCom.new(function(vNode, vObject, vFunc)
 		const nObject = self._manager:getDirtyProcessor():easyToMustType(vNode, vObject):checkAtomUnion()
 		const d = nObject:copyValueDict(nObject)
 		for k,v in pairs(d) do
 			vFunc(k,v)
 		end
 	end, "foreachPair")
-	nGlobal.literal=SpaceBuiltin.new(function(vNode, vType)
+	nGlobal.literal=BuiltinCom.new(function(vNode, vType)
 		vType = self._manager:getDirtyProcessor():easyToMustType(vNode, vType):checkAtomUnion()
 		if vType:isUnion() then
 			return nil
@@ -340,10 +340,10 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 			end
 		end
 	end, "literal")
-	nGlobal.same=SpaceBuiltin.new(function(vNode, vType1, vType2)
+	nGlobal.same=BuiltinCom.new(function(vNode, vType1, vType2)
 		return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
 	end, "same")
-	nGlobal.print=SpaceBuiltin.new(function(vNode, ...)
+	nGlobal.print=BuiltinCom.new(function(vNode, ...)
 		self:nodeInfo(vNode, ...)
 	end, "print")
 	const nRetGlobal = {}

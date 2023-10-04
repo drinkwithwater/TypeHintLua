@@ -28,7 +28,7 @@ const TypedFunction = require "thlua.type.func.TypedFunction"
 const TypedPolyFunction = require "thlua.type.func.TypedPolyFunction"
 const SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 const AnyFunction = require "thlua.type.func.AnyFunction"
-const Reference = require "thlua.refer.Reference"
+const Reference = require "thlua.space.Reference"
 
 const MemberFunction = require "thlua.type.func.MemberFunction"
 const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
@@ -55,8 +55,8 @@ const BaseUnionType = require "thlua.type.union.BaseUnionType"
 const MetaEventCom = require "thlua.type.object.MetaEventCom"
 const native = require "thlua.native"
 
-const TemplateReferCom = require "thlua.refer.TemplateReferCom"
-const AsyncUnion = require "thlua.refer.AsyncUnion"
+const TemplateCom = require "thlua.space.TemplateCom"
+const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 
 const TypeRelation = require "thlua.manager.TypeRelation"
 const TupleBuilder = require "thlua.tuple.TupleBuilder"
@@ -106,8 +106,8 @@ function:class(clazz.TypeManager) TypeManager.new(
 			Truth = Truth.new(vManager),
 			LightUserdata = LightUserdata.new(vManager),
 			AnyFunction = AnyFunction.new(vManager, vRootNode),
-			Boolean = nil @! clazz.AsyncUnion,
-			Any = nil @! clazz.AsyncUnion,
+			Boolean = nil @! clazz.AsyncTypeCom,
+			Any = nil @! clazz.AsyncTypeCom,
 			AnyObject = nil @! clazz.Interface,
 		}
 		return self
@@ -164,11 +164,11 @@ function:class(clazz.TypeManager) TypeManager.new(
 			error("key of can only worked on object function")
 		end
 		const nKeyRefer, _ = nObject:getKeyTypes()
-		const nAsyncUnion = self:AsyncUnion()
-		nAsyncUnion:setTypeAsync(nObject:getNode(), function()
+		const nAsyncTypeCom = self:AsyncTypeCom()
+		nAsyncTypeCom:setTypeAsync(nObject:getNode(), function()
 			return nKeyRefer
 		end)
-		return nAsyncUnion
+		return nAsyncTypeCom
 	end)
 	return self
 end
@@ -193,8 +193,8 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:AsyncUnion():Ret(clazz.AsyncUnion)
-	return AsyncUnion.new(self)
+function TypeManager:AsyncTypeCom():Ret(clazz.AsyncTypeCom)
+	return AsyncTypeCom.new(self)
 end
 
 function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.TypedObject)
@@ -326,15 +326,15 @@ end
 	end
 end]]
 
-function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
+function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	local l = {...}
 	const nLen = select("#", ...)
-	local nAsyncUnion = self:AsyncUnion()
-	nAsyncUnion:setListAsync(vNode, function()
+	local nAsyncTypeCom = self:AsyncTypeCom()
+	nAsyncTypeCom:setListAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
 			local nItem = self._dirtyProcessor:easyToMustType(vNode, l[i])
-			if AsyncUnion.is(nItem) then
+			if AsyncTypeCom.is(nItem) then
 				const nList = nItem:getListAwait()
 				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
 			else
@@ -345,7 +345,7 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(
 		end
 		return nTypeList
 	end)
-	return nAsyncUnion
+	return nAsyncTypeCom
 end
 
 function TypeManager:buildInterface(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, vMetaEventDict:OrNil(clazz.USpaceAny)):Ret(clazz.Interface)
@@ -405,11 +405,11 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 	return nNewObject
 end
 
-function TypeManager:buildOrNil(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
+function TypeManager:buildOrNil(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	return self:buildUnion(vNode, self.type.Nil, ...)
 end
 
-function TypeManager:buildOrFalse(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
+function TypeManager:buildOrFalse(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	return self:buildUnion(vNode, self.type.False, ...)
 end
 
@@ -554,17 +554,17 @@ function TypeManager:rootBuildTemplate(vName:String, vNode:clazz.IBaseNode, vFun
 	return nRefer
 end
 
-function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateReferCom)
+function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateCom)
 	const nInfo = debug.getinfo(vFunc)
 	const nParNum = nInfo.nparams
 	if nInfo.isvararg then
 		error("template's parameter number is undetermined")
 	end
-	return TemplateReferCom.new(self, vNode, vFunc, nParNum)
+	return TemplateCom.new(self, vNode, vFunc, nParNum)
 end
 
-function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParNum:Integer):Ret(clazz.TemplateReferCom)
-	return TemplateReferCom.new(self, vNode, vFunc, vParNum)
+function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParNum:Integer):Ret(clazz.TemplateCom)
+	return TemplateCom.new(self, vNode, vFunc, vParNum)
 end
 
 function TypeManager:Reference(vName:String):Ret(clazz.Reference)
@@ -637,8 +637,8 @@ function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(claz
 	if #vList == 1 then
 		return nFirst
 	end
-	const nAsyncUnion = self:AsyncUnion()
-	nAsyncUnion:setTypeAsync(vNode, function()
+	const nAsyncTypeCom = self:AsyncTypeCom()
+	nAsyncTypeCom:setTypeAsync(vNode, function()
 		local nFinalType = nFirst:checkAtomUnion()
 		for i=2, #vList do
 			const nCurType = vList[i]!
@@ -654,7 +654,7 @@ function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(claz
 		end
 		return nFinalType
 	end)
-	return nAsyncUnion
+	return nAsyncTypeCom
 end
 
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)

@@ -5,9 +5,9 @@ const BaseReadyType = require "thlua.type.basic.BaseReadyType"
 
 (@let.clazz = import($class).clazz)
 
-const TemplateReferCom = class@<clazz.TemplateReferCom, false>()
+const TemplateCom = class@<clazz.TemplateCom, false>()
 
-function.open TemplateReferCom:ctor(
+function.open TemplateCom:ctor(
 	vManager:clazz.TypeManager,
 	vNode:clazz.IBaseNode,
 	vFunc:AnyFunction,
@@ -17,14 +17,14 @@ function.open TemplateReferCom:ctor(
 	self._node=vNode
 	self._parNum=vParNum
 	self._func=vFunc
-	self._cache={}@Dict(String, clazz.AsyncUnion)
+	self._cache={}@Dict(String, clazz.AsyncTypeCom)
 end
 
-function TemplateReferCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(clazz.USpaceAny)):Ret(clazz.AsyncUnion)
+function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(clazz.USpaceAny)):Ret(clazz.AsyncTypeCom)
 	const nDirtyProcessor = self._manager:getDirtyProcessor()
 	const nFn = self._func
-	const nAsyncUnion = self._manager:AsyncUnion()
-	nAsyncUnion:setTypeAsync(vNode, function()
+	const nAsyncTypeCom = self._manager:AsyncTypeCom()
+	nAsyncTypeCom:setTypeAsync(vNode, function()
 		if vArgNum ~= self._parNum then
 			error(Exception.new("template args num not match", vNode))
 		end
@@ -35,13 +35,13 @@ function TemplateReferCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:
 		const nKey = self._manager:signTemplateArgs(nMustList)
 		const nValue = self._cache[nKey]
 		if not nValue then
-			self._cache[nKey] = nAsyncUnion
+			self._cache[nKey] = nAsyncTypeCom
 			return nDirtyProcessor:easyToMustType(vNode, nFn(table.unpack(nMustList)))
 		else
 			return nValue
 		end
 	end)
-	return nAsyncUnion
+	return nAsyncTypeCom
 end
 
-return TemplateReferCom
+return TemplateCom

@@ -1,0 +1,28 @@
+
+const Node = require "thlua.code.Node"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const BuiltinCom = {}
+BuiltinCom.__index = BuiltinCom
+BuiltinCom.__tostring=function(self:clazz.BuiltinCom):Ret(String)
+    return "BuiltinFn-"..self._name
+end
+
+function:class(clazz.BuiltinCom) BuiltinCom.new(vFunc:AnyFunction, vName:String)
+    return setmetatable({.class
+        _func=vFunc,
+        _name=vName,
+    }, BuiltinCom)
+end
+
+function.open BuiltinCom.is(v):isguard(clazz.BuiltinCom)
+    return getmetatable(v) == BuiltinCom
+end
+
+function BuiltinCom:call(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
+    return self._func(vNode, ...)
+end
+
+return BuiltinCom
