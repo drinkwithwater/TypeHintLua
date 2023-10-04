@@ -15,7 +15,7 @@ const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
 
 function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexCapture))
 	self._func=nil@OrNil(clazz.OpenCaller)
-	self._polyWrapper=false@OrFalse(Fn(IList(clazz.UAllType)):Ret(clazz.OpenFunction))
+	self._polyWrapper=false@OrFalse(Fn(clazz.TupleBuilder):Ret(clazz.OpenFunction))
 	self._lexCapture = vUpState or false
 	self._useNodeSet = {}
 end
@@ -49,30 +49,30 @@ function OpenFunction:lateInitFromOperNative(
 	return self
 end
 
-function OpenFunction:castPoly(vContext, vTypeList)
+function OpenFunction:castPoly(vContext, vPolyTuple)
 	const nPolyWrapper = self._polyWrapper
 	if nPolyWrapper then
-		return nPolyWrapper(vTypeList)
+		return nPolyWrapper(vPolyTuple)
 	else
 		vContext:error("this open function can't cast poly")
 		return self
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, IList(clazz.UAllType), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, OrFalse(clazz.TupleBuilder), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
 	const nNoPolyFn:$self._func = function(vStack, vTermTuple)
 		if vPolyParNum == 0 then
-			return vFunc(self, vStack, {}, vTermTuple)
+			return vFunc(self, vStack, false, vTermTuple)
 		else
 			vStack:inplaceOper():error("this open function need poly args")
 		end
 	end
-	const nPolyWrapper:$self._polyWrapper = function(vList)
+	const nPolyWrapper:$self._polyWrapper = function(vPolyTuple)
 		return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
-			if #vList ~= vPolyParNum then
+			if vPolyTuple:getArgNum() ~= vPolyParNum then
 				vStack:inplaceOper():error("poly args number not match")
 			end
-			return vFunc(self, vStack, vList, vTermTuple)
+			return vFunc(self, vStack, vPolyTuple, vTermTuple)
 		end)
 	end
 	self._func = nNoPolyFn

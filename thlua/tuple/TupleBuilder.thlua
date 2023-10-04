@@ -3,7 +3,7 @@ const class = require "thlua.class"
 
 (@do
     let.clazz = import($class).clazz
-    let.USpaceTuple = Interface({
+    clazz.USpaceTuple = Interface({
         [Integer]=clazz.USpaceAny,
         n=Integer,
     }, {__len=Integer})
@@ -13,18 +13,18 @@ const TupleBuilder = class@<clazz.TupleBuilder, false>()
 
 function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
 	self._manager = vManager
+	self._node = vNode
     const nDirtyProcessor = vManager:getDirtyProcessor()
     self._dirtyProcessor = nDirtyProcessor
-    self._list = table.pack(...) @ USpaceTuple
+    self._list = table.pack(...) @ clazz.USpaceTuple
     self._dots = nil @ clazz.USpaceAny
-	self._node = vNode
 end
 
 function TupleBuilder:setRetDots()
     const l = self._list
     const n = l.n
     assert(n > 0, self._node:toExc("RetDots must take at least 1 value"))
-    self._list = {n = n-1, table.unpack(l, 1, n-1)}
+    self._list = {n=n-1, table.unpack(l, 1, n-1)}
     self._dots = l[n]
 end
 
@@ -52,6 +52,10 @@ function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
     end
 end
 
+function TupleBuilder:getArgNum():Ret(Integer)
+    return self._list.n
+end
+
 function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
     const nNode = self._node
     const nSpaceTuple = self._list
@@ -60,6 +64,10 @@ function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
         nTypeList[i] = self._dirtyProcessor:easyToMustType(nNode, nSpaceTuple[i])
     end
     return nTypeList
+end
+
+function TupleBuilder:buildOpenPolyArgs():Ret(clazz.USpaceTuple)
+    return self._list
 end
 
 return TupleBuilder

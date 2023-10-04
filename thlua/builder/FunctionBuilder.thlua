@@ -20,7 +20,7 @@ const class = require "thlua.class"
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
 
 	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
-	clazz.GenMaker = Fn(clazz.BaseStack, IList(clazz.UAllType), OrFalse(clazz.UAllType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	clazz.GenMaker = Fn(clazz.BaseStack, Union(List(clazz.UMustType), clazz.USpaceTuple), OrFalse(clazz.UMustType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 
 	clazz.FnPrefixHint = Struct {
@@ -79,8 +79,8 @@ end
 
 function FunctionBuilder:_makeRetTuples(
 	vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint),
-	vTypeList:List(clazz.UAllType),
-	vSelfType:OrFalse(clazz.UAllType)
+	vTypeList:List(clazz.UMustType),
+	vSelfType:OrFalse(clazz.UMustType)
 ):Ret(False):Ret(clazz.RetTuples)
 	const nRetBuilder:clazz.RetBuilder = RetBuilder.new(self._manager, self._node)
 	const ok, err = pcall(vSuffixHint.caller, {
@@ -145,11 +145,12 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 	const nNode = self._node
 	assert(nNode.tag == "Function")
 	const nPolyParNum = self._polyParNum
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType), vSelfType:OrFalse(clazz.UAllType)):Ret(clazz.AutoFunction)
+	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder), vSelfType:OrFalse(clazz.UMustType)):Ret(clazz.AutoFunction)
 		const nAutoFn = self._stack:newAutoFunction(nNode, self._lexCapture)
 		const nNewStack = nAutoFn:getBuildStack()
 		nAutoFn:initAsync(function()
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, vPolyParList, vSelfType)
+			const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, vSelfType)
 			const nCastTypeFn = nAutoFn:pickCastTypeFn()
 			-- make par
 			const nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
@@ -157,7 +158,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
 			const nCastRet = nCastTypeFn and nCastTypeFn:getRetTuples()
-			const nHintRetTuples = self:_makeRetTuples(nSuffixHint, vPolyParList, vSelfType)
+			const nHintRetTuples = self:_makeRetTuples(nSuffixHint, nPolyArgList, vSelfType)
 			if nHintRetTuples and nCastRet then
 				if not nCastRet:includeTuples(nHintRetTuples) then
 					nNewStack:inplaceOper():error("hint return not match when cast")
@@ -191,17 +192,19 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 	end
 	if not self._member then
 		if nPolyParNum <= 0 then
-			const ret = nFnMaker({}, false)
+			const ret = nFnMaker(false, false)
 			self._stack:getSealStack():scheduleSealType(ret)
 			return ret
 		else
-			return self._manager:SealPolyFunction(self._node, function(...:clazz.UAllType)
-				return nFnMaker({...}, false)
+			return self._manager:SealPolyFunction(self._node, function(...:clazz.USpaceAny)
+				const nTuple = self._manager:spacePack(self._node, ...)
+				return nFnMaker(nTuple, false)
 			end, nPolyParNum, self._stack)
 		end
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(self:clazz.UAllType, ...:clazz.UAllType)
-			return nFnMaker({...}, self)
+		const nPolyFn = self._manager:SealPolyFunction(self._node, function(selfType:clazz.UMustType, ...:clazz.USpaceAny)
+			const nTuple = self._manager:spacePack(self._node, ...)
+			return nFnMaker(nTuple, selfType)
 		end, nPolyParNum + 1, self._stack)
 		return self._manager:AutoMemberFunction(self._node, nPolyFn)
 	end
@@ -251,8 +254,8 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyArgs, vTermTuple)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyArgs, false)
+		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyTuple, vTermTuple)
+			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyTuple and vPolyTuple:buildOpenPolyArgs() or {} @ List(clazz.UMustType), false)
 			nGenParam(vTermTuple)
 			return nGenFunc()
 		end)
@@ -276,7 +279,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	end
 	const nRefer = assert(nReferOrNil, self._node:toExc("reference not setted when function:class"))
 	const nPolyParNum = self._polyParNum
-	const nFnMaker = function(vPolyParList:List(clazz.UAllType)):Ret(clazz.ClassFactory)
+	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder)):Ret(clazz.ClassFactory)
 		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface, OrNil(clazz.UMustType))
 			local nImplementsArg:OrNil(clazz.UMustType) = nil
 			local nExtendsArg:OrNil(clazz.UMustType) = nil
@@ -355,7 +358,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		local nGenFunc:OrNil(clazz.GenFunc) = nil
 		local nErrType:OrNil(clazz.UMustType) = nil
 		nClassTable:initAsync(function()
-			const nGenParam_, nSuffixHint, nGenFunc_ = self._parRetMaker(nNewStack, vPolyParList, false)
+			const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
+			const nGenParam_, nSuffixHint, nGenFunc_ = self._parRetMaker(nNewStack, nPolyArgList, false)
 			nGenParam = nGenParam_
 			nGenFunc = nGenFunc_
 			const nExtends, nImplements, nErrType_ = nInterfaceGetter(nSuffixHint)
@@ -382,17 +386,18 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		return nFactory
 	end
 	if nPolyParNum <= 0 then
-		const nFactory = nFnMaker({})
+		const nFactory = nFnMaker(false)
 		nRefer:setAssignAsync(self._node, function()
 			return nFactory:getClassTable(true)
 		end)
 		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(...:clazz.UAllType)
-			return nFnMaker({...})
+		const nPolyFn = self._manager:SealPolyFunction(self._node, function(...:clazz.USpaceAny)
+			const nTuple = self._manager:spacePack(self._node, ...)
+			return nFnMaker(nTuple)
 		end, nPolyParNum, self._stack)
-		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UAllType)
+		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UMustType)
 			const nFactory = nPolyFn:noCtxCastPoly({...})
 			assert(ClassFactory.is(nFactory), "class factory's poly must return factory type")
 			return nFactory:getClassTable(true)

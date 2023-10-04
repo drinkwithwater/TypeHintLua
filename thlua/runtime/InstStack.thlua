@@ -186,7 +186,7 @@ function InstStack:META_INVOKE(
 	vPolyArgsGetter:Fn():RetDots(clazz.USpaceAny),
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UOpenReturn)
-	const nPolyArgs:List(clazz.UAllType) = {vPolyArgsGetter()}
+	const nPolyTuple = self._manager:spacePack(vNode, vPolyArgsGetter())
 	const nNil = self._manager.type.Nil
 	return self:withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
 		if vSelfType == nNil then
@@ -199,7 +199,7 @@ function InstStack:META_INVOKE(
 				if vSingleFuncType == nNil then
 					vContext:error("nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
-					vSingleFuncType:meta_invoke(vContext, vSelfType, nPolyArgs, nNewArgTuple)
+					vSingleFuncType:meta_invoke(vContext, vSelfType, nPolyTuple, nNewArgTuple)
 				else
 					vContext:error("TODO non-function type called "..tostring(vSingleFuncType))
 				end
@@ -351,9 +351,9 @@ function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastK
 	-- TODO check cast valid
 	if vCastKind == Enum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
-		const nTemplateList = self._manager:getDirtyProcessor():easyToAllTypeList(vNode, ...)
+		const nTupleBuilder = self._manager:spacePack(vNode, ...)
 		vTerm:foreach(function(vType, vVariableCase)
-			const nAfterType = vType:castPoly(nCastContext, nTemplateList)
+			const nAfterType = vType:castPoly(nCastContext, nTupleBuilder)
 			if nAfterType then
 				nTypeCaseList[#nTypeCaseList + 1] = {nAfterType, vVariableCase}
 			else

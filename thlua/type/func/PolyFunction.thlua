@@ -28,7 +28,7 @@ function.pass PolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAt
 	error("not implement")
 end
 
-function PolyFunction:noCtxCastPoly(vTypeList:IList(clazz.UAllType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
+function PolyFunction:noCtxCastPoly(vTypeList:List(clazz.UMustType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
 	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
 	for i=1, #vTypeList do
@@ -38,8 +38,8 @@ function PolyFunction:noCtxCastPoly(vTypeList:IList(clazz.UAllType)):Ret(Union(c
 	return self:makeFn(nKey, nAtomUnionList)
 end
 
-function PolyFunction:castPoly(vContext, vTypeList)
-	const nFn = self:noCtxCastPoly(vTypeList)
+function PolyFunction:castPoly(vContext, vPolyTuple)
+	const nFn = self:noCtxCastPoly(vPolyTuple:buildPolyArgs())
 	return nFn:getFnAwait()
 end
 

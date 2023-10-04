@@ -50,9 +50,10 @@ function BaseAtomType:meta_call(vContext, vTypeTuple)
 	vContext:pushRetTuples(self._manager:VoidRetTuples(vContext:getNode()))
 end
 
-function BaseAtomType:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	if #vPolyArgs > 0 then
-		const nCast = self:castPoly(vContext, vPolyArgs) or self
+function BaseAtomType:meta_invoke(vContext, vSelfType, vPolyTuple, vTypeTuple)
+	const nArgNum = vPolyTuple:getArgNum()
+	if nArgNum > 0 then
+		const nCast = self:castPoly(vContext, vPolyTuple) or self
 		nCast:meta_call(vContext, vTypeTuple)
 	else
 		self:meta_call(vContext, vTypeTuple)
@@ -106,7 +107,7 @@ function BaseAtomType:native_rawset(vContext, vKeyType, vValueType)
 	vContext:error(tostring(self).." rawset not implement")
 end
 
-function BaseAtomType:castPoly(vContext, vTypeArgsList)
+function BaseAtomType:castPoly(vContext, vPolyTuple)
 	vContext:error("poly cast can't work on this type:"..tostring(self))
 	return false
 end

@@ -23,11 +23,11 @@ function AutoMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVe
 	return "AutoMemberFunction@"..tostring(self._node)
 end
 
-function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	if #vPolyArgs == 0 and self:needPolyArgs() then
+function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyTuple, vTypeTuple)
+	if vPolyTuple:getArgNum() == 0 and self:needPolyArgs() then
 		vContext:error("TODO poly member function called without poly args")
 	end
-	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyArgs)})
+	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyTuple:buildPolyArgs())})
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
