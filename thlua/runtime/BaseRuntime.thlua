@@ -16,6 +16,7 @@ const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
 const SealStack = require "thlua.runtime.SealStack"
 const AutoFunction = require "thlua.type.func.AutoFunction"
+const Reference = require "thlua.refer.Reference"
 
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 const class = require "thlua.class"
@@ -347,7 +348,15 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 	end, "print")
 	const nRetGlobal = {}
 	for k,v in pairs(nGlobal) do
-		nRetGlobal[self._manager:Literal(k)] = v
+		if Reference.is(v) then
+			nRetGlobal[self._manager:Literal(k)] = v
+		else
+			const nRefer = self._manager:Reference(k)
+			nRetGlobal[self._manager:Literal(k)] = nRefer
+			nRefer:setAssignAsync(self._node, function()
+				return v
+			end)
+		end
 	end
 	return nRetGlobal
 end

@@ -8,10 +8,10 @@ const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
 const Namespace = require "thlua.refer.Namespace"
-const Rootspace = require "thlua.refer.Rootspace"
 const Letspace = require "thlua.refer.Letspace"
 const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
+const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
 
 const SpaceTable = require "thlua.refer.SpaceTable"
 
@@ -19,15 +19,11 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom, clazz.Namespace)
+	let.UReferCom = Union(clazz.AsyncUnion, clazz.TemplateReferCom, clazz.Namespace, clazz.SpaceBuiltin)
 end)
 
 const Reference = {}
 Reference.__index = Reference
-Reference.__call=function(self:clazz.Reference, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
-	const nNode = Node.newDebugNode()
-	return self:triggerCall(nNode, ...)
-end
 
 function Reference.__tostring(self:clazz.Reference):Ret(String)
 	return "Reference tostring TODO"
@@ -113,6 +109,8 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 				self:_setComAndWakeup(nAssignValue)
 			elseif AsyncUnion.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
+			elseif SpaceBuiltin.is(nAssignValue) then
+				self:_setComAndWakeup(nAssignValue)
 			else
 				if BaseAtomType.is(nAssignValue) then
 					const nCom = self._manager:AsyncUnion()
@@ -145,10 +143,6 @@ end
 function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
-end
-
-function.open Reference.is(v):isguard(clazz.Reference)
-	return getmetatable(v) == Reference
 end
 
 function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
@@ -199,11 +193,13 @@ function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:clazz.USpaceAn
 	end
 end
 
-function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncUnion)
-	-- TODO, cast
+function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
+	const nCom = self._com
+	if SpaceBuiltin.is(nCom) then
+		return nCom:call(vNode, ...)
+	end
 	const nArgList:List(clazz.USpaceAny) = {...}
 	const nArgNum = select("#", ...)
-	const nCom = self._com
 	if TemplateReferCom.is(nCom) then
 		return nCom:call(vNode, nArgNum, nArgList)
 	elseif nCom then
@@ -215,6 +211,10 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 		return nCom:call(vNode, nArgNum, nArgList)
 	end)
 	return nTypeCom
+end
+
+function.open Reference.is(v):isguard(clazz.Reference)
+	return getmetatable(v) == Reference
 end
 
 return Reference
