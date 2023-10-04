@@ -5,7 +5,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const Namespace = require "thlua.refer.Namespace"
-const SpaceTable = require "thlua.refer.SpaceTable"
+const SpaceValue = require "thlua.refer.SpaceValue"
 const ListDict = require "thlua.manager.ListDict"
 const Reference = require "thlua.refer.Reference"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
@@ -118,9 +118,9 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 		if RefineTerm.is(vResult) then
 			vResult:getType():putCompletion(nFieldCompletion)
 		else
-			const nRefer = SpaceTable.checkSpace(vResult)
-			const nSpace = nRefer and nRefer:getSpaceCom()
-			if nSpace then
+			const nRefer = SpaceValue.checkRefer(vResult)
+			const nSpace = nRefer and nRefer:getComNowait()
+			if Namespace.is(nSpace) then
 				nSpace:putCompletion(nFieldCompletion)
 			end
 		end
@@ -196,7 +196,7 @@ function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block
 				nNodeSet[nAssignNode] = true
 			end
 		else
-			const nNamespace = SpaceTable.checkSpace(vResult)
+			const nNamespace = SpaceValue.checkRefer(vResult)
 			if nNamespace then
 				nNodeSet[nNamespace:getNode()] = true
 			end

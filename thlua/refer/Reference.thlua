@@ -13,7 +13,7 @@ const AsyncUnion = require "thlua.refer.AsyncUnion"
 const TemplateReferCom = require "thlua.refer.TemplateReferCom"
 const SpaceBuiltin = require "thlua.refer.SpaceBuiltin"
 
-const SpaceTable = require "thlua.refer.SpaceTable"
+const SpaceValue = require "thlua.refer.SpaceValue"
 
 const class = require "thlua.class"
 
@@ -40,9 +40,9 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 		_referNodes={}@List(clazz.IBaseNode),
 		_assignComEvent = nTask:makeEvent(),
 		_com=false@OrFalse(UReferCom),
-		_spaceValue=nil@!clazz.LocalSpaceTable,
+		_spaceValue=nil@!clazz.LocalSpaceValue,
 	}, Reference)
-	self._spaceValue = SpaceTable.createTable(self)
+	self._spaceValue = SpaceValue.create(self)
 	return self
 end
 
@@ -94,7 +94,7 @@ function Reference:_setComAndWakeup(vCom:UReferCom)
 end
 
 function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
-	assert(not self._assignNode, Exception.new("refer has been setted:"..tostring(self), vNode))
+	assert(not self._assignNode, vNode:toExc("refer has been setted:"..tostring(self)))
 	self._assignNode = vNode
 	self._task:runAsync(function()
 		const nAssignValue = vGetFunc()
@@ -102,7 +102,7 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 			const nSpace = Namespace.new(self._manager, vNode, self)
 			self:_setComAndWakeup(nSpace)
 		else
-			const nRefer = SpaceTable.checkSpace(nAssignValue)
+			const nRefer = SpaceValue.checkRefer(nAssignValue)
 			if nRefer then
 				self:_setComAndWakeup(nRefer:getComAwait())
 			elseif TemplateReferCom.is(nAssignValue) then
@@ -125,7 +125,7 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 					end)
 					self:_setComAndWakeup(nCom)
 				else
-					error("namespace assign a non-type value")
+					error(vNode:toExc("namespace assign a non-type value"))
 				end
 			end
 		end
@@ -145,7 +145,7 @@ function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceTable)
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceValue)
 	const nCom = self._com
 	assert(Namespace.is(nCom), "only namespace com can take index")
 	const nChild = nCom:getChild(vNode, vKeyType)
@@ -163,7 +163,7 @@ function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, v
 	end
 end
 
-function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceTable)
+function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceValue)
 	const nCom = self._com
 	assert(Letspace.is(nCom), "only letspace com can take index")
 	const nRefer = nCom:pureGet(vKeyType)
@@ -207,15 +207,6 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 		return nCom:call(vNode, nArgNum, nArgList)
 	end)
 	return nTypeCom
-end
-
-function Reference:getSpaceCom():Ret(OrFalse(clazz.Namespace))
-	const nCom = self._com
-	if Namespace.is(nCom) then
-		return nCom
-	else
-		return false
-	end
 end
 
 function.open Reference.is(v):isguard(clazz.Reference)

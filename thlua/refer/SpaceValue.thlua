@@ -6,24 +6,24 @@ const Node = require "thlua.code.Node"
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const SpaceTable = {.open}
+const SpaceValue = {.open}
 
-const function:class(clazz.BaseSpaceTable) __createBaseTable(vSpace:clazz.Namespace)
+const function:class(clazz.BaseSpaceValue) __createBaseTable(vSpace:clazz.Namespace)
 	-- abstract class
 	return setmetatable({.class}, {
 		__index={},
 		__tostring=function(_)
-			return tostring(vSpace).."->BaseSpaceTable"
+			return tostring(vSpace).."->BaseSpaceValue"
 		end,
 		__what=false@OrFalse("_ENV", "_G"),
 		__refer=vSpace,
 	})
 end
 
-function:class(clazz.LocalSpaceTable) SpaceTable.createTable(vRefer:clazz.Reference):extends(clazz.BaseSpaceTable)
+function:class(clazz.LocalSpaceValue) SpaceValue.create(vRefer:clazz.Reference):extends(clazz.BaseSpaceValue)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.BaseSpaceTable)
+		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
 			const nNode = Node.newDebugNode()
 			const nKeyType = vRefer:assertSpaceKeyType(nNode, k)
 			return vRefer:triggerGet(nNode, nKeyType)
@@ -34,7 +34,7 @@ function:class(clazz.LocalSpaceTable) SpaceTable.createTable(vRefer:clazz.Refere
 			vRefer:triggerSet(nNode, nKeyType, newV)
 		end,
 		__tostring=function(_)
-			return tostring("TODO").."->SpaceTable"
+			return tostring("TODO").."->SpaceValue"
 		end,
 		__call=function(_:Truth, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
 			const nNode = Node.newDebugNode()
@@ -45,10 +45,10 @@ function:class(clazz.LocalSpaceTable) SpaceTable.createTable(vRefer:clazz.Refere
     })
 end
 
-function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vRefer:clazz.Reference):extends(clazz.BaseSpaceTable)
+function:class(clazz.EnvSpaceValue) SpaceValue.envCreate(vRefer:clazz.Reference):extends(clazz.BaseSpaceValue)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.BaseSpaceTable)
+		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
 			const nNode = Node.newDebugNode()
 			const nKeyType = vRefer:assertSpaceKeyType(nNode, k)
 			return vRefer:globalGet(nNode, nKeyType)
@@ -69,7 +69,7 @@ function:class(clazz.EnvSpaceTable) SpaceTable.createEnvTable(vRefer:clazz.Refer
     })
 end
 
-function.open SpaceTable.checkSpace(v):mapguard({[clazz.Reference]=clazz.BaseSpaceTable})
+function.open SpaceValue.checkRefer(v):mapguard({[clazz.Reference]=clazz.BaseSpaceValue})
 	local nMeta = getmetatable(v)
 	if type(nMeta) == "table" then
 		local self = nMeta.__refer
@@ -80,4 +80,4 @@ function.open SpaceTable.checkSpace(v):mapguard({[clazz.Reference]=clazz.BaseSpa
 	return nil
 end
 
-return SpaceTable
+return SpaceValue

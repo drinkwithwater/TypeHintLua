@@ -1,7 +1,7 @@
 
 const class = require "thlua.class"
 const Namespace = require "thlua.refer.Namespace"
-const SpaceTable = require "thlua.refer.SpaceTable"
+const SpaceValue = require "thlua.refer.SpaceValue"
 const Exception = require "thlua.Exception"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 
@@ -16,7 +16,7 @@ end
 
 function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(clazz.IAtomType, clazz.Reference), clazz.Letspace))
     self._parentSpace = false @ OrFalse(clazz.Letspace)
-    self._envTable = SpaceTable.createEnvTable(self._refer)
+    self._envTable = SpaceValue.envCreate(self._refer)
 	if Letspace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
@@ -36,7 +36,7 @@ function Letspace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.Reference))
 	return self._key2child[vKeyType] or (nParent and nParent:pureGet(vKeyType) or nil)
 end
 
-function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth)
+function Letspace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
     return self._refer:getSpaceValue(), self._envTable, _G
 end
 
