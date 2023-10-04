@@ -108,12 +108,12 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceTable)
 			error(Exception.new("recursive import:"..nPath, nNode))
 		end
 		const nSpace = nStack:getNamespace()
-		return nSpace:getLocalTable()
+		return nSpace:getRefer():getSpaceValue()
 	elseif BaseAtomType.is(vDst) then
 		const nStack = vDst:findRequireStack()
 		if nStack then
 			const nSpace = nStack:getNamespace()
-			return nSpace:getLocalTable()
+			return nSpace:getRefer():getSpaceValue()
 		else
 			error("import can only take type in a require stack"..debug.traceback())
 		end
@@ -306,7 +306,7 @@ function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Re
 		return nManager:addEnum(vNode, vEnumType, ...)
 	end, "enum")
 	nGlobal.namespace=SpaceBuiltin.new(function(vNode)
-		return self:TreeNamespace(vNode):getLocalTable()
+		return self:TreeNamespace(vNode):getRefer():getSpaceValue()
 	end, "namespace")
 	nGlobal.lock=SpaceBuiltin.new(function(vNode, vType)
 		vType:foreach(function(vAtom)
