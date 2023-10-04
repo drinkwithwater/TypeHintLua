@@ -66,7 +66,7 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 	end
 end
 
-function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.UAllType, clazz.BaseSpaceTable)))
+function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.USpaceAny)))
 	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
 		return
@@ -108,19 +108,7 @@ function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Blo
 				return nStack:NIL_TERM(vIdent)
 			end
 		end)
-		if RefineTerm.is(nResult) then
-			vCallback(nResult)
-		else
-			if Reference.is(nResult) then
-				vCallback(nResult)
-			elseif BaseAtomType.is(nResult) or BaseUnionType.is(nResult) then
-				vCallback(nResult)
-			else
-				if SpaceTable.checkSpace(nResult) then
-					vCallback(nResult)
-				end
-			end
-		end
+		vCallback(nResult)
 	end
 end
 
@@ -130,9 +118,10 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 		if RefineTerm.is(vResult) then
 			vResult:getType():putCompletion(nFieldCompletion)
 		else
-			const nNamespace = SpaceTable.checkSpace(vResult)
-			if nNamespace then
-				nNamespace:spaceTablePutCompletion(vResult, nFieldCompletion)
+			const nRefer = SpaceTable.checkSpace(vResult)
+			const nSpace = nRefer and nRefer:getSpaceCom()
+			if nSpace then
+				nSpace:putCompletion(nFieldCompletion)
 			end
 		end
 	end)

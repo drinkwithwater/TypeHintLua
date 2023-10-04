@@ -61,22 +61,14 @@ function FieldCompletion:putField(vKey:String, vValue:clazz.UMustType)
 	end
 end
 
-function FieldCompletion:putSpaceField(vKey:String, vValue:clazz.LocalSpaceValue)
-	if SpaceTable.checkSpace(vValue) then
-		self._keyToKind[vKey] = CompletionKind.Module
-	elseif SpaceBuiltin.is(vValue) then
-		self._keyToKind[vKey] = CompletionKind.Function
-	elseif Reference.is(vValue) then
-		const nCom = vValue:getComNowait()
-		if AsyncUnion.is(nCom) then
-			self._keyToKind[vKey] = CompletionKind.Class
-		elseif TemplateReferCom.is(nCom) then
-			self._keyToKind[vKey] = CompletionKind.Function
-		else
-			self._keyToKind[vKey] = CompletionKind.Variable
-		end
-	else
+function FieldCompletion:putSpaceField(vKey:String, vValue:clazz.Reference)
+	const nCom = vValue:getComNowait()
+	if AsyncUnion.is(nCom) then
 		self._keyToKind[vKey] = CompletionKind.Class
+	elseif TemplateReferCom.is(nCom) then
+		self._keyToKind[vKey] = CompletionKind.Function
+	else
+		self._keyToKind[vKey] = CompletionKind.Variable
 	end
 end
 

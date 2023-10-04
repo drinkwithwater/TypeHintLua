@@ -145,15 +145,11 @@ function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.LocalSpaceValue)
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceTable)
 	const nCom = self._com
 	assert(Namespace.is(nCom), "only namespace com can take index")
 	const nChild = nCom:getChild(vNode, vKeyType)
-	if Reference.is(nChild) then
-		return nChild:getSpaceValue()
-	else
-		return nChild
-	end
+	return nChild:getSpaceValue()
 end
 
 function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:clazz.USpaceAny)
@@ -211,6 +207,15 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 		return nCom:call(vNode, nArgNum, nArgList)
 	end)
 	return nTypeCom
+end
+
+function Reference:getSpaceCom():Ret(OrFalse(clazz.Namespace))
+	const nCom = self._com
+	if Namespace.is(nCom) then
+		return nCom
+	else
+		return false
+	end
 end
 
 function.open Reference.is(v):isguard(clazz.Reference)

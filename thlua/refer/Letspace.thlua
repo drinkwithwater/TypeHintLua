@@ -3,6 +3,7 @@ const class = require "thlua.class"
 const Namespace = require "thlua.refer.Namespace"
 const SpaceTable = require "thlua.refer.SpaceTable"
 const Exception = require "thlua.Exception"
+const StringLiteral = require "thlua.type.basic.StringLiteral"
 
 (@do
 	let.clazz = import($class).clazz
@@ -39,16 +40,15 @@ function Letspace:export():Ret(clazz.LocalSpaceTable, clazz.EnvSpaceTable, Truth
     return self._refer:getSpaceValue(), self._envTable, _G
 end
 
-function Letspace:spaceTablePutCompletion(vSpaceTable:clazz.BaseSpaceTable, vCompletion:clazz.FieldCompletion)
-    const nWhat = getmetatable(vSpaceTable).__what
-    if nWhat == "_ENV" then
-        self:putCompletion(vCompletion)
-        const nParent = self._parentSpace
-        if nParent then
-            nParent:spaceTablePutCompletion(vSpaceTable, vCompletion)
-        end
-    else
-        self:putCompletion(vCompletion)
+function Letspace:putCompletion(vCompletion)
+	for k,v in pairs(self._key2child) do
+		if StringLiteral.is(k) then
+			vCompletion:putSpaceField(k:getLiteral(), v)
+		end
+	end
+    const nParent = self._parentSpace
+    if nParent then
+        nParent:putCompletion(vCompletion)
     end
 end
 
