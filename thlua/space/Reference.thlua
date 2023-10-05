@@ -2,12 +2,12 @@
 const Exception = require "thlua.Exception"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Node = require "thlua.code.Node"
-const OldNamespace = require "thlua.space.OldNamespace"
 
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
 const Namespace = require "thlua.space.Namespace"
+const Treespace = require "thlua.space.Treespace"
 const Letspace = require "thlua.space.Letspace"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 const TemplateCom = require "thlua.space.TemplateCom"
@@ -49,7 +49,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 	return self
 end
 
-function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Namespace))
+function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Treespace))
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
 	if vData then
@@ -57,7 +57,7 @@ function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T,
 		self._com = nSpace
 		return nSpace
 	else
-		const nSpace = Namespace.new(self._manager, vNode, self)
+		const nSpace = Treespace.new(self._manager, vNode, self)
 		self._com = nSpace
 		return nSpace
 	end
@@ -101,31 +101,26 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 	self._assignNode = vNode
 	self._task:runAsync(function()
 		const nAssignValue = vGetFunc()
-		if nAssignValue == OldNamespace then -- compatible for old version, TODO remove this
-			const nSpace = Namespace.new(self._manager, vNode, self)
-			self:_setComAndWakeup(nSpace)
+		const nRefer = SpaceValue.checkRefer(nAssignValue)
+		if nRefer then
+			self:_setComAndWakeup(nRefer:getComAwait())
+		elseif BaseSpaceCom.is(nAssignValue) then
+			self:_setComAndWakeup(nAssignValue)
 		else
-			const nRefer = SpaceValue.checkRefer(nAssignValue)
-			if nRefer then
-				self:_setComAndWakeup(nRefer:getComAwait())
-			elseif BaseSpaceCom.is(nAssignValue) then
-				self:_setComAndWakeup(nAssignValue)
+			if BaseAtomType.is(nAssignValue) then
+				const nCom = self._manager:AsyncTypeCom(vNode)
+				nCom:setTypeAsync(vNode, function()
+					return nAssignValue
+				end)
+				self:_setComAndWakeup(nCom)
+			elseif BaseUnionType.is(nAssignValue) then
+				const nCom = self._manager:AsyncTypeCom(vNode)
+				nCom:setTypeAsync(vNode, function()
+					return nAssignValue
+				end)
+				self:_setComAndWakeup(nCom)
 			else
-				if BaseAtomType.is(nAssignValue) then
-					const nCom = self._manager:AsyncTypeCom(vNode)
-					nCom:setTypeAsync(vNode, function()
-						return nAssignValue
-					end)
-					self:_setComAndWakeup(nCom)
-				elseif BaseUnionType.is(nAssignValue) then
-					const nCom = self._manager:AsyncTypeCom(vNode)
-					nCom:setTypeAsync(vNode, function()
-						return nAssignValue
-					end)
-					self:_setComAndWakeup(nCom)
-				else
-					error(vNode:toExc("namespace assign an illegal value"))
-				end
+				error(vNode:toExc("namespace assign an illegal value"))
 			end
 		end
 	end)

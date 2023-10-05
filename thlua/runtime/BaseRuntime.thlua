@@ -10,7 +10,6 @@ const Namespace = require "thlua.space.Namespace"
 const Letspace = require "thlua.space.Letspace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
-const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 
 const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
@@ -21,7 +20,6 @@ const Reference = require "thlua.space.Reference"
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 const class = require "thlua.class"
 const CodeEnv = require "thlua.code.CodeEnv"
-const OldNamespace = require "thlua.space.OldNamespace"
 
 (@do
 	let.clazz = import($class).clazz
@@ -263,7 +261,7 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 	return nTerm, nLoadedState.openFn
 end
 
-function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Namespace)
+function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Treespace)
 	const nRefer = self._manager:Reference("")
 	const nSpace = nRefer:initWithSpace@<Nil>(vNode)
 	return nSpace
@@ -299,38 +297,38 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.Reference))
 		}
 		local nManager = self._manager
 		for k,v in pairs(l) do
-			nGlobal[k]=BuiltinFnCom.new(function(vNode, ...)
+			nGlobal[k]=nManager:BuiltinFn(function(vNode, ...)
 				return nManager[v](nManager, vNode, ...)
 			end, k)
 		end
-		nGlobal.Literal=BuiltinFnCom.new(function(vNode, v)
+		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
 			return nManager:Literal(v)
 		end, "Literal")
-		nGlobal.enum=BuiltinFnCom.new(function(vNode, vEnumType, ...)
+		nGlobal.enum=nManager:BuiltinFn(function(vNode, vEnumType, ...)
 			return nManager:addEnum(vNode, vEnumType, ...)
 		end, "enum")
-		nGlobal.namespace=BuiltinFnCom.new(function(vNode)
-			return OldNamespace
+		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
+			return self:TreeNamespace(vNode)
 		end, "namespace")
-		nGlobal.lock=BuiltinFnCom.new(function(vNode, vType)
+		nGlobal.lock=nManager:BuiltinFn(function(vNode, vType)
 			vType:foreach(function(vAtom)
 				vAtom:setLocked()
 			end)
 		end, "lock")
-		nGlobal.import=BuiltinFnCom.new(function(vNode, vPath)
+		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
 			return self:import(vPath)
 		end, "import")
-		nGlobal.setPath=BuiltinFnCom.new(function(vNode, vPath)
+		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
-		nGlobal.foreachPair=BuiltinFnCom.new(function(vNode, vObject, vFunc)
+		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
 			const nObject = self._manager:getDirtyProcessor():easyToMustType(vNode, vObject):checkAtomUnion()
 			const d = nObject:copyValueDict(nObject)
 			for k,v in pairs(d) do
 				vFunc(k,v)
 			end
 		end, "foreachPair")
-		nGlobal.literal=BuiltinFnCom.new(function(vNode, vType)
+		nGlobal.literal=nManager:BuiltinFn(function(vNode, vType)
 			vType = self._manager:getDirtyProcessor():easyToMustType(vNode, vType):checkAtomUnion()
 			if vType:isUnion() then
 				return nil
@@ -342,10 +340,10 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.Reference))
 				end
 			end
 		end, "literal")
-		nGlobal.same=BuiltinFnCom.new(function(vNode, vType1, vType2)
+		nGlobal.same=nManager:BuiltinFn(function(vNode, vType1, vType2)
 			return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
 		end, "same")
-		nGlobal.print=BuiltinFnCom.new(function(vNode, ...)
+		nGlobal.print=nManager:BuiltinFn(function(vNode, ...)
 			self:nodeInfo(vNode, ...)
 		end, "print")
 	end

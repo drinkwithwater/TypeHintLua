@@ -1,5 +1,4 @@
 
-const Exception = require "thlua.Exception"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
@@ -17,39 +16,23 @@ Namespace.__tostring=function(self):Ret(String)
 	return "namespace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Namespace:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vRefer:clazz.Reference, ...)
-	self._manager=vManager
+function.open Namespace:ctor(_, _, vRefer:clazz.Reference, ...)
 	self._key2child={} @ Dict(String, clazz.Reference) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._closed=false@Boolean
-	self._node=vNode
 	self._key=false@Union(False, String)
 	self._refer = vRefer
 end
 
-function Namespace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Reference)
-	local rawgetV = self._key2child[vKey]
-	if not rawgetV then
-		rawgetV = self._manager:Reference(vKey)
-		rawgetV:pushReferNode(vNode)
-		self._key2child[vKey] = rawgetV
-	end
-	return rawgetV
+function.pass Namespace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Reference)
+	error("namespace can't get child")
 end
 
 function Namespace:close()
 	self._closed=true
 end
 
-function Namespace:putCompletion(vCompletion)
-	for k,v in pairs(self._key2child) do
-		if StringLiteral.is(k) then
-			vCompletion:putSpaceField(k:getLiteral(), v)
-		end
-	end
-end
-
-function Namespace:getNode()
-	return self._node
+function.pass Namespace:putCompletion(vCompletion)
+	error("namespace's putCompletion not implement")
 end
 
 function Namespace:getRefer():Ret(clazz.Reference)
