@@ -49,9 +49,21 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNi
 			end
 		end
 		local nCurCo:Thread = vDependCo
+		const nThreadList:List(Thread) = {}
 		while nCurCo do
+			nThreadList[#nThreadList + 1] = nCurCo
 			if nCurCo == vWaitCo then
-				error("recursive build type:"..tostring(self._coToTask[nCurCo]))
+				const nNodeList:List(clazz.IBaseNode) = {}
+				for _, co in pairs(nThreadList) do
+					const nTask = self._coToTask[co]!
+					nNodeList[#nNodeList + 1] = nTask:getNode() or nil
+				end
+				const nFirstNode = nNodeList[1]
+				if not nFirstNode then
+					error("recursive build type")
+				else
+					error(Exception.new("recursive build type", nFirstNode, table.unpack(nNodeList, 2)))
+				end
 			else
 				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
 				if nNextWaitingInfo then

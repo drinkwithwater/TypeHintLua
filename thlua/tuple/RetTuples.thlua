@@ -15,7 +15,7 @@ function.open RetTuples:ctor(
 	vTupleList:List(clazz.UTypeTuple),
 	vErrType:OrFalse(clazz.UMustType)
 )
-	assert(#vTupleList > 0, "length of tuple list must be bigger than 0 when pass to RetTuples' constructor")
+	assert(#vTupleList > 0, vNode:toExc("length of tuple list must be bigger than 0 when pass to RetTuples' constructor"))
 	const nAsyncFirstType = vManager:AsyncTypeCom(vNode)
 	self._node=vNode
 	self._manager=vManager
@@ -28,7 +28,7 @@ function.open RetTuples:ctor(
 		const nFirstToTuple:Dict(clazz.UMustType, clazz.UTypeTuple) = {}
 		for _, nTuple in ipairs(vTupleList) do
 			const nFirst = self._manager:getDirtyProcessor():easyToMustType(vNode, nTuple:get(1))
-			assert(not nFirst:isNever(), "can't return never")
+			assert(not nFirst:isNever(), vNode:toExc("can't return never"))
 			nIndependentList[#nIndependentList + 1] = nFirst
 			nFirstToTuple[nFirst] = nTuple
 			nFirst:foreachAwait(function(vAtomType)
@@ -39,7 +39,7 @@ function.open RetTuples:ctor(
 		return nFirstAtomList, function(vResultType)
 			const nAtomUnion = nAsyncFirstType:checkAtomUnion()
 			if not vManager:typeCheckIndependent(nIndependentList, vResultType) then
-				error("return tuples' first type must be independent")
+				error(vNode:toExc("return tuples' first type must be independent"))
 			end
 		end
 	end)

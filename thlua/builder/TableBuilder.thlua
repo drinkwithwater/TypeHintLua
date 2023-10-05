@@ -90,7 +90,7 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 		else
 			for i=1, #nTypeTuple do
 				const nKey = nManager:Literal(vDotsStart + i - 1)
-				local nType = assert(vDotsTuple:rawget(i)):getType()
+				local nType = assert(vDotsTuple:rawget(i), self._node:toExc("tuple index error")):getType()
 				nTypePairList[#nTypePairList + 1] = {
 					nKey, nType
 				}
@@ -127,7 +127,7 @@ function TableBuilder:build():Ret(clazz.BaseObject)
 	const nManager = nStack:getTypeManager()
 	const nAttrSet = self._hintInfo.attrSet
 	if nAttrSet.class then
-		const nNewTable = assert(nStack:getClassTable(), "only function:class(xxx) can build table hint with {.class")
+		const nNewTable = assert(nStack:getClassTable(), self._node:toExc("only function:class(xxx) can build table hint with {.class"))
 		self:_build(nNewTable)
 		return nNewTable
 	else
