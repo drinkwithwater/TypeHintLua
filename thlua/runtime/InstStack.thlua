@@ -472,14 +472,14 @@ function InstStack:PARAM_DOTS_UNPACK(
 	end
 end
 
-function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:clazz.USpaceAny, vAutoPrimitive:OrNil(Boolean)):Ret(clazz.USymbol)
+function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, vModify:Boolean, vTermOrNil:OrNil(clazz.UAutoTerm), vHintType:Union(clazz.AutoFlag, clazz.USpaceAny), vAutoPrimitive:OrNil(Boolean)):Ret(clazz.USymbol)
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
 	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
 		nSymbolContext:warn("define a symbol without any type")
 	end
-	if vHintType then
+	if vHintType ~= AutoFlag then
 		const nHintType = self._manager:getDirtyProcessor():easyToMustType(vNode, vHintType)
 		nTerm = nSymbolContext:assignTermToType(nTerm, nHintType)
 	else
