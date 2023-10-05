@@ -269,91 +269,93 @@ function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Namespace)
 	return nSpace
 end
 
-function.pass BaseRuntime:buildSimpleGlobal():Ret(Dict(clazz.IAtomType, clazz.Reference))
-	local nGlobal = {}
-	for k,v in pairs(self._manager.type) do
-		nGlobal[k] = v
-	end
-	for k,v in pairs(self._manager.generic) do
-		nGlobal[k] = v
-	end
-	local l = {
-		Enum="buildEnum",
-		Union="buildUnion",
-		Struct="buildStruct",
-		Interface="buildInterface",
-		ExtendInterface="buildExtendInterface",
-		ExtendStruct="buildExtendStruct",
-		Template="buildTemplate",
-		easymap="buildEasyMap",
-		--IDict="buildIDict",
-		--IList="buildIList",
-		--Dict="buildDict",
-		--List="buildList",
-		OrNil="buildOrNil",
-		OrFalse="buildOrFalse",
-		Fn="buildFn",
-		Pfn="buildPfn",
-		Mfn="buildMfn",
-	}
-	local nManager = self._manager
-	for k,v in pairs(l) do
-		nGlobal[k]=BuiltinCom.new(function(vNode, ...)
-			return nManager[v](nManager, vNode, ...)
-		end, k)
-	end
-	nGlobal.Literal=BuiltinCom.new(function(vNode, v)
-		return nManager:Literal(v)
-	end, "Literal")
-	nGlobal.enum=BuiltinCom.new(function(vNode, vEnumType, ...)
-		return nManager:addEnum(vNode, vEnumType, ...)
-	end, "enum")
-	nGlobal.namespace=BuiltinCom.new(function(vNode)
-		return OldNamespace
-	end, "namespace")
-	nGlobal.lock=BuiltinCom.new(function(vNode, vType)
-		vType:foreach(function(vAtom)
-			vAtom:setLocked()
-		end)
-	end, "lock")
-	nGlobal.import=BuiltinCom.new(function(vNode, vPath)
-		return self:import(vPath)
-	end, "import")
-	nGlobal.setPath=BuiltinCom.new(function(vNode, vPath)
-		self._searchPath = vPath
-	end, "setPath")
-	nGlobal.foreachPair=BuiltinCom.new(function(vNode, vObject, vFunc)
-		const nObject = self._manager:getDirtyProcessor():easyToMustType(vNode, vObject):checkAtomUnion()
-		const d = nObject:copyValueDict(nObject)
-		for k,v in pairs(d) do
-			vFunc(k,v)
+function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.Reference))
+	const nGlobal = {} @ Dict(String, Union(clazz.Reference, clazz.BaseSpaceCom))
+	do.pass
+		for k,v in pairs(self._manager.type) do
+			nGlobal[k] = v
 		end
-	end, "foreachPair")
-	nGlobal.literal=BuiltinCom.new(function(vNode, vType)
-		vType = self._manager:getDirtyProcessor():easyToMustType(vNode, vType):checkAtomUnion()
-		if vType:isUnion() then
-			return nil
-		else
-			if self._manager:isLiteral(vType) then
-				return vType:getLiteral()
-			else
-				return nil
+		for k,v in pairs(self._manager.generic) do
+			nGlobal[k] = v
+		end
+		local l = {
+			Enum="buildEnum",
+			Union="buildUnion",
+			Struct="buildStruct",
+			Interface="buildInterface",
+			ExtendInterface="buildExtendInterface",
+			ExtendStruct="buildExtendStruct",
+			Template="buildTemplate",
+			easymap="buildEasyMap",
+			--IDict="buildIDict",
+			--IList="buildIList",
+			--Dict="buildDict",
+			--List="buildList",
+			OrNil="buildOrNil",
+			OrFalse="buildOrFalse",
+			Fn="buildFn",
+			Pfn="buildPfn",
+			Mfn="buildMfn",
+		}
+		local nManager = self._manager
+		for k,v in pairs(l) do
+			nGlobal[k]=BuiltinCom.new(function(vNode, ...)
+				return nManager[v](nManager, vNode, ...)
+			end, k)
+		end
+		nGlobal.Literal=BuiltinCom.new(function(vNode, v)
+			return nManager:Literal(v)
+		end, "Literal")
+		nGlobal.enum=BuiltinCom.new(function(vNode, vEnumType, ...)
+			return nManager:addEnum(vNode, vEnumType, ...)
+		end, "enum")
+		nGlobal.namespace=BuiltinCom.new(function(vNode)
+			return OldNamespace
+		end, "namespace")
+		nGlobal.lock=BuiltinCom.new(function(vNode, vType)
+			vType:foreach(function(vAtom)
+				vAtom:setLocked()
+			end)
+		end, "lock")
+		nGlobal.import=BuiltinCom.new(function(vNode, vPath)
+			return self:import(vPath)
+		end, "import")
+		nGlobal.setPath=BuiltinCom.new(function(vNode, vPath)
+			self._searchPath = vPath
+		end, "setPath")
+		nGlobal.foreachPair=BuiltinCom.new(function(vNode, vObject, vFunc)
+			const nObject = self._manager:getDirtyProcessor():easyToMustType(vNode, vObject):checkAtomUnion()
+			const d = nObject:copyValueDict(nObject)
+			for k,v in pairs(d) do
+				vFunc(k,v)
 			end
-		end
-	end, "literal")
-	nGlobal.same=BuiltinCom.new(function(vNode, vType1, vType2)
-		return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
-	end, "same")
-	nGlobal.print=BuiltinCom.new(function(vNode, ...)
-		self:nodeInfo(vNode, ...)
-	end, "print")
-	const nRetGlobal = {}
+		end, "foreachPair")
+		nGlobal.literal=BuiltinCom.new(function(vNode, vType)
+			vType = self._manager:getDirtyProcessor():easyToMustType(vNode, vType):checkAtomUnion()
+			if vType:isUnion() then
+				return nil
+			else
+				if self._manager:isLiteral(vType) then
+					return vType:getLiteral()
+				else
+					return nil
+				end
+			end
+		end, "literal")
+		nGlobal.same=BuiltinCom.new(function(vNode, vType1, vType2)
+			return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
+		end, "same")
+		nGlobal.print=BuiltinCom.new(function(vNode, ...)
+			self:nodeInfo(vNode, ...)
+		end, "print")
+	end
+	const nRetGlobal = {} @ Dict(String, clazz.Reference)
 	for k,v in pairs(nGlobal) do
 		if Reference.is(v) then
-			nRetGlobal[self._manager:Literal(k)] = v
+			nRetGlobal[k] = v
 		else
 			const nRefer = self._manager:Reference(k)
-			nRetGlobal[self._manager:Literal(k)] = nRefer
+			nRetGlobal[k] = nRefer
 			nRefer:setAssignAsync(self._node, function()
 				return v
 			end)

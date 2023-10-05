@@ -142,57 +142,51 @@ function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.USpaceValue)
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
 	const nCom = self._com
-	if Namespace.is(nCom) then
-		const nChild = nCom:getChild(vNode, vKeyType)
-		return nChild:getSpaceValue()
-	elseif EasyMapCom.is(nCom) then
-		return nCom:getValue(vNode, vKeyType)
-	else
-		error(vNode:toExc("only namespace or easymap can take index"))
-	end
-end
-
-function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:clazz.USpaceAny)
-	const nCom = self._com
-	if Namespace.is(nCom) then
-		const nChild = nCom:getChild(vNode, vKeyType)
-		if Reference.is(nChild) then
-			nChild:setAssignAsync(vNode, function() return vValue end)
+	if type(vKey) == "string" then
+		if Namespace.is(nCom) then
+			const nChild = nCom:getChild(vNode, vKey @> String)
+			return nChild:getSpaceValue()
 		else
-			error(vNode:toExc("assign conflict: key="..tostring(vKeyType)))
+			error(vNode:toExc("namespace expected here"))
 		end
-	elseif EasyMapCom.is(nCom) then
-		nCom:setValue(vNode, vKeyType, vValue)
 	else
-		error(vNode:toExc("only namespace or easymap can take newindex"))
+		assert(EasyMapCom.is(nCom), "illegal indexing key")
+		return nCom:getValue(vNode, vKey)
 	end
 end
 
-function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceValue)
+function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
 	const nCom = self._com
-	assert(Letspace.is(nCom), "only letspace com can take global index")
-	const nRefer = nCom:pureGet(vKeyType)
+	if type(vKey) == "string" then
+		if Namespace.is(nCom) then
+			const nChild = nCom:getChild(vNode, vKey @> String)
+			if Reference.is(nChild) then
+				nChild:setAssignAsync(vNode, function() return vValue end)
+			else
+				error(vNode:toExc("assign conflict: key="..tostring(vKey)))
+			end
+		else
+			error(vNode:toExc("namespace expected here"))
+		end
+	else
+		assert(EasyMapCom.is(nCom), "illegal indexing key")
+		nCom:setValue(vNode, vKey, vValue)
+	end
+end
+
+function Reference:globalGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
+	const nCom = self._com
+	assert(Letspace.is(nCom), vNode:toExc("only letspace com can take global index"))
+	assert(type(vKey) == "string", vNode:toExc("key must be string when global index"))
+	const nRefer = nCom:pureGet(vKey @> String)
 	if Reference.is(nRefer) then
 		return nRefer:getSpaceValue()
 	elseif not nRefer then
-        error(Exception.new("key with empty value, key="..tostring(vKeyType), vNode))
+        error(vNode:toExc("key with empty value, key="..tostring(vKey)))
 	else
 		return nRefer
-	end
-end
-
-function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.IAtomType)
-	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vNode, vKey)
-	if not nOkay then
-		error(Exception.new(nType, vNode))
-	end
-	local nFinalKey = nType:checkAtomUnion()
-	if not nFinalKey:isUnion() then
-		return nFinalKey
-	else
-		error(Exception.new("namespace's key can't be union type", vNode))
 	end
 end
 
@@ -206,7 +200,7 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 	if TemplateCom.is(nCom) then
 		return nCom:call(vNode, nArgNum, nArgList)
 	elseif nCom then
-		error(Exception.new("template reference expected here", vNode))
+		error(vNode:toExc("template reference expected here"))
 	end
 	const nTypeCom = self._manager:AsyncTypeCom()
 	nTypeCom:setTypeAsync(vNode, function()

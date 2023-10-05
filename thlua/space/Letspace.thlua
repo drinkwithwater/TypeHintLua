@@ -14,7 +14,7 @@ Letspace.__tostring=function(self):Ret(String)
 	return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
 end
 
-function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(clazz.IAtomType, clazz.Reference), clazz.Letspace))
+function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.Reference), clazz.Letspace))
     self._parentSpace = false @ OrFalse(clazz.Letspace)
     self._envTable = SpaceValue.envCreate(self._refer)
 	if Letspace.is(vParentOrDict) then
@@ -26,14 +26,14 @@ function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(clazz.IAtomType, c
 	end
 end
 
-function Letspace:parentHasKey(vKeyType:clazz.IAtomType):Ret(Boolean)
+function Letspace:parentHasKey(vKey:String):Ret(Boolean)
     const nParent = self._parentSpace
-	return nParent and nParent:pureGet(vKeyType) and true or false
+	return nParent and nParent:pureGet(vKey) and true or false
 end
 
-function Letspace:pureGet(vKeyType:clazz.IAtomType):Ret(OrNil(clazz.Reference))
+function Letspace:pureGet(vKey:String):Ret(OrNil(clazz.Reference))
     const nParent = self._parentSpace
-	return self._key2child[vKeyType] or (nParent and nParent:pureGet(vKeyType) or nil)
+	return self._key2child[vKey] or (nParent and nParent:pureGet(vKey) or nil)
 end
 
 function Letspace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
@@ -42,9 +42,7 @@ end
 
 function Letspace:putCompletion(vCompletion)
 	for k,v in pairs(self._key2child) do
-		if StringLiteral.is(k) then
-			vCompletion:putSpaceField(k:getLiteral(), v)
-		end
+        vCompletion:putSpaceField(k, v)
 	end
     const nParent = self._parentSpace
     if nParent then
@@ -52,18 +50,18 @@ function Letspace:putCompletion(vCompletion)
     end
 end
 
-function Letspace:getChild(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.Reference)
-	local rawgetV = self._key2child[vKeyType]
+function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Reference)
+	local rawgetV = self._key2child[vKey]
 	if not rawgetV then
-        if self:parentHasKey(vKeyType) then
-            error(Exception.new("'let' can only get symbol in current level key="..tostring(vKeyType), vNode))
+        if self:parentHasKey(vKey) then
+            error(vNode:toExc("'let' can only get symbol in current level key="..tostring(vKey)))
         end
         if self._closed then
-            error(Exception.new("namespace closed, can't create key="..tostring(vKeyType), vNode))
+            error(vNode:toExc("namespace closed, can't create key="..tostring(vKey)))
         end
-        rawgetV = self._manager:Reference(tostring(vKeyType))
+        rawgetV = self._manager:Reference(tostring(vKey))
         rawgetV:pushReferNode(vNode)
-        self._key2child[vKeyType] = rawgetV
+        self._key2child[vKey] = rawgetV
 	end
     return rawgetV
 end
