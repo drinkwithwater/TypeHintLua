@@ -1,21 +1,25 @@
 
 const Exception = require "thlua.Exception"
 
+const SealStack = require "thlua.runtime.SealStack"
+const Node = require "thlua.code.Node"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const class = require "thlua.class"
 
 (@do
-	let.clazz = import("thlua.type.TypeClass").clazz
+	let.clazz = import($class).clazz
+	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation)
 end)
 
 const ScheduleTask = class@<clazz.ScheduleTask, false>()
 
-function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:OrNil(clazz.SealStack))
+function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:clazz.UTaskHost)
 	self._scheduleManager = vScheduleManager
 	self._selfCo = coroutine.create(function(vRunFn:Fn():Err(clazz.Exception))
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
-			const nStack = self:getStack()
+			const nHost = self._host
+			const nStack = SealStack.is(nHost) and nHost
 			if nStack then
 				if Exception.is(nExc) then
 					nStack:getRuntime():nodeError(nExc.node, nExc.msg)
@@ -28,7 +32,7 @@ function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vStack:O
 			end
 		end
 	end)
-	self._stack = vStack or false
+	self._host = vHost
 end
 
 function ScheduleTask:getSelfCo():Ret(Thread)
@@ -36,7 +40,7 @@ function ScheduleTask:getSelfCo():Ret(Thread)
 end
 
 function ScheduleTask:canWaitType()
-	return not self._stack
+	return not SealStack.is(self._host)
 end
 
 function ScheduleTask:runAsync(vFunc:Fn())
@@ -44,7 +48,8 @@ function ScheduleTask:runAsync(vFunc:Fn())
 end
 
 function ScheduleTask:getStack():Ret(OrFalse(clazz.SealStack))
-	return self._stack
+	const nHost = self._host
+	return SealStack.is(nHost) and nHost
 end
 
 function ScheduleTask:makeEvent():Ret(clazz.ScheduleEvent)
@@ -53,6 +58,17 @@ end
 
 function ScheduleTask:makeWildEvent():Ret(clazz.ScheduleEvent)
 	return self._scheduleManager:makeEvent()
+end
+
+function ScheduleTask:makeWaitExc():Ret(Union(String, clazz.Exception))
+	const nHost = self._host
+	if SealStack.is(nHost) then
+		return nHost:getNode():toExc("waiting exception in stack")
+	elseif Node.is(nHost) then
+		return nHost:toExc("waiting exception in type")
+	else
+		return "waiting exception when type relation"
+	end
 end
 
 return ScheduleTask

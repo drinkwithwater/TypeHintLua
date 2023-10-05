@@ -118,7 +118,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		-- type items
 		type=nil @! BuiltinType,
 		builtin=nil @! BuiltinFunc,
-		generic={} @ Dict(String, clazz.Reference),
+		generic={} @ Dict(String, clazz.TemplateCom),
 		MetaOrNil=nil @! clazz.UAtomUnion,
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
@@ -136,30 +136,30 @@ function:class(clazz.TypeManager) TypeManager.new(
 	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
 	self.MetaOrNil = self:buildUnion(vRootNode, self.type.Nil, self.type.Truth):checkAtomUnion() -- TODO use object in the future
-	self.generic.Dict = self:rootBuildTemplate("Dict", vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
+	self.generic.Dict = self:buildTemplate(vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
-	self.generic.Cond = self:rootBuildTemplate("Cond", vRootNode, function(vCond:clazz.UMustType,v1:clazz.UMustType,v2:clazz.UMustType)
+	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond:clazz.UMustType,v1:clazz.UMustType,v2:clazz.UMustType)
 		local nType = vCond:checkAtomUnion()
 		if nType:isUnion() then
 			error("Cond's first value can't be union")
 		end
 		return (nType == self.type.Nil or nType == self.type.False) and v2 or v1
 	end)
-	self.generic.IDict = self:rootBuildTemplate("IDict", vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
+	self.generic.IDict = self:buildTemplate(vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
 		assert(vKey and vValue, "key or value can't be nil when build IDict")
 		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
-	self.generic.List = self:rootBuildTemplate("List", vRootNode, function(vValue:clazz.UMustType)
+	self.generic.List = self:buildTemplate(vRootNode, function(vValue:clazz.UMustType)
 		assert(vValue, "value can't be nil when build List")
 		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
 	end)
-	self.generic.IList = self:rootBuildTemplate("IList", vRootNode, function(vValue:clazz.UMustType)
+	self.generic.IList = self:buildTemplate(vRootNode, function(vValue:clazz.UMustType)
 		assert(vValue, "value can't be nil when build IList")
 		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:rootBuildTemplate("KeyOf", vRootNode, function(vOneType:clazz.UMustType)
+	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType:clazz.UMustType)
 		local nObject = vOneType:checkAtomUnion()
 		if not TypedObject.is(nObject) then
 			error("key of can only worked on object function")
@@ -198,8 +198,8 @@ function TypeManager:buildEasyMap(vNode:clazz.IBaseNode):Ret(clazz.EasyMapCom)
 	return EasyMapCom.new(self, vNode)
 end
 
-function TypeManager:AsyncTypeCom():Ret(clazz.AsyncTypeCom)
-	return AsyncTypeCom.new(self)
+function TypeManager:AsyncTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
+	return AsyncTypeCom.new(self, vNode)
 end
 
 function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.TypedObject)
@@ -334,7 +334,7 @@ end]]
 function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	local l = {...}
 	const nLen = select("#", ...)
-	local nAsyncTypeCom = self:AsyncTypeCom()
+	local nAsyncTypeCom = self:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setListAsync(vNode, function()
 		local nTypeList:List(clazz.IAtomType) = {}
 		for i=1, nLen do
@@ -550,15 +550,6 @@ function TypeManager:makeMetaEventCom(vObject:Union(clazz.SealTable, clazz.Typed
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:rootBuildTemplate(vName:String, vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.Reference)
-	const nTemplateCom = self:buildTemplate(vNode, vFunc)
-	const nRefer = self:Reference(vName)
-	nRefer:setAssignAsync(vNode, function()
-		return nTemplateCom
-	end)
-	return nRefer
-end
-
 function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateCom)
 	const nInfo = debug.getinfo(vFunc)
 	const nParNum = nInfo.nparams
@@ -642,7 +633,7 @@ function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(claz
 	if #vList == 1 then
 		return nFirst
 	end
-	const nAsyncTypeCom = self:AsyncTypeCom()
+	const nAsyncTypeCom = self:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
 		local nFinalType = nFirst:checkAtomUnion()
 		for i=2, #vList do

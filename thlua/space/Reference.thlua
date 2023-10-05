@@ -110,13 +110,13 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 				self:_setComAndWakeup(nAssignValue)
 			else
 				if BaseAtomType.is(nAssignValue) then
-					const nCom = self._manager:AsyncTypeCom()
+					const nCom = self._manager:AsyncTypeCom(vNode)
 					nCom:setTypeAsync(vNode, function()
 						return nAssignValue
 					end)
 					self:_setComAndWakeup(nCom)
 				elseif BaseUnionType.is(nAssignValue) then
-					const nCom = self._manager:AsyncTypeCom()
+					const nCom = self._manager:AsyncTypeCom(vNode)
 					nCom:setTypeAsync(vNode, function()
 						return nAssignValue
 					end)
@@ -152,7 +152,7 @@ function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(c
 			error(vNode:toExc("namespace expected here"))
 		end
 	else
-		assert(EasyMapCom.is(nCom), "illegal indexing key")
+		assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
 		return nCom:getValue(vNode, vKey)
 	end
 end
@@ -171,7 +171,7 @@ function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValu
 			error(vNode:toExc("namespace expected here"))
 		end
 	else
-		assert(EasyMapCom.is(nCom), "illegal indexing key")
+		assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
 		nCom:setValue(vNode, vKey, vValue)
 	end
 end
@@ -202,7 +202,7 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 	elseif nCom then
 		error(vNode:toExc("template reference expected here"))
 	end
-	const nTypeCom = self._manager:AsyncTypeCom()
+	const nTypeCom = self._manager:AsyncTypeCom(vNode)
 	nTypeCom:setTypeAsync(vNode, function()
 		const nCom = self:waitTemplateCom(vNode)
 		return nCom:call(vNode, nArgNum, nArgList)

@@ -24,13 +24,13 @@ function.open EasyMapCom:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
 end
 
 function EasyMapCom:getValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
-	const nTypeCom = self._manager:AsyncTypeCom()
+	const nTypeCom = self._manager:AsyncTypeCom(vNode)
 	nTypeCom:setTypeAsync(vNode, function()
 		const nKeyMustType = self._dirtyProcessor:easyToMustType(vNode, vKey):checkAtomUnion()
 		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
 		local nCurTypeCom = self._atom2value[nKeyMustType]
 		if not nCurTypeCom then
-			nCurTypeCom = self._manager:AsyncTypeCom()
+			nCurTypeCom = self._manager:AsyncTypeCom(vNode)
 			self._atom2value[nKeyMustType] = nCurTypeCom
 		end
 		return nCurTypeCom
@@ -43,7 +43,7 @@ function EasyMapCom:setValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue
 	assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
 	local nCurTypeCom = self._atom2value[nKeyMustType]
 	if not nCurTypeCom then
-		nCurTypeCom = self._manager:AsyncTypeCom()
+		nCurTypeCom = self._manager:AsyncTypeCom(vNode)
 		self._atom2value[nKeyMustType] = nCurTypeCom
 	end
 	nCurTypeCom:setTypeAsync(vNode, function()

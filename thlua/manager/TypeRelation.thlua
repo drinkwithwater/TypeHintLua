@@ -17,15 +17,17 @@ TypeRelation.NONE = "~"
 end)
 
 function:class(clazz.TypeRelation) TypeRelation.new(vManager:clazz.TypeManager)
-    const nTask = vManager:getScheduleManager():newTask()
     const self = setmetatable({.class
         _manager = vManager,
-        _task = nTask,
-        _buildEvent = nTask:makeEvent(),
+        _task = nil@!clazz.ScheduleTask,
+        _buildEvent = nil@!clazz.ScheduleEvent,
         _result = false @ OrFalse(clazz.RelationEnum),
         _smallIdObj = nil@!clazz.TypedObject,
         _bigIdObj = nil@!clazz.TypedObject,
     }, TypeRelation)
+    const nTask = vManager:getScheduleManager():newTask(self)
+    self._task = nTask
+    self._buildEvent = nTask:makeEvent()
     return self
 end
 

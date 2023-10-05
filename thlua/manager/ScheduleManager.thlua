@@ -23,8 +23,8 @@ function.open ScheduleManager:ctor()
 	self._selfCo=coroutine.running()
 end
 
-function ScheduleManager:newTask(vStack:OrNil(clazz.SealStack))
-	const nTask = ScheduleTask.new(self, vStack)
+function ScheduleManager:newTask(vTaskHost:clazz.UTaskHost)
+	const nTask = ScheduleTask.new(self, vTaskHost)
 	self._coToTask[nTask:getSelfCo()] = nTask
 	return nTask
 end
@@ -39,28 +39,25 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNi
 		else
 			const nDependTask = self._coToTask[vDependCo]
 			if nDependTask then
-				if not nWaitingTask:canWaitType() and not nDependTask:getStack() then
-					error("type not setted"..tostring(nDependTask))
+				if not nWaitingTask:canWaitType() then
+					if not nDependTask:getStack() then
+						error(nDependTask:makeWaitExc())
+					end
 				end
 			end
 		end
-		local nCurCo:OrNil(Thread) = vDependCo
+		local nCurCo:Thread = vDependCo
 		while nCurCo do
 			if nCurCo == vWaitCo then
-				break
+				error("recursive build type:"..tostring(self._coToTask[nCurCo]))
 			else
 				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
 				if nNextWaitingInfo then
 					nCurCo = nNextWaitingInfo.dependCo
 				else
-					nCurCo = nil
 					break
 				end
 			end
-		end
-		if nCurCo then
-			-- error(Exception.new("recursive build type:"..tostring(self._coToTask[nCurCo])))
-			error("recursive build type:"..tostring(self._coToTask[nCurCo]))
 		end
 	else
 		vDependCo = self._selfCo
