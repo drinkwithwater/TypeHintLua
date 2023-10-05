@@ -38,16 +38,23 @@ function Letspace:pureGet(vKey:String):Ret(OrNil(clazz.Reference))
 end
 
 function Letspace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
-    return self._refer:getSpaceValue(), self._envTable, _G
+    return self._refer:getSpaceValue(), self._envTable, self._manager.spaceG
 end
 
-function Letspace:putCompletion(vCompletion)
-	for k,v in pairs(self._key2child) do
-        vCompletion:putSpaceField(k, v)
-	end
-    const nParent = self._parentSpace
-    if nParent then
-        nParent:putCompletion(vCompletion)
+function Letspace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
+    const nWhat = getmetatable(vValue).__what
+    if nWhat == "_ENV" then
+        for k,v in pairs(self._key2child) do
+            vCompletion:putSpaceField(k, v)
+        end
+        const nParent = self._parentSpace
+        if nParent then
+            nParent:spaceCompletion(vCompletion, vValue)
+        end
+    else
+        for k,v in pairs(self._key2child) do
+            vCompletion:putSpaceField(k, v)
+        end
     end
 end
 

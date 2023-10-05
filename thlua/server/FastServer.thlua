@@ -75,7 +75,7 @@ function FastServer:checkRuntime():Ret(clazz.CompletionRuntime)
 	return assert(self._runtime)
 end
 
-function FastServer:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.Diagnostic)))
+function FastServer:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.Diagnostic)), vFilePusher:OrNil(Fn(String, lsp.FileState, List(lsp.Diagnostic))))
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = vFileToDiaList[nFileName] or {}
 		const nVersion = nFileState:getVersion()
@@ -103,6 +103,9 @@ function FastServer:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.
 				severity=dia.severity,
 			}
 		end
+		if vFilePusher then
+			vFilePusher(nFileName, nFileState, nDiaList)
+		end
 		self:_write({
 			jsonrpc = "2.0",
 			method = "textDocument/publishDiagnostics",
@@ -121,16 +124,11 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 		self:rerun(nFileUri)
 	end
 	const nRuntime = self._runtime
-	if nRuntime then
-		const nNameDiagnostic = nRuntime:getNameDiagnostic()
-		self:publishFileToDiaList(nNameDiagnostic)
-	end
-	for nFileName, nFileState in pairs(self._fileStateDict) do
-		const nDiaList:List(lsp.Diagnostic) = {}
+	self:publishFileToDiaList(nRuntime and nRuntime:getNameDiagnostic() or {}, function(nFileName, nFileState, nDiaList)
 		const nExc = nFileState:getLatestException()
 		if nExc then
 			const nNode = nExc.node
-			nDiaList[1] = {
+			nDiaList[#nDiaList + 1] = {
 				range={
 					start={
 						line=nNode.l-1,
@@ -145,16 +143,7 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 				severity=SeverityEnum.Error,
 			}
 		end
-		self:_write({
-			jsonrpc = "2.0",
-			method = "textDocument/publishDiagnostics",
-			params = {
-				uri=nFileName,
-				version=nFileState:getVersion(),
-				diagnostics=json.array(nDiaList),
-			},
-		})
-	end
+	end)
 end
 
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
