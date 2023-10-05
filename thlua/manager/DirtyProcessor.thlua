@@ -5,13 +5,14 @@ const Reference = require "thlua.space.Reference"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
+const class = require "thlua.class"
 
 const DirtyProcessor = {}
 
 DirtyProcessor.__index = DirtyProcessor
 
 (@do
-	let.clazz = import("thlua.class").clazz
+	let.clazz = import($class).clazz
 end)
 
 function:class(clazz.DirtyProcessor) DirtyProcessor.new(vTypeManager:clazz.TypeManager)
@@ -22,11 +23,7 @@ function:class(clazz.DirtyProcessor) DirtyProcessor.new(vTypeManager:clazz.TypeM
     return self
 end
 
-function DirtyProcessor:makeDirtyException(vNode:clazz.IBaseNode, vMsg:String):Ret(clazz.Exception)
-	return Exception.new(vMsg, vNode)
-end
-
-function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UMustType)
+function DirtyProcessor:peasyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UMustType)
 	local t = type(vData)
 	if t == "table" then
 		if AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
@@ -34,10 +31,10 @@ function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String
 		else
 			const nRefer = SpaceValue.checkRefer(vData)
 			if nRefer then
-				return true, nRefer:mustType()
+				return true, nRefer:waitAsyncTypeCom(vNode)
 			else
 				if Reference.is(vData) then
-					return true, vData:mustType()
+					return true, vData:waitAsyncTypeCom(vNode)
 				else
 					return false, "to type failed"
 				end
@@ -45,17 +42,19 @@ function DirtyProcessor:peasyToMustType(vData:clazz.USpaceAny):Ret(False, String
 		end
 	elseif t == "number" or t == "string" or t == "boolean"then
 		return true, self._manager:Literal(vData @> Union(Number, String, Boolean))
+	elseif t == nil then
+		return false, "can't trans nil into type in hint space"
 	else
-		return false, "can't trans "..t.." into type in hint space"
+		return false, "can't trans this value into type in hint space"
 	end
 end
 
 function DirtyProcessor:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
-	const nOkay, nType = self:peasyToMustType(vData)
+	const nOkay, nType = self:peasyToMustType(vNode, vData)
 	if nOkay then
 		return nType
 	else
-		error(self:makeDirtyException(vNode, nType))
+		error(vNode:toExc(nType))
 	end
 end
 

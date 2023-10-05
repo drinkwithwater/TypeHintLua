@@ -12,6 +12,8 @@ const Letspace = require "thlua.space.Letspace"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 const TemplateCom = require "thlua.space.TemplateCom"
 const BuiltinCom = require "thlua.space.BuiltinCom"
+const EasyMapCom = require "thlua.space.EasyMapCom"
+const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 
 const SpaceValue = require "thlua.space.SpaceValue"
 
@@ -19,7 +21,6 @@ const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	let.UReferCom = Union(clazz.AsyncTypeCom, clazz.TemplateCom, clazz.Namespace, clazz.BuiltinCom)
 end)
 
 const Reference = {}
@@ -39,7 +40,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 		_assignNode=false@OrFalse(clazz.IBaseNode),
 		_referNodes={}@List(clazz.IBaseNode),
 		_assignComEvent = nTask:makeEvent(),
-		_com=false@OrFalse(UReferCom),
+		_com=false@OrFalse(clazz.BaseSpaceCom),
 		_spaceValue=nil@!clazz.LocalSpaceValue,
 	}, Reference)
 	self._spaceValue = SpaceValue.create(self)
@@ -47,7 +48,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:S
 end
 
 function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Namespace))
-	assert(not self._assignNode, "init space called after assignNode")
+	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
 	if vData then
 		const nSpace = Letspace.new(self._manager, vNode, self, vData)
@@ -64,11 +65,11 @@ function Reference:getSpaceValue()
 	return self._spaceValue
 end
 
-function Reference:getComNowait():Ret(OrFalse(UReferCom))
+function Reference:getComNowait():Ret(OrFalse(clazz.BaseSpaceCom))
 	return self._com
 end
 
-function Reference:getComAwait():Ret(UReferCom)
+function Reference:getComAwait():Ret(clazz.BaseSpaceCom)
 	if not self._com then
 		self._assignComEvent:wait()
 	end
@@ -76,19 +77,19 @@ function Reference:getComAwait():Ret(UReferCom)
 	return nCom
 end
 
-function Reference:mustType():Ret(clazz.AsyncTypeCom)
+function Reference:waitAsyncTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
 	const nCom = self:getComAwait()
-	assert(AsyncTypeCom.is(nCom), "type reference expected, but get template reference")
+	assert(AsyncTypeCom.is(nCom), vNode:toExc("type reference expected, but got some other value"))
 	return nCom
 end
 
-function Reference:waitTemplateCom():Ret(clazz.TemplateCom)
+function Reference:waitTemplateCom(vNode:clazz.IBaseNode):Ret(clazz.TemplateCom)
 	const nCom = self:getComAwait()
-	assert(TemplateCom.is(nCom), "template reference expected, but get some other reference")
+	assert(TemplateCom.is(nCom), vNode:toExc("template expected, but got some other value"))
 	return nCom
 end
 
-function Reference:_setComAndWakeup(vCom:UReferCom)
+function Reference:_setComAndWakeup(vCom:clazz.BaseSpaceCom)
 	self._com = vCom
 	self._assignComEvent:wakeup()
 end
@@ -105,11 +106,7 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 			const nRefer = SpaceValue.checkRefer(nAssignValue)
 			if nRefer then
 				self:_setComAndWakeup(nRefer:getComAwait())
-			elseif TemplateCom.is(nAssignValue) then
-				self:_setComAndWakeup(nAssignValue)
-			elseif AsyncTypeCom.is(nAssignValue) then
-				self:_setComAndWakeup(nAssignValue)
-			elseif BuiltinCom.is(nAssignValue) then
+			elseif BaseSpaceCom.is(nAssignValue) then
 				self:_setComAndWakeup(nAssignValue)
 			else
 				if BaseAtomType.is(nAssignValue) then
@@ -125,7 +122,7 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 					end)
 					self:_setComAndWakeup(nCom)
 				else
-					error(vNode:toExc("namespace assign a non-type value"))
+					error(vNode:toExc("namespace assign an illegal value"))
 				end
 			end
 		end
@@ -145,27 +142,37 @@ function Reference:pushReferNode(vNode:clazz.IBaseNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceValue)
+function Reference:triggerGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.USpaceValue)
 	const nCom = self._com
-	assert(Namespace.is(nCom), "only namespace com can take index")
-	const nChild = nCom:getChild(vNode, vKeyType)
-	return nChild:getSpaceValue()
+	if Namespace.is(nCom) then
+		const nChild = nCom:getChild(vNode, vKeyType)
+		return nChild:getSpaceValue()
+	elseif EasyMapCom.is(nCom) then
+		return nCom:getValue(vNode, vKeyType)
+	else
+		error(vNode:toExc("only namespace or easymap can take index"))
+	end
 end
 
 function Reference:triggerSet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType, vValue:clazz.USpaceAny)
 	const nCom = self._com
-	assert(Namespace.is(nCom), "only namespace com can take newindex")
-	const nChild = nCom:getChild(vNode, vKeyType)
-	if Reference.is(nChild) then
-		nChild:setAssignAsync(vNode, function() return vValue end)
+	if Namespace.is(nCom) then
+		const nChild = nCom:getChild(vNode, vKeyType)
+		if Reference.is(nChild) then
+			nChild:setAssignAsync(vNode, function() return vValue end)
+		else
+			error(vNode:toExc("assign conflict: key="..tostring(vKeyType)))
+		end
+	elseif EasyMapCom.is(nCom) then
+		nCom:setValue(vNode, vKeyType, vValue)
 	else
-		error(vNode:toExc("assign conflict: key="..tostring(vKeyType)))
+		error(vNode:toExc("only namespace or easymap can take newindex"))
 	end
 end
 
 function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Ret(clazz.BaseSpaceValue)
 	const nCom = self._com
-	assert(Letspace.is(nCom), "only letspace com can take index")
+	assert(Letspace.is(nCom), "only letspace com can take global index")
 	const nRefer = nCom:pureGet(vKeyType)
 	if Reference.is(nRefer) then
 		return nRefer:getSpaceValue()
@@ -177,7 +184,7 @@ function Reference:globalGet(vNode:clazz.IBaseNode, vKeyType:clazz.IAtomType):Re
 end
 
 function Reference:assertSpaceKeyType(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.IAtomType)
-	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vKey)
+	const nOkay, nType = self._manager:getDirtyProcessor():peasyToMustType(vNode, vKey)
 	if not nOkay then
 		error(Exception.new(nType, vNode))
 	end
@@ -203,7 +210,7 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 	end
 	const nTypeCom = self._manager:AsyncTypeCom()
 	nTypeCom:setTypeAsync(vNode, function()
-		const nCom = self:waitTemplateCom()
+		const nCom = self:waitTemplateCom(vNode)
 		return nCom:call(vNode, nArgNum, nArgList)
 	end)
 	return nTypeCom

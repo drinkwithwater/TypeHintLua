@@ -1,0 +1,54 @@
+
+const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
+const Exception = require "thlua.Exception"
+const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
+const SpaceValue = require "thlua.space.SpaceValue"
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const Node = require "thlua.code.Node"
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const EasyMapCom = class@<clazz.EasyMapCom, false>(BaseSpaceCom)
+EasyMapCom.__tostring=function(self):Ret(String)
+	return "easymap-"
+end
+
+function.open EasyMapCom:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
+	self._manager=vManager
+	self._node=vNode
+	self._dirtyProcessor = vManager:getDirtyProcessor()
+	self._atom2value = {} @ Dict(clazz.IAtomType, clazz.AsyncTypeCom)
+end
+
+function EasyMapCom:getValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
+	const nTypeCom = self._manager:AsyncTypeCom()
+	nTypeCom:setTypeAsync(vNode, function()
+		const nKeyMustType = self._dirtyProcessor:easyToMustType(vNode, vKey)
+		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
+		local nCurTypeCom = self._atom2value[nKeyMustType]
+		if not nCurTypeCom then
+			nCurTypeCom = self._manager:AsyncTypeCom()
+			self._atom2value[nKeyMustType] = nCurTypeCom
+		end
+		return nCurTypeCom
+	end)
+	return nTypeCom
+end
+
+function EasyMapCom:setValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
+	const nKeyMustType = self._dirtyProcessor:easyToMustType(vNode, vKey)
+	assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
+	local nCurTypeCom = self._atom2value[nKeyMustType]
+	if not nCurTypeCom then
+		nCurTypeCom = self._manager:AsyncTypeCom()
+		self._atom2value[nKeyMustType] = nCurTypeCom
+	end
+	nCurTypeCom:setTypeAsync(vNode, function()
+		return self._dirtyProcessor:easyToMustType(vNode, vValue)
+	end)
+end
+
+return EasyMapCom
