@@ -16,6 +16,7 @@ end
 
 function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.Reference), clazz.Letspace))
     self._parentSpace = false @ OrFalse(clazz.Letspace)
+	self._closed=false@Boolean
     self._envTable = SpaceValue.envCreate(self._refer)
 	if Letspace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
@@ -53,6 +54,9 @@ end
 function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Reference)
 	local rawgetV = self._key2child[vKey]
 	if not rawgetV then
+        if self._closed then
+            error(vNode:toExc("space has been closed"))
+        end
         if self:parentHasKey(vKey) then
             error(vNode:toExc("'let' can only get symbol in current level key="..tostring(vKey)))
         end
@@ -60,10 +64,14 @@ function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Referen
             error(vNode:toExc("namespace closed, can't create key="..tostring(vKey)))
         end
         rawgetV = self._manager:Reference(tostring(vKey))
-        rawgetV:pushReferNode(vNode)
         self._key2child[vKey] = rawgetV
 	end
+    rawgetV:pushReferNode(vNode)
     return rawgetV
+end
+
+function Letspace:close()
+	self._closed=true
 end
 
 return Letspace

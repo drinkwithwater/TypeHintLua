@@ -1,4 +1,5 @@
 
+const Exception = require "thlua.Exception"
 const Node = require "thlua.code.Node"
 const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 const class = require "thlua.class"
@@ -16,7 +17,16 @@ function.open BuiltinFnCom:ctor(_, _, vFunc:AnyFunction, vName:String)
 end
 
 function BuiltinFnCom:call(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
-    return self._func(vNode, ...)
+    const ok, ret = pcall(self._func, vNode, ...)
+    if ok then
+        return ret
+    else
+        if Exception.is(ret) then
+            error(ret)
+        else
+            error(vNode:toExc(tostring(ret)))
+        end
+    end
 end
 
 return BuiltinFnCom

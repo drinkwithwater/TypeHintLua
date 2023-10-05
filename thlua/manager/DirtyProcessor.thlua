@@ -23,38 +23,29 @@ function:class(clazz.DirtyProcessor) DirtyProcessor.new(vTypeManager:clazz.TypeM
     return self
 end
 
-function DirtyProcessor:peasyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(False, String):Ret(True, clazz.UMustType)
+function DirtyProcessor:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
 	local t = type(vData)
 	if t == "table" then
 		if AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
-			return true, vData
+			return vData
 		else
 			const nRefer = SpaceValue.checkRefer(vData)
 			if nRefer then
-				return true, nRefer:waitAsyncTypeCom(vNode)
+				return nRefer:waitAsyncTypeCom(vNode)
 			else
 				if Reference.is(vData) then
-					return true, vData:waitAsyncTypeCom(vNode)
+					return vData:waitAsyncTypeCom(vNode)
 				else
-					return false, "to type failed"
+					error(vNode:toExc("to type failed"))
 				end
 			end
 		end
 	elseif t == "number" or t == "string" or t == "boolean"then
-		return true, self._manager:Literal(vData @> Union(Number, String, Boolean))
+		return self._manager:Literal(vData @> Union(Number, String, Boolean))
 	elseif t == "nil" then
-		return false, "can't trans nil into type in hint space"
+		error(vNode:toExc("can't trans nil into type in hint space"))
 	else
-		return false, "can't trans this value into type in hint space"
-	end
-end
-
-function DirtyProcessor:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
-	const nOkay, nType = self:peasyToMustType(vNode, vData)
-	if nOkay then
-		return nType
-	else
-		error(vNode:toExc(nType))
+		error(vNode:toExc("can't trans this value into type in hint space"))
 	end
 end
 

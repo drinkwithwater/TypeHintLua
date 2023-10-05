@@ -39,9 +39,11 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNi
 		else
 			const nDependTask = self._coToTask[vDependCo]
 			if nDependTask then
-				if not nWaitingTask:canWaitType() then
+				-- stack can't wait async type
+				const nCurStack = nWaitingTask:getStack()
+				if nCurStack then
 					if not nDependTask:getStack() then
-						error(nDependTask:makeWaitExc())
+						nDependTask:errorWaitByStack(nCurStack)
 					end
 				end
 			end

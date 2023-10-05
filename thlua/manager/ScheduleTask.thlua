@@ -28,7 +28,7 @@ function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:cl
 					nStack:getRuntime():nodeError(nStack:getNode(), tostring(nExc))
 				end
 			end
-			if not nStack or nStack:isRoot() then
+			if not nStack then
 				error(nExc)
 			end
 		end
@@ -61,16 +61,17 @@ function ScheduleTask:makeWildEvent():Ret(clazz.ScheduleEvent)
 	return self._scheduleManager:makeEvent()
 end
 
-function ScheduleTask:makeWaitExc():Ret(Union(String, clazz.Exception))
+function ScheduleTask:errorWaitByStack(vStack:clazz.SealStack)
 	const nHost = self._host
 	if SealStack.is(nHost) then
-		return nHost:getNode():toExc("stack waiting exception")
+		error(nHost:getNode():toExc("stack waiting error"))
 	elseif Node.is(nHost) then
-		return nHost:toExc("type waiting exception")
+		error(nHost:toExc("type not setted"))
 	elseif Reference.is(nHost) then
-		return "reference error TODO"
+		vStack:getRuntime():invalidReference(nHost)
+		error(vStack:getNode():toExc("some reference not setted"))
 	else
-		return "type relation waiting exception when type relation"
+		error("type relation waiting exception when type relation")
 	end
 end
 

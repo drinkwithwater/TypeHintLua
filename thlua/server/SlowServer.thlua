@@ -39,43 +39,7 @@ end
 function SlowServer:publishNormal()
 	const nRuntime = self:checkDiagnosticRuntime()
 	local nFileToList = nRuntime:getAllDiagnostic()
-	for nFileName, nFileState in pairs(self._fileStateDict) do
-		const nRawDiaList:List(clazz.Diagnostic) = nFileToList[nFileName] or {}
-		const nVersion = nFileState:getVersion()
-		const nDiaList:List(lsp.Diagnostic) = {}
-		const nSplitCode = nFileState:getSplitCode()
-		for _, dia in ipairs(nRawDiaList) do
-			local nNode = dia.node
-			const nLineContent = nSplitCode:getLine(nNode.l)
-			const nRangeEnd = nNode.pos == nNode.posEnd and {
-				nNode.l, nNode.c + (nLineContent and #nLineContent + 10 or 100)
-			} or {nSplitCode:fixupPos(nNode.posEnd)}
-			local nMsg = dia.msg
-			nDiaList[#nDiaList + 1] = {
-				range={
-					start={
-						line=nNode.l-1,
-						character=nNode.c-1,
-					},
-					["end"]={
-						line=nRangeEnd[1]-1,
-						character=nRangeEnd[2]-1,
-					}
-				},
-				message=nMsg,
-				severity=dia.severity,
-			}
-		end
-		self:_write({
-			jsonrpc = "2.0",
-			method = "textDocument/publishDiagnostics",
-			params = {
-				uri=nFileName,
-				version=nVersion,
-				diagnostics=json.array(nDiaList),
-			},
-		})
-	end
+	self:publishFileToDiaList(nFileToList)
 end
 
 function SlowServer:publishException(vException:Union(clazz.Exception, String))

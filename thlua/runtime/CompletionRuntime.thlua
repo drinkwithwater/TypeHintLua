@@ -1,5 +1,6 @@
 
 const CodeEnv = require "thlua.code.CodeEnv"
+const SeverityEnum = require "thlua.runtime.SeverityEnum"
 const FieldCompletion = require "thlua.context.FieldCompletion"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -25,6 +26,7 @@ function.open CompletionRuntime:ctor(...)
 	self._nodeToAutoFnList = ListDict@<clazz.IBaseNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
 	self._nodeToApplyContextList = ListDict@<clazz.IBaseNode, clazz.ApplyContext>()
+	self._invalidReferSet = {} @ Dict(clazz.Reference, True)
 end
 
 function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
@@ -34,6 +36,32 @@ function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
 		self._nodeToAutoFnList:putOne(vAutoFn:getNode(), vAutoFn)
 	end
 end
+
+function CompletionRuntime:invalidReference(vRefer:clazz.Reference)
+	self._invalidReferSet[vRefer] = true
+end
+
+function CompletionRuntime:getNameDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
+	for nRefer, _ in pairs(self._invalidReferSet) do
+		const nNodes = nRefer:getReferNodes()
+		for _, node in ipairs(nNodes) do
+			const nPath = node.path
+			local nList = nFileToDiaList[nPath]
+			if not nList then
+				nList = {}
+				nFileToDiaList[nPath] = nList
+			end
+			nList[#nList + 1] = {
+				msg="here reference not setted",
+				node=node,
+				severity=SeverityEnum.Error,
+			}
+		end
+	end
+	return nFileToDiaList
+end
+
 
 function.pass CompletionRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:Truth)
 	--const nServer = self._loader
