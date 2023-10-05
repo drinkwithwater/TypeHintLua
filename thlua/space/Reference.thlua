@@ -11,7 +11,7 @@ const Namespace = require "thlua.space.Namespace"
 const Letspace = require "thlua.space.Letspace"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 const TemplateCom = require "thlua.space.TemplateCom"
-const BuiltinCom = require "thlua.space.BuiltinCom"
+const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 const EasyMapCom = require "thlua.space.EasyMapCom"
 const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 
@@ -31,19 +31,21 @@ function Reference.__tostring(self:clazz.Reference):Ret(String)
 end
 
 function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vKey:String)
-	const nTask = vManager:getScheduleManager():newTask()
 	const self = setmetatable({.class
 		_manager = vManager,
 		id=vManager:genTypeId(),
-		_task = nTask,
+		_task = nil@!clazz.ScheduleTask,
 		_key=vKey,
 		_assignNode=false@OrFalse(clazz.IBaseNode),
 		_referNodes={}@List(clazz.IBaseNode),
-		_assignComEvent = nTask:makeEvent(),
+		_assignComEvent = nil@!clazz.ScheduleEvent,
 		_com=false@OrFalse(clazz.BaseSpaceCom),
 		_spaceValue=nil@!clazz.LocalSpaceValue,
 	}, Reference)
 	self._spaceValue = SpaceValue.create(self)
+	const nTask = vManager:getScheduleManager():newTask(self)
+	self._task = nTask
+	self._assignComEvent = nTask:makeEvent()
 	return self
 end
 
@@ -79,7 +81,7 @@ end
 
 function Reference:waitAsyncTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
 	const nCom = self:getComAwait()
-	assert(AsyncTypeCom.is(nCom), vNode:toExc("type reference expected, but got some other value"))
+	assert(AsyncTypeCom.is(nCom), vNode:toExc("type expected, but got some other value"))
 	return nCom
 end
 
@@ -192,7 +194,7 @@ end
 
 function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
 	const nCom = self._com
-	if BuiltinCom.is(nCom) then
+	if BuiltinFnCom.is(nCom) then
 		return nCom:call(vNode, ...)
 	end
 	const nArgList:List(clazz.USpaceAny) = {...}

@@ -3,12 +3,13 @@ const Exception = require "thlua.Exception"
 
 const SealStack = require "thlua.runtime.SealStack"
 const Node = require "thlua.code.Node"
+const Reference = require "thlua.space.Reference"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation)
+	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation, clazz.Reference)
 end)
 
 const ScheduleTask = class@<clazz.ScheduleTask, false>()
@@ -63,11 +64,13 @@ end
 function ScheduleTask:makeWaitExc():Ret(Union(String, clazz.Exception))
 	const nHost = self._host
 	if SealStack.is(nHost) then
-		return nHost:getNode():toExc("waiting exception in stack")
+		return nHost:getNode():toExc("stack waiting exception")
 	elseif Node.is(nHost) then
-		return nHost:toExc("waiting exception in type")
+		return nHost:toExc("type waiting exception")
+	elseif Reference.is(nHost) then
+		return "reference error TODO"
 	else
-		return "waiting exception when type relation"
+		return "type relation waiting exception when type relation"
 	end
 end
 

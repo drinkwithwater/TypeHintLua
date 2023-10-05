@@ -27,7 +27,7 @@ function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(
 	const nAsyncTypeCom = self._manager:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
 		if vArgNum ~= self._parNum then
-			error(Exception.new("template args num not match", vNode))
+			error(vNode:toExc("template args num not match"))
 		end
 		const nMustList:List(clazz.UMustType) = {}
 		for i=1, vArgNum do
@@ -37,7 +37,16 @@ function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(
 		const nValue = self._cache[nKey]
 		if not nValue then
 			self._cache[nKey] = nAsyncTypeCom
-			return nDirtyProcessor:easyToMustType(vNode, nFn(table.unpack(nMustList)))
+			const ok, exc = pcall(nFn, table.unpack(nMustList))
+			if ok then
+				return nDirtyProcessor:easyToMustType(vNode, exc)
+			else
+				if Exception.is(exc) then
+					error(exc)
+				else
+					error(vNode:toExc(tostring(exc)))
+				end
+			end
 		else
 			return nValue
 		end
