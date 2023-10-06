@@ -27,7 +27,7 @@ const NameReference = {}
 NameReference.__index = NameReference
 
 function NameReference.__tostring(self:clazz.NameReference):Ret(String)
-	return "Reference tostring TODO"
+	return "name refer tostring TODO"
 end
 
 function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vKey:String)
@@ -49,15 +49,15 @@ function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager
 	return self
 end
 
-function NameReference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.LetSpace, clazz.NameSpace))
+function NameReference:initWithSpace@<T>(vNode:clazz.IBaseNode, vParent:T):Ret(Cond($(not vParent or NameSpace.is(vParent)), clazz.NameSpace, clazz.LetSpace))
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
-	if vData then
-		const nSpace = LetSpace.new(self._manager, vNode, self, vData)
+	if not vParent or NameSpace.is(vParent) then
+		const nSpace = NameSpace.new(self._manager, vNode, self, vParent)
 		self._com = nSpace
 		return nSpace
 	else
-		const nSpace = NameSpace.new(self._manager, vNode, self)
+		const nSpace = LetSpace.new(self._manager, vNode, self, vParent)
 		self._com = nSpace
 		return nSpace
 	end
@@ -144,7 +144,7 @@ function NameReference:triggerReferChild(vNode:clazz.IBaseNode, vKey:String):Ret
 	const nParent = self._parentNodeOrSpace
 	if not nCom then
 		if NameSpace.is(nParent) then
-			nCom = NameSpace.new(self._manager, nParent:getNode(), self)
+			nCom = NameSpace.new(self._manager, nParent:getNode(), self, nParent)
 			self._assignNode = nParent:getNode()
 			self:_setComAndWakeup(nCom)
 		end

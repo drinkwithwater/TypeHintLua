@@ -107,12 +107,12 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceValue)
 		if not nStack then
 			error(Exception.new("recursive import:"..nPath, nNode))
 		end
-		const nSpace = nStack:getBaseReferSpace()
+		const nSpace = nStack:getLetSpace()
 		return nSpace:getRefer():getSpaceValue()
 	elseif BaseAtomType.is(vDst) then
 		const nStack = vDst:findRequireStack()
 		if nStack then
-			const nSpace = nStack:getBaseReferSpace()
+			const nSpace = nStack:getLetSpace()
 			return nSpace:getRefer():getSpaceValue()
 		else
 			error("import can only take type in a require stack"..debug.traceback())
@@ -143,7 +143,7 @@ function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(Strin
 	self._rootStack = nRootStack
 	self._manager:lateInit()
 	self._globalTable = native.make(self)
-	nRootStack:rootSetBaseReferSpace(self:rootLetSpace())
+	nRootStack:rootSetLetSpace(self:rootLetSpace())
 	const t1 = os.clock()
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
@@ -261,12 +261,6 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 	return nTerm, nLoadedState.openFn
 end
 
-function BaseRuntime:NameSpace(vNode:node.Debug):Ret(clazz.NameSpace)
-	const nRefer = self._manager:NameReference(vNode, "")
-	const nSpace = nRefer:initWithSpace@<Nil>(vNode)
-	return nSpace
-end
-
 function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
 	do.pass
@@ -308,7 +302,7 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 			return nManager:addEnum(vNode, vEnumType, ...)
 		end, "enum")
 		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
-			return self:NameSpace(vNode)
+			return self:NameSpace(vNode, false)
 		end, "namespace")
 		nGlobal.lock=nManager:BuiltinFn(function(vNode, vType)
 			vType:foreach(function(vAtom)
@@ -370,9 +364,15 @@ function BaseRuntime:rootLetSpace():Ret(clazz.LetSpace)
 	return nSpace
 end
 
-function BaseRuntime:LetSpace(vParentLet:clazz.LetSpace, vRegionNode:clazz.IBaseNode):Ret(clazz.LetSpace)
+function BaseRuntime:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
 	const nRefer = self._manager:NameReference(vParentLet, "")
 	const nSpace = nRefer:initWithSpace@<$vParentLet>(self._node, vParentLet)
+	return nSpace
+end
+
+function BaseRuntime:NameSpace(vNode:node.Debug, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
+	const nRefer = self._manager:NameReference(vParent or vNode, "")
+	const nSpace = nRefer:initWithSpace@<$vParent>(vNode, vParent)
 	return nSpace
 end
 
