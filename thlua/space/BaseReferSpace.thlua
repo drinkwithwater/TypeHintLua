@@ -11,26 +11,26 @@ const class = require "thlua.class"
 	let.clazz = import($class).clazz
 end)
 
-const Namespace = class@<clazz.Namespace, false>(BaseSpaceCom)
-Namespace.__tostring=function(self):Ret(String)
+const BaseReferSpace = class@<clazz.BaseReferSpace, false>(BaseSpaceCom)
+BaseReferSpace.__tostring=function(self):Ret(String)
 	return "namespace-" .. tostring(self._node)
 end
 
-function.open Namespace:ctor(_, _, vRefer:clazz.NameReference, ...)
+function.open BaseReferSpace:ctor(_, _, vRefer:clazz.NameReference, ...)
 	self._key2child={} @ Dict(String, clazz.NameReference) -- (vIndexTable and setmetatable({}, {__index=vIndexTable}) or {})@StringToRefer,
 	self._refer = vRefer
 end
 
-function.pass Namespace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
+function.pass BaseReferSpace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
 	error("abstract namespace get child not implement")
 end
 
-function.pass Namespace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
+function.pass BaseReferSpace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
 	error("abstract namespace putCompletion not implement")
 end
 
-function Namespace:getRefer():Ret(clazz.NameReference)
+function BaseReferSpace:getRefer():Ret(clazz.NameReference)
 	return self._refer @> clazz.NameReference
 end
 
-return Namespace
+return BaseReferSpace

@@ -6,8 +6,8 @@ const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.native"
 const Node = require "thlua.code.Node"
-const Namespace = require "thlua.space.Namespace"
-const Letspace = require "thlua.space.Letspace"
+const BaseReferSpace = require "thlua.space.BaseReferSpace"
+const LetSpace = require "thlua.space.LetSpace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
 
@@ -107,12 +107,12 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceValue)
 		if not nStack then
 			error(Exception.new("recursive import:"..nPath, nNode))
 		end
-		const nSpace = nStack:getNamespace()
+		const nSpace = nStack:getBaseReferSpace()
 		return nSpace:getRefer():getSpaceValue()
 	elseif BaseAtomType.is(vDst) then
 		const nStack = vDst:findRequireStack()
 		if nStack then
-			const nSpace = nStack:getNamespace()
+			const nSpace = nStack:getBaseReferSpace()
 			return nSpace:getRefer():getSpaceValue()
 		else
 			error("import can only take type in a require stack"..debug.traceback())
@@ -143,7 +143,7 @@ function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(Strin
 	self._rootStack = nRootStack
 	self._manager:lateInit()
 	self._globalTable = native.make(self)
-	nRootStack:rootSetNamespace(self:RootNamespace())
+	nRootStack:rootSetBaseReferSpace(self:rootLetSpace())
 	const t1 = os.clock()
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
@@ -261,7 +261,7 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 	return nTerm, nLoadedState.openFn
 end
 
-function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Treespace)
+function BaseRuntime:NameSpace(vNode:node.Debug):Ret(clazz.NameSpace)
 	const nRefer = self._manager:NameReference(vNode, "")
 	const nSpace = nRefer:initWithSpace@<Nil>(vNode)
 	return nSpace
@@ -308,7 +308,7 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 			return nManager:addEnum(vNode, vEnumType, ...)
 		end, "enum")
 		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
-			return self:TreeNamespace(vNode)
+			return self:NameSpace(vNode)
 		end, "namespace")
 		nGlobal.lock=nManager:BuiltinFn(function(vNode, vType)
 			vType:foreach(function(vAtom)
@@ -362,7 +362,7 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 	return nRetGlobal
 end
 
-function BaseRuntime:RootNamespace():Ret(clazz.Letspace)
+function BaseRuntime:rootLetSpace():Ret(clazz.LetSpace)
 	const nRefer = self._manager:NameReference(self._node, "")
 	const nGlobal = self:buildSimpleGlobal()
 	const nSpace = nRefer:initWithSpace@<$nGlobal>(self._node, nGlobal)
@@ -370,7 +370,7 @@ function BaseRuntime:RootNamespace():Ret(clazz.Letspace)
 	return nSpace
 end
 
-function BaseRuntime:LetNamespace(vParentLet:clazz.Letspace, vRegionNode:clazz.IBaseNode):Ret(clazz.Letspace)
+function BaseRuntime:LetSpace(vParentLet:clazz.LetSpace, vRegionNode:clazz.IBaseNode):Ret(clazz.LetSpace)
 	const nRefer = self._manager:NameReference(vParentLet, "")
 	const nSpace = nRefer:initWithSpace@<$vParentLet>(self._node, vParentLet)
 	return nSpace

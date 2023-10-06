@@ -6,9 +6,9 @@ const Node = require "thlua.code.Node"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 
-const Namespace = require "thlua.space.Namespace"
-const Treespace = require "thlua.space.Treespace"
-const Letspace = require "thlua.space.Letspace"
+const BaseReferSpace = require "thlua.space.BaseReferSpace"
+const NameSpace = require "thlua.space.NameSpace"
+const LetSpace = require "thlua.space.LetSpace"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 const TemplateCom = require "thlua.space.TemplateCom"
 const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
@@ -30,7 +30,7 @@ function NameReference.__tostring(self:clazz.NameReference):Ret(String)
 	return "Reference tostring TODO"
 end
 
-function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.Namespace), vKey:String)
+function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vKey:String)
 	const self = setmetatable({.class
 		_manager = vManager,
 		_parentNodeOrSpace=vParentNodeOrSpace,
@@ -49,15 +49,15 @@ function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager
 	return self
 end
 
-function NameReference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Treespace))
+function NameReference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.LetSpace, clazz.NameSpace))
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
 	if vData then
-		const nSpace = Letspace.new(self._manager, vNode, self, vData)
+		const nSpace = LetSpace.new(self._manager, vNode, self, vData)
 		self._com = nSpace
 		return nSpace
 	else
-		const nSpace = Treespace.new(self._manager, vNode, self)
+		const nSpace = NameSpace.new(self._manager, vNode, self)
 		self._com = nSpace
 		return nSpace
 	end
@@ -143,13 +143,13 @@ function NameReference:triggerReferChild(vNode:clazz.IBaseNode, vKey:String):Ret
 	local nCom = self._com
 	const nParent = self._parentNodeOrSpace
 	if not nCom then
-		if Treespace.is(nParent) then
-			nCom = Treespace.new(self._manager, nParent:getNode(), self)
+		if NameSpace.is(nParent) then
+			nCom = NameSpace.new(self._manager, nParent:getNode(), self)
 			self._assignNode = nParent:getNode()
 			self:_setComAndWakeup(nCom)
 		end
 	end
-	if Namespace.is(nCom) then
+	if BaseReferSpace.is(nCom) then
 		const nChild = nCom:referChild(vNode, vKey)
 		return nChild
 	else
@@ -180,7 +180,7 @@ end
 
 function NameReference:globalGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
 	const nCom = self._com
-	assert(Letspace.is(nCom), vNode:toExc("only letspace com can take global index"))
+	assert(LetSpace.is(nCom), vNode:toExc("only letspace com can take global index"))
 	assert(type(vKey) == "string", vNode:toExc("key must be string when global index"))
 	const nRefer = nCom:pureGet(vKey @> String)
 	if NameReference.is(nRefer) then

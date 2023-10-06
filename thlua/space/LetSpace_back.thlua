@@ -1,6 +1,6 @@
 
 const class = require "thlua.class"
-const Namespace = require "thlua.space.Namespace"
+const BaseReferSpace = require "thlua.space.BaseReferSpace"
 const SpaceValue = require "thlua.space.SpaceValue"
 const Exception = require "thlua.Exception"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
@@ -9,16 +9,16 @@ const StringLiteral = require "thlua.type.basic.StringLiteral"
 	let.clazz = import($class).clazz
 end)
 
-const Letspace = class@<clazz.Letspace, false>(Namespace)
-Letspace.__tostring=function(self):Ret(String)
+const LetSpace = class@<clazz.LetSpace, false>(BaseReferSpace)
+LetSpace.__tostring=function(self):Ret(String)
 	return "letspace-" .. tostring(self._node)
 end
 
-function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.NameReference), clazz.Letspace))
-    self._parentSpace = false @ OrFalse(clazz.Letspace)
+function.open LetSpace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.NameReference), clazz.LetSpace))
+    self._parentSpace = false @ OrFalse(clazz.LetSpace)
 	self._closed=false@Boolean
     self._envTable = SpaceValue.envCreate(self._refer @> clazz.NameReference)
-	if Letspace.is(vParentOrDict) then
+	if LetSpace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
 		for k,v in pairs(vParentOrDict) do
@@ -27,21 +27,21 @@ function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.Name
 	end
 end
 
-function Letspace:parentHasKey(vKey:String):Ret(Boolean)
+function LetSpace:parentHasKey(vKey:String):Ret(Boolean)
     const nParent = self._parentSpace
 	return nParent and nParent:pureGet(vKey) and true or false
 end
 
-function Letspace:pureGet(vKey:String):Ret(OrNil(clazz.NameReference))
+function LetSpace:pureGet(vKey:String):Ret(OrNil(clazz.NameReference))
     const nParent = self._parentSpace
 	return self._key2child[vKey] or (nParent and nParent:pureGet(vKey) or nil)
 end
 
-function Letspace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
+function LetSpace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
     return (self._refer @> clazz.NameReference):getSpaceValue(), self._envTable, self._manager.spaceG
 end
 
-function Letspace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
+function LetSpace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
     const nWhat = getmetatable(vValue).__what
     if nWhat == "_ENV" then
         for k,v in pairs(self._key2child) do
@@ -58,7 +58,7 @@ function Letspace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:claz
     end
 end
 
-function Letspace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
+function LetSpace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
 	local rawgetV = self._key2child[vKey]
 	if not rawgetV then
         if self._closed then
@@ -77,8 +77,8 @@ function Letspace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameR
     return rawgetV
 end
 
-function Letspace:close()
+function LetSpace:close()
 	self._closed=true
 end
 
-return Letspace
+return LetSpace

@@ -1,5 +1,5 @@
 
-const Namespace = require "thlua.space.Namespace"
+const BaseReferSpace = require "thlua.space.BaseReferSpace"
 const Node = require "thlua.code.Node"
 const class = require "thlua.class"
 
@@ -7,12 +7,12 @@ const class = require "thlua.class"
 	let.clazz = import($class).clazz
 end)
 
-const Treespace = class@<clazz.Treespace, false>(Namespace)
-Treespace.__tostring=function(self):Ret(String)
+const NameSpace = class@<clazz.NameSpace, false>(BaseReferSpace)
+NameSpace.__tostring=function(self):Ret(String)
 	return "treespace-" .. tostring(self._node)
 end
 
-function Treespace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
+function NameSpace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
 	local rawgetV = self._key2child[vKey]
 	if not rawgetV then
 		rawgetV = self._manager:NameReference(self, vKey)
@@ -22,10 +22,10 @@ function Treespace:referChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Name
 	return rawgetV
 end
 
-function Treespace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
+function NameSpace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
 	for k,v in pairs(self._key2child) do
         vCompletion:putSpaceField(k, v)
 	end
 end
 
-return Treespace
+return NameSpace
