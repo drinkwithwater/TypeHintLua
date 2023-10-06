@@ -139,15 +139,28 @@ function NameReference:pushReferNode(vNode:clazz.IBaseNode)
 	nNodes[#nNodes + 1] = vNode
 end
 
-function NameReference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
-	const nCom = self._com
-	if type(vKey) == "string" then
-		if Namespace.is(nCom) then
-			const nChild = nCom:getChild(vNode, vKey @> String)
-			return nChild:getSpaceValue()
-		else
-			error(vNode:toExc("namespace expected here"))
+function NameReference:triggerReferChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
+	local nCom = self._com
+	const nParent = self._parentNodeOrSpace
+	if not nCom then
+		if Treespace.is(nParent) then
+			nCom = Treespace.new(self._manager, nParent:getNode(), self)
+			self._assignNode = nParent:getNode()
+			self:_setComAndWakeup(nCom)
 		end
+	end
+	if Namespace.is(nCom) then
+		const nChild = nCom:referChild(vNode, vKey)
+		return nChild
+	else
+		error(vNode:toExc("namespace expected when indexing string key"))
+	end
+end
+
+function NameReference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
+	local nCom = self._com
+	if type(vKey) == "string" then
+		return self:triggerReferChild(vNode, vKey @> String):getSpaceValue()
 	else
 		assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
 		return nCom:getValue(vNode, vKey)
@@ -157,16 +170,8 @@ end
 function NameReference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
 	const nCom = self._com
 	if type(vKey) == "string" then
-		if Namespace.is(nCom) then
-			const nChild = nCom:getChild(vNode, vKey @> String)
-			if NameReference.is(nChild) then
-				nChild:setAssignAsync(vNode, function() return vValue end)
-			else
-				error(vNode:toExc("assign conflict: key="..tostring(vKey)))
-			end
-		else
-			error(vNode:toExc("namespace expected here"))
-		end
+		const nChild = self:triggerReferChild(vNode, vKey @> String)
+		nChild:setAssignAsync(vNode, function() return vValue end)
 	else
 		assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
 		nCom:setValue(vNode, vKey, vValue)
