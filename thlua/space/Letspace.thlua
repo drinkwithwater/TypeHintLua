@@ -14,10 +14,10 @@ Letspace.__tostring=function(self):Ret(String)
 	return "letspace-" .. tostring(self._node)
 end
 
-function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.Reference), clazz.Letspace))
+function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.NameReference), clazz.Letspace))
     self._parentSpace = false @ OrFalse(clazz.Letspace)
 	self._closed=false@Boolean
-    self._envTable = SpaceValue.envCreate(self._refer @> clazz.Reference)
+    self._envTable = SpaceValue.envCreate(self._refer @> clazz.NameReference)
 	if Letspace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
@@ -32,13 +32,13 @@ function Letspace:parentHasKey(vKey:String):Ret(Boolean)
 	return nParent and nParent:pureGet(vKey) and true or false
 end
 
-function Letspace:pureGet(vKey:String):Ret(OrNil(clazz.Reference))
+function Letspace:pureGet(vKey:String):Ret(OrNil(clazz.NameReference))
     const nParent = self._parentSpace
 	return self._key2child[vKey] or (nParent and nParent:pureGet(vKey) or nil)
 end
 
 function Letspace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
-    return (self._refer @> clazz.Reference):getSpaceValue(), self._envTable, self._manager.spaceG
+    return (self._refer @> clazz.NameReference):getSpaceValue(), self._envTable, self._manager.spaceG
 end
 
 function Letspace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
@@ -58,7 +58,7 @@ function Letspace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:claz
     end
 end
 
-function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Reference)
+function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.NameReference)
 	local rawgetV = self._key2child[vKey]
 	if not rawgetV then
         if self._closed then
@@ -70,7 +70,7 @@ function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Referen
         if self._closed then
             error(vNode:toExc("namespace closed, can't create key="..tostring(vKey)))
         end
-        rawgetV = self._manager:Reference(self, vKey)
+        rawgetV = self._manager:NameReference(self, vKey)
         self._key2child[vKey] = rawgetV
 	end
     rawgetV:pushReferNode(vNode)

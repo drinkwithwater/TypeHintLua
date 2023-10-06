@@ -3,13 +3,13 @@ const Exception = require "thlua.Exception"
 
 const SealStack = require "thlua.runtime.SealStack"
 const Node = require "thlua.code.Node"
-const Reference = require "thlua.space.Reference"
+const NameReference = require "thlua.space.NameReference"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const class = require "thlua.class"
 
 (@do
 	let.clazz = import($class).clazz
-	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation, clazz.Reference)
+	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation, clazz.NameReference)
 end)
 
 const ScheduleTask = class@<clazz.ScheduleTask, false>()
@@ -73,7 +73,7 @@ function ScheduleTask:errorWaitByStack(vStack:clazz.SealStack)
 		error(nHost:getNode():toExc("stack waiting error"))
 	elseif Node.is(nHost) then
 		error(nHost:toExc("type not setted"))
-	elseif Reference.is(nHost) then
+	elseif NameReference.is(nHost) then
 		vStack:getRuntime():invalidReference(nHost)
 		error(vStack:getNode():toExc("some reference not setted"))
 	else
@@ -87,7 +87,7 @@ function ScheduleTask:getNode():Ret(OrFalse(clazz.IBaseNode))
 		return nHost:getNode()
 	elseif Node.is(nHost) then
 		return nHost
-	elseif Reference.is(nHost) then
+	elseif NameReference.is(nHost) then
 		return nHost:getAssignNode()
 	else
 		return false

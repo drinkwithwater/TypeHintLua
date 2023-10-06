@@ -23,14 +23,14 @@ const class = require "thlua.class"
 	let.clazz = import($class).clazz
 end)
 
-const Reference = {}
-Reference.__index = Reference
+const NameReference = {}
+NameReference.__index = NameReference
 
-function Reference.__tostring(self:clazz.Reference):Ret(String)
+function NameReference.__tostring(self:clazz.NameReference):Ret(String)
 	return "Reference tostring TODO"
 end
 
-function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.Namespace), vKey:String)
+function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.Namespace), vKey:String)
 	const self = setmetatable({.class
 		_manager = vManager,
 		_parentNodeOrSpace=vParentNodeOrSpace,
@@ -41,7 +41,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vParen
 		_task = nil@!clazz.ScheduleTask,
 		_assignComEvent = nil@!clazz.ScheduleEvent,
 		_spaceValue=nil@!clazz.LocalSpaceValue,
-	}, Reference)
+	}, NameReference)
 	self._spaceValue = SpaceValue.create(self)
 	const nTask = vManager:getScheduleManager():newTask(self)
 	self._task = nTask
@@ -49,7 +49,7 @@ function:class(clazz.Reference) Reference.new(vManager:clazz.TypeManager, vParen
 	return self
 end
 
-function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Treespace))
+function NameReference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T, clazz.Letspace, clazz.Treespace))
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
 	if vData then
@@ -63,15 +63,15 @@ function Reference:initWithSpace@<T>(vNode:clazz.IBaseNode, vData:T):Ret(Cond(T,
 	end
 end
 
-function Reference:getSpaceValue()
+function NameReference:getSpaceValue()
 	return self._spaceValue
 end
 
-function Reference:getComNowait():Ret(OrFalse(clazz.BaseSpaceCom))
+function NameReference:getComNowait():Ret(OrFalse(clazz.BaseSpaceCom))
 	return self._com
 end
 
-function Reference:getComAwait():Ret(clazz.BaseSpaceCom)
+function NameReference:getComAwait():Ret(clazz.BaseSpaceCom)
 	if not self._com then
 		self._assignComEvent:wait()
 	end
@@ -79,24 +79,24 @@ function Reference:getComAwait():Ret(clazz.BaseSpaceCom)
 	return nCom
 end
 
-function Reference:waitAsyncTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
+function NameReference:waitAsyncTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
 	const nCom = self:getComAwait()
 	assert(AsyncTypeCom.is(nCom), vNode:toExc("type expected, but got some other value"))
 	return nCom
 end
 
-function Reference:waitTemplateCom(vNode:clazz.IBaseNode):Ret(clazz.TemplateCom)
+function NameReference:waitTemplateCom(vNode:clazz.IBaseNode):Ret(clazz.TemplateCom)
 	const nCom = self:getComAwait()
 	assert(TemplateCom.is(nCom), vNode:toExc("template expected, but got some other value"))
 	return nCom
 end
 
-function Reference:_setComAndWakeup(vCom:clazz.BaseSpaceCom)
+function NameReference:_setComAndWakeup(vCom:clazz.BaseSpaceCom)
 	self._com = vCom
 	self._assignComEvent:wakeup()
 end
 
-function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
+function NameReference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 	assert(not self._assignNode, vNode:toExc("refer has been setted:"..tostring(self)))
 	self._assignNode = vNode
 	self._task:runAsync(function()
@@ -126,20 +126,20 @@ function Reference:setAssignAsync(vNode:clazz.IBaseNode, vGetFunc:Fn():Ret(Any))
 	end)
 end
 
-function Reference:getAssignNode():Ret(OrFalse(clazz.IBaseNode))
+function NameReference:getAssignNode():Ret(OrFalse(clazz.IBaseNode))
 	return self._assignNode
 end
 
-function Reference:getReferNodes():Ret(List(clazz.IBaseNode))
+function NameReference:getReferNodes():Ret(List(clazz.IBaseNode))
 	return self._referNodes
 end
 
-function Reference:pushReferNode(vNode:clazz.IBaseNode)
+function NameReference:pushReferNode(vNode:clazz.IBaseNode)
 	const nNodes = self._referNodes
 	nNodes[#nNodes + 1] = vNode
 end
 
-function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
+function NameReference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
 	const nCom = self._com
 	if type(vKey) == "string" then
 		if Namespace.is(nCom) then
@@ -154,12 +154,12 @@ function Reference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(c
 	end
 end
 
-function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
+function NameReference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
 	const nCom = self._com
 	if type(vKey) == "string" then
 		if Namespace.is(nCom) then
 			const nChild = nCom:getChild(vNode, vKey @> String)
-			if Reference.is(nChild) then
+			if NameReference.is(nChild) then
 				nChild:setAssignAsync(vNode, function() return vValue end)
 			else
 				error(vNode:toExc("assign conflict: key="..tostring(vKey)))
@@ -173,12 +173,12 @@ function Reference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValu
 	end
 end
 
-function Reference:globalGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
+function NameReference:globalGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
 	const nCom = self._com
 	assert(Letspace.is(nCom), vNode:toExc("only letspace com can take global index"))
 	assert(type(vKey) == "string", vNode:toExc("key must be string when global index"))
 	const nRefer = nCom:pureGet(vKey @> String)
-	if Reference.is(nRefer) then
+	if NameReference.is(nRefer) then
 		return nRefer:getSpaceValue()
 	elseif not nRefer then
         error(vNode:toExc("key with empty value, key="..tostring(vKey)))
@@ -187,7 +187,7 @@ function Reference:globalGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(cl
 	end
 end
 
-function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
+function NameReference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
 	const nCom = self._com
 	if BuiltinFnCom.is(nCom) then
 		return nCom:call(vNode, ...)
@@ -207,8 +207,8 @@ function Reference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(c
 	return nTypeCom
 end
 
-function.open Reference.is(v):isguard(clazz.Reference)
-	return getmetatable(v) == Reference
+function.open NameReference.is(v):isguard(clazz.NameReference)
+	return getmetatable(v) == NameReference
 end
 
-return Reference
+return NameReference

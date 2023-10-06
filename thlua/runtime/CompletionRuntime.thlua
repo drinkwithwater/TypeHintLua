@@ -8,7 +8,7 @@ const BaseRuntime = require "thlua.runtime.BaseRuntime"
 const Namespace = require "thlua.space.Namespace"
 const SpaceValue = require "thlua.space.SpaceValue"
 const ListDict = require "thlua.manager.ListDict"
-const Reference = require "thlua.space.Reference"
+const NameReference = require "thlua.space.NameReference"
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const class = require "thlua.class"
@@ -26,7 +26,7 @@ function.open CompletionRuntime:ctor(...)
 	self._nodeToAutoFnList = ListDict@<clazz.IBaseNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
 	self._nodeToApplyContextList = ListDict@<clazz.IBaseNode, clazz.ApplyContext>()
-	self._invalidReferSet = {} @ Dict(clazz.Reference, True)
+	self._invalidReferSet = {} @ Dict(clazz.NameReference, True)
 end
 
 function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
@@ -37,7 +37,7 @@ function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
 	end
 end
 
-function CompletionRuntime:invalidReference(vRefer:clazz.Reference)
+function CompletionRuntime:invalidReference(vRefer:clazz.NameReference)
 	self._invalidReferSet[vRefer] = true
 end
 
@@ -218,7 +218,7 @@ end
 function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(Dict(clazz.IBaseNode, True))
 	local nNodeSet:Dict(clazz.IBaseNode, True) = {}
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
-		if Reference.is(vResult) then
+		if NameReference.is(vResult) then
 			const nAssignNode = vResult:getAssignNode()
 			if nAssignNode then
 				nNodeSet[nAssignNode] = true

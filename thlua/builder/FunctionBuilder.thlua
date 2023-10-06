@@ -1,7 +1,7 @@
 
 const AutoFlag = require "thlua.auto.AutoFlag"
 const AutoFunction = require "thlua.type.func.AutoFunction"
-const Reference = require "thlua.space.Reference"
+const NameReference = require "thlua.space.NameReference"
 const Exception = require "thlua.Exception"
 const Enum = require "thlua.Enum"
 const Interface = require "thlua.type.object.Interface"
@@ -267,11 +267,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	const nNode = self._node
 	assert(nNode.tag == "Function", nNode:toExc("node must be function here"))
 	const nPrefixHint = self._prefixHint
-	local nReferOrNil:OrNil(clazz.Reference) = nil
+	local nReferOrNil:OrNil(clazz.NameReference) = nil
 	const ok, err = pcall(nPrefixHint.caller, {
 		class=function(vHint, vSpaceAny)
 			const nRefer = SpaceValue.checkRefer(vSpaceAny)
-			assert(nRefer and Reference.is(nRefer), self._node:toExc("class's first arg must be a Reference"))
+			assert(nRefer and NameReference.is(nRefer), self._node:toExc("class's first arg must be a Reference"))
 			nReferOrNil = nRefer
 			return vHint
 		end,

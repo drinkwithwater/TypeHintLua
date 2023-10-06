@@ -15,7 +15,7 @@ const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
 const SealStack = require "thlua.runtime.SealStack"
 const AutoFunction = require "thlua.type.func.AutoFunction"
-const Reference = require "thlua.space.Reference"
+const NameReference = require "thlua.space.NameReference"
 
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 const class = require "thlua.class"
@@ -262,13 +262,13 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 end
 
 function BaseRuntime:TreeNamespace(vNode:node.Debug):Ret(clazz.Treespace)
-	const nRefer = self._manager:Reference(vNode, "")
+	const nRefer = self._manager:NameReference(vNode, "")
 	const nSpace = nRefer:initWithSpace@<Nil>(vNode)
 	return nSpace
 end
 
-function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.Reference))
-	const nGlobal = {} @ Dict(String, Union(clazz.Reference, clazz.BaseSpaceCom))
+function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
+	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
 	do.pass
 		for k,v in pairs(self._manager.type) do
 			nGlobal[k] = v
@@ -347,12 +347,12 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.Reference))
 			self:nodeInfo(vNode, ...)
 		end, "print")
 	end
-	const nRetGlobal = {} @ Dict(String, clazz.Reference)
+	const nRetGlobal = {} @ Dict(String, clazz.NameReference)
 	for k,v in pairs(nGlobal) do
-		if Reference.is(v) then
+		if NameReference.is(v) then
 			nRetGlobal[k] = v
 		else
-			const nRefer = self._manager:Reference(self._node, k)
+			const nRefer = self._manager:NameReference(self._node, k)
 			nRetGlobal[k] = nRefer
 			nRefer:setAssignAsync(self._node, function()
 				return v
@@ -363,7 +363,7 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.Reference))
 end
 
 function BaseRuntime:RootNamespace():Ret(clazz.Letspace)
-	const nRefer = self._manager:Reference(self._node, "")
+	const nRefer = self._manager:NameReference(self._node, "")
 	const nGlobal = self:buildSimpleGlobal()
 	const nSpace = nRefer:initWithSpace@<$nGlobal>(self._node, nGlobal)
 	nSpace:close()
@@ -371,7 +371,7 @@ function BaseRuntime:RootNamespace():Ret(clazz.Letspace)
 end
 
 function BaseRuntime:LetNamespace(vParentLet:clazz.Letspace, vRegionNode:clazz.IBaseNode):Ret(clazz.Letspace)
-	const nRefer = self._manager:Reference(vParentLet, "")
+	const nRefer = self._manager:NameReference(vParentLet, "")
 	const nSpace = nRefer:initWithSpace@<$vParentLet>(self._node, vParentLet)
 	return nSpace
 end
@@ -385,7 +385,7 @@ function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:
 	-- pass
 end
 
-function BaseRuntime:invalidReference(vRefer:clazz.Reference)
+function BaseRuntime:invalidReference(vRefer:clazz.NameReference)
 	-- pass
 end
 
