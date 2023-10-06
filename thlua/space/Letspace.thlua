@@ -11,13 +11,13 @@ end)
 
 const Letspace = class@<clazz.Letspace, false>(Namespace)
 Letspace.__tostring=function(self):Ret(String)
-	return "letspace-" .. tostring(self._node).."|"..tostring(self._key or "!keynotset")
+	return "letspace-" .. tostring(self._node)
 end
 
 function.open Letspace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.Reference), clazz.Letspace))
     self._parentSpace = false @ OrFalse(clazz.Letspace)
 	self._closed=false@Boolean
-    self._envTable = SpaceValue.envCreate(self._refer)
+    self._envTable = SpaceValue.envCreate(self._refer @> clazz.Reference)
 	if Letspace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
@@ -38,7 +38,7 @@ function Letspace:pureGet(vKey:String):Ret(OrNil(clazz.Reference))
 end
 
 function Letspace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)
-    return self._refer:getSpaceValue(), self._envTable, self._manager.spaceG
+    return (self._refer @> clazz.Reference):getSpaceValue(), self._envTable, self._manager.spaceG
 end
 
 function Letspace:spaceCompletion(vCompletion:clazz.FieldCompletion, vValue:clazz.BaseSpaceValue)
@@ -70,7 +70,7 @@ function Letspace:getChild(vNode:clazz.IBaseNode, vKey:String):Ret(clazz.Referen
         if self._closed then
             error(vNode:toExc("namespace closed, can't create key="..tostring(vKey)))
         end
-        rawgetV = self._manager:Reference(tostring(vKey))
+        rawgetV = self._manager:Reference(self, vKey)
         self._key2child[vKey] = rawgetV
 	end
     rawgetV:pushReferNode(vNode)
