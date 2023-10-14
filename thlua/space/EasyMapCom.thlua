@@ -37,15 +37,18 @@ function EasyMapCom:getValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(cl
 end
 
 function EasyMapCom:setValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
-	const nKeyMustType = self._dirtyProcessor:easyToMustType(vNode, vKey):checkAtomUnion()
-	assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
-	local nCurTypeCom = self._atom2value[nKeyMustType]
-	if not nCurTypeCom then
-		nCurTypeCom = self._manager:AsyncTypeCom(vNode)
-		self._atom2value[nKeyMustType] = nCurTypeCom
-	end
-	nCurTypeCom:setTypeAsync(vNode, function()
-		return self._dirtyProcessor:easyToMustType(vNode, vValue)
+	const nTask = self._manager:getScheduleManager():newTask(vNode)
+	nTask:runAsync(function()
+		const nKeyMustType = self._dirtyProcessor:easyToMustType(vNode, vKey):checkAtomUnion()
+		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
+		local nCurTypeCom = self._atom2value[nKeyMustType]
+		if not nCurTypeCom then
+			nCurTypeCom = self._manager:AsyncTypeCom(vNode)
+			self._atom2value[nKeyMustType] = nCurTypeCom
+		end
+		nCurTypeCom:setTypeAsync(vNode, function()
+			return self._dirtyProcessor:easyToMustType(vNode, vValue)
+		end)
 	end)
 end
 

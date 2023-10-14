@@ -1,4 +1,5 @@
 
+const Node = require "thlua.code.Node"
 const AutoFlag = require "thlua.auto.AutoFlag"
 const AutoFunction = require "thlua.type.func.AutoFunction"
 const NameReference = require "thlua.space.NameReference"
@@ -256,9 +257,22 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		return nGuardFn
 	else
 		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyTuple, vTermTuple)
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyTuple and vPolyTuple:buildOpenPolyArgs() or {} @ List(clazz.UMustType), false)
-			nGenParam(vTermTuple)
-			return nGenFunc()
+			const ok, runRet, runErr = xpcall(function()
+				const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyTuple and vPolyTuple:buildOpenPolyArgs() or {} @ List(clazz.UMustType), false)
+				nGenParam(vTermTuple)
+				return nGenFunc()
+			end, function(err:Any):Ret(clazz.Exception)
+				if Exception.is(err) then
+					return err
+				else
+					return Node.newDebugNode(4):toExc(tostring(err))
+				end
+			end)
+			if ok then
+				return runRet, runErr
+			else
+				error(runRet)
+			end
 		end)
 	end
 end
