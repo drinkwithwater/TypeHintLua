@@ -307,13 +307,13 @@ end
 
 function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
 	const l:List(clazz.UMustType) = {...}
-	const nCollection = self:TypeCollection()
+	const nTypeSet = self:HashableTypeSet()
 	for i=1, select("#", ...) do
 		l[i]!:checkAtomUnion():foreach(function(vAtomType)
-			nCollection:put(vAtomType)
+			nTypeSet:putAtom(vAtomType)
 		end)
 	end
-	return nCollection:mergeToAtomUnion()
+	return self:unifyAndBuild(nTypeSet)
 end
 
 function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:clazz.USpaceAny, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
@@ -460,11 +460,25 @@ function TypeManager:_unifyUnion(vNewType:clazz.IUnionType):Ret(clazz.UAtomUnion
 	end
 end
 
-function TypeManager:atomRecordTypeUnionSign(vType:clazz.BaseAtomType)
+function TypeManager:unionUnifyToType(vNewUnion:clazz.IUnionType):Ret(clazz.UAtomUnion)
 	const nHashableTypeSet = self:HashableTypeSet()
-	nHashableTypeSet:initFromAtom(vType)
-	self:unifyTypeSet(nHashableTypeSet)
-	self._unionSignToType[tostring(vType.id)] = vType
+	nHashableTypeSet:initFromUnion(vNewUnion)
+	const nUnifyTypeSet = self:unifyTypeSet(nHashableTypeSet)
+	if nUnifyTypeSet == nHashableTypeSet then
+		vNewUnion:initWithTypeId(self:genTypeId(), nHashableTypeSet)
+		return vNewUnion
+	else
+		return nUnifyTypeSet:buildType()
+	end
+end
+
+function TypeManager:atomUnifyToSet(vNewAtom:clazz.IAtomType):Ret(clazz.HashableTypeSet)
+	const nHashableTypeSet = self:HashableTypeSet()
+	nHashableTypeSet:initFromAtom(vNewAtom)
+	const nTypeSet = self:unifyTypeSet(nHashableTypeSet)
+	assert(nTypeSet == nHashableTypeSet, "but atom build type id conflict")
+	self._unionSignToType[tostring(vNewAtom.id)] = vNewAtom
+	return nTypeSet
 end
 
 function TypeManager:metaNativeOpenFunction(vFn):Ret(clazz.OpenFunction)
@@ -618,12 +632,12 @@ function TypeManager:typeMapReduce@<TValue>(
 	vTypePairList:IList(Interface {clazz.UAtomUnion, TValue}),
 	vReduceFn:Fn(IList(TValue)):Ret(TValue)
 ):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, TValue))
-	const nCollection = self:TypeCollection()
+	const nTypeSet = self:HashableTypeSet()
 	for _, nPair in ipairs(vTypePairList) do
 		local nFieldType = nPair[1]
-		nCollection:put(nFieldType)
+		nTypeSet:putType(nFieldType)
 	end
-	const nKeyUnion = nCollection:mergeToAtomUnion()
+	const nKeyUnion = self:unifyAndBuild(nTypeSet)
 	-- step 1: map
 	const nTypeToList:Dict(clazz.IAtomType, List(TValue)) = {}
 	for _, nPair in ipairs(vTypePairList) do
@@ -651,13 +665,13 @@ function TypeManager:unionReduceType(vList:IList(clazz.UAtomUnion)):Ret(clazz.UA
 	if #vList == 1 then
 		return vList[1]!
 	end
-	const nCollection = self:TypeCollection()
+	const nTypeSet = self:HashableTypeSet()
 	for _, nType in ipairs(vList) do
 		nType:foreach(function(vAtomType)
-			nCollection:put(vAtomType)
+			nTypeSet:putAtom(vAtomType)
 		end)
 	end
-	return nCollection:mergeToAtomUnion()
+	return self:unifyAndBuild(nTypeSet)
 end
 
 function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(clazz.UMustType)):Ret(clazz.UMustType)

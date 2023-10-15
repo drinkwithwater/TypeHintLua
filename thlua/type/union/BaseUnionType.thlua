@@ -10,10 +10,7 @@ function.open BaseUnionType:ctor(...)
     self.bits = false @? Integer
     self._atomList = {} @ List(clazz.IAtomType)
     self._unionSign = false@OrFalse(String)
-end
-
-function BaseUnionType:getAtomList()
-    return self._atomList
+    self._typeSet = false @? clazz.HashableTypeSet
 end
 
 function BaseUnionType:detailString(vCache, vVerbose):Ret(String)
@@ -31,9 +28,10 @@ function BaseUnionType:detailString(vCache, vVerbose):Ret(String)
     return "Union("..table.concat(sl,",")..")"
 end
 
-function BaseUnionType:initWithTypeId(vTypeId)
+function BaseUnionType:initWithTypeId(vTypeId, vTypeSet)
     assert(self.id == 0, "newunion's id must be 0")
     self.id = vTypeId
+    self._typeSet = vTypeSet
     const nAtomList = self._atomList
     self:foreach(function(vAtomType)
         nAtomList[#nAtomList + 1] = vAtomType
