@@ -22,30 +22,64 @@ function:class(clazz.HashableTypeSet) HashableTypeSet.new(vManager:clazz.TypeMan
     return self
 end
 
-function HashableTypeSet:searchOrLink(vConflictTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
-    local nCurTypeSet = self
-    while true do
-        if nCurTypeSet:same(vConflictTypeSet) then
-            return nCurTypeSet
+-- true means found, false means not found
+function HashableTypeSet:linkedSearchTypeOrAttachSet(vType:clazz.IUnionType):Ret(True, clazz.UAtomUnion):Ret(False, clazz.HashableTypeSet)
+    local nCount = 0
+    local nMatch = true
+    const nTypeDict = self._typeDict
+    vType:foreach(function(vAtomType)
+        if not nTypeDict[vAtomType.id] then
+            nMatch = false
         end
-        const nNextTypeSet = nCurTypeSet._next
-        if not nNextTypeSet then
-            nCurTypeSet._next = vConflictTypeSet
-            return vConflictTypeSet
+        nCount = nCount + 1
+    end)
+    if nCount ~= self._num then
+        nMatch = false
+    end
+    if not nMatch then
+        const nNextTypeSet = self._next
+        if nNextTypeSet then
+            return nNextTypeSet:linkedSearchTypeOrAttachSet(vType)
         else
-            nCurTypeSet = nNextTypeSet
+            const nNewTypeSet = self._manager:HashableTypeSet()
+            nNewTypeSet:initFromUnion(vType)
+            self._next = nNewTypeSet
+            return false, nNewTypeSet
+        end
+    else
+        const nResultType = self._typeResult
+        if nResultType then
+            return true, nResultType
+        else
+            self._typeResult = vType
+            return false, self
         end
     end
 end
 
-function HashableTypeSet:same(vTypeSet:clazz.HashableTypeSet):Ret(Boolean)
+function HashableTypeSet:linkedSearchOrLink(vConflictTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
+    local nMatch = true
     const nSelfTypeDict = self._typeDict
-    for k,v in pairs(vTypeSet._typeDict) do
+    for k,v in pairs(vConflictTypeSet._typeDict) do
         if not nSelfTypeDict[k] then
-            return false
+            nMatch = false
+            break
         end
     end
-    return self._num == vTypeSet._num
+    if self._num ~= vConflictTypeSet._num then
+        nMatch = false
+    end
+    if nMatch then
+        return self
+    else
+        const nNextTypeSet = self._next
+        if not nNextTypeSet then
+            self._next = vConflictTypeSet
+            return vConflictTypeSet
+        else
+            return nNextTypeSet:linkedSearchOrLink(vConflictTypeSet)
+        end
+    end
 end
 
 function HashableTypeSet:putSet(vTypeSet:clazz.HashableTypeSet)
@@ -92,8 +126,23 @@ function HashableTypeSet:getNum()
     return self._num
 end
 
+function HashableTypeSet.hashType(vType:clazz.UAtomUnion):Ret(Integer)
+    local addValue = 0
+    local xorValue = 0
+    vType:foreach(function(vAtomType)
+        const nId = vAtomType.id
+        addValue = addValue + nId
+        xorValue = xorValue ^ nId
+    end)
+    return (xorValue << 32) + addValue
+end
+
 function HashableTypeSet:getHash()
     return self._hash
+end
+
+function HashableTypeSet:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+    return self._typeResult
 end
 
 function HashableTypeSet:buildType():Ret(clazz.UAtomUnion)
