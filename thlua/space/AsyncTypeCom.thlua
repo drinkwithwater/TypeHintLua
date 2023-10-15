@@ -9,9 +9,9 @@ const AsyncTypeCom = class@<clazz.AsyncTypeCom, clazz.IType>(BaseSpaceCom)
 
 function AsyncTypeCom.__tostring(self:clazz.AsyncTypeCom)
 	const l:List(String) = {}
-	const nTypeList = self._typeList
-	if nTypeList then
-		for i, v in ipairs(nTypeList) do
+	const nTypeSet = self._typeSet
+	if nTypeSet then
+		for i, v in pairs(nTypeSet:getDict()) do
 			l[i] = tostring(v)
 		end
 		return "AsyncTypeCom("..table.concat(l, ",")..")"
@@ -26,7 +26,7 @@ function.open AsyncTypeCom:ctor(_, _)
 	self._task=nTask
 	self._assignNode=false@OrFalse(clazz.IBaseNode)
 	self._mayRecursive=false@Boolean
-	self._typeList=false@OrFalse(List(clazz.IAtomType))
+	self._typeSet=false@OrFalse(clazz.HashableTypeSet)
 	self._resultType=false@OrFalse(clazz.UAtomUnion)
 	self._listBuildEvent=nTask:makeEvent()
 	self._resultBuildEvent=nTask:makeEvent()
@@ -68,11 +68,11 @@ function AsyncTypeCom:mayRecursive():Ret(Boolean)
 	return self._mayRecursive
 end
 
-function AsyncTypeCom:getListAwait():Ret(List(clazz.IAtomType))
-	if not self._typeList then
+function AsyncTypeCom:getSetAwait():Ret(clazz.HashableTypeSet)
+	if not self._typeSet then
 		self._listBuildEvent:wait()
 	end
-	return (assert(self._typeList, "type list not setted"))
+	return (assert(self._typeSet, "type list not setted"))
 end
 
 function AsyncTypeCom:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
@@ -81,16 +81,16 @@ function AsyncTypeCom:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMu
 	self._task:runAsync(function()
 		const nResultType = vFn()
 		if AsyncTypeCom.is(nResultType) then
-			self._typeList = nResultType:getListAwait()
+			self._typeSet = nResultType:getSetAwait()
 			self._listBuildEvent:wakeup()
 			self._resultType = nResultType:checkAtomUnion()
 			self._resultBuildEvent:wakeup()
 		else
-			const nList = {} @ List(clazz.IAtomType)
+			const nSet = self._manager:HashableTypeSet()
 			nResultType:foreach(function(vType)
-				nList[#nList + 1] = vType
+				nSet:putAtom(vType)
 			end)
-			self._typeList = nList
+			self._typeSet = nSet
 			self._resultType = nResultType
 			self._listBuildEvent:wakeup()
 			self._resultBuildEvent:wakeup()
@@ -98,31 +98,29 @@ function AsyncTypeCom:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMu
 	end)
 end
 
-function AsyncTypeCom:setListAsync(vNode:clazz.IBaseNode, vGetListLateRunner:Fn():Ret(List(clazz.IAtomType), OrNil(Fn(clazz.UAtomUnion))))
+function AsyncTypeCom:setSetAsync(vNode:clazz.IBaseNode, vGetSetLateRunner:Fn():Ret(clazz.HashableTypeSet, OrNil(Fn(clazz.UAtomUnion))))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
-		const nAtomList, nLateRunner = vGetListLateRunner()
+		const nTypeSet , nLateRunner = vGetSetLateRunner()
 		-- step 1. set list
-		self._typeList = nAtomList
-		for k, v in ipairs(nAtomList) do
+		self._typeSet = self._manager:unifyTypeSet(nTypeSet)
+		for k, v in pairs(nTypeSet:getDict()) do
 			if v:mayRecursive() then
 				self._mayRecursive = true
 			end
 		end
 		self._listBuildEvent:wakeup()
+		const nTypeNum = nTypeSet:getNum()
 		-- step 2. merge to result type
 		local nResultType:OrNil(clazz.UAtomUnion) = nil
-		if #nAtomList == 0 then
+		if nTypeNum == 0 then
 			nResultType = self._manager.type.Never
-		elseif #nAtomList == 1 then
-			nResultType = nAtomList[1]!
+		elseif nTypeNum == 1 then
+			const _, nFirstType = next(nTypeSet:getDict())
+			nResultType = nFirstType!
 		else
-			local nCollection = self._manager:TypeCollection()
-			for _, v in ipairs(nAtomList) do
-				nCollection:put(v)
-			end
-			nResultType = nCollection:mergeToAtomUnion()
+			nResultType = nTypeSet:buildType()
 		end
 		self._resultType = nResultType
 		self._resultBuildEvent:wakeup()
@@ -137,8 +135,8 @@ function AsyncTypeCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
 	if nResultType then
 		nResultType:foreach(vFunc)
 	else
-		local nListType = self:getListAwait()
-		for _, v in ipairs(nListType) do
+		local nTypeSet = self:getSetAwait()
+		for _, v in pairs(nTypeSet:getDict()) do
 			vFunc(v)
 		end
 	end
@@ -150,13 +148,13 @@ function AsyncTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	else
 		local nAllInclude:Boolean = true
-		const nTypeList = nResultType:getListAwait()
+		const nTypeSet = nResultType:getSetAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if not nAllInclude then
 				return
 			end
 			local nCurInclude:Boolean = false
-			for _, nType in ipairs(nTypeList) do
+			for _, nType in pairs(nTypeSet:getDict()) do
 				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
 					nCurInclude = true
 					break
@@ -176,13 +174,13 @@ function AsyncTypeCom:assumeIntersectSome(vAssumeSet, vRight)
 		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
 	else
 		local nSomeIntersect:Boolean = false
-		const nTypeList = nResultType:getListAwait()
+		const nTypeSet = nResultType:getSetAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if nSomeIntersect then
 				return
 			end
 			local nCurIntersect:Boolean = false
-			for _, nType in ipairs(nTypeList) do
+			for _, nType in pairs(nTypeSet:getDict()) do
 				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
 					nCurIntersect = true
 					break
@@ -201,8 +199,8 @@ function AsyncTypeCom:foreachAwait(vFunc)
 	if not nResultType:isAsync() then
 		nResultType:foreach(vFunc)
 	else
-		local nListType = nResultType:getListAwait()
-		for _, v in ipairs(nListType) do
+		local nTypeSet = nResultType:getSetAwait()
+		for _, v in pairs(nTypeSet:getDict()) do
 			vFunc(v)
 		end
 	end
@@ -237,8 +235,7 @@ function AsyncTypeCom:unionSign()
 end
 
 function AsyncTypeCom:isNever():Ret(Boolean)
-	const nList = self:getListAwait()
-	return #nList <= 0
+	return self:getSetAwait():getNum() <= 0
 end
 
 function AsyncTypeCom:getManager()

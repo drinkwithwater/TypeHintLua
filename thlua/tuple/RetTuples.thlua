@@ -22,9 +22,9 @@ function.open RetTuples:ctor(
 	self._firstType=nAsyncFirstType
 	self._firstToTuple=nil@!OrNil(Dict(clazz.UMustType, clazz.UTypeTuple))
 	self._errType = vErrType and self._manager:buildUnion(vNode, self._manager.type.String, vErrType) or self._manager.type.String
-	nAsyncFirstType:setListAsync(vNode, function()
+	nAsyncFirstType:setSetAsync(vNode, function()
 		const nIndependentList:List(clazz.UMustType) = {}
-		const nFirstAtomList:List(clazz.IAtomType) = {}
+		const nFirstTypeSet = vManager:HashableTypeSet()
 		const nFirstToTuple:Dict(clazz.UMustType, clazz.UTypeTuple) = {}
 		for _, nTuple in ipairs(vTupleList) do
 			const nFirst = self._manager:getDirtyProcessor():easyToMustType(vNode, nTuple:get(1))
@@ -32,11 +32,11 @@ function.open RetTuples:ctor(
 			nIndependentList[#nIndependentList + 1] = nFirst
 			nFirstToTuple[nFirst] = nTuple
 			nFirst:foreachAwait(function(vAtomType)
-				nFirstAtomList[#nFirstAtomList + 1] = vAtomType
+				nFirstTypeSet:putAtom(vAtomType)
 			end)
 		end
 		self._firstToTuple = nFirstToTuple
-		return nFirstAtomList, function(vResultType)
+		return nFirstTypeSet, function(vResultType)
 			const nAtomUnion = nAsyncFirstType:checkAtomUnion()
 			if not vManager:typeCheckIndependent(nIndependentList, vResultType) then
 				error(vNode:toExc("return tuples' first type must be independent"))
@@ -46,7 +46,7 @@ function.open RetTuples:ctor(
 end
 
 function RetTuples:waitFirstToTuple():Ret(Dict(clazz.UMustType, clazz.UTypeTuple))
-	self._firstType:getListAwait()
+	self._firstType:getSetAwait()
 	return self._firstToTuple!
 end
 

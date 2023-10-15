@@ -63,6 +63,8 @@ const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 const TypeRelation = require "thlua.manager.TypeRelation"
 const TupleBuilder = require "thlua.tuple.TupleBuilder"
 
+const HashableTypeSet = require "thlua.manager.HashableTypeSet"
+
 (@do
 	let.clazz = import("thlua.class").clazz
 	let.WaitingInfo = Struct {
@@ -122,6 +124,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		generic={} @ Dict(String, clazz.TemplateCom),
 		spaceG = setmetatable({}, {__index=_G}),
 		MetaOrNil=nil @! clazz.UAtomUnion,
+		_hashToTypeSet={} @ Dict(Integer, clazz.HashableTypeSet),
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
 		_integerLiteralDict = {}@Dict(Integer, clazz.IntegerLiteral),
@@ -188,6 +191,10 @@ function TypeManager:isLiteral(vType:clazz.IAtomType):Ret(Boolean)
 	end
 end
 
+function TypeManager:HashableTypeSet():Ret(clazz.HashableTypeSet)
+	return HashableTypeSet.new(self)
+end
+
 function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
@@ -213,7 +220,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		else
 			assert(#nObjectList >= 2, "StructExtend must take at least one interface after struct")
 		end
-		const nKeyList:List(clazz.IAtomType) = {}
+		const nKeyTypeSet = self:HashableTypeSet()
 		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UMustType}) = {}
 		const nIntersectSet:Dict(clazz.TypedObject, True) = {}
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
@@ -239,8 +246,8 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 			end
 			local nValueDict = nTypedObject:getValueDict()
 			const nKeyRefer, nNextKey = nTypedObject:getKeyTypes()
-			for _, nKeyType in ipairs(nKeyRefer:getListAwait()) do
-				nKeyList[#nKeyList + 1] = nKeyType
+			for _, nKeyType in pairs(nKeyRefer:getSetAwait():getDict()) do
+				nKeyTypeSet:putAtom(nKeyType)
 				nKeyValuePairList[#nKeyValuePairList + 1] = {nKeyType, nValueDict[nKeyType]!}
 			end
 			nMetaEventComList[#nMetaEventComList + 1] = nTypedObject:getMetaEventCom() or nil
@@ -260,7 +267,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		const _, nFinalValueDict = self:typeMapReduce@<clazz.UMustType>(nKeyValuePairList, function(vList)
 			return self:intersectReduceType(vNode, vList)
 		end)
-		return nKeyList, function(vKeyAtomUnion)
+		return nKeyTypeSet, function(vKeyAtomUnion)
 			if #nMetaEventComList > 0 then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				nNewEventCom:initByMerge(nMetaEventComList)
@@ -342,20 +349,19 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(
 	local l = {...}
 	const nLen = select("#", ...)
 	local nAsyncTypeCom = self:AsyncTypeCom(vNode)
-	nAsyncTypeCom:setListAsync(vNode, function()
-		local nTypeList:List(clazz.IAtomType) = {}
+	nAsyncTypeCom:setSetAsync(vNode, function()
+		local nTypeSet = self:HashableTypeSet()
 		for i=1, nLen do
 			local nItem = self._dirtyProcessor:easyToMustType(vNode, l[i])
 			if AsyncTypeCom.is(nItem) then
-				const nList = nItem:getListAwait()
-				table.move(nList, 1, #nList, #nTypeList + 1, nTypeList)
+				nTypeSet:putSet(nItem:getSetAwait())
 			else
 				nItem:foreach(function(vAtom)
-					nTypeList[#nTypeList + 1] = vAtom
+					nTypeSet:putAtom(vAtom)
 				end)
 			end
 		end
-		return nTypeList
+		return nTypeSet
 	end)
 	return nAsyncTypeCom
 end
@@ -375,14 +381,14 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
 		const nIndependentList:List(clazz.UMustType) = {}
-		const nKeyList:List(clazz.IAtomType) = {}
+		const nKeyTypeSet = self:HashableTypeSet()
 		const nValueDict:Dict(clazz.IAtomType, clazz.UMustType) = {}
 		for nKey, nValue in pairs(vTable) do
 			const nValueType = self._dirtyProcessor:easyToMustType(vNode, nValue)
 			const nKeyType = self._dirtyProcessor:easyToMustType(vNode, nKey)
 			nIndependentList[#nIndependentList + 1] = nKeyType
 			nKeyType:checkAtomUnion():foreach(function(vAtomType)
-				nKeyList[#nKeyList + 1] = vAtomType
+				nKeyTypeSet:putAtom(vAtomType)
 				if vAtomType:isSingleton() then
 					nValueDict[vAtomType] = nValueType
 				else
@@ -390,7 +396,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 				end
 			end)
 		end
-		return nKeyList, function(vKeyAtomUnion)
+		return nKeyTypeSet, function(vKeyAtomUnion)
 			if vMetaEventDict then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				const nEventToType:Dict(String, clazz.UMustType) = {}
@@ -423,6 +429,18 @@ end
 
 function TypeManager:buildOrFalse(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	return self:buildUnion(vNode, self.type.False, ...)
+end
+
+function TypeManager:unifyTypeSet(vTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
+	const nHashToTypeSet = self._hashToTypeSet
+	const nHash = vTypeSet:getHash()
+	const nCurTypeSet = nHashToTypeSet[nHash]
+	if not nCurTypeSet then
+		nHashToTypeSet[nHash] = vTypeSet
+		return vTypeSet
+	else
+		return nCurTypeSet:searchOrLink(vTypeSet)
+	end
 end
 
 function TypeManager:_unifyUnion(vNewType:clazz.IUnionType):Ret(clazz.UAtomUnion)

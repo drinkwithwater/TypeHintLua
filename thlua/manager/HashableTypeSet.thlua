@@ -1,0 +1,96 @@
+
+const class = require "thlua.class"
+
+(@do
+	let.clazz = import($class).clazz
+end)
+
+const HashableTypeSet = {}
+HashableTypeSet.__index = HashableTypeSet
+
+function:class(clazz.HashableTypeSet) HashableTypeSet.new(vManager:clazz.TypeManager)
+    const self = setmetatable({.class
+        _manager = vManager,
+        _typeDict = {} @ Dict(Integer, clazz.IAtomType),
+        _typeResult = false @ OrFalse(clazz.UAtomUnion),
+        _num = 0 @ Integer,
+        _addValue = 0 @ Integer,
+        _xorValue = 0 @ Integer,
+        _hash = 0 @ Integer,
+        _depth = 0 @ Integer,
+        _next = false @ OrFalse(clazz.HashableTypeSet)
+    }, HashableTypeSet)
+    return self
+end
+
+function HashableTypeSet:searchOrLink(vConflictTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
+    local nCurTypeSet = self
+    while true do
+        if nCurTypeSet:same(vConflictTypeSet) then
+            return nCurTypeSet
+        end
+        const nNextTypeSet = nCurTypeSet._next
+        if not nNextTypeSet then
+            nCurTypeSet._next = vConflictTypeSet
+            vConflictTypeSet._depth = nCurTypeSet._depth + 1
+            return vConflictTypeSet
+        else
+            nCurTypeSet = nNextTypeSet
+        end
+    end
+end
+
+function HashableTypeSet:same(vTypeSet:clazz.HashableTypeSet):Ret(Boolean)
+    const nSelfTypeDict = self._typeDict
+    for k,v in pairs(vTypeSet._typeDict) do
+        if not nSelfTypeDict[k] then
+            return false
+        end
+    end
+    return self._num == vTypeSet._num
+end
+
+function HashableTypeSet:putSet(vTypeSet:clazz.HashableTypeSet)
+    for k,v in pairs(vTypeSet._typeDict) do
+        self:putAtom(v)
+    end
+end
+
+function HashableTypeSet:putAtom(vAtomType:clazz.IAtomType)
+    const nId = vAtomType.id
+    const nTypeDict = self._typeDict
+    if not nTypeDict[nId] then
+        nTypeDict[nId] = vAtomType
+        self._addValue = self._addValue + nId
+        self._xorValue = self._xorValue ^ nId
+        self._hash = (self._xorValue << 32) + self._addValue
+        self._num = self._num + 1
+    end
+end
+
+function HashableTypeSet:getDict()
+    return self._typeDict
+end
+
+function HashableTypeSet:getNum()
+    return self._num
+end
+
+function HashableTypeSet:getHash()
+    return self._hash
+end
+
+function HashableTypeSet:buildType():Ret(clazz.UAtomUnion)
+    local nResultType = self._typeResult
+    if not nResultType then
+        const nCollection = self._manager:TypeCollection()
+        for k,v in pairs(self._typeDict) do
+            nCollection:put(v)
+        end
+        nResultType = nCollection:mergeToAtomUnion()
+        self._typeResult = nResultType
+    end
+    return nResultType
+end
+
+return HashableTypeSet
