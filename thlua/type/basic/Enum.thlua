@@ -5,20 +5,25 @@ const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const class = require "thlua.class"
 
 
-(@let.clazz = import($class).clazz)
+(@do
+    let.clazz = import($class).clazz
+    let.AddPair = Struct {
+        node=clazz.IBaseNode,
+        value=clazz.USpaceAny,
+    }
+end)
 
 const Enum = class@<clazz.Enum, false>(BaseAtomType)
 
-function.open Enum:ctor(vManager:clazz.TypeManager, vSuperType:clazz.UAtomUnion)
+function.open Enum:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vSuperType:clazz.IAtomType)
     self._superType = vSuperType
     self._set = {} @ Dict(clazz.IAtomType, True)
-    self._toAddList = {} @ List(clazz.USpaceAny)
+    self._closed = false @ Boolean
+    self._toAddList = {} @ List(AddPair)
     self._addEvent = false @ OrFalse(clazz.ScheduleEvent)
 	self.bits = vSuperType.bits
-        --[[
-    self._task = vManager:getScheduleManager():newTask()
+    self._task = vManager:getScheduleManager():newTask(vNode)
     self._task:runAsync(function()
-        -- TODO
         while true do
             const nAddList = self._toAddList
             if #nAddList == 0 then
@@ -28,26 +33,32 @@ function.open Enum:ctor(vManager:clazz.TypeManager, vSuperType:clazz.UAtomUnion)
                 self._addEvent = false
             end
             self._toAddList = {}
-            for i=1,#nAddList do
-                const nType = nAddList[i]!:mustType()
+            for i, addPair in ipairs(nAddList) do
+                const nType = vManager:getDirtyProcessor():easyToMustType(addPair.node, addPair.value)
                 nType:foreachAwait(function(vAtomType)
+                    assert(vSuperType:includeAtom(vAtomType) and vAtomType, vNode:toExc("enum add invalid type"))
+                    assert(not self._closed, vNode:toExc("enum is closed"))
                     self._set[vAtomType] = true
                 end)
             end
         end
     end)
-        ]]
 end
 
-function Enum:addType(vType:clazz.USpaceAny)
-    --[[
+function Enum:getSuperType():Ret(clazz.UAtomUnion)
+    return self._superType
+end
+
+function Enum:addType(vNode:clazz.IBaseNode, vValue:clazz.USpaceAny)
     const nAddList = self._toAddList
-    nAddList[#nAddList + 1] = vType
+    nAddList[#nAddList + 1] = {
+        node=vNode,
+        value=vValue,
+    }
     const nAddEvent = self._addEvent
     if nAddEvent then
         nAddEvent:wakeup()
     end
-    ]]
 end
 
 function Enum:native_type()
@@ -56,6 +67,19 @@ function Enum:native_type()
         return self._manager.type.String
     else
         return nSuperType:native_type()
+    end
+end
+
+function Enum:deEnum():Ret(clazz.IAtomType)
+	return self._superType
+end
+
+function Enum:assumeIncludeAtom(vAssumetSet, vType, _)
+    self._closed = true
+    if self._set[vType] then
+        return vType
+    else
+        return false
     end
 end
 

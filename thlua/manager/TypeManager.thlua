@@ -309,18 +309,23 @@ function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
 	return nCollection:mergeToAtomUnion()
 end
 
-function.pass TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:Truth):Ret(clazz.NameReference)
-	error("build Enum TODO")
-	--[[const nNewRefer = self:NameReference(false)
-	--[[nNewRefer:setUnionAsync(vNode, function()
-		const nType = self._dirtyProcessor:easyToAllType(vNode, vArgType)
-		const nSuperType = Reference.is(nType) and nType:waitTypeCom():getTypeAwait() or nType
-		return {Enum.new(self, nSuperType)}
+function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:clazz.USpaceAny, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
+	const nAsyncTypeCom = self:AsyncTypeCom(vNode)
+	const nList:List(clazz.USpaceAny) = {...}
+	const nNum = select("#", ...)
+	nAsyncTypeCom:setTypeAsync(vNode, function()
+		const nType = self._dirtyProcessor:easyToMustType(vNode, vArgType):checkAtomUnion()
+		assert(BaseAtomType.is(nType) and not nType:isSingleton(), vNode:toExc("enum's supertype must be non-singleton atom type"))
+		const nEnum = Enum.new(self, vNode, nType)
+		for i=1, nNum do
+			nEnum:addType(vNode, nList[i])
+		end
+		return nEnum
 	end)
-	return nNewRefer]]
+	return nAsyncTypeCom
 end
 
---[[function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:Truth, ...:Truth)
+--[[function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:USpaceAny, ...:clazz.USpaceAny)
 	-- TODO, put this in an async thread
 	const nType = self._dirtyProcessor:easyToMustType(vNode, vEnumType)
 	local nEnumType = nType:checkAtomUnion()
