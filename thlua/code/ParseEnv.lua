@@ -380,7 +380,7 @@ local G = lpeg.P { "TypeHintLua";
 	LongHint = hintC.long();
 
 	StatHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.DoStat + vv.ApplyOrAssignStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
+		vv.DoStat + vv.ApplyOrAssignStat + vv.EvalExpr + throw("StatHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
 	symbA(")"));
 
 	--[[HintTerm = suffixedExprByPrimary(
