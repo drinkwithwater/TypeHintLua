@@ -236,18 +236,18 @@ function OpenTable:native_next(vContext, vInitType)
 			nNextDict[nKeyAtom] = nField:getValueType()
 		end
 		local nNil = self._manager.type.Nil
-		local nCollection = self._manager:TypeCollection()
+		local nTypeSet = self._manager:HashableTypeSet()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
 			if not nNotnilType:isNever() then
 				nNextDict[nOneKey] = nNotnilType
-				nCollection:put(nNotnilType)
+				nTypeSet:putType(nNotnilType)
 			end
 			nOneField:lock(vContext)
 		end
-		nCollection:put(nNil)
-		nValueType = nCollection:mergeToAtomUnion()
+		nTypeSet:putAtom(nNil)
+		nValueType = self._manager:unifyAndBuild(nTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict

@@ -107,13 +107,13 @@ function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
 		return vType
 	end
 	if TypedFunction.is(vType) or TypedMemberFunction.is(vType) then
-		const nCollection = self._manager:TypeCollection()
+		const nTypeSet = self._manager:HashableTypeSet()
 		self:foreach(function(vSubType)
 			if vType:includeAtom(vSubType) then
-				nCollection:put(vSubType)
+				nTypeSet:putAtom(vSubType)
 			end
 		end)
-		return nCollection:mergeToAtomUnion()
+		return self._manager:unifyAndBuild(nTypeSet)
 	end
 	return false
 end
@@ -156,11 +156,11 @@ function FuncUnion:partTypedFunction()
 			self._typedPart = self
 			return self
 		else
-			const nCollection = self._manager:TypeCollection()
+			const nTypeSet = self._manager:HashableTypeSet()
 			for k,v in pairs(self._typeFnDict) do
-				nCollection:put(k)
+				nTypeSet:putAtom(k)
 			end
-			const nTypedPart = nCollection:mergeToAtomUnion()
+			const nTypedPart = self._manager:unifyAndBuild(nTypeSet)
 			self._typedPart = nTypedPart
 			return nTypedPart
 		end

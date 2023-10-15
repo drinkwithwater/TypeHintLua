@@ -431,6 +431,10 @@ function TypeManager:buildOrFalse(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Re
 	return self:buildUnion(vNode, self.type.False, ...)
 end
 
+function TypeManager:unifyAndBuild(vTypeSet:clazz.HashableTypeSet):Ret(clazz.UAtomUnion)
+	return self:unifyTypeSet(vTypeSet):buildType()
+end
+
 function TypeManager:unifyTypeSet(vTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
 	const nHashToTypeSet = self._hashToTypeSet
 	const nHash = vTypeSet:getHash()
@@ -457,6 +461,9 @@ function TypeManager:_unifyUnion(vNewType:clazz.IUnionType):Ret(clazz.UAtomUnion
 end
 
 function TypeManager:atomRecordTypeUnionSign(vType:clazz.BaseAtomType)
+	const nHashableTypeSet = self:HashableTypeSet()
+	nHashableTypeSet:initFromAtom(vType)
+	self:unifyTypeSet(nHashableTypeSet)
 	self._unionSignToType[tostring(vType.id)] = vType
 end
 

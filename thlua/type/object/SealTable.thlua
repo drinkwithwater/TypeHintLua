@@ -241,15 +241,15 @@ function SealTable:native_next(vContext, vInitType)
 			nNextDict[nKeyAtom] = nField:getValueType()
 		end
 		local nNil = self._manager.type.Nil
-		local nCollection = self._manager:TypeCollection()
+		const nTypeSet = self._manager:HashableTypeSet()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
 			nNextDict[nOneKey] = nNotnilType
-			nCollection:put(nNotnilType)
+			nTypeSet:putType(nNotnilType)
 		end
-		nCollection:put(nNil)
-		nValueType = nCollection:mergeToAtomUnion()
+		nTypeSet:putAtom(nNil)
+		nValueType = self._manager:unifyAndBuild(nTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict

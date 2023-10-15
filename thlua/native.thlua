@@ -119,16 +119,16 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 					end
 				else
 					if Integer.is(nFirstType) then
-						const nCollection = nManager:TypeCollection()
+						const nTypeSet = nManager:HashableTypeSet()
 						for i=2, #vTermTuple do
 							const nType = vTermTuple:get(vContext, i):getType()
-							nCollection:put(nType)
+							nTypeSet:putType(nType)
 						end
 						const nRepeatType = vTermTuple:getRepeatType()
 						if nRepeatType then
-							nCollection:put(nRepeatType)
+							nTypeSet:putType(nRepeatType:checkAtomUnion())
 						end
-						const nFinalType = nCollection:mergeToAtomUnion()
+						const nFinalType = nManager:unifyAndBuild(nTypeSet)
 						if nRepeatType then
 							return nManager:TypeTuple(vContext:getNode(), {}):withDots(nRepeatType):makeTermTuple(vContext)
 						else

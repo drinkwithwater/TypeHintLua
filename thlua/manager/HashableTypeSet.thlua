@@ -17,8 +17,7 @@ function:class(clazz.HashableTypeSet) HashableTypeSet.new(vManager:clazz.TypeMan
         _addValue = 0 @ Integer,
         _xorValue = 0 @ Integer,
         _hash = 0 @ Integer,
-        _depth = 0 @ Integer,
-        _next = false @ OrFalse(clazz.HashableTypeSet)
+        _next = false @ OrFalse(clazz.HashableTypeSet),
     }, HashableTypeSet)
     return self
 end
@@ -32,7 +31,6 @@ function HashableTypeSet:searchOrLink(vConflictTypeSet:clazz.HashableTypeSet):Re
         const nNextTypeSet = nCurTypeSet._next
         if not nNextTypeSet then
             nCurTypeSet._next = vConflictTypeSet
-            vConflictTypeSet._depth = nCurTypeSet._depth + 1
             return vConflictTypeSet
         else
             nCurTypeSet = nNextTypeSet
@@ -54,6 +52,17 @@ function HashableTypeSet:putSet(vTypeSet:clazz.HashableTypeSet)
     for k,v in pairs(vTypeSet._typeDict) do
         self:putAtom(v)
     end
+end
+
+function HashableTypeSet:initFromAtom(vAtomType:clazz.IAtomType)
+    self:putAtom(vAtomType)
+    self._typeResult = vAtomType
+end
+
+function HashableTypeSet:putType(vType:clazz.UAtomUnion)
+    vType:foreach(function(vAtomType)
+        self:putAtom(vAtomType)
+    end)
 end
 
 function HashableTypeSet:putAtom(vAtomType:clazz.IAtomType)

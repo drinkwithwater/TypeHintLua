@@ -95,18 +95,18 @@ function BaseReadyType:safeIntersect(vRight)
 			return nIntersect or self._manager.type.Never
 		end
 	else
-		const nCollection = self._manager:TypeCollection()
+		const nTypeSet = self._manager:HashableTypeSet()
 		nRight:foreach(function(vSubType)
 			local nIntersect = nLeft:assumeIntersectAtom(nil, vSubType)
 			if nIntersect then
 				if nIntersect == true then
 					return
 				else
-					nCollection:put(nIntersect)
+					nTypeSet:putType(nIntersect)
 				end
 			end
 		end)
-		return nCollection:mergeToAtomUnion()
+		return self._manager:unifyAndBuild(nTypeSet)
 	end
 end
 
@@ -156,10 +156,10 @@ end
 function BaseReadyType:withnilType()
 	local nWithNilType = self._withnilType
 	if not nWithNilType then
-		const nCollection = self._manager:TypeCollection()
-		nCollection:put(self @? clazz.UAtomUnion)
-		nCollection:put(self._manager.type.Nil)
-		nWithNilType = nCollection:mergeToAtomUnion()
+		const nTypeSet = self._manager:HashableTypeSet()
+		nTypeSet:putType(self @? clazz.UAtomUnion)
+		nTypeSet:putAtom(self._manager.type.Nil)
+		nWithNilType = self._manager:unifyAndBuild(nTypeSet)
 		self._withnilType = nWithNilType
 	end
 	return nWithNilType

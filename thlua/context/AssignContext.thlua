@@ -135,7 +135,7 @@ function AssignContext:tryIncludeCast(
 	vDstType:clazz.UAtomUnion,
 	vSrcType:clazz.UAtomUnion
 ):Ret(False):Ret(clazz.UAtomUnion, Boolean)
-	const nCollection = self._manager:TypeCollection()
+	const nTypeSet = self._manager:HashableTypeSet()
 	const nDstFnPart = vDstType:partTypedFunction()
 	const nDstObjPart = vDstType:partTypedObject()
 	local nIncludeSucc = true
@@ -151,7 +151,7 @@ function AssignContext:tryIncludeCast(
 					const nAutoFnCastDict = vSubType:castMatchOne(self, vAtomType)
 					if nAutoFnCastDict then
 						vAutoFnCastDict:putAll(nAutoFnCastDict)
-						nCollection:put(vAtomType)
+						nTypeSet:putAtom(vAtomType)
 						nMatchOne = true
 					end
 				end
@@ -163,7 +163,7 @@ function AssignContext:tryIncludeCast(
 			vAutoFnCastDict:putOne(vSubType, nDstFnPart)
 			nPutFnPart = true
 		elseif vDstType:includeAtom(vSubType) then
-			nCollection:put(vSubType)
+			nTypeSet:putAtom(vSubType)
 		else
 			nIncludeSucc = false
 		end
@@ -172,12 +172,12 @@ function AssignContext:tryIncludeCast(
 		return false
 	else
 		if nPutFnPart then
-			nCollection:put(nDstFnPart)
+			nTypeSet:putType(nDstFnPart)
 		end
 		if not nCastSucc and nPutObjPart then
-			nCollection:put(nDstObjPart)
+			nTypeSet:putType(nDstObjPart)
 		end
-		return nCollection:mergeToAtomUnion(), nCastSucc
+		return self._manager:unifyAndBuild(nTypeSet), nCastSucc
 	end
 end
 

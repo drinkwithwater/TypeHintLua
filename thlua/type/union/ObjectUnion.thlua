@@ -85,7 +85,7 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 	if not BaseObject.is(vType) then
 		return false
 	end
-	const nCollection = self._manager:TypeCollection()
+	const nTypeSet = self._manager:HashableTypeSet()
 	local nExplicitCount:OrFalse(Integer) = 0
 	self:foreach(function(vSubType)
 		if nExplicitCount then
@@ -94,14 +94,14 @@ function ObjectUnion:assumeIntersectAtom(vAssumeSet, vType)
 				nExplicitCount = false
 			elseif nCurIntersect then
 				nExplicitCount = nExplicitCount + 1
-				nCollection:put(nCurIntersect)
+				nTypeSet:putType(nCurIntersect)
 			end
 		end
 	end)
 	if not nExplicitCount then
 		return true
 	else
-		return nExplicitCount > 0 and nCollection:mergeToAtomUnion()
+		return nExplicitCount > 0 and self._manager:unifyAndBuild(nTypeSet)
 	end
 end
 
@@ -114,11 +114,11 @@ function ObjectUnion:partTypedObject()
 			self._typedPart = self
 			return self
 		else
-			const nCollection = self._manager:TypeCollection()
+			const nTypeSet = self._manager:HashableTypeSet()
 			for k,v in pairs(self._typedObjectDict) do
-				nCollection:put(k)
+				nTypeSet:putAtom(k)
 			end
-			const nTypedPart = nCollection:mergeToAtomUnion()
+			const nTypedPart = self._manager:unifyAndBuild(nTypeSet)
 			self._typedPart = nTypedPart
 			return nTypedPart
 		end

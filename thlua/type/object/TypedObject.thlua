@@ -141,15 +141,15 @@ function TypedObject:native_next(vContext, vInitType)
 	local nNextDict = self._nextDict
 	if not nNextValue then
 		nNextDict = {}
-		local nCollection = self._manager:TypeCollection()
+		const nTypeSet = self._manager:HashableTypeSet()
 		nNextKey:checkAtomUnion():foreach(function(vKeyAtom)
 			const nValue = nValueDict[vKeyAtom]!
 			const nNotnilValue = nValue:checkAtomUnion():notnilType()
 			nNextDict[vKeyAtom] = nNotnilValue
-			nCollection:put(nNotnilValue)
+			nTypeSet:putType(nNotnilValue)
 		end)
-		nCollection:put(nNil)
-		nNextValue = nCollection:mergeToAtomUnion()
+		nTypeSet:putAtom(nNil)
+		nNextValue = self._manager:unifyAndBuild(nTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nNextValue
 		self._nextDict = nNextDict
