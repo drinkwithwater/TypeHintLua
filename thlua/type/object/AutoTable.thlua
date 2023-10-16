@@ -46,16 +46,11 @@ function AutoTable:castMatchOne(
 ):Ret(OrFalse(clazz.AutoFnCastDict))
 	const nAutoFnCastDict = vContext:newAutoFnCastDict()
 	const nCopyValueDict = vStructOrInterface:copyValueDict(self)
-	local nMatchSucc = true
-	self._keyType:foreach(function(vTableKey)
-		const nTableValue = self._fieldDict[vTableKey]!:getValueType()
-		if not nMatchSucc then
-			return
-		end
-		local nMatchKey, nMatchValue = vStructOrInterface:indexKeyValue(vTableKey)
+	for nTableKey, nField in pairs(self._fieldDict) do
+		const nTableValue = nField:getValueType()
+		local nMatchKey, nMatchValue = vStructOrInterface:indexKeyValue(nTableKey)
 		if not nMatchKey then
-			nMatchSucc = false
-			return
+			return false
 		end
 		nMatchValue = nMatchValue:checkAtomUnion()
 		if TypedMemberFunction.is(nMatchValue) then
@@ -64,13 +59,9 @@ function AutoTable:castMatchOne(
 		end
 		const nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, nTableValue)
 		if not nIncludeType or not nCastSucc then
-			nMatchSucc = false
-			return
+			return false
 		end
 		nCopyValueDict[nMatchKey] = nil
-	end)
-	if not nMatchSucc then
-		return false
 	end
 	for k,v in pairs(nCopyValueDict) do
 		if not v:checkAtomUnion():isNilable() then

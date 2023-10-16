@@ -24,7 +24,6 @@ const SealTable = class@<clazz.SealTable, false>(BaseObject)
 
 function.open SealTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vLexStack:clazz.BaseStack, ...)
 	self._lexStack = vLexStack
-	self._keyType=vManager.type.Never @clazz.UAtomUnion
 	self._fieldDict={}@Dict(clazz.IAtomType, clazz.ObjectField)
 	self._nextValue=false@Union(False, clazz.UAtomUnion)
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
@@ -41,8 +40,7 @@ end
 function SealTable:ctxWait(vContext:clazz.OperContext)
 end
 
-function SealTable:initByKeyValue(vNode:clazz.IBaseNode, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
-	self._keyType = vKeyType
+function SealTable:initByKeyValue(vNode:clazz.IBaseNode, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion)):Ret()
 	for k,v in pairs(vValueDict) do
 		self._fieldDict[k] = ObjectField.new(vNode, self, k, v)
 	end
@@ -77,10 +75,9 @@ end
 
 function SealTable:meta_set(vContext, vKeyType, vValueTerm)
 	self:ctxWait(vContext)
-	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
-	if nKeyIncludeType then
+	const nField = self._fieldDict[vKeyType]
+	if nField then
 		vContext:pushNothing()
-		const nField = self._fieldDict[nKeyIncludeType]!
 		vContext:addLookTarget(nField)
 		vContext:includeAndCast(nField:getValueType(), vValueTerm:getType(), "set")
 	else
@@ -93,11 +90,10 @@ const NONE_TRIGGER = 2
 function SealTable:meta_get(vContext, vKeyType)
 	self:ctxWait(vContext)
 	const nNotRecursive, nOkay = vContext:recursiveChainTestAndRun(self, function()
-		const nKeyIncludeType = self._keyType:includeAtom(vKeyType)
+		const nField = self._fieldDict[vKeyType]
 		const nIndexType = self._metaIndex
 		local nTrigger:OrFalse($NIL_TRIGGER,$NONE_TRIGGER) = false
-		if nKeyIncludeType then
-			const nField = self._fieldDict[nKeyIncludeType]!
+		if nField then
 			const nValueType = nField:getValueType()
 			vContext:addLookTarget(nField)
 			if nValueType:isNilable() then
@@ -112,6 +108,8 @@ function SealTable:meta_get(vContext, vKeyType)
 			end
 		else
 			nTrigger = NONE_TRIGGER
+			--[[
+				intersect TODO
 			const nInterType = self._keyType:safeIntersect(vKeyType)
 			if not nInterType then
 				vContext:error("unexpected intersect when table get")
@@ -127,6 +125,7 @@ function SealTable:meta_get(vContext, vKeyType)
 					end
 				end)
 			end
+			]]
 			if not nIndexType then
 				vContext:pushFirstAndTuple(self._manager.type.Nil)
 			end
@@ -155,8 +154,8 @@ end
 function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 	self:ctxWait(vContext)
 	vContext:openAssign(vValueTerm:getType())
-	local nIncludeType = self._keyType:includeAtom(vKeyType)
-	if not nIncludeType then
+	const nCurField = self._fieldDict[vKeyType]
+	if not nCurField then
 		if vKeyType:isSingleton() and not vKeyType:isNilable() then
 			if self:isLocked() then
 				vContext:error("table is locked")
@@ -168,7 +167,6 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 				end
 			end
 			-- TODO thinking when to lock this
-			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
 			const nField = ObjectField.new(vContext:getNode(), self, vKeyType, vValueTerm:getType())
 			self._fieldDict[vKeyType] = nField
 			vContext:addLookTarget(nField)
@@ -176,20 +174,18 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 			vContext:error("set("..tostring(vKeyType)..","..tostring(vValueTerm:getType())..") error")
 		end
 	else
-		const nTableField = self._fieldDict[nIncludeType]!
-		const nFieldType = nTableField:getValueType()
-		vContext:addLookTarget(nTableField)
+		const nFieldType = nCurField:getValueType()
+		vContext:addLookTarget(nCurField)
 		if not nFieldType:includeAll(vValueTerm:getType()) then
-			vContext:error("wrong value type when set, key:"..tostring(nIncludeType))
+			vContext:error("wrong value type when set, key:"..tostring(vKeyType))
 		end
 	end
 end
 
 function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 	self:ctxWait(vContext)
-	local nKeyIncludeType = self._keyType:includeAtom(vKeyType)
-	if nKeyIncludeType then
-		const nField = self._fieldDict[nKeyIncludeType]!
+	const nField = self._fieldDict[vKeyType]
+	if nField then
 		const nValueType = nField:getValueType()
 		vContext:addLookTarget(nField)
 		return nValueType
@@ -303,19 +299,19 @@ end
 
 function SealTable:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UAtomUnion))
 	local nDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
-	self._keyType:foreach(function(vType)
-		nDict[vType] = self._fieldDict[vType]!:getValueType()
-	end)
+	for nType, nField in pairs(self._fieldDict) do
+		nDict[nType] = nField:getValueType()
+	end
 	return nDict
 end
 
 function SealTable:putCompletion(vCompletion)
 	if vCompletion:testAndSetPass(self) then
-		self._keyType:foreach(function(vAtomType)
-			if StringLiteral.is(vAtomType) then
-				vCompletion:putField(vAtomType:getLiteral(), self._fieldDict[vAtomType]!:getValueType())
+		for nAtomType, nField in pairs(self._fieldDict) do
+			if StringLiteral.is(nAtomType) then
+				vCompletion:putField(nAtomType:getLiteral(), nField:getValueType())
 			end
-		end)
+		end
 		const nMetaIndex = self._metaIndex
 		if nMetaIndex then
 			nMetaIndex:putCompletion(vCompletion)
