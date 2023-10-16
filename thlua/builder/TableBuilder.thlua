@@ -57,7 +57,8 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	const nStack = self._stack
 	const nManager = nStack:getTypeManager()
 	const vList, vDotsStart, vDotsTuple = self._pairMaker()
-	const nTypePairList:List(Struct {clazz.UAtomUnion, clazz.UAtomUnion}) = {}
+	const nHashableTypeSet = nManager:HashableTypeSet()
+	const nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for i, nPair in ipairs(vList) do
 		const nKey = nPair.key:getType()
 		const nTerm = nPair.value
@@ -69,12 +70,20 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 			nValue = nManager:checkedUnion(nValue, nManager.type.Nil)
 			if OpenTable.is(vNewTable) then
 				self._stack:getRuntime():nodeError(self._node, "open table can only take singleton type as key")
-			else
-				nTypePairList[i] = {nKey, nValue}
+				continue
 			end
-		else
-			nTypePairList[i] = {nKey, nValue}
 		end
+		nKey:foreach(function(vAtomType)
+			if nHashableTypeSet:putAtom(vAtomType) then
+				nTypeDict[vAtomType] = nValue
+			else
+				if vAtomType:isSingleton() then
+					self._stack:getRuntime():nodeError(self._node, "key conflict when table build")
+				else
+					nTypeDict[vAtomType] = nManager:checkedUnion(nValue, nTypeDict[vAtomType]!)
+				end
+			end
+		end)
 	end
 	if vDotsTuple then
 		const nTypeTuple = vDotsTuple:checkTypeTuple()
@@ -83,17 +92,26 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 			if OpenTable.is(vNewTable) then
 				self._stack:getRuntime():nodeError(self._node, "open table can only take singleton type as key")
 			else
-				nTypePairList[#nTypePairList + 1] = {
-					nManager.type.Integer, nManager:checkedUnion(nRepeatType, nManager.type.Nil)
-				}
+				const nInteger = nManager.type.Integer:checkAtomUnion()
+				if nHashableTypeSet:putAtom(nInteger) then
+					nTypeDict[nInteger] = nManager:checkedUnion(nRepeatType, nManager.type.Nil)
+				else
+					nTypeDict[nInteger] = nManager:checkedUnion(nRepeatType, nManager.type.Nil, nTypeDict[nInteger]!)
+				end
 			end
 		else
 			for i=1, #nTypeTuple do
 				const nKey = nManager:Literal(vDotsStart + i - 1)
-				local nType = assert(vDotsTuple:rawget(i), self._node:toExc("tuple index error")):getType()
-				nTypePairList[#nTypePairList + 1] = {
-					nKey, nType
-				}
+				const nTerm = vDotsTuple:rawget(i)
+				if not nTerm then
+					error(self._node:toExc("tuple index error"))
+				end
+				const nValueType = nTerm:getType()
+				if nHashableTypeSet:putAtom(nKey) then
+					nTypeDict[nKey] = nValueType
+				else
+					self._stack:getRuntime():nodeError(self._node, "key conflict when table build")
+				end
 			end
 		end
 	end
@@ -101,19 +119,18 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	if nSelfInitDict then
 		for nKey, nValue in pairs(nSelfInitDict) do
 			nKey:foreachAwait(function(vSubKey)
-				nTypePairList[#nTypePairList + 1] = {
-					vSubKey, nManager:checkedUnion(nValue, nManager.type.Nil)
-				}
+				if nHashableTypeSet:putAtom(vSubKey) then
+					nTypeDict[vSubKey] = nManager:checkedUnion(nValue, nManager.type.Nil)
+				else
+					nTypeDict[vSubKey] = nManager:checkedUnion(nValue, nManager.type.Nil, nTypeDict[vSubKey]!)
+				end
 			end)
 		end
 	end
-	const nKeyUnion, nTypeDict = nManager:typeMapReduce@<clazz.UAtomUnion>(nTypePairList, function(vList)
-		return nManager:unionReduceType(vList)
-	end)
 	if OpenTable.is(vNewTable) then
-		vNewTable:initByBranchKeyValue(self._node, self._stack:topBranch(), nKeyUnion, nTypeDict)
+		vNewTable:initByBranchKeyValue(self._node, self._stack:topBranch(), nManager:unifyAndBuild(nHashableTypeSet), nTypeDict)
 	else
-		vNewTable:initByKeyValue(self._node, nKeyUnion, nTypeDict)
+		vNewTable:initByKeyValue(self._node, nManager:unifyAndBuild(nHashableTypeSet), nTypeDict)
 	end
 end
 
@@ -140,7 +157,7 @@ function TableBuilder:build():Ret(clazz.BaseObject)
 			self:_build(nNewTable)
 			return nNewTable
 		else
-			const nNewTable = AutoTable.new(nManager, self._node, self._stack)
+			const nNewTable = self._stack:newAutoTable(self._node)
 			self:_build(nNewTable)
 			return nNewTable
 		end

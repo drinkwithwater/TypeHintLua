@@ -35,7 +35,11 @@ function.open SealFunction:ctor(
 	self._typeFn=false@OrFalse(clazz.TypedFunction)
 	self._retTuples=false@OrFalse(clazz.RetTuples)
 	self._builderFn=false@OrFalse(BuilderFn)
-	self._useNodeSet = {}
+	self._autoTableSet={}@Dict(clazz.AutoTable, True)
+end
+
+function SealFunction:saveAutoTable(vAutoTable:clazz.AutoTable)
+	self._autoTableSet[vAutoTable] = true
 end
 
 function SealFunction:meta_call(vContext, vTermTuple)
@@ -89,6 +93,9 @@ function SealFunction:startPreBuild()
 		self._typeFn = self._typeFn or self._manager:TypedFunction(self._node, nParTuple, nRetTuples)
 		self._buildStack:seal()
 		self._lateBuildEvent:wakeup()
+		for nAutoTable,v in pairs(self._autoTableSet) do
+			nAutoTable:setLocked()
+		end
 	end)
 end
 

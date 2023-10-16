@@ -4,7 +4,9 @@ local boot = require "thlua.code.ParseEnv"
 function boot.runCheck(vMainFileName, vUseProfile)
 	boot.patch()
 	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
+	local CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 	local nRuntime = DiagnosticRuntime.new()
+	--local nRuntime = CompletionRuntime.new()
 	assert(nRuntime:pmain(vMainFileName, vUseProfile))
 end
 

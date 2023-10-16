@@ -17,6 +17,7 @@ const ImmutVariable = require "thlua.term.ImmutVariable"
 
 const ClassFactory = require "thlua.type.func.ClassFactory"
 const AutoFunction = require "thlua.type.func.AutoFunction"
+const AutoTable = require "thlua.type.object.AutoTable"
 const OpenFunction = require "thlua.type.func.OpenFunction"
 const BaseFunction = require "thlua.type.func.BaseFunction"
 const TypedObject = require "thlua.type.object.TypedObject"
@@ -130,6 +131,12 @@ end]]
 
 function BaseStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 	return self:getSealStack():getClassTable()
+end
+
+function BaseStack:newAutoTable(vNode:Union(node.Table, node.Root)):Ret(clazz.AutoTable)
+	const nAutoTable = AutoTable.new(self._manager, vNode, self)
+	self:getSealStack():getBodyFn():saveAutoTable(nAutoTable)
+	return nAutoTable
 end
 
 function BaseStack:newAutoFunction(vNode:Union(node.Function, node.Root), ...):Ret(clazz.AutoFunction)
