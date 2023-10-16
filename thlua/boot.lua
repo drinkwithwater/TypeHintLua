@@ -1,11 +1,11 @@
 local boot = require "thlua.code.ParseEnv"
 
 -- start check from a main file
-function boot.runCheck(vMainFileName)
+function boot.runCheck(vMainFileName, vUseProfile)
 	boot.patch()
 	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 	local nRuntime = DiagnosticRuntime.new()
-	assert(nRuntime:pmain(vMainFileName))
+	assert(nRuntime:pmain(vMainFileName, vUseProfile))
 end
 
 -- make play groud

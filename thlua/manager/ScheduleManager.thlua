@@ -15,12 +15,13 @@ end)
 
 const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
-function.open ScheduleManager:ctor()
+function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._coToTask={} @ Dict(Thread, clazz.ScheduleTask)
 	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
 	self._coToWaitingInfo={}@Dict(Thread, WaitingInfo)
 	self._sessionIdCounter=0@Integer
 	self._selfCo=coroutine.running()
+	self._runtime = vRuntime
 end
 
 function ScheduleManager:newTask(vTaskHost:clazz.UTaskHost)
@@ -131,6 +132,10 @@ end
 
 function ScheduleManager:makeEvent(vThread:OrNil(Thread)):Ret(clazz.ScheduleEvent)
 	return ScheduleEvent.new(self, vThread)
+end
+
+function ScheduleManager:getRuntime()
+	return self._runtime
 end
 
 return ScheduleManager

@@ -45,6 +45,11 @@ const CodeEnv = require "thlua.code.CodeEnv"
 		stack=OrNil(clazz.OpenStack),
 	}
 
+	let.ProfileInfo = Struct {
+		counter = Integer,
+		name = String,
+	}
+
 end)
 
 const DefaultLoader:clazz.FileLoader = {
@@ -80,12 +85,42 @@ function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader))
 	self._loader=vLoader or DefaultLoader
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
-	self._scheduleManager=ScheduleManager.new()
+	self._scheduleManager=ScheduleManager.new(self)
 	-- late init fields
 	self._node=nil@!node.Root
 	self._manager=nil@!clazz.TypeManager
 	self._globalTable=nil@!clazz.AutoTable
 	self._rootStack=nil@!clazz.SealStack
+	self._fnToProfile = {} @ Dict(AnyFunction, ProfileInfo)
+	self.useProfile = false @ Boolean
+end
+
+function BaseRuntime:hook(vDepth:OrNil(Integer))
+	vDepth = vDepth or 3
+	const f = debug.getinfo(vDepth, "f").func
+	const nProfile = self._fnToProfile[f]
+	if not nProfile then
+		local name = ""
+		do.pass
+			local n = debug.getinfo(vDepth, "Sn")
+			if n.what == "C" then
+				name = n.name
+			else
+				local loc = string.format("[%s]:%s", n.short_src, n.linedefined)
+				if n.namewhat ~= "" then
+					name = string.format("%s (%s)", loc, n.name)
+				else
+					name = string.format("%s", loc)
+				end
+			end
+		end
+		self._fnToProfile[f] = {
+			counter = 1,
+			name = name,
+		}
+	else
+		nProfile.counter = nProfile.counter + 1
+	end
 end
 
 function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
@@ -135,7 +170,8 @@ const nGlobalPackage:List(String) = {
 	"utf8",
 }
 
-function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(String, clazz.Exception))
+function BaseRuntime:pmain(vRootFileUri:String, vUseProfile:OrNil(Boolean)):Ret(True):Ret(False, Union(String, clazz.Exception))
+	self.useProfile = vUseProfile or false
 	self._node=Node.newRootNode(vRootFileUri)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
@@ -179,6 +215,20 @@ function BaseRuntime:pmain(vRootFileUri:String):Ret(True):Ret(False, Union(Strin
 		count1 = count1 + 1
 	end
 	print(count1)
+	if self.useProfile then
+		const l:List(ProfileInfo) = {}
+		for k, profile in pairs(self._fnToProfile) do
+			if profile.counter > 1 then
+				l[#l+1] = profile
+			end
+		end
+		table.sort(l, function(a,b)
+			return a.counter < b.counter
+		end)
+		for _, profile in pairs(l) do
+			print(profile.counter, profile.name)
+		end
+	end
 	-- self:diffTestExpect()
 	return ok, err
 end
