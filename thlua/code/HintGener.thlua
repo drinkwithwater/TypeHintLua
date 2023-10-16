@@ -125,11 +125,21 @@ local TagToVisiting:RealTraverser = {
 						end
 					end
 				else
-					return self:stkWrap(vVarNode).META_SET(
-						self:visit(vVarNode[1]),
-						self:visit(vVarNode[2]),
-						"____set_a"..i
-					)
+					const nKeyNode = vVarNode[2]
+					const nCodeLiteral = self:tryCodeNodeLiteral(nKeyNode)
+					if nCodeLiteral then
+						return self:stkWrap(vVarNode).FAST_SET(
+							self:visit(vVarNode[1]),
+							nCodeLiteral,
+							"____set_a"..i
+						)
+					else
+						return self:stkWrap(vVarNode).META_SET(
+							self:visit(vVarNode[1]),
+							self:visit(vVarNode[2]),
+							"____set_a"..i
+						)
+					end
 				end
 			end, " ")
 		}
@@ -443,10 +453,19 @@ local TagToVisiting:RealTraverser = {
 		end
 	end,
 	Index=function(self, node)
-		return self:stkWrap(node).META_GET(
-			self:visit(node[1]), self:visit(node[2]),
-			tostring(node.notnil or false)
-		)
+		const nKeyNode = node[2]
+		const nCodeLiteral = self:tryCodeNodeLiteral(nKeyNode)
+		if nCodeLiteral then
+			return self:stkWrap(node).FAST_GET(
+				self:visit(node[1]), nCodeLiteral,
+				tostring(node.notnil or false)
+			)
+		else
+			return self:stkWrap(node).META_GET(
+				self:visit(node[1]), self:visit(nKeyNode),
+				tostring(node.notnil or false)
+			)
+		end
 	end,
 	ExprList=function(self, node)
 		return self:concatList@<node.IAstNode>(node, function(i, expr)
@@ -507,6 +526,19 @@ function HintGener:fixIHintSpace(vHintSpace:node.IHintSpace):Ret(GenResult)
 		end
 	end
 	return nResult
+end
+
+function HintGener:tryCodeNodeLiteral(vExpr:node.Expr):Ret(OrFalse(String))
+	const nTag = vExpr.tag
+	if nTag == "String" or nTag == "Number" then
+		return "____nodes["..vExpr.index.."][1]"
+	elseif nTag == "False" then
+		return "false"
+	elseif nTag == "True" then
+		return "true"
+	else
+		return false
+	end
 end
 
 function HintGener:codeNodeValue(vNode:Union(node.String, node.Number)):Ret(String)
@@ -605,6 +637,9 @@ end
 		"META_INVOKE",
 		"META_GET",
 		"META_SET",
+
+		"FAST_GET",
+		"FAST_SET",
 
 		"SYMBOL_NEW",
 		"SYMBOL_GET",

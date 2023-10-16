@@ -47,6 +47,7 @@ function InstStack:BEGIN(vLexStack:clazz.BaseStack, vBlockNode:node.Block):Ret(c
 	const nRootBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, vBlockNode)
 	self._branchStack[1]=nRootBranch
 	const nSpace = self._runtime:LetSpace(vBlockNode, vLexStack:getLetSpace())
+
 	self._letspace = nSpace
 	return nSpace:export()
 end
@@ -145,6 +146,41 @@ function InstStack:EXPRLIST_UNPACK(
 	return table.unpack(re)
 end
 
+function InstStack:FAST_GET(
+	vNode:Union(node.Ident_use, node.Index, node.Invoke),
+	vSelfTerm:clazz.RefineTerm,
+	vKey:Union(String, Number, Boolean),
+	vNotnil:Boolean
+):Ret(clazz.RefineTerm)
+	const nKeyType = self._manager:Literal(vKey)
+	return self:withOnePushContext(vNode, function(vContext)
+		vSelfTerm:foreach(function(vSelfType, vVariableCase)
+			vContext:withCase(vVariableCase, function()
+				if not vSelfType:meta_get(vContext, nKeyType) then
+					if not OpenTable.is(vSelfType) then
+
+						vContext:error("index error, key="..tostring(nKeyType))
+					end
+				end
+			end)
+		end)
+	end, vNotnil):mergeFirst()
+end
+
+function InstStack:FAST_SET(
+	vNode:Union(node.Ident_use, node.Index, node.Invoke),
+	vSelfTerm:clazz.RefineTerm,
+	vKey:Union(String, Number, Boolean),
+	vValueTerm:clazz.RefineTerm
+)
+	const nKeyType = self._manager:Literal(vKey)
+	const nNil = self._manager.type.Nil
+	const vContext = self:newNoPushContext(vNode)
+	vSelfTerm:foreach(function(vSelfType, _)
+		vSelfType:meta_set(vContext, nKeyType, vValueTerm)
+	end)
+end
+
 -- meta items
 function InstStack:META_GET(
 	vNode:Union(node.Ident_use, node.Index, node.Invoke),
@@ -194,7 +230,7 @@ function InstStack:META_INVOKE(
 		else
 			const nFilterSelfTerm = vContext:RefineTerm(vSelfType)
 			const nNewArgTuple = vContext:UTermTupleByAppend({nFilterSelfTerm}, vArgTuple)
-			const nFuncTerm = self:META_GET(vNode, nFilterSelfTerm, vContext:RefineTerm(self._manager:Literal(vName)), false)
+			const nFuncTerm = self:FAST_GET(vNode, nFilterSelfTerm, vName, false)
 			nFuncTerm:foreach(function(vSingleFuncType, _)
 				if vSingleFuncType == nNil then
 					vContext:error("nil as invoke func")
