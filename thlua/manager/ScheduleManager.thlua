@@ -7,10 +7,6 @@ const ScheduleTask = require "thlua.manager.ScheduleTask"
 
 (@do
 	let.clazz = import($class).clazz
-	let.WaitingInfo = Struct {
-		waitSid = Integer,
-		dependCo = Thread,
-	}
 	let.ProfileInfo = Struct {
 		counter = Integer,
 		start = OrFalse(Integer),
@@ -24,8 +20,6 @@ const ScheduleManager = class@<clazz.ScheduleManager, false>()
 function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._coToTask={} @ Dict(Thread, clazz.ScheduleTask)
 	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
-	self._coToWaitingInfo={}@Dict(Thread, WaitingInfo)
-	self._sessionIdCounter=0@Integer
 	self._selfCo=coroutine.running()
 	self._runtime = vRuntime
 	self._profileThread = false @ OrFalse(Thread)
@@ -36,6 +30,10 @@ function ScheduleManager:newTask(vTaskHost:clazz.UTaskHost)
 	const nTask = ScheduleTask.new(self, vTaskHost)
 	self._coToTask[nTask:getSelfCo()] = nTask
 	return nTask
+end
+
+function ScheduleManager:getTask(vThread:Thread):Ret(clazz.ScheduleTask)
+	return self._coToTask[vThread]!
 end
 
 function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrFalse(Thread))
@@ -74,44 +72,23 @@ function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrFa
 					error(Exception.new("recursive build type", nFirstNode, table.unpack(nNodeList, 2)))
 				end
 			else
+				--[[
 				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
 				if nNextWaitingInfo then
 					nCurCo = nNextWaitingInfo.dependCo
 				else
 					break
 				end
+				]]
 			end
 		end
 	else
 		vDependCo = self._selfCo
 	end
-	self._coToWaitingInfo[vWaitCo] = {
-		waitSid = vWaitSid,
-		dependCo = vDependCo,
-	}
-	coroutine.yield()
 end
 
-function ScheduleManager:coWakeup(vWaitCo:Thread, vWaitSid:Integer)
-	const nWaitingInfo = self._coToWaitingInfo[vWaitCo]
-	if not nWaitingInfo then
-		-- session is cancel
-		print("session is cancel when wakeup")
-		return
-	elseif vWaitSid ~= nWaitingInfo.waitSid then
-		print("wait sid not match when wakeup")
-		return
-	end
-	self._coToWaitingInfo[vWaitCo] = nil
+function ScheduleManager:coWakeup(vWaitCo:Thread)
 	self._coToScheduleParam[vWaitCo] = true
-	const nTask = self._coToTask[coroutine.running()]
-	if not nTask or nTask:getStack() then
-		self:_schedule()
-	end
-end
-
-function ScheduleManager:coStart(vCo:Thread, vFunc:Fn())
-	self._coToScheduleParam[vCo] = vFunc
 	const nTask = self._coToTask[coroutine.running()]
 	if not nTask or nTask:getStack() then
 		self:_schedule()
@@ -130,12 +107,6 @@ function ScheduleManager:_schedule()
 			end
 		end
 	end
-end
-
-function ScheduleManager:genSessionId():Ret(Integer)
-	local nNewId = self._sessionIdCounter + 1
-	self._sessionIdCounter = nNewId
-	return nNewId
 end
 
 function ScheduleManager:makeWildEvent():Ret(clazz.ScheduleEvent)

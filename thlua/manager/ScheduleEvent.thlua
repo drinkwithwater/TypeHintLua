@@ -16,10 +16,10 @@ function ScheduleEvent:wait()
 	const nCoToSid = self._coToSid
 	if nCoToSid then
 		const nManager = self._scheduleManager
-		const nSessionId = nManager:genSessionId()
 		const nCurCo = coroutine.running()
-		nCoToSid[nCurCo] = nSessionId
-		nManager:coWait(nCurCo, nSessionId, self._selfCo)
+		nCoToSid[nCurCo] = 1
+		nManager:getTask(nCurCo):waitEvent(self)
+		-- nManager:coWait(nCurCo, nSessionId, self._selfCo)
 	end
 end
 
@@ -29,13 +29,10 @@ function ScheduleEvent:wakeup()
 		self._coToSid = false
 		const nManager = self._scheduleManager
 		for co, sid in pairs(nCoToSid) do
-			nManager:coWakeup(co, sid)
+			nManager:getTask(co):wakeupEvent(self)
+			nManager:coWakeup(co)
 		end
 	end
-end
-
-function ScheduleEvent:isWaken():Ret(Boolean)
-	return not self._coToSid
 end
 
 return ScheduleEvent

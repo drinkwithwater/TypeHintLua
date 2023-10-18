@@ -36,14 +36,16 @@ const ScheduleTask = class@<clazz.ScheduleTask, false>()
 function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:clazz.UTaskHost)
 	self._scheduleManager = vScheduleManager
 	self._fnToProfile = {} @ Dict(AnyFunction, clazz.ProfileInfo)
-	self._selfCo = coroutine.create(function(vRunFn:Fn():Err(clazz.Exception))
+	self._runFn = false @ OrFalse(Fn():Err(clazz.Exception))
+	self._selfCo = coroutine.create(function()
+		const nRunFn = assert(self._runFn, "maybe wakup task before run")
 		const nScheduleManager = self._scheduleManager
 		if nScheduleManager.useProfile then
 			debug.sethook(function(case:Union("call", "return", "line"))
 				self:hook(case, 3)
 			end, "cr")
 		end
-		const ok, nExc = pcall(vRunFn)
+		const ok, nExc = pcall(nRunFn)
 		if not ok then
 			const nHost = self._host
 			const nStack = SealStack.is(nHost) and nHost
@@ -76,6 +78,7 @@ end
 function ScheduleTask:waitEvent(vEvent:clazz.ScheduleEvent)
 	assert(not self._waitEvent)
 	self._waitEvent = vEvent
+	coroutine.yield()
 end
 
 function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
@@ -92,7 +95,8 @@ function ScheduleTask:canWaitType()
 end
 
 function ScheduleTask:runAsync(vFunc:Fn())
-	self._scheduleManager:coStart(self._selfCo, vFunc)
+	self._runFn = vFunc
+	self._scheduleManager:coWakeup(self._selfCo)
 end
 
 function ScheduleTask:getStack():Ret(OrFalse(clazz.SealStack))
