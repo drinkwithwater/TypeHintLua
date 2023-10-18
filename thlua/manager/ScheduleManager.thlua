@@ -19,10 +19,9 @@ const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
 function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._coToTask={} @ Dict(Thread, clazz.ScheduleTask)
-	self._coToScheduleParam={}@Dict(Thread, Union(True, Fn()))
+	self._scheduleList={}@List(clazz.ScheduleTask)
 	self._selfCo=coroutine.running()
 	self._runtime = vRuntime
-	self._profileThread = false @ OrFalse(Thread)
 	self.useProfile = false @Boolean
 end
 
@@ -36,74 +35,57 @@ function ScheduleManager:getTask(vThread:Thread):Ret(clazz.ScheduleTask)
 	return self._coToTask[vThread]!
 end
 
-function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrFalse(Thread))
-	assert(vWaitCo == coroutine.running(), "wait co must be current co")
-	if vDependCo then
-		const nWaitingTask = self._coToTask[vWaitCo]
-		if not nWaitingTask then
-			const nDependTask = self._coToTask[vDependCo]
-			error("can only call coWait in a task, try to get:"..tostring(nDependTask))
-		else
-			const nDependTask = self._coToTask[vDependCo]
-			if nDependTask then
-				-- stack can't wait async type
-				const nCurStack = nWaitingTask:getStack()
-				if nCurStack then
-					if not nDependTask:getStack() then
-						nDependTask:errorWaitByStack(nCurStack)
-					end
-				end
-			end
+function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDependTask:clazz.ScheduleTask)
+	-- stack can't wait async type
+	const nCurStack = vWaitingTask:getStack()
+	if nCurStack then
+		if not vDependTask:getStack() then
+			vDependTask:errorWaitByStack(nCurStack)
 		end
-		local nCurCo:Thread = vDependCo
-		const nThreadList:List(Thread) = {}
-		while nCurCo do
-			nThreadList[#nThreadList + 1] = nCurCo
-			if nCurCo == vWaitCo then
-				const nNodeList:List(clazz.IBaseNode) = {}
-				for _, co in pairs(nThreadList) do
-					const nTask = self._coToTask[co]!
-					nNodeList[#nNodeList + 1] = nTask:getNode() or nil
-				end
-				const nFirstNode = nNodeList[1]
-				if not nFirstNode then
-					error("recursive build type")
-				else
-					error(Exception.new("recursive build type", nFirstNode, table.unpack(nNodeList, 2)))
-				end
+	end
+	local nCurTask = vDependTask
+	const nTaskList:List(clazz.ScheduleTask) = {}
+	while nCurTask do
+		nTaskList[#nTaskList + 1] = nCurTask
+		if nCurTask == vWaitingTask then
+			const nNodeList:List(clazz.IBaseNode) = {}
+			for _, nTask in ipairs(nTaskList) do
+				nNodeList[#nNodeList + 1] = nTask:getNode() or nil
+			end
+			const nFirstNode = nNodeList[1]
+			if not nFirstNode then
+				error("recursive build type")
 			else
-				--[[
-				const nNextWaitingInfo = self._coToWaitingInfo[nCurCo]
-				if nNextWaitingInfo then
-					nCurCo = nNextWaitingInfo.dependCo
-				else
-					break
-				end
-				]]
+				error(Exception.new("recursive build type", nFirstNode, table.unpack(nNodeList, 2)))
 			end
+		else
+			const nWaitEvent = nCurTask:getWaitEvent()
+			if nWaitEvent then
+				const nNextTask = nWaitEvent:getTask()
+				if nNextTask then
+					nCurTask = nNextTask
+					continue
+				end
+			end
+			break
 		end
-	else
-		vDependCo = self._selfCo
 	end
 end
 
-function ScheduleManager:coWakeup(vWaitCo:Thread)
-	self._coToScheduleParam[vWaitCo] = true
+function ScheduleManager:trySchedule(vTask:clazz.ScheduleTask)
+	const nScheduleList = self._scheduleList
+	nScheduleList[#nScheduleList + 1] = vTask
 	const nTask = self._coToTask[coroutine.running()]
 	if not nTask or nTask:getStack() then
-		self:_schedule()
-	end
-end
-
-function ScheduleManager:_schedule()
-	while true do
-		const nCoToParam = self._coToScheduleParam
-		if not next(nCoToParam) then
-			break
-		else
-			self._coToScheduleParam = {}@Dict(Thread, Union(True, Fn()))
-			for co, param in pairs(nCoToParam) do
-				assert(coroutine.resume(co, param))
+		while true do
+			const nScheduleList = self._scheduleList
+			if not nScheduleList[1] then
+				break
+			else
+				self._scheduleList = {}
+				for _, nTask in ipairs(nScheduleList) do
+					assert(coroutine.resume(nTask:getSelfCo()))
+				end
 			end
 		end
 	end

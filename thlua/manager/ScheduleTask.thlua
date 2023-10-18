@@ -84,6 +84,7 @@ end
 function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
 	assert(self._waitEvent == vEvent)
 	self._waitEvent = false
+	self._scheduleManager:trySchedule(self)
 end
 
 function ScheduleTask:getSelfCo():Ret(Thread)
@@ -96,7 +97,7 @@ end
 
 function ScheduleTask:runAsync(vFunc:Fn())
 	self._runFn = vFunc
-	self._scheduleManager:coWakeup(self._selfCo)
+	self._scheduleManager:trySchedule(self)
 end
 
 function ScheduleTask:getStack():Ret(OrFalse(clazz.SealStack))
@@ -105,7 +106,7 @@ function ScheduleTask:getStack():Ret(OrFalse(clazz.SealStack))
 end
 
 function ScheduleTask:makeEvent():Ret(clazz.ScheduleEvent)
-	return ScheduleEvent.new(self._scheduleManager, self._selfCo)
+	return ScheduleEvent.new(self._scheduleManager, self)
 end
 
 function ScheduleTask:errorWaitByStack(vStack:clazz.SealStack)
