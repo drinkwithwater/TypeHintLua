@@ -3,6 +3,18 @@ const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const Exception = require "thlua.Exception"
 const class = require "thlua.class"
 
+const chrono = (function()
+	const ok, t = pcall(require, "chrono")
+	return ok and t or {
+		now=function():Ret(Integer)
+			return 0
+		end,
+		sub=function():Ret(Integer)
+			return 0
+		end,
+	}
+end)()
+
 const ScheduleTask = require "thlua.manager.ScheduleTask"
 
 (@do
@@ -10,6 +22,12 @@ const ScheduleTask = require "thlua.manager.ScheduleTask"
 	let.WaitingInfo = Struct {
 		waitSid = Integer,
 		dependCo = Thread,
+	}
+	let.ProfileInfo = Struct {
+		counter = Integer,
+		start = OrFalse(Integer),
+		accumulate = Integer,
+		name = String,
 	}
 end)
 
@@ -22,6 +40,9 @@ function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._sessionIdCounter=0@Integer
 	self._selfCo=coroutine.running()
 	self._runtime = vRuntime
+	self._profileThread = false @ OrFalse(Thread)
+	self._fnToProfile = {} @ Dict(AnyFunction, ProfileInfo)
+	self.useProfile = false @Boolean
 end
 
 function ScheduleManager:newTask(vTaskHost:clazz.UTaskHost)
@@ -136,6 +157,60 @@ end
 
 function ScheduleManager:getRuntime()
 	return self._runtime
+end
+
+function ScheduleManager:hook(vCase:Union("call", "return", "line"), vDepth:OrNil(Integer))
+	vDepth = vDepth or 3
+	const f = debug.getinfo(vDepth, "f").func
+	const nProfile = self._fnToProfile[f]
+	if not nProfile then
+		local name = ""
+		do.pass
+			local n = debug.getinfo(vDepth, "Sn")
+			if n.what == "C" then
+				name = n.name
+			else
+				local loc = string.format("[%s]:%s", n.short_src, n.linedefined)
+				if n.namewhat ~= "" then
+					name = string.format("%s (%s)", loc, n.name)
+				else
+					name = string.format("%s", loc)
+				end
+			end
+		end
+		self._fnToProfile[f] = {
+			counter = 1,
+			start = chrono.now(),
+			accumulate = 0,
+			name = name,
+		}
+	else
+		if vCase == "return" then
+			const nStart = nProfile.start
+			if nStart then
+				nProfile.accumulate = nProfile.accumulate + (chrono.now() - nStart)
+				nProfile.start = false
+			end
+		else
+			nProfile.start = chrono.now()
+			nProfile.counter = nProfile.counter + 1
+		end
+	end
+end
+
+function ScheduleManager:dump()
+	const l:List(ProfileInfo) = {}
+	for k, profile in pairs(self._fnToProfile) do
+		if profile.counter > 1 then
+			l[#l+1] = profile
+		end
+	end
+	table.sort(l, function(a,b)
+		return a.accumulate < b.accumulate
+	end)
+	for _, profile in pairs(l) do
+		print(profile.accumulate, profile.counter, profile.name)
+	end
 end
 
 return ScheduleManager

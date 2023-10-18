@@ -22,6 +22,17 @@ const META_FIELD = {.open
 	-- TODO, other meta action
 }
 
+const function.open recursiveCreate(obj, cls, ...)
+	const super = cls.super
+	if super then
+		recursiveCreate(obj, super, ...)
+	end
+	const ctor = cls.ctor
+	if ctor then
+		ctor(obj, ...)
+	end
+end
+
 const function.open class@<C, I>(super)
 	const class_type={.open}
 	(@open2type[$class_type] = C)
@@ -29,18 +40,7 @@ const function.open class@<C, I>(super)
 	class_type.super=super
 	class_type.new=function:class(C) (...):extends(Cond($super, open2type[$super], False)):implements(I)
 			const obj={.class}
-			do
-				const function.open create(c,...)
-					if c.super then
-						create(c.super,...)
-					end
-					if c.ctor then
-						c.ctor(obj,...)
-					end
-				end
-
-				create(class_type,...)
-			end
+			recursiveCreate(obj, class_type, ...)
 			setmetatable(obj, class_type.meta)
 			return obj
 		end

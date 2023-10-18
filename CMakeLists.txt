@@ -43,6 +43,10 @@ set ( LPATH_SRC
 set (THIRDPART_SRC ${THIRDPART_SRC} ${LPATH_SRC})
 #end lpath
 
+#begin chrono
+set (THIRDPART_SRC ${THIRDPART_SRC} 3rd/lua-chrono.cpp)
+#end chrono
+
 set (LUA_HPP 3rd)
 include_directories(
 	${LUA_HPP}

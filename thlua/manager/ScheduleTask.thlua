@@ -17,11 +17,11 @@ const ScheduleTask = class@<clazz.ScheduleTask, false>()
 function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:clazz.UTaskHost)
 	self._scheduleManager = vScheduleManager
 	self._selfCo = coroutine.create(function(vRunFn:Fn():Err(clazz.Exception))
-		const nRuntime = self._scheduleManager:getRuntime()
-		if nRuntime.useProfile then
-			debug.sethook(function()
-				nRuntime:hook(3)
-			end, "c")
+		const nScheduleManager = self._scheduleManager
+		if nScheduleManager.useProfile then
+			debug.sethook(function(case:Union("call", "return", "line"))
+				nScheduleManager:hook(case, 3)
+			end, "cr")
 		end
 		const ok, nExc = pcall(vRunFn)
 		if not ok then
