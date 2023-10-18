@@ -22,12 +22,13 @@ function.open Enum:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vSupe
     self._toAddList = {} @ List(AddPair)
     self._addEvent = false @ OrFalse(clazz.ScheduleEvent)
 	self.bits = vSuperType.bits
-    self._task = vManager:getScheduleManager():newTask(vNode)
+    const nTask = vManager:getScheduleManager():newTask(vNode)
+    self._task = nTask
     self._task:runAsync(function()
         while true do
             const nAddList = self._toAddList
             if #nAddList == 0 then
-                const nEvent = vManager:getScheduleManager():makeEvent()
+                const nEvent = nTask:makeEvent()
                 self._addEvent = nEvent
                 nEvent:wait()
                 self._addEvent = false

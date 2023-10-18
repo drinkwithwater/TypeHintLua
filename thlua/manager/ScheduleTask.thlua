@@ -66,6 +66,21 @@ function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:cl
 		end
 	end)
 	self._host = vHost
+	self._waitEvent = false @ OrFalse(clazz.ScheduleEvent)
+end
+
+function ScheduleTask:getWaitEvent()
+	return self._waitEvent
+end
+
+function ScheduleTask:waitEvent(vEvent:clazz.ScheduleEvent)
+	assert(not self._waitEvent)
+	self._waitEvent = vEvent
+end
+
+function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
+	assert(self._waitEvent == vEvent)
+	self._waitEvent = false
 end
 
 function ScheduleTask:getSelfCo():Ret(Thread)
@@ -86,11 +101,7 @@ function ScheduleTask:getStack():Ret(OrFalse(clazz.SealStack))
 end
 
 function ScheduleTask:makeEvent():Ret(clazz.ScheduleEvent)
-	return self._scheduleManager:makeEvent(self._selfCo)
-end
-
-function ScheduleTask:makeWildEvent():Ret(clazz.ScheduleEvent)
-	return self._scheduleManager:makeEvent()
+	return ScheduleEvent.new(self._scheduleManager, self._selfCo)
 end
 
 function ScheduleTask:errorWaitByStack(vStack:clazz.SealStack)

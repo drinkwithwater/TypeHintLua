@@ -38,7 +38,7 @@ function ScheduleManager:newTask(vTaskHost:clazz.UTaskHost)
 	return nTask
 end
 
-function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrNil(Thread))
+function ScheduleManager:coWait(vWaitCo:Thread, vWaitSid:Integer, vDependCo:OrFalse(Thread))
 	assert(vWaitCo == coroutine.running(), "wait co must be current co")
 	if vDependCo then
 		const nWaitingTask = self._coToTask[vWaitCo]
@@ -138,8 +138,8 @@ function ScheduleManager:genSessionId():Ret(Integer)
 	return nNewId
 end
 
-function ScheduleManager:makeEvent(vThread:OrNil(Thread)):Ret(clazz.ScheduleEvent)
-	return ScheduleEvent.new(self, vThread)
+function ScheduleManager:makeWildEvent():Ret(clazz.ScheduleEvent)
+	return ScheduleEvent.new(self, false)
 end
 
 function ScheduleManager:getRuntime()

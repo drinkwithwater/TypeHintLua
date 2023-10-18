@@ -140,14 +140,14 @@ function BaseRuntime:pmain(vRootFileUri:String, vUseProfile:OrNil(Boolean)):Ret(
 	self._node=Node.newRootNode(vRootFileUri)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
-	const nRootStack = nAutoFn:getBuildStack()
-	self._rootStack = nRootStack
-	self._manager:lateInit()
-	self._globalTable = native.make(self)
-	nRootStack:rootSetLetSpace(self:rootLetSpace())
 	const t1 = os.clock()
 	const ok, err = pcall(function():Err(clazz.Exception)
 		nAutoFn:initAsync(function()
+			const nRootStack = nAutoFn:getBuildStack()
+			self._rootStack = nRootStack
+			self._manager:lateInit()
+			self._globalTable = native.make(self)
+			nRootStack:rootSetLetSpace(self:rootLetSpace())
 			for _, pkg in ipairs(nGlobalPackage) do
 				const nLoadedState = self:_cacheLoadGlobal(pkg)
 				if pkg == "string" then
