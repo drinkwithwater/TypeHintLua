@@ -7,20 +7,40 @@ const NameReference = require "thlua.space.NameReference"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const class = require "thlua.class"
 
+const chrono = (function()
+	const ok, t = pcall(require, "chrono")
+	return ok and t or {
+		now=function():Ret(Integer)
+			return 0
+		end,
+		sub=function():Ret(Integer)
+			return 0
+		end,
+	}
+end)()
+
+
 (@do
 	let.clazz = import($class).clazz
 	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation, clazz.NameReference)
+	clazz.ProfileInfo = Struct {
+		counter = Integer,
+		start = OrFalse(Integer),
+		accumulate = Integer,
+		name = String,
+	}
 end)
 
 const ScheduleTask = class@<clazz.ScheduleTask, false>()
 
 function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:clazz.UTaskHost)
 	self._scheduleManager = vScheduleManager
+	self._fnToProfile = {} @ Dict(AnyFunction, clazz.ProfileInfo)
 	self._selfCo = coroutine.create(function(vRunFn:Fn():Err(clazz.Exception))
 		const nScheduleManager = self._scheduleManager
 		if nScheduleManager.useProfile then
 			debug.sethook(function(case:Union("call", "return", "line"))
-				nScheduleManager:hook(case, 3)
+				self:hook(case, 3)
 			end, "cr")
 		end
 		const ok, nExc = pcall(vRunFn)
@@ -98,6 +118,59 @@ function ScheduleTask:getNode():Ret(OrFalse(clazz.IBaseNode))
 	else
 		return false
 	end
+end
+
+function ScheduleTask:hook(vCase:Union("call", "return", "line"), vDepth:OrNil(Integer))
+	vDepth = vDepth or 3
+	const f = debug.getinfo(vDepth, "f").func
+	if f == coroutine.resume or f == coroutine.yield then
+		for k, profile in pairs(self._fnToProfile) do
+			const nStart = profile.start
+			if nStart then
+				profile.accumulate = profile.accumulate + (chrono.now() - nStart)
+				profile.start = false
+			end
+		end
+		return
+	end
+	const nProfile = self._fnToProfile[f]
+	if not nProfile then
+		local name = ""
+		do.pass
+			local n = debug.getinfo(vDepth, "Sn")
+			if n.what == "C" then
+				name = n.name
+			else
+				local loc = string.format("[%s]:%s", n.short_src, n.linedefined)
+				if n.namewhat ~= "" then
+					name = string.format("%s (%s)", loc, n.name)
+				else
+					name = string.format("%s", loc)
+				end
+			end
+		end
+		self._fnToProfile[f] = {
+			counter = 1,
+			start = chrono.now(),
+			accumulate = 0,
+			name = name,
+		}
+	else
+		if vCase == "return" then
+			const nStart = nProfile.start
+			if nStart then
+				nProfile.accumulate = nProfile.accumulate + (chrono.now() - nStart)
+				nProfile.start = false
+			end
+		else
+			nProfile.start = chrono.now()
+			nProfile.counter = nProfile.counter + 1
+		end
+	end
+end
+
+function ScheduleTask:getFnToProfile()
+	return self._fnToProfile
 end
 
 return ScheduleTask
