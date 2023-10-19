@@ -69,6 +69,7 @@ function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:cl
 	end)
 	self._host = vHost
 	self._waitEvent = false @ OrFalse(clazz.ScheduleEvent)
+	self._openStackList = {} @ List(clazz.OpenStack)
 end
 
 function ScheduleTask:getWaitEvent()
@@ -93,7 +94,21 @@ function ScheduleTask:resume()
 			profile.start = chrono.now()
 		end
 	end]]
-	coroutine.resume(self._selfCo)
+	assert(coroutine.resume(self._selfCo))
+end
+
+function ScheduleTask:openCall(vFunc:clazz.OpenCaller, vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple)
+	const nList = self._openStackList
+	const nMoreLen = #nList + 1
+	nList[nMoreLen] = vStack
+	const nRet = vFunc(vStack, vTermTuple)
+	nList[nMoreLen] = nil
+	return nRet
+end
+
+function ScheduleTask:traceStack():Ret(OrFalse(clazz.BaseStack))
+	const nList = self._openStackList
+	return nList[#nList] or self:getStack()
 end
 
 function ScheduleTask:getSelfCo():Ret(Thread)

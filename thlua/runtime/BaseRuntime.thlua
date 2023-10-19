@@ -302,6 +302,21 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 				return nManager[v](nManager, vNode, ...)
 			end, k)
 		end
+		nGlobal.traceNode=nManager:BuiltinFn(function(vNode, vDepth)
+			if not vDepth then
+				return vNode
+			else
+				local nStack = self._scheduleManager:getTask():traceStack()
+				for i=2,vDepth do
+					if OpenStack.is(nStack) then
+						nStack = nStack:getApplyStack()
+					else
+						return false
+					end
+				end
+				return nStack:getNode()
+			end
+		end, "traceNode")
 		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
 			return nManager:Literal(v)
 		end, "Literal")
