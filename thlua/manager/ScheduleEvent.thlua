@@ -8,17 +8,16 @@ function:class(clazz.ScheduleEvent) ScheduleEvent.new(vManager:clazz.ScheduleMan
 	return setmetatable({.class
 		_scheduleManager=vManager,
 		_task=vTask,
-		_coToSid={}@OrFalse(Dict(Thread, 1)),
+		_waitTaskList={}@OrFalse(List(clazz.ScheduleTask)),
 	}, ScheduleEvent)
 end
 
 function ScheduleEvent:wait()
-	const nCoToSid = self._coToSid
-	if nCoToSid then
+	const nWaitList = self._waitTaskList
+	if nWaitList then
 		const nManager = self._scheduleManager
-		const nCurCo = coroutine.running()
-		nCoToSid[nCurCo] = 1
-		const nTask = nManager:getTask(nCurCo)
+		const nTask = nManager:getTask()
+		nWaitList[#nWaitList + 1] = nTask
 		const nSelfTask = self._task
 		if nSelfTask then
 			nManager:checkRecursive(nTask, nSelfTask)
@@ -28,12 +27,12 @@ function ScheduleEvent:wait()
 end
 
 function ScheduleEvent:wakeup()
-	const nCoToSid = self._coToSid
-	if nCoToSid then
-		self._coToSid = false
+	const nWaitList = self._waitTaskList
+	if nWaitList then
+		self._waitTaskList = false
 		const nManager = self._scheduleManager
-		for co, sid in pairs(nCoToSid) do
-			nManager:getTask(co):wakeupEvent(self)
+		for _, nTask in ipairs(nWaitList) do
+			nTask:wakeupEvent(self)
 		end
 	end
 end
