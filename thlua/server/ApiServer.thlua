@@ -2,6 +2,7 @@
 const json = require "thlua.server.json"
 const BaseServer = require "thlua.server.BaseServer"
 const class = require "thlua.class"
+const platform = require "thlua.platform"
 
 (@do
 	let.lsp=import("thlua.server.protocol").lsp
@@ -230,9 +231,9 @@ function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.Initialize
 		self.initialize = true
 	end
 	const rootUri = vParams.rootUri
-	const root  = vParams.rootPath or (rootUri and self:uriToPath(rootUri))
+	const root  = vParams.rootPath or (rootUri and platform.uri2path(rootUri))
 	self:info("Config.root = ", root, vParams.rootPath, vParams.rootUri)
-	self:info("Platform = ", self:getPlatform())
+	self:info("Platform = ", platform.iswin() and "win" or "not-win")
 	if root then
 		self:setRoot(root)
 	end

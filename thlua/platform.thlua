@@ -1,0 +1,37 @@
+
+
+const platform = {}
+
+function platform.iswin():Ret(Boolean)
+	if package.config:sub(1,1) == "\\" then
+		return true
+	else
+		return false
+	end
+end
+
+function platform.uri2path(vUri:String):Ret(String)
+	const nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
+		const num = assert(tonumber(c, 16)) @> Integer
+		const char = string.char(num)
+		return char!
+	end)
+	if platform.iswin() then
+		return (nPath:gsub("^file:///", ""):gsub("/$", ""))
+	else
+		return (nPath:gsub("^file://", ""):gsub("/$", ""))
+	end
+end
+
+function platform.path2uri(vPath:String):Ret(String)
+	if platform.iswin() then
+		const nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
+			return driver:lower().."%3A"
+		end)
+		return "file:///"..nUri
+	else
+		return "file://"..vPath
+	end
+end
+
+return platform

@@ -6,6 +6,7 @@ const ErrorCodes = require "thlua.server.protocol".ErrorCodes
 const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
 const class = require "thlua.class"
+const platform = require "thlua.platform"
 
 (@do
 	let.clazz=import($class).clazz
@@ -55,11 +56,11 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 			if not fileName then
 				return false, err1
 			end
-			return true, self:pathToUri(fileName)
+			return true, platform.path2uri(fileName)
 		end,
 		thluaParseFile=function(vRuntime, vFileUri)
 			if not self._fileStateDict[vFileUri] then
-				const nFilePath = self:uriToPath(vFileUri)
+				const nFilePath = platform.uri2path(vFileUri)
 				const file, err = io.open(nFilePath, "r")
 				if not file then
 					error(err)
@@ -72,7 +73,7 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 		end,
 		thluaGlobalFile=function(vRuntime, vPackage)
 			const nFilePath = self._globalPath.."/"..vPackage..".d.thlua"
-			const nFileUri = self:pathToUri(nFilePath)
+			const nFileUri = platform.path2uri(nFilePath)
 			if not self._fileStateDict[nFileUri] then
 				const file, err = io.open(nFilePath, "r")
 				if not file then
@@ -214,17 +215,9 @@ function BaseServer:notify(vMethod:String, vParams:Truth):Ret()
 	})
 end
 
-function BaseServer:getPlatform():Ret(String)
-	if package.config:sub(1,1) == "\\" then
-		return "win"
-	else
-		return "not-win"
-	end
-end
-
 function BaseServer:_write(vPacket:Truth)
 	local data:String = json.encode(vPacket)
-	if self:getPlatform() == "win" then
+	if platform.iswin() then
 		data = ("Content-Length: %d\n\n%s"):format(#data, data)
 	else
 		data = ("Content-Length: %d\r\n\r\n%s"):format(#data, data)
@@ -286,30 +279,6 @@ function BaseServer:setRoot(vRoot:String)
 	--self.root = vRoot:gsub("/*$", "")
 	--self:info("root:", self.root, vRoot)
 	self._rootPath = vRoot
-end
-
-function BaseServer:uriToPath(vUri:String):Ret(String)
-	const nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
-		const num = assert(tonumber(c, 16)) @> Integer
-		const char = string.char(num)
-		return char!
-	end)
-	if self:getPlatform() == "win" then
-		return (nPath:gsub("^file:///", ""):gsub("/$", ""))
-	else
-		return (nPath:gsub("^file://", ""):gsub("/$", ""))
-	end
-end
-
-function BaseServer:pathToUri(vPath:String):Ret(String)
-	if self:getPlatform() == "win" then
-		const nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
-			return driver:lower().."%3A"
-		end)
-		return "file:///"..nUri
-	else
-		return "file://"..vPath
-	end
 end
 
 return BaseServer

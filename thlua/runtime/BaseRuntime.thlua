@@ -20,6 +20,7 @@ const NameReference = require "thlua.space.NameReference"
 const ScheduleManager = require "thlua.manager.ScheduleManager"
 const class = require "thlua.class"
 const CodeEnv = require "thlua.code.CodeEnv"
+const platform = require "thlua.platform"
 
 (@do
 	let.clazz = import($class).clazz
@@ -302,10 +303,9 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 				return nManager[v](nManager, vNode, ...)
 			end, k)
 		end
-		nGlobal.traceNode=nManager:BuiltinFn(function(vNode, vDepth)
-			if not vDepth then
-				return vNode
-			else
+		nGlobal.traceFile=nManager:BuiltinFn(function(vNode, vDepth)
+			local nRetNode = vNode
+			if vDepth then
 				local nStack = self._scheduleManager:getTask():traceStack()
 				for i=2,vDepth do
 					if OpenStack.is(nStack) then
@@ -314,9 +314,10 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 						return false
 					end
 				end
-				return nStack:getNode()
+				nRetNode = nStack:getNode()
 			end
-		end, "traceNode")
+			return platform.uri2path(nRetNode.path)
+		end, "traceFile")
 		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
 			return nManager:Literal(v)
 		end, "Literal")
