@@ -87,6 +87,17 @@ function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
 	self._scheduleManager:trySchedule(self)
 end
 
+function ScheduleTask:resume()
+	--[[
+	if self._scheduleManager.useProfile then
+		for k, profile in pairs(self._fnToProfile) do
+			profile.start = chrono.now()
+		end
+	end
+	]]
+	coroutine.resume(self._selfCo)
+end
+
 function ScheduleTask:getSelfCo():Ret(Thread)
 	return self._selfCo
 end
@@ -139,7 +150,7 @@ end
 function ScheduleTask:hook(vCase:Union("call", "return", "line"), vDepth:OrNil(Integer))
 	vDepth = vDepth or 3
 	const f = debug.getinfo(vDepth, "f").func
-	if f == coroutine.resume or f == coroutine.yield then
+	if f == coroutine.yield then
 		for k, profile in pairs(self._fnToProfile) do
 			const nStart = profile.start
 			if nStart then

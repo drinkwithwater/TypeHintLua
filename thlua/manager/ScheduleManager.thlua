@@ -84,7 +84,7 @@ function ScheduleManager:trySchedule(vTask:clazz.ScheduleTask)
 			else
 				self._scheduleList = {}
 				for _, nTask in ipairs(nScheduleList) do
-					assert(coroutine.resume(nTask:getSelfCo()))
+					nTask:resume()
 				end
 			end
 		end
@@ -124,10 +124,14 @@ function ScheduleManager:dump()
 		end
 	end
 	table.sort(l, function(a,b)
-		return a.accumulate < b.accumulate
+		return a.counter < b.counter
 	end)
+	local nAllTime = 0.0001 -- for divide zero error
 	for _, profile in pairs(l) do
-		--print(profile.accumulate, profile.counter, profile.name)
+		nAllTime = nAllTime + profile.accumulate
+	end
+	for _, profile in pairs(l) do
+		print(string.format("%.5f", profile.accumulate/nAllTime), profile.counter, profile.name)
 	end
 end
 

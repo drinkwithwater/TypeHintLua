@@ -1,6 +1,8 @@
 
+const EasyMapCom = require "thlua.space.EasyMapCom"
 const Exception = require "thlua.Exception"
 const Node = require "thlua.code.Node"
+const type = type
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
@@ -24,13 +26,26 @@ end
 function:class(clazz.LocalSpaceValue) SpaceValue.create(vRefer:clazz.NameReference):extends(clazz.BaseSpaceValue)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.USpaceValue)
+		__index=function(_:Truth,vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
 			const nNode = Node.newDebugNode()
-			return vRefer:triggerGet(nNode, k)
+			if type(vKey) == "string" then
+				return vRefer:triggerReferChild(nNode, vKey @> String):getSpaceValue()
+			else
+				const nCom = vRefer:getComNowait()
+				assert(EasyMapCom.is(nCom), nNode:toExc("illegal indexing key"))
+				return nCom:getValue(nNode, vKey)
+			end
 		end,
-		__newindex=function(_:Truth,k:clazz.USpaceAny,v:clazz.USpaceAny)
+		__newindex=function(_:Truth,vKey:clazz.USpaceAny,vValue:clazz.USpaceAny)
 			const nNode = Node.newDebugNode()
-			vRefer:triggerSet(nNode, k, v)
+			if type(vKey) == "string" then
+				const nChild = vRefer:triggerReferChild(nNode, vKey @> String)
+				nChild:setAssignAsync(nNode, function() return vValue end)
+			else
+				const nCom = vRefer:getComNowait()
+				assert(EasyMapCom.is(nCom), nNode:toExc("illegal indexing key"))
+				nCom:setValue(nNode, vKey, vValue)
+			end
 		end,
 		__tostring=function(_)
 			return tostring("TODO").."->SpaceValue"
@@ -44,12 +59,22 @@ function:class(clazz.LocalSpaceValue) SpaceValue.create(vRefer:clazz.NameReferen
     })
 end
 
-function:class(clazz.EnvSpaceValue) SpaceValue.envCreate(vRefer:clazz.NameReference):extends(clazz.BaseSpaceValue)
+function:class(clazz.EnvSpaceValue) SpaceValue.envCreate(vLetSpace:clazz.LetSpace, vRefer:clazz.NameReference):extends(clazz.BaseSpaceValue)
     return setmetatable({.class
     }, {
-		__index=function(_:Truth,k:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
-			const nNode = Node.newDebugNode()
-			return vRefer:globalGet(nNode, k)
+		__index=function(_:Truth,vKey:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
+			if type(vKey) == "string" then
+				const nRefer = vLetSpace:chainGet(vKey @> String)
+				if nRefer then
+					return nRefer:getSpaceValue()
+				else
+					const nNode = Node.newDebugNode()
+					error(nNode:toExc("key with empty value, key="..tostring(vKey)))
+				end
+			else
+				const nNode = Node.newDebugNode()
+				error(nNode:toExc("key must be string when global indexing"))
+			end
 		end,
 		__newindex=function(t:Truth,k:clazz.USpaceAny,v:clazz.USpaceAny)
 			const nNode = Node.newDebugNode()

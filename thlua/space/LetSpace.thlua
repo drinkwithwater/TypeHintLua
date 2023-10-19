@@ -17,7 +17,7 @@ end
 function.open LetSpace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.NameReference), clazz.LetSpace))
     self._parentSpace = false @ OrFalse(clazz.LetSpace)
 	self._closed=false@Boolean
-    self._envTable = SpaceValue.envCreate(self._refer @> clazz.NameReference)
+    self._envTable = SpaceValue.envCreate(self, self._refer @> clazz.NameReference)
 	if LetSpace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
@@ -29,12 +29,12 @@ end
 
 function LetSpace:parentHasKey(vKey:String):Ret(Boolean)
     const nParent = self._parentSpace
-	return nParent and nParent:pureGet(vKey) and true or false
+	return nParent and nParent:chainGet(vKey) and true or false
 end
 
-function LetSpace:pureGet(vKey:String):Ret(OrNil(clazz.NameReference))
+function LetSpace:chainGet(vKey:String):Ret(OrNil(clazz.NameReference))
     const nParent = self._parentSpace
-	return self._key2child[vKey] or (nParent and nParent:pureGet(vKey) or nil)
+	return self._key2child[vKey] or (nParent and nParent:chainGet(vKey) or nil)
 end
 
 function LetSpace:export():Ret(clazz.LocalSpaceValue, clazz.EnvSpaceValue, Truth)

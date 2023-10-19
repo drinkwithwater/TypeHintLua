@@ -157,41 +157,6 @@ function NameReference:triggerReferChild(vNode:clazz.IBaseNode, vKey:String):Ret
 	end
 end
 
-function NameReference:triggerGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.USpaceValue)
-	local nCom = self._com
-	if type(vKey) == "string" then
-		return self:triggerReferChild(vNode, vKey @> String):getSpaceValue()
-	else
-		assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
-		return nCom:getValue(vNode, vKey)
-	end
-end
-
-function NameReference:triggerSet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
-	const nCom = self._com
-	if type(vKey) == "string" then
-		const nChild = self:triggerReferChild(vNode, vKey @> String)
-		nChild:setAssignAsync(vNode, function() return vValue end)
-	else
-		assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
-		nCom:setValue(vNode, vKey, vValue)
-	end
-end
-
-function NameReference:globalGet(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(clazz.BaseSpaceValue)
-	const nCom = self._com
-	assert(LetSpace.is(nCom), vNode:toExc("only letspace com can take global index"))
-	assert(type(vKey) == "string", vNode:toExc("key must be string when global index"))
-	const nRefer = nCom:pureGet(vKey @> String)
-	if NameReference.is(nRefer) then
-		return nRefer:getSpaceValue()
-	elseif not nRefer then
-        error(vNode:toExc("key with empty value, key="..tostring(vKey)))
-	else
-		return nRefer
-	end
-end
-
 function NameReference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
 	const nCom = self._com
 	if BuiltinFnCom.is(nCom) then
