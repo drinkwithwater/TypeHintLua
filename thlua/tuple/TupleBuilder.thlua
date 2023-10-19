@@ -14,8 +14,6 @@ const TupleBuilder = class@<clazz.TupleBuilder, false>()
 function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
 	self._manager = vManager
 	self._node = vNode
-    const nDirtyProcessor = vManager:getDirtyProcessor()
-    self._dirtyProcessor = nDirtyProcessor
     self._list = table.pack(...) @ clazz.USpaceTuple
     self._dots = nil @ clazz.USpaceAny
 end
@@ -40,14 +38,14 @@ function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
     const nSpaceTuple = self._list
     const nTypeList:List(clazz.UMustType) = {}
     for i=1, nSpaceTuple.n do
-        nTypeList[i] = self._dirtyProcessor:easyToMustType(nNode, nSpaceTuple[i])
+        nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
     end
     const nTypeTuple = self._manager:TypeTuple(nNode, nTypeList)
     const nDotsType = self._dots
     if nDotsType == nil then
         return nTypeTuple
     else
-        const nDotsMustType = self._dirtyProcessor:easyToMustType(nNode, nDotsType)
+        const nDotsMustType = self._manager:easyToMustType(nNode, nDotsType)
         return nTypeTuple:withDots(nDotsMustType)
     end
 end
@@ -61,7 +59,7 @@ function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
     const nSpaceTuple = self._list
     const nTypeList:List(clazz.UMustType) = {}
     for i=1, nSpaceTuple.n do
-        nTypeList[i] = self._dirtyProcessor:easyToMustType(nNode, nSpaceTuple[i])
+        nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
     end
     return nTypeList
 end

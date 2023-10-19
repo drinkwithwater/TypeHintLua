@@ -47,7 +47,6 @@ const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
-const DirtyProcessor = require "thlua.manager.DirtyProcessor"
 
 const BaseReadyType = require "thlua.type.basic.BaseReadyType"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
@@ -64,6 +63,7 @@ const TypeRelation = require "thlua.manager.TypeRelation"
 const TupleBuilder = require "thlua.tuple.TupleBuilder"
 
 const HashableTypeSet = require "thlua.manager.HashableTypeSet"
+const SpaceValue = require "thlua.space.SpaceValue"
 
 const type = type
 const math_type = math.type
@@ -136,9 +136,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		_typeIdCounter=0@Integer,
 		_rootNode=vRootNode,
 		_scheduleManager=vScheduleManager,
-		_dirtyProcessor=nil@!clazz.DirtyProcessor,
 	}, TypeManager)
-	self._dirtyProcessor = DirtyProcessor.new(self)
 	return self
 end
 
@@ -325,7 +323,7 @@ function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:clazz.USpaceAny, 
 	const nList:List(clazz.USpaceAny) = {...}
 	const nNum = select("#", ...)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
-		const nType = self._dirtyProcessor:easyToMustType(vNode, vArgType):checkAtomUnion()
+		const nType = self:easyToMustType(vNode, vArgType):checkAtomUnion()
 		assert(BaseAtomType.is(nType) and not nType:isSingleton(), vNode:toExc("enum's supertype must be non-singleton atom type"))
 		const nEnum = Enum.new(self, vNode, nType)
 		for i=1, nNum do
@@ -356,7 +354,7 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(
 	nAsyncTypeCom:setSetAsync(vNode, function()
 		local nTypeSet = self:HashableTypeSet()
 		for i=1, nLen do
-			local nItem = self._dirtyProcessor:easyToMustType(vNode, l[i])
+			local nItem = self:easyToMustType(vNode, l[i])
 			if AsyncTypeCom.is(nItem) then
 				nTypeSet:putSet(nItem:getSetAwait())
 			else
@@ -388,8 +386,8 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 		const nKeyTypeSet = self:HashableTypeSet()
 		const nValueDict:Dict(clazz.IAtomType, clazz.UMustType) = {}
 		for nKey, nValue in pairs(vTable) do
-			const nValueType = self._dirtyProcessor:easyToMustType(vNode, nValue)
-			const nKeyType = self._dirtyProcessor:easyToMustType(vNode, nKey)
+			const nValueType = self:easyToMustType(vNode, nValue)
+			const nKeyType = self:easyToMustType(vNode, nKey)
 			nIndependentList[#nIndependentList + 1] = nKeyType
 			nKeyType:checkAtomUnion():foreach(function(vAtomType)
 				nKeyTypeSet:putAtom(vAtomType)
@@ -406,7 +404,7 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 				const nEventToType:Dict(String, clazz.UMustType) = {}
 				for k,v in pairs(vMetaEventDict) do
 					assert(type(k) == "string", "meta event must be string")
-					nEventToType[k @> String] = self._dirtyProcessor:easyToMustType(vNode, v)
+					nEventToType[k @> String] = self:easyToMustType(vNode, v)
 				end
 				nNewEventCom:initByEventDict(vNode, nEventToType)
 				---------------------------------------------------------
@@ -783,12 +781,34 @@ function TypeManager:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
 end
 
-function TypeManager:getDirtyProcessor()
-	return self._dirtyProcessor
-end
-
 function TypeManager:spacePack(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.TupleBuilder)
 	return TupleBuilder.new(self, vNode, ...)
+end
+
+function TypeManager:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
+	local t = type(vData)
+	if t == "table" then
+		if AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+			return vData
+		else
+			const nRefer = SpaceValue.checkRefer(vData)
+			if nRefer then
+				return nRefer:waitAsyncTypeCom(vNode)
+			else
+				if NameReference.is(vData) then
+					return vData:waitAsyncTypeCom(vNode)
+				else
+					error(vNode:toExc("to type failed"))
+				end
+			end
+		end
+	elseif t == "number" or t == "string" or t == "boolean"then
+		return self:Literal(vData @> Union(Number, String, Boolean))
+	elseif t == "nil" then
+		error(vNode:toExc("can't trans nil into type in hint space"))
+	else
+		error(vNode:toExc("can't trans this value into type in hint space"))
+	end
 end
 
 

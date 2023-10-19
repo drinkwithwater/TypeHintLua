@@ -65,7 +65,6 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	const self = {.class
 		_stack=vStack,
 		_manager=nManager,
-		_dirtyProcessor=nManager:getDirtyProcessor(),
 		_node=vNode,
 		_lexCapture=vUpState,
 		_prefixHint=vPrefixHint,
@@ -302,11 +301,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			local nErrType:OrNil(clazz.UMustType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
-					nImplementsArg = self._dirtyProcessor:easyToMustType(self._node, vInterface)
+					nImplementsArg = self._manager:easyToMustType(self._node, vInterface)
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
-					nExtendsArg = self._dirtyProcessor:easyToMustType(self._node, vBaseClass)
+					nExtendsArg = self._manager:easyToMustType(self._node, vBaseClass)
 					return vHint
 				end,
 				Ret=function(vHint, ...)
@@ -318,7 +317,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					return vHint
 				end,
 				Err=function(vHint, vErrType)
-					nErrType = self._dirtyProcessor:easyToMustType(self._node, vErrType)
+					nErrType = self._manager:easyToMustType(self._node, vErrType)
 					return vHint
 				end,
 				isguard=function(vHint, vType)

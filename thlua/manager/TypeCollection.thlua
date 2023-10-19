@@ -49,29 +49,26 @@ function:class(clazz.TypeCollection) TypeCollection.new(vManager:clazz.TypeManag
 end
 
 
-function TypeCollection:put(vType:clazz.UMustType)
-	const nType = vType:checkAtomUnion()
+function TypeCollection:put(vAtomType:clazz.IAtomType)
 	const nBitsToSet = self._bitsToSet
 	const nMetaSet = self._metaSet
 	local nCurBits = self._bits
 	local nCurCount = self._count
-	nType:foreach(function(vAtomType)
-		nCurBits = nCurBits | vAtomType.bits
-		-- 1. put into type set
-		const nAtomBits = vAtomType.bits
-		local nSet = nBitsToSet[nAtomBits]
-		if not nSet then
-			nSet = {}
-			nBitsToSet[nAtomBits] = nSet
-		end
-		if not nSet[vAtomType] then
-			nSet[vAtomType] = true
-			nCurCount = nCurCount + 1
-		end
-		-- 2. put into meta set
-		const nMeta = getmetatable(vAtomType)
-		nMetaSet[nMeta!] = true
-	end)
+	nCurBits = nCurBits | vAtomType.bits
+	-- 1. put into type set
+	const nAtomBits = vAtomType.bits
+	local nSet = nBitsToSet[nAtomBits]
+	if not nSet then
+		nSet = {}
+		nBitsToSet[nAtomBits] = nSet
+	end
+	if not nSet[vAtomType] then
+		nSet[vAtomType] = true
+		nCurCount = nCurCount + 1
+	end
+	-- 2. put into meta set
+	const nMeta = getmetatable(vAtomType)
+	nMetaSet[nMeta!] = true
 	self._bits = nCurBits
 	self._count = nCurCount
 end

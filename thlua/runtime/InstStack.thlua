@@ -398,7 +398,7 @@ function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastK
 		return nCastContext:mergeToRefineTerm(nTypeCaseList)
 	else
 		const nDst = assert(..., "hint type can't be nil")
-		const nDstType = self._manager:getDirtyProcessor():easyToMustType(vNode, nDst):checkAtomUnion()
+		const nDstType = self._manager:easyToMustType(vNode, nDst):checkAtomUnion()
 		const nSrcType = vTerm:getType()
 		if vCastKind == Enum.CastKind_CONIL then
 			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), Enum.CastKind_CONIL)
@@ -420,7 +420,7 @@ function InstStack:NIL_TERM(vNode:node.IAstNode)
 end
 
 function InstStack:HINT_TERM(vNode:node.HintTerm, vItem:clazz.USpaceAny)
-	const nType = self._manager:getDirtyProcessor():easyToMustType(vNode, vItem):checkAtomUnion()
+	const nType = self._manager:easyToMustType(vNode, vItem):checkAtomUnion()
 	return self:_nodeTerm(vNode, nType)
 end
 
@@ -457,7 +457,7 @@ function InstStack:PARAM_UNPACK(
 	vIndex:Integer,
 	vHintType:Union(clazz.AutoFlag, clazz.USpaceAny)
 ):Ret(clazz.UAutoTerm)
-	const nHintType = vHintType == AutoFlag and AutoFlag or self._manager:getDirtyProcessor():easyToMustType(vNode, vHintType)
+	const nHintType = vHintType == AutoFlag and AutoFlag or self._manager:easyToMustType(vNode, vHintType)
 	const nHeadContext = self._headContext
 	if nHintType == AutoFlag then
 		if vTermTuple then
@@ -491,7 +491,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 	vParNum:Integer,
 	vHintDots:Union(clazz.AutoFlag, clazz.USpaceAny)
 ):Ret(OrFalse(clazz.UTermTuple))
-	const nHintDots = vHintDots == AutoFlag and AutoFlag or self._manager:getDirtyProcessor():easyToMustType(vNode, vHintDots)
+	const nHintDots = vHintDots == AutoFlag and AutoFlag or self._manager:easyToMustType(vNode, vHintDots)
 	if vTermTuple then
 		if nHintDots == AutoFlag then
 			return self._headContext:matchArgsToAutoDots(vNode, vTermTuple, vParNum)
@@ -515,7 +515,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		nSymbolContext:warn("define a symbol without any type")
 	end
 	if vHintType ~= AutoFlag then
-		const nHintType = self._manager:getDirtyProcessor():easyToMustType(vNode, vHintType)
+		const nHintType = self._manager:easyToMustType(vNode, vHintType)
 		nTerm = nSymbolContext:assignTermToType(nTerm, nHintType)
 	else
 		const nTermInHolder = nTerm:getRefineTerm()

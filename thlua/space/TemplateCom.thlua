@@ -15,7 +15,7 @@ function.open TemplateCom:ctor(_, _, vFunc:AnyFunction, vParNum:Integer)
 end
 
 function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(clazz.USpaceAny)):Ret(clazz.AsyncTypeCom)
-	const nDirtyProcessor = self._manager:getDirtyProcessor()
+	const nManager = self._manager
 	const nFn = self._func
 	const nAsyncTypeCom = self._manager:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
@@ -24,7 +24,7 @@ function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(
 		end
 		const nMustList:List(clazz.UMustType) = {}
 		for i=1, vArgNum do
-			nMustList[i] = nDirtyProcessor:easyToMustType(vNode, vArgList[i])
+			nMustList[i] = nManager:easyToMustType(vNode, vArgList[i])
 		end
 		const nKey = self._manager:signTemplateArgs(nMustList)
 		const nValue = self._cache[nKey]
@@ -32,7 +32,7 @@ function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(
 			self._cache[nKey] = nAsyncTypeCom
 			const ok, exc = pcall(nFn, table.unpack(nMustList))
 			if ok then
-				return nDirtyProcessor:easyToMustType(vNode, exc)
+				return nManager:easyToMustType(vNode, exc)
 			else
 				if Exception.is(exc) then
 					error(exc)
