@@ -215,7 +215,7 @@ end
 
 function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.TypedObject)
 	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
-	nNewObject:keySetListAsync(vNode, function()
+	nNewObject:buildInKeyAsync(vNode, function()
 		const nObjectList = vTupleBuilder:buildPolyArgs()
 		if vIsInterface then
 			assert(#nObjectList>=1, "Intersect must take at least one arguments")
@@ -368,42 +368,93 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(
 	return nAsyncTypeCom
 end
 
+function TypeManager:buildOneOf(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny):Ret(clazz.Struct)
+	if type(vTable) == "table" then
+		return self:_buildTypedObject@<"oneof">(vNode, vTable @> clazz.USpaceDict, nil, "oneof")
+	else
+		error(vNode:toExc("interface must build with a table without meta"))
+	end
+end
+
 function TypeManager:buildInterface(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, vMetaEventDict:OrNil(clazz.USpaceAny)):Ret(clazz.Interface)
-	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
-	return self:_buildTypedObject@<True>(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), true)
+	if type(vTable) == "table" then
+		return self:_buildTypedObject@<"interface">(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), "interface")
+	else
+		error(vNode:toExc("interface must build with a table without meta"))
+	end
 end
 
 function TypeManager:buildStruct(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, vMetaEventDict:OrNil(clazz.USpaceAny)):Ret(clazz.Struct)
-	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
-	return self:_buildTypedObject@<False>(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), false)
+	if type(vTable) == "table" then
+		return self:_buildTypedObject@<"struct">(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), "struct")
+	else
+		error(vNode:toExc("interface must build with a table without meta"))
+	end
 end
 
-function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTable:clazz.USpaceDict, vMetaEventDict:OrNil(clazz.USpaceDict), vIsInterface:IsInterface):Ret(Cond(IsInterface, clazz.Interface, clazz.Struct))
+function TypeManager:_buildTypedObject@<TWhat>(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, vMetaEventDict:OrNil(clazz.USpaceDict), vWhat:TWhat):Ret(Cond($(vWhat == "interface"), clazz.Interface, clazz.Struct))
 	-- TODO check vMetaEventDict
-	const nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
-	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
-		const nIndependentList:List(clazz.UMustType) = {}
-		const nKeyTypeSet = self:HashableTypeSet()
-		const nValueDict:Dict(clazz.IAtomType, clazz.UMustType) = {}
-		for nKey, nValue in pairs(vTable) do
-			const nValueType = self:easyToMustType(vNode, nValue)
-			const nKeyType = self:easyToMustType(vNode, nKey)
-			nIndependentList[#nIndependentList + 1] = nKeyType
-			nKeyType:checkAtomUnion():foreach(function(vAtomType)
-				nKeyTypeSet:putAtom(vAtomType)
-				if vAtomType:isSingleton() then
-					nValueDict[vAtomType] = nValueType
+	const nIsInterface = vWhat == "interface"
+	const nIsOneOf = vWhat == "oneof"
+	const nUseAutoTable = getmetatable(vTable)
+	const nNewObject = nIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
+	nNewObject:buildInKeyAsync(vNode, function()
+		local nIndependentList:List(clazz.UMustType) = {}
+		local nFinalKeyTypeSet = self:HashableTypeSet()
+		local nFinalValueDict = {} @ Dict(clazz.IAtomType, clazz.UMustType)
+		if nUseAutoTable then
+			const nType = self:easyToMustType(vNode, vTable):checkAtomUnion()
+			if not AutoTable.is(nType) then
+				error(vNode:toExc("struct or interface can only take AutoTable or table without metatable as first arg"))
+			end
+			nType:setLocked()
+			const nAutoDict = nType:getValueDict()
+			for nKey, nValue in pairs(nAutoDict) do
+				nFinalKeyTypeSet:putAtom(nKey)
+				if nIsOneOf then
+					if not nKey:isSingleton() then
+						error(vNode:toExc("OneOf's key must be singleton type"))
+					end
+					nFinalValueDict[nKey] = nValue:isNilable() and nValue or self:checkedUnion(nValue, self.type.Nil)
 				else
-					nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+					if not nKey:isSingleton() then
+						nFinalValueDict[nKey] = nValue:isNilable() and nValue or self:checkedUnion(nValue, self.type.Nil)
+					else
+						nFinalValueDict[nKey] = nValue
+					end
 				end
-			end)
+			end
+		else
+			for nKey, nValue in pairs(vTable @> clazz.USpaceDict) do
+				const nValueType = self:easyToMustType(vNode, nValue)
+				const nKeyType = self:easyToMustType(vNode, nKey)
+				nIndependentList[#nIndependentList + 1] = nKeyType
+				nKeyType:checkAtomUnion():foreach(function(vAtomType)
+					nFinalKeyTypeSet:putAtom(vAtomType)
+					if nIsOneOf then
+						if not vAtomType:isSingleton() then
+							error(vNode:toExc("OneOf's key must be singleton type"))
+						end
+						nFinalValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+					else
+						if not vAtomType:isSingleton() then
+							nFinalValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+						else
+							nFinalValueDict[vAtomType] = nValueType
+						end
+					end
+				end)
+			end
 		end
-		return nKeyTypeSet, function(vKeyAtomUnion)
+		return nFinalKeyTypeSet, function(vKeyAtomUnion)
+			const nAutoNextKey = (nUseAutoTable or nIsOneOf) and vKeyAtomUnion or false
 			if vMetaEventDict then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				const nEventToType:Dict(String, clazz.UMustType) = {}
 				for k,v in pairs(vMetaEventDict) do
-					assert(type(k) == "string", "meta event must be string")
+					if type(k) ~= "string" then
+						error(vNode:toExc("meta event must be string"))
+					end
 					nEventToType[k @> String] = self:easyToMustType(vNode, v)
 				end
 				nNewEventCom:initByEventDict(vNode, nEventToType)
@@ -411,14 +462,16 @@ function TypeManager:_buildTypedObject@<IsInterface>(vNode:clazz.IBaseNode, vTab
 				--- TODO TODO TODO TODO
 				-- TODO define __Next as a meta event in somewhere ????
 				---------------------------------------------------------
-				const nNextKey = nEventToType.__Next or false
-				nNewObject:lateInit({}, nValueDict, nNextKey, nNewEventCom)
+				const nNextKey = nEventToType.__Next or nAutoNextKey or false
+				nNewObject:lateInit({}, nFinalValueDict, nNextKey, nNewEventCom)
 			else
-				nNewObject:lateInit({}, nValueDict, false, false)
+				nNewObject:lateInit({}, nFinalValueDict, nAutoNextKey, false)
 			end
 			nNewObject:lateCheck()
-			if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
-				error("Object's key must be independent")
+			if #nIndependentList > 0 then
+				if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
+					error(vNode:toExc("Object's key must be independent"))
+				end
 			end
 		end
 	end)

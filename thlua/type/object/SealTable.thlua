@@ -29,7 +29,6 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, 
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
 	self._metaIndex=false@OrFalse(clazz.IAtomType)
-	self._newIndexType=false@OrFalse(clazz.IAtomType)
 end
 
 function SealTable:meta_len(vContext)
@@ -229,23 +228,23 @@ end
 
 function SealTable:native_next(vContext, vInitType)
 	self:ctxWait(vContext)
-	local nNextDict = self._nextDict
 	local nValueType = self._nextValue
-	if not nNextDict or not nValueType then
+	local nNextDict = self._nextDict
+	if not nValueType or not nNextDict then
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
 			nNextDict[nKeyAtom] = nField:getValueType()
 		end
 		local nNil = self._manager.type.Nil
-		const nTypeSet = self._manager:HashableTypeSet()
+		const nValueTypeSet = self._manager:HashableTypeSet()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
 			nNextDict[nOneKey] = nNotnilType
-			nTypeSet:putType(nNotnilType)
+			nValueTypeSet:putType(nNotnilType)
 		end
-		nTypeSet:putAtom(nNil)
-		nValueType = self._manager:unifyAndBuild(nTypeSet)
+		nValueTypeSet:putAtom(nNil)
+		nValueType = self._manager:unifyAndBuild(nValueTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict

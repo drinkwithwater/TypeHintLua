@@ -282,6 +282,7 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 			Enum="buildEnum",
 			Union="buildUnion",
 			Struct="buildStruct",
+			OneOf="buildOneOf",
 			Interface="buildInterface",
 			ExtendInterface="buildExtendInterface",
 			ExtendStruct="buildExtendStruct",
@@ -303,6 +304,19 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 				return nManager[v](nManager, vNode, ...)
 			end, k)
 		end
+		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
+			return nManager:Literal(v)
+		end, "Literal")
+		nGlobal.enum=nManager:BuiltinFn(function(vNode, vEnumType, ...)
+			error("enum TODO")
+			--return nManager:addEnum(vNode, vEnumType, ...)
+		end, "enum")
+		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
+			return self:NameSpace(vNode, false)
+		end, "namespace")
+		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
+			return self:import(vPath)
+		end, "import")
 		nGlobal.traceFile=nManager:BuiltinFn(function(vNode, vDepth)
 			local nRetNode = vNode
 			if vDepth then
@@ -318,19 +332,6 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 			end
 			return platform.uri2path(nRetNode.path)
 		end, "traceFile")
-		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
-			return nManager:Literal(v)
-		end, "Literal")
-		nGlobal.enum=nManager:BuiltinFn(function(vNode, vEnumType, ...)
-			error("enum TODO")
-			--return nManager:addEnum(vNode, vEnumType, ...)
-		end, "enum")
-		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
-			return self:NameSpace(vNode, false)
-		end, "namespace")
-		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
-			return self:import(vPath)
-		end, "import")
 		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
