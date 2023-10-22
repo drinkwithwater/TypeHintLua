@@ -24,6 +24,7 @@ function.open AutoTable:ctor(vManager, ...)
 	self._firstAssign = false@OrFalse(clazz.AssignContext)
 	self._castDict = {} @ Dict(clazz.TypedObject, Boolean)
 	self._locked = false@Boolean
+	self._keyType = false @ OrFalse(clazz.UAtomUnion)
 end
 
 function AutoTable:detailString(v, vVerbose)
@@ -93,6 +94,20 @@ end
 
 function AutoTable:findRequireStack()
 	return self._lexStack:findRequireStack()
+end
+
+function AutoTable:checkKeyTypes()
+	self:setLocked()
+	local nKeyType = self._keyType
+	if not nKeyType then
+		const nValueTypeSet = self._manager:HashableTypeSet()
+		for nOneKey, nOneField in pairs(self._fieldDict) do
+			nValueTypeSet:putType(nOneKey)
+		end
+		nKeyType = self._manager:unifyAndBuild(nValueTypeSet)
+		self._keyType = nKeyType
+	end
+	return nKeyType
 end
 
 function AutoTable:setLocked()

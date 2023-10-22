@@ -170,13 +170,16 @@ function TypeManager:lateInit()
 		assert(vValue, "value can't be nil when build IList")
 		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
-	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType:clazz.UMustType)
+	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType:clazz.UMustType):Ret(clazz.UMustType)
 		local nObject = vOneType:checkAtomUnion()
-		if not TypedObject.is(nObject) then
-			error("key of can only worked on object function")
+		if TypedObject.is(nObject) then
+			const nKeyRefer, _ = nObject:getKeyTypes()
+			return nKeyRefer
+		elseif AutoTable.is(nObject) then
+			return nObject:checkKeyTypes()
+		else
+			error("key of can only worked on object or AutoTable")
 		end
-		const nKeyRefer, _ = nObject:getKeyTypes()
-		return nKeyRefer
 	end)
 	self.builtin = makeBuiltinFunc(self)
 end
@@ -487,7 +490,7 @@ function TypeManager:buildOrFalse(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Re
 end
 
 function TypeManager:unifyAndBuild(vTypeSet:clazz.HashableTypeSet):Ret(clazz.UAtomUnion)
-	return self:unifyTypeSet(vTypeSet):buildType()
+	return self:unifyTypeSet(vTypeSet):_buildType()
 end
 
 function TypeManager:unifyTypeSet(vTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
