@@ -6541,7 +6541,7 @@ function HashableTypeSet:getResultType()
     return self._typeResult
 end
 
-function HashableTypeSet:buildType()
+function HashableTypeSet:_buildType()
     local nResultType = self._typeResult
     if not nResultType then
         local nCollection = self._manager:TypeCollection()
@@ -7392,11 +7392,14 @@ function TypeManager:lateInit()
 	end)
 	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType)
 		local nObject = vOneType:checkAtomUnion()
-		if not TypedObject.is(nObject) then
-			error("key of can only worked on object function")
+		if TypedObject.is(nObject) then
+			local nKeyRefer, _ = nObject:getKeyTypes()
+			return nKeyRefer
+		elseif AutoTable.is(nObject) then
+			return nObject:checkKeyTypes()
+		else
+			error("key of can only worked on object or AutoTable")
 		end
-		local nKeyRefer, _ = nObject:getKeyTypes()
-		return nKeyRefer
 	end)
 	self.builtin = makeBuiltinFunc(self)
 end
@@ -7707,7 +7710,7 @@ function TypeManager:buildOrFalse(vNode, ...)
 end
 
 function TypeManager:unifyAndBuild(vTypeSet)
-	return self:unifyTypeSet(vTypeSet):buildType()
+	return self:unifyTypeSet(vTypeSet):_buildType()
 end
 
 function TypeManager:unifyTypeSet(vTypeSet)
@@ -12528,7 +12531,7 @@ function AsyncTypeCom:setSetAsync(vNode, vGetSetLateRunner )
 			local _, nFirstType = next(nTypeSet:getDict())
 			nResultType = nFirstType
 		else
-			nResultType = nTypeSet:buildType()
+			nResultType = nTypeSet:_buildType()
 		end
 		self._resultType = nResultType
 		self._resultBuildEvent:wakeup()
@@ -16751,6 +16754,7 @@ function AutoTable:ctor(vManager, ...)
 	self._firstAssign = false
 	self._castDict = {}   
 	self._locked = false
+	self._keyType = false  
 end
 
 function AutoTable:detailString(v, vVerbose)
@@ -16820,6 +16824,20 @@ end
 
 function AutoTable:findRequireStack()
 	return self._lexStack:findRequireStack()
+end
+
+function AutoTable:checkKeyTypes()
+	self:setLocked()
+	local nKeyType = self._keyType
+	if not nKeyType then
+		local nValueTypeSet = self._manager:HashableTypeSet()
+		for nOneKey, nOneField in pairs(self._fieldDict) do
+			nValueTypeSet:putType(nOneKey)
+		::continue:: end
+		nKeyType = self._manager:unifyAndBuild(nValueTypeSet)
+		self._keyType = nKeyType
+	end
+	return nKeyType
 end
 
 function AutoTable:setLocked()
