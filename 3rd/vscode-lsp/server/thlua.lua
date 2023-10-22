@@ -7435,7 +7435,7 @@ end
 
 function TypeManager:_buildCombineObject(vNode, vIsInterface, vTupleBuilder)
 	local nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
-	nNewObject:keySetListAsync(vNode, function()
+	nNewObject:buildInKeyAsync(vNode, function()
 		local nObjectList = vTupleBuilder:buildPolyArgs()
 		if vIsInterface then
 			assert(#nObjectList>=1, "Intersect must take at least one arguments")
@@ -7588,42 +7588,93 @@ function TypeManager:buildUnion(vNode, ...)
 	return nAsyncTypeCom
 end
 
+function TypeManager:buildOneOf(vNode, vTable)
+	if type(vTable) == "table" then
+		return self:_buildTypedObject(vNode, vTable  , nil, "oneof")
+	else
+		error(vNode:toExc("interface must build with a table without meta"))
+	end
+end
+
 function TypeManager:buildInterface(vNode, vTable, vMetaEventDict)
-	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
-	return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , true)
+	if type(vTable) == "table" then
+		return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , "interface")
+	else
+		error(vNode:toExc("interface must build with a table without meta"))
+	end
 end
 
 function TypeManager:buildStruct(vNode, vTable, vMetaEventDict)
-	assert(type(vTable) == "table" and not getmetatable(vTable), "interface must build with a table without meta")
-	return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , false)
+	if type(vTable) == "table" then
+		return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , "struct")
+	else
+		error(vNode:toExc("interface must build with a table without meta"))
+	end
 end
 
-function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict, vIsInterface)  
+function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict, vWhat)    
 	   
-	local nNewObject = vIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
-	nNewObject:keySetListAsync(vNode, function(vAsyncKey)
+	local nIsInterface = vWhat == "interface"
+	local nIsOneOf = vWhat == "oneof"
+	local nUseAutoTable = getmetatable(vTable)
+	local nNewObject = nIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
+	nNewObject:buildInKeyAsync(vNode, function()
 		local nIndependentList = {}
-		local nKeyTypeSet = self:HashableTypeSet()
-		local nValueDict  = {}
-		for nKey, nValue in pairs(vTable) do
-			local nValueType = self:easyToMustType(vNode, nValue)
-			local nKeyType = self:easyToMustType(vNode, nKey)
-			nIndependentList[#nIndependentList + 1] = nKeyType
-			nKeyType:checkAtomUnion():foreach(function(vAtomType)
-				nKeyTypeSet:putAtom(vAtomType)
-				if vAtomType:isSingleton() then
-					nValueDict[vAtomType] = nValueType
+		local nFinalKeyTypeSet = self:HashableTypeSet()
+		local nFinalValueDict = {}   
+		if nUseAutoTable then
+			local nType = self:easyToMustType(vNode, vTable):checkAtomUnion()
+			if not AutoTable.is(nType) then
+				error(vNode:toExc("struct or interface can only take AutoTable or table without metatable as first arg"))
+			end
+			nType:setLocked()
+			local nAutoDict = nType:getValueDict()
+			for nKey, nValue in pairs(nAutoDict) do
+				nFinalKeyTypeSet:putAtom(nKey)
+				if nIsOneOf then
+					if not nKey:isSingleton() then
+						error(vNode:toExc("OneOf's key must be singleton type"))
+					end
+					nFinalValueDict[nKey] = nValue:isNilable() and nValue or self:checkedUnion(nValue, self.type.Nil)
 				else
-					nValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+					if not nKey:isSingleton() then
+						nFinalValueDict[nKey] = nValue:isNilable() and nValue or self:checkedUnion(nValue, self.type.Nil)
+					else
+						nFinalValueDict[nKey] = nValue
+					end
 				end
-			end)
-		::continue:: end
-		return nKeyTypeSet, function(vKeyAtomUnion)
+			::continue:: end
+		else
+			for nKey, nValue in pairs(vTable  ) do
+				local nValueType = self:easyToMustType(vNode, nValue)
+				local nKeyType = self:easyToMustType(vNode, nKey)
+				nIndependentList[#nIndependentList + 1] = nKeyType
+				nKeyType:checkAtomUnion():foreach(function(vAtomType)
+					nFinalKeyTypeSet:putAtom(vAtomType)
+					if nIsOneOf then
+						if not vAtomType:isSingleton() then
+							error(vNode:toExc("OneOf's key must be singleton type"))
+						end
+						nFinalValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+					else
+						if not vAtomType:isSingleton() then
+							nFinalValueDict[vAtomType] = self:buildUnion(vNode, nValueType, self.type.Nil)
+						else
+							nFinalValueDict[vAtomType] = nValueType
+						end
+					end
+				end)
+			::continue:: end
+		end
+		return nFinalKeyTypeSet, function(vKeyAtomUnion)
+			local nAutoNextKey = (nUseAutoTable or nIsOneOf) and vKeyAtomUnion or false
 			if vMetaEventDict then
 				local nNewEventCom = self:makeMetaEventCom(nNewObject)
 				local nEventToType  = {}
 				for k,v in pairs(vMetaEventDict) do
-					assert(type(k) == "string", "meta event must be string")
+					if type(k) ~= "string" then
+						error(vNode:toExc("meta event must be string"))
+					end
 					nEventToType[k  ] = self:easyToMustType(vNode, v)
 				::continue:: end
 				nNewEventCom:initByEventDict(vNode, nEventToType)
@@ -7631,14 +7682,16 @@ function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict, vIsInterfa
 				    
 				          
 				
-				local nNextKey = nEventToType.__Next or false
-				nNewObject:lateInit({}, nValueDict, nNextKey, nNewEventCom)
+				local nNextKey = nEventToType.__Next or nAutoNextKey or false
+				nNewObject:lateInit({}, nFinalValueDict, nNextKey, nNewEventCom)
 			else
-				nNewObject:lateInit({}, nValueDict, false, false)
+				nNewObject:lateInit({}, nFinalValueDict, nAutoNextKey, false)
 			end
 			nNewObject:lateCheck()
-			if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
-				error("Object's key must be independent")
+			if #nIndependentList > 0 then
+				if not self:typeCheckIndependent(nIndependentList, vKeyAtomUnion) then
+					error(vNode:toExc("Object's key must be independent"))
+				end
 			end
 		end
 	end)
@@ -8764,6 +8817,7 @@ function BaseRuntime:buildSimpleGlobal()
 			Enum="buildEnum",
 			Union="buildUnion",
 			Struct="buildStruct",
+			OneOf="buildOneOf",
 			Interface="buildInterface",
 			ExtendInterface="buildExtendInterface",
 			ExtendStruct="buildExtendStruct",
@@ -8785,6 +8839,19 @@ function BaseRuntime:buildSimpleGlobal()
 				return nManager[v](nManager, vNode, ...)
 			end, k)
 		::continue:: end
+		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
+			return nManager:Literal(v)
+		end, "Literal")
+		nGlobal.enum=nManager:BuiltinFn(function(vNode, vEnumType, ...)
+			error("enum TODO")
+			   
+		end, "enum")
+		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
+			return self:NameSpace(vNode, false)
+		end, "namespace")
+		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
+			return self:import(vPath)
+		end, "import")
 		nGlobal.traceFile=nManager:BuiltinFn(function(vNode, vDepth)
 			local nRetNode = vNode
 			if vDepth then
@@ -8800,19 +8867,6 @@ function BaseRuntime:buildSimpleGlobal()
 			end
 			return platform.uri2path(nRetNode.path)
 		end, "traceFile")
-		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
-			return nManager:Literal(v)
-		end, "Literal")
-		nGlobal.enum=nManager:BuiltinFn(function(vNode, vEnumType, ...)
-			error("enum TODO")
-			   
-		end, "enum")
-		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
-			return self:NameSpace(vNode, false)
-		end, "namespace")
-		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
-			return self:import(vPath)
-		end, "import")
 		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
@@ -17817,7 +17871,6 @@ function SealTable:ctor(vManager, vNode, vLexStack, ...)
 	self._nextDict=false  
 	self._metaTable=false 
 	self._metaIndex=false
-	self._newIndexType=false
 end
 
 function SealTable:meta_len(vContext)
@@ -18017,23 +18070,23 @@ end
 
 function SealTable:native_next(vContext, vInitType)
 	self:ctxWait(vContext)
-	local nNextDict = self._nextDict
 	local nValueType = self._nextValue
-	if not nNextDict or not nValueType then
+	local nNextDict = self._nextDict
+	if not nValueType or not nNextDict then
 		nNextDict = {}
 		for nKeyAtom, nField in pairs(self._fieldDict) do
 			nNextDict[nKeyAtom] = nField:getValueType()
 		::continue:: end
 		local nNil = self._manager.type.Nil
-		local nTypeSet = self._manager:HashableTypeSet()
+		local nValueTypeSet = self._manager:HashableTypeSet()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			local nValueType = nOneField:getValueType()
 			local nNotnilType = nValueType:notnilType()
 			nNextDict[nOneKey] = nNotnilType
-			nTypeSet:putType(nNotnilType)
+			nValueTypeSet:putType(nNotnilType)
 		::continue:: end
-		nTypeSet:putAtom(nNil)
-		nValueType = self._manager:unifyAndBuild(nTypeSet)
+		nValueTypeSet:putAtom(nNil)
+		nValueType = self._manager:unifyAndBuild(nValueTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict
@@ -18440,7 +18493,7 @@ function TypedObject:indexKeyValue(vKeyType)
 	end
 end
 
-function TypedObject:keySetListAsync(...)
+function TypedObject:buildInKeyAsync(...)
 	return self._keyRefer:setSetAsync(...)
 end
 
