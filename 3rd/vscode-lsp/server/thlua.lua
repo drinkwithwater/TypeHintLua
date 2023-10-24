@@ -458,13 +458,18 @@ DoBuilder.__index=DoBuilder
 
 function DoBuilder.new(vContext, vNode)
 	return setmetatable({
+		_context=vContext,
+		_node=vNode,
 		pass=false,
 	}, DoBuilder)
 end
 
 function DoBuilder:build(vHintInfo)
-	if vHintInfo.attrSet.pass then
+	local key = next(vHintInfo.attrSet)
+	if key == "pass" then
 		self.pass = true
+	elseif key then
+		self._context:getRuntime():nodeError(self._node, "do can only take pass as hint")
 	end
 end
 
@@ -1602,6 +1607,7 @@ local TagToVisiting = {
 	end,
 	While=function(self, node)
 		return self:rgnWrap(node).WHILE(
+			self:visitLongHint(node.hintLong),
 			self:visit(node[1]),
 			self:fnWrap()(self:visit(node[2]))
 		)
@@ -1647,6 +1653,7 @@ local TagToVisiting = {
 		local nBlockNode = node[5] or node[4]
 		assert(nBlockNode.tag == "Block", "4th or 5th node must be block")
 		return self:rgnWrap(node).FOR_NUM(
+			self:visitLongHint(node.hintLong),
 			self:visit(node[2]), self:visit(node[3]), nHasStep and self:visit(node[4]) or "nil",
 			self:fnWrap("____fornum")(
 				self:visitIdentDef(node[1], "____fornum"),
@@ -1658,7 +1665,9 @@ local TagToVisiting = {
 	Forin=function(self, node)
 		return {
 			"local ____n_t_i=", self:stkWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
-			self:rgnWrap(node).FOR_IN(self:fnWrap("____iterTuple")(
+			self:rgnWrap(node).FOR_IN(
+				self:visitLongHint(node.hintLong),
+				self:fnWrap("____iterTuple")(
 				"local ", self:concatList(node[1], function(i, vNode)
 					return "____forin"..i
 				end, ","),
@@ -2475,6 +2484,7 @@ local Exception = require "thlua.Exception"
 	  
 	  
 	  
+	  
  
 
   
@@ -2493,11 +2503,13 @@ local Exception = require "thlua.Exception"
 	  
 	  
 	  
+	  
 	   
 	   
  
 
   
+	  
 	  
 	  
 	  
@@ -3414,9 +3426,9 @@ local G = lpeg.P { "TypeHintLua";
 			(kw("elseif") * vvA.Expr * kwA("then") * vv.Block)^0 *
 			(kw("else") * vv.Block)^-1 *
 			kwA("end"))
-		local WhileStat = tagC.While(kw"while" * vvA.Expr * kwA"do" * vv.Block * kwA"end") * Cenv / loopMark
+		local WhileStat = tagC.While(kw"while" * vvA.Expr * kwA"do" * lpeg.Cg(vv.LongHint, "hintLong")^-1 *  vv.Block * kwA"end") * Cenv / loopMark
 		local ForStat = (function()
-			local ForBody = kwA("do") * vv.Block
+			local ForBody = kwA("do") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block
 			local ForNum = tagC.Fornum(vv.IdentDefN * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.ForinIdentList * kwA("in") * vvA.ExprList * ForBody)
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
@@ -4048,6 +4060,10 @@ local TagToVisiting = {
 		::continue:: end
 	end,
 	While=function(self, stm)
+		local nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:withScope(stm[2], nil, function()
 			self:rawVisit(stm)
 		end)
@@ -4062,6 +4078,10 @@ local TagToVisiting = {
 		local nBlockNode = stm[5]
 		self:realVisit(stm[2])
 		self:realVisit(stm[3])
+		local nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		if nBlockNode then
 			self:realVisit(stm[4])
 		else
@@ -4079,6 +4099,10 @@ local TagToVisiting = {
 	Forin=function(self, stm)
 		local nBlockNode = stm[3]
 		self:realVisit(stm[2])
+		local nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:withScope(nBlockNode, nil, function()
 			for i, name in ipairs(stm[1]) do
 				self:symbolDefine(name, Enum.SymbolKind_ITER)
@@ -4450,6 +4474,10 @@ local TagToTraverse = {
 	end,
 	While=function(self, node)
 		self:realVisit(node[1])
+		local nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:realVisit(node[2])
 	end,
 	Repeat=function(self, node)
@@ -4464,16 +4492,30 @@ local TagToTraverse = {
 	Forin=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])
+		local nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:realVisit(node[3])
 	end,
 	Fornum=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])
 		self:realVisit(node[3])
-		self:realVisit(node[4])
 		local last = node[5]
 		if last then
+			self:realVisit(node[4])
+			local nHintLong = node.hintLong
+			if nHintLong then
+				self:realVisit(nHintLong)
+			end
 			self:realVisit(last)
+		else
+			local nHintLong = node.hintLong
+			if nHintLong then
+				self:realVisit(nHintLong)
+			end
+			self:realVisit(node[4])
 		end
 	end,
 	Local=function(self, node)
@@ -10436,9 +10478,13 @@ function InstStack:REPEAT(vNode, vFunc, vUntilFn)
 	end, vNode[1])
 end
 
-function InstStack:WHILE(vNode, vTerm, vTrueFunction)
-	local nTrueCase = vTerm:caseTrue()
-	self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction,  vNode[2])
+function InstStack:WHILE(vNode, vHintInfo, vTerm, vTrueFunction)
+	local nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if not nBuilder.pass then
+		local nTrueCase = vTerm:caseTrue()
+		self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction, vNode[2])
+	end
 end
 
 function InstStack:DO(vNode, vHintInfo, vDoFunc)
@@ -10449,7 +10495,9 @@ function InstStack:DO(vNode, vHintInfo, vDoFunc)
 	end
 end
 
-function InstStack:FOR_IN(vNode, vFunc, vNextSelfInit)
+function InstStack:FOR_IN(vNode, vHintInfo, vFunc, vNextSelfInit)
+	local nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
 	local nForContext = self:newOperContext(vNode)
 	local nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
@@ -10501,24 +10549,31 @@ function InstStack:FOR_IN(vNode, vFunc, vNextSelfInit)
 			nTermList[i] = nTerm
 		::continue:: end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
-		self:_withBranch(vCase, function()
-			vFunc(nNewTuple)
-		end, vNode[3])
+		if not nBuilder.pass then
+			self:_withBranch(vCase, function()
+				vFunc(nNewTuple)
+			end, vNode[3])
+		end
 	end)
 end
 
 function InstStack:FOR_NUM(
 	vNode,
+	vHintInfo,
 	vStart,
 	vStop,
 	vStepOrNil,
 	vFunc,
 	vBlockNode
 )
-	local nForContext = self:newOperContext(vNode)
-	self:_withBranch(VariableCase.new(), function()
-		vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
-	end, vBlockNode)
+	local nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if not nBuilder.pass then
+		local nForContext = self:newOperContext(vNode)
+		self:_withBranch(VariableCase.new(), function()
+			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+		end, vBlockNode)
+	end
 end
 
 function InstStack:LOGIC_OR(vNode, vLeftTerm, vRightFunction)
