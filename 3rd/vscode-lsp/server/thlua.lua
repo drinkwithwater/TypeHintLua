@@ -5997,7 +5997,7 @@ packages['thlua.global.io'] = function (...)
 return [[
 
 (@let.ReadMode = Union(
-    Integer, "n", "a", "l", "L"
+    Integer, String
 ))
 
 const file = {}
@@ -6073,6 +6073,7 @@ end
 _ENV.io = io
 
 ]]
+
 end end
 --thlua.global.io end ==========)
 
@@ -6180,9 +6181,13 @@ end
 function.pass os.exit(code:OrNil(Boolean, Integer), close:OrNil(True)):Ret(Number)
 end
 
+function.pass os.time():Ret(Integer)
+end
+
 _ENV.os = os
 
 ]]
+
 end end
 --thlua.global.os end ==========)
 
@@ -8636,15 +8641,14 @@ function BaseRuntime:getCodeEnv(vFileName)
 	end
 end
 
-function BaseRuntime:import(vDst)
+function BaseRuntime:import(vNode, vDst)
 	   
 	if type(vDst) == "string" then
 		local nPath = vDst  
-		local nNode = Node.newDebugNode()
-		local nLoadedState = self:_cacheLoadPath(Node.newDebugNode(), nPath)
+		local nLoadedState = self:_cacheLoadPath(vNode, nPath)
 		local nStack = nLoadedState.stack
 		if not nStack then
-			error(Exception.new("recursive import:"..nPath, nNode))
+			error(vNode:toExc("recursive import:"..nPath))
 		end
 		local nSpace = nStack:getLetSpace()
 		return nSpace:getRefer():getSpaceValue()
@@ -8654,10 +8658,10 @@ function BaseRuntime:import(vDst)
 			local nSpace = nStack:getLetSpace()
 			return nSpace:getRefer():getSpaceValue()
 		else
-			error("import can only take type in a require stack"..debug.traceback())
+			error(vNode:toExc("import can only take type in a require stack"))
 		end
 	else
-		error("import can only take string or type as first argument")
+		error(vNode:toExc("import can only take string or type as first argument"))
 	end
 end
 
@@ -8853,7 +8857,7 @@ function BaseRuntime:buildSimpleGlobal()
 			return self:NameSpace(vNode, false)
 		end, "namespace")
 		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
-			return self:import(vPath)
+			return self:import(vNode, vPath)
 		end, "import")
 		nGlobal.traceFile=nManager:BuiltinFn(function(vNode, vDepth)
 			local nRetNode = vNode
