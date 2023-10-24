@@ -7,13 +7,18 @@ DoBuilder.__index=DoBuilder
 
 function:class(let.DoBuilder) DoBuilder.new(vContext:clazz.BaseStack, vNode:clazz.IBaseNode)
 	return setmetatable({.class
+		_context=vContext,
+		_node=vNode,
 		pass=false@Boolean,
 	}, DoBuilder)
 end
 
 function DoBuilder:build(vHintInfo:clazz.TLongHintInfo(Nil)):Ret()
-	if vHintInfo.attrSet.pass then
+	const key = next(vHintInfo.attrSet)
+	if key == "pass" then
 		self.pass = true
+	elseif key then
+		self._context:getRuntime():nodeError(self._node, "do can only take pass as hint")
 	end
 end
 

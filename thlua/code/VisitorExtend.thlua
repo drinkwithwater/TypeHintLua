@@ -55,6 +55,10 @@ const TagToTraverse:let.RawTraverser = {
 	end,
 	While=function(self, node)
 		self:realVisit(node[1])
+		const nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:realVisit(node[2])
 	end,
 	Repeat=function(self, node)
@@ -69,16 +73,30 @@ const TagToTraverse:let.RawTraverser = {
 	Forin=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])
+		const nHintLong = node.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:realVisit(node[3])
 	end,
 	Fornum=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])
 		self:realVisit(node[3])
-		self:realVisit(node[4])
 		local last = node[5]
 		if last then
+			self:realVisit(node[4])
+			const nHintLong = node.hintLong
+			if nHintLong then
+				self:realVisit(nHintLong)
+			end
 			self:realVisit(last)
+		else
+			const nHintLong = node.hintLong
+			if nHintLong then
+				self:realVisit(nHintLong)
+			end
+			self:realVisit(node[4])
 		end
 	end,
 	Local=function(self, node)

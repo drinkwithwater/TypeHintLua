@@ -45,6 +45,10 @@ local TagToVisiting:let.RealTraverser = {
 		end
 	end,
 	While=function(self, stm)
+		const nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:withScope(stm[2], nil, function()
 			self:rawVisit(stm)
 		end)
@@ -59,6 +63,10 @@ local TagToVisiting:let.RealTraverser = {
 		local nBlockNode = stm[5]
 		self:realVisit(stm[2])
 		self:realVisit(stm[3])
+		const nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		if nBlockNode then
 			self:realVisit(stm[4])
 		else
@@ -76,6 +84,10 @@ local TagToVisiting:let.RealTraverser = {
 	Forin=function(self, stm)
 		const nBlockNode = stm[3]
 		self:realVisit(stm[2])
+		const nHintLong = stm.hintLong
+		if nHintLong then
+			self:realVisit(nHintLong)
+		end
 		self:withScope(nBlockNode, nil, function()
 			for i, name in ipairs(stm[1]) do
 				self:symbolDefine(name, Enum.SymbolKind_ITER)

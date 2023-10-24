@@ -146,6 +146,7 @@ local TagToVisiting:RealTraverser = {
 	end,
 	While=function(self, node)
 		return self:rgnWrap(node).WHILE(
+			self:visitLongHint(node.hintLong),
 			self:visit(node[1]),
 			self:fnWrap()(self:visit(node[2]))
 		)
@@ -191,6 +192,7 @@ local TagToVisiting:RealTraverser = {
 		const nBlockNode = node[5] or node[4]
 		assert(nBlockNode.tag == "Block", "4th or 5th node must be block")
 		return self:rgnWrap(node).FOR_NUM(
+			self:visitLongHint(node.hintLong),
 			self:visit(node[2]), self:visit(node[3]), nHasStep and self:visit(node[4]) or "nil",
 			self:fnWrap("____fornum")(
 				self:visitIdentDef(node[1], "____fornum"),
@@ -202,7 +204,9 @@ local TagToVisiting:RealTraverser = {
 	Forin=function(self, node)
 		return {
 			"local ____n_t_i=", self:stkWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
-			self:rgnWrap(node).FOR_IN(self:fnWrap("____iterTuple")(
+			self:rgnWrap(node).FOR_IN(
+				self:visitLongHint(node.hintLong),
+				self:fnWrap("____iterTuple")(
 				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
 					return "____forin"..i
 				end, ","),

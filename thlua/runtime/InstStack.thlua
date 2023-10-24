@@ -597,9 +597,13 @@ function InstStack:REPEAT(vNode:node.Repeat, vFunc:Fn(), vUntilFn:Fn():Ret(clazz
 	end, vNode[1])
 end
 
-function InstStack:WHILE(vNode:node.While, vTerm:clazz.RefineTerm, vTrueFunction:Fn())
-	const nTrueCase = vTerm:caseTrue()
-	self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction,  vNode[2])
+function InstStack:WHILE(vNode:node.While, vHintInfo:clazz.TLongHintInfo(Nil), vTerm:clazz.RefineTerm, vTrueFunction:Fn())
+	const nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if not nBuilder.pass then
+		const nTrueCase = vTerm:caseTrue()
+		self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction, vNode[2])
+	end
 end
 
 function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
@@ -610,7 +614,9 @@ function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc
 	end
 end
 
-function InstStack:FOR_IN(vNode:node.Forin, vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
+function InstStack:FOR_IN(vNode:node.Forin, vHintInfo:clazz.TLongHintInfo(Nil), vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
+	const nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
 	const nForContext = self:newOperContext(vNode)
 	const nLenNext = #vNextSelfInit
 	if nLenNext < 1 or nLenNext > 3 then
@@ -662,24 +668,31 @@ function InstStack:FOR_IN(vNode:node.Forin, vFunc:Fn(clazz.FixedTermTuple), vNex
 			nTermList[i] = nTerm
 		end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
-		self:_withBranch(vCase, function()
-			vFunc(nNewTuple)
-		end, vNode[3])
+		if not nBuilder.pass then
+			self:_withBranch(vCase, function()
+				vFunc(nNewTuple)
+			end, vNode[3])
+		end
 	end)
 end
 
 function InstStack:FOR_NUM(
 	vNode:node.Fornum,
+	vHintInfo:clazz.TLongHintInfo(Nil),
 	vStart:clazz.RefineTerm,
 	vStop:clazz.RefineTerm,
 	vStepOrNil:OrNil(clazz.RefineTerm),
 	vFunc:Fn(clazz.RefineTerm),
 	vBlockNode:node.Block
 )
-	const nForContext = self:newOperContext(vNode)
-	self:_withBranch(VariableCase.new(), function()
-		vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
-	end, vBlockNode)
+	const nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if not nBuilder.pass then
+		const nForContext = self:newOperContext(vNode)
+		self:_withBranch(VariableCase.new(), function()
+			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+		end, vBlockNode)
+	end
 end
 
 function InstStack:LOGIC_OR(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)

@@ -3359,7 +3359,7 @@ local G = lpeg.P { "TypeHintLua";
 	LongHint = hintC.long();
 
 	StatHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.DoStat + vv.ApplyOrAssignStat + throw("StatHintSpace need DoStat or Apply or AssignStat inside"),
+		vv.DoStat + vv.ApplyOrAssignStat + vv.EvalExpr + throw("StatHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
 	symbA(")"));
 
 	--[[HintTerm = suffixedExprByPrimary(
@@ -3576,9 +3576,9 @@ local G = lpeg.P { "TypeHintLua";
 			(kw("elseif") * vvA.Expr * kwA("then") * vv.Block)^0 *
 			(kw("else") * vv.Block)^-1 *
 			kwA("end"))
-		local WhileStat = tagC.While(kw"while" * vvA.Expr * kwA"do" * vv.Block * kwA"end") * Cenv / loopMark
+		local WhileStat = tagC.While(kw"while" * vvA.Expr * kwA"do" * lpeg.Cg(vv.LongHint, "hintLong")^-1 *  vv.Block * kwA"end") * Cenv / loopMark
 		local ForStat = (function()
-			local ForBody = kwA("do") * vv.Block
+			local ForBody = kwA("do") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * vv.Block
 			local ForNum = tagC.Fornum(vv.IdentDefN * symb("=") * vvA.Expr * symbA(",") * vvA.Expr * (symb(",") * vv.Expr)^-1 * ForBody)
 			local ForIn = tagC.Forin(vv.ForinIdentList * kwA("in") * vvA.ExprList * ForBody)
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
