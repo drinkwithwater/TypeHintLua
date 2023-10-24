@@ -98,15 +98,14 @@ function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
 	end
 end
 
-function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceValue)
+function BaseRuntime:import(vNode:clazz.IBaseNode, vDst:Truth):Ret(clazz.LocalSpaceValue)
 	-- TODO better style?
 	if type(vDst) == "string" then
 		const nPath = vDst @> String
-		const nNode = Node.newDebugNode()
-		const nLoadedState = self:_cacheLoadPath(Node.newDebugNode(), nPath)
+		const nLoadedState = self:_cacheLoadPath(vNode, nPath)
 		const nStack = nLoadedState.stack
 		if not nStack then
-			error(Exception.new("recursive import:"..nPath, nNode))
+			error(vNode:toExc("recursive import:"..nPath))
 		end
 		const nSpace = nStack:getLetSpace()
 		return nSpace:getRefer():getSpaceValue()
@@ -116,10 +115,10 @@ function BaseRuntime:import(vDst:Truth):Ret(clazz.LocalSpaceValue)
 			const nSpace = nStack:getLetSpace()
 			return nSpace:getRefer():getSpaceValue()
 		else
-			error("import can only take type in a require stack"..debug.traceback())
+			error(vNode:toExc("import can only take type in a require stack"))
 		end
 	else
-		error("import can only take string or type as first argument")
+		error(vNode:toExc("import can only take string or type as first argument"))
 	end
 end
 
@@ -315,7 +314,7 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 			return self:NameSpace(vNode, false)
 		end, "namespace")
 		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
-			return self:import(vPath)
+			return self:import(vNode, vPath)
 		end, "import")
 		nGlobal.traceFile=nManager:BuiltinFn(function(vNode, vDepth)
 			local nRetNode = vNode
