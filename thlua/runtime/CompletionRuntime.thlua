@@ -41,7 +41,7 @@ function CompletionRuntime:invalidReference(vRefer:clazz.NameReference)
 	self._invalidReferSet[vRefer] = true
 end
 
-function CompletionRuntime:getNameDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+function CompletionRuntime:getNameDiagnostic(vUseWarn:OrNil(Boolean)):Ret(Dict(String, List(clazz.Diagnostic)))
 	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
 	for nRefer, _ in pairs(self._invalidReferSet) do
 		const nNodes = nRefer:getReferNodes()
@@ -55,7 +55,7 @@ function CompletionRuntime:getNameDiagnostic():Ret(Dict(String, List(clazz.Diagn
 			nList[#nList + 1] = {
 				msg="here reference not setted",
 				node=node,
-				severity=SeverityEnum.Error,
+				severity=vUseWarn and SeverityEnum.Warn or SeverityEnum.Error,
 			}
 		end
 	end
