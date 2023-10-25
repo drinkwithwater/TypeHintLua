@@ -15060,6 +15060,10 @@ function BooleanLiteral:detailString(v, vVerbose)
 	end
 end
 
+function BooleanLiteral:getLiteral()
+	return self.literal
+end
+
 function BooleanLiteral:isSingleton()
 	return true
 end
