@@ -12855,15 +12855,19 @@ end
 
 function EasyMapCom:getValue(vNode, vKey)
 	local nTypeCom = self._manager:AsyncTypeCom(vNode)
-	nTypeCom:setTypeAsync(vNode, function()
+	nTypeCom:setSetAsync(vNode, function()
 		local nKeyMustType = self._manager:easyToMustType(vNode, vKey):checkAtomUnion()
-		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
-		local nCurTypeCom = self._atom2value[nKeyMustType]
-		if not nCurTypeCom then
-			nCurTypeCom = self._manager:AsyncTypeCom(vNode)
-			self._atom2value[nKeyMustType] = nCurTypeCom
-		end
-		return nCurTypeCom
+		       
+		local nTypeSet = self._manager:HashableTypeSet()
+		nKeyMustType:foreach(function(vAtomType)
+			local nCurTypeCom = self._atom2value[vAtomType]
+			if not nCurTypeCom then
+				nCurTypeCom = self._manager:AsyncTypeCom(vNode)
+				self._atom2value[vAtomType] = nCurTypeCom
+			end
+			nTypeSet:putSet(nCurTypeCom:getSetAwait())
+		end)
+		return nTypeSet
 	end)
 	return nTypeCom
 end
@@ -12872,7 +12876,7 @@ function EasyMapCom:setValue(vNode, vKey, vValue)
 	local nTask = self._manager:getScheduleManager():newTask(vNode)
 	nTask:runAsync(function()
 		local nKeyMustType = self._manager:easyToMustType(vNode, vKey):checkAtomUnion()
-		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type"))
+		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type when set"))
 		local nCurTypeCom = self._atom2value[nKeyMustType]
 		if not nCurTypeCom then
 			nCurTypeCom = self._manager:AsyncTypeCom(vNode)
