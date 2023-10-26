@@ -5,6 +5,7 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const Exception = require "thlua.Exception"
 const class = require "thlua.class"
 const TableBuilder = {}
+const TermTuple = require "thlua.tuple.TermTuple"
 
 (@do
 	let.clazz = import($class).clazz
@@ -18,7 +19,7 @@ end)
 		key=clazz.RefineTerm,
 		value=clazz.RefineTerm,
 	}
-	let.PairMaker = Fn():Ret(List(TermPair), Integer, clazz.FixedTermTuple)
+	let.PairMaker = Fn():Ret(List(TermPair), Integer, clazz.UTermTuple)
 end)
 
 TableBuilder.__index=TableBuilder
@@ -57,6 +58,7 @@ function TableBuilder:_build(vNewTable:Union(clazz.SealTable, clazz.OpenTable))
 	const nStack = self._stack
 	const nManager = nStack:getTypeManager()
 	const vList, vDotsStart, vDotsTuple = self._pairMaker()
+	assert(not TermTuple.isAuto(vDotsTuple), self._node:toExc("table can't pack auto term"))
 	const nHashableTypeSet = nManager:HashableTypeSet()
 	const nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	for i, nPair in ipairs(vList) do
