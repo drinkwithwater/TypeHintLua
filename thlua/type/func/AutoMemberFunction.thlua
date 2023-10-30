@@ -27,7 +27,7 @@ function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyTuple, vTypeTu
 	if vPolyTuple:getArgNum() == 0 and self:needPolyArgs() then
 		vContext:error("TODO poly member function called without poly args")
 	end
-	const nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyTuple:buildPolyArgs())})
+	const nTypeFn = self._polyFn:noCtxCastPoly(vContext:getNode(), {vSelfType, table.unpack(vPolyTuple:buildPolyArgs())})
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -35,8 +35,8 @@ function AutoMemberFunction:needPolyArgs():Ret(Boolean)
 	return self._polyFn:getPolyParNum() > 1
 end
 
-function AutoMemberFunction:indexAutoFn(vType:clazz.UMustType):Ret(clazz.AutoFunction)
-	const nFn = self._polyFn:noCtxCastPoly({vType})
+function AutoMemberFunction:indexAutoFn(vNode:clazz.IBaseNode, vType:clazz.UMustType):Ret(clazz.AutoFunction)
+	const nFn = self._polyFn:noCtxCastPoly(vNode, {vType})
 	if AutoFunction.is(nFn) then
 		return nFn
 	else
@@ -44,8 +44,8 @@ function AutoMemberFunction:indexAutoFn(vType:clazz.UMustType):Ret(clazz.AutoFun
 	end
 end
 
-function AutoMemberFunction:indexTypeFn(vType:clazz.UMustType):Ret(clazz.TypedFunction)
-	const nFn = self._polyFn:noCtxCastPoly({vType})
+function AutoMemberFunction:indexTypeFn(vNode:clazz.IBaseNode, vType:clazz.UMustType):Ret(clazz.TypedFunction)
+	const nFn = self._polyFn:noCtxCastPoly(vNode, {vType})
 	if AutoFunction.is(nFn) then
 		return nFn:getFnAwait()
 	elseif TypedFunction.is(nFn) then

@@ -54,7 +54,7 @@ function TypedMemberFunction:Err(...:clazz.USpaceAny):Ret(clazz.MemberFunction)
 end
 
 function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	const nTypeFn = self:indexTypeFn(vSelfType)
+	const nTypeFn = self:toTypeFn(vSelfType)
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -76,14 +76,14 @@ function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
 		return self._headlessFn:assumeIncludeAtom(vAssumeSet, vRight:getHeadlessFn()) and self
 	elseif TypedFunction.is(vRight) then
 		if vSelfType then
-			return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
+			return self:toTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
 		else
 			return false
 		end
 	end
 end
 
-function TypedMemberFunction:indexTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.TypedFunction)
+function TypedMemberFunction:toTypeFn(vSelfType:clazz.IAtomType):Ret(clazz.TypedFunction)
 	const nDict = self._typeFnDict
 	const nFn = nDict[vSelfType]
 	if nFn then
