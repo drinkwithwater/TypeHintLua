@@ -896,7 +896,7 @@ function FunctionBuilder:_buildClass()
 			return nFnMaker(nTuple)
 		end, nPolyParNum, self._stack)
 		local nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...)
-			local nFactory = nPolyFn:noCtxCastPoly({...})
+			local nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
 			return nFactory:getClassTable(true)
 		end, nPolyParNum)
@@ -936,6 +936,7 @@ local RefineTerm = require "thlua.term.RefineTerm"
 local Exception = require "thlua.Exception"
 local class = require "thlua.class"
 local TableBuilder = {}
+local TermTuple = require "thlua.tuple.TermTuple"
 
 
 	  
@@ -988,6 +989,7 @@ function TableBuilder:_build(vNewTable )
 	local nStack = self._stack
 	local nManager = nStack:getTypeManager()
 	local vList, vDotsStart, vDotsTuple = self._pairMaker()
+	assert(not TermTuple.isAuto(vDotsTuple), self._node:toExc("table can't pack auto term"))
 	local nHashableTypeSet = nManager:HashableTypeSet()
 	local nTypeDict  = {}
 	for i, nPair in ipairs(vList) do
@@ -3235,7 +3237,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	-- parser
 	-- Chunk = tagC.Chunk(Cpos/parF.identDefENV * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
-	Chunk = Cpos * vv.Skip * vv.Block/buildLoadChunk;
+	Chunk = Cpos * (lpeg.P("\xef\xbb\xbf")/function() end)^-1 * vv.Skip * vv.Block/buildLoadChunk;
 
 	FuncPrefix = kw("function") * (vv.LongHint + cc(nil));
 	FuncDef = vv.FuncPrefix * vv.FuncBody / function(vHint, vFuncExpr)
@@ -4788,7 +4790,7 @@ end
 function ApplyContext:recursiveChainTestAndRun(vSelfType, vFunc) 
 	local nRecurChain = self._recurChain
 	if not nRecurChain then
-		nRecurChain = RecurChain.new()
+		nRecurChain = RecurChain.new(self._node)
 		self._recurChain = nRecurChain
 	end
 	return nRecurChain:testAndRun(vSelfType, vFunc)
@@ -5711,7 +5713,8 @@ local class = require "thlua.class"
 
 local RecurChain = class ()
 
-function RecurChain:ctor()
+function RecurChain:ctor(vNode)
+	self._node = vNode
 	self._curPushChain = {}  
 end
 
@@ -5726,6 +5729,10 @@ function RecurChain:testAndRun(vSelfType, vFunc)
 	local nRet = vFunc()
 	nChain[#nChain] = nil
 	return true, nRet
+end
+
+function RecurChain:getNode()
+	return self._node
 end
 
 return RecurChain
@@ -9578,7 +9585,7 @@ function CompletionRuntime:invalidReference(vRefer)
 	self._invalidReferSet[vRefer] = true
 end
 
-function CompletionRuntime:getNameDiagnostic() 
+function CompletionRuntime:getNameDiagnostic(vUseWarn) 
 	local nFileToDiaList  = {}
 	for nRefer, _ in pairs(self._invalidReferSet) do
 		local nNodes = nRefer:getReferNodes()
@@ -9592,7 +9599,7 @@ function CompletionRuntime:getNameDiagnostic()
 			nList[#nList + 1] = {
 				msg="here reference not setted",
 				node=node,
-				severity=SeverityEnum.Error,
+				severity=vUseWarn and SeverityEnum.Warn or SeverityEnum.Error,
 			}
 		::continue:: end
 	::continue:: end
@@ -11690,7 +11697,7 @@ function FastServer:onDidChange(vParams)
 		self:rerun(nFileUri)
 	end
 	local nRuntime = self._runtime
-	self:publishFileToDiaList(nRuntime and nRuntime:getNameDiagnostic() or {}, function(nFileName, nFileState, nDiaList)
+	self:publishFileToDiaList(nRuntime and nRuntime:getNameDiagnostic(true) or {}, function(nFileName, nFileState, nDiaList)
 		local nExc = nFileState:getLatestException()
 		if nExc then
 			local nNode = nExc.node
@@ -15867,7 +15874,7 @@ function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyTuple, vTypeTu
 	if vPolyTuple:getArgNum() == 0 and self:needPolyArgs() then
 		vContext:error("TODO poly member function called without poly args")
 	end
-	local nTypeFn = self._polyFn:noCtxCastPoly({vSelfType, table.unpack(vPolyTuple:buildPolyArgs())})
+	local nTypeFn = self._polyFn:noCtxCastPoly(vContext:getNode(), {vSelfType, table.unpack(vPolyTuple:buildPolyArgs())})
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -15875,8 +15882,8 @@ function AutoMemberFunction:needPolyArgs()
 	return self._polyFn:getPolyParNum() > 1
 end
 
-function AutoMemberFunction:indexAutoFn(vType)
-	local nFn = self._polyFn:noCtxCastPoly({vType})
+function AutoMemberFunction:indexAutoFn(vNode, vType)
+	local nFn = self._polyFn:noCtxCastPoly(vNode, {vType})
 	if AutoFunction.is(nFn) then
 		return nFn
 	else
@@ -15884,8 +15891,8 @@ function AutoMemberFunction:indexAutoFn(vType)
 	end
 end
 
-function AutoMemberFunction:indexTypeFn(vType)
-	local nFn = self._polyFn:noCtxCastPoly({vType})
+function AutoMemberFunction:indexTypeFn(vNode, vType)
+	local nFn = self._polyFn:noCtxCastPoly(vNode, {vType})
 	if AutoFunction.is(nFn) then
 		return nFn:getFnAwait()
 	elseif TypedFunction.is(nFn) then
@@ -16249,8 +16256,8 @@ function PolyFunction:makeFn(vTemplateSign, vTypeList)
 	error("not implement")
 end
 
-function PolyFunction:noCtxCastPoly(vTypeList) 
-	assert(#vTypeList == self._polyParNum, "PolyFunction type args num not match")
+function PolyFunction:noCtxCastPoly(vNode, vTypeList) 
+	assert(#vTypeList == self._polyParNum, vNode:toExc("PolyFunction type args num not match"))
 	local nAtomUnionList = {}
 	for i=1, #vTypeList do
 		nAtomUnionList[i] = vTypeList[i]:checkAtomUnion()
@@ -16260,7 +16267,7 @@ function PolyFunction:noCtxCastPoly(vTypeList)
 end
 
 function PolyFunction:castPoly(vContext, vPolyTuple)
-	local nFn = self:noCtxCastPoly(vPolyTuple:buildPolyArgs())
+	local nFn = self:noCtxCastPoly(vContext:getNode(), vPolyTuple:buildPolyArgs())
 	return nFn:getFnAwait()
 end
 
@@ -16704,7 +16711,7 @@ function TypedMemberFunction:Err(...)
 end
 
 function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	local nTypeFn = self:indexTypeFn(vSelfType)
+	local nTypeFn = self:toTypeFn(vSelfType)
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -16726,14 +16733,14 @@ function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
 		return self._headlessFn:assumeIncludeAtom(vAssumeSet, vRight:getHeadlessFn()) and self
 	elseif TypedFunction.is(vRight) then
 		if vSelfType then
-			return self:indexTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
+			return self:toTypeFn(vSelfType):assumeIncludeAtom(vAssumeSet, vRight) and self
 		else
 			return false
 		end
 	end
 end
 
-function TypedMemberFunction:indexTypeFn(vSelfType)
+function TypedMemberFunction:toTypeFn(vSelfType)
 	local nDict = self._typeFnDict
 	local nFn = nDict[vSelfType]
 	if nFn then
@@ -16853,7 +16860,7 @@ function AutoTable:castMatchOne(
 		nMatchValue = nMatchValue:checkAtomUnion()
 		if TypedMemberFunction.is(nMatchValue) then
 			        
-			nMatchValue=nMatchValue:indexTypeFn(vStructOrInterface)
+			nMatchValue=nMatchValue:toTypeFn(vStructOrInterface)
 		end
 		local nIncludeType, nCastSucc = vContext:tryIncludeCast(nAutoFnCastDict, nMatchValue, nTableValue)
 		if not nIncludeType or not nCastSucc then
@@ -17047,7 +17054,7 @@ function ClassTable:onBuildFinish()
 	if not self._buildFinish then
 		self._buildFinish = true
 		self:implInterface()
-		local nRecurChain = RecurChain.new()
+		local nRecurChain = RecurChain.new(self._node)
 		self:memberFunctionFillSelf(nRecurChain, self)
 		self._factory:wakeupTableBuild()
 	end
@@ -17064,7 +17071,7 @@ function ClassTable:implInterface()
 		local nSelfValue = nContext:mergeFirst():getType()
 		if AutoMemberFunction.is(nSelfValue) then
 			if TypedFunction.is(nValue) then
-				nSelfValue:indexAutoFn(self):checkWhenCast(nContext, nValue)
+				nSelfValue:indexAutoFn(self._node, self):checkWhenCast(nContext, nValue)
 			end
 		else
 			if not nValue:includeAll(nSelfValue) then
@@ -17341,7 +17348,7 @@ local function buildFieldFromFn(vContext, vEvent, vMethodFn,
 	elseif AutoMemberFunction.is(vMethodFn) then
 		if vTypeFnOrNil then
 			local nSelfType = vTypeFnOrNil:getParTuple():get(1)
-			local nAutoFn = vMethodFn:indexAutoFn(nSelfType)
+			local nAutoFn = vMethodFn:indexAutoFn(vContext:getNode(), nSelfType)
 			nAutoFn:checkWhenCast(vContext, vTypeFnOrNil)
 			return {
 				typeFn=vTypeFnOrNil,
@@ -17863,7 +17870,7 @@ function OpenTable:memberFunctionFillSelf(vChain, vSelfTable)
 			local nSelfValue = nField:getValueType()
 			if AutoMemberFunction.is(nSelfValue) then
 				if not nSelfValue:needPolyArgs() then
-					nSelfValue:indexAutoFn(vSelfTable)
+					nSelfValue:indexAutoFn(vChain:getNode(), vSelfTable)
 				end
 			end
 		::continue:: end
@@ -18209,7 +18216,7 @@ function SealTable:memberFunctionFillSelf(vChain, vSelfTable)
 			local nSelfValue = nField:getValueType()
 			if AutoMemberFunction.is(nSelfValue) then
 				if not nSelfValue:needPolyArgs() then
-					nSelfValue:indexAutoFn(vSelfTable)
+					nSelfValue:indexAutoFn(vChain:getNode(), vSelfTable)
 				end
 			end
 		::continue:: end
@@ -18597,7 +18604,7 @@ function TypedObject:copyValueDict(vSelfObject )
 		if not TypedMemberFunction.is(v) then
 			nValueDict[k] = v
 		else
-			nValueDict[k] = v:indexTypeFn(vSelfObject)
+			nValueDict[k] = v:toTypeFn(vSelfObject)
 		end
 	::continue:: end
 	return nValueDict

@@ -406,7 +406,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	-- parser
 	-- Chunk = tagC.Chunk(Cpos/parF.identDefENV * tagC.ParList(tagC.Dots()) * vv.Skip * vv.Block);
-	Chunk = (lpeg.P("\xef\xbb\xbf")/function() end)^-1 * Cpos * vv.Skip * vv.Block/buildLoadChunk;
+	Chunk = Cpos * (lpeg.P("\xef\xbb\xbf")/function() end)^-1 * vv.Skip * vv.Block/buildLoadChunk;
 
 	FuncPrefix = kw("function") * (vv.LongHint + cc(nil));
 	FuncDef = vv.FuncPrefix * vv.FuncBody / function(vHint, vFuncExpr)
