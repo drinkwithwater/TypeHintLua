@@ -29,6 +29,7 @@ function.open SealTable:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, 
 	self._nextDict=false@Union(False, Dict(clazz.IAtomType, clazz.UAtomUnion))
 	self._metaTable=false@OrFalse(clazz.OpenTable, clazz.SealTable)
 	self._metaIndex=false@OrFalse(clazz.IAtomType)
+	self._callType=false@OrFalse(clazz.IAtomType)
 end
 
 function SealTable:meta_len(vContext)
@@ -63,6 +64,12 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 	local nManager = self._manager
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	const nCallType = vMetaTableType:native_rawget(vContext, nManager:Literal("__call"))
+	if not nCallType:isUnion() then
+		self._callType = nCallType
+	else
+		vContext:warn("union __call field TODO")
+	end
 	-- 3. set default com
 	self:setMetaIndex(
 		vContext,
@@ -208,6 +215,16 @@ function SealTable:meta_pairs(vContext)
 		end
 	else
 		return false
+	end
+end
+
+function SealTable:meta_call(vContext, vTermTuple)
+	const nCallType = self._callType
+	if nCallType then
+		const nNewTermTuple = vContext:UTermTupleByAppend({vContext:RefineTerm(self)}, vTermTuple)
+		nCallType:meta_call(vContext, nNewTermTuple)
+	else
+		vContext:error("table is not callable")
 	end
 end
 
