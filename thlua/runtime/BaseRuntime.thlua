@@ -270,6 +270,7 @@ end
 
 function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
+	const nRetGlobal = {} @ Dict(String, clazz.NameReference)
 	do.pass
 		for k,v in pairs(self._manager.type) do
 			nGlobal[k] = v
@@ -334,6 +335,13 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
+		nGlobal.setRootSpace=nManager:BuiltinFn(function(vNode, vKey, vValue)
+			const nRefer = self._manager:NameReference(vNode, vKey)
+			nRetGlobal[vKey] = nRefer
+			nRefer:setAssignAsync(vNode, function()
+				return vValue
+			end)
+		end, "setRootSpace")
 		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
 			const nObject = self._manager:easyToMustType(vNode, vObject):checkAtomUnion()
 			const d = nObject:copyValueDict(nObject)
@@ -360,7 +368,6 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 			self:nodeInfo(vNode, ...)
 		end, "print")
 	end
-	const nRetGlobal = {} @ Dict(String, clazz.NameReference)
 	for k,v in pairs(nGlobal) do
 		if NameReference.is(v) then
 			nRetGlobal[k] = v
