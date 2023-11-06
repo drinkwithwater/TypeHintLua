@@ -18005,9 +18005,9 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 	local nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	local nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
 	local nCallType = vMetaTableType:native_rawget(vContext, nManager:Literal("__call"))
-	if not nCallType:isUnion() then
+	if not nCallType:isUnion() and not nCallType:isNilable() then
 		self._callType = nCallType
-	else
+	elseif not nCallType:isNilable() then
 		vContext:warn("union __call field TODO")
 	end
 	    
@@ -18159,6 +18159,7 @@ function SealTable:meta_pairs(vContext)
 end
 
 function SealTable:meta_call(vContext, vTermTuple)
+	self:ctxWait(vContext)
 	local nCallType = self._callType
 	if nCallType then
 		local nNewTermTuple = vContext:UTermTupleByAppend({vContext:RefineTerm(self)}, vTermTuple)
