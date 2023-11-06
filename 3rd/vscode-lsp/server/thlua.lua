@@ -5841,23 +5841,24 @@ function.pass _ENV.collectgarbage(
 )
 end
 
-function.pass _ENV.dofile()
+
+function.pass _ENV.loadfile(name:String, mode:OrNil(String), env:OrNil(Truth)):Ret(AnyFunction):Ret(Nil, String)
+end
+
+function.pass _ENV.load(chunk:String, name:String, mode:OrNil(String), env:OrNil(Truth)):Ret(AnyFunction):Ret(Nil, String)
 end
 
 -- builtin
 -- _ENV.error = nil
 
 -- builtin
+-- _ENV.dofile = nil
+
+-- builtin
 -- _ENV.getmetatable = nil
 
 -- builtin
 -- _ENV.ipair = nil
-
--- builtin
--- _ENV.load = nil
-
--- builtin
--- _ENV.loadfile = nil
 
 -- builtin
 -- _ENV.next = nil
@@ -8396,10 +8397,6 @@ function native.make(vRuntime)
 				end
 			end):mergeFirst()
 		end),
-		load=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
-			 
-			return vContext:RefineTerm(nManager.type.AnyFunction)
-		end),
 		       
 		pcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
@@ -8862,6 +8859,7 @@ end
 
 function BaseRuntime:buildSimpleGlobal() 
 	local nGlobal = {}    
+	local nRetGlobal = {}   
 	do
 		for k,v in pairs(self._manager.type) do
 			nGlobal[k] = v
@@ -8926,6 +8924,13 @@ function BaseRuntime:buildSimpleGlobal()
 		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
+		nGlobal.setRootSpace=nManager:BuiltinFn(function(vNode, vKey, vValue)
+			local nRefer = self._manager:NameReference(vNode, vKey)
+			nRetGlobal[vKey] = nRefer
+			nRefer:setAssignAsync(vNode, function()
+				return vValue
+			end)
+		end, "setRootSpace")
 		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
 			local nObject = self._manager:easyToMustType(vNode, vObject):checkAtomUnion()
 			local d = nObject:copyValueDict(nObject)
@@ -8952,7 +8957,6 @@ function BaseRuntime:buildSimpleGlobal()
 			self:nodeInfo(vNode, ...)
 		end, "print")
 	end
-	local nRetGlobal = {}   
 	for k,v in pairs(nGlobal) do
 		if NameReference.is(v) then
 			nRetGlobal[k] = v
@@ -9063,6 +9067,7 @@ do local _ENV = _ENV
 packages['thlua.runtime.BaseStack'] = function (...)
 
 local OpenTable = require "thlua.type.object.OpenTable"
+local SealTable = require "thlua.type.object.SealTable"
 local DoBuilder = require "thlua.builder.DoBuilder"
 local Branch = require "thlua.runtime.Branch"
 local DotsTail = require "thlua.tuple.DotsTail"
@@ -9168,7 +9173,7 @@ function BaseStack:prepareMetaCall(
 		end)
 		if vFuncType == nNil then
 			vContext:error("nil as call func")
-		elseif BaseFunction.is(vFuncType) or Truth.is(vFuncType) then
+		elseif BaseFunction.is(vFuncType) or Truth.is(vFuncType) or SealTable.is(vFuncType) then
 			vFuncType:meta_call(vContext, assert(nArgTermTuple))
 		else
 			vContext:error("TODO call by a non-function value, type="..tostring(vFuncType))
@@ -12926,9 +12931,10 @@ function LetSpace:ctor(_, _, _, vParentOrDict  )
 	if LetSpace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
-		for k,v in pairs(vParentOrDict) do
-			self._key2child[k] = v
-		::continue:: end
+        self._key2child = vParentOrDict
+		    
+			  
+		
 	end
 end
 
@@ -17963,6 +17969,7 @@ function SealTable:ctor(vManager, vNode, vLexStack, ...)
 	self._nextDict=false  
 	self._metaTable=false 
 	self._metaIndex=false
+	self._callType=false
 end
 
 function SealTable:meta_len(vContext)
@@ -17997,6 +18004,12 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 	local nManager = self._manager
 	local nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	local nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
+	local nCallType = vMetaTableType:native_rawget(vContext, nManager:Literal("__call"))
+	if not nCallType:isUnion() then
+		self._callType = nCallType
+	else
+		vContext:warn("union __call field TODO")
+	end
 	    
 	self:setMetaIndex(
 		vContext,
@@ -18145,6 +18158,16 @@ function SealTable:meta_pairs(vContext)
 	end
 end
 
+function SealTable:meta_call(vContext, vTermTuple)
+	local nCallType = self._callType
+	if nCallType then
+		local nNewTermTuple = vContext:UTermTupleByAppend({vContext:RefineTerm(self)}, vTermTuple)
+		nCallType:meta_call(vContext, nNewTermTuple)
+	else
+		vContext:error("table is not callable")
+	end
+end
+
 function SealTable:setMetaIndex(vContext, vIndexType, vNewIndexType)
 	if not vIndexType then
 		return
@@ -18154,7 +18177,6 @@ function SealTable:setMetaIndex(vContext, vIndexType, vNewIndexType)
 		return
 	end
 	if vIndexType:isNilable() then
-		vContext:info("TODO, impl interface if setmetatable without index")
 		return
 	end
 	self._metaIndex = vIndexType
