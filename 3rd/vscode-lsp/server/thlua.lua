@@ -6234,6 +6234,9 @@ end
 function.pass os.time():Ret(Integer)
 end
 
+function.pass os.date(date:OrNil(String)):Ret(String)
+end
+
 _ENV.os = os
 
 ]]
@@ -8388,12 +8391,23 @@ function native.make(vRuntime)
 				local nFileName = vTermTuple:get(vContext, 1):getType()
 				if StringLiteral.is(nFileName) then
 					local nPath = nFileName:getLiteral()
-					local nRetTerm, nOpenFn = vRuntime:require(vStack:getNode(), nPath)
-					vContext:addLookTarget(nOpenFn)
-					vContext:nativeOpenReturn(nRetTerm)
+					local nOkay, nRetTerm, nOpenFn = pcall(function()
+						return vRuntime:require(vStack:getNode(), nPath)
+					end)
+					if nOkay then
+						vContext:addLookTarget(nOpenFn)
+						vContext:nativeOpenReturn(nRetTerm)
+					else
+						if Exception.is(nRetTerm) then
+							vRuntime:nodeError(nRetTerm.node, nRetTerm.msg)
+						else
+							vContext:error(tostring(nRetTerm))
+						end
+						vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Truth))
+					end
 				else
 					vContext:warn("require take non-const type ")
-					vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Any))
+					vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Truth))
 				end
 			end):mergeFirst()
 		end),
