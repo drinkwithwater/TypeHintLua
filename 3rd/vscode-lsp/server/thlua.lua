@@ -7018,7 +7018,7 @@ function ScheduleTask:errorWaitByStack(vStack)
 		error(nHost:toExc("type not setted"))
 	elseif NameReference.is(nHost) then
 		vStack:getRuntime():invalidReference(nHost)
-		error(vStack:getNode():toExc("some reference not setted"))
+		error(vStack:getNode():toExc("refer not setted : "..tostring(nHost)))
 	else
 		error(vStack:getNode():toExc("type relation waiting exception when type relation"))
 	end
@@ -8403,6 +8403,7 @@ function native.make(vRuntime)
 						else
 							vContext:error(tostring(nRetTerm))
 						end
+						vContext:error("require error")
 						vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Truth))
 					end
 				else
@@ -9616,7 +9617,7 @@ function CompletionRuntime:getNameDiagnostic(vUseWarn)
 				nFileToDiaList[nPath] = nList
 			end
 			nList[#nList + 1] = {
-				msg="here reference not setted",
+				msg="here refer not setted : "..tostring(nRefer),
 				node=node,
 				severity=vUseWarn and SeverityEnum.Warn or SeverityEnum.Error,
 			}
@@ -11293,7 +11294,7 @@ end
 function BaseServer:attachFileState(vFileUri)
 	local nFileState = self._fileStateDict[vFileUri]
 	if not nFileState then
-		local nNewState = FileState.new(vFileUri)
+		local nNewState = FileState.new(self, vFileUri)
 		self._fileStateDict[vFileUri] = nNewState
 		return nNewState
 	else
@@ -11322,14 +11323,7 @@ function BaseServer:makeLoader()
 		end,
 		thluaParseFile=function(vRuntime, vFileUri)
 			if not self._fileStateDict[vFileUri] then
-				local nFilePath = platform.uri2path(vFileUri)
-				local file, err = io.open(nFilePath, "r")
-				if not file then
-					error(err)
-				end
-				local nContent = assert(file:read("a"), "file get nothing")
-				file:close()
-				self:attachFileState(vFileUri):syncContent(nContent, -1)
+				self:attachFileState(vFileUri):syncFile()
 			end
 			return self._fileStateDict[vFileUri]:checkLatestEnv()
 		end,
@@ -11337,13 +11331,7 @@ function BaseServer:makeLoader()
 			local nFilePath = self._globalPath.."/"..vPackage..".d.thlua"
 			local nFileUri = platform.path2uri(nFilePath)
 			if not self._fileStateDict[nFileUri] then
-				local file, err = io.open(nFilePath, "r")
-				if not file then
-					error(err)
-				end
-				local nContent = assert(file:read("a"), "global file get nothing")
-				file:close()
-				self:attachFileState(nFileUri):syncContent(nContent, -1)
+				self:attachFileState(nFileUri):syncFile()
             end
 			return self._fileStateDict[nFileUri]:checkLatestEnv(), nFileUri
 		end,
@@ -11698,6 +11686,9 @@ function FastServer:publishFileToDiaList(vFileToDiaList , vFilePusher  )
 		if vFilePusher then
 			vFilePusher(nFileName, nFileState, nDiaList)
 		end
+		if #nDiaList > 0 then
+			nFileState:setCheckFlag(true)
+		end
 		self:_write({
 			jsonrpc = "2.0",
 			method = "textDocument/publishDiagnostics",
@@ -11738,11 +11729,27 @@ function FastServer:onDidChange(vParams)
 	end)
 end
 
+function FastServer:scanAllFile()
+	local nRmList = {}
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		local ok = pcall(function()
+			nFileState:syncFile()
+		end)
+		if not ok then
+			nRmList[#nRmList + 1] = nUri
+		end
+	::continue:: end
+	for _, nUri in pairs(nRmList) do
+		self._fileStateDict[nUri] = nil
+	::continue:: end
+end
+
 function FastServer:onDidOpen(vParams)
 	local nContent = vParams.textDocument.text
 	local nFileUri = vParams.textDocument.uri
 	local nFileState = self:attachFileState(nFileUri)
 	if nFileState:contentMismatch(nContent) then
+		self:scanAllFile()
 		if nFileState:syncContent(nContent, vParams.textDocument.version) then
 			self:rerun(nFileUri)
 		end
@@ -11755,6 +11762,7 @@ function FastServer:onDidSave(vParams)
 	local nFileState = self:attachFileState(nFileUri)
 	if nContent then
 		if nFileState:contentMismatch(nContent) then
+			self:scanAllFile()
 			self:warn("content mismatch when save")
 		end
 	end
@@ -11859,6 +11867,7 @@ local CodeEnv = require "thlua.code.CodeEnv"
 local Exception = require "thlua.Exception"
 local SplitCode = require "thlua.code.SplitCode"
 local class = require "thlua.class"
+local platform = require "thlua.platform"
 
 
 	
@@ -11871,13 +11880,23 @@ local FileState = class ()
 local CHANGE_ANYTHING = 1
 local CHANGE_NONBLANK = 2
 
-function FileState:ctor(vFileName)
+function FileState:ctor(vServer, vFileName)
+	self._lspServer = vServer
 	self._rightEnv = false
 	self._fileName = vFileName
 	self._splitCode = SplitCode.new("")
 	self._errOrEnv = nil 
 	self._version = (-1) 
 	self._changeState = false  
+	self._checkFlag = false  
+end
+
+function FileState:getCheckFlag()
+	return self._checkFlag
+end
+
+function FileState:setCheckFlag(vCheckFlag)
+	self._checkFlag = vCheckFlag
 end
 
 function FileState:onSaveAndGetChange()
@@ -11966,6 +11985,19 @@ function FileState:_checkRight()
 	end
 end
 
+function FileState:syncFile()
+	local nFilePath = platform.uri2path(self._fileName)
+	local file, err = io.open(nFilePath, "r")
+	if not file then
+		error(err)
+	end
+	local nContent = assert(file:read("a"), "file get nothing")
+	file:close()
+	if nContent ~= self._splitCode:getContent() then
+		self:syncContent(nContent, self._version)
+	end
+end
+
 function FileState:syncContent(vContent, vVersion)
 	self._version = vVersion
 	self._splitCode = SplitCode.new(vContent)
@@ -11996,6 +12028,7 @@ function FileState:getLatestException()
 end
 
 function FileState:checkLatestEnv()
+	self._checkFlag = true
 	local nLatest = self._errOrEnv
 	if CodeEnv.is(nLatest) then
 		return nLatest
@@ -12151,6 +12184,7 @@ local ApiServer = require "thlua.server.ApiServer"
 local FastServer = require "thlua.server.FastServer"
 local class = require "thlua.class"
 local platform = require "thlua.platform"
+local SeverityEnum = require "thlua.runtime.SeverityEnum"
 
 
 	
@@ -12184,6 +12218,37 @@ function SlowServer:publishNormal()
 	self:publishFileToDiaList(nFileToList)
 end
 
+function SlowServer:publishNoAttach(vExceptionUri)
+	for nFileName, nFileState in pairs(self._fileStateDict) do
+		if not nFileState:getCheckFlag() then
+			local nDiaList = {}
+			nDiaList[1] = {
+				range={
+					start={
+						line=0,
+						character=0,
+					},
+					["end"]={
+						line=0,
+						character=10,
+					}
+				},
+				message=vExceptionUri and "exception happend in "..tostring(lpath.name(vExceptionUri)) or "current file("..lpath.name(nFileName)..") maybe not required",
+				severity=SeverityEnum.Warn,
+			}
+			self:_write({
+				jsonrpc = "2.0",
+				method = "textDocument/publishDiagnostics",
+				params = {
+					uri=nFileName,
+					version=nFileState:getVersion(),
+					diagnostics=json.array(nDiaList),
+				},
+			})
+		end
+	::continue:: end
+end
+
 function SlowServer:publishException(vException )
 	local nNode = nil
 	local nMsg = ""
@@ -12197,32 +12262,37 @@ function SlowServer:publishException(vException )
 	local nFileState = self._fileStateDict[nNode.path]
 	if not nFileState then
 		self:error("exception in unknown file:", nNode.path)
-		return
-	end
-	self:_write({
-		jsonrpc = "2.0",
-		method = "textDocument/publishDiagnostics",
-		params = {
-			uri=nNode.path,
-			version=nFileState:getVersion(),
-			diagnostics={ {
-				range={
-					start={
-						line=nNode.l-1,
-						character=0,
+	else
+		nFileState:setCheckFlag(true)
+		self:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri=nNode.path,
+				version=nFileState:getVersion(),
+				diagnostics={ {
+					range={
+						start={
+							line=nNode.l-1,
+							character=0,
+						},
+						["end"]={
+							line=nNode.l-1,
+							character=100,
+						}
 					},
-					["end"]={
-						line=nNode.l-1,
-						character=100,
-					}
-				},
-				message=nMsg,
-			} }
-		},
-	})
+					message=nMsg,
+				} }
+			},
+		})
+	end
+	return nNode.path
 end
 
 function SlowServer:rerun(vFileUri)
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		nFileState:setCheckFlag(false)
+	::continue:: end
 	local rootFileUri = lpath.isfile(self._rootPath .. "/throot.thlua")
 	if not rootFileUri then
 		rootFileUri = vFileUri
@@ -12237,12 +12307,13 @@ function SlowServer:rerun(vFileUri)
 		if not self._runtime then
 			self._runtime = nRuntime
 		end
-		self:publishException(exc   )
-		return
+		local nUri = self:publishException(exc   )
+		self:publishNoAttach(nUri)
 	else
 		self._runtime = nRuntime
 		collectgarbage()
 		self:publishNormal()
+		self:publishNoAttach()
 	end
 end
 
@@ -12255,6 +12326,7 @@ function SlowServer:onDidOpen(vParams)
 	local nFileUri = vParams.textDocument.uri
 	local nFileState = self:attachFileState(nFileUri)
 	if nFileState:contentMismatch(nContent) then
+		self:scanAllFile()
 		nFileState:syncContent(nContent, vParams.textDocument.version)
 		self:rerun(nFileUri)
 	end
@@ -13043,7 +13115,7 @@ local NameReference = {}
 NameReference.__index = NameReference
 
 function NameReference.__tostring(self)
-	return "name refer tostring TODO"
+	return "Reference(key="..tostring(self._key)..")"
 end
 
 function NameReference.new(vManager, vParentNodeOrSpace , vKey)
