@@ -147,11 +147,20 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	end)
 end
 
+function FastServer:scanAllFile()
+	for k, nFileState in pairs(self._fileStateDict) do
+		pcall(function()
+			nFileState:syncFile()
+		end)
+	end
+end
+
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:attachFileState(nFileUri)
 	if nFileState:contentMismatch(nContent) then
+		self:scanAllFile()
 		if nFileState:syncContent(nContent, vParams.textDocument.version) then
 			self:rerun(nFileUri)
 		end
@@ -164,6 +173,7 @@ function FastServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
 	const nFileState = self:attachFileState(nFileUri)
 	if nContent then
 		if nFileState:contentMismatch(nContent) then
+			self:scanAllFile()
 			self:warn("content mismatch when save")
 		end
 	end

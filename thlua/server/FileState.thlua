@@ -3,6 +3,7 @@ const CodeEnv = require "thlua.code.CodeEnv"
 const Exception = require "thlua.Exception"
 const SplitCode = require "thlua.code.SplitCode"
 const class = require "thlua.class"
+const platform = require "thlua.platform"
 
 (@do
 	let.clazz=import("thlua.type.TypeClass").clazz
@@ -15,7 +16,8 @@ const FileState = class@<lsp.FileState, false>()
 const CHANGE_ANYTHING = 1
 const CHANGE_NONBLANK = 2
 
-function.open FileState:ctor(vFileName:String)
+function.open FileState:ctor(vServer:lsp.BaseServer, vFileName:String)
+	self._lspServer = vServer
 	self._rightEnv = false@OrFalse(clazz.CodeEnv)
 	self._fileName = vFileName
 	self._splitCode = SplitCode.new("")
@@ -107,6 +109,19 @@ function FileState:_checkRight():Ret(Boolean)
 			self._errOrEnv = nCodeEnv
 		end
 		return false
+	end
+end
+
+function FileState:syncFile()
+	const nFilePath = platform.uri2path(self._fileName)
+	const file, err = io.open(nFilePath, "r")
+	if not file then
+		error(err)
+	end
+	const nContent = assert(file:read("a"), "file get nothing")
+	file:close()
+	if nContent ~= self._splitCode:getContent() then
+		self:syncContent(nContent, -1)
 	end
 end
 

@@ -31,7 +31,7 @@ end
 function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	local nFileState = self._fileStateDict[vFileUri]
 	if not nFileState then
-		const nNewState = FileState.new(vFileUri)
+		const nNewState = FileState.new(self, vFileUri)
 		self._fileStateDict[vFileUri] = nNewState
 		return nNewState
 	else
@@ -60,14 +60,7 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 		end,
 		thluaParseFile=function(vRuntime, vFileUri)
 			if not self._fileStateDict[vFileUri] then
-				const nFilePath = platform.uri2path(vFileUri)
-				const file, err = io.open(nFilePath, "r")
-				if not file then
-					error(err)
-				end
-				const nContent = assert(file:read("a"), "file get nothing")
-				file:close()
-				self:attachFileState(vFileUri):syncContent(nContent, -1)
+				self:attachFileState(vFileUri):syncFile()
 			end
 			return self._fileStateDict[vFileUri]!:checkLatestEnv()
 		end,
@@ -75,13 +68,7 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 			const nFilePath = self._globalPath.."/"..vPackage..".d.thlua"
 			const nFileUri = platform.path2uri(nFilePath)
 			if not self._fileStateDict[nFileUri] then
-				const file, err = io.open(nFilePath, "r")
-				if not file then
-					error(err)
-				end
-				const nContent = assert(file:read("a"), "global file get nothing")
-				file:close()
-				self:attachFileState(nFileUri):syncContent(nContent, -1)
+				self:attachFileState(nFileUri):syncFile()
             end
 			return self._fileStateDict[nFileUri]!:checkLatestEnv(), nFileUri
 		end,
