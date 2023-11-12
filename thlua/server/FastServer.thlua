@@ -107,6 +107,9 @@ function FastServer:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.
 		if vFilePusher then
 			vFilePusher(nFileName, nFileState, nDiaList)
 		end
+		if #nDiaList > 0 then
+			nFileState:setCheckFlag(true)
+		end
 		self:_write({
 			jsonrpc = "2.0",
 			method = "textDocument/publishDiagnostics",
@@ -148,10 +151,17 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 end
 
 function FastServer:scanAllFile()
-	for k, nFileState in pairs(self._fileStateDict) do
-		pcall(function()
+	const nRmList:List(String) = {}
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		const ok = pcall(function()
 			nFileState:syncFile()
 		end)
+		if not ok then
+			nRmList[#nRmList + 1] = nUri
+		end
+	end
+	for _, nUri in pairs(nRmList) do
+		self._fileStateDict[nUri] = nil
 	end
 end
 

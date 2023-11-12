@@ -24,6 +24,15 @@ function.open FileState:ctor(vServer:lsp.BaseServer, vFileName:String)
 	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
 	self._changeState = false @OrFalse($CHANGE_ANYTHING, $CHANGE_NONBLANK)
+	self._checkFlag = false @ Boolean
+end
+
+function FileState:getCheckFlag()
+	return self._checkFlag
+end
+
+function FileState:setCheckFlag(vCheckFlag:Boolean)
+	self._checkFlag = vCheckFlag
 end
 
 function FileState:onSaveAndGetChange():Ret(Boolean)
@@ -121,7 +130,7 @@ function FileState:syncFile()
 	const nContent = assert(file:read("a"), "file get nothing")
 	file:close()
 	if nContent ~= self._splitCode:getContent() then
-		self:syncContent(nContent, -1)
+		self:syncContent(nContent, self._version)
 	end
 end
 
@@ -155,6 +164,7 @@ function FileState:getLatestException():Ret(OrFalse(clazz.Exception))
 end
 
 function FileState:checkLatestEnv():Ret(clazz.CodeEnv)
+	self._checkFlag = true
 	const nLatest = self._errOrEnv
 	if CodeEnv.is(nLatest) then
 		return nLatest

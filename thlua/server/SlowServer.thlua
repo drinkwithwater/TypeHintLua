@@ -10,6 +10,7 @@ const ApiServer = require "thlua.server.ApiServer"
 const FastServer = require "thlua.server.FastServer"
 const class = require "thlua.class"
 const platform = require "thlua.platform"
+const SeverityEnum = require "thlua.runtime.SeverityEnum"
 
 (@do
 	let.clazz=import($class).clazz
@@ -43,7 +44,38 @@ function SlowServer:publishNormal()
 	self:publishFileToDiaList(nFileToList)
 end
 
-function SlowServer:publishException(vException:Union(clazz.Exception, String))
+function SlowServer:publishNoAttach(vExceptionUri:OrNil(String))
+	for nFileName, nFileState in pairs(self._fileStateDict) do
+		if not nFileState:getCheckFlag() then
+			const nDiaList:List(lsp.Diagnostic) = {}
+			nDiaList[1] = {
+				range={
+					start={
+						line=0,
+						character=0,
+					},
+					["end"]={
+						line=0,
+						character=10,
+					}
+				},
+				message=vExceptionUri and "exception happend in "..tostring(lpath.name(vExceptionUri)) or "current file("..lpath.name(nFileName)..") maybe not required",
+				severity=SeverityEnum.Warn,
+			}
+			self:_write({
+				jsonrpc = "2.0",
+				method = "textDocument/publishDiagnostics",
+				params = {
+					uri=nFileName,
+					version=nFileState:getVersion(),
+					diagnostics=json.array(nDiaList),
+				},
+			})
+		end
+	end
+end
+
+function SlowServer:publishException(vException:Union(clazz.Exception, String)):Ret(String)
 	local nNode:OrNil(clazz.IBaseNode) = nil
 	local nMsg:String = ""
 	if Exception.is(vException) then
@@ -56,32 +88,37 @@ function SlowServer:publishException(vException:Union(clazz.Exception, String))
 	const nFileState = self._fileStateDict[nNode.path]
 	if not nFileState then
 		self:error("exception in unknown file:", nNode.path)
-		return
-	end
-	self:_write({
-		jsonrpc = "2.0",
-		method = "textDocument/publishDiagnostics",
-		params = {
-			uri=nNode.path,
-			version=nFileState:getVersion(),
-			diagnostics={ {
-				range={
-					start={
-						line=nNode.l-1,
-						character=0,
+	else
+		nFileState:setCheckFlag(true)
+		self:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri=nNode.path,
+				version=nFileState:getVersion(),
+				diagnostics={ {
+					range={
+						start={
+							line=nNode.l-1,
+							character=0,
+						},
+						["end"]={
+							line=nNode.l-1,
+							character=100,
+						}
 					},
-					["end"]={
-						line=nNode.l-1,
-						character=100,
-					}
-				},
-				message=nMsg,
-			} }
-		},
-	})
+					message=nMsg,
+				} }
+			},
+		})
+	end
+	return nNode.path
 end
 
 function SlowServer:rerun(vFileUri:String)
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		nFileState:setCheckFlag(false)
+	end
 	local rootFileUri = lpath.isfile(self._rootPath .. "/throot.thlua")
 	if not rootFileUri then
 		rootFileUri = vFileUri
@@ -96,12 +133,13 @@ function SlowServer:rerun(vFileUri:String)
 		if not self._runtime then
 			self._runtime = nRuntime
 		end
-		self:publishException(exc @? Union(clazz.Exception, String))
-		return
+		const nUri = self:publishException(exc @? Union(clazz.Exception, String))
+		self:publishNoAttach(nUri)
 	else
 		self._runtime = nRuntime
 		collectgarbage()
 		self:publishNormal()
+		self:publishNoAttach()
 	end
 end
 
