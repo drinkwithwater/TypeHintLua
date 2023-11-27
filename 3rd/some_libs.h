@@ -7,6 +7,7 @@
 int luaopen_lpeg (lua_State *L);
 int luaopen_rapidjson(lua_State* L);
 int luaopen_path(lua_State* L);
+int luaopen_path_fs(lua_State* L);
 int luaopen_chrono(lua_State* L);
 
 #endif
