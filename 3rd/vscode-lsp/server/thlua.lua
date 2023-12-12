@@ -1453,6 +1453,17 @@ function CodeEnv:getLuaCode()
 	return self._luaCode
 end
 
+function CodeEnv:getUnusedIdentList()
+	local nUnusedList = {}  
+	for _,ident in ipairs(self._searcher:getIdentList()) do
+		local nDefineIdent = ident.kind == "def" and ident or ident.defineIdent
+		if nDefineIdent and not nDefineIdent.symbolGetted and not nDefineIdent.isHidden and nDefineIdent[1] ~= "_" then
+			nUnusedList[#nUnusedList + 1] = ident
+		end
+	::continue:: end
+	return nUnusedList
+end
+
 return CodeEnv
 
 end end
@@ -1508,13 +1519,13 @@ local TagToVisiting = {
 			if nInjectNode.tag ~= "HintSpace" then
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
-					"local let, _ENV, _G = ____stk:INJECT_BEGIN() ",
+					"local let, _ENV = ____stk:INJECT_BEGIN() ",
 					" return ", self:visit(nInjectNode),
 				}
 			else
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
-					"local let, _ENV, _G = ____stk:INJECT_BEGIN() ",
+					"local let, _ENV = ____stk:INJECT_BEGIN() ",
 					" return ", self:fixIHintSpace(nInjectNode),
 				}
 			end
@@ -2228,7 +2239,7 @@ function HintGener:visitFunc(vNode )
 	local nLastDots = (nLastNode and nLastNode.tag == "Dots") and nLastNode
 	local nParamNum = nLastDots and #nParList-1 or #nParList
 	local nFirstPar = nParList[1]
-	local nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isSelf or false
+	local nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isHidden or false
 	local nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack = {}
 	local nPolyParNum = nPolyParList and #nPolyParList or 0
@@ -2250,7 +2261,7 @@ function HintGener:visitFunc(vNode )
 	}), nHintPrefix,
 	   
 		self:fnWrap("____newStk","____polyArgs", "____self")(
-			"local ____stk,let,_ENV,_G=____newStk,____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
+			"local ____stk,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
 			nPolyUnpack,
 			   
 			" local ____vDOTS=false ",
@@ -2391,6 +2402,7 @@ local Exception = require "thlua.Exception"
    
 
   
+	  
 	  
 	  
 	  
@@ -2602,6 +2614,7 @@ local Exception = require "thlua.Exception"
 	   
 	
 	
+	       
 	
 	
 	  
@@ -2662,6 +2675,7 @@ local Exception = require "thlua.Exception"
 	  
 	  
 	  
+	         
 	         
 	  
 	  
@@ -2956,13 +2970,13 @@ local parF = {
 		return {tag="Ident", pos=vPos, posEnd=vPosEnd, [1] = vName, kind="def", hintShort=vHintShort}
 	end,
 	identDefSelf=function(vPos)
-		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "self", kind="def", isSelf=true}
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "self", kind="def", isHidden=true}
 	end,
 	identDefENV=function(vPos)
-		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def"}
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def", isHidden=true}
 	end,
 	identDefLet=function(vPos)
-		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "let", kind="def"}
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "let", kind="def", isHidden=true}
 	end,
 }
 
@@ -2971,6 +2985,7 @@ local function buildLoadChunk(vPos, vBlock)
 	return {
 		tag="Chunk", pos=vPos, posEnd=vBlock.posEnd,
 		letNode = parF.identDefLet(vPos),
+		hintEnvNode = parF.identDefENV(vPos),
 		[1]=parF.identDefENV(vPos),
 		[2]={
 			tag="ParList",pos=vPos,posEnd=vPos,
@@ -3364,10 +3379,24 @@ local G = lpeg.P { "TypeHintLua";
 		local IdentDefTList = vv.IdentDefT * (symb(",") * vv.IdentDefT)^0;
 		local DotsHintable = tagC.Dots(symb"..." * lpeg.Cg(vv.ColonHint, "hintShort")^-1)
 		local ParList = tagC.ParList(IdentDefTList * (symb(",") * DotsHintable)^-1 + DotsHintable^-1);
-		return tagC.Function(
+		return lpeg.Cmt(Cenv*Cpos*
+			(vv.HintPolyParList + cc(false)) *
+			symbA("(") * ParList * symbA(")") *
+			(vv.LongHint + cc(false)) *
+			vv.Block * kwA("end")*Cpos, function(_, _, env, pos, hintPolyParList, parList, hintSuffix, block, posEnd)
+				return true, {
+					tag="Function", pos=pos, posEnd=posEnd,
+					letNode=(not env.hinting) and parF.identDefLet(pos),
+					hintEnvNode=(not env.hinting) and parF.identDefENV(pos),
+					hintPolyParList=hintPolyParList,
+					hintSuffix=hintSuffix,
+					[1]=parList,[2]=block,
+				}
+			end)
+		--[[return tagC.Function(
 			lpeg.Cg(Cpos/parF.identDefLet, "letNode")*
 			lpeg.Cg(vv.HintPolyParList, "hintPolyParList")^-1*symbA("(") * ParList * symbA(")") *
-			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))
+			lpeg.Cg(vv.LongHint, "hintSuffix")^-1 * vv.Block * kwA("end"))]]
 	end)();
 
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
@@ -3880,6 +3909,10 @@ function SearchVisitor:searchIdent(vPos)
 	return nNode
 end
 
+function SearchVisitor:getIdentList()
+	return self._identList
+end
+
 return SearchVisitor
 
 end end
@@ -4129,7 +4162,7 @@ local TagToVisiting = {
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
 					self:symbolDefine(par, Enum.SymbolKind_PARAM)
-					if not par.isSelf and not par.hintShort then
+					if not par.isHidden and not par.hintShort then
 						nParFullHint = false
 					end
 				else
@@ -4259,7 +4292,8 @@ function SymbolVisitor:withHintBlock(vBlockNode, vFuncNode, vInnerCall)
 		})
 	else
 		vBlockNode.symbolTable = {
-			let=nPreNode,
+			let=assert(nPreNode.letNode),
+			_ENV=assert(nPreNode.hintEnvNode),
 		}
 	end
 	table.insert(self._hintStack, vBlockNode)
@@ -4295,7 +4329,7 @@ function SymbolVisitor:withScope(vBlockNode, vFuncOrChunk, vInnerCall)
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
 		table.insert(self._regionStack, vFuncOrChunk)
-		table.insert(self._hintStack, assert(vFuncOrChunk.letNode))
+		table.insert(self._hintStack, vFuncOrChunk)
 		vInnerCall()
 		table.remove(self._regionStack)
 		table.remove(self._hintStack)
@@ -4345,28 +4379,31 @@ function SymbolVisitor:dotsUse(vDotsNode)
 end
 
 function SymbolVisitor:hintSymbolUse(vIdentNode, vIsAssign)
-	local nBlockOrLetIdent = self._hintStack[#self._hintStack]
+	local nBlockOrRegion = self._hintStack[#self._hintStack]
 	local nName = vIdentNode[1]
-	local nDefineNode = nil
-	if nBlockOrLetIdent.tag == "Block" then
-		nDefineNode = nBlockOrLetIdent.symbolTable[nName]
+	local nDefineNode = false
+	if nBlockOrRegion.tag == "Block" then
+		nDefineNode = nBlockOrRegion.symbolTable[nName] or false
 	else
 		if nName == "let" then
-			nDefineNode = nBlockOrLetIdent
+			nDefineNode = nBlockOrRegion.letNode
+		elseif nName == "_ENV" then
+			nDefineNode = nBlockOrRegion.hintEnvNode
 		end
 	end
 	if not nDefineNode then
 		vIdentNode.defineIdent = false
-		if nBlockOrLetIdent.tag == "Block" then
-			vIdentNode.isGetFrom = nBlockOrLetIdent.symbolTable["let"]
+		if nBlockOrRegion.tag == "Block" then
+			vIdentNode.isGetFrom = nBlockOrRegion.symbolTable["_ENV"]
 		else
-			vIdentNode.isGetFrom = nBlockOrLetIdent
+			vIdentNode.isGetFrom = assert(nBlockOrRegion.hintEnvNode)
 		end
 	else
 		if vIsAssign then
 			nDefineNode.symbolModify = true
 			vIdentNode.isGetFrom = false
 		else
+			nDefineNode.symbolGetted = true
 			vIdentNode.isGetFrom = true
 		end
 		vIdentNode.defineIdent = nDefineNode
@@ -4394,6 +4431,7 @@ function SymbolVisitor:symbolUse(vIdentNode, vIsAssign)
 		end
 		vIdentNode.isGetFrom = false
 	else
+		nDefineNode.symbolGetted = true
 		vIdentNode.isGetFrom = true
 	end
 	vIdentNode.defineIdent = nDefineNode
@@ -4405,7 +4443,7 @@ function SymbolVisitor.new(vCode)
 		_scopeStack={},
 		_regionStack={},
 		_inHintSpace=false,
-		_hintStack={} ,
+		_hintStack={}  ,
 		_hintFuncStack={},
 	}, SymbolVisitor)
 	return self
@@ -4448,6 +4486,7 @@ local TagToTraverse = {
 		self:realVisit(node[2])
 		self:realVisit(node[3])
 		self:realVisit(node.letNode)
+		self:realVisit(node.hintEnvNode)
 		local nInjectExpr = node.injectNode
 		if nInjectExpr then
 			self:realVisit(nInjectExpr)
@@ -4573,6 +4612,10 @@ local TagToTraverse = {
 		local nLetNode = node.letNode
 		if nLetNode then
 			self:realVisit(nLetNode)
+		end
+		local nEnvNode = node.hintEnvNode
+		if nEnvNode then
+			self:realVisit(nEnvNode)
 		end
 		self:realVisit(node[1])
 		local nHintLong = node.hintSuffix
@@ -9949,7 +9992,7 @@ function InstStack:AUTO(vNode)
 	return AutoFlag
 end
 
-function InstStack:BEGIN(vLexStack, vBlockNode)  
+function InstStack:BEGIN(vLexStack, vBlockNode) 
 	assert(not self._letspace, "context can only begin once")
 	local nUpState = self._lexCapture
 	local nRootBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, vBlockNode)
@@ -10677,7 +10720,7 @@ function InstStack:INJECT_GET(
 	return vInjectGetter(vNode)
 end
 
-function InstStack:INJECT_BEGIN(vNode)  
+function InstStack:INJECT_BEGIN(vNode) 
 	local nSpace = assert(self._letspace)
 	return nSpace:export()
 end
@@ -11587,7 +11630,6 @@ local CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 local CodeEnv = require "thlua.code.CodeEnv"
 local FileState = require "thlua.server.FileState"
 local ApiServer = require "thlua.server.ApiServer"
-local ParseEnv = require "thlua.code.ParseEnv"
 local class = require "thlua.class"
 local platform = require "thlua.platform"
 
@@ -11683,6 +11725,27 @@ function FastServer:publishFileToDiaList(vFileToDiaList , vFilePusher  )
 				severity=dia.severity,
 			}
 		::continue:: end
+		local nLatestEnv = nFileState:getLatestEnv()
+		if nLatestEnv then
+			for _, ident in ipairs(nLatestEnv:getUnusedIdentList()) do
+				local el, ec = nSplitCode:fixupPos(ident.posEnd)
+				nDiaList[#nDiaList + 1] = {
+					range={
+						start={
+							line=ident.l-1,
+							character=ident.c-1,
+						},
+						["end"]={
+							line=el-1,
+							character=ec-1,
+						}
+					},
+					severity=SeverityEnum.Hint,
+					message="unused variable",
+					tags=json.array({1}),
+				}
+			::continue:: end
+		end
 		if vFilePusher then
 			vFilePusher(nFileName, nFileState, nDiaList)
 		end
@@ -11766,9 +11829,8 @@ function FastServer:onDidSave(vParams)
 			self:warn("content mismatch when save")
 		end
 	end
-	if nFileState:onSaveAndGetChange() then
-		self:rerun(nFileUri)
-	end
+	nFileState:onSaveAndGetChange()
+	self:rerun(nFileUri)
 end
 
 function FastServer:onDefinition(vParams)
@@ -12025,6 +12087,15 @@ function FileState:getLatestException()
 		return nLatest
 	end
 	return false
+end
+
+function FileState:getLatestEnv()
+	local nLatest = self._errOrEnv
+	if CodeEnv.is(nLatest) then
+		return nLatest
+	else
+		return false
+	end
 end
 
 function FileState:checkLatestEnv()
@@ -12555,6 +12626,7 @@ local ErrorCodes = {
 	
 	
 	
+	
 
 
 
@@ -12562,6 +12634,10 @@ local ErrorCodes = {
 return {
 	ErrorCodes=ErrorCodes,
 	SeverityEnum=SeverityEnum,
+	DiagnosticTag={
+		Unnecessary=1,
+		Deprecated=2,
+	}
 }
 
 end end
@@ -13013,7 +13089,7 @@ end
 function LetSpace:ctor(_, _, _, vParentOrDict  )
     self._parentSpace = false  
 	self._closed=false
-    self._envTable = SpaceValue.envCreate(self, self._refer  )
+    self._envTable = SpaceValue.envCreate(self, self._refer  , self._manager.spaceG)
 	if LetSpace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
     else
@@ -13034,8 +13110,8 @@ function LetSpace:chainGet(vKey)
 	return self._key2child[vKey] or (nParent and nParent:chainGet(vKey) or nil)
 end
 
-function LetSpace:export()  
-    return (self._refer  ):getSpaceValue(), self._envTable, self._manager.spaceG
+function LetSpace:export() 
+    return (self._refer  ):getSpaceValue(), self._envTable
 end
 
 function LetSpace:spaceCompletion(vCompletion, vValue)
@@ -13380,8 +13456,9 @@ function SpaceValue.create(vRefer)
     })
 end
 
-function SpaceValue.envCreate(vLetSpace, vRefer)
+function SpaceValue.envCreate(vLetSpace, vRefer, vG)
     return setmetatable({
+		_G=vG
     }, {
 		__index=function(_,vKey)
 			if type(vKey) == "string" then
