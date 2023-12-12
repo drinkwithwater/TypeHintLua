@@ -239,14 +239,15 @@ function CodeEnv:getLuaCode()
 	return self._luaCode
 end
 
-function CodeEnv:test()
+function CodeEnv:getUnusedIdentList()
+	const nUnusedList = {} @ List(node.Ident)
 	for _,ident in ipairs(self._searcher:getIdentList()) do
-		if ident.kind == "def" and not ident.symbolGetted then
-			if not ident.isSelf then
-				print(ident, ident[1])
-			end
+		const nDefineIdent = ident.kind == "def" and ident or ident.defineIdent
+		if nDefineIdent and not nDefineIdent.symbolGetted and not nDefineIdent.isHidden and nDefineIdent[1] ~= "_" then
+			nUnusedList[#nUnusedList + 1] = ident
 		end
 	end
+	return nUnusedList
 end
 
 return CodeEnv

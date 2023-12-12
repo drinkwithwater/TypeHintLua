@@ -125,13 +125,13 @@ local parF = {
 		return {tag="Ident", pos=vPos, posEnd=vPosEnd, [1] = vName, kind="def", hintShort=vHintShort}
 	end,
 	identDefSelf=function(vPos)
-		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "self", kind="def", isSelf=true}
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "self", kind="def", isHidden=true}
 	end,
 	identDefENV=function(vPos)
-		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def"}
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def", isHidden=true}
 	end,
 	identDefLet=function(vPos)
-		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "let", kind="def"}
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "let", kind="def", isHidden=true}
 	end,
 }
 

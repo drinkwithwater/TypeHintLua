@@ -104,6 +104,27 @@ function FastServer:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.
 				severity=dia.severity,
 			}
 		end
+		const nLatestEnv = nFileState:getLatestEnv()
+		if nLatestEnv then
+			for _, ident in ipairs(nLatestEnv:getUnusedIdentList()) do
+				const el, ec = nSplitCode:fixupPos(ident.posEnd)
+				nDiaList[#nDiaList + 1] = {
+					range={
+						start={
+							line=ident.l-1,
+							character=ident.c-1,
+						},
+						["end"]={
+							line=el-1,
+							character=ec-1,
+						}
+					},
+					severity=SeverityEnum.Hint,
+					message="unused variable",
+					tags=json.array({1}@List(Union(1,2))),
+				}
+			end
+		end
 		if vFilePusher then
 			vFilePusher(nFileName, nFileState, nDiaList)
 		end
