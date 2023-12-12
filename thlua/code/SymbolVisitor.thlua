@@ -242,7 +242,8 @@ function SymbolVisitor:withHintBlock(vBlockNode:node.Block, vFuncNode:OrNil(node
 		})
 	else
 		vBlockNode.symbolTable = {
-			let=nPreNode,
+			let=assert(nPreNode.letNode),
+			_ENV=assert(nPreNode.hintEnvNode),
 		}
 	end
 	table.insert(self._hintStack, vBlockNode)
@@ -278,7 +279,7 @@ function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
 		table.insert(self._regionStack, vFuncOrChunk)
-		table.insert(self._hintStack, assert(vFuncOrChunk.letNode))
+		table.insert(self._hintStack, vFuncOrChunk)
 		vInnerCall()
 		table.remove(self._regionStack)
 		table.remove(self._hintStack)
@@ -328,28 +329,31 @@ function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
 end
 
 function SymbolVisitor:hintSymbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
-	const nBlockOrLetIdent = self._hintStack[#self._hintStack]!
+	const nBlockOrRegion = self._hintStack[#self._hintStack]!
 	const nName = vIdentNode[1]
-	local nDefineNode:OrNil(node.Ident_def) = nil
-	if nBlockOrLetIdent.tag == "Block" then
-		nDefineNode = nBlockOrLetIdent.symbolTable[nName]
+	local nDefineNode:OrFalse(node.Ident_def) = false
+	if nBlockOrRegion.tag == "Block" then
+		nDefineNode = nBlockOrRegion.symbolTable[nName] or false
 	else
 		if nName == "let" then
-			nDefineNode = nBlockOrLetIdent
+			nDefineNode = nBlockOrRegion.letNode
+		elseif nName == "_ENV" then
+			nDefineNode = nBlockOrRegion.hintEnvNode
 		end
 	end
 	if not nDefineNode then
 		vIdentNode.defineIdent = false
-		if nBlockOrLetIdent.tag == "Block" then
-			vIdentNode.isGetFrom = nBlockOrLetIdent.symbolTable["let"]!
+		if nBlockOrRegion.tag == "Block" then
+			vIdentNode.isGetFrom = nBlockOrRegion.symbolTable["_ENV"]!
 		else
-			vIdentNode.isGetFrom = nBlockOrLetIdent
+			vIdentNode.isGetFrom = assert(nBlockOrRegion.hintEnvNode)
 		end
 	else
 		if vIsAssign then
 			nDefineNode.symbolModify = true
 			vIdentNode.isGetFrom = false
 		else
+			nDefineNode.symbolGetted = true
 			vIdentNode.isGetFrom = true
 		end
 		vIdentNode.defineIdent = nDefineNode
@@ -377,6 +381,7 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 		end
 		vIdentNode.isGetFrom = false
 	else
+		nDefineNode.symbolGetted = true
 		vIdentNode.isGetFrom = true
 	end
 	vIdentNode.defineIdent = nDefineNode
@@ -388,7 +393,7 @@ function:class(let.SymbolVisitor) SymbolVisitor.new(vCode:clazz.SplitCode)
 		_scopeStack={}@List(node.Block),
 		_regionStack={}@List(node.URegionNode),
 		_inHintSpace=false@Boolean,
-		_hintStack={}@List(Union(node.Block, node.Ident_def)),
+		_hintStack={}@List(Union(node.Block, node.Function, node.Chunk)),
 		_hintFuncStack={}@List(node.Function),
 	}, SymbolVisitor)
 	return self
