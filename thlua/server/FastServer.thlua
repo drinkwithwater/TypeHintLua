@@ -256,8 +256,8 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	end
 	-- TODO, using nInjectNode.pos maybe not right such as local a = a.fds ...
 	const nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
-	const nBlockNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
-	nCompletionRuntime:focusSchedule(nFuncList)
+	const nBlockNode = nSuccEnv:traceBlock(nTraceList)
+	nCompletionRuntime:focusSchedule(nBlockNode:getFocusList())
 	-- 4. run inject
 	const nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
 	if not nFieldCompletion then
@@ -274,24 +274,23 @@ function FastServer:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(ls
 	return json.array(nRetList)
 end
 
-function FastServer:onHover(vParams:lsp.HoverParams)
-	--[[
-	local nFileName = self:uriToPath(vParams.textDocument.uri)
-	local nDefineNode = self:searchDefine(nFileName, vParams.position.line + 1, vParams.position.character + 1)
-	if nDefineNode then
-		local nLocalSymbolSet = self:checkRuntime():getNodeLocalSymbolSet(nDefineNode)
-		local l = {}
-		for nLocalSymbol, _ in pairs(nLocalSymbolSet) do
-			l[#l + 1] = tostring(nLocalSymbol:getType())
-		end
-		local value = table.concat(l, ",")
+function FastServer:onHover(vParams:lsp.HoverParams):Ret(OrNil(lsp.Hover))
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
+	const nCompletionRuntime = self:checkRuntime()
+	const nSuccMsg, nErrMsg = nCompletionRuntime:hoverNode(nFileUri, nFileState:getSplitCode(), vParams.position)
+	if not nSuccMsg then
+		self:info("hover fail:", nErrMsg)
+		return nil
+	else
 		return {
-			contents = {
+			contents={
 				kind="plaintext",
-				value=value
-			} @ MarkupContent
+				value=nSuccMsg,
+			},
+			range=nil,
 		}
-	end]]
+	end
 end
 
 return FastServer

@@ -22,6 +22,8 @@ let.IAstNode = ExtendInterface(let.IBaseNode, Interface {
 	index=Integer,
 	parent=OrNil(node.IAstNode),
 	inHintSpace=Fn(let.IAstNode):Ret(Boolean),
+	getFocusList=Fn(let.IAstNode):Ret(List(node.Function)),
+	getBlockOutHint=Fn(let.IAstNode):Ret(OrNil(node.Block)),
 })
 
 let.IVirtualNode = ExtendInterface(let.IBaseNode, Interface {
@@ -449,19 +451,6 @@ function Node.toExc(vNode:node.IBaseNode, vMsg:String):Ret(Exception)
 	return Exception.new(vMsg, vNode)
 end
 
-function Node.inHintSpace(vNode:node.IAstNode):Ret(Boolean)
-	local nCurNode:OrNil(node.IAstNode) = vNode
-	while nCurNode do
-		if nCurNode.tag == "HintSpace" then
-			return true
-		elseif nCurNode.tag == "HintEval" then
-			return false
-		end
-		nCurNode = nCurNode.parent
-	end
-	return false
-end
-
 function.pass Node.newRootNode(vFileName:String):Ret(node.Root)
 	return setmetatable({tag = "Root", pos=1, posEnd=1, l=1, c=1, path=vFileName}, Node)
 end
@@ -478,6 +467,56 @@ end
 
 function.open Node.is(v):isguard(node.IBaseNode)
 	return getmetatable(v) == Node
+end
+
+-- functions for ast node
+function Node.inHintSpace(vNode:node.IAstNode):Ret(Boolean)
+	local nCurNode:OrNil(node.IAstNode) = vNode
+	while nCurNode do
+		if nCurNode.tag == "HintSpace" then
+			return true
+		elseif nCurNode.tag == "HintEval" then
+			return false
+		end
+		nCurNode = nCurNode.parent
+	end
+	return false
+end
+
+function Node.getFocusList(vNode:node.IAstNode):Ret(List(node.Function))
+	local nCurNode:OrNil(node.IAstNode) = vNode
+	const nFocusList:List(node.Function) = {}
+	while nCurNode do
+		if nCurNode.tag == "Function" then
+			const nFunc = nCurNode @> node.Function
+			if nFunc.letNode then
+				nFocusList[#nFocusList + 1] = nFunc
+			end
+		end
+		nCurNode = nCurNode.parent
+	end
+	return nFocusList
+end
+
+function Node.getBlockOutHint(vNode:node.IAstNode):Ret(OrNil(node.Block))
+	local nRetBlock:OrNil(node.Block) = nil
+	-- lookup a latest block out hint
+	local nCurNode:OrNil(node.IAstNode) = vNode
+	local nInHint = vNode:inHintSpace()
+	while nCurNode do
+		if nCurNode.tag == "HintSpace" then
+			nInHint = false
+		elseif nCurNode.tag == "HintEval" then
+			nInHint = true
+		elseif nCurNode.tag == "Block" then
+			if not nInHint then
+				nRetBlock = nCurNode @> node.Block
+				break
+			end
+		end
+		nCurNode = nCurNode.parent
+	end
+	return nRetBlock
 end
 
 return Node

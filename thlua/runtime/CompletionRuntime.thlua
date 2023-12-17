@@ -156,6 +156,36 @@ function CompletionRuntime:injectCompletion(vTracePos:Integer, vBlockNode:node.B
 	return nFieldCompletion
 end
 
+function CompletionRuntime:hoverNode(vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLspPos:node.LspPos):Ret(False, String):Ret(String)
+	const nSuccEnv = self:getCodeEnv(vFileUri)
+	if not nSuccEnv then
+		return false, "hover failed, success compiled code not found"
+	end
+	const nSuccSplitCode = nSuccEnv:getSplitCode()
+	const nPos = nSuccSplitCode:lspToPos(vLspPos)
+	if nSuccSplitCode:getLine(vLspPos.line + 1) ~= vDirtySplitCode:getLine(vLspPos.line + 1) or nPos ~= vDirtySplitCode:lspToPos(vLspPos) then
+		return false, "goto failed, code is dirty before pos"
+	end
+	const nHoverNode = nSuccEnv:searchIdent(nPos) or nSuccEnv:searchExprBySuffix(nPos)
+	if not nHoverNode then
+		return false, "not hover on an ident or expr node"
+	end
+	self:focusSchedule(nHoverNode:getFocusList())
+	const nBlockNode = nHoverNode:getBlockOutHint()
+	if not nBlockNode then
+		return false, "fatal error : expr not in a block"
+	end
+	const nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nHoverNode)
+	const nStrList:List(String) = {}
+	if not nInjectFn then
+		return false, "gen inject fn fail"
+	end
+	self:_injectForeach(nInjectTrace.pos, nBlockNode, nInjectFn, function(vResult)
+		nStrList[#nStrList + 1] = tostring(vResult)
+	end)
+	return table.concat(nStrList, ",")
+end
+
 function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLspPos:node.LspPos):Ret(False, String):Ret(Dict(clazz.IBaseNode, True))
 	const nSuccEnv = self:getCodeEnv(vFileUri)
 	if not nSuccEnv then
@@ -188,31 +218,33 @@ function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, 
 		end
 	end
 	-- 2. lookup expr
-	const nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
-	if nExprNode then
-		self:focusSchedule(nFocusList)
+	const nExprNode = nSuccEnv:searchExprBySuffix(nPos)
+	if not nExprNode then
+		return false, "no target expr"
+	end
+	self:focusSchedule(nExprNode:getFocusList())
+	if not nExprNode:inHintSpace() then
+		-- 3. normal lua expr
 		const nNodeSet = vIsLookup and self:exprLookup(nExprNode) or self:exprLookdown(nExprNode)
 		if not next(nNodeSet) then
 			return false, "no lookup or lookdown expr node searched, node="..tostring(nExprNode)..",tag="..(nExprNode.tag)
 		end
 		return nNodeSet
+	else
+		-- 4. hint expr
+		const nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nExprNode)
+		if not nInjectFn then
+			return false, "gen inject fn fail"
+		end
+		const nBlockNode = nExprNode:getBlockOutHint()
+		if not nBlockNode then
+			return false, "fatal error : expr not in a block"
+		end
+		-- run inject for hint expr
+		return vIsLookup
+			and self:injectLookup(nInjectTrace.pos, nBlockNode!, nInjectFn)
+			or self:injectLookdown(nInjectTrace.pos, nBlockNode!, nInjectFn)
 	end
-	-- 3. search hint expr
-	const nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
-	if not nHintExprNode then
-		return false, "no target expr"
-	end
-	const nExprContent = nSuccSplitCode:getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
-	const nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
-	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSuccSplitCode, vFileUri, nWrongContent)
-	if not nInjectFn then
-		return false, "gen inject fn fail"
-	end
-	self:focusSchedule(nFocusList)
-	-- 3.1 run inject for hint expr
-	return vIsLookup
-		and self:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
-		or self:injectLookdown(nInjectTrace.pos, nBlockNode, nInjectFn)
 end
 
 function CompletionRuntime:injectLookup(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn):Ret(Dict(clazz.IBaseNode, True))
