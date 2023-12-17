@@ -126,6 +126,16 @@ function CodeEnv:getTypingFn():Ret(TypingFn)
 	return self._typingFn
 end
 
+function CodeEnv:makeLatestBlock(vNode:node.IAstNode):Ret(OrNil(node.Block))
+	local nCurNode:OrNil(node.IAstNode) = vNode
+	while nCurNode do
+		if nCurNode.tag == "Block " then
+			return nCurNode @> node.Block
+		end
+		nCurNode = nCurNode.parent
+	end
+end
+
 function CodeEnv:makeFocusList(vNode:node.IAstNode):Ret(List(node.Function))
 	local nCurNode:OrNil(node.IAstNode) = vNode
 	const nFocusList:List(node.Function) = {}
@@ -156,12 +166,15 @@ function CodeEnv:traceBlockRegion(vTraceList:List(Integer)):Ret(node.Block, List
 end
 
 function CodeEnv:searchHintExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, node.Block, List(node.Function))
-	const nPair = self._searcher:searchHintSuffixPair(vPos)
+	const nPair = self._searcher:searchSuffixPair(vPos)
 	if not nPair then
 		return false
 	end
 	local nRetBlock:OrNil(node.Block) = nil
 	const nPrefixNode = nPair[1]
+	if not nPrefixNode:inHintSpace() then
+		return false
+	end
 	-- lookup a non-hint block
 	local nCurNode:OrNil(node.IAstNode) = nPrefixNode
 	local nInHint = true
@@ -188,11 +201,19 @@ function CodeEnv:searchExprBySuffix(vPos:Integer):Ret(False):Ret(node.Expr, List
 		return false
 	end
 	const nPrefixNode = nPair[1]
+	if nPrefixNode:inHintSpace() then
+		return false
+	end
 	return nPrefixNode, self:makeFocusList(nPrefixNode)
 end
 
-function CodeEnv:searchIdent(vPos:Integer):Ret(OrFalse(node.Ident))
-	return self._searcher:searchIdent(vPos)
+function CodeEnv:searchIdent(vPos:Integer):Ret(False):Ret(node.Ident, List(node.Function))
+	const nIdent = self._searcher:searchIdent(vPos)
+	if nIdent then
+		return nIdent, self:makeFocusList(nIdent)
+	else
+		return false
+	end
 end
 
 function CodeEnv:getChunkName():Ret(String)
@@ -205,6 +226,21 @@ end
 
 function.open CodeEnv.is(v):isguard(clazz.CodeEnv)
 	return getmetatable(v) == CodeEnv
+end
+
+function CodeEnv:getLuaCode()
+	return self._luaCode
+end
+
+function CodeEnv:getUnusedIdentList()
+	const nUnusedList = {} @ List(node.Ident)
+	for _,ident in ipairs(self._searcher:getIdentList()) do
+		const nDefineIdent = ident.kind == "def" and ident or ident.defineIdent
+		if nDefineIdent and not nDefineIdent.symbolGetted and not nDefineIdent.isHidden and nDefineIdent[1] ~= "_" then
+			nUnusedList[#nUnusedList + 1] = ident
+		end
+	end
+	return nUnusedList
 end
 
 function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String, vWrongContent:String):Ret(False):Ret(InjectFn, node.InjectTrace)
@@ -235,19 +271,16 @@ function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String,
 	end
 end
 
-function CodeEnv:getLuaCode()
-	return self._luaCode
+function CodeEnv.genInjectByHintExpr(vSplitCode:clazz.SplitCode, vFileUri:String, vHintExprNode:node.Expr):Ret(False):Ret(InjectFn, node.InjectTrace)
+	const nExprContent = vSplitCode:getContent():sub(vHintExprNode.pos, vHintExprNode.posEnd - 1)
+	const nFakeContent = string.rep(" ", vHintExprNode.pos) .. "(@" .. nExprContent .. "."
+	return CodeEnv.genInjectFnByError(vSplitCode, vFileUri, nFakeContent)
 end
 
-function CodeEnv:getUnusedIdentList()
-	const nUnusedList = {} @ List(node.Ident)
-	for _,ident in ipairs(self._searcher:getIdentList()) do
-		const nDefineIdent = ident.kind == "def" and ident or ident.defineIdent
-		if nDefineIdent and not nDefineIdent.symbolGetted and not nDefineIdent.isHidden and nDefineIdent[1] ~= "_" then
-			nUnusedList[#nUnusedList + 1] = ident
-		end
-	end
-	return nUnusedList
+function CodeEnv.genInjectByLuaExpr(vSplitCode:clazz.SplitCode, vFileUri:String, vLuaExprNode:Union(node.Expr, node.Ident_def)):Ret(False):Ret(InjectFn, node.InjectTrace)
+	const nExprContent = vSplitCode:getContent():sub(vLuaExprNode.pos, vLuaExprNode.posEnd - 1)
+	const nFakeContent = string.rep(" ", vLuaExprNode.pos) .. nExprContent .. "."
+	return CodeEnv.genInjectFnByError(vSplitCode, vFileUri, nFakeContent)
 end
 
 return CodeEnv

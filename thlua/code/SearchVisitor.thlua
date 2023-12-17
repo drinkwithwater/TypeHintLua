@@ -31,9 +31,6 @@ local TagToVisiting:let.RealTraverser = {
 		table.sort(self._suffixPairList, function(a:SuffixPair, b:SuffixPair)
 			return a.pos < b.pos
 		end)
-		table.sort(self._hintSuffixPairList, function(a:SuffixPair, b:SuffixPair)
-			return a.pos < b.pos
-		end)
 	end,
 	HintEval=function(self, vNode)
 		self:reverseInHint(false)
@@ -53,7 +50,7 @@ local TagToVisiting:let.RealTraverser = {
 				pos=vNode.pos,posEnd=vNode.posEnd,
 				vNode, vNode
 			}
-			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+			table.insert(self._suffixPairList, nPair)
 		end
 	end,
 	Index=function(self, vNode)
@@ -64,7 +61,7 @@ local TagToVisiting:let.RealTraverser = {
 				pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
 				vNode, nSuffixExpr
 			}
-			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+			table.insert(self._suffixPairList, nPair)
 		end
 	end,
 	Invoke=function(self, vNode)
@@ -74,7 +71,7 @@ local TagToVisiting:let.RealTraverser = {
 			pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
 			vNode, nSuffixExpr
 		}
-		table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+		table.insert(self._suffixPairList, nPair)
 	end,
 	Call=function(self, vNode)
 		self:rawVisit(vNode)
@@ -84,7 +81,7 @@ local TagToVisiting:let.RealTraverser = {
 				pos=nFirstArg.pos, posEnd=nFirstArg.posEnd,
 				vNode, nFirstArg
 			}
-			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+			table.insert(self._suffixPairList, nPair)
 		end
 	end,
 }
@@ -102,24 +99,12 @@ function:class(let.SearchVisitor) SearchVisitor.new(vSplitCode:clazz.SplitCode)
 		_inHintSpace=false@Boolean,
 		_identList = {}@List(node.Ident),
 		_suffixPairList = {}@List(SuffixPair),
-		_hintSuffixPairList = {}@List(SuffixPair),
 	}, SearchVisitor)
 	return self
 end
 
 function SearchVisitor:searchSuffixPair(vPos:Integer):Ret(OrFalse(SuffixPair))
 	const nIndex, nPair = self._code:binSearch@<SuffixPair>(self._suffixPairList, vPos)
-	if not nIndex then
-		return false
-	end
-	if vPos < nPair.pos or vPos >= nPair.posEnd then
-		return false
-	end
-	return nPair
-end
-
-function SearchVisitor:searchHintSuffixPair(vPos:Integer):Ret(OrFalse(SuffixPair))
-	const nIndex, nPair = self._code:binSearch@<SuffixPair>(self._hintSuffixPairList, vPos)
 	if not nIndex then
 		return false
 	end

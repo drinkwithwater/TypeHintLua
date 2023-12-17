@@ -21,6 +21,7 @@ let.IBaseNode = Interface {
 let.IAstNode = ExtendInterface(let.IBaseNode, Interface {
 	index=Integer,
 	parent=OrNil(node.IAstNode),
+	inHintSpace=Fn(let.IAstNode):Ret(Boolean),
 })
 
 let.IVirtualNode = ExtendInterface(let.IBaseNode, Interface {
@@ -446,6 +447,19 @@ end
 
 function Node.toExc(vNode:node.IBaseNode, vMsg:String):Ret(Exception)
 	return Exception.new(vMsg, vNode)
+end
+
+function Node.inHintSpace(vNode:node.IAstNode):Ret(Boolean)
+	local nCurNode:OrNil(node.IAstNode) = vNode
+	while nCurNode do
+		if nCurNode.tag == "HintSpace" then
+			return true
+		elseif nCurNode.tag == "HintEval" then
+			return false
+		end
+		nCurNode = nCurNode.parent
+	end
+	return false
 end
 
 function.pass Node.newRootNode(vFileName:String):Ret(node.Root)
