@@ -203,6 +203,11 @@ function FastServer:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
 	const nFileState = self:attachFileState(nFileUri)
 	if nContent then
 		if nFileState:contentMismatch(nContent) then
+			const a = assert(io.open("d:/diff.txt", "w"))
+			a:write(nContent)
+			a:write("\n\n\n-------------------------\n\n\n")
+			a:write(nFileState._splitCode:getContent())
+			a:close()
 			self:scanAllFile()
 			self:warn("content mismatch when save")
 		end

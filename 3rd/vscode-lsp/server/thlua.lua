@@ -1340,22 +1340,8 @@ function CodeEnv:getTypingFn()
 	return self._typingFn
 end
 
-function CodeEnv:makeFocusList(vNode)
-	local nCurNode = vNode
-	local nFocusList = {}
-	while nCurNode do
-		if nCurNode.tag == "Function" then
-			local nFunc = nCurNode  
-			if nFunc.letNode then
-				nFocusList[#nFocusList + 1] = nFunc
-			end
-		end
-		nCurNode = nCurNode.parent
-	::continue:: end
-	return nFocusList
-end
-
-function CodeEnv:traceBlockRegion(vTraceList) 
+            
+function CodeEnv:traceBlock(vTraceList)
 	local nRetBlock = self._astTree[3]
 	for i=1,#vTraceList-1 do
 		local nTrace = vTraceList[i]
@@ -1366,47 +1352,25 @@ function CodeEnv:traceBlockRegion(vTraceList)
 			nRetBlock = nNextBlock
 		end
 	::continue:: end
-	return nRetBlock, self:makeFocusList(nRetBlock)
+	return nRetBlock
 end
 
-function CodeEnv:searchHintExprBySuffix(vPos)  
-	local nPair = self._searcher:searchHintSuffixPair(vPos)
-	if not nPair then
-		return false
-	end
-	local nRetBlock = nil
-	local nPrefixNode = nPair[1]
-	    
-	local nCurNode = nPrefixNode
-	local nInHint = true
-	while nCurNode do
-		if nCurNode.tag == "HintSpace" then
-			nInHint = false
-		elseif nCurNode.tag == "Block" then
-			if not nInHint then
-				nRetBlock = nCurNode  
-				break
-			end
-		end
-		nCurNode = nCurNode.parent
-	::continue:: end
-	if not nRetBlock then
-		return false
-	end
-	return nPrefixNode, nRetBlock, self:makeFocusList(nPrefixNode)
-end
-
-function CodeEnv:searchExprBySuffix(vPos) 
+function CodeEnv:searchExprBySuffix(vPos)
 	local nPair = self._searcher:searchSuffixPair(vPos)
 	if not nPair then
 		return false
 	end
 	local nPrefixNode = nPair[1]
-	return nPrefixNode, self:makeFocusList(nPrefixNode)
+	return nPrefixNode
 end
 
 function CodeEnv:searchIdent(vPos)
-	return self._searcher:searchIdent(vPos)
+	local nIdent = self._searcher:searchIdent(vPos)
+	if nIdent then
+		return nIdent
+	else
+		return false
+	end
 end
 
 function CodeEnv:getChunkName()
@@ -1419,6 +1383,21 @@ end
 
 function CodeEnv.is(v)
 	return getmetatable(v) == CodeEnv
+end
+
+function CodeEnv:getLuaCode()
+	return self._luaCode
+end
+
+function CodeEnv:getUnusedIdentList()
+	local nUnusedList = {}  
+	for _,ident in ipairs(self._searcher:getIdentList()) do
+		local nDefineIdent = ident.kind == "def" and ident or ident.defineIdent
+		if nDefineIdent and not nDefineIdent.symbolGetted and not nDefineIdent.isHidden and nDefineIdent[1] ~= "_" then
+			nUnusedList[#nUnusedList + 1] = ident
+		end
+	::continue:: end
+	return nUnusedList
 end
 
 function CodeEnv.genInjectFnByError(vSplitCode, vFileUri, vWrongContent) 
@@ -1449,19 +1428,14 @@ function CodeEnv.genInjectFnByError(vSplitCode, vFileUri, vWrongContent)
 	end
 end
 
-function CodeEnv:getLuaCode()
-	return self._luaCode
-end
 
-function CodeEnv:getUnusedIdentList()
-	local nUnusedList = {}  
-	for _,ident in ipairs(self._searcher:getIdentList()) do
-		local nDefineIdent = ident.kind == "def" and ident or ident.defineIdent
-		if nDefineIdent and not nDefineIdent.symbolGetted and not nDefineIdent.isHidden and nDefineIdent[1] ~= "_" then
-			nUnusedList[#nUnusedList + 1] = ident
-		end
-	::continue:: end
-	return nUnusedList
+function CodeEnv.genInjectByExpr(vSplitCode, vFileUri, vExprNode ) 
+	local nExprContent = vSplitCode:getContent():sub(vExprNode.pos, vExprNode.posEnd - 1)
+	       
+	local nFakeContent = vExprNode:inHintSpace()
+		and string.rep(" ", vExprNode.pos) .. "(@" .. nExprContent .. "."
+		or string.rep(" ", vExprNode.pos) .. nExprContent .. "."
+	return CodeEnv.genInjectFnByError(vSplitCode, vFileUri, nFakeContent)
 end
 
 return CodeEnv
@@ -2389,6 +2363,9 @@ local Exception = require "thlua.Exception"
     
 	
 	
+	
+	
+	
 
 
     
@@ -2832,6 +2809,56 @@ end
 
 function Node.is(v)
 	return getmetatable(v) == Node
+end
+
+    
+function Node.inHintSpace(vNode)
+	local nCurNode = vNode
+	while nCurNode do
+		if nCurNode.tag == "HintSpace" then
+			return true
+		elseif nCurNode.tag == "HintEval" then
+			return false
+		end
+		nCurNode = nCurNode.parent
+	::continue:: end
+	return false
+end
+
+function Node.getFocusList(vNode)
+	local nCurNode = vNode
+	local nFocusList = {}
+	while nCurNode do
+		if nCurNode.tag == "Function" then
+			local nFunc = nCurNode  
+			if nFunc.letNode then
+				nFocusList[#nFocusList + 1] = nFunc
+			end
+		end
+		nCurNode = nCurNode.parent
+	::continue:: end
+	return nFocusList
+end
+
+function Node.getBlockOutHint(vNode)
+	local nRetBlock = nil
+	      
+	local nCurNode = vNode
+	local nInHint = vNode:inHintSpace()
+	while nCurNode do
+		if nCurNode.tag == "HintSpace" then
+			nInHint = false
+		elseif nCurNode.tag == "HintEval" then
+			nInHint = true
+		elseif nCurNode.tag == "Block" then
+			if not nInHint then
+				nRetBlock = nCurNode  
+				break
+			end
+		end
+		nCurNode = nCurNode.parent
+	::continue:: end
+	return nRetBlock
 end
 
 return Node
@@ -3800,9 +3827,6 @@ local TagToVisiting = {
 		table.sort(self._suffixPairList, function(a, b)
 			return a.pos < b.pos
 		end)
-		table.sort(self._hintSuffixPairList, function(a, b)
-			return a.pos < b.pos
-		end)
 	end,
 	HintEval=function(self, vNode)
 		self:reverseInHint(false)
@@ -3822,7 +3846,7 @@ local TagToVisiting = {
 				pos=vNode.pos,posEnd=vNode.posEnd,
 				vNode, vNode
 			}
-			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+			table.insert(self._suffixPairList, nPair)
 		end
 	end,
 	Index=function(self, vNode)
@@ -3833,7 +3857,7 @@ local TagToVisiting = {
 				pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
 				vNode, nSuffixExpr
 			}
-			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+			table.insert(self._suffixPairList, nPair)
 		end
 	end,
 	Invoke=function(self, vNode)
@@ -3843,7 +3867,7 @@ local TagToVisiting = {
 			pos=nSuffixExpr.pos, posEnd=nSuffixExpr.posEnd,
 			vNode, nSuffixExpr
 		}
-		table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+		table.insert(self._suffixPairList, nPair)
 	end,
 	Call=function(self, vNode)
 		self:rawVisit(vNode)
@@ -3853,7 +3877,7 @@ local TagToVisiting = {
 				pos=nFirstArg.pos, posEnd=nFirstArg.posEnd,
 				vNode, nFirstArg
 			}
-			table.insert(self._inHintSpace and self._hintSuffixPairList or self._suffixPairList, nPair)
+			table.insert(self._suffixPairList, nPair)
 		end
 	end,
 }
@@ -3871,24 +3895,12 @@ function SearchVisitor.new(vSplitCode)
 		_inHintSpace=false,
 		_identList = {},
 		_suffixPairList = {},
-		_hintSuffixPairList = {},
 	}, SearchVisitor)
 	return self
 end
 
 function SearchVisitor:searchSuffixPair(vPos)
 	local nIndex, nPair = self._code:binSearch(self._suffixPairList, vPos)
-	if not nIndex then
-		return false
-	end
-	if vPos < nPair.pos or vPos >= nPair.posEnd then
-		return false
-	end
-	return nPair
-end
-
-function SearchVisitor:searchHintSuffixPair(vPos)
-	local nIndex, nPair = self._code:binSearch(self._hintSuffixPairList, vPos)
 	if not nIndex then
 		return false
 	end
@@ -9763,6 +9775,47 @@ function CompletionRuntime:injectCompletion(vTracePos, vBlockNode, vFn, vServer)
 	return nFieldCompletion
 end
 
+function CompletionRuntime:hoverNode(vFileUri, vDirtySplitCode, vLspPos) 
+	local nSuccEnv = self:getCodeEnv(vFileUri)
+	if not nSuccEnv then
+		return false, "hover failed, success compiled code not found"
+	end
+	local nSuccSplitCode = nSuccEnv:getSplitCode()
+	local nPos = nSuccSplitCode:lspToPos(vLspPos)
+	if nSuccSplitCode:getLine(vLspPos.line + 1) ~= vDirtySplitCode:getLine(vLspPos.line + 1) or nPos ~= vDirtySplitCode:lspToPos(vLspPos) then
+		return false, "goto failed, code is dirty before pos"
+	end
+	local nHoverNode = nSuccEnv:searchIdent(nPos) or nSuccEnv:searchExprBySuffix(nPos)
+	if not nHoverNode then
+		return false, "not hover on an ident or expr node"
+	end
+	self:focusSchedule(nHoverNode:getFocusList())
+	local nBlockNode = nHoverNode:getBlockOutHint()
+	if not nBlockNode then
+		return false, "fatal error : expr not in a block"
+	end
+	local nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nHoverNode)
+	if not nInjectFn then
+		return false, "gen inject fn fail"
+	else
+		local t = nSuccSplitCode:getContent():sub(nHoverNode.pos, nHoverNode.posEnd - 1)
+		local l = {t}
+		   
+		  
+			     
+				  
+			
+		
+		  
+		return table.concat(l, "\n")
+	end
+	   
+	   
+		    
+	
+	  
+end
+
 function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode, vLspPos)  
 	local nSuccEnv = self:getCodeEnv(vFileUri)
 	if not nSuccEnv then
@@ -9795,31 +9848,33 @@ function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode
 		end
 	end
 	   
-	local nExprNode, nFocusList = nSuccEnv:searchExprBySuffix(nPos)
-	if nExprNode then
-		self:focusSchedule(nFocusList)
+	local nExprNode = nSuccEnv:searchExprBySuffix(nPos)
+	if not nExprNode then
+		return false, "no target expr"
+	end
+	self:focusSchedule(nExprNode:getFocusList())
+	if not nExprNode:inHintSpace() then
+		    
 		local nNodeSet = vIsLookup and self:exprLookup(nExprNode) or self:exprLookdown(nExprNode)
 		if not next(nNodeSet) then
 			return false, "no lookup or lookdown expr node searched, node="..tostring(nExprNode)..",tag="..(nExprNode.tag)
 		end
 		return nNodeSet
+	else
+		   
+		local nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nExprNode)
+		if not nInjectFn then
+			return false, "gen inject fn fail"
+		end
+		local nBlockNode = nExprNode:getBlockOutHint()
+		if not nBlockNode then
+			return false, "fatal error : expr not in a block"
+		end
+		     
+		return vIsLookup
+			and self:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
+			or self:injectLookdown(nInjectTrace.pos, nBlockNode, nInjectFn)
 	end
-	    
-	local nHintExprNode, nBlockNode, nFocusList = nSuccEnv:searchHintExprBySuffix(nPos)
-	if not nHintExprNode then
-		return false, "no target expr"
-	end
-	local nExprContent = nSuccSplitCode:getContent():sub(nHintExprNode.pos, nHintExprNode.posEnd - 1)
-	local nWrongContent = string.rep(" ", nHintExprNode.pos) .. "(@" .. nExprContent .. "."
-	local nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSuccSplitCode, vFileUri, nWrongContent)
-	if not nInjectFn then
-		return false, "gen inject fn fail"
-	end
-	self:focusSchedule(nFocusList)
-	      
-	return vIsLookup
-		and self:injectLookup(nInjectTrace.pos, nBlockNode, nInjectFn)
-		or self:injectLookdown(nInjectTrace.pos, nBlockNode, nInjectFn)
 end
 
 function CompletionRuntime:injectLookup(vTracePos, vBlockNode, vFn) 
@@ -11103,6 +11158,11 @@ local platform = require "thlua.platform"
 	 
 
 	   
+		
+		
+	
+
+	   
 		  
 		
 		 
@@ -11825,6 +11885,11 @@ function FastServer:onDidSave(vParams)
 	local nFileState = self:attachFileState(nFileUri)
 	if nContent then
 		if nFileState:contentMismatch(nContent) then
+			local a = assert(io.open("d:/diff.txt", "w"))
+			a:write(nContent)
+			a:write("\n\n\n-------------------------\n\n\n")
+			a:write(nFileState._splitCode:getContent())
+			a:close()
 			self:scanAllFile()
 			self:warn("content mismatch when save")
 		end
@@ -11878,8 +11943,8 @@ function FastServer:onCompletion(vParams)
 	end
 	             
 	local nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
-	local nBlockNode, nFuncList = nSuccEnv:traceBlockRegion(nTraceList)
-	nCompletionRuntime:focusSchedule(nFuncList)
+	local nBlockNode = nSuccEnv:traceBlock(nTraceList)
+	nCompletionRuntime:focusSchedule(nBlockNode:getFocusList())
 	   
 	local nFieldCompletion = nCompletionRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
 	if not nFieldCompletion then
@@ -11897,23 +11962,22 @@ function FastServer:onCompletion(vParams)
 end
 
 function FastServer:onHover(vParams)
-	
-	   
-	         
-	  
-		   
-		   
-		     
-			    
-		
-		    
-		 
-			  
-				
-				
-			  
-		
-	
+	local nFileUri = vParams.textDocument.uri
+	local nFileState = self:checkFileState(nFileUri)
+	local nCompletionRuntime = self:checkRuntime()
+	local nSuccMsg, nErrMsg = nCompletionRuntime:hoverNode(nFileUri, nFileState:getSplitCode(), vParams.position)
+	if not nSuccMsg then
+		self:info("hover fail:", nErrMsg)
+		return nil
+	else
+		return {
+			contents={
+				kind="plaintext",
+				value=nSuccMsg,
+			},
+			range=nil,
+		}
+	end
 end
 
 return FastServer
@@ -12074,7 +12138,7 @@ end
 function FileState:contentMismatch(vContent)
 	local nSplitCode = self._splitCode
 	local nContent = nSplitCode:getContent()
-	if nContent ~= vContent then
+	if nContent:gsub("[\r\n]", "\n") ~= vContent:gsub("[\r\n]", "\n") then
 		return true
 	else
 		return false
