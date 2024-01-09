@@ -79,7 +79,7 @@ function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Re
 			const nFinishPos = nSplitCode:lspToPos(nRangeEnd)
 			const nNewContent = nContent:sub(1, nStartPos - 1) .. nChangeText .. nContent:sub(nFinishPos, #nContent)
 			const nRemoveText = nContent:sub(nStartPos, nFinishPos-1)
-			if nChangeText:find("[\r\n]") or nRemoveText:find("[\r\n]") then
+			if nChangeText:find("[\n]") or nRemoveText:find("[\n]") then
 				nLineChange = true
 			end
 			if nChangeText:find("[^%s]") or nRemoveText:find("[^%s]") then
@@ -148,7 +148,7 @@ end
 function FileState:contentMismatch(vContent:String):Ret(Boolean)
 	const nSplitCode = self._splitCode
 	const nContent = nSplitCode:getContent()
-	if nContent:gsub("[\r\n]", "\n") ~= vContent:gsub("[\r\n]", "\n") then
+	if nContent:gsub("[\r]", "") ~= vContent:gsub("[\r]", "") then
 		return true
 	else
 		return false

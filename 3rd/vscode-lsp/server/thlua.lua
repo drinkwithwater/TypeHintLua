@@ -3955,7 +3955,7 @@ local function split(vContent)
 	local nFinishPos = 0
 	while true do
 		nLineCount = nLineCount + 1
-		nFinishPos = vContent:find("[\r\n]", nStartPos)
+		nFinishPos = vContent:find("\n", nStartPos)
 		if not nFinishPos then
 			if nStartPos <= #vContent then
 				nLinePosList[#nLinePosList + 1] = {
@@ -3966,9 +3966,9 @@ local function split(vContent)
 			end
 			break
 		else
-			if vContent:sub(nFinishPos, nFinishPos + 1) == "\r\n" then
-				nFinishPos = nFinishPos + 1
-			end
+			       
+				    
+			
 			nLinePosList[#nLinePosList + 1] = {
 				pos=nStartPos,
 				posEnd=nFinishPos
@@ -12069,7 +12069,7 @@ function FileState:syncChangeNoRerun(vParams)
 			local nFinishPos = nSplitCode:lspToPos(nRangeEnd)
 			local nNewContent = nContent:sub(1, nStartPos - 1) .. nChangeText .. nContent:sub(nFinishPos, #nContent)
 			local nRemoveText = nContent:sub(nStartPos, nFinishPos-1)
-			if nChangeText:find("[\r\n]") or nRemoveText:find("[\r\n]") then
+			if nChangeText:find("[\n]") or nRemoveText:find("[\n]") then
 				nLineChange = true
 			end
 			if nChangeText:find("[^%s]") or nRemoveText:find("[^%s]") then
@@ -12138,7 +12138,7 @@ end
 function FileState:contentMismatch(vContent)
 	local nSplitCode = self._splitCode
 	local nContent = nSplitCode:getContent()
-	if nContent:gsub("[\r\n]", "\n") ~= vContent:gsub("[\r\n]", "\n") then
+	if nContent:gsub("[\r]", "") ~= vContent:gsub("[\r]", "") then
 		return true
 	else
 		return false
