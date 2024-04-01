@@ -178,23 +178,16 @@ function CompletionRuntime:hoverNode(vFileUri:String, vDirtySplitCode:clazz.Spli
 	const nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nHoverNode)
 	if not nInjectFn then
 		return false, "gen inject fn fail"
-	else
-		const t = nSuccSplitCode:getContent():sub(nHoverNode.pos, nHoverNode.posEnd - 1)
-		const l:List(String) = {t}
-		--[[const ctxList = self._nodeToApplyContextList:get(nHoverNode)
-		if ctxList then
-			for _, applyCtx in ipairs(ctxList) do
-				l[#l+1] = tostring(applyCtx)
-			end
-		end
-		return table.concat(l, "\n")]]
-		return table.concat(l, "\n")
 	end
-	--[[const nStrList:List(String) = {}
+	const nStrList:List(String) = {}
 	self:_injectForeach(nInjectTrace.pos, nBlockNode, nInjectFn, function(vResult)
-		nStrList[#nStrList + 1] = tostring(vResult)
+		if RefineTerm.is(vResult) then
+			nStrList[#nStrList + 1] = tostring(vResult:getType())
+		else
+			nStrList[#nStrList + 1] = tostring(vResult)
+		end
 	end)
-	return table.concat(nStrList, ",")]]
+	return table.concat(nStrList, ",")
 end
 
 function CompletionRuntime:gotoNodeByParams(vIsLookup:Boolean, vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLspPos:node.LspPos):Ret(False, String):Ret(Dict(clazz.IBaseNode, True))
