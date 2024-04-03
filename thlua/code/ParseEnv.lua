@@ -443,8 +443,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	ExprList = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0);
 
-	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * symb(")") +
-             vv.Constructor + vv.String);
+	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * symb(")") + vv.SimpleArgExpr);
 
 	String = tagC.String(token(vv.LongString)*lpeg.Cg(cc(true), "isLong") + token(vv.ShortString));
 
@@ -482,18 +481,12 @@ local G = lpeg.P { "TypeHintLua";
 		end;
 	end)();
 
-	SimpleExpr = Cpos * (
-						-- (vv.ValueConstHint * cc(true) + cc(false)) * (
-						cc(false) * (
-							vv.String +
-							tagC.Number(token(vv.Number)) +
-							tagC.False(kw"false") +
-							tagC.True(kw"true") +
-							vv.Constructor
-						)/function(isConst, t)
-							t.isConst = isConst
-							return t
-						end +
+	SimpleArgExpr = Cpos * (vv.Constructor + vv.String) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv / exprF.hintExpr;
+
+	SimpleExpr = vv.SimpleArgExpr + Cpos * (
+						tagC.Number(token(vv.Number)) +
+						tagC.False(kw"false") +
+						tagC.True(kw"true") +
 						tagC.Nil(kw"nil") +
 						vv.FuncDef +
 						vv.SuffixedExpr +
@@ -640,9 +633,13 @@ local G = lpeg.P { "TypeHintLua";
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
 		return vv.StatHintSpace +
-         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
+         Cenv*(LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
-				 vv.DoStat + vv.ApplyOrAssignStat + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
+				 vv.DoStat + vv.ApplyOrAssignStat) / function(env, stat)
+					-- env.codeBuilder:markStatement(stat.pos-1)
+					return stat;
+				 end
+				 + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
 
 	-- lexer
@@ -691,10 +688,11 @@ CodeBuilder.__index = CodeBuilder
 
 --- {{{ ---
 do
-	function CodeBuilder.new(vSubject)
+	function CodeBuilder.new(vSubject, vEnv)
 		local self = setmetatable({
 			_subject = vSubject,
 			_posToChange = {},
+			_env = vEnv,
 		}, CodeBuilder)
 		return self
 	end
@@ -738,7 +736,7 @@ do
 		end
 	end
 
-	function CodeBuilder:insertChange(vInsert, vStartPos)
+	function CodeBuilder:_insertChange(vInsert, vStartPos)
 		return function(vContentList, vRemainStartPos)
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
@@ -750,17 +748,35 @@ do
 
 	-- continue -> goto continue
 	function CodeBuilder:continueMarkGoto(vStartPos)
-		self._posToChange[vStartPos] = self:insertChange("goto", vStartPos)
+		self._posToChange[vStartPos] = self:_insertChange("goto", vStartPos)
 	end
 
 	-- return xxx -> do return xxx end
 	-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
 	function CodeBuilder:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
 		if vRetStartPos then
-			self._posToChange[vRetStartPos] = self:insertChange("do", vRetStartPos)
-			self._posToChange[vEndStartPos] = self:insertChange("end ::continue::", vEndStartPos)
+			self._posToChange[vRetStartPos] = self:_insertChange("do", vRetStartPos)
+			self._posToChange[vEndStartPos] = self:_insertChange("end ::continue::", vEndStartPos)
 		else
-			self._posToChange[vEndStartPos] = self:insertChange("::continue::", vEndStartPos)
+			self._posToChange[vEndStartPos] = self:_insertChange("::continue::", vEndStartPos)
+		end
+	end
+
+	function CodeBuilder:markInsertComma(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ","
+			return vStartPos
+		end
+	end
+
+	function CodeBuilder:markStatement(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ";"
+			return vStartPos + 1
 		end
 	end
 
@@ -791,9 +807,10 @@ function ParseEnv.new(vSubject)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
-		codeBuilder = CodeBuilder.new(vSubject),
+		codeBuilder = nil,
 		_subject = vSubject,
 	}, ParseEnv)
+	self.codeBuilder = CodeBuilder.new(vSubject, self)
 	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
 	if not nOkay then
 		if type(nAstOrErr) == "table" and nAstOrErr.tag == "Error" then
