@@ -203,7 +203,7 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env.codeBuilder:markDel(p1, p4-1, isStat)
+			env.codeBuilder:markDel(p1, p4, isStat)
 			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
@@ -220,7 +220,7 @@ local hintC={
 		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
-			env.codeBuilder:markDel(p1, posEnd-1)
+			env.codeBuilder:markDel(p1, posEnd)
 			l[#l] = nil
 			local middle = nil
 			local nAttrList = {}
@@ -258,7 +258,7 @@ local hintC={
 	take=function(patt)
 		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
 			if not env.hinting then
-				env.codeBuilder:markDel(pos, posEnd-1)
+				env.codeBuilder:markDel(pos, posEnd)
 				return true
 			else
 				return false
@@ -402,7 +402,7 @@ local G = lpeg.P { "TypeHintLua";
 		local l = {...}
 		local posEnd = l[#l]
 		l[#l] = nil
-		env.codeBuilder:markDel(pos, posEnd - 1)
+		env.codeBuilder:markDel(pos, posEnd)
 		return l
 	end;
 
@@ -644,7 +644,7 @@ local G = lpeg.P { "TypeHintLua";
 	Skip     = (lpeg.space^1 + vv.Comment)^0;
 	Comment  = Cenv*Cpos*
 		lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0)
-		*Cpos/function(env, pos, posEnd) env.codeBuilder:markDel(pos, posEnd-1) return end;
+		*Cpos/function(env, pos, posEnd) env.codeBuilder:markDel(pos, posEnd) return end;
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1
@@ -714,18 +714,18 @@ do
 	end
 
 	-- hint script to be delete
-	function CodeBuilder:markDel(vStartPos, vFinishPos, vIsHintStat)
+	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsHintStat)
 		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			-- 1. save lua code
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
-			if vIsHintStat or self._statPosSet[vFinishPos + 1] then
+			if vIsHintStat or self._statPosSet[vNextStartPos] then
 				vContentList[#vContentList + 1] = ";"
 			end
 			-- 2. replace hint code with space and newline
-			local nHintCode = self._subject:sub(vStartPos, vFinishPos)
+			local nHintCode = self._subject:sub(vStartPos, vNextStartPos - 1)
 			vContentList[#vContentList + 1] = nHintCode:gsub("[^\r\n\t ]", "")
-			return vFinishPos + 1
+			return vNextStartPos
 		end
 	end
 
