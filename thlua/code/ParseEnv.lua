@@ -118,7 +118,7 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env.codeBuilder:markParenWrap(pos, hintShort.pos)
+				env.codeBuilder:markParenWrap(pos, hintShort.pos-1)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -300,7 +300,7 @@ local function suffixedExprByPrimary(primaryExpr)
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env.codeBuilder:markParenWrap(pos, curExpr.posEnd)
+					env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
 				end
 			end
 			return true, expr
@@ -704,34 +704,42 @@ do
 	--   aFunc() @ Integer -> (aFunc())
 	-- so mark paren here
 	function CodeBuilder:markParenWrap(vStartPos, vFinishPos)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos, vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = "("
 			return vStartPos
 		end
-		self._posToChange[vFinishPos-1] = function(vContentList, vRemainStartPos, vStartPos)
-			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos)
+		self._posToChange[vFinishPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vFinishPos)
 			vContentList[#vContentList + 1] = ")"
-			return vStartPos + 1
+			return vFinishPos + 1
 		end
 	end
 
 	-- hint script to be delete
 	function CodeBuilder:markDel(vStartPos, vFinishPos)
-		self._posToChange[vStartPos] = vFinishPos
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			-- 2. replace hint code with space and newline
+			local nHintCode = self._subject:sub(vStartPos, vFinishPos)
+			vContentList[#vContentList + 1] = nHintCode:gsub("[^\r\n\t ]", "")
+			return vFinishPos + 1
+		end
 	end
 
 	-- local -> const
 	function CodeBuilder:markConst(vStartPos)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos, vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos - 1)
 			vContentList[#vContentList + 1] = "local"
 			return vStartPos + 5
 		end
 	end
 
-	function CodeBuilder:insertChange(vInsert)
-		return function(vContentList, vRemainStartPos, vStartPos)
+	function CodeBuilder:insertChange(vInsert, vStartPos)
+		return function(vContentList, vRemainStartPos)
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
 			vContentList[#vContentList + 1] = vInsert
@@ -742,49 +750,35 @@ do
 
 	-- continue -> goto continue
 	function CodeBuilder:continueMarkGoto(vStartPos)
-		self._posToChange[vStartPos] = self:insertChange("goto")
+		self._posToChange[vStartPos] = self:insertChange("goto", vStartPos)
 	end
 
 	-- return xxx -> do return xxx end
 	-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
 	function CodeBuilder:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
 		if vRetStartPos then
-			self._posToChange[vRetStartPos] = self:insertChange("do")
-			self._posToChange[vEndStartPos] = self:insertChange("end ::continue::")
+			self._posToChange[vRetStartPos] = self:insertChange("do", vRetStartPos)
+			self._posToChange[vEndStartPos] = self:insertChange("end ::continue::", vEndStartPos)
 		else
-			self._posToChange[vEndStartPos] = self:insertChange("::continue::")
+			self._posToChange[vEndStartPos] = self:insertChange("::continue::", vEndStartPos)
 		end
 	end
 
 	function CodeBuilder:genLuaCode()
 		local nSubject = self._subject
 		local nPosToChange = self._posToChange
-		local nStartPosList = {}
-		for nStartPos, _ in pairs(nPosToChange) do
-			nStartPosList[#nStartPosList + 1] = nStartPos
+		local nChangePosList = {}
+		for nChangePos, _ in pairs(nPosToChange) do
+			nChangePosList[#nChangePosList + 1] = nChangePos
 		end
-		table.sort(nStartPosList)
+		table.sort(nChangePosList)
 		local nContents = {}
 		local nRemainStartPos = 0
-		for _, nStartPos in pairs(nStartPosList) do
-			if nStartPos < nRemainStartPos then
+		for _, nChangePos in pairs(nChangePosList) do
+			if nChangePos < nRemainStartPos then
 				-- do nothing in hint space
 			else
-				local nChange = nPosToChange[nStartPos]
-				if type(nChange) == "number" then
-					-- 1. save lua code
-					local nLuaCode = nSubject:sub(nRemainStartPos, nStartPos-1)
-					nContents[#nContents + 1] = nLuaCode
-					-- 2. replace hint code with space and newline
-					local nFinishPos = nPosToChange[nStartPos]
-					local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-					nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
-					nRemainStartPos = nFinishPos + 1
-				elseif type(nChange) == "function" then
-					nRemainStartPos = nChange(nContents, nRemainStartPos, nStartPos)
-				else
-					error("unexpected branch")
-				end
+				nRemainStartPos = nPosToChange[nChangePos](nContents, nRemainStartPos)
 			end
 		end
 		nContents[#nContents + 1] = nSubject:sub(nRemainStartPos, #nSubject)
