@@ -203,7 +203,7 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env.codeBuilder:markDel(p1, p4-1)
+			env.codeBuilder:markDel(p1, p4-1, isStat)
 			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
@@ -632,14 +632,12 @@ local G = lpeg.P { "TypeHintLua";
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
-		return vv.StatHintSpace +
-         Cenv*(LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
+		return vv.StatHintSpace + LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
-				 vv.DoStat + vv.ApplyOrAssignStat) / function(env, stat)
-					-- env.codeBuilder:markStatement(stat.pos-1)
+				 vv.DoStat + Cenv*Cpos*vv.ApplyOrAssignStat / function(env, pos, stat)
+					env.codeBuilder:recordSuffixableStatPos(pos)
 					return stat;
-				 end
-				 + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
+				 end + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
 
 	-- lexer
@@ -692,6 +690,7 @@ do
 		local self = setmetatable({
 			_subject = vSubject,
 			_posToChange = {},
+			_statPosSet = {},
 			_env = vEnv,
 		}, CodeBuilder)
 		return self
@@ -715,11 +714,14 @@ do
 	end
 
 	-- hint script to be delete
-	function CodeBuilder:markDel(vStartPos, vFinishPos)
+	function CodeBuilder:markDel(vStartPos, vFinishPos, vIsHintStat)
 		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			-- 1. save lua code
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
+			if vIsHintStat or self._statPosSet[vFinishPos + 1] then
+				vContentList[#vContentList + 1] = ";"
+			end
 			-- 2. replace hint code with space and newline
 			local nHintCode = self._subject:sub(vStartPos, vFinishPos)
 			vContentList[#vContentList + 1] = nHintCode:gsub("[^\r\n\t ]", "")
@@ -771,13 +773,8 @@ do
 		end
 	end
 
-	function CodeBuilder:markStatement(vStartPos)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
-			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos)
-			vContentList[#vContentList + 1] = nLuaCode
-			vContentList[#vContentList + 1] = ";"
-			return vStartPos + 1
-		end
+	function CodeBuilder:recordSuffixableStatPos(vStartPos)
+		self._statPosSet[vStartPos] = true
 	end
 
 	function CodeBuilder:genLuaCode()
