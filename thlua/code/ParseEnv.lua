@@ -118,7 +118,7 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env:markParenWrap(pos, hintShort.pos)
+				env.codeBuilder:markParenWrap(pos, hintShort.pos)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -203,7 +203,7 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env:markDel(p1, p4-1)
+			env.codeBuilder:markDel(p1, p4-1)
 			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
@@ -220,7 +220,7 @@ local hintC={
 		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
-			env:markDel(p1, posEnd-1)
+			env.codeBuilder:markDel(p1, posEnd-1)
 			l[#l] = nil
 			local middle = nil
 			local nAttrList = {}
@@ -258,7 +258,7 @@ local hintC={
 	take=function(patt)
 		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
 			if not env.hinting then
-				env:markDel(pos, posEnd-1)
+				env.codeBuilder:markDel(pos, posEnd-1)
 				return true
 			else
 				return false
@@ -300,7 +300,7 @@ local function suffixedExprByPrimary(primaryExpr)
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env:markParenWrap(pos, curExpr.posEnd)
+					env.codeBuilder:markParenWrap(pos, curExpr.posEnd)
 				end
 			end
 			return true, expr
@@ -402,7 +402,7 @@ local G = lpeg.P { "TypeHintLua";
 		local l = {...}
 		local posEnd = l[#l]
 		l[#l] = nil
-		env:markDel(pos, posEnd - 1)
+		env.codeBuilder:markDel(pos, posEnd - 1)
 		return l
 	end;
 
@@ -587,7 +587,7 @@ local G = lpeg.P { "TypeHintLua";
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
 				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
-					env:markConst(pos)
+					env.codeBuilder:markConst(pos)
 					t.isConst = true
 					return t
 				end
@@ -612,9 +612,9 @@ local G = lpeg.P { "TypeHintLua";
 			local last = blockNode[#blockNode]
 			if last then
 				if last.tag == "Return" then
-					env:continueMarkLoopEnd(last.pos, blockNode.posEnd)
+					env.codeBuilder:continueMarkLoopEnd(last.pos, blockNode.posEnd)
 				else
-					env:continueMarkLoopEnd(false, blockNode.posEnd)
+					env.codeBuilder:continueMarkLoopEnd(false, blockNode.posEnd)
 				end
 			end
 			return loopNode
@@ -622,7 +622,7 @@ local G = lpeg.P { "TypeHintLua";
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
 		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
-			env:continueMarkGoto(node.pos)
+			env.codeBuilder:continueMarkGoto(node.pos)
 			return node
 		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
@@ -649,7 +649,7 @@ local G = lpeg.P { "TypeHintLua";
 	Skip     = (lpeg.space^1 + vv.Comment)^0;
 	Comment  = Cenv*Cpos*
 		lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0)
-		*Cpos/function(env, pos, posEnd) env:markDel(pos, posEnd-1) return end;
+		*Cpos/function(env, pos, posEnd) env.codeBuilder:markDel(pos, posEnd-1) return end;
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1
@@ -686,12 +686,119 @@ local G = lpeg.P { "TypeHintLua";
 
 }
 
+local CodeBuilder = {}
+CodeBuilder.__index = CodeBuilder
+
+--- {{{ ---
+do
+	function CodeBuilder.new(vSubject)
+		local self = setmetatable({
+			_subject = vSubject,
+			_posToChange = {},
+		}, CodeBuilder)
+		return self
+	end
+
+	-- '@' when hint for invoke and call, need to add paren
+	-- eg.
+	--   aFunc() @ Integer -> (aFunc())
+	-- so mark paren here
+	function CodeBuilder:markParenWrap(vStartPos, vFinishPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos, vStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = "("
+			return vStartPos
+		end
+		self._posToChange[vFinishPos-1] = function(vContentList, vRemainStartPos, vStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos)
+			vContentList[#vContentList + 1] = ")"
+			return vStartPos + 1
+		end
+	end
+
+	-- hint script to be delete
+	function CodeBuilder:markDel(vStartPos, vFinishPos)
+		self._posToChange[vStartPos] = vFinishPos
+	end
+
+	-- local -> const
+	function CodeBuilder:markConst(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos, vStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos - 1)
+			vContentList[#vContentList + 1] = "local"
+			return vStartPos + 5
+		end
+	end
+
+	function CodeBuilder:insertChange(vInsert)
+		return function(vContentList, vRemainStartPos, vStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vInsert
+			vContentList[#vContentList + 1] = " "
+			return vStartPos
+		end
+	end
+
+	-- continue -> goto continue
+	function CodeBuilder:continueMarkGoto(vStartPos)
+		self._posToChange[vStartPos] = self:insertChange("goto")
+	end
+
+	-- return xxx -> do return xxx end
+	-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
+	function CodeBuilder:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
+		if vRetStartPos then
+			self._posToChange[vRetStartPos] = self:insertChange("do")
+			self._posToChange[vEndStartPos] = self:insertChange("end ::continue::")
+		else
+			self._posToChange[vEndStartPos] = self:insertChange("::continue::")
+		end
+	end
+
+	function CodeBuilder:genLuaCode()
+		local nSubject = self._subject
+		local nPosToChange = self._posToChange
+		local nStartPosList = {}
+		for nStartPos, _ in pairs(nPosToChange) do
+			nStartPosList[#nStartPosList + 1] = nStartPos
+		end
+		table.sort(nStartPosList)
+		local nContents = {}
+		local nRemainStartPos = 0
+		for _, nStartPos in pairs(nStartPosList) do
+			if nStartPos < nRemainStartPos then
+				-- do nothing in hint space
+			else
+				local nChange = nPosToChange[nStartPos]
+				if type(nChange) == "number" then
+					-- 1. save lua code
+					local nLuaCode = nSubject:sub(nRemainStartPos, nStartPos-1)
+					nContents[#nContents + 1] = nLuaCode
+					-- 2. replace hint code with space and newline
+					local nFinishPos = nPosToChange[nStartPos]
+					local nHintCode = nSubject:sub(nStartPos, nFinishPos)
+					nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
+					nRemainStartPos = nFinishPos + 1
+				elseif type(nChange) == "function" then
+					nRemainStartPos = nChange(nContents, nRemainStartPos, nStartPos)
+				else
+					error("unexpected branch")
+				end
+			end
+		end
+		nContents[#nContents + 1] = nSubject:sub(nRemainStartPos, #nSubject)
+		return table.concat(nContents)
+	end
+end
+--- }}} ---
+
 function ParseEnv.new(vSubject)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
+		codeBuilder = CodeBuilder.new(vSubject),
 		_subject = vSubject,
-		_posToChange = {},
 	}, ParseEnv)
 	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
 	if not nOkay then
@@ -751,62 +858,6 @@ function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vS
 	return nHintSpace
 end
 
--- '@' when hint for invoke and call, need to add paren
--- eg.
---   aFunc() @ Integer -> (aFunc())
--- so mark paren here
-function ParseEnv:markParenWrap(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = function(vContentList, vSubject, vPreFinishPos, vStartPos)
-		vContentList[#vContentList + 1] = vSubject:sub(vPreFinishPos + 1, vStartPos-1)
-		vContentList[#vContentList + 1] = "("
-		return vStartPos-1
-	end
-	self._posToChange[vFinishPos-1] = function(vContentList, vSubject, vPreFinishPos, vStartPos)
-		vContentList[#vContentList + 1] = vSubject:sub(vPreFinishPos + 1, vStartPos)
-		vContentList[#vContentList + 1] = ")"
-		return vStartPos
-	end
-end
-
--- hint script to be delete
-function ParseEnv:markDel(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = vFinishPos
-end
-
--- local -> const
-function ParseEnv:markConst(vStartPos)
-	self._posToChange[vStartPos] = function(vContentList, vSubject, vPreFinishPos, vStartPos)
-		vContentList[#vContentList + 1] = vSubject:sub(vPreFinishPos + 1, vStartPos - 1)
-		vContentList[#vContentList + 1] = "local"
-		return vStartPos + 4
-	end
-end
-
-local function insertChange(vInsert)
-	return function(vContentList, vSubject, vPreFinishPos, vStartPos)
-		local nLuaCode = vSubject:sub(vPreFinishPos + 1, vStartPos-1)
-		vContentList[#vContentList + 1] = nLuaCode
-		vContentList[#vContentList + 1] = vInsert
-		vContentList[#vContentList + 1] = " "
-		return vStartPos-1
-	end
-end
--- continue -> goto continue
-function ParseEnv:continueMarkGoto(vStartPos)
-	self._posToChange[vStartPos] = insertChange("goto")
-end
-
--- return xxx -> do return xxx end
--- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
-function ParseEnv:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
-	if vRetStartPos then
-		self._posToChange[vRetStartPos] = insertChange("do")
-		self._posToChange[vEndStartPos] = insertChange("end ::continue::")
-	else
-		self._posToChange[vEndStartPos] = insertChange("::continue::")
-	end
-end
-
 function ParseEnv:assertWithLineNum()
 	local nNode = self._astOrErr
 	local nLineNum = select(2, self._subject:sub(1, nNode.pos):gsub('\n', '\n'))
@@ -833,38 +884,7 @@ end
 
 function ParseEnv:genLuaCode()
 	self:assertWithLineNum()
-	local nSubject = self._subject
-	local nPosToChange = self._posToChange
-	local nStartPosList = {}
-	for nStartPos, _ in pairs(nPosToChange) do
-		nStartPosList[#nStartPosList + 1] = nStartPos
-	end
-	table.sort(nStartPosList)
-	local nContents = {}
-	local nPreFinishPos = 0
-	for _, nStartPos in pairs(nStartPosList) do
-		if nStartPos <= nPreFinishPos then
-			-- do nothing in hint space
-		else
-			local nChange = nPosToChange[nStartPos]
-			if type(nChange) == "number" then
-				-- 1. save lua code
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				-- 2. replace hint code with space and newline
-				local nFinishPos = nPosToChange[nStartPos]
-				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
-				nPreFinishPos = nFinishPos
-			elseif type(nChange) == "function" then
-				nPreFinishPos = nChange(nContents, nSubject, nPreFinishPos, nStartPos)
-			else
-				error("unexpected branch")
-			end
-		end
-	end
-	nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, #nSubject)
-	return table.concat(nContents)
+	return self.codeBuilder:genLuaCode()
 end
 
 local boot = {}
