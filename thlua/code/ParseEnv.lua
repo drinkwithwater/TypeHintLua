@@ -68,6 +68,12 @@ local function symb(str)
 		return token(lpeg.P("@")*-lpeg.S("!<>?"))
 	elseif str == "(" then
 		return token(lpeg.P("(")*-lpeg.P("@"))
+	elseif str == "<" then
+		return token(lpeg.P("<")*-lpeg.P("/<"))
+	elseif str == ">" then
+		return token(lpeg.P(">")*-lpeg.P(">"))
+	elseif str == "/" then
+		return token(lpeg.P("/")*-lpeg.P(">"))
 	else
 		return token(lpeg.P(str))
 	end
@@ -86,6 +92,9 @@ local function kwA(str)
 end
 
 local exprF = {
+	nameIndex=function(prefix, name)
+		return { tag = "Index", pos=prefix.pos, posEnd=name.posEnd, prefix, name}
+	end,
 	binOp=function(e1, op, e2)
 		if not op then
 			return e1
@@ -258,13 +267,13 @@ local hintC={
 	end,
 }
 
-local function chainOp (pat, kwOrSymb, op1, ...)
+local function chainOp (pat, nextPat, kwOrSymb, op1, ...)
 	local sep = kwOrSymb(op1) * lpeg.Cc(op1)
 	local ops = {...}
 	for _, op in pairs(ops) do
 		sep = sep + kwOrSymb(op) * lpeg.Cc(op)
 	end
-  return lpeg.Cf(pat * lpeg.Cg(sep * pat)^0, exprF.binOp)
+  return lpeg.Cf(pat * lpeg.Cg(sep * (nextPat or pat))^0, exprF.binOp)
 end
 
 local function suffixedExprByPrimary(primaryExpr)
@@ -441,23 +450,64 @@ local G = lpeg.P { "TypeHintLua";
 
 	UnaryExpr = (function()
 		local UnOp = kw("not")/"not" + symb("-")/"-" + symb("~")/"~" + symb("#")/"#"
-		local PowExpr = vv.SimpleExpr * ((symb("^")/"^") * vv.UnaryExpr)^-1 / exprF.binOp
+		local PowExpr = (vv.XmlExpr + vv.SimpleExpr) * ((symb("^")/"^") * vv.UnaryExpr)^-1 / exprF.binOp
 		return tagC.Op(UnOp * vv.UnaryExpr) + PowExpr
 	end)();
 	ConcatExpr = (function()
-		local MulExpr = chainOp(vv.UnaryExpr, symb, "*", "//", "/", "%")
-		local AddExpr = chainOp(MulExpr, symb, "+", "-")
-	  return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
+		local MulExpr = chainOp(vv.UnaryExpr, nil, symb, "*", "//", "/", "%")
+		local AddExpr = chainOp(MulExpr, nil, symb, "+", "-")
+		return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
 	end)();
 	Expr = (function()
-		local ShiftExpr = chainOp(vv.ConcatExpr, symb, "<<", ">>")
-		local BAndExpr = chainOp(ShiftExpr, symb, "&")
-		local BXorExpr = chainOp(BAndExpr, symb, "~")
-		local BOrExpr = chainOp(BXorExpr, symb, "|")
-		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
-		local AndExpr = chainOp(RelExpr, kw, "and")
-		local OrExpr = chainOp(AndExpr, kw, "or")
+		local ShiftExpr = chainOp(vv.ConcatExpr, nil, symb, "<<", ">>")
+		local BAndExpr = chainOp(ShiftExpr, nil, symb, "&")
+		local BXorExpr = chainOp(BAndExpr, nil, symb, "~")
+		local BOrExpr = chainOp(BXorExpr, nil, symb, "|")
+		local compareOpers = {"~=", "==", "<=", ">=", "<", ">"}
+		local RelExpr = chainOp(BOrExpr, lpeg.Cmt(Cenv*BOrExpr, function(_, pos, env, expr)
+			while expr.tag == "Op" do
+				expr = expr[2]
+			end
+			if expr.isXml then
+				error(env:makeErrNode(expr.pos, "syntax error: xml-like node can't be placed after comparison operator."))
+			else
+				return true, expr
+			end
+		end), symb, table.unpack(compareOpers))
+		local compareOperSet = {}
+		for _, op in pairs(compareOpers) do
+			compareOperSet[op] = true
+		end
+		local checkedRelExpr = lpeg.Cmt(Cenv*RelExpr, function(_, pos, env, expr)
+			while expr.tag == "Op" and compareOperSet[expr[1]] do
+				local leftExpr = expr[2]
+				local rightExpr = leftExpr
+				while rightExpr.tag == "Op" do
+					rightExpr = rightExpr[3] or rightExpr[2]
+				end
+				if rightExpr.isXml then
+					error(env:makeErrNode(rightExpr.posEnd, "syntax error: xml-like node can't be placed before comparison operator."))
+				end
+				expr = leftExpr
+			end
+			return true, expr
+		end)
+		local AndExpr = chainOp(checkedRelExpr, nil, kw, "and")
+		local OrExpr = chainOp(AndExpr, nil, kw, "or")
 		return OrExpr
+	end)();
+
+	XmlExpr = (function()
+		local xmlAttr = tagC.Pair(tagC.String(vv.Name) * symb"=" * vv.SimpleExpr)
+		local xmlAttrTable = tagC.Table(xmlAttr^1)
+		local xmlPrefix = symb("<") * vv.NameChain
+		local xmlFinish = symbA("</") * vv.NameChain * symbA(">");
+		local xmlChildren = (symb"{" * vv.ExprListOrEmpty * symb"}" + vv.XmlExpr)^0/function()
+			return {}
+		end
+		return xmlPrefix * (xmlAttrTable + cc(nil)) * (symb "/>" + symb ">" * xmlChildren * xmlFinish + throw("xtag not close")) / function(prefix, attrTable, children, finish)
+			return {tag="Nil", pos=prefix.pos, posEnd = finish.posEnd, isXml=true}
+		end;
 	end)();
 
 	SimpleExpr = Cpos * (
@@ -556,6 +606,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
 
+	NameChain = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, exprF.nameIndex);
 	Stat = (function()
 		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
 			vLocalrec[2].hintPrefix = vHint
@@ -569,16 +620,12 @@ local G = lpeg.P { "TypeHintLua";
 					return t
 				end
 		local FuncStat = (function()
-			local function makeNameIndex(ident1, ident2)
-				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
-			end
-			local FuncName = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
-			return Cpos * vv.FuncPrefix * FuncName * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
+			return Cpos * vv.FuncPrefix * vv.NameChain * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
-					varPrefix = makeNameIndex(varPrefix, methodName)
+					varPrefix = exprF.nameIndex(varPrefix, methodName)
 				end
 				return {
 					tag = "Set", pos=pos, posEnd=posEnd,
