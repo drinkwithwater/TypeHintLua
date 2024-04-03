@@ -267,13 +267,13 @@ local hintC={
 	end,
 }
 
-local function chainOp (pat, nextPat, kwOrSymb, op1, ...)
+local function chainOp (pat, kwOrSymb, op1, ...)
 	local sep = kwOrSymb(op1) * lpeg.Cc(op1)
 	local ops = {...}
 	for _, op in pairs(ops) do
 		sep = sep + kwOrSymb(op) * lpeg.Cc(op)
 	end
-  return lpeg.Cf(pat * lpeg.Cg(sep * (nextPat or pat))^0, exprF.binOp)
+  return lpeg.Cf(pat * lpeg.Cg(sep * pat)^0, exprF.binOp)
 end
 
 local function suffixedExprByPrimary(primaryExpr)
@@ -450,59 +450,31 @@ local G = lpeg.P { "TypeHintLua";
 
 	UnaryExpr = (function()
 		local UnOp = kw("not")/"not" + symb("-")/"-" + symb("~")/"~" + symb("#")/"#"
-		local PowExpr = (vv.XmlExpr + vv.SimpleExpr) * ((symb("^")/"^") * vv.UnaryExpr)^-1 / exprF.binOp
+		local PowExpr = vv.SimpleExpr * ((symb("^")/"^") * vv.UnaryExpr)^-1 / exprF.binOp
 		return tagC.Op(UnOp * vv.UnaryExpr) + PowExpr
 	end)();
 	ConcatExpr = (function()
-		local MulExpr = chainOp(vv.UnaryExpr, nil, symb, "*", "//", "/", "%")
-		local AddExpr = chainOp(MulExpr, nil, symb, "+", "-")
+		local MulExpr = chainOp(vv.UnaryExpr, symb, "*", "//", "/", "%")
+		local AddExpr = chainOp(MulExpr, symb, "+", "-")
 		return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
 	end)();
 	Expr = (function()
-		local ShiftExpr = chainOp(vv.ConcatExpr, nil, symb, "<<", ">>")
-		local BAndExpr = chainOp(ShiftExpr, nil, symb, "&")
-		local BXorExpr = chainOp(BAndExpr, nil, symb, "~")
-		local BOrExpr = chainOp(BXorExpr, nil, symb, "|")
-		local compareOpers = {"~=", "==", "<=", ">=", "<", ">"}
-		local RelExpr = chainOp(BOrExpr, lpeg.Cmt(Cenv*BOrExpr, function(_, pos, env, expr)
-			while expr.tag == "Op" do
-				expr = expr[2]
-			end
-			if expr.isXml then
-				error(env:makeErrNode(expr.pos, "syntax error: xml-like node can't be placed after comparison operator."))
-			else
-				return true, expr
-			end
-		end), symb, table.unpack(compareOpers))
-		local compareOperSet = {}
-		for _, op in pairs(compareOpers) do
-			compareOperSet[op] = true
-		end
-		local checkedRelExpr = lpeg.Cmt(Cenv*RelExpr, function(_, pos, env, expr)
-			while expr.tag == "Op" and compareOperSet[expr[1]] do
-				local leftExpr = expr[2]
-				local rightExpr = leftExpr
-				while rightExpr.tag == "Op" do
-					rightExpr = rightExpr[3] or rightExpr[2]
-				end
-				if rightExpr.isXml then
-					error(env:makeErrNode(rightExpr.posEnd, "syntax error: xml-like node can't be placed before comparison operator."))
-				end
-				expr = leftExpr
-			end
-			return true, expr
-		end)
-		local AndExpr = chainOp(checkedRelExpr, nil, kw, "and")
-		local OrExpr = chainOp(AndExpr, nil, kw, "or")
+		local ShiftExpr = chainOp(vv.ConcatExpr, symb, "<<", ">>")
+		local BAndExpr = chainOp(ShiftExpr, symb, "&")
+		local BXorExpr = chainOp(BAndExpr, symb, "~")
+		local BOrExpr = chainOp(BXorExpr, symb, "|")
+		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
+		local AndExpr = chainOp(RelExpr + vv.XmlExpr, kw, "and")
+		local OrExpr = chainOp(AndExpr, kw, "or")
 		return OrExpr
 	end)();
 
 	XmlExpr = (function()
 		local xmlAttr = tagC.Pair(tagC.String(vv.Name) * symb"=" * vv.SimpleExpr)
 		local xmlAttrTable = tagC.Table(xmlAttr^1)
-		local xmlPrefix = symb("<") * vv.NameChain
+		local xmlPrefix = symb("<") * vv.HintAssetNot * vv.NameChain
 		local xmlFinish = symbA("</") * vv.NameChain * symbA(">");
-		local xmlChildren = (symb"{" * vv.ExprListOrEmpty * symb"}" + vv.XmlExpr)^0/function()
+		local xmlChildren = (vv.FuncArgs + vv.XmlExpr)^0/function()
 			return {}
 		end
 		return xmlPrefix * (xmlAttrTable + cc(nil)) * (symb "/>" + symb ">" * xmlChildren * xmlFinish + throw("xtag not close")) / function(prefix, attrTable, children, finish)
@@ -784,8 +756,16 @@ end
 --   aFunc() @ Integer -> (aFunc())
 -- so mark paren here
 function ParseEnv:markParenWrap(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = "("
-	self._posToChange[vFinishPos-1] = ")"
+	self._posToChange[vStartPos] = function(vContentList, vSubject, vPreFinishPos, vStartPos)
+		vContentList[#vContentList + 1] = vSubject:sub(vPreFinishPos + 1, vStartPos-1)
+		vContentList[#vContentList + 1] = "("
+		return vStartPos-1
+	end
+	self._posToChange[vFinishPos-1] = function(vContentList, vSubject, vPreFinishPos, vStartPos)
+		vContentList[#vContentList + 1] = vSubject:sub(vPreFinishPos + 1, vStartPos)
+		vContentList[#vContentList + 1] = ")"
+		return vStartPos
+	end
 end
 
 -- hint script to be delete
@@ -795,22 +775,35 @@ end
 
 -- local -> const
 function ParseEnv:markConst(vStartPos)
-	self._posToChange[vStartPos] = "const"
+	self._posToChange[vStartPos] = function(vContentList, vSubject, vPreFinishPos, vStartPos)
+		vContentList[#vContentList + 1] = vSubject:sub(vPreFinishPos + 1, vStartPos - 1)
+		vContentList[#vContentList + 1] = "local"
+		return vStartPos + 4
+	end
 end
 
+local function insertChange(vInsert)
+	return function(vContentList, vSubject, vPreFinishPos, vStartPos)
+		local nLuaCode = vSubject:sub(vPreFinishPos + 1, vStartPos-1)
+		vContentList[#vContentList + 1] = nLuaCode
+		vContentList[#vContentList + 1] = vInsert
+		vContentList[#vContentList + 1] = " "
+		return vStartPos-1
+	end
+end
 -- continue -> goto continue
 function ParseEnv:continueMarkGoto(vStartPos)
-	self._posToChange[vStartPos] = "goto"
+	self._posToChange[vStartPos] = insertChange("goto")
 end
 
 -- return xxx -> do return xxx end
 -- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
 function ParseEnv:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
 	if vRetStartPos then
-		self._posToChange[vRetStartPos] = "do"
-		self._posToChange[vEndStartPos] = "end ::continue::"
+		self._posToChange[vRetStartPos] = insertChange("do")
+		self._posToChange[vEndStartPos] = insertChange("end ::continue::")
 	else
-		self._posToChange[vEndStartPos] = "::continue::"
+		self._posToChange[vEndStartPos] = insertChange("::continue::")
 	end
 end
 
@@ -863,29 +856,8 @@ function ParseEnv:genLuaCode()
 				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
 				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
 				nPreFinishPos = nFinishPos
-			--[[elseif type(nChange) == "string" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos]]
-			elseif nChange == "const" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = "local"
-				nPreFinishPos = nStartPos + 4
-			elseif nChange == "(" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos-1
-			elseif nChange == ")" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos
-			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" or nChange == "end ::continue::"then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nContents[#nContents + 1] = " "
-				nPreFinishPos = nStartPos-1
+			elseif type(nChange) == "function" then
+				nPreFinishPos = nChange(nContents, nSubject, nPreFinishPos, nStartPos)
 			else
 				error("unexpected branch")
 			end
