@@ -506,12 +506,14 @@ local G = lpeg.P { "TypeHintLua";
 			for i=1,#listOrXmlList do
 				local listOrXml = listOrXmlList[i]
 				if listOrXml.tag == "ExprList" then
+					-- 1. append to expr list
 					for _, expr in ipairs(listOrXml) do
 						retExprList[#retExprList+1] = expr
 					end
+					-- 2. code convert
 					if listOrXml.closeParenPos then
 						env.codeBuilder:xmlMarkReplace(listOrXml.pos, "")
-						env.codeBuilder:xmlMarkReplace(listOrXml.closeParenPos, i<#listOrXmlList and "," or "")
+						env.codeBuilder:xmlMarkReplace(listOrXml.closeParenPos, i<#listOrXmlList and #listOrXml > 0 and "," or "")
 					else
 						if i<#listOrXmlList then
 							local oneExpr = listOrXml[1]

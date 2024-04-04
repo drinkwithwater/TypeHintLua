@@ -366,7 +366,7 @@ hi def link luaLabel		Label
 
 syn keyword thluaKeyword let
 
-syn match hintoper1 "[@][!>?]\="
+syn match hintoper1 "[@$][!>?]\="
 syn match hintoper2 "[!]"
 
 hi def link hintoper1 Typedef
@@ -378,8 +378,23 @@ hi def link thluaKeyword Label
 
 
 "=============================== }}}end
+"
 
 
+"=================================== {{{ xml begin
+syn match xmlTagName +\(^\|[>\'\"\] \t\)]</\?\)\@<=[a-zA-Z][a-zA-Z0-9.]*+
+
+syn region xmlTagBegin transparent matchgroup=xmlTagSymbol
+      \ start=+\(^\|[>\'\"\] \t\)]\)\@<=<\([a-zA-Z][a-zA-Z0-9.]*\)\@=+
+      \ end=+/\?>+
+      \ contained
+syn region xmlTagEnd transparent matchgroup=xmlTagSymbol start="</\([^ />]\+>\)\@=" end=">"
+
+
+hi def link xmlTagName Identifier
+hi def link xmlTagSymbol Typedef
+
+"=============================== }}}xml end
 
 
 
