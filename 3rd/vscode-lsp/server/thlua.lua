@@ -40,7 +40,7 @@ packages['thlua.Exception'] = function (...)
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -69,7 +69,7 @@ packages['thlua.TestCase'] = function (...)
 local Runtime = require "thlua.runtime.DiagnosticRuntime"
 local CodeEnv = require "thlua.code.CodeEnv"
 local SplitCode = require "thlua.code.SplitCode"
-
+;
 	  
 	  
 
@@ -129,7 +129,7 @@ function TestCase.go(vScript, vName)
 	local case = TestCase.new(vScript)
 	local nRuntime = case:getRuntime()
 	local oldprint = print
-	do
+	do;
 		print = function(...)
 		end
 	end
@@ -184,7 +184,7 @@ packages['thlua.auto.AutoHolder'] = function (...)
 
 local Exception = require "thlua.Exception"
 
-
+;
 	  
 	  
 
@@ -248,7 +248,7 @@ packages['thlua.auto.AutoTail'] = function (...)
 local AutoHolder = require "thlua.auto.AutoHolder"
 local DotsTail = require "thlua.tuple.DotsTail"
 
-
+;
 	  
 	  
 
@@ -451,7 +451,7 @@ do local _ENV = _ENV
 packages['thlua.builder.DoBuilder'] = function (...)
 
 local Exception = require "thlua.Exception"
-  
+;  
 
 local DoBuilder = {}
 DoBuilder.__index=DoBuilder
@@ -497,7 +497,7 @@ local RetBuilder = require "thlua.tuple.RetBuilder"
 local SpaceValue = require "thlua.space.SpaceValue"
 local class = require "thlua.class"
 
-
+;
 	  
 	  
 
@@ -938,12 +938,12 @@ local class = require "thlua.class"
 local TableBuilder = {}
 local TermTuple = require "thlua.tuple.TermTuple"
 
-
+;
 	  
 	  
 
 
-
+;
 	   
 		
 		
@@ -1112,7 +1112,7 @@ local pairs = pairs
 local setmetatable = setmetatable
 local getmetatable = getmetatable
 
-
+;
 	  
 	  
 	  
@@ -1142,7 +1142,7 @@ end
 
 local function class (super)
 	local class_type={}
-	  
+	;  
 	class_type.ctor=false
 	class_type.super=super
 	class_type.new=function (...)  
@@ -1169,7 +1169,7 @@ local function class (super)
 			type2is[if_type] = false
 			return false
 		end
-	}) )  
+	}) );  
 	class_type.is=function(v)
 		local nClassType = meta2class[getmetatable(v) or 1]
 		local nIsDict = nClassType and nClassType.isDict
@@ -1223,7 +1223,7 @@ local HintGener = require "thlua.code.HintGener"
 local SplitCode = require "thlua.code.SplitCode"
 local class = require "thlua.class"
 
-
+;
 	  
 	  
 	    
@@ -1305,7 +1305,7 @@ function CodeEnv:_prepare()
 	self._typingCode = nTypingCode
 end
 
-function CodeEnv:_buildTypingFn()
+function CodeEnv:_buildTypingFn();
 	self:_prepare()
 	local nFunc, nInfo = load(self._typingCode, self._chunkName, "t", setmetatable({}, {
 		__index=function(t,k)
@@ -1410,10 +1410,10 @@ function CodeEnv.genInjectFnByError(vSplitCode, vFileUri, vWrongContent)
 		return false
 	end
 	local nChunk = nInjectTrace.capture
-	local nOkay, nInjectFn = pcall(function()
+	local nOkay, nInjectFn = pcall(function();
 		assert(nChunk.injectNode)
 		local nFocusEnv = CodeEnv.new(vSplitCode, vFileUri, nChunk)
-		
+		;
 			    
 		
 		local nRawInjectFn = (nFocusEnv:getTypingFn() ) 
@@ -1447,7 +1447,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.code.HintGener'] = function (...)
 
-
+;
 
   
   
@@ -2067,7 +2067,7 @@ function HintGener:listWrap(...)
 	return nResult
 end
 
-
+;
 	  
 		    
 
@@ -2115,7 +2115,7 @@ function HintGener:stkWrap(vNode)
 	})
 end
 
-
+;
 	  
 		
 		
@@ -2345,7 +2345,7 @@ packages['thlua.code.Node'] = function (...)
 local Enum = require "thlua.Enum"
 local Exception = require "thlua.Exception"
 
-
+;
 
   
   
@@ -2550,6 +2550,7 @@ local Exception = require "thlua.Exception"
 
 
   
+	  
 	  
 	  
 	  
@@ -2639,6 +2640,7 @@ local Exception = require "thlua.Exception"
 
   
 	  
+	
 	  
 	  
 	  
@@ -2660,6 +2662,7 @@ local Exception = require "thlua.Exception"
 
   
 	  
+	
 	
 	  
 	   
@@ -2701,6 +2704,7 @@ local Exception = require "thlua.Exception"
 
   
 	  
+	      
 	  
  
 
@@ -2764,7 +2768,7 @@ local Exception = require "thlua.Exception"
 
 local Node = {}
 
-
+;
 
   
 	
@@ -2940,6 +2944,12 @@ local function symb(str)
 		return token(lpeg.P("@")*-lpeg.S("!<>?"))
 	elseif str == "(" then
 		return token(lpeg.P("(")*-lpeg.P("@"))
+	elseif str == "<" then
+		return token(lpeg.P("<")*-lpeg.P("/<"))
+	elseif str == ">" then
+		return token(lpeg.P(">")*-lpeg.P(">"))
+	elseif str == "/" then
+		return token(lpeg.P("/")*-lpeg.P(">"))
 	else
 		return token(lpeg.P(str))
 	end
@@ -2958,6 +2968,9 @@ local function kwA(str)
 end
 
 local exprF = {
+	nameIndex=function(prefix, name)
+		return { tag = "Index", pos=prefix.pos, posEnd=name.posEnd, prefix, name}
+	end,
 	binOp=function(e1, op, e2)
 		if not op then
 			return e1
@@ -2981,7 +2994,7 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env:markParenWrap(pos, hintShort.pos)
+				env.codeBuilder:markParenWrap(pos, hintShort.pos-1)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -3066,7 +3079,7 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env:markDel(p1, p4-1)
+			env.codeBuilder:markDel(p1, p4, isStat)
 			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
@@ -3083,7 +3096,7 @@ local hintC={
 		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
-			env:markDel(p1, posEnd-1)
+			env.codeBuilder:markDel(p1, posEnd)
 			l[#l] = nil
 			local middle = nil
 			local nAttrList = {}
@@ -3121,7 +3134,7 @@ local hintC={
 	take=function(patt)
 		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
 			if not env.hinting then
-				env:markDel(pos, posEnd-1)
+				env.codeBuilder:markDel(pos, posEnd)
 				return true
 			else
 				return false
@@ -3163,7 +3176,7 @@ local function suffixedExprByPrimary(primaryExpr)
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env:markParenWrap(pos, curExpr.posEnd)
+					env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
 				end
 			end
 			return true, expr
@@ -3265,7 +3278,7 @@ local G = lpeg.P { "TypeHintLua";
 		local l = {...}
 		local posEnd = l[#l]
 		l[#l] = nil
-		env:markDel(pos, posEnd - 1)
+		env.codeBuilder:markDel(pos, posEnd)
 		return l
 	end;
 
@@ -3292,7 +3305,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
 		local FieldList = (Field * (fieldsep * Field)^0 * fieldsep^-1)^-1
-		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
+		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * lpeg.Cg(Cpos, "closePos") * symbA("}"))
 	end)();
 
 	IdentUse = Cpos*vv.Name*(vv.NotnilHint * cc(true) + cc(false))*Cpos/parF.identUse;
@@ -3306,10 +3319,12 @@ local G = lpeg.P { "TypeHintLua";
 
 	ExprList = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0);
 
-	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * symb(")") +
-             vv.Constructor + vv.String);
+	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * lpeg.Cg(Cpos, "closeParenPos") * symb(")") + vv.SimpleArgExpr);
 
-	String = tagC.String(token(vv.LongString)*lpeg.Cg(cc(true), "isLong") + token(vv.ShortString));
+	String = tagC.String(
+		token(vv.LongString*lpeg.Cg(Cpos, "closePosEnd"))*lpeg.Cg(cc(true), "isLong") +
+		token(vv.ShortString*lpeg.Cg(Cpos, "closePosEnd"))
+	);
 
 	UnaryExpr = (function()
 		local UnOp = kw("not")/"not" + symb("-")/"-" + symb("~")/"~" + symb("#")/"#"
@@ -3319,7 +3334,7 @@ local G = lpeg.P { "TypeHintLua";
 	ConcatExpr = (function()
 		local MulExpr = chainOp(vv.UnaryExpr, symb, "*", "//", "/", "%")
 		local AddExpr = chainOp(MulExpr, symb, "+", "-")
-	  return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
+		return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
 	end)();
 	Expr = (function()
 		local ShiftExpr = chainOp(vv.ConcatExpr, symb, "<<", ">>")
@@ -3327,23 +3342,109 @@ local G = lpeg.P { "TypeHintLua";
 		local BXorExpr = chainOp(BAndExpr, symb, "~")
 		local BOrExpr = chainOp(BXorExpr, symb, "|")
 		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
-		local AndExpr = chainOp(RelExpr, kw, "and")
+		local AndExpr = chainOp(RelExpr + Cenv*vv.XmlExpr/function(env, expr)
+			env.codeBuilder:xmlMarkEnd(expr.closeXmlPos, expr.posEnd, false)
+			return expr
+		end, kw, "and")
 		local OrExpr = chainOp(AndExpr, kw, "or")
 		return OrExpr
 	end)();
 
-	SimpleExpr = Cpos * (
-						-- (vv.ValueConstHint * cc(true) + cc(false)) * (
-						cc(false) * (
-							vv.String +
-							tagC.Number(token(vv.Number)) +
-							tagC.False(kw"false") +
-							tagC.True(kw"true") +
-							vv.Constructor
-						)/function(isConst, t)
-							t.isConst = isConst
-							return t
-						end +
+	XmlExpr = (function()
+		local BUILTIN__THLUAX= "__thluax"
+		local function nameAppend(nameList, primaryNode)
+			if primaryNode.tag == "Index" then
+				nameAppend(nameList, primaryNode[1])
+				nameList[#nameList + 1] = primaryNode[2][1]
+			else
+				nameList[#nameList + 1] = primaryNode[1]
+			end
+			return nameList
+		end
+		local function replaceMark(patt, after)
+			return Cenv * Cpos * patt / function(env, startPos)
+				env.codeBuilder:xmlMarkReplace(startPos, after)
+			end
+		end
+		local xmlAttr = tagC.Pair(tagC.String(vv.Name) * symb"=" * vv.SimpleExpr)
+		local xmlAttrTable = Cenv*Cpos*tagC.Table(xmlAttr^1) / function(env, pos, tableExpr)
+			env.codeBuilder:xmlMarkInsert(pos-1, ",{")
+			for i=1, #tableExpr-1 do
+				local pairNode = tableExpr[i]
+				env.codeBuilder:xmlMarkInsert(pairNode.posEnd, ",")
+			end
+			return tableExpr
+		end
+		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
+		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
+			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
+			local listOrXmlList = {...}
+			for i=1,#listOrXmlList do
+				local listOrXml = listOrXmlList[i]
+				if listOrXml.tag == "ExprList" then
+					-- 1. append to expr list
+					for _, expr in ipairs(listOrXml) do
+						retExprList[#retExprList+1] = expr
+					end
+					-- 2. code convert
+					if listOrXml.closeParenPos then
+						env.codeBuilder:xmlMarkReplace(listOrXml.pos, "")
+						env.codeBuilder:xmlMarkReplace(listOrXml.closeParenPos, i<#listOrXmlList and #listOrXml > 0 and "," or "")
+					else
+						if i<#listOrXmlList then
+							local oneExpr = listOrXml[1]
+							while oneExpr.tag ~= "String" and oneExpr.tag ~= "Table" do
+								oneExpr = oneExpr[1]
+							end
+							if oneExpr.closePosEnd then
+								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePosEnd-1)
+							else
+								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePos)
+							end
+						end
+					end
+				else
+					retExprList[#retExprList+1] = listOrXml
+					env.codeBuilder:xmlMarkEnd(listOrXml.closeXmlPos, listOrXml.posEnd, i<#listOrXmlList)
+				end
+			end
+			return retExprList
+		end
+		return lpeg.Cmt(Cenv * xmlPrefix * (xmlAttrTable + cc(nil)) * Cpos * (
+			symb ">" * xmlChildren * Cpos* symbA "</" * vv.NameChain * symbA ">" +
+			cc(nil) * Cpos * symb "/>" * cc(nil) +
+			throw("xtag not close")
+		) * Cpos, function(_, _, env, prefix, attrTable, posMid, children, closePos, finish, posEnd)
+			-- 1. build children
+			local attrExpr = attrTable or {tag="Nil", pos=posMid, posEnd=posMid}
+			if children then
+				local openName = table.concat(nameAppend({}, prefix), ".")
+				local closeName = table.concat(nameAppend({}, finish), ".")
+				if openName ~= closeName then
+					error(env:makeErrNode(finish.pos, string.format("xtag close unexpected: %s ~= %s", openName, closeName)))
+				end
+				children[1] = prefix
+				children[2] = attrExpr
+			else
+				children = {tag="ExprList", pos=posMid, posEnd=posMid, prefix, attrExpr}
+			end
+			-- 2. mark attribute
+			if attrTable then
+				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and "}" or "},")
+			elseif not attrTable then
+				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and ",nil" or ",nil,")
+			end
+			local caller = parF.identUse(prefix.pos, BUILTIN__THLUAX, false, prefix.pos)
+			return true, {tag="Call", pos=prefix.pos, posEnd=posEnd, closeXmlPos=closePos, caller, children}
+		end)
+	end)();
+
+	SimpleArgExpr = Cpos * (vv.Constructor + vv.String) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv / exprF.hintExpr;
+
+	SimpleExpr = vv.SimpleArgExpr + Cpos * (
+						tagC.Number(token(vv.Number)) +
+						tagC.False(kw"false") +
+						tagC.True(kw"true") +
 						tagC.Nil(kw"nil") +
 						vv.FuncDef +
 						vv.SuffixedExpr +
@@ -3428,6 +3529,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
 
+	NameChain = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, exprF.nameIndex);
 	Stat = (function()
 		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
 			vLocalrec[2].hintPrefix = vHint
@@ -3436,21 +3538,17 @@ local G = lpeg.P { "TypeHintLua";
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
 				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
-					env:markConst(pos)
+					env.codeBuilder:markConst(pos)
 					t.isConst = true
 					return t
 				end
 		local FuncStat = (function()
-			local function makeNameIndex(ident1, ident2)
-				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
-			end
-			local FuncName = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
-			return Cpos * vv.FuncPrefix * FuncName * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
+			return Cpos * vv.FuncPrefix * vv.NameChain * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
-					varPrefix = makeNameIndex(varPrefix, methodName)
+					varPrefix = exprF.nameIndex(varPrefix, methodName)
 				end
 				return {
 					tag = "Set", pos=pos, posEnd=posEnd,
@@ -3465,9 +3563,9 @@ local G = lpeg.P { "TypeHintLua";
 			local last = blockNode[#blockNode]
 			if last then
 				if last.tag == "Return" then
-					env:continueMarkLoopEnd(last.pos, blockNode.posEnd)
+					env.codeBuilder:continueMarkLoopEnd(last.pos, blockNode.posEnd)
 				else
-					env:continueMarkLoopEnd(false, blockNode.posEnd)
+					env.codeBuilder:continueMarkLoopEnd(false, blockNode.posEnd)
 				end
 			end
 			return loopNode
@@ -3475,7 +3573,7 @@ local G = lpeg.P { "TypeHintLua";
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
 		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
-			env:continueMarkGoto(node.pos)
+			env.codeBuilder:continueMarkGoto(node.pos)
 			return node
 		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
@@ -3492,17 +3590,19 @@ local G = lpeg.P { "TypeHintLua";
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
-		return vv.StatHintSpace +
-         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
+		return vv.StatHintSpace + LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
-				 vv.DoStat + vv.ApplyOrAssignStat + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
+				 vv.DoStat + Cenv*Cpos*vv.ApplyOrAssignStat / function(env, pos, stat)
+					env.codeBuilder:recordSuffixableStatPos(pos)
+					return stat;
+				 end + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
 
 	-- lexer
 	Skip     = (lpeg.space^1 + vv.Comment)^0;
 	Comment  = Cenv*Cpos*
 		lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0)
-		*Cpos/function(env, pos, posEnd) env:markDel(pos, posEnd-1) return end;
+		*Cpos/function(env, pos, posEnd) env.codeBuilder:markDel(pos, posEnd) return end;
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1
@@ -3539,13 +3639,184 @@ local G = lpeg.P { "TypeHintLua";
 
 }
 
+local CodeBuilder = {}
+CodeBuilder.__index = CodeBuilder
+
+--- {{{ ---
+do
+	function CodeBuilder.new(vSubject, vEnv)
+		local self = setmetatable({
+			_subject = vSubject,
+			_posToChange = {},
+			_statPosSet = {},
+			_env = vEnv,
+		}, CodeBuilder)
+		return self
+	end
+
+	-- '@' when hint for invoke and call, need to add paren
+	-- eg.
+	--   aFunc() @ Integer -> (aFunc())
+	-- so mark paren here
+	function CodeBuilder:markParenWrap(vStartPos, vFinishPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = "("
+			return vStartPos
+		end
+		self._posToChange[vFinishPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vFinishPos)
+			vContentList[#vContentList + 1] = ")"
+			return vFinishPos + 1
+		end
+	end
+
+	-- hint script to be delete
+	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsHintStat)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			if vIsHintStat or self._statPosSet[vNextStartPos] then
+				vContentList[#vContentList + 1] = ";"
+			end
+			-- 2. replace hint code with space and newline
+			local nHintCode = self._subject:sub(vStartPos, vNextStartPos - 1)
+			vContentList[#vContentList + 1] = nHintCode:gsub("[^\r\n\t ]", "")
+			return vNextStartPos
+		end
+	end
+
+	-- local -> const
+	function CodeBuilder:markConst(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos - 1)
+			vContentList[#vContentList + 1] = "local"
+			return vStartPos + 5
+		end
+	end
+
+	function CodeBuilder:_insertChange(vInsert, vStartPos)
+		return function(vContentList, vRemainStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vInsert
+			vContentList[#vContentList + 1] = " "
+			return vStartPos
+		end
+	end
+
+	-- continue -> goto continue
+	function CodeBuilder:continueMarkGoto(vStartPos)
+		self._posToChange[vStartPos] = self:_insertChange("goto", vStartPos)
+	end
+
+	-- return xxx -> do return xxx end
+	-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
+	function CodeBuilder:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
+		if vRetStartPos then
+			self._posToChange[vRetStartPos] = self:_insertChange("do", vRetStartPos)
+			self._posToChange[vEndStartPos] = self:_insertChange("end ::continue::", vEndStartPos)
+		else
+			self._posToChange[vEndStartPos] = self:_insertChange("::continue::", vEndStartPos)
+		end
+	end
+
+	function CodeBuilder:xmlMarkBegin(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ","
+			return vStartPos
+		end
+	end
+
+	function CodeBuilder:xmlMarkAppendComma(vEndPos)
+		self._posToChange[vEndPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vEndPos)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ","
+			-- 2. replace xml-end code with space and newline
+			return vEndPos + 1
+		end
+	end
+
+	function CodeBuilder:xmlMarkInsert(vStartPos, vAfterStr)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vAfterStr
+			-- 2. replace xml-end code with space and newline
+			return vStartPos
+		end
+	end
+
+	function CodeBuilder:xmlMarkReplace(vStartPos, vAfterStr)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vAfterStr
+			-- 2. replace xml-end code with space and newline
+			return vStartPos + 1
+		end
+	end
+
+	function CodeBuilder:xmlMarkEnd(vStartPos, vNextStartPos, vAppendComma)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ")"
+			if vAppendComma then
+				vContentList[#vContentList + 1] = ","
+			elseif self._statPosSet[vNextStartPos] then
+				vContentList[#vContentList + 1] = ";"
+			end
+			-- 2. replace xml-end code with space and newline
+			local nEndCode = self._subject:sub(vStartPos, vNextStartPos - 1)
+			vContentList[#vContentList + 1] = nEndCode:gsub("[^\r\n\t ]", "")
+			return vNextStartPos
+		end
+	end
+
+	function CodeBuilder:recordSuffixableStatPos(vStartPos)
+		self._statPosSet[vStartPos] = true
+	end
+
+	function CodeBuilder:genLuaCode()
+		local nSubject = self._subject
+		local nPosToChange = self._posToChange
+		local nChangePosList = {}
+		for nChangePos, _ in pairs(nPosToChange) do
+			nChangePosList[#nChangePosList + 1] = nChangePos
+		end
+		table.sort(nChangePosList)
+		local nContents = {}
+		local nRemainStartPos = 0
+		for _, nChangePos in pairs(nChangePosList) do
+			if nChangePos < nRemainStartPos then
+				-- do nothing in hint space
+			else
+				nRemainStartPos = nPosToChange[nChangePos](nContents, nRemainStartPos)
+			end
+		end
+		nContents[#nContents + 1] = nSubject:sub(nRemainStartPos, #nSubject)
+		return table.concat(nContents)
+	end
+end
+--- }}} ---
+
 function ParseEnv.new(vSubject)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
+		codeBuilder = nil,
 		_subject = vSubject,
-		_posToChange = {},
 	}, ParseEnv)
+	self.codeBuilder = CodeBuilder.new(vSubject, self)
 	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
 	if not nOkay then
 		if type(nAstOrErr) == "table" and nAstOrErr.tag == "Error" then
@@ -3604,41 +3875,6 @@ function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vS
 	return nHintSpace
 end
 
--- '@' when hint for invoke and call, need to add paren
--- eg.
---   aFunc() @ Integer -> (aFunc())
--- so mark paren here
-function ParseEnv:markParenWrap(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = "("
-	self._posToChange[vFinishPos-1] = ")"
-end
-
--- hint script to be delete
-function ParseEnv:markDel(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = vFinishPos
-end
-
--- local -> const
-function ParseEnv:markConst(vStartPos)
-	self._posToChange[vStartPos] = "const"
-end
-
--- continue -> goto continue
-function ParseEnv:continueMarkGoto(vStartPos)
-	self._posToChange[vStartPos] = "goto"
-end
-
--- return xxx -> do return xxx end
--- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
-function ParseEnv:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
-	if vRetStartPos then
-		self._posToChange[vRetStartPos] = "do"
-		self._posToChange[vEndStartPos] = "end ::continue::"
-	else
-		self._posToChange[vEndStartPos] = "::continue::"
-	end
-end
-
 function ParseEnv:assertWithLineNum()
 	local nNode = self._astOrErr
 	local nLineNum = select(2, self._subject:sub(1, nNode.pos):gsub('\n', '\n'))
@@ -3665,59 +3901,7 @@ end
 
 function ParseEnv:genLuaCode()
 	self:assertWithLineNum()
-	local nSubject = self._subject
-	local nPosToChange = self._posToChange
-	local nStartPosList = {}
-	for nStartPos, _ in pairs(nPosToChange) do
-		nStartPosList[#nStartPosList + 1] = nStartPos
-	end
-	table.sort(nStartPosList)
-	local nContents = {}
-	local nPreFinishPos = 0
-	for _, nStartPos in pairs(nStartPosList) do
-		if nStartPos <= nPreFinishPos then
-			-- do nothing in hint space
-		else
-			local nChange = nPosToChange[nStartPos]
-			if type(nChange) == "number" then
-				-- 1. save lua code
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				-- 2. replace hint code with space and newline
-				local nFinishPos = nPosToChange[nStartPos]
-				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
-				nPreFinishPos = nFinishPos
-			--[[elseif type(nChange) == "string" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos]]
-			elseif nChange == "const" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = "local"
-				nPreFinishPos = nStartPos + 4
-			elseif nChange == "(" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos-1
-			elseif nChange == ")" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos
-			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" or nChange == "end ::continue::"then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nContents[#nContents + 1] = " "
-				nPreFinishPos = nStartPos-1
-			else
-				error("unexpected branch")
-			end
-		end
-	end
-	nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, #nSubject)
-	return table.concat(nContents)
+	return self.codeBuilder:genLuaCode()
 end
 
 local boot = {}
@@ -3798,7 +3982,7 @@ packages['thlua.code.SearchVisitor'] = function (...)
 local VisitorExtend = require "thlua.code.VisitorExtend"
 local Exception = require "thlua.Exception"
 
-
+;
 
   
   
@@ -3936,7 +4120,7 @@ packages['thlua.code.SplitCode'] = function (...)
 
 local class = require "thlua.class"
 
-
+;
 	
 	  
 	  
@@ -4065,7 +4249,7 @@ local VisitorExtend = require "thlua.code.VisitorExtend"
 local Exception = require "thlua.Exception"
 local Enum = require "thlua.Enum"
 
-
+;
 
   
   
@@ -4473,7 +4657,7 @@ packages['thlua.code.VisitorExtend'] = function (...)
 local Node = require "thlua.code.Node"
 local Exception = require "thlua.Exception"
 
-
+;
 
   
 
@@ -4733,7 +4917,7 @@ local function VisitorExtend(vDictOrFunc)
 		end
 		return t
 	elseif nType == "function" then
-		
+		;
 			   
 				
 				
@@ -4772,17 +4956,17 @@ local RecurChain = require "thlua.context.RecurChain"
 local RefineTerm = require "thlua.term.RefineTerm"
 local ObjectField = require "thlua.type.object.ObjectField"
 
-
+;
 	  
 
 
 local ApplyContext = class (AssignContext)
 
 function ApplyContext:ctor(vNode, ...)
-	self._curCase = false  
-	self._once = false
-	self._recurChain = false  
-	self._lookTargetSet = {}    
+	self._curCase = false ; 
+	self._once = false;
+	self._recurChain = false ; 
+	self._lookTargetSet = {} ;   
 	self._stack:getRuntime():recordApplyContext(vNode, self)
 	self._finalReturn = false 
 end
@@ -4938,7 +5122,7 @@ local AutoTail = require "thlua.auto.AutoTail"
 local ListDict = require "thlua.manager.ListDict"
 local OperContext = require "thlua.context.OperContext"
 
-
+;
 	  
 	  
 	   
@@ -5238,7 +5422,7 @@ local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local StringLiteral = require "thlua.type.basic.StringLiteral"
 local BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 
-
+;
 	  
 	   
 		
@@ -5248,7 +5432,7 @@ local BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 local FieldCompletion = class ()
 
 function FieldCompletion:ctor()
-	self._passDict = {} 
+	self._passDict = {}; 
 	self._keyToKind = {} 
 end
 
@@ -5324,7 +5508,7 @@ local OperContext = require "thlua.context.OperContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 
-
+;
 	  
 
 
@@ -5391,17 +5575,17 @@ local ApplyContext = require "thlua.context.ApplyContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 
-
+;
 	  
 
 
 local MorePushContext = class (ApplyContext)
 
-     
+;     
 function MorePushContext:ctor(
 	...
 )
-	self._retMaxLength = 0
+	self._retMaxLength = 0;
 	self._retRepTypeSet = self._manager:HashableTypeSet()
 	self._retList = {} 
 end
@@ -5430,7 +5614,7 @@ function MorePushContext:pushRetTuples(vRetTuples)
 	end)
 end
 
-function MorePushContext:pcallMergeReturn(vErrType)
+function MorePushContext:pcallMergeReturn(vErrType);
 	self._retMaxLength = self._retMaxLength + 1
 	local nRetList = self._retList
 	local nTrue = self._manager.type.True
@@ -5508,7 +5692,7 @@ local ApplyContext = require "thlua.context.ApplyContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 
-
+;
 	  
 
 
@@ -5540,7 +5724,7 @@ local ApplyContext = require "thlua.context.ApplyContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 
-
+;
 	  
 
 
@@ -5549,7 +5733,7 @@ local OnePushContext = class (ApplyContext)
 function OnePushContext:ctor(
 	_,_,_,vNotnil
 )
-	self._retList = {}  
+	self._retList = {} ; 
 	self._notnil = vNotnil
 end
 
@@ -5602,7 +5786,7 @@ local AutoHolder = require "thlua.auto.AutoHolder"
 local DotsTail = require "thlua.tuple.DotsTail"
 local AutoTail = require "thlua.auto.AutoTail"
 
-
+;
 	  
 	  
 
@@ -5762,7 +5946,7 @@ packages['thlua.context.RecurChain'] = function (...)
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -5802,7 +5986,7 @@ local class = require "thlua.class"
 local AssignContext = require "thlua.context.AssignContext"
 local TypedFunction = require "thlua.type.func.TypedFunction"
 
-
+;
 	  
 
 
@@ -6503,7 +6687,7 @@ packages['thlua.manager.HashableTypeSet'] = function (...)
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -6675,7 +6859,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.manager.ListDict'] = function (...)
 
-
+;
 	  
 
 
@@ -6737,7 +6921,7 @@ packages['thlua.manager.ScheduleEvent'] = function (...)
 local ScheduleEvent = {}
 ScheduleEvent.__index = ScheduleEvent
 
-  
+;  
 
 function ScheduleEvent.new(vManager, vTask)
 	return setmetatable({
@@ -6791,7 +6975,7 @@ local class = require "thlua.class"
 
 local ScheduleTask = require "thlua.manager.ScheduleTask"
 
-
+;
 	  
 	   
 		  
@@ -6804,8 +6988,8 @@ local ScheduleTask = require "thlua.manager.ScheduleTask"
 local ScheduleManager = class ()
 
 function ScheduleManager:ctor(vRuntime)
-	self._coToTask={}   
-	self._scheduleList={}
+	self._coToTask={} ;  
+	self._scheduleList={};
 	self._selfCo=coroutine.running()
 	self._runtime = vRuntime
 	self.useProfile = false 
@@ -6952,7 +7136,7 @@ local chrono = (function()
 end)()
 
 
-
+;
 	  
 	     
 	   
@@ -6967,8 +7151,8 @@ local ScheduleTask = class ()
 
 function ScheduleTask:ctor(vScheduleManager, vHost)
 	self._scheduleManager = vScheduleManager
-	self._fnToProfile = {}   
-	self._runFn = false  
+	self._fnToProfile = {} ;  
+	self._runFn = false ; 
 	self._selfCo = coroutine.create(function()
 		local nRunFn = assert(self._runFn, "maybe wakup task before run")
 		local nScheduleManager = self._scheduleManager
@@ -7000,7 +7184,7 @@ function ScheduleTask:ctor(vScheduleManager, vHost)
 		end
 	end)
 	self._host = vHost
-	self._waitEvent = false  
+	self._waitEvent = false ; 
 	self._openStackList = {}  
 end
 
@@ -7165,7 +7349,7 @@ local FuncUnion = require "thlua.type.union.FuncUnion"
 local ComplexUnion = require "thlua.type.union.ComplexUnion"
 local FalsableUnion = require "thlua.type.union.FalsableUnion"
 
-
+;
 	  
 
 
@@ -7401,7 +7585,7 @@ local SpaceValue = require "thlua.space.SpaceValue"
 local type = type
 local math_type = math.type
 
-
+;
 	  
 	   
 		  
@@ -7971,7 +8155,7 @@ function TypeManager:AutoMemberFunction(vNode, vPolyFn)
 	return AutoMemberFunction.new(self, vNode, vPolyFn)
 end
 
-function TypeManager:TypedFunction(vNode, vParTuple, vRetTuples)
+function TypeManager:TypedFunction(vNode, vParTuple, vRetTuples);
 	assert(TypeTuple.is(vParTuple) or TypeTupleDots.is(vParTuple))
 	assert(RetTuples.is(vRetTuples))
 	return TypedFunction.new(self, vNode, vParTuple, vRetTuples)
@@ -8222,7 +8406,7 @@ TypeRelation.EQUAL = "="
 TypeRelation.SOME = "&"
 TypeRelation.NONE = "~"
 
-
+;
 	  
           
 
@@ -8247,7 +8431,7 @@ local function shiftPair(vId1, vId2)
 end
 TypeRelation.shiftPair = shiftPair
 
-function TypeRelation:getAwait()
+function TypeRelation:getAwait();
     self._buildEvent:wait()
     return assert(self._result)
 end
@@ -8315,7 +8499,7 @@ local VariableCase = require "thlua.term.VariableCase"
 
 local native = {}
 
-
+;
 	  
 	   
 
@@ -8681,7 +8865,7 @@ local class = require "thlua.class"
 local CodeEnv = require "thlua.code.CodeEnv"
 local platform = require "thlua.platform"
 
-
+;
 	  
 	  
 
@@ -8736,15 +8920,15 @@ local DefaultLoader = {
 local BaseRuntime = class ()
 
 function BaseRuntime:ctor(vLoader)
-	self._searchPath = false  
+	self._searchPath = false ; 
 	self._loader=vLoader or DefaultLoader
-	self._pathToFileName={} 
-	self._loadedDict={} 
+	self._pathToFileName={}; 
+	self._loadedDict={}; 
 	self._scheduleManager=ScheduleManager.new(self)
 	   
-	self._node=nil
-	self._manager=nil
-	self._globalTable=nil
+	self._node=nil;
+	self._manager=nil;
+	self._globalTable=nil;
 	self._rootStack=nil
 end
 
@@ -8794,13 +8978,13 @@ local nGlobalPackage = {
 	"utf8",
 }
 
-function BaseRuntime:pmain(vRootFileUri, vUseProfile)  
+function BaseRuntime:pmain(vRootFileUri, vUseProfile);  
 	self._scheduleManager.useProfile = vUseProfile or false
 	self._node=Node.newRootNode(vRootFileUri)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	local nAutoFn = AutoFunction.new(self._manager, self._node, false)
 	local t1 = os.clock()
-	local ok, err = pcall(function()
+	local ok, err = pcall(function();
 		nAutoFn:initAsync(function()
 			local nRootStack = nAutoFn:getBuildStack()
 			self._rootStack = nRootStack
@@ -9174,7 +9358,7 @@ local OnePushContext = require "thlua.context.OnePushContext"
 local NoPushContext = require "thlua.context.NoPushContext"
 local LogicContext = require "thlua.context.LogicContext"
 
-
+;
 	  
 	  
 
@@ -9200,13 +9384,13 @@ function BaseStack:ctor(
 	self._runtime=vRuntime
 	self._manager=nManager
 	self._node=vNode
-	self._letspace=false
+	self._letspace=false;
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
 	self._lexCapture = vUpState
 	local nTempBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
-	self._branchStack={nTempBranch}
-	self._bodyFn=nil
+	self._branchStack={nTempBranch};
+	self._bodyFn=nil;
 	self._retList={}  
 end
 
@@ -9335,7 +9519,7 @@ function BaseStack:newAssignContext(vNode)
 	return AssignContext.new(vNode, self, self._manager)
 end
 
-function BaseStack:getSealStack()
+function BaseStack:getSealStack();
 	error("getSealStack not implement in BaseStack")
 end
 
@@ -9419,7 +9603,7 @@ local RefineTerm = require "thlua.term.RefineTerm"
 
 local Branch = {}
 
-
+;
 	  
 	  
 
@@ -9430,8 +9614,8 @@ Branch.__tostring = function(self)
 end
 
 function Branch.new(vStack, vVariableCase, vPreBranch, vNode)
-	   
-	   
+	;   
+	;   
 	local self = setmetatable({
 		_stack=vStack,
 		_node=vNode or false,
@@ -9498,7 +9682,7 @@ function Branch:SYMBOL_GET(vNode, vDefineNode, vAllowAuto)
 	end
 end
 
-function Branch:setSymbolByNode(vNode, vSymbol)
+function Branch:setSymbolByNode(vNode, vSymbol);
 	self._nodeToSymbol[vNode] = vSymbol
 	return vSymbol
 end
@@ -9632,7 +9816,7 @@ local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-
+;
 	
 	  
 	  
@@ -9641,7 +9825,7 @@ local class = require "thlua.class"
 local CompletionRuntime = class (BaseRuntime)
 
 function CompletionRuntime:ctor(...)
-	self._focusNodeSet = {}   
+	self._focusNodeSet = {} ;  
 	self._nodeToAutoFnList = ListDict ()
 	self._nodeToBranchList = ListDict ()
 	self._nodeToApplyContextList = ListDict ()
@@ -9797,23 +9981,16 @@ function CompletionRuntime:hoverNode(vFileUri, vDirtySplitCode, vLspPos)
 	local nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nHoverNode)
 	if not nInjectFn then
 		return false, "gen inject fn fail"
-	else
-		local t = nSuccSplitCode:getContent():sub(nHoverNode.pos, nHoverNode.posEnd - 1)
-		local l = {t}
-		   
-		  
-			     
-				  
-			
-		
-		  
-		return table.concat(l, "\n")
 	end
-	   
-	   
-		    
-	
-	  
+	local nStrList = {}
+	self:_injectForeach(nInjectTrace.pos, nBlockNode, nInjectFn, function(vResult)
+		if RefineTerm.is(vResult) then
+			nStrList[#nStrList + 1] = tostring(vResult:getType())
+		else
+			nStrList[#nStrList + 1] = tostring(vResult)
+		end
+	end)
+	return table.concat(nStrList, ",")
 end
 
 function CompletionRuntime:gotoNodeByParams(vIsLookup, vFileUri, vDirtySplitCode, vLspPos)  
@@ -9931,7 +10108,7 @@ local CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 local ListDict = require "thlua.manager.ListDict"
 local class = require "thlua.class"
 
-
+;
 	
 	
 
@@ -10035,7 +10212,7 @@ local OperContext = require "thlua.context.OperContext"
 local ApplyContext = require "thlua.context.ApplyContext"
 local LogicContext = require "thlua.context.LogicContext"
 
-
+;
 	  
 	  
 
@@ -10047,7 +10224,7 @@ function InstStack:AUTO(vNode)
 	return AutoFlag
 end
 
-function InstStack:BEGIN(vLexStack, vBlockNode) 
+function InstStack:BEGIN(vLexStack, vBlockNode); 
 	assert(not self._letspace, "context can only begin once")
 	local nUpState = self._lexCapture
 	local nRootBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, vBlockNode)
@@ -10372,7 +10549,7 @@ function InstStack:FUNC_NEW(vNode ,
 	return self:_nodeTerm(vNode, nFnType)
 end
 
-  
+;  
 function InstStack:TABLE_NEW(vNode, vHintInfo, vPairMaker)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	local nTableType = nBuilder:build()
@@ -10750,7 +10927,7 @@ function InstStack:RETURN(vNode, vTermTuple)
 	error("implement RETURN in OpenStack or SealStack")
 end
 
-function InstStack:END(vNode) 
+function InstStack:END(vNode); 
 	error("implement END in OpenStack or SealStack")
 	return self._fastOper:FixedTermTuple({}), self._manager.type.String
 end
@@ -10794,7 +10971,7 @@ local TermTuple = require "thlua.tuple.TermTuple"
 local class = require "thlua.class"
 local InstStack = require "thlua.runtime.InstStack"
 
-
+;
 	  
 
 
@@ -10834,7 +11011,7 @@ function OpenStack:mergeEndErrType()
 	return self._manager:unifyAndBuild(self._errTypeSet)
 end
 
-function OpenStack:END(vNode) 
+function OpenStack:END(vNode); 
 	self:getLetSpace():close()
 	local nRetList = self._retList
 	local nLen = #nRetList
@@ -10885,7 +11062,7 @@ local ClassFactory = require "thlua.type.func.ClassFactory"
 local SealFunction = require "thlua.type.func.SealFunction"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 
-
+;
 	  
 	  
 
@@ -10898,8 +11075,8 @@ function SealStack:ctor(
 	vUpState,
 	vBodyFn 
 )
-	self._classFnSet={}   
-	self._autoFnSet={}   
+	self._classFnSet={} ;  
+	self._autoFnSet={} ;  
 	self._bodyFn = vBodyFn
 	self._classTable=false
 end
@@ -10969,7 +11146,7 @@ function SealStack:RETURN(vNode, vTermTuple)
 	self:topBranch():setStop()
 end
 
-function SealStack:END(vNode) 
+function SealStack:END(vNode); 
 	self:getLetSpace():close()
 	local nBodyFn = self._bodyFn
 	local nRetList = self._retList
@@ -11073,7 +11250,7 @@ local BaseServer = require "thlua.server.BaseServer"
 local class = require "thlua.class"
 local platform = require "thlua.platform"
 
-
+;
 	
 	
 
@@ -11294,7 +11471,7 @@ function ApiServer:getMethodHandler()
 	return self._methodHandler
 end
 
-function ApiServer:getInitializeResult()
+function ApiServer:getInitializeResult();
 	error("getInitializeResult not implement in ApiServer")
 end
 
@@ -11374,7 +11551,7 @@ local FileState = require "thlua.server.FileState"
 local class = require "thlua.class"
 local platform = require "thlua.platform"
 
-
+;
 	
 	
 	
@@ -11383,14 +11560,14 @@ local platform = require "thlua.platform"
 local BaseServer = class ()
 
 function BaseServer:ctor(vGlobalPath)
-	self.initialize=false
-	self.shutdown=false
-	self._rootPath=""
-	self._fileStateDict={} 
+	self.initialize=false;
+	self.shutdown=false;
+	self._rootPath="";
+	self._fileStateDict={}; 
 	self._globalPath = vGlobalPath or lpath.cwd().."/global"
 end
 
-function BaseServer:getMethodHandler()
+function BaseServer:getMethodHandler();
 	error("get method handler is not implement in BaseServer")
 end
 
@@ -11540,7 +11717,7 @@ function BaseServer:readRequest()
 	return req
 end
 
-function BaseServer:writeError(vId  , vCode, vMsg, vData)
+function BaseServer:writeError(vId  , vCode, vMsg, vData);
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -11552,7 +11729,7 @@ function BaseServer:writeError(vId  , vCode, vMsg, vData)
 	})
 end
 
-function BaseServer:writeResult(vId  , vResult)
+function BaseServer:writeResult(vId  , vResult);
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -11560,7 +11737,7 @@ function BaseServer:writeResult(vId  , vResult)
 	})
 end
 
-function BaseServer:notify(vMethod, vParams)
+function BaseServer:notify(vMethod, vParams);
 	self:_write({
 		jsonrpc = "2.0",
 		method = vMethod,
@@ -11646,14 +11823,14 @@ packages['thlua.server.BothServer'] = function (...)
 local SlowServer = require "thlua.server.SlowServer"
 local class = require "thlua.class"
 
-
+;
 	
 	
 	
 
 local BothServer = class (SlowServer)
 
-function BothServer:getInitializeResult()
+function BothServer:getInitializeResult();
 	self:info("slow & fast both server")
 	return {
 		capabilities = {
@@ -11693,7 +11870,7 @@ local ApiServer = require "thlua.server.ApiServer"
 local class = require "thlua.class"
 local platform = require "thlua.platform"
 
-
+;
 	
 	
 	
@@ -11705,7 +11882,7 @@ function FastServer:ctor(...)
 	self._runtime=nil
 end
 
-function FastServer:getInitializeResult()
+function FastServer:getInitializeResult();
 	self:info("fast server")
 	return {
 		capabilities = {
@@ -11995,7 +12172,7 @@ local SplitCode = require "thlua.code.SplitCode"
 local class = require "thlua.class"
 local platform = require "thlua.platform"
 
-
+;
 	
 	
 	
@@ -12008,12 +12185,12 @@ local CHANGE_NONBLANK = 2
 
 function FileState:ctor(vServer, vFileName)
 	self._lspServer = vServer
-	self._rightEnv = false
+	self._rightEnv = false;
 	self._fileName = vFileName
 	self._splitCode = SplitCode.new("")
-	self._errOrEnv = nil 
-	self._version = (-1) 
-	self._changeState = false  
+	self._errOrEnv = nil; 
+	self._version = (-1) ;
+	self._changeState = false ; 
 	self._checkFlag = false  
 end
 
@@ -12124,7 +12301,7 @@ function FileState:syncFile()
 	end
 end
 
-function FileState:syncContent(vContent, vVersion)
+function FileState:syncContent(vContent, vVersion);
 	self._version = vVersion
 	self._splitCode = SplitCode.new(vContent)
 	self._changeState = false
@@ -12162,7 +12339,7 @@ function FileState:getLatestEnv()
 	end
 end
 
-function FileState:checkLatestEnv()
+function FileState:checkLatestEnv();
 	self._checkFlag = true
 	local nLatest = self._errOrEnv
 	if CodeEnv.is(nLatest) then
@@ -12198,7 +12375,7 @@ local SplitCode = require "thlua.code.SplitCode"
 local CodeEnv = require "thlua.code.CodeEnv"
 local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
 
-
+;
       
        
          
@@ -12218,7 +12395,7 @@ local PlayGround = class ()
 
 function PlayGround:ctor()
     self._splitCode = SplitCode.new("")
-    self._codeEnv = nil
+    self._codeEnv = nil;
     self._globalToEnv = {}   
 end
 
@@ -12248,7 +12425,7 @@ function PlayGround:_update(vName, vInput)
                 path=nCodeEnv.node.path,
                 l=nCodeEnv.node.l,
                 c=nCodeEnv.node.c,
-            }  
+            } ; 
             nDia.msg = nCodeEnv.msg
         end
         return {
@@ -12321,7 +12498,7 @@ local class = require "thlua.class"
 local platform = require "thlua.platform"
 local SeverityEnum = require "thlua.runtime.SeverityEnum"
 
-
+;
 	
 	
 	
@@ -12333,7 +12510,7 @@ function SlowServer:checkDiagnosticRuntime()
 	return (assert(self._runtime) ) 
 end
 
-function SlowServer:getInitializeResult()
+function SlowServer:getInitializeResult();
 	self:info("slow server")
 	return {
 		capabilities = {
@@ -12608,7 +12785,7 @@ local ErrorCodes = {
 	lspReservedErrorRangeEnd = -32800;
 }
 
-
+;
 
 
 
@@ -12715,7 +12892,7 @@ local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local class = require "thlua.class"
 local Exception = require "thlua.Exception"
 
-  
+;  
 
 local AsyncTypeCom = class (BaseSpaceCom)
 
@@ -12736,10 +12913,10 @@ function AsyncTypeCom:ctor(_, _)
 	local nManager = self._manager
 	local nTask = nManager:getScheduleManager():newTask(self._node)
 	self._task=nTask
-	self._assignNode=false
-	self._mayRecursive=false
-	self._typeSet=false
-	self._resultType=false
+	self._assignNode=false;
+	self._mayRecursive=false;
+	self._typeSet=false;
+	self._resultType=false;
 	self._listBuildEvent=nTask:makeEvent()
 	self._resultBuildEvent=nTask:makeEvent()
 	self.id=nManager:genTypeId()
@@ -12963,21 +13140,22 @@ local BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 local Node = require "thlua.code.Node"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
 local BaseReferSpace = class (BaseSpaceCom)
-BaseReferSpace.__tostring=function(self)
-	return "namespace-" .. tostring(self._node)
+BaseReferSpace.__tostring=function(_);
+	error("not implement, namespace or letspace's tostring expected")
+	return ""
 end
 
 function BaseReferSpace:ctor(_, _, vRefer, ...)
-	self._key2child={}          
+	self._key2child={} ;         
 	self._refer = vRefer
 end
 
-function BaseReferSpace:referChild(vNode, vKey)
+function BaseReferSpace:referChild(vNode, vKey);
 	error("abstract namespace get child not implement")
 end
 
@@ -13001,7 +13179,7 @@ packages['thlua.space.BaseSpaceCom'] = function (...)
 local Node = require "thlua.code.Node"
 local class = require "thlua.class"
 
-  
+;  
 
 local BaseSpaceCom = class ()
 
@@ -13037,7 +13215,7 @@ local Node = require "thlua.code.Node"
 local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local class = require "thlua.class"
 
-  
+;  
 
 local BuiltinFnCom = class (BaseSpaceCom)
 BuiltinFnCom.__tostring=function(self)
@@ -13078,7 +13256,7 @@ local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local Node = require "thlua.code.Node"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -13141,7 +13319,7 @@ local SpaceValue = require "thlua.space.SpaceValue"
 local Exception = require "thlua.Exception"
 local StringLiteral = require "thlua.type.basic.StringLiteral"
 
-
+;
 	  
 
 
@@ -13151,8 +13329,8 @@ LetSpace.__tostring=function(self)
 end
 
 function LetSpace:ctor(_, _, _, vParentOrDict  )
-    self._parentSpace = false  
-	self._closed=false
+    self._parentSpace = false ; 
+	self._closed=false;
     self._envTable = SpaceValue.envCreate(self, self._refer  , self._manager.spaceG)
 	if LetSpace.is(vParentOrDict) then
         self._parentSpace = vParentOrDict
@@ -13247,7 +13425,7 @@ local SpaceValue = require "thlua.space.SpaceValue"
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -13277,7 +13455,7 @@ function NameReference.new(vManager, vParentNodeOrSpace , vKey)
 	return self
 end
 
-function NameReference:initWithSpace(vNode, vParent)     
+function NameReference:initWithSpace(vNode, vParent);     
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
 	if not vParent or NameSpace.is(vParent) then
@@ -13422,13 +13600,13 @@ local BaseReferSpace = require "thlua.space.BaseReferSpace"
 local Node = require "thlua.code.Node"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
 local NameSpace = class (BaseReferSpace)
 NameSpace.__tostring=function(self)
-	return "treespace-" .. tostring(self._node)
+	return "namespace-" .. tostring(self._node)
 end
 
 function NameSpace:ctor(_, _, _, vParent)
@@ -13465,7 +13643,7 @@ local Exception = require "thlua.Exception"
 local Node = require "thlua.code.Node"
 local type = type
 
-
+;
 	  
 	   
 
@@ -13479,7 +13657,7 @@ local function __createBaseTable(vRefer)
 		__tostring=function(_)
 			return "abstract class"
 		end,
-		__what=false ,
+		__what=false,
 		__refer=vRefer,
 	})
 end
@@ -13509,7 +13687,7 @@ function SpaceValue.create(vRefer)
 			end
 		end,
 		__tostring=function(_)
-			return tostring("TODO").."->SpaceValue"
+			return "`"..tostring(vRefer)
 		end,
 		__call=function(_, ...)
 			local nNode = Node.newDebugNode()
@@ -13543,7 +13721,7 @@ function SpaceValue.envCreate(vLetSpace, vRefer, vG)
 			error(nNode:toExc("global can't assign "))
 		end,
 		__tostring=function(_)
-			return tostring(vRefer).."-_ENV"
+			return "`_ENV:"..tostring(vLetSpace)
 		end,
 		__call=function(_, ...)
 			local nNode = Node.newDebugNode()
@@ -13578,7 +13756,7 @@ local Exception = require "thlua.Exception"
 local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local BaseReadyType = require "thlua.type.basic.BaseReadyType"
 
-  
+;  
 
 local TemplateCom = class (BaseSpaceCom)
 
@@ -13636,7 +13814,7 @@ ImmutVariable.__tostring=function(self)
 	return "const-"..tostring(next(self._symbolSet) or self._node)
 end
 
-  
+;  
 
 function ImmutVariable.new(vTerm)
 	return setmetatable({
@@ -13698,7 +13876,7 @@ packages['thlua.term.LocalSymbol'] = function (...)
 local RefineTerm = require "thlua.term.RefineTerm"
 local ImmutVariable = require "thlua.term.ImmutVariable"
 
-  
+;  
 
 local LocalSymbol = {}
 LocalSymbol.__index=LocalSymbol
@@ -13752,7 +13930,7 @@ local ImmutVariable = require "thlua.term.ImmutVariable"
 local VariableCase = require "thlua.term.VariableCase"
 local Nil = require "thlua.type.basic.Nil"
 
-  
+;  
 
 local RefineTerm = {}
 RefineTerm.__index=RefineTerm
@@ -13939,7 +14117,7 @@ packages['thlua.term.VariableCase'] = function (...)
 
 local VariableCase = {}
 
-  
+;  
 
 VariableCase.__index = VariableCase
 VariableCase.__bor=function(vLeftVariableCase, vRightVariableCase)
@@ -14026,7 +14204,7 @@ packages['thlua.tuple.BaseTypeTuple'] = function (...)
 local TermTuple = require "thlua.tuple.TermTuple"
 local class = require "thlua.class"
 
-
+;
 	  
 	   
 
@@ -14126,7 +14304,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.tuple.DotsTail'] = function (...)
 
-  
+;  
 
 local DotsTail = {}
 DotsTail.__index=DotsTail
@@ -14175,14 +14353,14 @@ local RetTuples = require "thlua.tuple.RetTuples"
 local TupleBuilder = require "thlua.tuple.TupleBuilder"
 local class = require "thlua.class"
 
-  
+;  
 
 local RetBuilder = class ()
 
 function RetBuilder:ctor(vManager, vNode)
 	self._manager = vManager
-	self._tupleBuilderList = {}  
-	self._errType = nil  
+	self._tupleBuilderList = {} ; 
+	self._errType = nil ; 
 	self._node=vNode
 end
 
@@ -14233,7 +14411,7 @@ packages['thlua.tuple.RetTuples'] = function (...)
 
 local class = require "thlua.class"
 
-  
+;  
 
 local RetTuples = class ()
 
@@ -14252,7 +14430,7 @@ function RetTuples:ctor(
 	self._node=vNode
 	self._manager=vManager
 	self._firstType=nAsyncFirstType
-	self._firstToTuple=nil 
+	self._firstToTuple=nil; 
 	self._errType = vErrType and self._manager:buildUnion(vNode, self._manager.type.String, vErrType) or self._manager.type.String
 	nAsyncFirstType:setSetAsync(vNode, function()
 		local nIndependentList = {}
@@ -14277,7 +14455,7 @@ function RetTuples:ctor(
 	end)
 end
 
-function RetTuples:waitFirstToTuple() 
+function RetTuples:waitFirstToTuple(); 
 	self._firstType:getSetAwait()
 	return self._firstToTuple
 end
@@ -14347,7 +14525,7 @@ local AutoHolder = require "thlua.auto.AutoHolder"
 local DotsTail = require "thlua.tuple.DotsTail"
 local AutoTail = require "thlua.auto.AutoTail"
 
-
+;
 	  
 	  
 	  
@@ -14526,7 +14704,7 @@ packages['thlua.tuple.TupleBuilder'] = function (...)
 
 local class = require "thlua.class"
 
-
+;
       
       
         
@@ -14539,7 +14717,7 @@ local TupleBuilder = class ()
 function TupleBuilder:ctor(vManager, vNode, ...)
 	self._manager = vManager
 	self._node = vNode
-    self._list = (table.pack(...) ) 
+    self._list = (table.pack(...) ); 
     self._dots = nil  
 end
 
@@ -14607,7 +14785,7 @@ local TypeTupleDots = require "thlua.tuple.TypeTupleDots"
 local Nil = require "thlua.type.basic.Nil"
 local class = require "thlua.class"
 
-  
+;  
 
 local TypeTuple = class (BaseTypeTuple)
 
@@ -14648,7 +14826,7 @@ packages['thlua.tuple.TypeTupleDots'] = function (...)
 local BaseTypeTuple = require "thlua.tuple.BaseTypeTuple"
 local class = require "thlua.class"
 
-  
+;  
 
 local TypeTupleDots = class (BaseTypeTuple)
 
@@ -14690,7 +14868,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.type.OPER_ENUM'] = function (...)
 
-    
+;    
 
 local comparison = {
 	[">"]="__lt",
@@ -14776,7 +14954,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.type.TypeClass'] = function (...)
 
-
+;
 
   
 
@@ -14907,13 +15085,13 @@ local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local class = require "thlua.class"
 local BaseReadyType = require "thlua.type.basic.BaseReadyType"
 
-  
+;  
 
 local BaseAtomType = class (BaseReadyType)
 
 function BaseAtomType:ctor(vManager, ...)
 	self.id = vManager:genTypeId()
-	self.bits = false  
+	self.bits = false ; 
 	self._typeSet = self._manager:atomUnifyToSet(self)
 end
 
@@ -15096,14 +15274,14 @@ local OPER_ENUM = require "thlua.type.OPER_ENUM"
 
 local class = require "thlua.class"
 
-  
+;  
 
 local BaseReadyType = class ()
 
 function BaseReadyType:ctor(vManager, ...)
 	self._manager = vManager
-	self._withnilType = false  
-	self.id = 0  
+	self._withnilType = false ; 
+	self.id = 0 ; 
 	self._typeSet = false  
 end
 
@@ -15283,7 +15461,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local BooleanLiteral = class (BaseAtomType)
 
@@ -15343,7 +15521,7 @@ local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
 
-
+;
       
        
         
@@ -15355,10 +15533,10 @@ local Enum = class (BaseAtomType)
 
 function Enum:ctor(vManager, vNode, vSuperType)
     self._superType = vSuperType
-    self._set = {}   
-    self._closed = false  
-    self._toAddList = {}  
-    self._addEvent = false  
+    self._set = {} ;  
+    self._closed = false ; 
+    self._toAddList = {} ; 
+    self._addEvent = false ; 
 	self.bits = vSuperType.bits
     local nTask = vManager:getScheduleManager():newTask(vNode)
     self._task = nTask
@@ -15445,7 +15623,7 @@ local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
 
-  
+;  
 
 local FloatLiteral = class (BaseAtomType)
 
@@ -15495,7 +15673,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local Integer = class (BaseAtomType)
 
@@ -15548,7 +15726,7 @@ local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
 
-  
+;  
 
 local IntegerLiteral = class (BaseAtomType)
 
@@ -15596,7 +15774,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local LightUserdata = class (BaseAtomType)
 
@@ -15634,7 +15812,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local Nil = class (BaseAtomType)
 
@@ -15691,7 +15869,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local Number = class (BaseAtomType)
 
@@ -15751,7 +15929,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local String = class (BaseAtomType)
 
@@ -15812,7 +15990,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local StringLiteral = class (BaseAtomType)
 
@@ -15858,7 +16036,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local Thread = class (BaseAtomType)
 
@@ -15896,7 +16074,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local Truth = class (BaseAtomType)
 
@@ -15982,7 +16160,7 @@ local PolyFunction = require "thlua.type.func.PolyFunction"
 local BaseFunction = require "thlua.type.func.BaseFunction"
 local class = require "thlua.class"
 
-  
+;  
 
 local AnyFunction = class (BaseFunction)
 
@@ -16021,7 +16199,7 @@ local Exception = require "thlua.Exception"
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -16031,7 +16209,7 @@ AutoFunction.__tostring=function(self)
 end
 
 function AutoFunction:ctor(...)
-	self._castTypeFn=false
+	self._castTypeFn=false;
 	self._firstCallCtx = false 
 end
 
@@ -16088,7 +16266,7 @@ local AutoFunction = require "thlua.type.func.AutoFunction"
 local MemberFunction = require "thlua.type.func.MemberFunction"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -16150,7 +16328,7 @@ local Exception = require "thlua.Exception"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-  
+;  
 
 local BaseFunction = class (BaseAtomType)
 
@@ -16199,7 +16377,7 @@ local Exception = require "thlua.Exception"
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -16252,7 +16430,7 @@ local AutoFunction = require "thlua.type.func.AutoFunction"
 local BaseFunction = require "thlua.type.func.BaseFunction"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -16281,18 +16459,18 @@ local SealTable = require "thlua.type.object.SealTable"
 local BaseFunction = require "thlua.type.func.BaseFunction"
 local class = require "thlua.class"
 
-  
+;  
 
 local OpenFunction = class (BaseFunction)
 
 function OpenFunction:ctor(vManager, vNode, vUpState )
-	self._func=nil
-	self._polyWrapper=false
+	self._func=nil;
+	self._polyWrapper=false;
 	self._lexCapture = vUpState or false
 	self._useNodeSet = {}
 end
 
-function OpenFunction:lateInitFromAutoNative(vNativeFunc)
+function OpenFunction:lateInitFromAutoNative(vNativeFunc);
 	self._func = vNativeFunc
 	return self
 end
@@ -16468,7 +16646,7 @@ local TypedFunction = require "thlua.type.func.TypedFunction"
 local BaseFunction = require "thlua.type.func.BaseFunction"
 local class = require "thlua.class"
 
-  
+;  
 
 local PolyFunction = class (BaseFunction)
 
@@ -16485,11 +16663,11 @@ function PolyFunction:getPolyParNum()
 	return self._polyParNum
 end
 
-function PolyFunction:makeFn(vTemplateSign, vTypeList) 
+function PolyFunction:makeFn(vTemplateSign, vTypeList); 
 	error("not implement")
 end
 
-function PolyFunction:noCtxCastPoly(vNode, vTypeList) 
+function PolyFunction:noCtxCastPoly(vNode, vTypeList); 
 	assert(#vTypeList == self._polyParNum, vNode:toExc("PolyFunction type args num not match"))
 	local nAtomUnionList = {}
 	for i=1, #vTypeList do
@@ -16537,7 +16715,7 @@ local BaseFunction = require "thlua.type.func.BaseFunction"
 local ScheduleEvent = require "thlua.manager.ScheduleEvent"
 local class = require "thlua.class"
 
-
+;
 	  
 	  
 	  
@@ -16564,9 +16742,9 @@ function SealFunction:ctor(
 	self._preBuildEvent=nTask:makeEvent()
 	self._lateStartEvent=nScheduleManager:makeWildEvent()
 	self._lateBuildEvent=nTask:makeEvent()
-	self._typeFn=false
-	self._retTuples=false
-	self._builderFn=false
+	self._typeFn=false;
+	self._retTuples=false;
+	self._builderFn=false;
 	self._autoTableSet={} 
 end
 
@@ -16661,12 +16839,12 @@ local class = require "thlua.class"
 local PolyFunction = require "thlua.type.func.PolyFunction"
 local SealFunction = require "thlua.type.func.SealFunction"
 
-  
+;  
 
 local SealPolyFunction = class (PolyFunction)
 
 function SealPolyFunction:ctor(_,_,_,_, vLexStack)
-	self._fnDict = {}   
+	self._fnDict = {} ;  
 	self._lexStack = vLexStack
 	self._useNodeSet = {}
 end
@@ -16706,15 +16884,15 @@ local Node = require "thlua.code.Node"
 local BaseFunction = require "thlua.type.func.BaseFunction"
 local class = require "thlua.class"
 
-  
+;  
 
 local TypedFunction = class (BaseFunction)
 
 function TypedFunction:ctor(vManager, vNode,
 	vParTuple, vRetTuples
 )
-	self._retBuilder=false 
-	self._parBuilder=false 
+	self._retBuilder=false ;
+	self._parBuilder=false ;
 	self._parTuple=vParTuple
 	self._retTuples=vRetTuples
 end
@@ -16897,7 +17075,7 @@ local TypedFunction = require "thlua.type.func.TypedFunction"
 local MemberFunction = require "thlua.type.func.MemberFunction"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -16923,22 +17101,22 @@ function TypedMemberFunction:detailString(vToStringCache , vVerbose)
 	return nResult
 end
 
-function TypedMemberFunction:Dots(vType)
+function TypedMemberFunction:Dots(vType);
 	self._headlessFn:chainDots(Node.newDebugNode(), vType)
 	return self
 end
 
-function TypedMemberFunction:RetDots(...)
+function TypedMemberFunction:RetDots(...);
 	self._headlessFn:attachRetBuilder():chainRetDots(Node.newDebugNode(), ...)
 	return self
 end
 
-function TypedMemberFunction:Ret(...)
+function TypedMemberFunction:Ret(...);
 	self._headlessFn:attachRetBuilder():chainRet(Node.newDebugNode(), ...)
 	return self
 end
 
-function TypedMemberFunction:Err(...)
+function TypedMemberFunction:Err(...);
 	self._headlessFn:attachRetBuilder():chainErr(Node.newDebugNode(), ...)
 	return self
 end
@@ -17005,7 +17183,7 @@ local class = require "thlua.class"
 local PolyFunction = require "thlua.type.func.PolyFunction"
 local TypedFunction = require "thlua.type.func.TypedFunction"
 
-  
+;  
 
 local TypedPolyFunction = class (PolyFunction)
 
@@ -17050,17 +17228,17 @@ local Nil = require "thlua.type.basic.Nil"
 local SealTable = require "thlua.type.object.SealTable"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
 local AutoTable = class (SealTable)
 
 function AutoTable:ctor(vManager, ...)
-	self._name = false 
-	self._firstAssign = false
-	self._castDict = {}   
-	self._locked = false
+	self._name = false ;
+	self._firstAssign = false;
+	self._castDict = {} ;  
+	self._locked = false;
 	self._keyType = false  
 end
 
@@ -17174,7 +17352,7 @@ local TypedFunction = require "thlua.type.func.TypedFunction"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -17182,7 +17360,7 @@ local BaseObject = class (BaseAtomType)
 
 function BaseObject:ctor(vManager, vNode, ...)
 	self.bits=TYPE_BITS.OBJECT
-	self._metaEventCom=false
+	self._metaEventCom=false;
 	self._node=vNode
 end
 
@@ -17212,7 +17390,7 @@ function BaseObject:native_type()
 	return self._manager:Literal("table")
 end
 
-function BaseObject:getValueDict() 
+function BaseObject:getValueDict(); 
 	error("not implement")
 end
 
@@ -17242,7 +17420,7 @@ local Nil = require "thlua.type.basic.Nil"
 local SealTable = require "thlua.type.object.SealTable"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -17258,8 +17436,8 @@ function ClassTable:ctor(
 	local nTask = self._manager:getScheduleManager():newTask(vNode)
 	self._task = nTask
 	self._initEvent = nTask:makeEvent()
-	self._baseClass = false
-	self._interface = nil
+	self._baseClass = false;
+	self._interface = nil;
 	self._buildFinish = false
 end
 
@@ -17365,7 +17543,7 @@ packages['thlua.type.object.Interface'] = function (...)
 local TypedObject = require "thlua.type.object.TypedObject"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -17522,7 +17700,7 @@ local AutoFunction = require "thlua.type.func.AutoFunction"
 local AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
 local class = require "thlua.class"
 
-
+;
 	  
 	   
 		
@@ -17730,7 +17908,7 @@ packages['thlua.type.object.ObjectField'] = function (...)
 
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -17781,7 +17959,7 @@ packages['thlua.type.object.OpenField'] = function (...)
 local class = require "thlua.class"
 local ObjectField = require "thlua.type.object.ObjectField"
 
-
+;
 	  
 
 
@@ -17834,21 +18012,21 @@ local Nil = require "thlua.type.basic.Nil"
 local BaseObject = require "thlua.type.object.BaseObject"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
 local OpenTable = class (BaseObject)
 
 function OpenTable:ctor(vManager, vNode, vLexStack)
-	self._keyType=vManager.type.Never 
+	self._keyType=vManager.type.Never ;
 	self._lexStack = vLexStack
-	self._fieldDict={} 
-	self._metaIndex=false 
-	self._metaNewIndex=false 
-	self._nextValue=false 
-	self._nextDict=false  
-	self._metaTable=false 
+	self._fieldDict={}; 
+	self._metaIndex=false; 
+	self._metaNewIndex=false; 
+	self._nextValue=false; 
+	self._nextDict=false;  
+	self._metaTable=false; 
 	self._locked=false
 end
 
@@ -18179,7 +18357,7 @@ local BaseObject = require "thlua.type.object.BaseObject"
 local ObjectField = require "thlua.type.object.ObjectField"
 local class = require "thlua.class"
 
-
+;
 	  
 	   
 		  
@@ -18191,11 +18369,11 @@ local SealTable = class (BaseObject)
 
 function SealTable:ctor(vManager, vNode, vLexStack, ...)
 	self._lexStack = vLexStack
-	self._fieldDict={} 
-	self._nextValue=false 
-	self._nextDict=false  
-	self._metaTable=false 
-	self._metaIndex=false
+	self._fieldDict={}; 
+	self._nextValue=false; 
+	self._nextDict=false;  
+	self._metaTable=false; 
+	self._metaIndex=false;
 	self._callType=false
 end
 
@@ -18355,7 +18533,7 @@ function SealTable:native_rawset(vContext, vKeyType, vValueTerm)
 	end
 end
 
-function SealTable:native_rawget(vContext, vKeyType)
+function SealTable:native_rawget(vContext, vKeyType);
 	self:ctxWait(vContext)
 	local nField = self._fieldDict[vKeyType]
 	if nField then
@@ -18502,7 +18680,7 @@ function SealTable:putCompletion(vCompletion)
 	end
 end
 
-function SealTable:isLocked()
+function SealTable:isLocked();
 	error("isLocked not implement")
 	return false
 end
@@ -18520,7 +18698,7 @@ local MemberFunction = require "thlua.type.func.MemberFunction"
 local TypedObject = require "thlua.type.object.TypedObject"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -18637,7 +18815,7 @@ local ObjectField = require "thlua.type.object.ObjectField"
 local BaseObject = require "thlua.type.object.BaseObject"
 local class = require "thlua.class"
 
-
+;
 	  
 
 
@@ -18645,11 +18823,11 @@ local TypedObject = class (BaseObject)
 
 function TypedObject:ctor(vManager, vNode)
 	self._keyRefer=vManager:AsyncTypeCom(vNode)
-	self._valueDict=false 
-	self._fieldDict={} 
-	self._nextKey=false
-	self._nextValue=false
-	self._nextDict={} 
+	self._valueDict=false; 
+	self._fieldDict={}; 
+	self._nextKey=false;
+	self._nextValue=false;
+	self._nextDict={}; 
 	self._intersectSet={} 
 end
 
@@ -18692,7 +18870,7 @@ function TypedObject:_everyWith(vRightObject, vFunc )
 	return true
 end
 
-function TypedObject:assumeIncludeObject(vAssumeSet , vRightObject)
+function TypedObject:assumeIncludeObject(vAssumeSet , vRightObject);
 	error("assume include Object not implement")
 	return false
 end
@@ -18843,7 +19021,7 @@ function TypedObject:detailString(vToStringCache, vVerbose)
 	return "TypedObject..."
 end
 
-function TypedObject:getValueDict() 
+function TypedObject:getValueDict(); 
 	self._keyRefer:getSetAwait()
 	return (assert(self._valueDict, "member list is not setted after waiting"))
 end
@@ -18860,7 +19038,7 @@ function TypedObject:copyValueDict(vSelfObject )
 	return nValueDict
 end
 
-function TypedObject:getMetaEventCom()
+function TypedObject:getMetaEventCom();
 	self._keyRefer:getSetAwait()
 	return self._metaEventCom
 end
@@ -18915,7 +19093,7 @@ packages['thlua.type.union.BaseUnionType'] = function (...)
 local class = require "thlua.class"
 local BaseReadyType = require "thlua.type.basic.BaseReadyType"
 
-  
+;  
 
 local BaseUnionType = class (BaseReadyType)
 
@@ -18981,7 +19159,7 @@ local Truth = require "thlua.type.basic.Truth"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local ComplexUnion = class (BaseUnionType)
 
@@ -19057,7 +19235,7 @@ local Truth = require "thlua.type.basic.Truth"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local FalsableUnion = class (BaseUnionType)
 
@@ -19066,7 +19244,7 @@ function FalsableUnion:ctor(vTypeManager, vTruableType, vFalsableBits)
 	local nFalse = vTypeManager.type.False
 	self.bits=vTruableType.bits | vFalsableBits
 	self._trueType=vTruableType
-	self._notnilType=nil  
+	self._notnilType=nil ; 
 	self._nil=vFalsableBits & TYPE_BITS.NIL > 0 and nNil or false
 	self._false=vFalsableBits & TYPE_BITS.FALSE > 0 and nFalse or false
 	self._falseType=false 
@@ -19193,17 +19371,17 @@ local BaseFunction = require "thlua.type.func.BaseFunction"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local FuncUnion = class (BaseUnionType)
 
 function FuncUnion:ctor(vManager)
-	self._typeFnDict={}  
-	self._typeMfnDict={}  
-	self._notTypeFnDict={}  
-	self._openFnDict={}  
-	self._anyFn=false
-	self._typedPart=false
+	self._typeFnDict={} ; 
+	self._typeMfnDict={} ; 
+	self._notTypeFnDict={} ; 
+	self._openFnDict={} ; 
+	self._anyFn=false;
+	self._typedPart=false;
 	self.bits=TYPE_BITS.FUNCTION
 end
 
@@ -19235,7 +19413,7 @@ function FuncUnion:putAwait(vType)
 		self._openFnDict[vType] = true
 	elseif AnyFunction.is(vType) then
 		self._anyFn = vType
-		do
+		do;
 			self._notTypeFnDict = {}
 			self._typeFnDict = {}
 		end
@@ -19371,12 +19549,12 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local IntegerLiteralUnion = class (BaseUnionType)
 
 function IntegerLiteralUnion:ctor(vTypeManager)
-	self._literalSet={}  
+	self._literalSet={} ; 
 	self.bits=TYPE_BITS.NUMBER
 end
 
@@ -19434,13 +19612,13 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local MixingNumberUnion = class (BaseUnionType)
 
 function MixingNumberUnion:ctor(vTypeManager)
-	self._floatLiteralSet={}  
-	self._integerPart=false  
+	self._floatLiteralSet={} ; 
+	self._integerPart=false;  
 	self.bits=TYPE_BITS.NUMBER
 end
 
@@ -19516,7 +19694,7 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local Never = class (BaseUnionType)
 
@@ -19562,15 +19740,15 @@ local Truth = require "thlua.type.basic.Truth"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local ObjectUnion = class (BaseUnionType)
 
 function ObjectUnion:ctor(vManager)
-	self._typedObjectDict={}  
-	self._sealTableDict={}  
-	self._openTableDict={}  
-	self._typedPart=false
+	self._typedObjectDict={} ; 
+	self._sealTableDict={} ; 
+	self._openTableDict={} ; 
+	self._typedPart=false;
 	self.bits=TYPE_BITS.OBJECT
 end
 
@@ -19718,12 +19896,12 @@ local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local class = require "thlua.class"
 
-  
+;  
 
 local StringLiteralUnion = class (BaseUnionType)
 
 function StringLiteralUnion:ctor(vTypeManager)
-	self._literalSet={}     
+	self._literalSet={} ;    
 	self.bits=TYPE_BITS.STRING
 end
 

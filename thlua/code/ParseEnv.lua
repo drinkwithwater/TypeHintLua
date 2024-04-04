@@ -499,7 +499,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 			return tableExpr
 		end
-		local xmlPrefix = replaceMark(symb "<", BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
+		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
 		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
 			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
 			local listOrXmlList = {...}
