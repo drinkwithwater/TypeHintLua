@@ -429,7 +429,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
 		local FieldList = (Field * (fieldsep * Field)^0 * fieldsep^-1)^-1
-		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
+		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * lpeg.Cg(Cpos, "closePos") * symbA("}"))
 	end)();
 
 	IdentUse = Cpos*vv.Name*(vv.NotnilHint * cc(true) + cc(false))*Cpos/parF.identUse;
@@ -443,9 +443,12 @@ local G = lpeg.P { "TypeHintLua";
 
 	ExprList = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0);
 
-	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * symb(")") + vv.SimpleArgExpr);
+	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * lpeg.Cg(Cpos, "closeParenPos") * symb(")") + vv.SimpleArgExpr);
 
-	String = tagC.String(token(vv.LongString)*lpeg.Cg(cc(true), "isLong") + token(vv.ShortString));
+	String = tagC.String(
+		token(vv.LongString*lpeg.Cg(Cpos, "closePosEnd"))*lpeg.Cg(cc(true), "isLong") +
+		token(vv.ShortString*lpeg.Cg(Cpos, "closePosEnd"))
+	);
 
 	UnaryExpr = (function()
 		local UnOp = kw("not")/"not" + symb("-")/"-" + symb("~")/"~" + symb("#")/"#"
@@ -463,12 +466,16 @@ local G = lpeg.P { "TypeHintLua";
 		local BXorExpr = chainOp(BAndExpr, symb, "~")
 		local BOrExpr = chainOp(BXorExpr, symb, "|")
 		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
-		local AndExpr = chainOp(RelExpr + vv.XmlExpr, kw, "and")
+		local AndExpr = chainOp(RelExpr + Cenv*vv.XmlExpr/function(env, expr)
+			env.codeBuilder:xmlMarkEnd(expr.closeXmlPos, expr.posEnd, false)
+			return expr
+		end, kw, "and")
 		local OrExpr = chainOp(AndExpr, kw, "or")
 		return OrExpr
 	end)();
 
 	XmlExpr = (function()
+		local BUILTIN__THLUAX= "__thluax"
 		local function nameAppend(nameList, primaryNode)
 			if primaryNode.tag == "Index" then
 				nameAppend(nameList, primaryNode[1])
@@ -477,12 +484,6 @@ local G = lpeg.P { "TypeHintLua";
 				nameList[#nameList + 1] = primaryNode[1]
 			end
 			return nameList
-		end
-		local function closeMark(patt)
-			return Cenv * Cpos * patt * Cpos / function(env, startPos, value, nextStartPos)
-				env.codeBuilder:xmlMarkEndDel(startPos, nextStartPos)
-				return value
-			end
 		end
 		local function replaceMark(patt, after)
 			return Cenv * Cpos * patt / function(env, startPos)
@@ -498,23 +499,46 @@ local G = lpeg.P { "TypeHintLua";
 			end
 			return tableExpr
 		end
-		local xmlPrefix = replaceMark(symb "<", "__thluax(") * vv.HintAssetNot * vv.NameChain
-		local xmlChildren = Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(pos, ...)
-			local exprList = {tag="ExprList", pos=pos, posEnd=pos, false, false,}
-			return exprList
+		local xmlPrefix = replaceMark(symb "<", BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
+		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
+			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
+			local listOrXmlList = {...}
+			for i=1,#listOrXmlList do
+				local listOrXml = listOrXmlList[i]
+				if listOrXml.tag == "ExprList" then
+					for _, expr in ipairs(listOrXml) do
+						retExprList[#retExprList+1] = expr
+					end
+					if listOrXml.closeParenPos then
+						env.codeBuilder:xmlMarkReplace(listOrXml.pos, "")
+						env.codeBuilder:xmlMarkReplace(listOrXml.closeParenPos, i<#listOrXmlList and "," or "")
+					else
+						if i<#listOrXmlList then
+							local oneExpr = listOrXml[1]
+							while oneExpr.tag ~= "String" and oneExpr.tag ~= "Table" do
+								oneExpr = oneExpr[1]
+							end
+							if oneExpr.closePosEnd then
+								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePosEnd-1)
+							else
+								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePos)
+							end
+						end
+					end
+				else
+					retExprList[#retExprList+1] = listOrXml
+					env.codeBuilder:xmlMarkEnd(listOrXml.closeXmlPos, listOrXml.posEnd, i<#listOrXmlList)
+				end
+			end
+			return retExprList
 		end
 		return lpeg.Cmt(Cenv * xmlPrefix * (xmlAttrTable + cc(nil)) * Cpos * (
-			symb ">" * xmlChildren * closeMark(symbA "</" * vv.NameChain * symbA ">") +
-			closeMark(symb "/>" * cc(nil)) +
+			symb ">" * xmlChildren * Cpos* symbA "</" * vv.NameChain * symbA ">" +
+			cc(nil) * Cpos * symb "/>" * cc(nil) +
 			throw("xtag not close")
-		) * Cpos, function(_, _, env, prefix, attrTable, posMid, children, finish, posEnd)
-			local attrExpr = attrTable
-			if attrTable then
-				env.codeBuilder:xmlMarkReplace(posMid, "},")
-			else
-				env.codeBuilder:xmlMarkReplace(posMid, ",nil,")
-				attrExpr = {tag="Nil", pos=posMid, posEnd=posMid}
-			end
+		) * Cpos, function(_, _, env, prefix, attrTable, posMid, children, closePos, finish, posEnd)
+			-- 1. build children
+			local attrExpr = attrTable or {tag="Nil", pos=posMid, posEnd=posMid}
 			if children then
 				local openName = table.concat(nameAppend({}, prefix), ".")
 				local closeName = table.concat(nameAppend({}, finish), ".")
@@ -526,8 +550,14 @@ local G = lpeg.P { "TypeHintLua";
 			else
 				children = {tag="ExprList", pos=posMid, posEnd=posMid, prefix, attrExpr}
 			end
-			local caller = parF.identUse(prefix.pos, "__thluax", false, prefix.pos)
-			return true, {tag="Call", pos=prefix.pos, posEnd=posEnd, caller, children}
+			-- 2. mark attribute
+			if attrTable then
+				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and "}" or "},")
+			elseif not attrTable then
+				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and ",nil" or ",nil,")
+			end
+			local caller = parF.identUse(prefix.pos, BUILTIN__THLUAX, false, prefix.pos)
+			return true, {tag="Call", pos=prefix.pos, posEnd=posEnd, closeXmlPos=closePos, caller, children}
 		end)
 	end)();
 
@@ -823,6 +853,17 @@ do
 		end
 	end
 
+	function CodeBuilder:xmlMarkAppendComma(vEndPos)
+		self._posToChange[vEndPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vEndPos)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ","
+			-- 2. replace xml-end code with space and newline
+			return vEndPos + 1
+		end
+	end
+
 	function CodeBuilder:xmlMarkInsert(vStartPos, vAfterStr)
 		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			-- 1. save lua code
@@ -845,13 +886,15 @@ do
 		end
 	end
 
-	function CodeBuilder:xmlMarkEndDel(vStartPos, vNextStartPos)
+	function CodeBuilder:xmlMarkEnd(vStartPos, vNextStartPos, vAppendComma)
 		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			-- 1. save lua code
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
 			vContentList[#vContentList + 1] = ")"
-			if self._statPosSet[vNextStartPos] then
+			if vAppendComma then
+				vContentList[#vContentList + 1] = ","
+			elseif self._statPosSet[vNextStartPos] then
 				vContentList[#vContentList + 1] = ";"
 			end
 			-- 2. replace xml-end code with space and newline
