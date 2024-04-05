@@ -3047,6 +3047,12 @@ local function symb(str)
 		return token(lpeg.P("@")*-lpeg.S("!<>?"))
 	elseif str == "(" then
 		return token(lpeg.P("(")*-lpeg.P("@"))
+	elseif str == "<" then
+		return token(lpeg.P("<")*-lpeg.P("/<"))
+	elseif str == ">" then
+		return token(lpeg.P(">")*-lpeg.P(">"))
+	elseif str == "/" then
+		return token(lpeg.P("/")*-lpeg.P(">"))
 	else
 		return token(lpeg.P(str))
 	end
@@ -3065,6 +3071,9 @@ local function kwA(str)
 end
 
 local exprF = {
+	nameIndex=function(prefix, name)
+		return { tag = "Index", pos=prefix.pos, posEnd=name.posEnd, prefix, name}
+	end,
 	binOp=function(e1, op, e2)
 		if not op then
 			return e1
@@ -3088,7 +3097,7 @@ local exprF = {
 		else
 			local eTag = e.tag
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
-				env:markParenWrap(pos, hintShort.pos)
+				env.codeBuilder:markParenWrap(pos, hintShort.pos-1)
 			end
 			-- TODO, use other tag
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
@@ -3173,7 +3182,7 @@ local hintC={
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env:markDel(p1, p4-1)
+			env.codeBuilder:markDel(p1, p4, isStat)
 			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
@@ -3190,7 +3199,7 @@ local hintC={
 		return Cenv * Cpos * pattBody * Cpos / function(env, p1, ...)
 			local l = {...}
 			local posEnd = l[#l]
-			env:markDel(p1, posEnd-1)
+			env.codeBuilder:markDel(p1, posEnd)
 			l[#l] = nil
 			local middle = nil
 			local nAttrList = {}
@@ -3228,7 +3237,7 @@ local hintC={
 	take=function(patt)
 		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
 			if not env.hinting then
-				env:markDel(pos, posEnd-1)
+				env.codeBuilder:markDel(pos, posEnd)
 				return true
 			else
 				return false
@@ -3270,7 +3279,7 @@ local function suffixedExprByPrimary(primaryExpr)
 				end
 				-- if poly cast is after invoke or call, then add ()
 				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env:markParenWrap(pos, curExpr.posEnd)
+					env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
 				end
 			end
 			return true, expr
@@ -3372,7 +3381,7 @@ local G = lpeg.P { "TypeHintLua";
 		local l = {...}
 		local posEnd = l[#l]
 		l[#l] = nil
-		env:markDel(pos, posEnd - 1)
+		env.codeBuilder:markDel(pos, posEnd)
 		return l
 	end;
 
@@ -3399,7 +3408,7 @@ local G = lpeg.P { "TypeHintLua";
 		local Field = Pair + vv.Expr
 		local fieldsep = symb(",") + symb(";")
 		local FieldList = (Field * (fieldsep * Field)^0 * fieldsep^-1)^-1
-		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * symbA("}"))
+		return tagC.Table(symb("{") * lpeg.Cg(vv.LongHint, "hintLong")^-1 * FieldList * lpeg.Cg(Cpos, "closePos") * symbA("}"))
 	end)();
 
 	IdentUse = Cpos*vv.Name*(vv.NotnilHint * cc(true) + cc(false))*Cpos/parF.identUse;
@@ -3413,10 +3422,12 @@ local G = lpeg.P { "TypeHintLua";
 
 	ExprList = tagC.ExprList(vv.Expr * (symb(",") * vv.Expr)^0);
 
-	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * symb(")") +
-             vv.Constructor + vv.String);
+	FuncArgs = tagC.ExprList(symb("(") * (vv.Expr * (symb(",") * vv.Expr)^0)^-1 * lpeg.Cg(Cpos, "closeParenPos") * symb(")") + vv.SimpleArgExpr);
 
-	String = tagC.String(token(vv.LongString)*lpeg.Cg(cc(true), "isLong") + token(vv.ShortString));
+	String = tagC.String(
+		token(vv.LongString*lpeg.Cg(Cpos, "closePosEnd"))*lpeg.Cg(cc(true), "isLong") +
+		token(vv.ShortString*lpeg.Cg(Cpos, "closePosEnd"))
+	);
 
 	UnaryExpr = (function()
 		local UnOp = kw("not")/"not" + symb("-")/"-" + symb("~")/"~" + symb("#")/"#"
@@ -3426,7 +3437,7 @@ local G = lpeg.P { "TypeHintLua";
 	ConcatExpr = (function()
 		local MulExpr = chainOp(vv.UnaryExpr, symb, "*", "//", "/", "%")
 		local AddExpr = chainOp(MulExpr, symb, "+", "-")
-	  return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
+		return AddExpr * ((symb("..")/"..") * vv.ConcatExpr) ^-1 / exprF.binOp
 	end)();
 	Expr = (function()
 		local ShiftExpr = chainOp(vv.ConcatExpr, symb, "<<", ">>")
@@ -3434,23 +3445,109 @@ local G = lpeg.P { "TypeHintLua";
 		local BXorExpr = chainOp(BAndExpr, symb, "~")
 		local BOrExpr = chainOp(BXorExpr, symb, "|")
 		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
-		local AndExpr = chainOp(RelExpr, kw, "and")
+		local AndExpr = chainOp(RelExpr + Cenv*vv.XmlExpr/function(env, expr)
+			env.codeBuilder:xmlMarkEnd(expr.closeXmlPos, expr.posEnd, false)
+			return expr
+		end, kw, "and")
 		local OrExpr = chainOp(AndExpr, kw, "or")
 		return OrExpr
 	end)();
 
-	SimpleExpr = Cpos * (
-						-- (vv.ValueConstHint * cc(true) + cc(false)) * (
-						cc(false) * (
-							vv.String +
-							tagC.Number(token(vv.Number)) +
-							tagC.False(kw"false") +
-							tagC.True(kw"true") +
-							vv.Constructor
-						)/function(isConst, t)
-							t.isConst = isConst
-							return t
-						end +
+	XmlExpr = (function()
+		local BUILTIN__THLUAX= "__thluax"
+		local function nameAppend(nameList, primaryNode)
+			if primaryNode.tag == "Index" then
+				nameAppend(nameList, primaryNode[1])
+				nameList[#nameList + 1] = primaryNode[2][1]
+			else
+				nameList[#nameList + 1] = primaryNode[1]
+			end
+			return nameList
+		end
+		local function replaceMark(patt, after)
+			return Cenv * Cpos * patt / function(env, startPos)
+				env.codeBuilder:xmlMarkReplace(startPos, after)
+			end
+		end
+		local xmlAttr = tagC.Pair(tagC.String(vv.Name) * symb"=" * vv.SimpleExpr)
+		local xmlAttrTable = Cenv*Cpos*tagC.Table(xmlAttr^1) / function(env, pos, tableExpr)
+			env.codeBuilder:xmlMarkInsert(pos-1, ",{")
+			for i=1, #tableExpr-1 do
+				local pairNode = tableExpr[i]
+				env.codeBuilder:xmlMarkInsert(pairNode.posEnd, ",")
+			end
+			return tableExpr
+		end
+		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
+		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
+			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
+			local listOrXmlList = {...}
+			for i=1,#listOrXmlList do
+				local listOrXml = listOrXmlList[i]
+				if listOrXml.tag == "ExprList" then
+					-- 1. append to expr list
+					for _, expr in ipairs(listOrXml) do
+						retExprList[#retExprList+1] = expr
+					end
+					-- 2. code convert
+					if listOrXml.closeParenPos then
+						env.codeBuilder:xmlMarkReplace(listOrXml.pos, "")
+						env.codeBuilder:xmlMarkReplace(listOrXml.closeParenPos, i<#listOrXmlList and #listOrXml > 0 and "," or "")
+					else
+						if i<#listOrXmlList then
+							local oneExpr = listOrXml[1]
+							while oneExpr.tag ~= "String" and oneExpr.tag ~= "Table" do
+								oneExpr = oneExpr[1]
+							end
+							if oneExpr.closePosEnd then
+								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePosEnd-1)
+							else
+								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePos)
+							end
+						end
+					end
+				else
+					retExprList[#retExprList+1] = listOrXml
+					env.codeBuilder:xmlMarkEnd(listOrXml.closeXmlPos, listOrXml.posEnd, i<#listOrXmlList)
+				end
+			end
+			return retExprList
+		end
+		return lpeg.Cmt(Cenv * xmlPrefix * (xmlAttrTable + cc(nil)) * Cpos * (
+			symb ">" * xmlChildren * Cpos* symbA "</" * vv.NameChain * symbA ">" +
+			cc(nil) * Cpos * symb "/>" * cc(nil) +
+			throw("xtag not close")
+		) * Cpos, function(_, _, env, prefix, attrTable, posMid, children, closePos, finish, posEnd)
+			-- 1. build children
+			local attrExpr = attrTable or {tag="Nil", pos=posMid, posEnd=posMid}
+			if children then
+				local openName = table.concat(nameAppend({}, prefix), ".")
+				local closeName = table.concat(nameAppend({}, finish), ".")
+				if openName ~= closeName then
+					error(env:makeErrNode(finish.pos, string.format("xtag close unexpected: %s ~= %s", openName, closeName)))
+				end
+				children[1] = prefix
+				children[2] = attrExpr
+			else
+				children = {tag="ExprList", pos=posMid, posEnd=posMid, prefix, attrExpr}
+			end
+			-- 2. mark attribute
+			if attrTable then
+				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and "}" or "},")
+			elseif not attrTable then
+				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and ",nil" or ",nil,")
+			end
+			local caller = parF.identUse(prefix.pos, BUILTIN__THLUAX, false, prefix.pos)
+			return true, {tag="Call", pos=prefix.pos, posEnd=posEnd, closeXmlPos=closePos, caller, children}
+		end)
+	end)();
+
+	SimpleArgExpr = Cpos * (vv.Constructor + vv.String) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv / exprF.hintExpr;
+
+	SimpleExpr = vv.SimpleArgExpr + Cpos * (
+						tagC.Number(token(vv.Number)) +
+						tagC.False(kw"false") +
+						tagC.True(kw"true") +
 						tagC.Nil(kw"nil") +
 						vv.FuncDef +
 						vv.SuffixedExpr +
@@ -3535,6 +3632,7 @@ local G = lpeg.P { "TypeHintLua";
 
 	RetStat = tagC.Return(kw("return") * vv.ExprListOrEmpty * symb(";")^-1);
 
+	NameChain = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, exprF.nameIndex);
 	Stat = (function()
 		local LocalFunc = vv.FuncPrefix * tagC.Localrec(vvA.IdentDefN * vv.FuncBody) / function(vHint, vLocalrec)
 			vLocalrec[2].hintPrefix = vHint
@@ -3543,21 +3641,17 @@ local G = lpeg.P { "TypeHintLua";
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
 				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
-					env:markConst(pos)
+					env.codeBuilder:markConst(pos)
 					t.isConst = true
 					return t
 				end
 		local FuncStat = (function()
-			local function makeNameIndex(ident1, ident2)
-				return { tag = "Index", pos=ident1.pos, posEnd=ident2.posEnd, ident1, ident2}
-			end
-			local FuncName = lpeg.Cf(vv.IdentUse * (symb"." * tagC.String(vv.Name))^0, makeNameIndex)
 			local MethodName = symb(":") * tagC.String(vv.Name) + cc(false)
-			return Cpos * vv.FuncPrefix * FuncName * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
+			return Cpos * vv.FuncPrefix * vv.NameChain * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
-					varPrefix = makeNameIndex(varPrefix, methodName)
+					varPrefix = exprF.nameIndex(varPrefix, methodName)
 				end
 				return {
 					tag = "Set", pos=pos, posEnd=posEnd,
@@ -3572,9 +3666,9 @@ local G = lpeg.P { "TypeHintLua";
 			local last = blockNode[#blockNode]
 			if last then
 				if last.tag == "Return" then
-					env:continueMarkLoopEnd(last.pos, blockNode.posEnd)
+					env.codeBuilder:continueMarkLoopEnd(last.pos, blockNode.posEnd)
 				else
-					env:continueMarkLoopEnd(false, blockNode.posEnd)
+					env.codeBuilder:continueMarkLoopEnd(false, blockNode.posEnd)
 				end
 			end
 			return loopNode
@@ -3582,7 +3676,7 @@ local G = lpeg.P { "TypeHintLua";
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
 		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
-			env:continueMarkGoto(node.pos)
+			env.codeBuilder:continueMarkGoto(node.pos)
 			return node
 		end
 		local GoToStat = tagC.Goto(kw"goto" * vvA.Name)
@@ -3599,17 +3693,19 @@ local G = lpeg.P { "TypeHintLua";
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
-		return vv.StatHintSpace +
-         LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
+		return vv.StatHintSpace + LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
-				 vv.DoStat + vv.ApplyOrAssignStat + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
+				 vv.DoStat + Cenv*Cpos*vv.ApplyOrAssignStat / function(env, pos, stat)
+					env.codeBuilder:recordSuffixableStatPos(pos)
+					return stat;
+				 end + symb(";") + (lpeg.P(1)-BlockEnd)*throw("wrong statement")
 	end)();
 
 	-- lexer
 	Skip     = (lpeg.space^1 + vv.Comment)^0;
 	Comment  = Cenv*Cpos*
 		lpeg.P"--" * (vv.LongString / function () return end + (lpeg.P(1) - lpeg.P"\n")^0)
-		*Cpos/function(env, pos, posEnd) env:markDel(pos, posEnd-1) return end;
+		*Cpos/function(env, pos, posEnd) env.codeBuilder:markDel(pos, posEnd) return end;
 
 	Number = (function()
 		local Hex = (lpeg.P"0x" + lpeg.P"0X") * lpeg.xdigit^1
@@ -3646,13 +3742,184 @@ local G = lpeg.P { "TypeHintLua";
 
 }
 
+local CodeBuilder = {}
+CodeBuilder.__index = CodeBuilder
+
+--- {{{ ---
+do
+	function CodeBuilder.new(vSubject, vEnv)
+		local self = setmetatable({
+			_subject = vSubject,
+			_posToChange = {},
+			_statPosSet = {},
+			_env = vEnv,
+		}, CodeBuilder)
+		return self
+	end
+
+	-- '@' when hint for invoke and call, need to add paren
+	-- eg.
+	--   aFunc() @ Integer -> (aFunc())
+	-- so mark paren here
+	function CodeBuilder:markParenWrap(vStartPos, vFinishPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = "("
+			return vStartPos
+		end
+		self._posToChange[vFinishPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vFinishPos)
+			vContentList[#vContentList + 1] = ")"
+			return vFinishPos + 1
+		end
+	end
+
+	-- hint script to be delete
+	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsHintStat)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			if vIsHintStat or self._statPosSet[vNextStartPos] then
+				vContentList[#vContentList + 1] = ";"
+			end
+			-- 2. replace hint code with space and newline
+			local nHintCode = self._subject:sub(vStartPos, vNextStartPos - 1)
+			vContentList[#vContentList + 1] = nHintCode:gsub("[^\r\n\t ]", "")
+			return vNextStartPos
+		end
+	end
+
+	-- local -> const
+	function CodeBuilder:markConst(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			vContentList[#vContentList + 1] = self._subject:sub(vRemainStartPos, vStartPos - 1)
+			vContentList[#vContentList + 1] = "local"
+			return vStartPos + 5
+		end
+	end
+
+	function CodeBuilder:_insertChange(vInsert, vStartPos)
+		return function(vContentList, vRemainStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vInsert
+			vContentList[#vContentList + 1] = " "
+			return vStartPos
+		end
+	end
+
+	-- continue -> goto continue
+	function CodeBuilder:continueMarkGoto(vStartPos)
+		self._posToChange[vStartPos] = self:_insertChange("goto", vStartPos)
+	end
+
+	-- return xxx -> do return xxx end
+	-- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
+	function CodeBuilder:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
+		if vRetStartPos then
+			self._posToChange[vRetStartPos] = self:_insertChange("do", vRetStartPos)
+			self._posToChange[vEndStartPos] = self:_insertChange("end ::continue::", vEndStartPos)
+		else
+			self._posToChange[vEndStartPos] = self:_insertChange("::continue::", vEndStartPos)
+		end
+	end
+
+	function CodeBuilder:xmlMarkBegin(vStartPos)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ","
+			return vStartPos
+		end
+	end
+
+	function CodeBuilder:xmlMarkAppendComma(vEndPos)
+		self._posToChange[vEndPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vEndPos)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ","
+			-- 2. replace xml-end code with space and newline
+			return vEndPos + 1
+		end
+	end
+
+	function CodeBuilder:xmlMarkInsert(vStartPos, vAfterStr)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vAfterStr
+			-- 2. replace xml-end code with space and newline
+			return vStartPos
+		end
+	end
+
+	function CodeBuilder:xmlMarkReplace(vStartPos, vAfterStr)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = vAfterStr
+			-- 2. replace xml-end code with space and newline
+			return vStartPos + 1
+		end
+	end
+
+	function CodeBuilder:xmlMarkEnd(vStartPos, vNextStartPos, vAppendComma)
+		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
+			-- 1. save lua code
+			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
+			vContentList[#vContentList + 1] = nLuaCode
+			vContentList[#vContentList + 1] = ")"
+			if vAppendComma then
+				vContentList[#vContentList + 1] = ","
+			elseif self._statPosSet[vNextStartPos] then
+				vContentList[#vContentList + 1] = ";"
+			end
+			-- 2. replace xml-end code with space and newline
+			local nEndCode = self._subject:sub(vStartPos, vNextStartPos - 1)
+			vContentList[#vContentList + 1] = nEndCode:gsub("[^\r\n\t ]", "")
+			return vNextStartPos
+		end
+	end
+
+	function CodeBuilder:recordSuffixableStatPos(vStartPos)
+		self._statPosSet[vStartPos] = true
+	end
+
+	function CodeBuilder:genLuaCode()
+		local nSubject = self._subject
+		local nPosToChange = self._posToChange
+		local nChangePosList = {}
+		for nChangePos, _ in pairs(nPosToChange) do
+			nChangePosList[#nChangePosList + 1] = nChangePos
+		end
+		table.sort(nChangePosList)
+		local nContents = {}
+		local nRemainStartPos = 0
+		for _, nChangePos in pairs(nChangePosList) do
+			if nChangePos < nRemainStartPos then
+				-- do nothing in hint space
+			else
+				nRemainStartPos = nPosToChange[nChangePos](nContents, nRemainStartPos)
+			end
+		end
+		nContents[#nContents + 1] = nSubject:sub(nRemainStartPos, #nSubject)
+		return table.concat(nContents)
+	end
+end
+--- }}} ---
+
 function ParseEnv.new(vSubject)
 	local self = setmetatable({
 		hinting = false,
 		scopeTraceList = {},
+		codeBuilder = nil,
 		_subject = vSubject,
-		_posToChange = {},
 	}, ParseEnv)
+	self.codeBuilder = CodeBuilder.new(vSubject, self)
 	local nOkay, nAstOrErr = pcall(lpeg.match, G, vSubject, nil, self)
 	if not nOkay then
 		if type(nAstOrErr) == "table" and nAstOrErr.tag == "Error" then
@@ -3711,41 +3978,6 @@ function ParseEnv:buildIHintSpace(vTag, vInnerList, vEvalList, vRealStartPos, vS
 	return nHintSpace
 end
 
--- '@' when hint for invoke and call, need to add paren
--- eg.
---   aFunc() @ Integer -> (aFunc())
--- so mark paren here
-function ParseEnv:markParenWrap(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = "("
-	self._posToChange[vFinishPos-1] = ")"
-end
-
--- hint script to be delete
-function ParseEnv:markDel(vStartPos, vFinishPos)
-	self._posToChange[vStartPos] = vFinishPos
-end
-
--- local -> const
-function ParseEnv:markConst(vStartPos)
-	self._posToChange[vStartPos] = "const"
-end
-
--- continue -> goto continue
-function ParseEnv:continueMarkGoto(vStartPos)
-	self._posToChange[vStartPos] = "goto"
-end
-
--- return xxx -> do return xxx end
--- for end / repeat until / while end -> for ::continue:: end, repeat ::continue:: until, while ::continue:: end
-function ParseEnv:continueMarkLoopEnd(vRetStartPos, vEndStartPos)
-	if vRetStartPos then
-		self._posToChange[vRetStartPos] = "do"
-		self._posToChange[vEndStartPos] = "end ::continue::"
-	else
-		self._posToChange[vEndStartPos] = "::continue::"
-	end
-end
-
 function ParseEnv:assertWithLineNum()
 	local nNode = self._astOrErr
 	local nLineNum = select(2, self._subject:sub(1, nNode.pos):gsub('\n', '\n'))
@@ -3772,59 +4004,7 @@ end
 
 function ParseEnv:genLuaCode()
 	self:assertWithLineNum()
-	local nSubject = self._subject
-	local nPosToChange = self._posToChange
-	local nStartPosList = {}
-	for nStartPos, _ in pairs(nPosToChange) do
-		nStartPosList[#nStartPosList + 1] = nStartPos
-	end
-	table.sort(nStartPosList)
-	local nContents = {}
-	local nPreFinishPos = 0
-	for _, nStartPos in pairs(nStartPosList) do
-		if nStartPos <= nPreFinishPos then
-			-- do nothing in hint space
-		else
-			local nChange = nPosToChange[nStartPos]
-			if type(nChange) == "number" then
-				-- 1. save lua code
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				-- 2. replace hint code with space and newline
-				local nFinishPos = nPosToChange[nStartPos]
-				local nHintCode = nSubject:sub(nStartPos, nFinishPos)
-				nContents[#nContents + 1] = nHintCode:gsub("[^\r\n\t ]", "")
-				nPreFinishPos = nFinishPos
-			--[[elseif type(nChange) == "string" then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos]]
-			elseif nChange == "const" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = "local"
-				nPreFinishPos = nStartPos + 4
-			elseif nChange == "(" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos-1
-			elseif nChange == ")" then
-				nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, nStartPos)
-				nContents[#nContents + 1] = nChange
-				nPreFinishPos = nStartPos
-			elseif nChange == "goto" or nChange == "::continue::" or nChange == "do" or nChange == "end ::continue::"then
-				local nLuaCode = nSubject:sub(nPreFinishPos + 1, nStartPos-1)
-				nContents[#nContents + 1] = nLuaCode
-				nContents[#nContents + 1] = nChange
-				nContents[#nContents + 1] = " "
-				nPreFinishPos = nStartPos-1
-			else
-				error("unexpected branch")
-			end
-		end
-	end
-	nContents[#nContents + 1] = nSubject:sub(nPreFinishPos + 1, #nSubject)
-	return table.concat(nContents)
+	return self.codeBuilder:genLuaCode()
 end
 
 local boot = {}
