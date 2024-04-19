@@ -382,12 +382,11 @@ hi def link thluaKeyword Label
 
 
 "=================================== {{{ xml begin
-syn match xmlTagName +\(^\|[>\'\"\] \t\)]</\?\)\@<=[a-zA-Z][a-zA-Z0-9.]*+
+syn match xmlTagName +\(</\?\)\@<=[a-zA-Z][a-zA-Z0-9.]*+
 
 syn region xmlTagBegin transparent matchgroup=xmlTagSymbol
-      \ start=+\(^\|[>\'\"\] \t\)]\)\@<=<\([a-zA-Z][a-zA-Z0-9.]*\)\@=+
+      \ start=+<\([a-zA-Z][a-zA-Z0-9.]*\)\@=+
       \ end=+/\?>+
-      \ contained
 syn region xmlTagEnd transparent matchgroup=xmlTagSymbol start="</\([^ />]\+>\)\@=" end=">"
 
 
