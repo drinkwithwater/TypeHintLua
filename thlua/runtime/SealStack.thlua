@@ -23,15 +23,24 @@ function.open SealStack:ctor(
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
 	self._autoFnSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
 	self._bodyFn = vBodyFn
-	self._classTable=false@OrFalse(clazz.ClassTable)
 end
 
-function SealStack:setClassTable(vClassTable:clazz.ClassTable)
-	self._classTable = vClassTable
+function SealStack:canWaitType():Ret(Boolean)
+	const nBodyFn = self._bodyFn
+	if ClassFactory.is(nBodyFn) then
+		return nBodyFn:canWaitType()
+	else
+		return false
+	end
 end
 
 function SealStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
-	return self._classTable
+	const nBodyFn = self._bodyFn
+	if ClassFactory.is(nBodyFn) then
+		return nBodyFn:getClassTable()
+	else
+		return false
+	end
 end
 
 function SealStack:_returnCheck(vContext:clazz.ReturnContext, vTypeTuple:clazz.UTypeTuple)
