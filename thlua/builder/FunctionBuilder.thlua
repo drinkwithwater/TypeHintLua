@@ -373,19 +373,17 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
 		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, false)
 		-- 2. init class
-		const nClassTable = nFactory:getClassTable()
-		nClassTable:initAsync(function()
+		nFactory:initClassTableAsync(function()
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
 		-- 3. init factory
 		nFactory:initAsync(function()
-			nClassTable:waitInit()
+			const nClassTable = nFactory:waitClassTable()
 			const nParTermTuple = nGenParam(false)
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
-				nNewStack:setClassTable(nClassTable)
 				nGenFunc()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
@@ -401,7 +399,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	if nPolyParNum <= 0 then
 		const nFactory = nFnMaker(false)
 		nRefer:setAssignAsync(self._node, function()
-			return nFactory:getClassTable(true)
+			return nFactory:waitClassTable()
 		end)
 		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
@@ -413,7 +411,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UMustType)
 			const nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
-			return nFactory:getClassTable(true)
+			return nFactory:waitClassTable()
 		end, nPolyParNum)
 		nRefer:setAssignAsync(self._node, function()
 			return nTemplateCom

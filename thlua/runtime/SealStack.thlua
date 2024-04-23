@@ -23,15 +23,15 @@ function.open SealStack:ctor(
 	self._classFnSet={} @ OrFalse(Dict(clazz.ClassFactory, True))
 	self._autoFnSet={} @ OrFalse(Dict(clazz.AutoFunction, True))
 	self._bodyFn = vBodyFn
-	self._classTable=false@OrFalse(clazz.ClassTable)
-end
-
-function SealStack:setClassTable(vClassTable:clazz.ClassTable)
-	self._classTable = vClassTable
 end
 
 function SealStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
-	return self._classTable
+	const nBodyFn = self._bodyFn
+	if ClassFactory.is(nBodyFn) then
+		return nBodyFn:waitClassTable()
+	else
+		return false
+	end
 end
 
 function SealStack:_returnCheck(vContext:clazz.ReturnContext, vTypeTuple:clazz.UTypeTuple)
@@ -48,7 +48,7 @@ function SealStack:_returnCheck(vContext:clazz.ReturnContext, vTypeTuple:clazz.U
 			end
 		end
 	elseif ClassFactory.is(nBodyFn) then
-		const nResultType = nBodyFn:getClassTable(true)
+		const nResultType = nBodyFn:waitClassTable()
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
 			vContext:error("class return not match")
 		end
