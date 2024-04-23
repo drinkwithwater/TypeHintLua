@@ -367,14 +367,13 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			return nExtendsTable, nImplementsInterface, nErrType
 		end
 		const nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
-		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getBuildStack()
 		nFactory:initAsync(function()
 			-- 1. get class base & class interface
 			const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
 			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, false)
 			const nExtends, nImplements, nErrType = nInterfaceGetter(nSuffixHint)
-			nClassTable:initWithExtend(nExtends, nImplements)
+			const nClassTable = nFactory:initClassTable(nExtends, nImplements)
 			-- 2. run function
 			const nParTermTuple = nGenParam(false)
 			const nParTuple = nParTermTuple:checkTypeTuple()
@@ -390,7 +389,6 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 				return nParTuple, nRetTuples
 			end
 		end)
-		nFactory:startPreBuild()
 		return nFactory
 	end
 	if nPolyParNum <= 0 then
@@ -403,7 +401,9 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	else
 		const nPolyFn = self._manager:SealPolyFunction(self._node, function(...:clazz.USpaceAny)
 			const nTuple = self._manager:spacePack(self._node, ...)
-			return nFnMaker(nTuple)
+			const nFactory = nFnMaker(nTuple)
+			nFactory:startPreBuild()
+			return nFactory
 		end, nPolyParNum, self._stack)
 		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UMustType)
 			const nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
