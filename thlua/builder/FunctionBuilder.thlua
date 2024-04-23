@@ -367,19 +367,28 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			return nExtendsTable, nImplementsInterface, nErrType
 		end
 		const nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
+		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getBuildStack()
-		nFactory:initAsync(function()
-			-- 1. get class base & class interface
+		local nGenParam:OrNil(clazz.GenParam) = nil
+		local nGenFunc:OrNil(clazz.GenFunc) = nil
+		local nErrType:OrNil(clazz.UMustType) = nil
+		nClassTable:initAsync(function()
 			const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-			const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, false)
-			const nExtends, nImplements, nErrType = nInterfaceGetter(nSuffixHint)
-			const nClassTable = nFactory:initClassTable(nExtends, nImplements)
-			-- 2. run function
-			const nParTermTuple = nGenParam(false)
+			const nGenParam_, nSuffixHint, nGenFunc_ = self._parRetMaker(nNewStack, nPolyArgList, false)
+			nGenParam = nGenParam_
+			nGenFunc = nGenFunc_
+			const nExtends, nImplements, nErrType_ = nInterfaceGetter(nSuffixHint)
+			nErrType = nErrType_
+			return nExtends, nImplements
+		end)
+		nFactory:initAsync(function()
+			nClassTable:waitInit()
+			const nParTermTuple = nGenParam!(false)
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nErrType)
 			return nParTuple, nRetTuples, function()
-				nGenFunc()
+				nNewStack:setClassTable(nClassTable)
+				nGenFunc!()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:inplaceOper():error("auto parameter deduce failed")
@@ -401,9 +410,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	else
 		const nPolyFn = self._manager:SealPolyFunction(self._node, function(...:clazz.USpaceAny)
 			const nTuple = self._manager:spacePack(self._node, ...)
-			const nFactory = nFnMaker(nTuple)
-			nFactory:startPreBuild()
-			return nFactory
+			return nFnMaker(nTuple)
 		end, nPolyParNum, self._stack)
 		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UMustType)
 			const nFactory = nPolyFn:noCtxCastPoly(self._node, {...})

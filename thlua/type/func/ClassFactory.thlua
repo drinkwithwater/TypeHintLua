@@ -16,31 +16,16 @@ end
 
 function.open ClassFactory:ctor(vManager:clazz.TypeManager, ...)
 	const nTask = self._task
-	self._classTableOrInitEvent=nTask:makeEvent() @ Union(clazz.ScheduleEvent, clazz.ClassTable)
 	self._classBuildEvent=nTask:makeEvent()
-end
-
-function ClassFactory:canWaitType()
-	return not ClassTable.is(self._classTableOrInitEvent)
-end
-
-function ClassFactory:initClassTable(vBaseClass:OrFalse(clazz.ClassTable), vInterface:clazz.Interface):Ret(clazz.ClassTable)
-	const nInitEvent = self._classTableOrInitEvent
-	assert(not ClassTable.is(nInitEvent), "class has been inited")
-	const nClassTable = ClassTable.new(self._manager, self._node, self._buildStack, self, vBaseClass, vInterface)
-	self._classTableOrInitEvent = nClassTable
-	nInitEvent:wakeup()
-	return nClassTable
+	self._classTable=ClassTable.new(self._manager, self._node, self._buildStack, self)
 end
 
 function ClassFactory:getClassTable(vWaitInit:OrNil(True)):Ret(clazz.ClassTable)
-	const nTableOrEvent = self._classTableOrInitEvent
-	if ClassTable.is(nTableOrEvent) then
-		return nTableOrEvent
-	else
-		nTableOrEvent:wait()
-		return self._classTableOrInitEvent @> clazz.ClassTable
+	const nTable = self._classTable
+	if vWaitInit then
+		nTable:waitInit()
 	end
+	return nTable
 end
 
 function ClassFactory:wakeupTableBuild()
@@ -49,7 +34,6 @@ end
 
 function ClassFactory:waitTableBuild()
 	self:startPreBuild()
-	self:getClassTable()
 	self:startLateBuild()
 	if coroutine.running() ~= self._task:getSelfCo() then
 		self._classBuildEvent:wait()

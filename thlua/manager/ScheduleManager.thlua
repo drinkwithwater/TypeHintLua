@@ -36,6 +36,13 @@ function ScheduleManager:getTask():Ret(clazz.ScheduleTask)
 end
 
 function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDependTask:clazz.ScheduleTask)
+	-- stack can't wait async type
+	const nCurStack = vWaitingTask:getStack()
+	if nCurStack then
+		if not vDependTask:getStack() then
+			vDependTask:errorWaitByStack(nCurStack)
+		end
+	end
 	local nCurTask = vDependTask
 	const nTaskList:List(clazz.ScheduleTask) = {}
 	while nCurTask do
@@ -65,41 +72,23 @@ function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDepend
 	end
 end
 
-function ScheduleManager:runSchedule()
-	while true do
-		const nScheduleList = self._scheduleList
-		if not nScheduleList[1] then
-			break
-		else
-			self._scheduleList = {}
-			for _, nTask in ipairs(nScheduleList) do
-				while nTask:resume() do
-					self:runSchedule()
-				end
-			end
-		end
-	end
-end
-
 function ScheduleManager:trySchedule(vTask:clazz.ScheduleTask)
 	const nScheduleList = self._scheduleList
 	nScheduleList[#nScheduleList + 1] = vTask
 	const nTask = self._coToTask[coroutine.running()]
-	if nTask and nTask:getStack() then
-		coroutine.yield(true)
-	end
-	--[[
-	const nStack = self:getStack()
-	if nStack and not nStack:canWaitType() then
-		const nDependTask = vEvent:getTask()
-		if nDependTask and not nDependTask:getStack() then
-			nDependTask:errorWaitByStack(nStack)
+	if not nTask or nTask:getStack() then
+		while true do
+			const nScheduleList = self._scheduleList
+			if not nScheduleList[1] then
+				break
+			else
+				self._scheduleList = {}
+				for _, nTask in ipairs(nScheduleList) do
+					nTask:resume()
+				end
+			end
 		end
-		--if not vDependTask:getStack() then
-			--vDependTask:errorWaitByStack(nStack)
-		--end
 	end
-	]]
 end
 
 function ScheduleManager:makeWildEvent():Ret(clazz.ScheduleEvent)

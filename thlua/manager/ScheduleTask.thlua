@@ -78,39 +78,23 @@ end
 
 function ScheduleTask:waitEvent(vEvent:clazz.ScheduleEvent)
 	assert(not self._waitEvent)
-	const nStack = self:getStack()
-	if nStack and not nStack:canWaitType() then
-		const nDependTask = vEvent:getTask()
-		if nDependTask and not nDependTask:getStack() then
-			-- nDependTask:errorWaitByStack(nStack)
-		end
-		--if not vDependTask:getStack() then
-			--vDependTask:errorWaitByStack(nStack)
-		--end
-	end
 	self._waitEvent = vEvent
 	coroutine.yield()
 end
 
 function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
-	assert(self._waitEvent == vEvent, tostring(self._host))
+	assert(self._waitEvent == vEvent)
 	self._waitEvent = false
 	self._scheduleManager:trySchedule(self)
 end
 
--- return if continue
-function ScheduleTask:resume():Ret(OrNil(True))
+function ScheduleTask:resume()
 	--[[if self._scheduleManager.useProfile then
 		for k, profile in pairs(self._fnToProfile) do
 			profile.start = chrono.now()
 		end
 	end]]
-	const ok, ret = coroutine.resume(self._selfCo)
-	if not ok then
-		error(ret)
-	else
-		return ret
-	end
+	assert(coroutine.resume(self._selfCo))
 end
 
 function ScheduleTask:openCall(vFunc:clazz.OpenCaller, vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple)
@@ -129,6 +113,10 @@ end
 
 function ScheduleTask:getSelfCo():Ret(Thread)
 	return self._selfCo
+end
+
+function ScheduleTask:canWaitType()
+	return not SealStack.is(self._host)
 end
 
 function ScheduleTask:runAsync(vFunc:Fn())

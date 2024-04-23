@@ -22,18 +22,30 @@ function.open ClassTable:ctor(
 	vManager:clazz.TypeManager,
 	vNode:clazz.IBaseNode,
 	vLexStack:clazz.BaseStack,
-	vFactory:clazz.ClassFactory,
-	vBaseClass:OrFalse(clazz.ClassTable),
-	vInterface:clazz.Interface
+	vFactory:clazz.ClassFactory
 )
 	self._factory = vFactory
-	self._baseClass = vBaseClass
-	self._interface = vInterface
+	const nTask = self._manager:getScheduleManager():newTask(vNode)
+	self._task = nTask
+	self._initEvent = nTask:makeEvent()
+	self._baseClass = false@OrFalse(clazz.ClassTable)
+	self._interface = nil@!clazz.Interface
 	self._buildFinish = false@Boolean
 end
 
 function ClassTable:detailString(v, vVerbose)
 	return "ClassTable@"..tostring(self._node)
+end
+
+function ClassTable:waitInit()
+	self._initEvent:wait()
+end
+
+function ClassTable:initAsync(vBaseGetter:Fn():Ret(OrFalse(clazz.ClassTable), clazz.Interface))
+	self._task:runAsync(function()
+		self._baseClass, self._interface = vBaseGetter()
+		self._initEvent:wakeup()
+	end)
 end
 
 function ClassTable:onSetMetaTable(vContext:clazz.ApplyContext)
