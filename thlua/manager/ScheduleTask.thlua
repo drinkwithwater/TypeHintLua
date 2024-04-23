@@ -88,13 +88,18 @@ function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
 	self._scheduleManager:trySchedule(self)
 end
 
-function ScheduleTask:resume()
+function ScheduleTask:resume():Ret(OrNil(True))
 	--[[if self._scheduleManager.useProfile then
 		for k, profile in pairs(self._fnToProfile) do
 			profile.start = chrono.now()
 		end
 	end]]
-	assert(coroutine.resume(self._selfCo))
+	const ok, ret = coroutine.resume(self._selfCo)
+	if not ok then
+		error(ret)
+	else
+		return ret
+	end
 end
 
 function ScheduleTask:openCall(vFunc:clazz.OpenCaller, vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple)
@@ -113,10 +118,6 @@ end
 
 function ScheduleTask:getSelfCo():Ret(Thread)
 	return self._selfCo
-end
-
-function ScheduleTask:canWaitType()
-	return not SealStack.is(self._host)
 end
 
 function ScheduleTask:runAsync(vFunc:Fn())

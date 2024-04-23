@@ -72,22 +72,28 @@ function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDepend
 	end
 end
 
+function ScheduleManager:runSchedule()
+	while true do
+		const nScheduleList = self._scheduleList
+		if not nScheduleList[1] then
+			break
+		else
+			self._scheduleList = {}
+			for _, nTask in ipairs(nScheduleList) do
+				while nTask:resume() do
+					self:runSchedule()
+				end
+			end
+		end
+	end
+end
+
 function ScheduleManager:trySchedule(vTask:clazz.ScheduleTask)
 	const nScheduleList = self._scheduleList
 	nScheduleList[#nScheduleList + 1] = vTask
 	const nTask = self._coToTask[coroutine.running()]
-	if not nTask or nTask:getStack() then
-		while true do
-			const nScheduleList = self._scheduleList
-			if not nScheduleList[1] then
-				break
-			else
-				self._scheduleList = {}
-				for _, nTask in ipairs(nScheduleList) do
-					nTask:resume()
-				end
-			end
-		end
+	if nTask and nTask:getStack() then
+		coroutine.yield(true)
 	end
 end
 

@@ -295,10 +295,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	const nRefer = assert(nReferOrNil, self._node:toExc("reference not setted when function:class"))
 	const nPolyParNum = self._polyParNum
 	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder)):Ret(clazz.ClassFactory)
-		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface, OrNil(clazz.UMustType))
+		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface)
 			local nImplementsArg:OrNil(clazz.UMustType) = nil
 			local nExtendsArg:OrNil(clazz.UMustType) = nil
-			local nErrType:OrNil(clazz.UMustType) = nil
+			-- local nErrType:OrNil(clazz.UMustType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
 					nImplementsArg = self._manager:easyToMustType(self._node, vInterface)
@@ -317,7 +317,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					return vHint
 				end,
 				Err=function(vHint, vErrType)
-					nErrType = self._manager:easyToMustType(self._node, vErrType)
+					-- class take Err TODO
+					-- nErrType = self._manager:easyToMustType(self._node, vErrType)
 					return vHint
 				end,
 				isguard=function(vHint, vType)
@@ -364,31 +365,28 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					end
 				end
 			end
-			return nExtendsTable, nImplementsInterface, nErrType
+			return nExtendsTable, nImplementsInterface
 		end
 		const nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
-		const nClassTable = nFactory:getClassTable()
 		const nNewStack = nFactory:getBuildStack()
-		local nGenParam:OrNil(clazz.GenParam) = nil
-		local nGenFunc:OrNil(clazz.GenFunc) = nil
-		local nErrType:OrNil(clazz.UMustType) = nil
+		-- 1. build suffixhint from poly args
+		const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
+		const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, false)
+		-- 2. init class
+		const nClassTable = nFactory:getClassTable()
 		nClassTable:initAsync(function()
-			const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-			const nGenParam_, nSuffixHint, nGenFunc_ = self._parRetMaker(nNewStack, nPolyArgList, false)
-			nGenParam = nGenParam_
-			nGenFunc = nGenFunc_
-			const nExtends, nImplements, nErrType_ = nInterfaceGetter(nSuffixHint)
-			nErrType = nErrType_
+			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
+		-- 3. init factory
 		nFactory:initAsync(function()
 			nClassTable:waitInit()
-			const nParTermTuple = nGenParam!(false)
+			const nParTermTuple = nGenParam(false)
 			const nParTuple = nParTermTuple:checkTypeTuple()
-			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nErrType)
+			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
 				nNewStack:setClassTable(nClassTable)
-				nGenFunc!()
+				nGenFunc()
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:inplaceOper():error("auto parameter deduce failed")
