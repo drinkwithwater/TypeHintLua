@@ -778,10 +778,10 @@ function FunctionBuilder:_buildClass()
 	local nRefer = assert(nReferOrNil, self._node:toExc("reference not setted when function:class"))
 	local nPolyParNum = self._polyParNum
 	local nFnMaker = function(vPolyTuple)
-		local nInterfaceGetter = function(vSuffixHint)  
+		local nInterfaceGetter = function(vSuffixHint) 
 			local nImplementsArg = nil
 			local nExtendsArg = nil
-			local nErrType = nil
+			    
 			local ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
 					nImplementsArg = self._manager:easyToMustType(self._node, vInterface)
@@ -800,7 +800,8 @@ function FunctionBuilder:_buildClass()
 					return vHint
 				end,
 				Err=function(vHint, vErrType)
-					nErrType = self._manager:easyToMustType(self._node, vErrType)
+					    
+					    
 					return vHint
 				end,
 				isguard=function(vHint, vType)
@@ -847,30 +848,25 @@ function FunctionBuilder:_buildClass()
 					end
 				end
 			end
-			return nExtendsTable, nImplementsInterface, nErrType
+			return nExtendsTable, nImplementsInterface
 		end
 		local nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
-		local nClassTable = nFactory:getClassTable()
 		local nNewStack = nFactory:getBuildStack()
-		local nGenParam = nil
-		local nGenFunc = nil
-		local nErrType = nil
-		nClassTable:initAsync(function()
-			local nPolyArgList = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-			local nGenParam_, nSuffixHint, nGenFunc_ = self._parRetMaker(nNewStack, nPolyArgList, false)
-			nGenParam = nGenParam_
-			nGenFunc = nGenFunc_
-			local nExtends, nImplements, nErrType_ = nInterfaceGetter(nSuffixHint)
-			nErrType = nErrType_
+		      
+		local nPolyArgList = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
+		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, false)
+		   
+		nFactory:initClassTableAsync(function()
+			local nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
+		   
 		nFactory:initAsync(function()
-			nClassTable:waitInit()
+			local nClassTable = nFactory:waitClassTable()
 			local nParTermTuple = nGenParam(false)
 			local nParTuple = nParTermTuple:checkTypeTuple()
-			local nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nErrType)
+			local nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
-				nNewStack:setClassTable(nClassTable)
 				nGenFunc()
 				local nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
@@ -886,7 +882,7 @@ function FunctionBuilder:_buildClass()
 	if nPolyParNum <= 0 then
 		local nFactory = nFnMaker(false)
 		nRefer:setAssignAsync(self._node, function()
-			return nFactory:getClassTable(true)
+			return nFactory:waitClassTable()
 		end)
 		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
@@ -898,7 +894,7 @@ function FunctionBuilder:_buildClass()
 		local nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...)
 			local nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
-			return nFactory:getClassTable(true)
+			return nFactory:waitClassTable()
 		end, nPolyParNum)
 		nRefer:setAssignAsync(self._node, function()
 			return nTemplateCom
@@ -6160,7 +6156,7 @@ end
 function.pass coroutine.wrap(f:AnyFunction):Ret(AnyFunction)
 end
 
-function.pass coroutine.yield():RetDots(Any)
+function.pass coroutine.yield(...:Any):RetDots(Any)
 end
 
 _ENV.coroutine = coroutine
@@ -7042,22 +7038,28 @@ function ScheduleManager:checkRecursive(vWaitingTask, vDependTask)
 	::continue:: end
 end
 
+function ScheduleManager:runSchedule()
+	while true do
+		local nScheduleList = self._scheduleList
+		if not nScheduleList[1] then
+			break
+		else
+			self._scheduleList = {}
+			for _, nTask in ipairs(nScheduleList) do
+				while nTask:resume() do
+					self:runSchedule()
+				::continue:: end
+			::continue:: end
+		end
+	::continue:: end
+end
+
 function ScheduleManager:trySchedule(vTask)
 	local nScheduleList = self._scheduleList
 	nScheduleList[#nScheduleList + 1] = vTask
 	local nTask = self._coToTask[coroutine.running()]
-	if not nTask or nTask:getStack() then
-		while true do
-			local nScheduleList = self._scheduleList
-			if not nScheduleList[1] then
-				break
-			else
-				self._scheduleList = {}
-				for _, nTask in ipairs(nScheduleList) do
-					nTask:resume()
-				::continue:: end
-			end
-		::continue:: end
+	if nTask and nTask:getStack() then
+		coroutine.yield(true)
 	end
 end
 
@@ -7210,7 +7212,12 @@ function ScheduleTask:resume()
 			  
 		
 	
-	assert(coroutine.resume(self._selfCo))
+	local ok, ret = coroutine.resume(self._selfCo)
+	if not ok then
+		error(ret)
+	else
+		return ret
+	end
 end
 
 function ScheduleTask:openCall(vFunc, vStack, vTermTuple)
@@ -7229,10 +7236,6 @@ end
 
 function ScheduleTask:getSelfCo()
 	return self._selfCo
-end
-
-function ScheduleTask:canWaitType()
-	return not SealStack.is(self._host)
 end
 
 function ScheduleTask:runAsync(vFunc)
@@ -9008,6 +9011,7 @@ function BaseRuntime:pmain(vRootFileUri, vUseProfile);
 		end)
 		nAutoFn:startPreBuild()
 		nAutoFn:startLateBuild()
+		self._scheduleManager:runSchedule()
 	end)
 	if not ok then
 		if Exception.is(err) then
@@ -11078,15 +11082,15 @@ function SealStack:ctor(
 	self._classFnSet={} ;  
 	self._autoFnSet={} ;  
 	self._bodyFn = vBodyFn
-	self._classTable=false
-end
-
-function SealStack:setClassTable(vClassTable)
-	self._classTable = vClassTable
 end
 
 function SealStack:getClassTable()
-	return self._classTable
+	local nBodyFn = self._bodyFn
+	if ClassFactory.is(nBodyFn) then
+		return nBodyFn:waitClassTable()
+	else
+		return false
+	end
 end
 
 function SealStack:_returnCheck(vContext, vTypeTuple)
@@ -11103,7 +11107,7 @@ function SealStack:_returnCheck(vContext, vTypeTuple)
 			end
 		end
 	elseif ClassFactory.is(nBodyFn) then
-		local nResultType = nBodyFn:getClassTable(true)
+		local nResultType = nBodyFn:waitClassTable()
 		if nResultType ~= vTypeTuple:get(1):checkAtomUnion() or #vTypeTuple ~= 1 or vTypeTuple:getRepeatType() then
 			vContext:error("class return not match")
 		end
@@ -16389,15 +16393,30 @@ end
 function ClassFactory:ctor(vManager, ...)
 	local nTask = self._task
 	self._classBuildEvent=nTask:makeEvent()
-	self._classTable=ClassTable.new(self._manager, self._node, self._buildStack, self)
+
+	    
+	local nClassTask = vManager:getScheduleManager():newTask(self._node)
+	self._classTask = nClassTask
+	self._classTableOrInitEvent = (nClassTask:makeEvent() )  
 end
 
-function ClassFactory:getClassTable(vWaitInit)
-	local nTable = self._classTable
-	if vWaitInit then
-		nTable:waitInit()
+function ClassFactory:initClassTableAsync(vBaseGetter )
+	self._classTask:runAsync(function()
+		local nInitEvent = self._classTableOrInitEvent
+		assert(not ClassTable.is(nInitEvent), "class has been inited")
+		self._classTableOrInitEvent = ClassTable.new(self._manager, self._node, self._buildStack, self, vBaseGetter())
+		nInitEvent:wakeup()
+	end)
+end
+
+function ClassFactory:waitClassTable()
+	local nTableOrEvent = self._classTableOrInitEvent
+	if ClassTable.is(nTableOrEvent) then
+		return nTableOrEvent
+	else
+		nTableOrEvent:wait()
+		return self._classTableOrInitEvent  
 	end
-	return nTable
 end
 
 function ClassFactory:wakeupTableBuild()
@@ -16405,6 +16424,7 @@ function ClassFactory:wakeupTableBuild()
 end
 
 function ClassFactory:waitTableBuild()
+	self:waitClassTable()
 	self:startPreBuild()
 	self:startLateBuild()
 	if coroutine.running() ~= self._task:getSelfCo() then
@@ -17430,30 +17450,18 @@ function ClassTable:ctor(
 	vManager,
 	vNode,
 	vLexStack,
-	vFactory
+	vFactory,
+	vBaseClass,
+	vInterface
 )
 	self._factory = vFactory
-	local nTask = self._manager:getScheduleManager():newTask(vNode)
-	self._task = nTask
-	self._initEvent = nTask:makeEvent()
-	self._baseClass = false;
-	self._interface = nil;
+	self._baseClass = vBaseClass
+	self._interface = vInterface
 	self._buildFinish = false
 end
 
 function ClassTable:detailString(v, vVerbose)
 	return "ClassTable@"..tostring(self._node)
-end
-
-function ClassTable:waitInit()
-	self._initEvent:wait()
-end
-
-function ClassTable:initAsync(vBaseGetter )
-	self._task:runAsync(function()
-		self._baseClass, self._interface = vBaseGetter()
-		self._initEvent:wakeup()
-	end)
 end
 
 function ClassTable:onSetMetaTable(vContext)
