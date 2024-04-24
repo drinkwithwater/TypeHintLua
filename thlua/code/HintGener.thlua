@@ -45,13 +45,13 @@ local TagToVisiting:RealTraverser = {
 			if nInjectNode.tag ~= "HintSpace" then
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
-					"local let, _ENV = ____stk:INJECT_BEGIN() ",
+					"local let, _ENV=____stk:SPACE() ",
 					" return ", self:visit(nInjectNode),
 				}
 			else
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
-					"local let, _ENV = ____stk:INJECT_BEGIN() ",
+					"local let, _ENV=____stk:SPACE() ",
 					" return ", self:fixIHintSpace(nInjectNode),
 				}
 			end
@@ -787,7 +787,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	}), nHintPrefix,
 	-- par ret maker
 		self:fnWrap("____newStk","____polyArgs", "____self")(
-			"local ____stk,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
+			"local ____stk=____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
 			nPolyUnpack,
 			-- pre declare param
 			" local ____vDOTS=false ",
@@ -826,6 +826,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 				)
 			), ",", nHintSuffix, ",",
 			self:fnWrap()(
+				"local let, _ENV=____stk:SPACE() ",
 				self:visit(nBlockNode),
 				" return ",
 				self:rgnWrap(vNode).END()
