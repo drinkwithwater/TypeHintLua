@@ -95,7 +95,7 @@ local TagToVisiting:RealTraverser = {
 	Do=function(self, node)
 		return self:rgnWrap(node).DO(
 			self:visitLongHint(node.hintLong),
-			self:fnWrap()(self:visit(node[1]))
+			self:fnWrap("...")(self:visit(node[1]))
 		)
 	end,
 	Set=function(self, node)
@@ -148,13 +148,13 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).WHILE(
 			self:visitLongHint(node.hintLong),
 			self:visit(node[1]),
-			self:fnWrap()(self:visit(node[2]))
+			self:fnWrap("...")(self:visit(node[2]))
 		)
 	end,
 	Repeat=function(self, node)
 		return self:rgnWrap(node).REPEAT(
-			self:fnWrap()(self:visit(node[1])),
-			self:fnWrap()(self:visit(node[2]))
+			self:fnWrap("...")(self:visit(node[1])),
+			self:fnWrap("...")(self:visit(node[2]))
 		)
 	end,
 	If=function(self, node)
@@ -165,21 +165,21 @@ local TagToVisiting:RealTraverser = {
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
 					return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
-						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
-						self:fnWrap()(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
+						self:fnWrap("...")(self:visit(blockNode)), self:codeNode(blockNode),
+						self:fnWrap("...")(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
 					)
 				else
 					assert(nNext1Node.tag == "Block")
 					return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
-						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
-						self:fnWrap()(self:visit(nNext1Node)), self:codeNode(nNext1Node)
+						self:fnWrap("...")(self:visit(blockNode)), self:codeNode(blockNode),
+						self:fnWrap("...")(self:visit(nNext1Node)), self:codeNode(nNext1Node)
 					)
 				end
 			else
 				return self:rgnWrap(node).IF_ONE(
 					self:visit(exprNode),
-					self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode)
+					self:fnWrap("...")(self:visit(blockNode)), self:codeNode(blockNode)
 				)
 			end
 		end
@@ -194,7 +194,7 @@ local TagToVisiting:RealTraverser = {
 		return self:rgnWrap(node).FOR_NUM(
 			self:visitLongHint(node.hintLong),
 			self:visit(node[2]), self:visit(node[3]), nHasStep and self:visit(node[4]) or "nil",
-			self:fnWrap("____fornum")(
+			self:fnWrap("____fornum", "...")(
 				self:visitIdentDef(node[1], "____fornum"),
 				self:visit(nBlockNode)
 			),
@@ -206,16 +206,17 @@ local TagToVisiting:RealTraverser = {
 			"local ____n_t_i=", self:stkWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
 			self:rgnWrap(node).FOR_IN(
 				self:visitLongHint(node.hintLong),
-				self:fnWrap("____iterTuple")(
-				"local ", self:concatList@<Truth>(node[1], function(i, vNode)
-					return "____forin"..i
-				end, ","),
-				"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
-				self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
-					return self:visitIdentDef(vIdent, "____forin"..i)
-				end, " "),
-				self:visit(node[3])
-			), "____n_t_i")
+				self:fnWrap("____iterTuple", "...")(
+					"local ", self:concatList@<Truth>(node[1], function(i, vNode)
+						return "____forin"..i
+					end, ","),
+					"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
+					self:concatList@<node.Ident_def>(node[1], function(i, vIdent)
+						return self:visitIdentDef(vIdent, "____forin"..i)
+					end, " "),
+					self:visit(node[3])
+				),
+			"____n_t_i")
 		}
 	end,
 	Local=function(self, node)
@@ -570,7 +571,7 @@ function HintGener:fnWrap(...:String):Ret(Fn():Dots(UGenResult):Ret(GenResult))
 	const nArgsString = table.concat({...}, ",")
 	return function(...)
 		const nList:GenResult = {...}
-		const nResult:GenResult = { " function(", nArgsString, ") " }
+		const nResult:GenResult = { " function(", nArgsString, ")" }
 		for i=1, #nList do
 			nResult[#nResult+1] = nList[i]
 			nResult[#nResult+1] = " "
@@ -582,7 +583,7 @@ end
 
 function HintGener:fnRetWrap(...:UGenResult):Ret(GenResult)
 	const nList:GenResult = {...}
-	const nResult:GenResult = { " function() return " }
+	const nResult:GenResult = { " function(...) return " }
 	for i=1, #nList do
 		nResult[#nResult+1] = nList[i]
 		if i~=#nList then
@@ -673,6 +674,7 @@ end
 		"PARAM_DOTS_UNPACK",
 		"PARAM_NODOTS_UNPACK",
 		"PARAM_PACKOUT",
+		"POLY_PARAM_TYPE",
 		"BEGIN",
 		"RETURN",
 		"END",
@@ -774,7 +776,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			" local ", self:concatList@<String>(nPolyParList, function(_, vPolyPar)
 				return vPolyPar
 			end, ","), "=", self:concatList@<String>(nPolyParList, function(i, vPolyPar)
-				return "____polyArgs["..tostring(i).."]"
+				return self:rgnWrap(vNode).POLY_PARAM_TYPE("____polyArgs["..i.."]")
 			end, ",")
 		}
 	end

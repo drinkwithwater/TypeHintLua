@@ -14,16 +14,18 @@ const TupleBuilder = class@<clazz.TupleBuilder, false>()
 function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
 	self._manager = vManager
 	self._node = vNode
-    self._list = table.pack(...) @ clazz.USpaceTuple
+    self._num = select("#", ...)
+    self._list = {...} @ List(clazz.USpaceAny)
     self._dots = nil @ clazz.USpaceAny
 end
 
 function TupleBuilder:setRetDots()
+    const num = self._num
+    assert(num > 0, self._node:toExc("RetDots must take at least 1 value"))
+    self._num = num - 1
     const l = self._list
-    const n = l.n
-    assert(n > 0, self._node:toExc("RetDots must take at least 1 value"))
-    self._list = {n=n-1, table.unpack(l, 1, n-1)}
-    self._dots = l[n]
+    self._dots = l[num]
+    l[num] = nil
 end
 
 function TupleBuilder:chainDots(vDots:clazz.USpaceAny)
@@ -37,7 +39,7 @@ function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
     const nNode = self._node
     const nSpaceTuple = self._list
     const nTypeList:List(clazz.UMustType) = {}
-    for i=1, nSpaceTuple.n do
+    for i=1, self._num do
         nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
     end
     const nTypeTuple = self._manager:TypeTuple(nNode, nTypeList)
@@ -51,20 +53,20 @@ function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
 end
 
 function TupleBuilder:getArgNum():Ret(Integer)
-    return self._list.n
+    return self._num
 end
 
 function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
     const nNode = self._node
     const nSpaceTuple = self._list
     const nTypeList:List(clazz.UMustType) = {}
-    for i=1, nSpaceTuple.n do
+    for i=1, self._num do
         nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
     end
     return nTypeList
 end
 
-function TupleBuilder:buildOpenPolyArgs():Ret(clazz.USpaceTuple)
+function TupleBuilder:buildOpenPolyArgs():Ret(List(clazz.USpaceAny))
     return self._list
 end
 

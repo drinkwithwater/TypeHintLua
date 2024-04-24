@@ -221,7 +221,7 @@ function InstStack:META_INVOKE(
 	vNode:node.Invoke,
 	vSelfTerm:clazz.RefineTerm,
 	vName:String,
-	vPolyArgsGetter:Fn():RetDots(clazz.USpaceAny),
+	vPolyArgsGetter:Fn():Dots(clazz.USpaceAny):RetDots(clazz.USpaceAny),
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UOpenReturn)
 	const nPolyTuple = self._manager:spacePack(vNode, vPolyArgsGetter())
@@ -352,6 +352,7 @@ function InstStack:META_UOP(
 	return nUopContext:mergeToRefineTerm(nTypeCaseList)
 end
 
+-- chunk is a function term, so convert it to type in the end
 function InstStack:CHUNK_TYPE(vNode:node.IAstNode, vTerm:clazz.RefineTerm):Ret(clazz.UAtomUnion)
 	return vTerm:getType()
 end
@@ -370,8 +371,11 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
-	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
+(@let.RawPairMaker = import("thlua.builder.TableBuilder").RawPairMaker)
+function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vRawPairMaker:RawPairMaker):Ret(clazz.RefineTerm)
+	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, function()
+		return vRawPairMaker(self:_unpackPolyArgs())
+	end)
 	const nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)
 end
@@ -382,6 +386,15 @@ function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	else
 		error(vNode:toExc("hint eval fail"))
 	end
+end
+
+function InstStack:POLY_PARAM_TYPE(vNode:node.IAstNode, vType:clazz.UMustType)
+	return vType
+end
+
+function InstStack:POLY_PARAM_DOTS(vNode:node.IAstNode, ...:clazz.USpaceAny)
+	self._polyDotsNum = select("#", ...)
+	self._polyDotsArgs = {...}
 end
 
 function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:clazz.USpaceAny):Ret(clazz.RefineTerm)
@@ -556,7 +569,7 @@ end
 function InstStack:IF_ONE(
 	vNode:node.IAstNode,
 	vTerm:clazz.RefineTerm,
-	vTrueFunction:Fn(), vBlockNode:node.Block
+	vTrueFunction:Fn():Dots(clazz.USpaceAny), vBlockNode:node.Block
 )
 	const nIfContext = self:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
@@ -571,8 +584,8 @@ end
 function InstStack:IF_TWO(
 	vNode:node.IAstNode,
 	vTerm:clazz.RefineTerm,
-	vTrueFunction:Fn(), vTrueBlock:node.Block,
-	vFalseFunction:Fn(), vFalseBlock:OrNil(node.Block)
+	vTrueFunction:Fn():Dots(clazz.USpaceAny), vTrueBlock:node.Block,
+	vFalseFunction:Fn():Dots(clazz.USpaceAny), vFalseBlock:OrNil(node.Block)
 )
 	const nIfContext = self:newOperContext(vNode)
 	const nTrueCase = vTerm:caseTrue()
@@ -592,15 +605,15 @@ function InstStack:IF_TWO(
 	end
 end
 
-function InstStack:REPEAT(vNode:node.Repeat, vFunc:Fn(), vUntilFn:Fn():Ret(clazz.RefineTerm))
-	self:_withBranch(VariableCase.new(), function()
-		vFunc()
+function InstStack:REPEAT(vNode:node.Repeat, vFunc:Fn():Dots(clazz.USpaceAny), vUntilFn:Fn():Dots(clazz.USpaceAny):Ret(clazz.RefineTerm))
+	self:_withBranch(VariableCase.new(), function(...)
+		vFunc(...)
 		-- TODO filter case for vUntilFn's return
-		vUntilFn()
+		vUntilFn(...)
 	end, vNode[1])
 end
 
-function InstStack:WHILE(vNode:node.While, vHintInfo:clazz.TLongHintInfo(Nil), vTerm:clazz.RefineTerm, vTrueFunction:Fn())
+function InstStack:WHILE(vNode:node.While, vHintInfo:clazz.TLongHintInfo(Nil), vTerm:clazz.RefineTerm, vTrueFunction:Fn():Dots(clazz.USpaceAny))
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
@@ -609,7 +622,7 @@ function InstStack:WHILE(vNode:node.While, vHintInfo:clazz.TLongHintInfo(Nil), v
 	end
 end
 
-function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn())
+function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn():Dots(clazz.USpaceAny))
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
@@ -617,7 +630,7 @@ function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc
 	end
 end
 
-function InstStack:FOR_IN(vNode:node.Forin, vHintInfo:clazz.TLongHintInfo(Nil), vFunc:Fn(clazz.FixedTermTuple), vNextSelfInit:clazz.FixedTermTuple)
+function InstStack:FOR_IN(vNode:node.Forin, vHintInfo:clazz.TLongHintInfo(Nil), vFunc:Fn(clazz.FixedTermTuple):Dots(clazz.USpaceAny), vNextSelfInit:clazz.FixedTermTuple)
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
 	const nForContext = self:newOperContext(vNode)
@@ -672,8 +685,8 @@ function InstStack:FOR_IN(vNode:node.Forin, vHintInfo:clazz.TLongHintInfo(Nil), 
 		end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
 		if not nBuilder.pass then
-			self:_withBranch(vCase, function()
-				vFunc(nNewTuple)
+			self:_withBranch(vCase, function(...)
+				vFunc(nNewTuple, ...)
 			end, vNode[3])
 		end
 	end)
@@ -685,20 +698,20 @@ function InstStack:FOR_NUM(
 	vStart:clazz.RefineTerm,
 	vStop:clazz.RefineTerm,
 	vStepOrNil:OrNil(clazz.RefineTerm),
-	vFunc:Fn(clazz.RefineTerm),
+	vFunc:Fn(clazz.RefineTerm):Dots(clazz.USpaceAny),
 	vBlockNode:node.Block
 )
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
 		const nForContext = self:newOperContext(vNode)
-		self:_withBranch(VariableCase.new(), function()
-			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+		self:_withBranch(VariableCase.new(), function(...)
+			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer), ...)
 		end, vBlockNode)
 	end
 end
 
-function InstStack:LOGIC_OR(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
+function InstStack:LOGIC_OR(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Dots(clazz.USpaceAny):Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	const nOrContext = self:newLogicContext(vNode)
 	const nLeftTrueTerm = nOrContext:logicTrueTerm(vLeftTerm)
 	const nLeftFalseCase = vLeftTerm:caseFalse()
@@ -706,15 +719,15 @@ function InstStack:LOGIC_OR(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vRi
 		return nLeftTrueTerm
 	else
 		local nRightTerm:OrNil(clazz.RefineTerm) = nil
-		self:_withBranch(nLeftFalseCase, function()
-			nRightTerm = vRightFunction()
+		self:_withBranch(nLeftFalseCase, function(...)
+			nRightTerm = vRightFunction(...)
 		end)
 		assert(nRightTerm, "term must be true value here")
 		return nOrContext:logicCombineTerm(nLeftTrueTerm, nRightTerm, nLeftFalseCase)
 	end
 end
 
-function InstStack:LOGIC_AND(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
+function InstStack:LOGIC_AND(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vRightFunction:Fn():Dots(clazz.USpaceAny):Ret(clazz.RefineTerm)):Ret(clazz.RefineTerm)
 	const nAndContext = self:newLogicContext(vNode)
 	const nLeftFalseTerm = nAndContext:logicFalseTerm(vLeftTerm)
 	const nLeftTrueCase = vLeftTerm:caseTrue()
@@ -722,8 +735,8 @@ function InstStack:LOGIC_AND(vNode:node.IAstNode, vLeftTerm:clazz.RefineTerm, vR
 		return nLeftFalseTerm
 	else
 		local nRightTerm:OrNil(clazz.RefineTerm) = nil
-		self:_withBranch(nLeftTrueCase, function()
-			nRightTerm = vRightFunction()
+		self:_withBranch(nLeftTrueCase, function(...)
+			nRightTerm = vRightFunction(...)
 		end)
 		assert(nRightTerm, "term must be true value here")
 		return nAndContext:logicCombineTerm(nLeftFalseTerm, nRightTerm, nLeftTrueCase)

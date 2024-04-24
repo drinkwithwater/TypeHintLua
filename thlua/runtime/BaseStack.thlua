@@ -71,10 +71,20 @@ function.open BaseStack:ctor(
 	self._branchStack={nTempBranch}@List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
 	self._retList={} @ List(clazz.FixedTermTuple)
+	self._polyDotsNum = 0 @ Integer
+	self._polyDotsArgs = {} @ List(clazz.USpaceAny)
 end
 
 function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UMustType)
 	error("check error in OpenStack or SealStack")
+end
+
+function BaseStack:_unpackPolyArgs()
+	if self._polyDotsNum > 0 then
+		return table.unpack(self._polyDotsArgs)
+	else
+		return
+	end
 end
 
 function BaseStack:anyNodeMetaGet(vNode:clazz.IBaseNode, vSelfTerm:clazz.RefineTerm, vKeyTerm:clazz.RefineTerm, vNotnil:Boolean):Ret(clazz.RefineTerm)
@@ -230,14 +240,14 @@ function BaseStack:getTypeManager():Ret(clazz.TypeManager)
 	return self._manager
 end
 
-function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn(), vNode:OrNil(node.Block)):Ret(clazz.Branch)
+function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn():Dots(clazz.USpaceAny), vNode:OrNil(node.Block)):Ret(clazz.Branch)
 	const nStack = self._branchStack
 	const nLen = #nStack
 	const nNewLen = nLen + 1
 	const nOldBranch = nStack[nLen]!
 	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch, vNode)
 	nStack[nNewLen] = nNewBranch
-	vFunc()
+	vFunc(self:_unpackPolyArgs())
 	nStack[nNewLen] = nil
 	return nNewBranch
 end
