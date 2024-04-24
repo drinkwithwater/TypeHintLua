@@ -398,10 +398,13 @@ local G = lpeg.P { "TypeHintLua";
 		vv.PrimaryExpr
 	);]]
 
-	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") * Cpos / function(env, pos, ...)
-		local l = {...}
+	PolyIdentDef = symb("$") * vv.IdentDefN / function(obj) obj.isPolyVar = true return obj end + vv.IdentDefN;
+
+	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.PolyIdentDef * (symb"," * vv.PolyIdentDef)^0 * symbA(">") * Cpos / function(env, pos, ...)
+		local l = {tag="HintPolyParList", pos=pos, ...}
 		local posEnd = l[#l]
 		l[#l] = nil
+		l.posEnd = posEnd
 		env.codeBuilder:markDel(pos, posEnd)
 		return l
 	end;

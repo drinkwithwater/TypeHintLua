@@ -38,13 +38,15 @@ local __node = {}
 
 __node.Chunk = ExtendStruct({
 	tag = "Chunk",
-	symbol_dots = OrNil(node.Dots),
-	retFlag = OrNil(True),
 	hintPolyParList = Nil,
 	parFullHint = Nil,
 	letNode = node.Ident_def,
 	hintEnvNode = node.Ident_def,
 	injectNode = OrFalse(node.ShortHintSpace, node.Expr),
+	-- assign in visitor
+	retFlag = OrNil(True),
+	symbol_dots = OrNil(node.Dots),
+	hintSymbolTable = Dict(String, node.Ident_def),
 	[1] = node.Ident_def,
 	[2] = node.ParList,
 	[3] = node.Block,
@@ -86,6 +88,11 @@ __node.HintEval = ExtendStruct({
 	endLine=Integer,
 	[1] = Union(node.HintTerm, node.Expr),
 }, let.IAstNode)
+
+__node.HintPolyParList = ExtendStruct({
+	tag = "HintPolyParList",
+	[Integer] = node.Ident_def,
+}, let.IAstNode, let.ILen)
 
 node.IHintSpace = ExtendInterface(Interface {
 	tag="HintSpace",
@@ -252,6 +259,7 @@ node.Ident_def = ExtendStruct({
 	symbolModify=Boolean,
 	symbolGetted=OrNil(True), -- is used and used by get
 	isHidden=OrNil(True),
+	isPolyVar=OrNil(True),
 	hintShort=OrNil(node.ShortHintSpace),
 	lookupIdent = OrNil(node.Ident_def),
 	[1] = String,
@@ -306,12 +314,16 @@ __node.String = ExtendStruct({
 
 __node.Function = ExtendStruct({
 	tag = "Function",
-	symbol_dots = OrNil(node.Dots),
+	-- gen by dosth
 	hintPrefix = OrNil(node.LongHintSpace),
-	hintPolyParList = OrNil(List(String)),
+	hintPolyParList = OrFalse(node.HintPolyParList),
+	-- hintPolyParList = OrNil(List(String)),
 	hintSuffix = OrNil(node.LongHintSpace),
+	-- gen by visitor,
 	retFlag = OrNil(True),
 	parFullHint = Boolean,
+	symbol_dots = OrNil(node.Dots),
+	hintSymbolTable = Dict(String, node.Ident_def),
 	letNode = OrFalse(node.Ident_def), -- false means function in hint space
 	hintEnvNode = OrFalse(node.Ident_def), -- false means function in hint space
 	[1] = node.ParList,
@@ -432,7 +444,9 @@ node.SymbolKindEnum = Union(
 	$Enum.SymbolKind_CONST,
 	$Enum.SymbolKind_LOCAL,
 	$Enum.SymbolKind_PARAM,
-	$Enum.SymbolKind_ITER
+	$Enum.SymbolKind_ITER,
+	$Enum.SymbolKind_POLY_TYPE,
+	$Enum.SymbolKind_POLY_VAR
 )
 
 node.CastKindEnum = Union(

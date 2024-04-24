@@ -674,7 +674,8 @@ end
 		"PARAM_DOTS_UNPACK",
 		"PARAM_NODOTS_UNPACK",
 		"PARAM_PACKOUT",
-		"POLY_PARAM_TYPE",
+		"POLY_PARAM_FROM",
+		"POLY_PARAM_DOTS",
 		"BEGIN",
 		"RETURN",
 		"END",
@@ -773,10 +774,10 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	const nPolyParNum = nPolyParList and #nPolyParList or 0
 	if nPolyParList and nPolyParNum > 0 then
 		nPolyUnpack = {
-			" local ", self:concatList@<String>(nPolyParList, function(_, vPolyPar)
-				return vPolyPar
-			end, ","), "=", self:concatList@<String>(nPolyParList, function(i, vPolyPar)
-				return self:rgnWrap(vNode).POLY_PARAM_TYPE("____polyArgList["..i.."]")
+			" local ", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
+				return vPolyPar[1]
+			end, ","), "=", self:concatList@<node.Ident_def>(nPolyParList, function(i, vPolyPar)
+				return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
 			end, ",")
 		}
 	end

@@ -108,6 +108,21 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		const nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
+			-- fill hint symbol
+			func.hintSymbolTable = {}
+			const nHintPolyParList = func.hintPolyParList
+			if nHintPolyParList then
+				self:realVisit(nHintPolyParList)
+			end
+			const letNode = func.letNode
+			if letNode then
+				func.hintSymbolTable.let=letNode
+			end
+			const hintEnvNode = func.hintEnvNode
+			if hintEnvNode then
+				func.hintSymbolTable._ENV=hintEnvNode
+			end
+			--
 			local nParFullHint = true
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
@@ -134,10 +149,6 @@ local TagToVisiting:let.RealTraverser = {
 				if nPolyParList and #nPolyParList > 0 then
 					-- const nErrNode = self._env:makeErrNode(func[1].pos, "poly function must be full-hint or self:full-hint")
 					-- error(Exception.new(nErrNode[1], nErrNode))
-				end
-			else
-				if not func.hintPolyParList then
-					func.hintPolyParList = {}
 				end
 			end
 		end)
@@ -191,6 +202,9 @@ local TagToVisiting:let.RealTraverser = {
 	Chunk=function(self, chunk)
 		const nBlockNode = chunk[3]
 		self:withScope(nBlockNode, chunk, function()
+			chunk.hintSymbolTable = {}
+			chunk.hintSymbolTable.let=chunk.letNode
+			chunk.hintSymbolTable._ENV=chunk.hintEnvNode
 			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
 				if name.tag == "dots" then
@@ -203,6 +217,13 @@ local TagToVisiting:let.RealTraverser = {
 				self:realVisit(nInjectNode)
 			end
 		end)
+	end,
+	HintPolyParList=function(self, node)
+		self:reverseInHint(true)
+		for i=1, #node do
+			self:symbolDefine(node[i]!, node[i]!.isPolyVar and Enum.SymbolKind_POLY_VAR or Enum.SymbolKind_POLY_TYPE)
+		end
+		self:reverseInHint(false)
 	end,
 	HintSpace=function(self, node)
 		self:reverseInHint(true)
@@ -241,10 +262,9 @@ function SymbolVisitor:withHintBlock(vBlockNode:node.Block, vFuncNode:OrNil(node
 			__index=nPreNode.symbolTable,
 		})
 	else
-		vBlockNode.symbolTable = {
-			let=assert(nPreNode.letNode),
-			_ENV=assert(nPreNode.hintEnvNode),
-		}
+		vBlockNode.symbolTable = setmetatable({}, {
+			__index=nPreNode.hintSymbolTable,
+		})
 	end
 	table.insert(self._hintStack, vBlockNode)
 	if vFuncNode then
@@ -309,6 +329,8 @@ function SymbolVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.S
 			const nLookupNode = nBlockOrRegion.symbolTable[nName]
 			nBlockOrRegion.symbolTable[nName] = vIdentNode
 			vIdentNode.lookupIdent = nLookupNode
+		elseif nBlockOrRegion.tag == "Function" then
+			nBlockOrRegion.hintSymbolTable[nName] = vIdentNode
 		else
 			error("local stat can't existed here..")
 		end
@@ -335,11 +357,7 @@ function SymbolVisitor:hintSymbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolea
 	if nBlockOrRegion.tag == "Block" then
 		nDefineNode = nBlockOrRegion.symbolTable[nName] or false
 	else
-		if nName == "let" then
-			nDefineNode = nBlockOrRegion.letNode
-		elseif nName == "_ENV" then
-			nDefineNode = nBlockOrRegion.hintEnvNode
-		end
+		nDefineNode = nBlockOrRegion.hintSymbolTable[nName] or false
 	end
 	if not nDefineNode then
 		vIdentNode.defineIdent = false
