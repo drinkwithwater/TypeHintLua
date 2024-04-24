@@ -22,6 +22,8 @@ Enum.SymbolKind_CONST = "const"
 Enum.SymbolKind_LOCAL = "local"
 Enum.SymbolKind_PARAM = "param"
 Enum.SymbolKind_ITER = "iter"
+Enum.SymbolKind_POLY_TYPE = "poly_type"
+Enum.SymbolKind_POLY_VAR = "poly_var"
 
 Enum.CastKind_COVAR = "@"
 Enum.CastKind_CONTRA = "@>"
@@ -561,11 +563,7 @@ function FunctionBuilder.new(
 	return self
 end
 
-function FunctionBuilder:_makeRetTuples(
-	vSuffixHint,
-	vTypeList,
-	vSelfType
-)
+function FunctionBuilder:_makeRetTuples(vSuffixHint)
 	local nRetBuilder = RetBuilder.new(self._manager, self._node)
 	local ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
@@ -633,8 +631,9 @@ function FunctionBuilder:_buildInnerFn()
 		local nAutoFn = self._stack:newAutoFunction(nNode, self._lexCapture)
 		local nNewStack = nAutoFn:getBuildStack()
 		nAutoFn:initAsync(function()
+			local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
 			local nPolyArgList = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-			local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, vSelfType)
+			local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, vSelfType)
 			local nCastTypeFn = nAutoFn:pickCastTypeFn()
 			  
 			local nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
@@ -642,7 +641,7 @@ function FunctionBuilder:_buildInnerFn()
 			local nParTuple = nParTermTuple:checkTypeTuple()
 			  
 			local nCastRet = nCastTypeFn and nCastTypeFn:getRetTuples()
-			local nHintRetTuples = self:_makeRetTuples(nSuffixHint, nPolyArgList, vSelfType)
+			local nHintRetTuples = self:_makeRetTuples(nSuffixHint)
 			if nHintRetTuples and nCastRet then
 				if not nCastRet:includeTuples(nHintRetTuples) then
 					nNewStack:inplaceOper():error("hint return not match when cast")
@@ -699,7 +698,7 @@ function FunctionBuilder:_buildOpen()
 		local nGuardFn = self._stack:newOpenFunction(self._node, self._lexCapture)
 		local nMakerStack = nGuardFn:newStack(self._node, self._stack)
 		local nSetted = false
-		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, {}, false)
+		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, 0, {}, false)
 		local ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
 				error(self._node:toExc("extends can only be used with function:class"))
@@ -740,7 +739,9 @@ function FunctionBuilder:_buildOpen()
 	else
 		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyTuple, vTermTuple)
 			local ok, runRet, runErr = xpcall(function()
-				local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, vPolyTuple and vPolyTuple:buildOpenPolyArgs() or {}  , false)
+				local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
+				local nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {}  
+				local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList, false)
 				nGenParam(vTermTuple)
 				return nGenFunc()
 			end, function(err)
@@ -853,8 +854,9 @@ function FunctionBuilder:_buildClass()
 		local nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
 		local nNewStack = nFactory:getBuildStack()
 		      
+		local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
 		local nPolyArgList = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgList, false)
+		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, false)
 		   
 		nFactory:initClassTableAsync(function()
 			local nExtends, nImplements = nInterfaceGetter(nSuffixHint)
@@ -946,6 +948,7 @@ local TermTuple = require "thlua.tuple.TermTuple"
 		
 		
 	
+	    
 	    
 
 
@@ -1489,13 +1492,13 @@ local TagToVisiting = {
 			if nInjectNode.tag ~= "HintSpace" then
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
-					"local let, _ENV = ____stk:INJECT_BEGIN() ",
+					"local let, _ENV=____stk:SPACE() ",
 					" return ", self:visit(nInjectNode),
 				}
 			else
 				return {
 					'local ____nodes,____stk,____injectGetter=... ',
-					"local let, _ENV = ____stk:INJECT_BEGIN() ",
+					"local let, _ENV=____stk:SPACE() ",
 					" return ", self:fixIHintSpace(nInjectNode),
 				}
 			end
@@ -1539,7 +1542,7 @@ local TagToVisiting = {
 	Do=function(self, node)
 		return self:rgnWrap(node).DO(
 			self:visitLongHint(node.hintLong),
-			self:fnWrap()(self:visit(node[1]))
+			self:fnWrap("...")(self:visit(node[1]))
 		)
 	end,
 	Set=function(self, node)
@@ -1592,13 +1595,13 @@ local TagToVisiting = {
 		return self:rgnWrap(node).WHILE(
 			self:visitLongHint(node.hintLong),
 			self:visit(node[1]),
-			self:fnWrap()(self:visit(node[2]))
+			self:fnWrap("...")(self:visit(node[2]))
 		)
 	end,
 	Repeat=function(self, node)
 		return self:rgnWrap(node).REPEAT(
-			self:fnWrap()(self:visit(node[1])),
-			self:fnWrap()(self:visit(node[2]))
+			self:fnWrap("...")(self:visit(node[1])),
+			self:fnWrap("...")(self:visit(node[2]))
 		)
 	end,
 	If=function(self, node)
@@ -1609,21 +1612,21 @@ local TagToVisiting = {
 					assert(nNext1Node.tag ~= "Block" and nNext2Node.tag == "Block", "if statement error")
 					return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
-						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
-						self:fnWrap()(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
+						self:fnWrap("...")(self:visit(blockNode)), self:codeNode(blockNode),
+						self:fnWrap("...")(put(nNext1Node, nNext2Node, nextIndex + 2, level + 1))
 					)
 				else
 					assert(nNext1Node.tag == "Block")
 					return self:rgnWrap(node).IF_TWO(
 						self:visit(exprNode),
-						self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode),
-						self:fnWrap()(self:visit(nNext1Node)), self:codeNode(nNext1Node)
+						self:fnWrap("...")(self:visit(blockNode)), self:codeNode(blockNode),
+						self:fnWrap("...")(self:visit(nNext1Node)), self:codeNode(nNext1Node)
 					)
 				end
 			else
 				return self:rgnWrap(node).IF_ONE(
 					self:visit(exprNode),
-					self:fnWrap()(self:visit(blockNode)), self:codeNode(blockNode)
+					self:fnWrap("...")(self:visit(blockNode)), self:codeNode(blockNode)
 				)
 			end
 		end
@@ -1638,7 +1641,7 @@ local TagToVisiting = {
 		return self:rgnWrap(node).FOR_NUM(
 			self:visitLongHint(node.hintLong),
 			self:visit(node[2]), self:visit(node[3]), nHasStep and self:visit(node[4]) or "nil",
-			self:fnWrap("____fornum")(
+			self:fnWrap("____fornum", "...")(
 				self:visitIdentDef(node[1], "____fornum"),
 				self:visit(nBlockNode)
 			),
@@ -1650,16 +1653,17 @@ local TagToVisiting = {
 			"local ____n_t_i=", self:stkWrap(node).EXPRLIST_REPACK("false", self:listWrap(self:visit(node[2]))),
 			self:rgnWrap(node).FOR_IN(
 				self:visitLongHint(node.hintLong),
-				self:fnWrap("____iterTuple")(
-				"local ", self:concatList(node[1], function(i, vNode)
-					return "____forin"..i
-				end, ","),
-				"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
-				self:concatList(node[1], function(i, vIdent)
-					return self:visitIdentDef(vIdent, "____forin"..i)
-				end, " "),
-				self:visit(node[3])
-			), "____n_t_i")
+				self:fnWrap("____iterTuple", "...")(
+					"local ", self:concatList(node[1], function(i, vNode)
+						return "____forin"..i
+					end, ","),
+					"=", self:stkWrap(node).EXPRLIST_UNPACK(tostring(#node[1]), "____iterTuple"),
+					self:concatList(node[1], function(i, vIdent)
+						return self:visitIdentDef(vIdent, "____forin"..i)
+					end, " "),
+					self:visit(node[3])
+				),
+			"____n_t_i")
 		}
 	end,
 	Local=function(self, node)
@@ -2014,7 +2018,7 @@ function HintGener:fnWrap(...)
 	local nArgsString = table.concat({...}, ",")
 	return function(...)
 		local nList = {...}
-		local nResult = { " function(", nArgsString, ") " }
+		local nResult = { " function(", nArgsString, ")" }
 		for i=1, #nList do
 			nResult[#nResult+1] = nList[i]
 			nResult[#nResult+1] = " "
@@ -2026,7 +2030,7 @@ end
 
 function HintGener:fnRetWrap(...)
 	local nList = {...}
-	local nResult = { " function() return " }
+	local nResult = { " function(...) return " }
 	for i=1, #nList do
 		nResult[#nResult+1] = nList[i]
 		if i~=#nList then
@@ -2132,6 +2136,8 @@ end
 		
 		
 		
+		
+		
 	
 
 function HintGener:rgnWrap(vNode) 
@@ -2216,9 +2222,9 @@ function HintGener:visitFunc(vNode )
 	if nPolyParList and nPolyParNum > 0 then
 		nPolyUnpack = {
 			" local ", self:concatList(nPolyParList, function(_, vPolyPar)
-				return vPolyPar
+				return vPolyPar[1]
 			end, ","), "=", self:concatList(nPolyParList, function(i, vPolyPar)
-				return "____polyArgs["..tostring(i).."]"
+				return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
 			end, ",")
 		}
 	end
@@ -2230,8 +2236,8 @@ function HintGener:visitFunc(vNode )
 		_member=tostring(nIsMember),
 	}), nHintPrefix,
 	   
-		self:fnWrap("____newStk","____polyArgs", "____self")(
-			"local ____stk,let,_ENV=____newStk,____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
+		self:fnWrap("____newStk","____polyArgNum", "____polyArgList", "____self")(
+			"local ____stk=____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
 			nPolyUnpack,
 			   
 			" local ____vDOTS=false ",
@@ -2270,6 +2276,7 @@ function HintGener:visitFunc(vNode )
 				)
 			), ",", nHintSuffix, ",",
 			self:fnWrap()(
+				"local let, _ENV=____stk:SPACE() ",
 				self:visit(nBlockNode),
 				" return ",
 				self:rgnWrap(vNode).END()
@@ -2380,6 +2387,8 @@ local Exception = require "thlua.Exception"
 	  
 	  
 	  
+	   
+	   
 	  
 	  
 	   
@@ -2424,6 +2433,12 @@ local Exception = require "thlua.Exception"
 	
 	   
  
+
+  
+	  
+	  
+	  
+  
 
    
 	
@@ -2591,6 +2606,7 @@ local Exception = require "thlua.Exception"
 	       
 	
 	
+	
 	  
 	  
  
@@ -2644,12 +2660,16 @@ local Exception = require "thlua.Exception"
 
   
 	  
+	   
+	  
+	  
+	   
+	  
+	   
 	  
 	  
 	  
-	  
-	  
-	  
+	   
 	         
 	         
 	  
@@ -2767,6 +2787,8 @@ local Node = {}
 ;
 
   
+	
+	
 	
 	
 	
@@ -3270,12 +3292,14 @@ local G = lpeg.P { "TypeHintLua";
 		vv.PrimaryExpr
 	);]]
 
-	HintPolyParList = Cenv * Cpos * symb("@<") * vvA.Name * (symb"," * vv.Name)^0 * symbA(">") * Cpos / function(env, pos, ...)
-		local l = {...}
-		local posEnd = l[#l]
-		l[#l] = nil
-		env.codeBuilder:markDel(pos, posEnd)
-		return l
+	PolyIdentDef = symb("$") * vv.IdentDefN / function(obj) obj.isPolyVar = true return obj end + vv.IdentDefN;
+
+	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
+		lpeg.Cg(symb("...") * cc(true), "dots") +
+		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * symb "..." * cc(true) + cc(false), "dots")
+	) * symbA(">")) / function(env, polyParList)
+		env.codeBuilder:markDel(polyParList.pos, polyParList.posEnd)
+		return polyParList
 	end;
 
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
@@ -4350,6 +4374,21 @@ local TagToVisiting = {
 		end
 		local nBlockNode = func[2]
 		self:withScope(nBlockNode, func, function()
+			   
+			func.hintSymbolTable = {}
+			local nHintPolyParList = func.hintPolyParList
+			if nHintPolyParList then
+				self:realVisit(nHintPolyParList)
+			end
+			local letNode = func.letNode
+			if letNode then
+				func.hintSymbolTable.let=letNode
+			end
+			local hintEnvNode = func.hintEnvNode
+			if hintEnvNode then
+				func.hintSymbolTable._ENV=hintEnvNode
+			end
+			
 			local nParFullHint = true
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
@@ -4376,10 +4415,6 @@ local TagToVisiting = {
 				if nPolyParList and #nPolyParList > 0 then
 					           
 					  
-				end
-			else
-				if not func.hintPolyParList then
-					func.hintPolyParList = {}
 				end
 			end
 		end)
@@ -4433,6 +4468,9 @@ local TagToVisiting = {
 	Chunk=function(self, chunk)
 		local nBlockNode = chunk[3]
 		self:withScope(nBlockNode, chunk, function()
+			chunk.hintSymbolTable = {}
+			chunk.hintSymbolTable.let=chunk.letNode
+			chunk.hintSymbolTable._ENV=chunk.hintEnvNode
 			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
 				if name.tag == "dots" then
@@ -4445,6 +4483,13 @@ local TagToVisiting = {
 				self:realVisit(nInjectNode)
 			end
 		end)
+	end,
+	HintPolyParList=function(self, node)
+		self:reverseInHint(true)
+		for i=1, #node do
+			self:symbolDefine(node[i], node[i].isPolyVar and Enum.SymbolKind_POLY_VAR or Enum.SymbolKind_POLY_TYPE)
+		::continue:: end
+		self:reverseInHint(false)
 	end,
 	HintSpace=function(self, node)
 		self:reverseInHint(true)
@@ -4483,10 +4528,9 @@ function SymbolVisitor:withHintBlock(vBlockNode, vFuncNode, vInnerCall)
 			__index=nPreNode.symbolTable,
 		})
 	else
-		vBlockNode.symbolTable = {
-			let=assert(nPreNode.letNode),
-			_ENV=assert(nPreNode.hintEnvNode),
-		}
+		vBlockNode.symbolTable = setmetatable({}, {
+			__index=nPreNode.hintSymbolTable,
+		})
 	end
 	table.insert(self._hintStack, vBlockNode)
 	if vFuncNode then
@@ -4551,6 +4595,8 @@ function SymbolVisitor:symbolDefine(vIdentNode, vImmutKind)
 			local nLookupNode = nBlockOrRegion.symbolTable[nName]
 			nBlockOrRegion.symbolTable[nName] = vIdentNode
 			vIdentNode.lookupIdent = nLookupNode
+		elseif nBlockOrRegion.tag == "Function" then
+			nBlockOrRegion.hintSymbolTable[nName] = vIdentNode
 		else
 			error("local stat can't existed here..")
 		end
@@ -4577,11 +4623,7 @@ function SymbolVisitor:hintSymbolUse(vIdentNode, vIsAssign)
 	if nBlockOrRegion.tag == "Block" then
 		nDefineNode = nBlockOrRegion.symbolTable[nName] or false
 	else
-		if nName == "let" then
-			nDefineNode = nBlockOrRegion.letNode
-		elseif nName == "_ENV" then
-			nDefineNode = nBlockOrRegion.hintEnvNode
-		end
+		nDefineNode = nBlockOrRegion.hintSymbolTable[nName] or false
 	end
 	if not nDefineNode then
 		vIdentNode.defineIdent = false
@@ -4801,6 +4843,10 @@ local TagToTraverse = {
 		if nHintLong then
 			self:realVisit(nHintLong)
 		end
+		local nHintPolyParList = node.hintPolyParList
+		if nHintPolyParList then
+			self:realVisit(nHintPolyParList)
+		end
 		local nLetNode = node.letNode
 		if nLetNode then
 			self:realVisit(nLetNode)
@@ -4878,6 +4924,11 @@ local TagToTraverse = {
 	Pair=function(self, node)
 		self:realVisit(node[1])
 		self:realVisit(node[2])
+	end,
+	HintPolyParList=function(self, node)
+		for i=1, #node do
+			self:realVisit(node[i])
+		::continue:: end
 	end,
 	HintSpace=function(self, node)
 		if node.kind == "StatHintSpace" then
@@ -9395,11 +9446,21 @@ function BaseStack:ctor(
 	local nTempBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
 	self._branchStack={nTempBranch};
 	self._bodyFn=nil;
-	self._retList={}  
+	self._retList={} ; 
+	self._polyDotsNum = 0 ; 
+	self._polyDotsArgs = {}  
 end
 
 function BaseStack:RAISE_ERROR(vContext, vType)
 	error("check error in OpenStack or SealStack")
+end
+
+function BaseStack:_unpackPolyArgs()
+	if self._polyDotsNum > 0 then
+		return table.unpack(self._polyDotsArgs)
+	else
+		return
+	end
 end
 
 function BaseStack:anyNodeMetaGet(vNode, vSelfTerm, vKeyTerm, vNotnil)
@@ -9562,7 +9623,7 @@ function BaseStack:_withBranch(vVariableCase, vFunc, vNode)
 	local nOldBranch = nStack[nLen]
 	local nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch, vNode)
 	nStack[nNewLen] = nNewBranch
-	vFunc()
+	vFunc(self:_unpackPolyArgs())
 	nStack[nNewLen] = nil
 	return nNewBranch
 end
@@ -10228,14 +10289,17 @@ function InstStack:AUTO(vNode)
 	return AutoFlag
 end
 
-function InstStack:BEGIN(vLexStack, vBlockNode); 
+function InstStack:BEGIN(vLexStack, vBlockNode);
 	assert(not self._letspace, "context can only begin once")
 	local nUpState = self._lexCapture
 	local nRootBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, vBlockNode)
 	self._branchStack[1]=nRootBranch
-	local nSpace = self._runtime:LetSpace(vBlockNode, vLexStack:getLetSpace())
+	self._letspace = self._runtime:LetSpace(vBlockNode, vLexStack:getLetSpace())
+	return self
+end
 
-	self._letspace = nSpace
+function InstStack:SPACE() 
+	local nSpace = assert(self._letspace)
 	return nSpace:export()
 end
 
@@ -10536,6 +10600,7 @@ function InstStack:META_UOP(
 	return nUopContext:mergeToRefineTerm(nTypeCaseList)
 end
 
+             
 function InstStack:CHUNK_TYPE(vNode, vTerm)
 	return vTerm:getType()
 end
@@ -10554,8 +10619,11 @@ function InstStack:FUNC_NEW(vNode ,
 end
 
 ;  
-function InstStack:TABLE_NEW(vNode, vHintInfo, vPairMaker)
-	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
+;  
+function InstStack:TABLE_NEW(vNode, vHintInfo, vRawPairMaker)
+	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, function()
+		return vRawPairMaker(self:_unpackPolyArgs())
+	end)
 	local nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)
 end
@@ -10566,6 +10634,19 @@ function InstStack:EVAL(vNode, vTerm)
 	else
 		error(vNode:toExc("hint eval fail"))
 	end
+end
+
+function InstStack:POLY_PARAM_FROM(vNode, vSpaceValue, vIsVar)
+	if vIsVar then
+		return vSpaceValue
+	else
+		return self._manager:easyToMustType(vNode, vSpaceValue)
+	end
+end
+
+function InstStack:POLY_PARAM_DOTS(vNode, ...)
+	self._polyDotsNum = select("#", ...)
+	self._polyDotsArgs = {...}
 end
 
 function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
@@ -10777,10 +10858,10 @@ function InstStack:IF_TWO(
 end
 
 function InstStack:REPEAT(vNode, vFunc, vUntilFn)
-	self:_withBranch(VariableCase.new(), function()
-		vFunc()
+	self:_withBranch(VariableCase.new(), function(...)
+		vFunc(...)
 		      
-		vUntilFn()
+		vUntilFn(...)
 	end, vNode[1])
 end
 
@@ -10856,8 +10937,8 @@ function InstStack:FOR_IN(vNode, vHintInfo, vFunc, vNextSelfInit)
 		::continue:: end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
 		if not nBuilder.pass then
-			self:_withBranch(vCase, function()
-				vFunc(nNewTuple)
+			self:_withBranch(vCase, function(...)
+				vFunc(nNewTuple, ...)
 			end, vNode[3])
 		end
 	end)
@@ -10876,8 +10957,8 @@ function InstStack:FOR_NUM(
 	nBuilder:build(vHintInfo)
 	if not nBuilder.pass then
 		local nForContext = self:newOperContext(vNode)
-		self:_withBranch(VariableCase.new(), function()
-			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer))
+		self:_withBranch(VariableCase.new(), function(...)
+			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer), ...)
 		end, vBlockNode)
 	end
 end
@@ -10890,8 +10971,8 @@ function InstStack:LOGIC_OR(vNode, vLeftTerm, vRightFunction)
 		return nLeftTrueTerm
 	else
 		local nRightTerm = nil
-		self:_withBranch(nLeftFalseCase, function()
-			nRightTerm = vRightFunction()
+		self:_withBranch(nLeftFalseCase, function(...)
+			nRightTerm = vRightFunction(...)
 		end)
 		assert(nRightTerm, "term must be true value here")
 		return nOrContext:logicCombineTerm(nLeftTrueTerm, nRightTerm, nLeftFalseCase)
@@ -10906,8 +10987,8 @@ function InstStack:LOGIC_AND(vNode, vLeftTerm, vRightFunction)
 		return nLeftFalseTerm
 	else
 		local nRightTerm = nil
-		self:_withBranch(nLeftTrueCase, function()
-			nRightTerm = vRightFunction()
+		self:_withBranch(nLeftTrueCase, function(...)
+			nRightTerm = vRightFunction(...)
 		end)
 		assert(nRightTerm, "term must be true value here")
 		return nAndContext:logicCombineTerm(nLeftFalseTerm, nRightTerm, nLeftTrueCase)
@@ -10954,11 +11035,6 @@ function InstStack:INJECT_GET(
 	vInjectGetter
 )
 	return vInjectGetter(vNode)
-end
-
-function InstStack:INJECT_BEGIN(vNode) 
-	local nSpace = assert(self._letspace)
-	return nSpace:export()
 end
 
 return InstStack
@@ -14721,16 +14797,18 @@ local TupleBuilder = class ()
 function TupleBuilder:ctor(vManager, vNode, ...)
 	self._manager = vManager
 	self._node = vNode
-    self._list = (table.pack(...) ); 
+    self._num = select("#", ...)
+    self._list = {...} ; 
     self._dots = nil  
 end
 
 function TupleBuilder:setRetDots()
+    local num = self._num
+    assert(num > 0, self._node:toExc("RetDots must take at least 1 value"))
+    self._num = num - 1
     local l = self._list
-    local n = l.n
-    assert(n > 0, self._node:toExc("RetDots must take at least 1 value"))
-    self._list = {n=n-1, table.unpack(l, 1, n-1)}
-    self._dots = l[n]
+    self._dots = l[num]
+    l[num] = nil
 end
 
 function TupleBuilder:chainDots(vDots)
@@ -14744,7 +14822,7 @@ function TupleBuilder:buildTuple()
     local nNode = self._node
     local nSpaceTuple = self._list
     local nTypeList = {}
-    for i=1, nSpaceTuple.n do
+    for i=1, self._num do
         nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
     ::continue:: end
     local nTypeTuple = self._manager:TypeTuple(nNode, nTypeList)
@@ -14758,21 +14836,21 @@ function TupleBuilder:buildTuple()
 end
 
 function TupleBuilder:getArgNum()
-    return self._list.n
+    return self._num
+end
+
+function TupleBuilder:getArgList()
+    return self._list
 end
 
 function TupleBuilder:buildPolyArgs()
     local nNode = self._node
     local nSpaceTuple = self._list
     local nTypeList = {}
-    for i=1, nSpaceTuple.n do
+    for i=1, self._num do
         nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
     ::continue:: end
     return nTypeList
-end
-
-function TupleBuilder:buildOpenPolyArgs()
-    return self._list
 end
 
 return TupleBuilder
