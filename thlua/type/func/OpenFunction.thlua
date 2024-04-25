@@ -20,33 +20,9 @@ function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNod
 	self._useNodeSet = {}
 end
 
-function OpenFunction:lateInitFromAutoNative(vNativeFunc:clazz.OpenCaller):Ret(clazz.OpenFunction)
+function OpenFunction:lateInit(vNativeFunc:clazz.OpenCaller, vPolyNativeFunc:OrNil(Fn(clazz.TupleBuilder):Ret(clazz.OpenFunction)))
 	self._func = vNativeFunc
-	return self
-end
-
-function OpenFunction:lateInitFromMetaNative(
-	vNativeFunc:Fn(clazz.ApplyContext, clazz.IAtomType)
-):Ret(clazz.OpenFunction)
-	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
-		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
-		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
-			vNativeFunc(vContext, vType)
-		end):mergeReturn(), vStack:mergeEndErrType()
-	end
-	self._func = nFn
-	return self
-end
-
-function OpenFunction:lateInitFromOperNative(
-	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(Union(clazz.FixedTermTuple, clazz.RefineTerm), OrNil(clazz.UAtomUnion))
-):Ret(clazz.OpenFunction)
-	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
-		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
-		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
-	end
-	self._func = nFn
-	return self
+	self._polyWrapper = vPolyNativeFunc or false
 end
 
 function OpenFunction:castPoly(vContext, vPolyTuple)
@@ -59,15 +35,17 @@ function OpenFunction:castPoly(vContext, vPolyTuple)
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo), vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, OrFalse(clazz.TupleBuilder), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo), vFunc:Fn(clazz.BaseStack, OrFalse(clazz.TupleBuilder), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
 	self._func = function(vStack, vTermTuple)
-		return vFunc(self, vStack, false, vTermTuple)
+		return vFunc(vStack, false, vTermTuple)
 	end
 	if vPolyParInfo then
 		self._polyWrapper = function(vPolyTuple)
-			return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
-				return vFunc(self, vStack, vPolyTuple, vTermTuple)
+			const nOpenFn = OpenFunction.new(self._manager, self._node, self._lexCapture)
+			nOpenFn:lateInit(function(vStack, vTermTuple)
+				return vFunc(vStack, vPolyTuple, vTermTuple)
 			end)
+			return nOpenFn
 		end
 	end
 	return self

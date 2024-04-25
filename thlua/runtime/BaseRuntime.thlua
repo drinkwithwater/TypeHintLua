@@ -260,13 +260,13 @@ function BaseRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(Loa
 	return nLoadedState
 end
 
-function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction)
+function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
 	const nLoadedState = self:_cacheLoadPath(vNode, vPath)
 	const nTerm = nLoadedState.term
 	if not nTerm then
 		error(Exception.new("recursive require:"..vPath, vNode))
 	end
-	return nTerm, nLoadedState.openFn
+	return nTerm, nLoadedState.openFn, nLoadedState.stack!
 end
 
 function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))

@@ -1,4 +1,6 @@
 
+const BaseReferSpace = require "thlua.space.BaseReferSpace"
+const SpaceValue = require "thlua.space.SpaceValue"
 const TermTuple = require "thlua.tuple.TermTuple"
 const TypedFunction = require "thlua.type.func.TypedFunction"
 const SealTable = require "thlua.type.object.SealTable"
@@ -21,6 +23,54 @@ const native = {}
 	let.StringToAtomUnion = Dict(String, clazz.UAtomUnion)
 end)
 
+function native.fixedNativeOpenFunction(vManager:clazz.TypeManager,
+	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(Union(clazz.FixedTermTuple, clazz.RefineTerm), OrNil(clazz.UAtomUnion))
+):Ret(clazz.OpenFunction)
+	const nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
+		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
+	end)
+	return nOpenFn
+end
+
+function native.metaNativeOpenFunction(vManager:clazz.TypeManager,
+	vNativeFunc:Fn(clazz.ApplyContext, clazz.IAtomType)
+):Ret(clazz.OpenFunction)
+	const nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
+		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
+			vNativeFunc(vContext, vType)
+		end):mergeReturn(), vStack:mergeEndErrType()
+	end)
+	return nOpenFn
+end
+
+function native.stackNativeOpenFunction(vManager:clazz.TypeManager,
+	vFn:clazz.OpenCaller
+):Ret(clazz.OpenFunction)
+	const nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(vFn)
+	return nOpenFn
+end
+
+function native.polyNativeOpenFunction(vManager:clazz.TypeManager,
+	vPolyFn:clazz.OpenPolyCaller
+):Ret(clazz.OpenFunction)
+	const nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(function(vStack, vTermTuple)
+		return vPolyFn(vStack, false, vTermTuple)
+	end, function(vTupleBuilder)
+		const nOpenFn = vManager:newNativeOpenFunction()
+		nOpenFn:lateInit(function(vStack, vTermTuple)
+			return vPolyFn(vStack, vTupleBuilder, vTermTuple)
+		end)
+		return nOpenFn
+	end)
+	return nOpenFn
+end
+
 function native._toTable(vManager:clazz.TypeManager, vTable:StringToAtomUnion):Ret(clazz.AutoTable)
 	const nTypeDict:Dict(clazz.IAtomType, clazz.UAtomUnion) = {}
 	const nPairList:List(Struct{clazz.UAtomUnion, clazz.UAtomUnion}) = {}
@@ -37,7 +87,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 	const nManager = vRuntime:getTypeManager()
 	const global:StringToAtomUnion = {
 		--- meta_native
-		setmetatable=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		setmetatable=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				const nTerm1 = vTermTuple:checkFixed(vContext, 1)
 				local nType1 = nTerm1:getType()
@@ -57,7 +107,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 				vContext:nativeOpenReturn(nTerm1)
 			end):mergeFirst()
 		end),
-		getmetatable=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		getmetatable=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(vContext, 1)
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			nTerm1:foreach(function(vType1, vVariableCase)
@@ -69,21 +119,21 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
 		next=nManager.builtin.next,
-		ipairs=nManager:metaNativeOpenFunction(function(vContext, vType)
+		ipairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)
 			const nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.inext, vType, nManager:Literal(0)})
 			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
-		pairs=nManager:metaNativeOpenFunction(function(vContext, vType)
+		pairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)
 			const nTypeTuple = vType:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.next, vType, nManager.type.Nil})
 			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
-		rawequal=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		rawequal=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			--self:argnum_warn(2, vTermTuple)
 			--return self:check_call(vTermTuple)
 			print("rawequal TODO")
 			return vContext:RefineTerm(nManager.type.Boolean)
 		end),
-		type=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		type=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(vContext, 1)
 			local nTypeCaseList:List(clazz.TypeCasePair) = {}
 			nTerm:foreach(function(vType, vVariableCase)
@@ -94,7 +144,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
 		--- not meta_native
-		select=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		select=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			const nFirstType = vTermTuple:get(vContext, 1):getType()
 			if nFirstType == nManager:Literal("#") then
 				if vTermTuple:getTail() then
@@ -142,15 +192,31 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 				end
 			end
 		end),
-		require=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		require=native.polyNativeOpenFunction(nManager, function(vStack, vTupleBuilder, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nFileName = vTermTuple:get(vContext, 1):getType()
 				if StringLiteral.is(nFileName) then
 					local nPath = nFileName:getLiteral()
-					const nOkay, nRetTerm, nOpenFn = pcall(function()
+					const nOkay, nRetTerm, nOpenFn, nOpenStack = pcall(function()
 						return vRuntime:require(vStack:getNode(), nPath)
 					end)
 					if nOkay then
+						const nLetSpace = nOpenStack:getLetSpace()
+						if vTupleBuilder then
+							--[[
+							const nArgList = vTupleBuilder:getArgList()
+							const nSpaceArg = nArgList[1]
+							const nRefer = SpaceValue.checkRefer(nSpaceArg)
+							if nRefer and BaseReferSpace.is(nRefer:getComNowait()) then
+								for i=2,#nArgList do.pass
+									const nKey = nArgList[i]
+									nSpaceArg[nKey] = nLetSpace:export()[nKey]
+								end
+							else
+								vContext:error('namespace or letspace expected, use require as a poly function: require @<space, "name1", "name2", ...>')
+							end
+							]]
+						end
 						vContext:addLookTarget(nOpenFn)
 						vContext:nativeOpenReturn(nRetTerm)
 					else
@@ -169,14 +235,14 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			end):mergeFirst()
 		end),
 		-- function take open context, not oper context
-		pcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		pcall=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			const nHeadContext = vStack:inplaceOper()
 			const nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nArgs = vTermTuple:select(nHeadContext, 2)
 			const nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc, function() return nArgs end)
 			return nCallContext:pcallMergeReturn(vStack:mergeEndErrType())
 		end),
-		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		xpcall=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			const nHeadContext = vStack:inplaceOper()
 			const nFunc1 = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			const nFunc2 = vTermTuple:get(nHeadContext, 2):checkRefineTerm(nHeadContext)
@@ -188,12 +254,12 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			const nType = RefineTerm.is(nHandleReturn) and nHandleReturn:getType() or nHandleReturn:get(nHandleContext, 1):getType()
 			return nCallContext:pcallMergeReturn(nType)
 		end),
-		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		error=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			const nOperCtx = vStack:inplaceOper()
 			vStack:getApplyStack():nativeError(nOperCtx, vTermTuple:checkFixed(nOperCtx, 1))
 			return nOperCtx:FixedTermTuple({})
 		end),
-		assert=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		assert=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			const nHeadContext = vStack:inplaceOper()
 			const nFirst = vTermTuple:checkFixed(nHeadContext, 1)
 			const nSecond = vTermTuple:rawget(2)
@@ -212,7 +278,7 @@ end
 function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	local nInteger = vManager.type.Integer
 	local nNil = vManager.type.Nil
-	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+	return native.fixedNativeOpenFunction(vManager, function(vContext, vTermTuple)
 		const nFirstTerm = vTermTuple:get(vContext, 1)
 		--local nNotNilValue = nType1:meta_get(vContext, nNumber):notnilType()
 		local nNotNilValue = vContext:getStack():anyNodeMetaGet(vContext:getNode(), nFirstTerm, vContext:RefineTerm(nInteger), true):getType()
@@ -235,7 +301,7 @@ function native.make_inext(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 end
 
 function native.make_next(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
-	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+	return native.fixedNativeOpenFunction(vManager, function(vContext, vTermTuple)
 		local nType1 = vTermTuple:get(vContext, 1):getType()
 		nType1 = nType1:trueType()
 		local nType2 = vTermTuple:get(vContext, 2):getType()
@@ -269,7 +335,7 @@ function native.make_mathematic(vManager:clazz.TypeManager, vIsDivide:OrNil(True
 		return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 	end
 	const nInteger = vManager.type.Integer
-	return vManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+	return native.stackNativeOpenFunction(vManager, function(vStack, vTermTuple)
 		const nOperCtx = vStack:inplaceOper()
 		const nType1 = vTermTuple:checkFixed(nOperCtx, 1):getType()
 		const nType2 = vTermTuple:checkFixed(nOperCtx, 2):getType()
