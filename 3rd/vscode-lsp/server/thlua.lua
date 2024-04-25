@@ -506,8 +506,8 @@ local class = require "thlua.class"
 	  
 	    
 
-	  
 	       
+	  
 	   
 
 	   
@@ -525,7 +525,6 @@ local class = require "thlua.class"
 	
 
 	   
-		
 		
 		
 		
@@ -594,7 +593,7 @@ function FunctionBuilder:_makeRetTuples(vSuffixHint)
 			nRetBuilder:chainErr(self._node, vErrType)
 			return vHint
 		end,
-	})
+	}, self._stack:unpackPolyArgs())
 	if not ok then
 		error(self._node:toExc(tostring(err)))
 	end
@@ -626,7 +625,7 @@ end
 function FunctionBuilder:_buildInnerFn()  
 	local nNode = self._node
 	assert(nNode.tag == "Function", nNode:toExc("node must be function here"))
-	local nPolyParNum = self._polyParNum
+	local nPolyParInfo = self._polyParInfo
 	local nFnMaker = function(vPolyTuple, vSelfType)
 		local nAutoFn = self._stack:newAutoFunction(nNode, self._lexCapture)
 		local nNewStack = nAutoFn:getBuildStack()
@@ -637,7 +636,7 @@ function FunctionBuilder:_buildInnerFn()
 			local nCastTypeFn = nAutoFn:pickCastTypeFn()
 			  
 			local nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
-			local nParTermTuple = nGenParam(nCastArgs)
+			local nParTermTuple = nGenParam(nCastArgs, self._stack:unpackPolyArgs())
 			local nParTuple = nParTermTuple:checkTypeTuple()
 			  
 			local nCastRet = nCastTypeFn and nCastTypeFn:getRetTuples()
@@ -655,7 +654,7 @@ function FunctionBuilder:_buildInnerFn()
 					end
 					return nParTuple, nRetTuples
 				else
-					local nRetTermTuple, nErrType = nGenFunc()
+					local nRetTermTuple, nErrType = nGenFunc(self._stack:unpackPolyArgs())
 					local nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
 						nNewStack:inplaceOper():error("auto parameter deduce failed")
@@ -674,7 +673,7 @@ function FunctionBuilder:_buildInnerFn()
 		return nAutoFn
 	end
 	if not self._member then
-		if nPolyParNum <= 0 then
+		if not nPolyParInfo then
 			local ret = nFnMaker(false, false)
 			self._stack:getSealStack():scheduleSealType(ret)
 			return ret
@@ -682,13 +681,13 @@ function FunctionBuilder:_buildInnerFn()
 			return self._manager:SealPolyFunction(self._node, function(...)
 				local nTuple = self._manager:spacePack(self._node, ...)
 				return nFnMaker(nTuple, false)
-			end, nPolyParNum, self._stack)
+			end, nPolyParInfo, self._stack)
 		end
 	else
 		local nPolyFn = self._manager:SealPolyFunction(self._node, function(selfType, ...)
 			local nTuple = self._manager:spacePack(self._node, ...)
 			return nFnMaker(nTuple, selfType)
-		end, nPolyParNum + 1, self._stack)
+		end, {num=(nPolyParInfo and nPolyParInfo.num or 0) + 1,dots=nPolyParInfo and nPolyParInfo.dots or false}, self._stack)
 		return self._manager:AutoMemberFunction(self._node, nPolyFn)
 	end
 end
@@ -731,19 +730,19 @@ function FunctionBuilder:_buildOpen()
 				nGuardFn:lateInitFromMapGuard(nMapObject)
 				return vHint
 			end,
-		})
+		}, self._stack:unpackPolyArgs())
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParNum, function(vOpenFn, vContext, vPolyTuple, vTermTuple)
+		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParInfo, function(vContext, vPolyTuple, vTermTuple)
 			local ok, runRet, runErr = xpcall(function()
 				local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
 				local nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {}  
 				local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList, false)
-				nGenParam(vTermTuple)
-				return nGenFunc()
+				nGenParam(vTermTuple, self._stack:unpackPolyArgs())
+				return nGenFunc(self._stack:unpackPolyArgs())
 			end, function(err)
 				if Exception.is(err) then
 					return err
@@ -772,12 +771,12 @@ function FunctionBuilder:_buildClass()
 			nReferOrNil = nRefer
 			return vHint
 		end,
-	})
+	}, self._stack:unpackPolyArgs())
 	if not ok then
 		error(self._node:toExc(tostring(err)))
 	end
 	local nRefer = assert(nReferOrNil, self._node:toExc("reference not setted when function:class"))
-	local nPolyParNum = self._polyParNum
+	local nPolyParInfo = self._polyParInfo
 	local nFnMaker = function(vPolyTuple)
 		local nInterfaceGetter = function(vSuffixHint) 
 			local nImplementsArg = nil
@@ -813,7 +812,7 @@ function FunctionBuilder:_buildClass()
 					error(self._node:toExc("mapguard can only be used with function.open"))
 					return vHint
 				end,
-			})
+			}, self._stack:unpackPolyArgs())
 			if not ok then
 				error(Exception.new(tostring(err), self._node))
 			end
@@ -865,11 +864,11 @@ function FunctionBuilder:_buildClass()
 		   
 		nFactory:initAsync(function()
 			local nClassTable = nFactory:waitClassTable()
-			local nParTermTuple = nGenParam(false)
+			local nParTermTuple = nGenParam(false, self._stack:unpackPolyArgs())
 			local nParTuple = nParTermTuple:checkTypeTuple()
 			local nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
-				nGenFunc()
+				nGenFunc(self._stack:unpackPolyArgs())
 				local nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:inplaceOper():error("auto parameter deduce failed")
@@ -881,7 +880,7 @@ function FunctionBuilder:_buildClass()
 		end)
 		return nFactory
 	end
-	if nPolyParNum <= 0 then
+	if not nPolyParInfo then
 		local nFactory = nFnMaker(false)
 		nRefer:setAssignAsync(self._node, function()
 			return nFactory:waitClassTable()
@@ -892,12 +891,12 @@ function FunctionBuilder:_buildClass()
 		local nPolyFn = self._manager:SealPolyFunction(self._node, function(...)
 			local nTuple = self._manager:spacePack(self._node, ...)
 			return nFnMaker(nTuple)
-		end, nPolyParNum, self._stack)
+		end, nPolyParInfo, self._stack)
 		local nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...)
 			local nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
 			return nFactory:waitClassTable()
-		end, nPolyParNum)
+		end, nPolyParInfo.num)
 		nRefer:setAssignAsync(self._node, function()
 			return nTemplateCom
 		end)
@@ -948,8 +947,7 @@ local TermTuple = require "thlua.tuple.TermTuple"
 		
 		
 	
-	    
-	    
+	   
 
 
 TableBuilder.__index=TableBuilder
@@ -987,7 +985,7 @@ function TableBuilder:_build(vNewTable )
 	      
 	local nStack = self._stack
 	local nManager = nStack:getTypeManager()
-	local vList, vDotsStart, vDotsTuple = self._pairMaker()
+	local vList, vDotsStart, vDotsTuple = self._pairMaker(self._stack:unpackPolyArgs())
 	assert(not TermTuple.isAuto(vDotsTuple), self._node:toExc("table can't pack auto term"))
 	local nHashableTypeSet = nManager:HashableTypeSet()
 	local nTypeDict  = {}
@@ -1741,9 +1739,9 @@ local TagToVisiting = {
 			         
 			return {
 				line = node.l,
-				" local ____hintStat=function() ",
-				self:fixIHintSpace(node),
-				" end ____hintStat() "
+				self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
+					self:fixIHintSpace(node)
+				))
 			}
 		else
 			error("visit long space or short space in other function")
@@ -2103,6 +2101,7 @@ end
 
 		
 		
+		
 	
 
 function HintGener:stkWrap(vNode) 
@@ -2186,7 +2185,7 @@ end
 function HintGener:chunkLongHint()
 	return self:dictWrap({
 		attrSet="{open=1}",
-		caller="function(____longHint) return ____longHint end"
+		caller="function(____longHint, ...) return ____longHint end"
 	})
 end
 
@@ -2201,7 +2200,7 @@ function HintGener:visitLongHint(vHintSpace)
 	::continue:: end
 	return self:dictWrap({
 		attrSet=self:listWrap(table.unpack(l)),
-		caller=self:fnWrap("____longHint")("return ____longHint", nCallGen)
+		caller=self:fnWrap("____longHint", "...")("return ____longHint", nCallGen)
 	})
 end
 
@@ -2218,20 +2217,30 @@ function HintGener:visitFunc(vNode )
 	local nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isHidden or false
 	local nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack = {}
-	local nPolyParNum = nPolyParList and #nPolyParList or 0
-	if nPolyParList and nPolyParNum > 0 then
-		nPolyUnpack = {
-			" local ", self:concatList(nPolyParList, function(_, vPolyPar)
-				return vPolyPar[1]
-			end, ","), "=", self:concatList(nPolyParList, function(i, vPolyPar)
-				return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
-			end, ",")
-		}
+	if nPolyParList then
+		if #nPolyParList > 0 then
+			nPolyUnpack = {
+				" local ", self:concatList(nPolyParList, function(_, vPolyPar)
+					return vPolyPar[1]
+				end, ","), "=", self:concatList(nPolyParList, function(i, vPolyPar)
+					return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
+				end, ","),
+			}
+		else
+			nPolyUnpack = {}
+		end
+		local nPolyDots = nPolyParList.dots
+		if nPolyDots then
+			nPolyUnpack[#nPolyUnpack + 1] = self:rgnWrap(nPolyDots).POLY_PARAM_DOTS(tostring(#nPolyParList), "____polyArgNum", "____polyArgList")
+		end
 	end
 	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
-		_polyParNum=tostring(nPolyParNum),
+		_polyParInfo=nPolyParList and self:dictWrap({
+			dots=tostring(nPolyParList.dots and true or false),
+			num=tostring(#nPolyParList)
+		}) or tostring(false),
 		   
 		_member=tostring(nIsMember),
 	}), nHintPrefix,
@@ -2242,7 +2251,7 @@ function HintGener:visitFunc(vNode )
 			   
 			" local ____vDOTS=false ",
 			     
-			" return ", self:fnWrap("____termArgs")(
+			" return ", self:fnWrap("____termArgs", "...")(
 				self:concatList (nParList, function(i, vParNode)
 					local nHintShort = vParNode.hintShort
 					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or self:stkWrap(vParNode).AUTO()
@@ -2275,7 +2284,7 @@ function HintGener:visitFunc(vNode )
 					(nLastDots) and "____vDOTS" or tostring(false)
 				)
 			), ",", nHintSuffix, ",",
-			self:fnWrap()(
+			self:fnWrap("...")(
 				"local let, _ENV=____stk:SPACE() ",
 				self:visit(nBlockNode),
 				" return ",
@@ -2399,6 +2408,7 @@ local Exception = require "thlua.Exception"
 
   
 	  
+	
 	   
 	  
 	  
@@ -3295,8 +3305,8 @@ local G = lpeg.P { "TypeHintLua";
 	PolyIdentDef = symb("$") * vv.IdentDefN / function(obj) obj.isPolyVar = true return obj end + vv.IdentDefN;
 
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
-		lpeg.Cg(symb("...") * cc(true), "dots") +
-		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * symb "..." * cc(true) + cc(false), "dots")
+		lpeg.Cg(tagC.Dots(symb"..."), "dots") +
+		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * tagC.Dots(symb "...") + cc(false), "dots")
 	) * symbA(">")) / function(env, polyParList)
 		env.codeBuilder:markDel(polyParList.pos, polyParList.posEnd)
 		return polyParList
@@ -4363,7 +4373,8 @@ local TagToVisiting = {
 	end,
 	Return=function(self, stm)
 		if #stm[1] > 0 then
-			self._regionStack[#self._regionStack].retFlag = true
+			local nCurRegion = self:getCurRegion()
+			nCurRegion.retFlag = true
 		end
 		self:rawVisit(stm)
 	end,
@@ -4373,6 +4384,7 @@ local TagToVisiting = {
 			self:realVisit(nHintLong)
 		end
 		local nBlockNode = func[2]
+		nBlockNode.region = func;
 		self:withScope(nBlockNode, func, function()
 			   
 			func.hintSymbolTable = {}
@@ -4397,7 +4409,7 @@ local TagToVisiting = {
 						nParFullHint = false
 					end
 				else
-					self:dotsDefine(par)
+					func.symbol_dots = par
 					if not par.hintShort then
 						nParFullHint = false
 					end
@@ -4467,14 +4479,15 @@ local TagToVisiting = {
 	end,
 	Chunk=function(self, chunk)
 		local nBlockNode = chunk[3]
+		nBlockNode.region = chunk
 		self:withScope(nBlockNode, chunk, function()
 			chunk.hintSymbolTable = {}
 			chunk.hintSymbolTable.let=chunk.letNode
 			chunk.hintSymbolTable._ENV=chunk.hintEnvNode
 			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
-				if name.tag == "dots" then
-					self:dotsDefine(name)
+				if name.tag == "Dots" then
+					chunk.symbol_dots = name
 				end
 			::continue:: end
 			self:realVisit(nBlockNode)
@@ -4534,7 +4547,6 @@ function SymbolVisitor:withHintBlock(vBlockNode, vFuncNode, vInnerCall)
 	end
 	table.insert(self._hintStack, vBlockNode)
 	if vFuncNode then
-		vFuncNode.letNode = false
 		table.insert(self._hintFuncStack, vFuncNode)
 		vInnerCall()
 		table.remove(self._hintFuncStack)
@@ -4564,10 +4576,8 @@ function SymbolVisitor:withScope(vBlockNode, vFuncOrChunk, vInnerCall)
 	end
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
-		table.insert(self._regionStack, vFuncOrChunk)
 		table.insert(self._hintStack, vFuncOrChunk)
 		vInnerCall()
-		table.remove(self._regionStack)
 		table.remove(self._hintStack)
 	else
 		vInnerCall()
@@ -4603,16 +4613,26 @@ function SymbolVisitor:symbolDefine(vIdentNode, vImmutKind)
 	end
 end
 
-function SymbolVisitor:dotsDefine(vDotsNode)
-	local nCurRegion = self._inHintSpace and self._hintFuncStack[#self._hintFuncStack] or self._regionStack[#self._regionStack]
-	nCurRegion.symbol_dots = vDotsNode
-end
-
 function SymbolVisitor:dotsUse(vDotsNode)
-	local nCurRegion = self._inHintSpace and self._hintFuncStack[#self._hintFuncStack] or self._regionStack[#self._regionStack]
-	local nDotsDefine = nCurRegion and nCurRegion.symbol_dots
-	if not nDotsDefine then
-		error(Exception.new("cannot use '...' outside a vararg function", vDotsNode))
+	if self._inHintSpace then
+		local nIfInHint, nRegion = self:getIfInHintRegion()
+		if nIfInHint then
+			local nDotsDefine = nRegion.symbol_dots
+			if not nDotsDefine then
+				error(Exception.new("cann't use '...' outside a vararg function", vDotsNode))
+			end
+		else
+			local nHintPolyParList = nRegion.hintPolyParList
+			if not (nHintPolyParList and nHintPolyParList.dots) then
+				error(Exception.new("cann't use '...' outside a vararg function", vDotsNode))
+			end
+		end
+	else
+		local nCurRegion = self:getCurRegion()
+		local nDotsDefine = nCurRegion and nCurRegion.symbol_dots
+		if not nDotsDefine then
+			error(Exception.new("cann't use '...' outside a vararg function", vDotsNode))
+		end
 	end
 end
 
@@ -4671,11 +4691,36 @@ function SymbolVisitor:symbolUse(vIdentNode, vIsAssign)
 	vIdentNode.defineIdent = nDefineNode
 end
 
+function SymbolVisitor:getIfInHintRegion() 
+	local nHintStack = self._hintStack
+	for i=#nHintStack,1,-1 do
+		local nBlock = nHintStack[i]
+		if nBlock.tag == "Block" then
+			local nRegion = nBlock.region
+			if nRegion then
+				return true, nRegion
+			end
+		else
+			return false, nBlock
+		end
+	::continue:: end
+end
+
+function SymbolVisitor:getCurRegion()
+	local nScopeStack = self._scopeStack
+	for i=#nScopeStack,1,-1 do
+		local nRegion = nScopeStack[i].region
+		if nRegion then
+			return nRegion
+		end
+	::continue:: end
+	return nil
+end
+
 function SymbolVisitor.new(vCode)
 	local self = setmetatable({
 		_code=vCode,
 		_scopeStack={},
-		_regionStack={},
 		_inHintSpace=false,
 		_hintStack={}  ,
 		_hintFuncStack={},
@@ -4929,6 +4974,10 @@ local TagToTraverse = {
 		for i=1, #node do
 			self:realVisit(node[i])
 		::continue:: end
+		local nDots = node.dots
+		if nDots then
+			self:realVisit(nDots)
+		end
 	end,
 	HintSpace=function(self, node)
 		if node.kind == "StatHintSpace" then
@@ -8104,21 +8153,8 @@ function TypeManager:atomUnifyToSet(vNewAtom)
 	return nTypeSet
 end
 
-function TypeManager:metaNativeOpenFunction(vFn)
+function TypeManager:newNativeOpenFunction()
 	local nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
-	nOpenFn:lateInitFromMetaNative(vFn)
-	return nOpenFn
-end
-
-function TypeManager:fixedNativeOpenFunction(vFn)
-	local nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
-	nOpenFn:lateInitFromOperNative(vFn)
-	return nOpenFn
-end
-
-function TypeManager:stackNativeOpenFunction(vFn)
-	local nOpenFn = self._runtime:getRootStack():newOpenFunction(self._rootNode)
-	nOpenFn:lateInitFromAutoNative(vFn)
 	return nOpenFn
 end
 
@@ -8187,7 +8223,10 @@ function TypeManager:buildPfn(vNode, vFunc)
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return TypedPolyFunction.new(self, vNode, vFunc, nPolyParNum)
+	return TypedPolyFunction.new(self, vNode, vFunc, {
+		dots=false,
+		num=nPolyParNum,
+	})
 end
 
 function TypeManager:buildFn(vNode, ...)
@@ -8201,8 +8240,8 @@ function TypeManager:checkedFn(...)
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
-function TypeManager:SealPolyFunction(vNode, vFunc, vPolyParNum, vStack)
-	return SealPolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
+function TypeManager:SealPolyFunction(vNode, vFunc, vPolyParInfo, vStack)
+	return SealPolyFunction.new(self, vNode, vFunc, vPolyParInfo, vStack)
 end
 
 function TypeManager:AutoMemberFunction(vNode, vPolyFn)
@@ -8438,7 +8477,6 @@ function TypeManager:easyToMustType(vNode, vData)
 	end
 end
 
-
 return TypeManager
 
 end end
@@ -8536,6 +8574,8 @@ end end
 do local _ENV = _ENV
 packages['thlua.native'] = function (...)
 
+local BaseReferSpace = require "thlua.space.BaseReferSpace"
+local SpaceValue = require "thlua.space.SpaceValue"
 local TermTuple = require "thlua.tuple.TermTuple"
 local TypedFunction = require "thlua.type.func.TypedFunction"
 local SealTable = require "thlua.type.object.SealTable"
@@ -8558,6 +8598,54 @@ local native = {}
 	   
 
 
+function native.fixedNativeOpenFunction(vManager,
+	vNativeFunc   
+)
+	local nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
+		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
+	end)
+	return nOpenFn
+end
+
+function native.metaNativeOpenFunction(vManager,
+	vNativeFunc 
+)
+	local nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(function(vStack, vTermTuple)
+		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
+		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
+			vNativeFunc(vContext, vType)
+		end):mergeReturn(), vStack:mergeEndErrType()
+	end)
+	return nOpenFn
+end
+
+function native.stackNativeOpenFunction(vManager,
+	vFn
+)
+	local nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(vFn)
+	return nOpenFn
+end
+
+function native.polyNativeOpenFunction(vManager,
+	vPolyFn
+)
+	local nOpenFn = vManager:newNativeOpenFunction()
+	nOpenFn:lateInit(function(vStack, vTermTuple)
+		return vPolyFn(vStack, false, vTermTuple)
+	end, function(vTupleBuilder)
+		local nOpenFn = vManager:newNativeOpenFunction()
+		nOpenFn:lateInit(function(vStack, vTermTuple)
+			return vPolyFn(vStack, vTupleBuilder, vTermTuple)
+		end)
+		return nOpenFn
+	end)
+	return nOpenFn
+end
+
 function native._toTable(vManager, vTable)
 	local nTypeDict  = {}
 	local nPairList  = {}
@@ -8574,7 +8662,7 @@ function native.make(vRuntime)
 	local nManager = vRuntime:getTypeManager()
 	local global = {
 		 
-		setmetatable=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		setmetatable=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nTerm1 = vTermTuple:checkFixed(vContext, 1)
 				local nType1 = nTerm1:getType()
@@ -8594,7 +8682,7 @@ function native.make(vRuntime)
 				vContext:nativeOpenReturn(nTerm1)
 			end):mergeFirst()
 		end),
-		getmetatable=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		getmetatable=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			local nTerm1 = vTermTuple:get(vContext, 1)
 			local nTypeCaseList = {}
 			nTerm1:foreach(function(vType1, vVariableCase)
@@ -8606,21 +8694,21 @@ function native.make(vRuntime)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
 		next=nManager.builtin.next,
-		ipairs=nManager:metaNativeOpenFunction(function(vContext, vType)
+		ipairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)
 			local nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.inext, vType, nManager:Literal(0)})
 			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
-		pairs=nManager:metaNativeOpenFunction(function(vContext, vType)
+		pairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)
 			local nTypeTuple = vType:meta_pairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.next, vType, nManager.type.Nil})
 			vContext:pushFirstAndTuple(nTypeTuple:get(1):checkAtomUnion(), nTypeTuple)
 		end),
-		rawequal=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		rawequal=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			 
 			 
 			print("rawequal TODO")
 			return vContext:RefineTerm(nManager.type.Boolean)
 		end),
-		type=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		type=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			local nTerm = vTermTuple:get(vContext, 1)
 			local nTypeCaseList = {}
 			nTerm:foreach(function(vType, vVariableCase)
@@ -8631,7 +8719,7 @@ function native.make(vRuntime)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
 		  
-		select=nManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+		select=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
 			local nFirstType = vTermTuple:get(vContext, 1):getType()
 			if nFirstType == nManager:Literal("#") then
 				if vTermTuple:getTail() then
@@ -8679,15 +8767,29 @@ function native.make(vRuntime)
 				end
 			end
 		end),
-		require=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		require=native.polyNativeOpenFunction(nManager, function(vStack, vTupleBuilder, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nFileName = vTermTuple:get(vContext, 1):getType()
 				if StringLiteral.is(nFileName) then
 					local nPath = nFileName:getLiteral()
-					local nOkay, nRetTerm, nOpenFn = pcall(function()
+					local nOkay, nRetTerm, nOpenFn, nOpenStack = pcall(function()
 						return vRuntime:require(vStack:getNode(), nPath)
 					end)
 					if nOkay then
+						local nLetSpace = nOpenStack:getLetSpace()
+						if vTupleBuilder then
+							local nArgList = vTupleBuilder:getArgList()
+							for _, nPolyArg in ipairs(nArgList) do
+								local nRefer = SpaceValue.checkRefer(nPolyArg)
+								if nRefer then
+									nRefer:setAssignAsync(vStack:getNode(), function()
+										return nLetSpace:export()[nRefer:getName()]
+									end)
+								else
+									vContext:error('namespace or letspace expected, use require as a poly function: require @<space, "name1", "name2", ...>')
+								end
+							::continue:: end
+						end
 						vContext:addLookTarget(nOpenFn)
 						vContext:nativeOpenReturn(nRetTerm)
 					else
@@ -8706,14 +8808,14 @@ function native.make(vRuntime)
 			end):mergeFirst()
 		end),
 		       
-		pcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		pcall=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
 			local nFunc = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			local nArgs = vTermTuple:select(nHeadContext, 2)
 			local nCallContext = vStack:prepareMetaCall(vStack:getNode(), nFunc, function() return nArgs end)
 			return nCallContext:pcallMergeReturn(vStack:mergeEndErrType())
 		end),
-		xpcall=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		xpcall=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
 			local nFunc1 = vTermTuple:get(nHeadContext, 1):checkRefineTerm(nHeadContext)
 			local nFunc2 = vTermTuple:get(nHeadContext, 2):checkRefineTerm(nHeadContext)
@@ -8725,12 +8827,12 @@ function native.make(vRuntime)
 			local nType = RefineTerm.is(nHandleReturn) and nHandleReturn:getType() or nHandleReturn:get(nHandleContext, 1):getType()
 			return nCallContext:pcallMergeReturn(nType)
 		end),
-		error=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		error=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			local nOperCtx = vStack:inplaceOper()
 			vStack:getApplyStack():nativeError(nOperCtx, vTermTuple:checkFixed(nOperCtx, 1))
 			return nOperCtx:FixedTermTuple({})
 		end),
-		assert=nManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+		assert=native.stackNativeOpenFunction(nManager, function(vStack, vTermTuple)
 			local nHeadContext = vStack:inplaceOper()
 			local nFirst = vTermTuple:checkFixed(nHeadContext, 1)
 			local nSecond = vTermTuple:rawget(2)
@@ -8749,7 +8851,7 @@ end
 function native.make_inext(vManager)
 	local nInteger = vManager.type.Integer
 	local nNil = vManager.type.Nil
-	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+	return native.fixedNativeOpenFunction(vManager, function(vContext, vTermTuple)
 		local nFirstTerm = vTermTuple:get(vContext, 1)
 		    
 		local nNotNilValue = vContext:getStack():anyNodeMetaGet(vContext:getNode(), nFirstTerm, vContext:RefineTerm(nInteger), true):getType()
@@ -8772,7 +8874,7 @@ function native.make_inext(vManager)
 end
 
 function native.make_next(vManager)
-	return vManager:fixedNativeOpenFunction(function(vContext, vTermTuple)
+	return native.fixedNativeOpenFunction(vManager, function(vContext, vTermTuple)
 		local nType1 = vTermTuple:get(vContext, 1):getType()
 		nType1 = nType1:trueType()
 		local nType2 = vTermTuple:get(vContext, 2):getType()
@@ -8806,7 +8908,7 @@ function native.make_mathematic(vManager, vIsDivide)
 		return vManager:checkedFn(nNumber, nNumber):Ret(nNumber)
 	end
 	local nInteger = vManager.type.Integer
-	return vManager:stackNativeOpenFunction(function(vStack, vTermTuple)
+	return native.stackNativeOpenFunction(vManager, function(vStack, vTermTuple)
 		local nOperCtx = vStack:inplaceOper()
 		local nType1 = vTermTuple:checkFixed(nOperCtx, 1):getType()
 		local nType2 = vTermTuple:checkFixed(nOperCtx, 2):getType()
@@ -9157,13 +9259,13 @@ function BaseRuntime:_cacheLoadPath(vNode, vPath)
 	return nLoadedState
 end
 
-function BaseRuntime:require(vNode, vPath) 
+function BaseRuntime:require(vNode, vPath)  
 	local nLoadedState = self:_cacheLoadPath(vNode, vPath)
 	local nTerm = nLoadedState.term
 	if not nTerm then
 		error(Exception.new("recursive require:"..vPath, vNode))
 	end
-	return nTerm, nLoadedState.openFn
+	return nTerm, nLoadedState.openFn, nLoadedState.stack
 end
 
 function BaseRuntime:buildSimpleGlobal() 
@@ -9455,9 +9557,10 @@ function BaseStack:RAISE_ERROR(vContext, vType)
 	error("check error in OpenStack or SealStack")
 end
 
-function BaseStack:_unpackPolyArgs()
-	if self._polyDotsNum > 0 then
-		return table.unpack(self._polyDotsArgs)
+function BaseStack:unpackPolyArgs()
+	local nDotsNum = self._polyDotsNum
+	if nDotsNum > 0 then
+		return table.unpack(self._polyDotsArgs, 1, nDotsNum)
 	else
 		return
 	end
@@ -9623,7 +9726,7 @@ function BaseStack:_withBranch(vVariableCase, vFunc, vNode)
 	local nOldBranch = nStack[nLen]
 	local nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch, vNode)
 	nStack[nNewLen] = nNewBranch
-	vFunc(self:_unpackPolyArgs())
+	vFunc(self:unpackPolyArgs())
 	nStack[nNewLen] = nil
 	return nNewBranch
 end
@@ -10619,13 +10722,14 @@ function InstStack:FUNC_NEW(vNode ,
 end
 
 ;  
-;  
-function InstStack:TABLE_NEW(vNode, vHintInfo, vRawPairMaker)
-	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, function()
-		return vRawPairMaker(self:_unpackPolyArgs())
-	end)
+function InstStack:TABLE_NEW(vNode, vHintInfo, vPairMaker)
+	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	local nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)
+end
+
+function InstStack:RUN_STAT(vNode, vStatFn)
+	vStatFn(self:unpackPolyArgs())
 end
 
 function InstStack:EVAL(vNode, vTerm)
@@ -10644,9 +10748,9 @@ function InstStack:POLY_PARAM_FROM(vNode, vSpaceValue, vIsVar)
 	end
 end
 
-function InstStack:POLY_PARAM_DOTS(vNode, ...)
-	self._polyDotsNum = select("#", ...)
-	self._polyDotsArgs = {...}
+function InstStack:POLY_PARAM_DOTS(vNode, vPolyParNum, vPolyArgNum, vPolyArgList)
+	self._polyDotsNum = vPolyArgNum - vPolyParNum
+	self._polyDotsArgs = {table.unpack(vPolyArgList, vPolyParNum + 1)}
 end
 
 function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
@@ -13513,14 +13617,14 @@ local NameReference = {}
 NameReference.__index = NameReference
 
 function NameReference.__tostring(self)
-	return "Reference(key="..tostring(self._key)..")"
+	return "Reference(key="..tostring(self._name)..")"
 end
 
-function NameReference.new(vManager, vParentNodeOrSpace , vKey)
+function NameReference.new(vManager, vParentNodeOrSpace , vName)
 	local self = setmetatable({
 		_manager = vManager,
 		_parentNodeOrSpace=vParentNodeOrSpace,
-		_key=vKey,
+		_name=vName,
 		_assignNode=false,
 		_referNodes={},
 		_com=false,
@@ -13661,6 +13765,10 @@ function NameReference:triggerCall(vNode, ...)
 		return nCom:call(vNode, nArgNum, nArgList)
 	end)
 	return nTypeCom
+end
+
+function NameReference:getName()
+	return self._name
 end
 
 function NameReference.is(v)
@@ -15042,113 +15150,6 @@ packages['thlua.type.TypeClass'] = function (...)
 
   
 
-  
-	  
-		   
-		  
-	
-
-
-  
-  
-  
-
-   
-   
-  
-   
-
-    
-   
-
-    
-
-   
-	
-	
-
-	  
-
-	
-	
-	  
-	 
-
-	
-	   
-	
-
-	
-	
-
-
-
-    
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	   
-	   
-	
-	
-	
-
-
-    
-	
-	
-
-	
-	
-
-	
-
-	
-
-	  
-
-	 
-	   
-	 
-	  
-
-	
-	
-	
-	 
-	    
-
-	 
-	  
-	   
-	
-	  
-
-	
-	
-
-
-    
-	
-	
-
-	 
-
-	
-
-	
-
-
-   
-    
-
 
 
 return {}
@@ -15356,7 +15357,125 @@ local OPER_ENUM = require "thlua.type.OPER_ENUM"
 
 local class = require "thlua.class"
 
-;  
+;
+
+  
+
+  
+
+  
+	  
+		   
+		  
+	
+
+
+  
+  
+  
+
+   
+   
+  
+   
+
+    
+   
+
+    
+   
+	
+	
+
+
+   
+	
+	
+
+	  
+
+	
+	
+	  
+	 
+
+	
+	   
+	
+
+	
+	
+
+
+
+    
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	   
+	   
+	
+	
+	
+
+
+    
+	
+	
+
+	
+	
+
+	
+
+	
+
+	  
+
+	 
+	   
+	 
+	  
+
+	
+	
+	
+	 
+	    
+
+	 
+	  
+	   
+	
+	  
+
+	
+	
+
+
+    
+	
+	
+
+	 
+
+	
+
+	
+
+
+   
+    
+     
+
+
 
 local BaseReadyType = class ()
 
@@ -16568,33 +16687,9 @@ function OpenFunction:ctor(vManager, vNode, vUpState )
 	self._useNodeSet = {}
 end
 
-function OpenFunction:lateInitFromAutoNative(vNativeFunc);
+function OpenFunction:lateInit(vNativeFunc, vPolyNativeFunc)
 	self._func = vNativeFunc
-	return self
-end
-
-function OpenFunction:lateInitFromMetaNative(
-	vNativeFunc 
-)
-	local nFn = function(vStack, vTermTuple)
-		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
-		return vStack:withMorePushContextWithCase(vStack:getNode(), vTermTuple, function(vContext, vType, vCase)
-			vNativeFunc(vContext, vType)
-		end):mergeReturn(), vStack:mergeEndErrType()
-	end
-	self._func = nFn
-	return self
-end
-
-function OpenFunction:lateInitFromOperNative(
-	vNativeFunc   
-)
-	local nFn = function(vStack, vTermTuple)
-		assert(TermTuple.isFixed(vTermTuple), Exception.new("auto term can't be used here", vStack:getNode()))
-		return vNativeFunc(vStack:inplaceOper(), vTermTuple)
-	end
-	self._func = nFn
-	return self
+	self._polyWrapper = vPolyNativeFunc or false
 end
 
 function OpenFunction:castPoly(vContext, vPolyTuple)
@@ -16607,24 +16702,19 @@ function OpenFunction:castPoly(vContext, vPolyTuple)
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vPolyParNum, vFunc    )
-	local nNoPolyFn = function(vStack, vTermTuple)
-		if vPolyParNum == 0 then
-			return vFunc(self, vStack, false, vTermTuple)
-		else
-			error(vStack:getNode():toExc("this open function need poly args"))
+function OpenFunction:lateInitFromBuilder(vPolyParInfo, vFunc   );
+	self._func = function(vStack, vTermTuple)
+		return vFunc(vStack, false, vTermTuple)
+	end
+	if vPolyParInfo then
+		self._polyWrapper = function(vPolyTuple)
+			local nOpenFn = OpenFunction.new(self._manager, self._node, self._lexCapture)
+			nOpenFn:lateInit(function(vStack, vTermTuple)
+				return vFunc(vStack, vPolyTuple, vTermTuple)
+			end)
+			return nOpenFn
 		end
 	end
-	local nPolyWrapper = function(vPolyTuple)
-		return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
-			if vPolyTuple:getArgNum() ~= vPolyParNum then
-				vStack:inplaceOper():error("poly args number not match")
-			end
-			return vFunc(self, vStack, vPolyTuple, vTermTuple)
-		end)
-	end
-	self._func = nNoPolyFn
-	self._polyWrapper = nPolyWrapper
 	return self
 end
 
@@ -16748,8 +16838,8 @@ local class = require "thlua.class"
 
 local PolyFunction = class (BaseFunction)
 
-function PolyFunction:ctor(vManager, vNode, vFunc, vPolyParNum, ...)
-	self._polyParNum=vPolyParNum
+function PolyFunction:ctor(vManager, vNode, vFunc, vPolyParInfo, ...)
+	self._paramInfo=vPolyParInfo
 	self._makerFn=vFunc
 end
 
@@ -16758,7 +16848,7 @@ function PolyFunction:detailString(vToStringCache , vVerbose)
 end
 
 function PolyFunction:getPolyParNum()
-	return self._polyParNum
+	return self._paramInfo.num
 end
 
 function PolyFunction:makeFn(vTemplateSign, vTypeList); 
@@ -16766,7 +16856,7 @@ function PolyFunction:makeFn(vTemplateSign, vTypeList);
 end
 
 function PolyFunction:noCtxCastPoly(vNode, vTypeList); 
-	assert(#vTypeList == self._polyParNum, vNode:toExc("PolyFunction type args num not match"))
+	assert(#vTypeList == self._paramInfo.num, vNode:toExc("PolyFunction type args num not match"))
 	local nAtomUnionList = {}
 	for i=1, #vTypeList do
 		nAtomUnionList[i] = vTypeList[i]:checkAtomUnion()

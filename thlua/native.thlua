@@ -203,19 +203,17 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 					if nOkay then
 						const nLetSpace = nOpenStack:getLetSpace()
 						if vTupleBuilder then
-							--[[
 							const nArgList = vTupleBuilder:getArgList()
-							const nSpaceArg = nArgList[1]
-							const nRefer = SpaceValue.checkRefer(nSpaceArg)
-							if nRefer and BaseReferSpace.is(nRefer:getComNowait()) then
-								for i=2,#nArgList do.pass
-									const nKey = nArgList[i]
-									nSpaceArg[nKey] = nLetSpace:export()[nKey]
+							for _, nPolyArg in ipairs(nArgList) do
+								const nRefer = SpaceValue.checkRefer(nPolyArg)
+								if nRefer then
+									nRefer:setAssignAsync(vStack:getNode(), function()
+										return nLetSpace:export()[nRefer:getName()]
+									end)
+								else
+									vContext:error('namespace or letspace expected, use require as a poly function: require @<space, "name1", "name2", ...>')
 								end
-							else
-								vContext:error('namespace or letspace expected, use require as a poly function: require @<space, "name1", "name2", ...>')
 							end
-							]]
 						end
 						vContext:addLookTarget(nOpenFn)
 						vContext:nativeOpenReturn(nRetTerm)
