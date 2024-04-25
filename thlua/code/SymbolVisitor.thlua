@@ -97,7 +97,8 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 	Return=function(self, stm)
 		if #stm[1] > 0 then
-			self._regionStack[#self._regionStack]!.retFlag = true
+			const nCurRegion = self:getCurRegion()
+			nCurRegion!.retFlag = true
 		end
 		self:rawVisit(stm)
 	end,
@@ -107,6 +108,7 @@ local TagToVisiting:let.RealTraverser = {
 			self:realVisit(nHintLong)
 		end
 		const nBlockNode = func[2]
+		nBlockNode.region = func;
 		self:withScope(nBlockNode, func, function()
 			-- fill hint symbol
 			func.hintSymbolTable = {}
@@ -131,7 +133,7 @@ local TagToVisiting:let.RealTraverser = {
 						nParFullHint = false
 					end
 				else
-					self:dotsDefine(par)
+					func.symbol_dots = par
 					if not par.hintShort then
 						nParFullHint = false
 					end
@@ -201,14 +203,15 @@ local TagToVisiting:let.RealTraverser = {
 	end,
 	Chunk=function(self, chunk)
 		const nBlockNode = chunk[3]
+		nBlockNode.region = chunk
 		self:withScope(nBlockNode, chunk, function()
 			chunk.hintSymbolTable = {}
 			chunk.hintSymbolTable.let=chunk.letNode
 			chunk.hintSymbolTable._ENV=chunk.hintEnvNode
 			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
-				if name.tag == "dots" then
-					self:dotsDefine(name)
+				if name.tag == "Dots" then
+					chunk.symbol_dots = name
 				end
 			end
 			self:realVisit(nBlockNode)
@@ -268,7 +271,6 @@ function SymbolVisitor:withHintBlock(vBlockNode:node.Block, vFuncNode:OrNil(node
 	end
 	table.insert(self._hintStack, vBlockNode)
 	if vFuncNode then
-		vFuncNode.letNode = false
 		table.insert(self._hintFuncStack, vFuncNode)
 		vInnerCall()
 		table.remove(self._hintFuncStack)
@@ -298,10 +300,8 @@ function SymbolVisitor:withScope(vBlockNode:node.Block, vFuncOrChunk:OrNil(node.
 	end
 	table.insert(self._scopeStack, vBlockNode)
 	if vFuncOrChunk then
-		table.insert(self._regionStack, vFuncOrChunk)
 		table.insert(self._hintStack, vFuncOrChunk)
 		vInnerCall()
-		table.remove(self._regionStack)
 		table.remove(self._hintStack)
 	else
 		vInnerCall()
@@ -337,16 +337,26 @@ function SymbolVisitor:symbolDefine(vIdentNode:node.Ident_def, vImmutKind:node.S
 	end
 end
 
-function SymbolVisitor:dotsDefine(vDotsNode:node.Dots)
-	const nCurRegion = self._inHintSpace and self._hintFuncStack[#self._hintFuncStack] or self._regionStack[#self._regionStack]!
-	nCurRegion.symbol_dots = vDotsNode
-end
-
 function SymbolVisitor:dotsUse(vDotsNode:node.Dots)
-	const nCurRegion = self._inHintSpace and self._hintFuncStack[#self._hintFuncStack] or self._regionStack[#self._regionStack]!
-	const nDotsDefine = nCurRegion and nCurRegion.symbol_dots
-	if not nDotsDefine then
-		error(Exception.new("cannot use '...' outside a vararg function", vDotsNode))
+	if self._inHintSpace then
+		const nIfInHint, nRegion = self:getIfInHintRegion()
+		if nIfInHint then
+			const nDotsDefine = nRegion.symbol_dots
+			if not nDotsDefine then
+				error(Exception.new("cann't use '...' outside a vararg function", vDotsNode))
+			end
+		else
+			const nHintPolyParList = nRegion.hintPolyParList
+			if not (nHintPolyParList and nHintPolyParList.dots) then
+				error(Exception.new("cann't use '...' outside a vararg function", vDotsNode))
+			end
+		end
+	else
+		const nCurRegion = self:getCurRegion()
+		const nDotsDefine = nCurRegion and nCurRegion.symbol_dots
+		if not nDotsDefine then
+			error(Exception.new("cann't use '...' outside a vararg function", vDotsNode))
+		end
 	end
 end
 
@@ -405,11 +415,36 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 	vIdentNode.defineIdent = nDefineNode
 end
 
+function SymbolVisitor:getIfInHintRegion():Ret(Boolean, node.URegionNode)
+	const nHintStack = self._hintStack
+	for i=#nHintStack,1,-1 do
+		const nBlock = nHintStack[i]!
+		if nBlock.tag == "Block" then
+			const nRegion = nBlock.region
+			if nRegion then
+				return true, nRegion
+			end
+		else
+			return false, nBlock
+		end
+	end
+end
+
+function SymbolVisitor:getCurRegion():Ret(OrNil(node.URegionNode))
+	const nScopeStack = self._scopeStack
+	for i=#nScopeStack,1,-1 do
+		const nRegion = nScopeStack[i]!.region
+		if nRegion then
+			return nRegion
+		end
+	end
+	return nil
+end
+
 function:class(let.SymbolVisitor) SymbolVisitor.new(vCode:clazz.SplitCode)
 	const self = setmetatable({.class
 		_code=vCode,
 		_scopeStack={}@List(node.Block),
-		_regionStack={}@List(node.URegionNode),
 		_inHintSpace=false@Boolean,
 		_hintStack={}@List(Union(node.Block, node.Function, node.Chunk)),
 		_hintFuncStack={}@List(node.Function),

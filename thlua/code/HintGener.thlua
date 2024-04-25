@@ -294,9 +294,9 @@ local TagToVisiting:RealTraverser = {
 			-- self:print("local block = function(self) ", node[1], " end block(self)\n")
 			return {
 				line = node.l,
-				" local ____hintStat=function() ",
+				" local ____hintStat=function(...) ",
 				self:fixIHintSpace(node),
-				" end ____hintStat() "
+				" end ____hintStat(...) "
 			}
 		else
 			error("visit long space or short space in other function")
@@ -739,7 +739,7 @@ end
 function HintGener:chunkLongHint():Ret(GenResult)
 	return self:dictWrap({
 		attrSet="{open=1}",
-		caller="function(____longHint) return ____longHint end"
+		caller="function(____longHint, ...) return ____longHint end"
 	})
 end
 
@@ -754,7 +754,7 @@ function HintGener:visitLongHint(vHintSpace:OrNil(node.LongHintSpace)):Ret(GenRe
 	end
 	return self:dictWrap({
 		attrSet=self:listWrap(table.unpack(l)),
-		caller=self:fnWrap("____longHint")("return ____longHint", nCallGen)
+		caller=self:fnWrap("____longHint", "...")("return ____longHint", nCallGen)
 	})
 end
 
@@ -772,14 +772,22 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	const nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack:GenResult = {}
 	const nPolyParNum = nPolyParList and #nPolyParList or 0
-	if nPolyParList and nPolyParNum > 0 then
-		nPolyUnpack = {
-			" local ", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
-				return vPolyPar[1]
-			end, ","), "=", self:concatList@<node.Ident_def>(nPolyParList, function(i, vPolyPar)
-				return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
-			end, ",")
-		}
+	if nPolyParList then
+		if #nPolyParList > 0 then
+			nPolyUnpack = {
+				" local ", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
+					return vPolyPar[1]
+				end, ","), "=", self:concatList@<node.Ident_def>(nPolyParList, function(i, vPolyPar)
+					return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
+				end, ","),
+			}
+		else
+			nPolyUnpack = {}
+		end
+		const nPolyDots = nPolyParList.dots
+		if nPolyDots then
+			nPolyUnpack[#nPolyUnpack + 1] = self:rgnWrap(nPolyDots).POLY_PARAM_DOTS()
+		end
 	end
 	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
@@ -795,7 +803,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			-- pre declare param
 			" local ____vDOTS=false ",
 			-- check param when function building
-			" return ", self:fnWrap("____termArgs")(
+			" return ", self:fnWrap("____termArgs", "...")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
 					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or self:stkWrap(vParNode).AUTO()
@@ -828,7 +836,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 					(nLastDots) and "____vDOTS" or tostring(false)
 				)
 			), ",", nHintSuffix, ",",
-			self:fnWrap()(
+			self:fnWrap("...")(
 				"local let, _ENV=____stk:SPACE() ",
 				self:visit(nBlockNode),
 				" return ",

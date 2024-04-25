@@ -21,9 +21,9 @@ const class = require "thlua.class"
 	clazz.AutoFlag = $AutoFlag
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction)
 
-	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Ret(clazz.UTermTuple)
 	clazz.GenMaker = Fn(clazz.BaseStack, Integer, IList(clazz.USpaceAny), OrFalse(clazz.UMustType)):Ret(clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
-	clazz.GenFunc = Fn():Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
+	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Dots(clazz.USpaceAny):Ret(clazz.UTermTuple)
+	clazz.GenFunc = Fn():Dots(clazz.USpaceAny):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 
 	clazz.FnPrefixHint = Struct {
 		class=Fn(clazz.FnPrefixHint, Any):Ret(clazz.FnPrefixHint),
@@ -109,7 +109,7 @@ function FunctionBuilder:_makeRetTuples(vSuffixHint:clazz.TLongHintInfo(clazz.Fn
 			nRetBuilder:chainErr(self._node, vErrType)
 			return vHint
 		end,
-	})
+	}, self._stack:unpackPolyArgs())
 	if not ok then
 		error(self._node:toExc(tostring(err)))
 	end
@@ -152,7 +152,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			const nCastTypeFn = nAutoFn:pickCastTypeFn()
 			-- make par
 			const nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
-			const nParTermTuple = nGenParam(nCastArgs)
+			const nParTermTuple = nGenParam(nCastArgs, self._stack:unpackPolyArgs())
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
 			const nCastRet = nCastTypeFn and nCastTypeFn:getRetTuples()
@@ -170,7 +170,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 					end
 					return nParTuple, nRetTuples
 				else
-					const nRetTermTuple, nErrType = nGenFunc()
+					const nRetTermTuple, nErrType = nGenFunc(self._stack:unpackPolyArgs())
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
 						nNewStack:inplaceOper():error("auto parameter deduce failed")
@@ -246,7 +246,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 				nGuardFn:lateInitFromMapGuard(nMapObject)
 				return vHint
 			end,
-		})
+		}, self._stack:unpackPolyArgs())
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
@@ -257,8 +257,8 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 				const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 				const nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {} @ List(clazz.USpaceAny)
 				const nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList, false)
-				nGenParam(vTermTuple)
-				return nGenFunc()
+				nGenParam(vTermTuple, self._stack:unpackPolyArgs())
+				return nGenFunc(self._stack:unpackPolyArgs())
 			end, function(err:Any):Ret(clazz.Exception)
 				if Exception.is(err) then
 					return err
@@ -287,7 +287,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			nReferOrNil = nRefer
 			return vHint
 		end,
-	})
+	}, self._stack:unpackPolyArgs())
 	if not ok then
 		error(self._node:toExc(tostring(err)))
 	end
@@ -328,7 +328,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					error(self._node:toExc("mapguard can only be used with function.open"))
 					return vHint
 				end,
-			})
+			}, self._stack:unpackPolyArgs())
 			if not ok then
 				error(Exception.new(tostring(err), self._node))
 			end
@@ -380,11 +380,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		-- 3. init factory
 		nFactory:initAsync(function()
 			const nClassTable = nFactory:waitClassTable()
-			const nParTermTuple = nGenParam(false)
+			const nParTermTuple = nGenParam(false, self._stack:unpackPolyArgs())
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
-				nGenFunc()
+				nGenFunc(self._stack:unpackPolyArgs())
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:inplaceOper():error("auto parameter deduce failed")

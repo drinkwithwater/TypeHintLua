@@ -371,11 +371,8 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 end
 
 (@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
-(@let.RawPairMaker = import("thlua.builder.TableBuilder").RawPairMaker)
-function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vRawPairMaker:RawPairMaker):Ret(clazz.RefineTerm)
-	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, function()
-		return vRawPairMaker(self:_unpackPolyArgs())
-	end)
+function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
+	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
 	return self:_nodeTerm(vNode, nTableType)
 end

@@ -401,8 +401,8 @@ local G = lpeg.P { "TypeHintLua";
 	PolyIdentDef = symb("$") * vv.IdentDefN / function(obj) obj.isPolyVar = true return obj end + vv.IdentDefN;
 
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
-		lpeg.Cg(symb("...") * cc(true), "dots") +
-		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * symb "..." * cc(true) + cc(false), "dots")
+		lpeg.Cg(tagC.Dots(symb"..."), "dots") +
+		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * tagC.Dots(symb "...") + cc(false), "dots")
 	) * symbA(">")) / function(env, polyParList)
 		env.codeBuilder:markDel(polyParList.pos, polyParList.posEnd)
 		return polyParList
