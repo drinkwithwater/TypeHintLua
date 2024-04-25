@@ -60,23 +60,16 @@ function OpenFunction:castPoly(vContext, vPolyTuple)
 end
 
 function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo), vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, OrFalse(clazz.TupleBuilder), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
-	const nNoPolyFn:$self._func = function(vStack, vTermTuple)
-		if not vPolyParInfo then
-			return vFunc(self, vStack, false, vTermTuple)
-		else
-			error(vStack:getNode():toExc("this open function need poly args"))
+	self._func = function(vStack, vTermTuple)
+		return vFunc(self, vStack, false, vTermTuple)
+	end
+	if vPolyParInfo then
+		self._polyWrapper = function(vPolyTuple)
+			return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
+				return vFunc(self, vStack, vPolyTuple, vTermTuple)
+			end)
 		end
 	end
-	const nPolyWrapper:$self._polyWrapper = function(vPolyTuple)
-		return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
-			if vPolyTuple:getArgNum() ~= (vPolyParInfo and vPolyParInfo.num) then
-				vStack:inplaceOper():error("poly args number not match")
-			end
-			return vFunc(self, vStack, vPolyTuple, vTermTuple)
-		end)
-	end
-	self._func = nNoPolyFn
-	self._polyWrapper = nPolyWrapper
 	return self
 end
 

@@ -616,7 +616,10 @@ function TypeManager:buildPfn(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(claz
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return TypedPolyFunction.new(self, vNode, vFunc, nPolyParNum)
+	return TypedPolyFunction.new(self, vNode, vFunc, {
+		dots=false,
+		num=nPolyParNum,
+	})
 end
 
 function TypeManager:buildFn(vNode:clazz.IBaseNode, ...:Any):Ret(clazz.TypedFunction)
@@ -630,8 +633,8 @@ function TypeManager:checkedFn(...:clazz.UMustType):Ret(clazz.TypedFunction)
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
-function TypeManager:SealPolyFunction(vNode:clazz.IBaseNode, vFunc:AnyFunction, vPolyParNum:Integer, vStack:clazz.BaseStack):Ret(clazz.SealPolyFunction)
-	return SealPolyFunction.new(self, vNode, vFunc, vPolyParNum, vStack)
+function TypeManager:SealPolyFunction(vNode:clazz.IBaseNode, vFunc:AnyFunction, vPolyParInfo:clazz.ParamInfo, vStack:clazz.BaseStack):Ret(clazz.SealPolyFunction)
+	return SealPolyFunction.new(self, vNode, vFunc, vPolyParInfo, vStack)
 end
 
 function TypeManager:AutoMemberFunction(vNode:clazz.IBaseNode, vPolyFn:clazz.SealPolyFunction):Ret(clazz.AutoMemberFunction)

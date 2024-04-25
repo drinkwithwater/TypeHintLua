@@ -5,7 +5,124 @@ const OPER_ENUM = require "thlua.type.OPER_ENUM"
 
 const class = require "thlua.class"
 
-(@let.clazz = import($class).clazz)
+(@do
+
+let.node = import("thlua.code.Node").node
+
+let.clazz = import("thlua.class").clazz
+
+clazz.TLongHintInfo = Template(function(vHandler)
+	return Struct {
+		attrSet = Dict(String, Literal(1)),
+		caller = Fn(vHandler):Dots(clazz.USpaceAny),
+	}
+end)
+
+clazz.IBaseNode = node.IBaseNode
+clazz.IAstNode = node.IAstNode
+clazz.IVirtualNode = node.IVirtualNode
+
+clazz.UAtomUnion = Union(clazz.IAtomType, clazz.IUnionType)
+clazz.UMustType = Union(clazz.UAtomUnion, clazz.AsyncTypeCom)
+clazz.USpaceAny = Any
+clazz.USpaceDict = IDict(Truth, clazz.USpaceAny)
+
+clazz.USymbol = Union(clazz.ImmutVariable, clazz.LocalSymbol, clazz.AutoHolder)
+clazz.UAutoTerm = Union(clazz.AutoHolder, clazz.RefineTerm)
+
+clazz.TypeCasePair = Struct {clazz.UAtomUnion, clazz.VariableCase}
+clazz.ParamInfo = Struct {
+	dots=Boolean,
+	num=Integer,
+}
+
+clazz.IType = Interface ({
+	id=Integer,
+	foreachAwait=Mfn(Fn(clazz.IAtomType)),
+
+	detailString=Mfn(Dict(Truth, String), Boolean):Ret(String),
+
+	intersectSome=Mfn(clazz.UMustType):Ret(Boolean),
+	safeIntersect=Mfn(clazz.UMustType):Ret(OrFalse(clazz.UAtomUnion)),
+	assumeIntersectSome=Mfn(OrNil(Dict(Integer, Boolean)), clazz.UMustType):Ret(Boolean),
+	intersectAtom=Mfn(clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
+
+	includeAll=Mfn(clazz.UMustType):Ret(Boolean),
+	assumeIncludeAll=Mfn(OrNil(Dict(Integer, Boolean)), clazz.UMustType, OrNil(clazz.IAtomType)):Ret(Boolean),
+	includeAtom=Mfn(clazz.IAtomType):Ret(OrFalse(clazz.IAtomType)),
+
+	mayRecursive=Mfn():Ret(Boolean),
+	getManager=Mfn():Ret(clazz.TypeManager),
+
+})
+
+clazz.IReadyType = ExtendInterface(clazz.IType, Interface {
+	setAssigned=Mfn(clazz.AssignContext),
+	foreach=Mfn(Fn(clazz.IAtomType)),
+	isNever=Mfn():Ret(Boolean),
+	notnilType=Mfn():Ret(clazz.UAtomUnion),
+	withnilType=Mfn():Ret(clazz.UAtomUnion),
+	isNilable=Mfn():Ret(Boolean),
+	partTypedObject=Mfn():Ret(clazz.UAtomUnion),
+	partTypedFunction=Mfn():Ret(clazz.UAtomUnion),
+	falseType=Mfn():Ret(clazz.UAtomUnion),
+	trueType=Mfn():Ret(clazz.UAtomUnion),
+	assumeIncludeAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType, OrNil(clazz.IAtomType)):Ret(OrFalse(clazz.IAtomType)),
+	assumeIntersectAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
+	putCompletion=Mfn(clazz.FieldCompletion),
+	isAsync=Mfn():Ret(False),
+	getTypeSet=Mfn():Ret(clazz.HashableTypeSet),
+})
+
+clazz.IAtomType = ExtendInterface(clazz.IReadyType, Interface {
+	bits=Integer,
+	checkAtomUnion=Mfn():Ret(clazz.IAtomType),
+
+	isSingleton=Mfn():Ret(Boolean),
+	isUnion=Mfn():Ret(False),
+
+	deEnum=Mfn():Ret(clazz.IAtomType),
+
+	checkTypedObject=Mfn():Ret(OrFalse(clazz.TypedObject)),
+
+	castPoly=Mfn(clazz.OperContext, clazz.TupleBuilder):Ret(OrFalse(clazz.TypedFunction, clazz.OpenFunction)),
+
+	meta_call=Mfn(clazz.ApplyContext, clazz.UTermTuple),
+	meta_invoke=Mfn(clazz.ApplyContext, clazz.IAtomType, clazz.TupleBuilder, clazz.UTermTuple),
+	meta_get=Mfn(clazz.ApplyContext, clazz.IAtomType):Ret(Boolean),
+	meta_set=Mfn(clazz.ApplyContext, clazz.IAtomType, clazz.RefineTerm),
+
+	meta_pairs=Mfn(clazz.ApplyContext):Ret(OrFalse(clazz.UTypeTuple)),
+	meta_ipairs=Mfn(clazz.OperContext):Ret(OrFalse(clazz.UTypeTuple)),
+	meta_len=Mfn(clazz.OperContext):Ret(clazz.UAtomUnion),
+	meta_uop_some=Mfn(clazz.OperContext, String):Ret(clazz.UAtomUnion),
+	meta_bop_func=Mfn(clazz.OperContext, String):Ret(True, clazz.IAtomType):Ret(False, Union(clazz.IAtomType, Nil)),
+
+	native_rawget=Mfn(clazz.ApplyContext, clazz.IAtomType):Ret(clazz.UAtomUnion),
+	native_rawset=Mfn(clazz.ApplyContext, clazz.IAtomType, clazz.RefineTerm),
+	native_next=Mfn(clazz.OperContext, clazz.UAtomUnion):Ret(clazz.UAtomUnion, Dict(clazz.IAtomType, clazz.UAtomUnion)),
+	native_getmetatable=Mfn(clazz.OperContext):Ret(clazz.UAtomUnion),
+	native_setmetatable=Mfn(clazz.ApplyContext, Union(clazz.SealTable, clazz.OpenTable)),
+
+	native_tostring=Mfn():Ret(clazz.String),
+	native_type=Mfn():Ret(clazz.UAtomUnion),
+})
+
+clazz.IUnionType = ExtendInterface(clazz.IReadyType, Interface {
+	bits=Integer,
+	checkAtomUnion=Mfn():Ret(clazz.IUnionType),
+
+	initWithTypeId=Mfn(Integer, clazz.HashableTypeSet),
+
+	isUnion=Mfn():Ret(True),
+
+	putAwait=Mfn(clazz.IAtomType),
+})
+
+clazz.UOpenReturn = Union(clazz.FixedTermTuple, clazz.RefineTerm)
+clazz.OpenCaller = Fn(clazz.OpenStack, clazz.UTermTuple):Ret(clazz.UOpenReturn, OrNil(clazz.UAtomUnion))
+
+end)
 
 const BaseReadyType = class@<clazz.BaseReadyType, clazz.IReadyType>()
 

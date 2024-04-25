@@ -377,6 +377,10 @@ function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(cla
 	return self:_nodeTerm(vNode, nTableType)
 end
 
+function InstStack:RUN_STAT(vNode:node.IAstNode, vStatFn:Fn():Dots(clazz.USpaceAny))
+	vStatFn(self:unpackPolyArgs())
+end
+
 function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	if RefineTerm.is(vTerm) then
 		return vTerm:getType()
@@ -393,9 +397,9 @@ function InstStack:POLY_PARAM_FROM(vNode:node.IAstNode, vSpaceValue:clazz.USpace
 	end
 end
 
-function InstStack:POLY_PARAM_DOTS(vNode:node.IAstNode, ...:clazz.USpaceAny)
-	self._polyDotsNum = select("#", ...)
-	self._polyDotsArgs = {...}
+function InstStack:POLY_PARAM_DOTS(vNode:node.IAstNode, vPolyParNum:Integer, vPolyArgNum:Integer, vPolyArgList:List(clazz.USpaceAny))
+	self._polyDotsNum = vPolyArgNum - vPolyParNum
+	self._polyDotsArgs = {table.unpack(vPolyArgList, vPolyParNum + 1)}
 end
 
 function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:clazz.USpaceAny):Ret(clazz.RefineTerm)

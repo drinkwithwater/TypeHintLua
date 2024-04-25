@@ -294,9 +294,9 @@ local TagToVisiting:RealTraverser = {
 			-- self:print("local block = function(self) ", node[1], " end block(self)\n")
 			return {
 				line = node.l,
-				" local ____hintStat=function(...) ",
-				self:fixIHintSpace(node),
-				" end ____hintStat(...) "
+				self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
+					self:fixIHintSpace(node)
+				))
 			}
 		else
 			error("visit long space or short space in other function")
@@ -654,6 +654,7 @@ end
 		"GLOBAL_GET",
 		"INJECT_GET",
 
+		"RUN_STAT",
 		"CAST_HINT",
 		"EVAL"
 	)
@@ -785,7 +786,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 		end
 		const nPolyDots = nPolyParList.dots
 		if nPolyDots then
-			nPolyUnpack[#nPolyUnpack + 1] = self:rgnWrap(nPolyDots).POLY_PARAM_DOTS()
+			nPolyUnpack[#nPolyUnpack + 1] = self:rgnWrap(nPolyDots).POLY_PARAM_DOTS(tostring(#nPolyParList), "____polyArgNum", "____polyArgList")
 		end
 	end
 	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({

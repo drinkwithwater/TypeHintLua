@@ -11,8 +11,8 @@ const class = require "thlua.class"
 
 const PolyFunction = class@<clazz.PolyFunction, false>(BaseFunction)
 
-function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vFunc:AnyFunction, vPolyParNum:Integer, ...)
-	self._polyParNum=vPolyParNum
+function.open PolyFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vFunc:AnyFunction, vPolyParInfo:clazz.ParamInfo, ...)
+	self._paramInfo=vPolyParInfo
 	self._makerFn=vFunc
 end
 
@@ -21,7 +21,7 @@ function PolyFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:
 end
 
 function PolyFunction:getPolyParNum():Ret(Integer)
-	return self._polyParNum
+	return self._paramInfo.num
 end
 
 function.pass PolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAtomUnion)):Ret(Union(clazz.TypedFunction, clazz.SealFunction))
@@ -29,7 +29,7 @@ function.pass PolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAt
 end
 
 function PolyFunction:noCtxCastPoly(vNode:clazz.IBaseNode, vTypeList:List(clazz.UMustType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
-	assert(#vTypeList == self._polyParNum, vNode:toExc("PolyFunction type args num not match"))
+	assert(#vTypeList == self._paramInfo.num, vNode:toExc("PolyFunction type args num not match"))
 	const nAtomUnionList:List(clazz.UAtomUnion) = {}
 	for i=1, #vTypeList do
 		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()
