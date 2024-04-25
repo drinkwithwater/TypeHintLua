@@ -59,9 +59,9 @@ function OpenFunction:castPoly(vContext, vPolyTuple)
 	end
 end
 
-function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, OrFalse(clazz.TupleBuilder), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
+function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo), vFunc:Fn(clazz.OpenFunction, clazz.BaseStack, OrFalse(clazz.TupleBuilder), clazz.UTermTuple):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)):Ret(clazz.OpenFunction)
 	const nNoPolyFn:$self._func = function(vStack, vTermTuple)
-		if vPolyParNum == 0 then
+		if not vPolyParInfo then
 			return vFunc(self, vStack, false, vTermTuple)
 		else
 			error(vStack:getNode():toExc("this open function need poly args"))
@@ -69,7 +69,7 @@ function OpenFunction:lateInitFromBuilder(vPolyParNum:Integer, vFunc:Fn(clazz.Op
 	end
 	const nPolyWrapper:$self._polyWrapper = function(vPolyTuple)
 		return OpenFunction.new(self._manager, self._node, self._lexCapture):lateInitFromAutoNative(function(vStack, vTermTuple)
-			if vPolyTuple:getArgNum() ~= vPolyParNum then
+			if vPolyTuple:getArgNum() ~= (vPolyParInfo and vPolyParInfo.num) then
 				vStack:inplaceOper():error("poly args number not match")
 			end
 			return vFunc(self, vStack, vPolyTuple, vTermTuple)

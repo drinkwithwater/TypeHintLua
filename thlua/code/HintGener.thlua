@@ -771,7 +771,6 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isHidden or false
 	const nPolyParList = vNode.hintPolyParList
 	local nPolyUnpack:GenResult = {}
-	const nPolyParNum = nPolyParList and #nPolyParList or 0
 	if nPolyParList then
 		if #nPolyParList > 0 then
 			nPolyUnpack = {
@@ -792,7 +791,10 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
-		_polyParNum=tostring(nPolyParNum),
+		_polyParInfo=nPolyParList and self:dictWrap({
+			dots=tostring(nPolyParList.dots and true or false),
+			num=tostring(#nPolyParList)
+		}) or tostring(false),
 		-- _parNum=tostring(nParamNum), not used
 		_member=tostring(nIsMember),
 	}), nHintPrefix,
