@@ -144,18 +144,18 @@ function AsyncTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 	else
 		local nAllInclude:Boolean = true
-		const nTypeSet = nResultType:getSetAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if not nAllInclude then
 				return
 			end
 			local nCurInclude:Boolean = false
-			for _, nType in pairs(nTypeSet:getDict()) do
-				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
+			nResultType:foreachAwait(function(vType)
+				if nCurInclude then
+					return
+				elseif vType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
 					nCurInclude = true
-					break
 				end
-			end
+			end)
 			if not nCurInclude then
 				nAllInclude = false
 			end
@@ -170,18 +170,18 @@ function AsyncTypeCom:assumeIntersectSome(vAssumeSet, vRight)
 		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
 	else
 		local nSomeIntersect:Boolean = false
-		const nTypeSet = nResultType:getSetAwait()
 		vRight:foreachAwait(function(vAtomType)
 			if nSomeIntersect then
 				return
 			end
 			local nCurIntersect:Boolean = false
-			for _, nType in pairs(nTypeSet:getDict()) do
-				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
+			nResultType:foreachAwait(function(vType)
+				if nCurIntersect then
+					return
+				elseif vType:assumeIntersectAtom(vAssumeSet, vAtomType) then
 					nCurIntersect = true
-					break
 				end
-			end
+			end)
 			if nCurIntersect then
 				nSomeIntersect = true
 			end
