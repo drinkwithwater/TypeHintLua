@@ -1,0 +1,135 @@
+
+const class = require@<let.clazz> "thlua.class"
+const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
+const Exception = require "thlua.Exception"
+
+const BaseTypeCom = class@<clazz.BaseTypeCom, clazz.IType>(BaseSpaceCom)
+
+function.open BaseTypeCom:ctor(_, _)
+	const nManager = self._manager
+	const nTask = nManager:getScheduleManager():newTask(self._node)
+	self._task=nTask
+	self._assignNode=false@OrFalse(clazz.IBaseNode)
+	self._mayRecursive=false@Boolean
+	self._resultType=false@OrFalse(clazz.UAtomUnion)
+	self._resultBuildEvent=nTask:makeEvent()
+	self.id=nManager:genTypeId()
+end
+
+function BaseTypeCom:detailString(v, vVerbose)
+	return "BaseTypeCom detail string TODO"
+	--[[
+	const nCom = self._com
+	if not nCom then
+		return "Reference("..(tostring(self._key) or tostring(self._assignNode))..")"
+	else
+		if BaseTypeCom.is(nCom) then
+			return "Reference("..tostring(nCom:getTypeNowait())..")"
+		else
+			return "TemplateReference("..(tostring(self._key) or tostring(self._assignNode))..")"
+		end
+	end
+	]]
+end
+
+function BaseTypeCom:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+	return self._resultType
+end
+
+function BaseTypeCom:checkAtomUnion():Ret(clazz.UAtomUnion)
+	if not self._resultType then
+		self._resultBuildEvent:wait()
+	end
+	return (assert(self._resultType, "result type not setted"))
+end
+
+function BaseTypeCom:mayRecursive():Ret(Boolean)
+	return self._mayRecursive
+end
+
+function BaseTypeCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
+	error("not implement")
+end
+
+function BaseTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	const nResultType = self._resultType
+	if nResultType then
+		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	else
+		local nAllInclude:Boolean = true
+		vRight:foreachAwait(function(vAtomType)
+			if not nAllInclude then
+				return
+			end
+			local nCurInclude:Boolean = false
+			self:foreachAwait(function(vType)
+				if nCurInclude then
+					return
+				elseif vType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
+					nCurInclude = true
+				end
+			end)
+			if not nCurInclude then
+				nAllInclude = false
+			end
+		end)
+		return nAllInclude
+	end
+end
+
+function BaseTypeCom:assumeIntersectSome(vAssumeSet, vRight)
+	const nResultType = self._resultType
+	if nResultType then
+		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
+	else
+		local nSomeIntersect:Boolean = false
+		vRight:foreachAwait(function(vAtomType)
+			if nSomeIntersect then
+				return
+			end
+			local nCurIntersect:Boolean = false
+			self:foreachAwait(function(vType)
+				if nCurIntersect then
+					return
+				elseif vType:assumeIntersectAtom(vAssumeSet, vAtomType) then
+					nCurIntersect = true
+				end
+			end)
+			if nCurIntersect then
+				nSomeIntersect = true
+			end
+		end)
+		return nSomeIntersect
+	end
+end
+
+function BaseTypeCom:intersectAtom(vRightType)
+	return self:checkAtomUnion():intersectAtom(vRightType)
+end
+
+function BaseTypeCom:includeAtom(vRightType)
+	return self:checkAtomUnion():includeAtom(vRightType)
+end
+
+function BaseTypeCom:includeAll(vRight)
+	return self:assumeIncludeAll(nil, vRight)
+end
+
+function BaseTypeCom:safeIntersect(vRight)
+	return self:checkAtomUnion():safeIntersect(vRight)
+end
+
+function BaseTypeCom:intersectSome(vRight)
+	return self:assumeIntersectSome(nil, vRight)
+end
+
+function BaseTypeCom:isNever():Ret(Boolean)
+	error("not implement")
+	return false
+end
+
+function BaseTypeCom:getManager()
+	return self._manager
+end
+
+return BaseTypeCom

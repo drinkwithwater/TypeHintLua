@@ -1,0 +1,33 @@
+
+const class = require@<let.clazz> "thlua.class"
+const BaseTypeCom = require "thlua.space.BaseTypeCom"
+const Exception = require "thlua.Exception"
+
+const DeduceTypeCom = class@<clazz.DeduceTypeCom, false>(BaseTypeCom)
+
+function DeduceTypeCom.__tostring(self:clazz.DeduceTypeCom)
+	return "DeduceTypeCom(?)"
+end
+
+function.open DeduceTypeCom:ctor(_, _)
+end
+
+function DeduceTypeCom:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
+	assert(not self._assignNode, "async type has setted")
+	self._assignNode = vNode
+	self._task:runAsync(function()
+		const nResultType = vFn()
+		self._resultType = nResultType:checkAtomUnion()
+		self._resultBuildEvent:wakeup()
+	end)
+end
+
+function DeduceTypeCom:foreachAwait(vFunc)
+	self:checkAtomUnion():foreach(vFunc)
+end
+
+function DeduceTypeCom:isNever():Ret(Boolean)
+	return self:checkAtomUnion():isNever()
+end
+
+return DeduceTypeCom
