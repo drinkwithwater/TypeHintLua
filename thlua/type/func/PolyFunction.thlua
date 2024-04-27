@@ -24,22 +24,17 @@ function PolyFunction:getPolyParNum():Ret(Integer)
 	return self._paramInfo.num
 end
 
-function.pass PolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAtomUnion)):Ret(Union(clazz.TypedFunction, clazz.SealFunction))
+function.pass PolyFunction:makeFn(vTupleBuilder:clazz.TupleBuilder):Ret(Union(clazz.TypedFunction, clazz.SealFunction))
 	error("not implement")
 end
 
-function PolyFunction:noCtxCastPoly(vNode:clazz.IBaseNode, vTypeList:List(clazz.UMustType)):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
-	assert(#vTypeList == self._paramInfo.num, vNode:toExc("PolyFunction type args num not match"))
-	const nAtomUnionList:List(clazz.UAtomUnion) = {}
-	for i=1, #vTypeList do
-		nAtomUnionList[i] = vTypeList[i]!:checkAtomUnion()
-	end
-	const nKey = self._manager:signTemplateArgs(nAtomUnionList)
-	return self:makeFn(nKey, nAtomUnionList)
+function PolyFunction:noCtxCastPoly(vNode:clazz.IBaseNode, vTupleBuilder:clazz.TupleBuilder):Ret(Union(clazz.SealFunction, clazz.TypedFunction))
+	vTupleBuilder:argsMatch(vNode, self._paramInfo)
+	return self:makeFn(vTupleBuilder)
 end
 
 function PolyFunction:castPoly(vContext, vPolyTuple)
-	const nFn = self:noCtxCastPoly(vContext:getNode(), vPolyTuple:buildPolyArgs())
+	const nFn = self:noCtxCastPoly(vContext:getNode(), vPolyTuple)
 	return nFn:getFnAwait()
 end
 

@@ -192,13 +192,13 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			self._stack:getSealStack():scheduleSealType(ret)
 			return ret
 		else
-			return self._manager:SealPolyFunction(self._node, function(...:clazz.USpaceAny)
+			return self._manager:SealPolyFunction(self._node, function(...:clazz.UMustType)
 				const nTuple = self._manager:spacePack(self._node, ...)
 				return nFnMaker(nTuple, false)
 			end, nPolyParInfo, self._stack)
 		end
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(selfType:clazz.UMustType, ...:clazz.USpaceAny)
+		const nPolyFn = self._manager:SealPolyFunction(self._node, function(selfType:clazz.UMustType, ...:clazz.UMustType)
 			const nTuple = self._manager:spacePack(self._node, ...)
 			return nFnMaker(nTuple, selfType)
 		end, {num=(nPolyParInfo and nPolyParInfo.num or 0) + 1,dots=nPolyParInfo and nPolyParInfo.dots or false}, self._stack)
@@ -407,10 +407,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			return nFnMaker(nTuple)
 		end, nPolyParInfo, self._stack)
 		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UMustType)
-			const nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
+			const nFactory = nPolyFn:noCtxCastPoly(self._node, self._manager:spacePack(self._node, ...))
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
 			return nFactory:waitClassTable()
-		end, nPolyParInfo.num)
+		end, nPolyParInfo)
 		nRefer:setAssignAsync(self._node, function()
 			return nTemplateCom
 		end)

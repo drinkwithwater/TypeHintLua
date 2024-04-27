@@ -641,14 +641,14 @@ end
 function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateCom)
 	const nInfo = debug.getinfo(vFunc)
 	const nParNum = nInfo.nparams
-	if nInfo.isvararg then
-		error("template's parameter number is undetermined")
-	end
-	return TemplateCom.new(self, vNode, vFunc, nParNum)
+	return TemplateCom.new(self, vNode, vFunc, {
+		num=nParNum,
+		dots=nInfo.isvararg,
+	})
 end
 
-function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParNum:Integer):Ret(clazz.TemplateCom)
-	return TemplateCom.new(self, vNode, vFunc, vParNum)
+function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParInfo:clazz.ParamInfo):Ret(clazz.TemplateCom)
+	return TemplateCom.new(self, vNode, vFunc, vParInfo)
 end
 
 function TypeManager:NameReference(vParentSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vName:String):Ret(clazz.NameReference)

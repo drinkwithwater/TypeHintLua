@@ -13,12 +13,13 @@ function.open SealPolyFunction:ctor(_,_,_,_, vLexStack:clazz.BaseStack)
 	self._useNodeSet = {}
 end
 
-function SealPolyFunction:makeFn(vTemplateSign:String, vTypeList:List(clazz.UAtomUnion)):Ret(clazz.SealFunction)
-	const nFn = self._fnDict[vTemplateSign]
+function SealPolyFunction:makeFn(vTupleBuilder:clazz.TupleBuilder):Ret(clazz.SealFunction)
+	const nSign = vTupleBuilder:checkTemplateArgSign()
+	const nFn = self._fnDict[nSign]
 	if not nFn then
-		const nResult = self._makerFn(table.unpack(vTypeList)) @ Any
+		const nResult = self._makerFn(table.unpack(vTupleBuilder:buildPolyArgs())) @ Any
 		if SealFunction.is(nResult) then
-			self._fnDict[vTemplateSign] = nResult
+			self._fnDict[nSign] = nResult
             self._lexStack:getSealStack():scheduleSealType(nResult)
 			return nResult
 		else

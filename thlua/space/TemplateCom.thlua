@@ -8,20 +8,18 @@ const BaseReadyType = require "thlua.type.basic.BaseReadyType"
 
 const TemplateCom = class@<clazz.TemplateCom, false>(BaseSpaceCom)
 
-function.open TemplateCom:ctor(_, _, vFunc:AnyFunction, vParNum:Integer)
-	self._parNum=vParNum
+function.open TemplateCom:ctor(_, _, vFunc:AnyFunction, vParamInfo:clazz.ParamInfo)
+	self._paramInfo=vParamInfo
 	self._func=vFunc
 	self._cache={}@Dict(String, clazz.AsyncTypeCom)
 end
 
 function TemplateCom:cacheCall(vNode:clazz.IBaseNode, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.AsyncTypeCom)
+	vTupleBuilder:argsMatch(vNode, self._paramInfo)
 	const nManager = self._manager
 	const nFn = self._func
 	const nAsyncTypeCom = self._manager:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
-		if vTupleBuilder:getArgNum() ~= self._parNum then
-			error(vNode:toExc("template args num not match"))
-		end
 		const nMustList:List(clazz.UMustType) = vTupleBuilder:buildPolyArgs()
 		const nKey = vTupleBuilder:checkTemplateArgSign()
 		const nValue = self._cache[nKey]
