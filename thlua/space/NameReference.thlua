@@ -161,19 +161,18 @@ end
 function NameReference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.USpaceAny)
 	const nCom = self._com
 	if BuiltinFnCom.is(nCom) then
-		return nCom:call(vNode, ...)
+		return nCom:flatCall(vNode, ...)
 	end
-	const nArgList:List(clazz.USpaceAny) = {...}
-	const nArgNum = select("#", ...)
+	const nTuple = self._manager:spacePack(vNode, ...)
 	if TemplateCom.is(nCom) then
-		return nCom:call(vNode, nArgNum, nArgList)
+		return nCom:cacheCall(vNode, nTuple)
 	elseif nCom then
 		error(vNode:toExc("template reference expected here"))
 	end
 	const nTypeCom = self._manager:AsyncTypeCom(vNode)
 	nTypeCom:setTypeAsync(vNode, function()
 		const nCom = self:waitTemplateCom(vNode)
-		return nCom:call(vNode, nArgNum, nArgList)
+		return nCom:cacheCall(vNode, nTuple)
 	end)
 	return nTypeCom
 end

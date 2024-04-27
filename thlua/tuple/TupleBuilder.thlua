@@ -3,10 +3,6 @@ const class = require "thlua.class"
 
 (@do
     let.clazz = import($class).clazz
-    clazz.USpaceTuple = Interface({
-        [Integer]=clazz.USpaceAny,
-        n=Integer,
-    }, {__len=Integer})
 end)
 
 const TupleBuilder = class@<clazz.TupleBuilder, false>()
@@ -17,6 +13,8 @@ function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNod
     self._num = select("#", ...)
     self._list = {...} @ List(clazz.USpaceAny)
     self._dots = nil @ clazz.USpaceAny
+    self._polyTypeArgList = nil @ OrNil(List(clazz.UMustType))
+    self._polyTypeArgSign = nil @ OrNil(String)
 end
 
 function TupleBuilder:setRetDots()
@@ -60,14 +58,25 @@ function TupleBuilder:getArgList():Ret(List(clazz.USpaceAny))
     return self._list
 end
 
-function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
-    const nNode = self._node
-    const nSpaceTuple = self._list
-    const nTypeList:List(clazz.UMustType) = {}
-    for i=1, self._num do
-        nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
+function TupleBuilder:checkTemplateArgSign():Ret(String)
+    if not self._polyTypeArgSign then
+        self._polyTypeArgSign = self._manager:signTemplateArgs(self:buildPolyArgs())
     end
-    return nTypeList
+    return self._polyTypeArgSign!
+end
+
+function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
+    if not self._polyTypeArgList then
+        assert(self._dots == nil, "tuple with dots can't checkout to typelist")
+        const nNode = self._node
+        const nSpaceTuple = self._list
+        const nTypeList:List(clazz.UMustType) = {}
+        for i=1, self._num do
+            nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
+        end
+        self._polyTypeArgList = nTypeList
+    end
+    return self._polyTypeArgList!
 end
 
 return TupleBuilder

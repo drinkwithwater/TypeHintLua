@@ -14,19 +14,16 @@ function.open TemplateCom:ctor(_, _, vFunc:AnyFunction, vParNum:Integer)
 	self._cache={}@Dict(String, clazz.AsyncTypeCom)
 end
 
-function TemplateCom:call(vNode:clazz.IBaseNode, vArgNum:Integer, vArgList:List(clazz.USpaceAny)):Ret(clazz.AsyncTypeCom)
+function TemplateCom:cacheCall(vNode:clazz.IBaseNode, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.AsyncTypeCom)
 	const nManager = self._manager
 	const nFn = self._func
 	const nAsyncTypeCom = self._manager:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
-		if vArgNum ~= self._parNum then
+		if vTupleBuilder:getArgNum() ~= self._parNum then
 			error(vNode:toExc("template args num not match"))
 		end
-		const nMustList:List(clazz.UMustType) = {}
-		for i=1, vArgNum do
-			nMustList[i] = nManager:easyToMustType(vNode, vArgList[i])
-		end
-		const nKey = self._manager:signTemplateArgs(nMustList)
+		const nMustList:List(clazz.UMustType) = vTupleBuilder:buildPolyArgs()
+		const nKey = vTupleBuilder:checkTemplateArgSign()
 		const nValue = self._cache[nKey]
 		if not nValue then
 			self._cache[nKey] = nAsyncTypeCom
