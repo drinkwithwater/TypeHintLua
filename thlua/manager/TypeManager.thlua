@@ -603,10 +603,7 @@ function TypeManager:buildPfn(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(claz
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return TypedPolyFunction.new(self, vNode, vFunc, {
-		dots=false,
-		num=nPolyParNum,
-	})
+	return TypedPolyFunction.new(self, vNode, self:convertFunctionToTemplateLambda(vFunc))
 end
 
 function TypeManager:buildFn(vNode:clazz.IBaseNode, ...:Any):Ret(clazz.TypedFunction)
@@ -620,7 +617,7 @@ function TypeManager:checkedFn(...:clazz.UMustType):Ret(clazz.TypedFunction)
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
-function TypeManager:SealPolyFunction(vNode:clazz.IBaseNode, vFunc:AnyFunction, vPolyParInfo:clazz.ParamInfo, vStack:clazz.BaseStack):Ret(clazz.SealPolyFunction)
+function TypeManager:SealPolyFunction(vNode:clazz.IBaseNode, vFunc:clazz.PolyLambda, vPolyParInfo:clazz.ParamInfo, vStack:clazz.BaseStack):Ret(clazz.SealPolyFunction)
 	return SealPolyFunction.new(self, vNode, vFunc, vPolyParInfo, vStack)
 end
 
@@ -638,16 +635,31 @@ function TypeManager:makeMetaEventCom(vObject:Union(clazz.SealTable, clazz.Typed
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateCom)
+function TypeManager:convertFunctionToTemplateLambda(vFunc:AnyFunction):Ret(clazz.PolyLambda, clazz.ParamInfo)
 	const nInfo = debug.getinfo(vFunc)
-	const nParNum = nInfo.nparams
-	return TemplateCom.new(self, vNode, vFunc, {
-		num=nParNum,
+	return function(vTupleBuilder)
+		const ok, exc = pcall(vFunc, table.unpack(vTupleBuilder:buildPolyArgs()))
+		const nNode = vTupleBuilder:getNode()
+		if ok then
+			return self:easyToMustType(nNode, exc)
+		else
+			if Exception.is(exc) then
+				error(exc)
+			else
+				error(nNode:toExc(tostring(exc)))
+			end
+		end
+	end, {
+		num=nInfo.nparams,
 		dots=nInfo.isvararg,
-	})
+	}
 end
 
-function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:AnyFunction, vParInfo:clazz.ParamInfo):Ret(clazz.TemplateCom)
+function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateCom)
+	return TemplateCom.new(self, vNode, self:convertFunctionToTemplateLambda(vFunc))
+end
+
+function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:clazz.PolyLambda, vParInfo:clazz.ParamInfo):Ret(clazz.TemplateCom)
 	return TemplateCom.new(self, vNode, vFunc, vParInfo)
 end
 

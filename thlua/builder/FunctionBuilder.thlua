@@ -192,15 +192,15 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			self._stack:getSealStack():scheduleSealType(ret)
 			return ret
 		else
-			return self._manager:SealPolyFunction(self._node, function(...:clazz.UMustType)
-				const nTuple = self._manager:spacePack(self._node, ...)
-				return nFnMaker(nTuple, false)
+			return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+				return nFnMaker(vTupleBuilder, false)
 			end, nPolyParInfo, self._stack)
 		end
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(selfType:clazz.UMustType, ...:clazz.UMustType)
-			const nTuple = self._manager:spacePack(self._node, ...)
-			return nFnMaker(nTuple, selfType)
+		const nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+			const nMustList = vTupleBuilder:buildPolyArgs()
+			const nTuple = self._manager:spacePack(self._node, table.unpack(nMustList, 2))
+			return nFnMaker(nTuple, nMustList[1]!)
 		end, {num=(nPolyParInfo and nPolyParInfo.num or 0) + 1,dots=nPolyParInfo and nPolyParInfo.dots or false}, self._stack)
 		return self._manager:AutoMemberFunction(self._node, nPolyFn)
 	end
@@ -402,12 +402,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(...:clazz.USpaceAny)
-			const nTuple = self._manager:spacePack(self._node, ...)
-			return nFnMaker(nTuple)
+		const nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+			return nFnMaker(vTupleBuilder)
 		end, nPolyParInfo, self._stack)
-		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...:clazz.UMustType)
-			const nFactory = nPolyFn:noCtxCastPoly(self._node, self._manager:spacePack(self._node, ...))
+		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(vTupleBuilder)
+			const nFactory = nPolyFn:noCtxCastPoly(self._node, vTupleBuilder)
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
 			return nFactory:waitClassTable()
 		end, nPolyParInfo)
