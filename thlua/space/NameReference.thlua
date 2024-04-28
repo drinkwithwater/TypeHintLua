@@ -9,8 +9,7 @@ const BaseUnionType = require "thlua.type.union.BaseUnionType"
 const BaseReferSpace = require "thlua.space.BaseReferSpace"
 const NameSpace = require "thlua.space.NameSpace"
 const LetSpace = require "thlua.space.LetSpace"
-const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
-const DeduceTypeCom = require "thlua.space.DeduceTypeCom"
+const BaseTypeCom = require "thlua.space.BaseTypeCom"
 const TemplateCom = require "thlua.space.TemplateCom"
 const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 const EasyMapCom = require "thlua.space.EasyMapCom"
@@ -80,10 +79,10 @@ function NameReference:getComAwait():Ret(clazz.BaseSpaceCom)
 	return nCom
 end
 
-function NameReference:waitTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
+function NameReference:waitTypeCom(vNode:clazz.IBaseNode):Ret(Union(clazz.AsyncTypeCom, clazz.AutoHolder))
 	const nCom = self:getComAwait()
-	assert(AsyncTypeCom.is(nCom), vNode:toExc("type expected, but got some other value"))
-	return nCom
+	assert(BaseTypeCom.is(nCom), vNode:toExc("type expected, but got some other value"))
+	return nCom @> Union(clazz.AsyncTypeCom, clazz.AutoHolder)
 end
 
 function NameReference:waitTemplateCom(vNode:clazz.IBaseNode):Ret(clazz.TemplateCom)

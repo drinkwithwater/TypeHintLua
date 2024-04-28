@@ -1,39 +1,33 @@
 
+const class = require@<let.clazz> "thlua.class"
+const BaseTypeCom = require "thlua.space.BaseTypeCom"
 const Exception = require "thlua.Exception"
 
 (@do
-	let.clazz = import("thlua.class").clazz
 	let.node = import("thlua.code.Node").node
 end)
 
-const AutoHolder = {}
-AutoHolder.__index = AutoHolder
+const AutoHolder = class@<clazz.AutoHolder, false>(BaseTypeCom)
 AutoHolder.__tostring = function(self:clazz.AutoHolder)
 	return "auto@"..tostring(self._node)
 end
 
-function:class(clazz.AutoHolder) AutoHolder.new(vNode:Union(node.Ident_def, node.Dots), vContext:clazz.OperContext)
-	const self = setmetatable({.class
-		_node=vNode,
-		_context=vContext,
-		_term=false@OrFalse(clazz.RefineTerm)
-	}, AutoHolder)
-	return self
+function.open AutoHolder:ctor(_, _)
+	self._term=false@OrFalse(clazz.RefineTerm)
 end
 
 function AutoHolder:checkRefineTerm(vContext:clazz.OperContext):Ret(clazz.RefineTerm)
 	const nTerm = self._term
 	if nTerm then
 		return nTerm
-	else
-		error(Exception.new("undeduced auto param is used", vContext:getNode()))
 	end
-end
-
-function AutoHolder:setAutoCastType(vContext:clazz.OperContext, vType:clazz.UAtomUnion):Ret(clazz.RefineTerm)
-	const nTerm = vContext:RefineTerm(vType)
-	self._term = nTerm
-	return nTerm
+	const nResultType = self._resultType
+	if nResultType then
+		const nTerm = vContext:RefineTerm(nResultType)
+		self._term = nTerm
+		return nTerm
+	end
+	error(Exception.new("undeduced auto param is used", vContext:getNode()))
 end
 
 function AutoHolder:getRefineTerm():Ret(OrFalse(clazz.RefineTerm))
@@ -41,16 +35,32 @@ function AutoHolder:getRefineTerm():Ret(OrFalse(clazz.RefineTerm))
 end
 
 function AutoHolder:getType():Ret(OrFalse(clazz.UAtomUnion))
-	const nTerm = self._term
-	return nTerm and nTerm:getType()
+	return self._resultType
 end
 
-function AutoHolder:getNode()
-	return self._node
+function AutoHolder:getSetAwait():Ret(clazz.HashableTypeSet)
+	if not self._resultType then
+		self._resultBuildEvent:wait()
+	end
+	return assert(self._resultType, "result type setted"):getTypeSet()
 end
 
-function.open AutoHolder.is(t):isguard(clazz.AutoHolder)
-	return getmetatable(t) == AutoHolder
+function AutoHolder:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
+	assert(not self._assignNode, "async type has setted")
+	self._assignNode = vNode
+	self._task:runAsync(function()
+		const nResultType = vFn()
+		self._resultType = nResultType:checkAtomUnion()
+		self._resultBuildEvent:wakeup()
+	end)
+end
+
+function AutoHolder:foreachAwait(vFunc)
+	self:checkAtomUnion():foreach(vFunc)
+end
+
+function AutoHolder:isNever():Ret(Boolean)
+	return self:checkAtomUnion():isNever()
 end
 
 return AutoHolder

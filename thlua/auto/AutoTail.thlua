@@ -10,8 +10,9 @@ end)
 const AutoTail = {}
 AutoTail.__index = AutoTail
 
-function:class(clazz.AutoTail) AutoTail.new(vNode:node.Dots, vContext:clazz.OperContext, vInit:OrNil(List(clazz.AutoHolder)))
+function:class(clazz.AutoTail) AutoTail.new(vManager:clazz.TypeManager, vNode:node.Dots, vContext:clazz.OperContext, vInit:OrNil(List(clazz.AutoHolder)))
 	const self = setmetatable({.class
+		_manager=vManager,
 		_node=vNode,
 		_context=vContext,
 		_holderList=vInit or {}@List(clazz.AutoHolder),
@@ -29,7 +30,7 @@ function AutoTail:getMore(vContext:clazz.OperContext, vMore:Integer):Ret(clazz.U
 		const nSealTail = self._sealTail
 		if not nSealTail then
 			for i=#nList + 1, vMore do
-				nList[i] = AutoHolder.new(self._node, self._context)
+				nList[i] = AutoHolder.new(self._manager, self._node)
 			end
 			return nList[vMore]!
 		else
@@ -53,7 +54,7 @@ function AutoTail:openTailFrom(vContext:clazz.OperContext, vFrom:Integer):Ret(cl
 			nNewHolderList[#nNewHolderList + 1] = nSelfHolderList[i]
 			nSelfHolderList[i] = nil
 		end
-		const nNewAutoTail = AutoTail.new(self._node, self._context, nNewHolderList)
+		const nNewAutoTail = AutoTail.new(self._manager, self._node, self._context, nNewHolderList)
 		self._sealTail = nNewAutoTail
 		return nNewAutoTail
 	else
