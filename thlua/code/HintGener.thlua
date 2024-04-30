@@ -675,8 +675,7 @@ end
 		"PARAM_DOTS_UNPACK",
 		"PARAM_NODOTS_UNPACK",
 		"PARAM_PACKOUT",
-		"POLY_PARAM_FROM",
-		"POLY_PARAM_DOTS",
+		"POLY_PARAM_UNPACK",
 		"BEGIN",
 		"RETURN",
 		"END",
@@ -771,24 +770,6 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	const nFirstPar = nParList[1]
 	const nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isHidden or false
 	const nPolyParList = vNode.hintPolyParList
-	local nPolyUnpack:GenResult = {}
-	if nPolyParList then
-		if #nPolyParList > 0 then
-			nPolyUnpack = {
-				" local ", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
-					return vPolyPar[1]
-				end, ","), "=", self:concatList@<node.Ident_def>(nPolyParList, function(i, vPolyPar)
-					return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
-				end, ","),
-			}
-		else
-			nPolyUnpack = {}
-		end
-		const nPolyDots = nPolyParList.dots
-		if nPolyDots then
-			nPolyUnpack[#nPolyUnpack + 1] = self:rgnWrap(nPolyDots).POLY_PARAM_DOTS(tostring(#nPolyParList), "____polyArgNum", "____polyArgList")
-		end
-	end
 	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
@@ -802,11 +783,20 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 	-- par ret maker
 		self:fnWrap("____newStk","____polyArgNum", "____polyArgList", "____self")(
 			"local ____stk=____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
-			nPolyUnpack,
 			-- pre declare param
 			" local ____vDOTS=false ",
-			-- check param when function building
-			" return ", self:fnWrap("____termArgs", "...")(
+			nPolyParList and {
+				" local ", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
+					return vPolyPar[1]
+				end, ","), "=", self:rgnWrap(nPolyParList).POLY_PARAM_UNPACK("____polyArgNum", "____polyArgList")
+			} or "",
+			" return ",
+			nPolyParList and {
+				"{", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
+					return vPolyPar[1]
+				end, ","), "}"
+			} or "false", ",",
+			self:fnWrap("____termArgs", "...")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
 					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or self:stkWrap(vParNode).AUTO()

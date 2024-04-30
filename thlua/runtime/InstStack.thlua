@@ -385,17 +385,33 @@ function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	end
 end
 
-function InstStack:POLY_PARAM_FROM(vNode:node.IAstNode, vSpaceValue:clazz.USpaceAny, vIsVar:Boolean):Ret(clazz.USpaceAny)
-	if vIsVar then
-		return vSpaceValue
+function InstStack:POLY_PARAM_UNPACK(vNode:node.HintPolyParList, vPolyArgNum:OrFalse(Integer), vPolyArgList:List(clazz.USpaceAny)):RetDots(clazz.USpaceAny)
+	const nNamePolyArgList:List(clazz.USpaceAny) = {}
+	if vPolyArgNum then
+		for i, nIdentDef in ipairs(vNode) do
+			if nIdentDef.isPolyVar then
+				nNamePolyArgList[i] = vPolyArgList[i]
+			else
+				nNamePolyArgList[i] = self._manager:easyToMustType(nIdentDef, vPolyArgList[i])
+			end
+		end
+		if vNode.dots then
+			self._polyDotsNum = vPolyArgNum - #vNode
+			self._polyDotsArgs = {table.unpack(vPolyArgList, #vNode + 1)}
+		end
 	else
-		return self._manager:easyToMustType(vNode, vSpaceValue)
+		for i, nIdentDef in ipairs(vNode) do
+			if nIdentDef.isPolyVar then
+				nNamePolyArgList[i] = nil
+			else
+				nNamePolyArgList[i] = AutoHolder.new(self._manager, nIdentDef)
+			end
+		end
+		if vNode.dots then
+			print("dots deduce TODO")
+		end
 	end
-end
-
-function InstStack:POLY_PARAM_DOTS(vNode:node.IAstNode, vPolyParNum:Integer, vPolyArgNum:Integer, vPolyArgList:List(clazz.USpaceAny))
-	self._polyDotsNum = vPolyArgNum - vPolyParNum
-	self._polyDotsArgs = {table.unpack(vPolyArgList, vPolyParNum + 1)}
+	return table.unpack(nNamePolyArgList, 1, #vNode)
 end
 
 function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:clazz.USpaceAny):Ret(clazz.RefineTerm)

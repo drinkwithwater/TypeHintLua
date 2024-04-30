@@ -21,12 +21,6 @@ function AutoHolder:checkRefineTerm(vContext:clazz.OperContext):Ret(clazz.Refine
 	if nTerm then
 		return nTerm
 	end
-	const nResultType = self._resultType
-	if nResultType then
-		const nTerm = vContext:RefineTerm(nResultType)
-		self._term = nTerm
-		return nTerm
-	end
 	error(Exception.new("undeduced auto param is used", vContext:getNode()))
 end
 
@@ -45,12 +39,14 @@ function AutoHolder:getSetAwait():Ret(clazz.HashableTypeSet)
 	return assert(self._resultType, "result type setted"):getTypeSet()
 end
 
-function AutoHolder:setTypeAsync(vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
+function AutoHolder:assignDeduceTypeAsync(vContext:clazz.AssignContext, vNode:clazz.IBaseNode, vFn:Fn():Ret(clazz.UMustType))
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
-		const nResultType = vFn()
-		self._resultType = nResultType:checkAtomUnion()
+		const nResultType = vFn():checkAtomUnion()
+		self._resultType = nResultType
+		const nTerm = vContext:RefineTerm(nResultType)
+		self._term = nTerm
 		self._resultBuildEvent:wakeup()
 	end)
 end
