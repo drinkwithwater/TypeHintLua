@@ -385,7 +385,7 @@ function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
 	end
 end
 
-function InstStack:POLY_PARAM_UNPACK(vNode:node.HintPolyParList, vPolyArgNum:OrFalse(Integer), vPolyArgList:List(clazz.USpaceAny)):RetDots(clazz.USpaceAny)
+function InstStack:POLY_PARAM_DEDUCE(vNode:node.HintPolyParList, vPolyArgNum:OrFalse(Integer), vPolyArgList:List(clazz.USpaceAny)):RetDots(OrNil(clazz.TupleBuilder), clazz.USpaceAny)
 	const nNamePolyArgList:List(clazz.USpaceAny) = {}
 	if vPolyArgNum then
 		for i, nIdentDef in ipairs(vNode) do
@@ -399,6 +399,7 @@ function InstStack:POLY_PARAM_UNPACK(vNode:node.HintPolyParList, vPolyArgNum:OrF
 			self._polyDotsNum = vPolyArgNum - #vNode
 			self._polyDotsArgs = {table.unpack(vPolyArgList, #vNode + 1)}
 		end
+		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
 	else
 		for i, nIdentDef in ipairs(vNode) do
 			if nIdentDef.isPolyVar then
@@ -410,8 +411,8 @@ function InstStack:POLY_PARAM_UNPACK(vNode:node.HintPolyParList, vPolyArgNum:OrF
 		if vNode.dots then
 			print("dots deduce TODO")
 		end
+		return self._manager:spacePack(self:getNode(), table.unpack(nNamePolyArgList, 1, #vNode)), table.unpack(nNamePolyArgList, 1, #vNode)
 	end
-	return table.unpack(nNamePolyArgList, 1, #vNode)
 end
 
 function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:clazz.USpaceAny):Ret(clazz.RefineTerm)

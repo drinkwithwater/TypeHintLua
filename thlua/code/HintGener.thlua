@@ -675,7 +675,7 @@ end
 		"PARAM_DOTS_UNPACK",
 		"PARAM_NODOTS_UNPACK",
 		"PARAM_PACKOUT",
-		"POLY_PARAM_UNPACK",
+		"POLY_PARAM_DEDUCE",
 		"BEGIN",
 		"RETURN",
 		"END",
@@ -786,16 +786,11 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			-- pre declare param
 			" local ____vDOTS=false ",
 			nPolyParList and {
-				" local ", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
+				" local ____deduceTuple,", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
 					return vPolyPar[1]
-				end, ","), "=", self:rgnWrap(nPolyParList).POLY_PARAM_UNPACK("____polyArgNum", "____polyArgList")
+				end, ","), "=", self:rgnWrap(nPolyParList).POLY_PARAM_DEDUCE("____polyArgNum", "____polyArgList")
 			} or "",
-			" return ",
-			nPolyParList and {
-				"{", self:concatList@<node.Ident_def>(nPolyParList, function(_, vPolyPar)
-					return vPolyPar[1]
-				end, ","), "}"
-			} or "false", ",",
+			" return ", nPolyParList and "____deduceTuple" or "nil", ",",
 			self:fnWrap("____termArgs", "...")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort

@@ -56,6 +56,7 @@ const native = require "thlua.native"
 
 const TemplateCom = require "thlua.space.TemplateCom"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
+const AutoHolder = require "thlua.auto.AutoHolder"
 const EasyMapCom = require "thlua.space.EasyMapCom"
 const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 
@@ -617,8 +618,8 @@ function TypeManager:checkedFn(...:clazz.UMustType):Ret(clazz.TypedFunction)
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
-function TypeManager:SealPolyFunction(vNode:clazz.IBaseNode, vFunc:clazz.PolyLambda, vPolyParInfo:clazz.ParamInfo, vStack:clazz.BaseStack):Ret(clazz.SealPolyFunction)
-	return SealPolyFunction.new(self, vNode, vFunc, vPolyParInfo, vStack)
+function TypeManager:SealPolyFunction(...):Ret(clazz.SealPolyFunction)
+	return SealPolyFunction.new(self, ...)
 end
 
 function TypeManager:AutoMemberFunction(vNode:clazz.IBaseNode, vPolyFn:clazz.SealPolyFunction):Ret(clazz.AutoMemberFunction)
@@ -846,7 +847,7 @@ end
 function TypeManager:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
 	local t = type(vData)
 	if t == "table" then
-		if AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+		if AutoHolder.is(vData) or AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 			return vData
 		else
 			const nRefer = SpaceValue.checkRefer(vData)

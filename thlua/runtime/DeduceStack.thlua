@@ -1,0 +1,58 @@
+
+const class = require@<let.clazz> "thlua.class"
+const AutoFlag = require "thlua.auto.AutoFlag"
+const AutoHolder = require "thlua.auto.AutoHolder"
+const Node = require@<let.node> "thlua.code.Node"
+const Exception = require "thlua.Exception"
+const TermTuple = require "thlua.tuple.TermTuple"
+const InstStack = require "thlua.runtime.InstStack"
+
+const DeduceStack = class@<clazz.DeduceStack, false>(InstStack)
+
+function.open DeduceStack:ctor(
+	vRuntime:clazz.BaseRuntime,
+	vNode:clazz.IBaseNode,
+	vUpState:OrFalse(clazz.LexCapture),
+	vBodyFn:clazz.SealPolyFunction,
+	vApplyStack:clazz.BaseStack
+)
+	self._bodyFn = vBodyFn
+	self._applyStack = vApplyStack
+end
+
+function DeduceStack:PARAM_UNPACK(
+	vNode:node.Ident_def,
+	vTermTuple:clazz.UTermTuple,
+	vIndex:Integer,
+	vHintType:Union(clazz.AutoFlag, clazz.USpaceAny)
+):Ret(clazz.UAutoTerm)
+	const nHeadContext = self._headContext
+	if vHintType == AutoFlag then
+		return AutoHolder.new(self._manager, vNode)
+	else
+		if AutoHolder.is(vHintType) then
+			const nTerm = vTermTuple:get(nHeadContext, vIndex)
+			if AutoHolder.is(nTerm) then
+				error(self._node:toExc("type deduce failed"))
+			else
+				vHintType:assignDeduceTypeAsync(nHeadContext, self._node, function()
+					return nTerm:getType()
+				end)
+				return nTerm
+			end
+		else
+			const nHintType = self._manager:easyToMustType(self._node, vHintType)
+			return nHeadContext:RefineTerm(nHintType)
+		end
+	end
+end
+
+function DeduceStack:getSealStack():Ret(clazz.SealStack)
+	return self._applyStack:getSealStack()
+end
+
+function DeduceStack:getApplyStack():Ret(clazz.BaseStack)
+	return self._applyStack
+end
+
+return DeduceStack
