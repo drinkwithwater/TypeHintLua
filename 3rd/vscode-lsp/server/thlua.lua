@@ -22,8 +22,7 @@ Enum.SymbolKind_CONST = "const"
 Enum.SymbolKind_LOCAL = "local"
 Enum.SymbolKind_PARAM = "param"
 Enum.SymbolKind_ITER = "iter"
-Enum.SymbolKind_POLY_TYPE = "poly_type"
-Enum.SymbolKind_POLY_VAR = "poly_var"
+Enum.SymbolKind_POLY = "poly"
 
 Enum.CastKind_COVAR = "@"
 Enum.CastKind_CONTRA = "@>"
@@ -184,41 +183,29 @@ end end
 do local _ENV = _ENV
 packages['thlua.auto.AutoHolder'] = function (...)
 
+local class = require "thlua.class"
+local BaseTypeCom = require "thlua.space.BaseTypeCom"
 local Exception = require "thlua.Exception"
 
 ;
 	  
-	  
 
 
-local AutoHolder = {}
-AutoHolder.__index = AutoHolder
+local AutoHolder = class (BaseTypeCom)
 AutoHolder.__tostring = function(self)
 	return "auto@"..tostring(self._node)
 end
 
-function AutoHolder.new(vNode , vContext)
-	local self = setmetatable({
-		_node=vNode,
-		_context=vContext,
-		_term=false
-	}, AutoHolder)
-	return self
+function AutoHolder:ctor(_, _)
+	self._term=false
 end
 
 function AutoHolder:checkRefineTerm(vContext)
 	local nTerm = self._term
 	if nTerm then
 		return nTerm
-	else
-		error(Exception.new("undeduced auto param is used", vContext:getNode()))
 	end
-end
-
-function AutoHolder:setAutoCastType(vContext, vType)
-	local nTerm = vContext:RefineTerm(vType)
-	self._term = nTerm
-	return nTerm
+	error(Exception.new("undeduced auto param is used", vContext:getNode()))
 end
 
 function AutoHolder:getRefineTerm()
@@ -226,16 +213,34 @@ function AutoHolder:getRefineTerm()
 end
 
 function AutoHolder:getType()
-	local nTerm = self._term
-	return nTerm and nTerm:getType()
+	return self._resultType
 end
 
-function AutoHolder:getNode()
-	return self._node
+function AutoHolder:getSetAwait()
+	if not self._resultType then
+		self._resultBuildEvent:wait()
+	end
+	return assert(self._resultType, "result type setted"):getTypeSet()
 end
 
-function AutoHolder.is(t)
-	return getmetatable(t) == AutoHolder
+function AutoHolder:assignDeduceTypeAsync(vContext, vNode, vFn)
+	assert(not self._assignNode, "async type has setted")
+	self._assignNode = vNode
+	self._task:runAsync(function()
+		local nResultType = vFn():checkAtomUnion()
+		self._resultType = nResultType
+		local nTerm = vContext:RefineTerm(nResultType)
+		self._term = nTerm
+		self._resultBuildEvent:wakeup()
+	end)
+end
+
+function AutoHolder:foreachAwait(vFunc)
+	self:checkAtomUnion():foreach(vFunc)
+end
+
+function AutoHolder:isNever()
+	return self:checkAtomUnion():isNever()
 end
 
 return AutoHolder
@@ -258,8 +263,9 @@ local DotsTail = require "thlua.tuple.DotsTail"
 local AutoTail = {}
 AutoTail.__index = AutoTail
 
-function AutoTail.new(vNode, vContext, vInit)
+function AutoTail.new(vManager, vNode, vContext, vInit)
 	local self = setmetatable({
+		_manager=vManager,
 		_node=vNode,
 		_context=vContext,
 		_holderList=vInit or {},
@@ -277,7 +283,7 @@ function AutoTail:getMore(vContext, vMore)
 		local nSealTail = self._sealTail
 		if not nSealTail then
 			for i=#nList + 1, vMore do
-				nList[i] = AutoHolder.new(self._node, self._context)
+				nList[i] = AutoHolder.new(self._manager, self._node)
 			::continue:: end
 			return nList[vMore]
 		else
@@ -301,7 +307,7 @@ function AutoTail:openTailFrom(vContext, vFrom)
 			nNewHolderList[#nNewHolderList + 1] = nSelfHolderList[i]
 			nSelfHolderList[i] = nil
 		::continue:: end
-		local nNewAutoTail = AutoTail.new(self._node, self._context, nNewHolderList)
+		local nNewAutoTail = AutoTail.new(self._manager, self._node, self._context, nNewHolderList)
 		self._sealTail = nNewAutoTail
 		return nNewAutoTail
 	else
@@ -453,6 +459,7 @@ do local _ENV = _ENV
 packages['thlua.builder.DoBuilder'] = function (...)
 
 local Exception = require "thlua.Exception"
+
 ;  
 
 local DoBuilder = {}
@@ -484,7 +491,9 @@ end end
 do local _ENV = _ENV
 packages['thlua.builder.FunctionBuilder'] = function (...)
 
+local class = require "thlua.class"
 local Node = require "thlua.code.Node"
+
 local AutoFlag = require "thlua.auto.AutoFlag"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 local NameReference = require "thlua.space.NameReference"
@@ -497,16 +506,13 @@ local ClassTable = require "thlua.type.object.ClassTable"
 local TermTuple = require "thlua.tuple.TermTuple"
 local RetBuilder = require "thlua.tuple.RetBuilder"
 local SpaceValue = require "thlua.space.SpaceValue"
-local class = require "thlua.class"
 
 ;
-	  
-	  
 
 	  
-	    
+	     
 
-	       
+	        
 	  
 	   
 
@@ -632,7 +638,7 @@ function FunctionBuilder:_buildInnerFn()
 		nAutoFn:initAsync(function()
 			local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
 			local nPolyArgList = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-			local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, vSelfType)
+			local _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, vSelfType)
 			local nCastTypeFn = nAutoFn:pickCastTypeFn()
 			  
 			local nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
@@ -678,15 +684,20 @@ function FunctionBuilder:_buildInnerFn()
 			self._stack:getSealStack():scheduleSealType(ret)
 			return ret
 		else
-			return self._manager:SealPolyFunction(self._node, function(...)
-				local nTuple = self._manager:spacePack(self._node, ...)
-				return nFnMaker(nTuple, false)
-			end, nPolyParInfo, self._stack)
+			return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+				return nFnMaker(vTupleBuilder, false)
+			end, nPolyParInfo, self._stack, function(vPolyFn, vArgTermTuple)
+				local nMakerStack = vPolyFn:newStack(self._node, self._stack)
+				local nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {}, false)
+				nGenParam(vArgTermTuple)
+				return nDeduceTuple
+			end)
 		end
 	else
-		local nPolyFn = self._manager:SealPolyFunction(self._node, function(selfType, ...)
-			local nTuple = self._manager:spacePack(self._node, ...)
-			return nFnMaker(nTuple, selfType)
+		local nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+			local nMustList = vTupleBuilder:buildPolyArgs()
+			local nTuple = self._manager:spacePack(self._node, table.unpack(nMustList, 2))
+			return nFnMaker(nTuple, nMustList[1])
 		end, {num=(nPolyParInfo and nPolyParInfo.num or 0) + 1,dots=nPolyParInfo and nPolyParInfo.dots or false}, self._stack)
 		return self._manager:AutoMemberFunction(self._node, nPolyFn)
 	end
@@ -697,7 +708,7 @@ function FunctionBuilder:_buildOpen()
 		local nGuardFn = self._stack:newOpenFunction(self._node, self._lexCapture)
 		local nMakerStack = nGuardFn:newStack(self._node, self._stack)
 		local nSetted = false
-		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, 0, {}, false)
+		local _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, 0, {}, false)
 		local ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
 				error(self._node:toExc("extends can only be used with function:class"))
@@ -740,7 +751,7 @@ function FunctionBuilder:_buildOpen()
 			local ok, runRet, runErr = xpcall(function()
 				local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
 				local nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {}  
-				local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList, false)
+				local _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList, false)
 				nGenParam(vTermTuple, self._stack:unpackPolyArgs())
 				return nGenFunc(self._stack:unpackPolyArgs())
 			end, function(err)
@@ -784,11 +795,11 @@ function FunctionBuilder:_buildClass()
 			    
 			local ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
-					nImplementsArg = self._manager:easyToMustType(self._node, vInterface)
+					nImplementsArg = vInterface and self._manager:easyToMustType(self._node, vInterface) or nil
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
-					nExtendsArg = self._manager:easyToMustType(self._node, vBaseClass)
+					nExtendsArg = vBaseClass and self._manager:easyToMustType(self._node, vBaseClass) or nil
 					return vHint
 				end,
 				Ret=function(vHint, ...)
@@ -855,7 +866,7 @@ function FunctionBuilder:_buildClass()
 		      
 		local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
 		local nPolyArgList = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-		local nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, false)
+		local _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, false)
 		   
 		nFactory:initClassTableAsync(function()
 			local nExtends, nImplements = nInterfaceGetter(nSuffixHint)
@@ -888,15 +899,14 @@ function FunctionBuilder:_buildClass()
 		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
 	else
-		local nPolyFn = self._manager:SealPolyFunction(self._node, function(...)
-			local nTuple = self._manager:spacePack(self._node, ...)
-			return nFnMaker(nTuple)
+		local nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+			return nFnMaker(vTupleBuilder)
 		end, nPolyParInfo, self._stack)
-		local nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(...)
-			local nFactory = nPolyFn:noCtxCastPoly(self._node, {...})
+		local nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(vTupleBuilder)
+			local nFactory = nPolyFn:noCtxCastPoly(self._node, vTupleBuilder)
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
 			return nFactory:waitClassTable()
-		end, nPolyParInfo.num)
+		end, nPolyParInfo)
 		nRefer:setAssignAsync(self._node, function()
 			return nTemplateCom
 		end)
@@ -936,7 +946,6 @@ local TableBuilder = {}
 local TermTuple = require "thlua.tuple.TermTuple"
 
 ;
-	  
 	  
 
 
@@ -1211,18 +1220,17 @@ do local _ENV = _ENV
 packages['thlua.code.CodeEnv'] = function (...)
 
 local ParseEnv = require "thlua.code.ParseEnv"
-local Node = require "thlua.code.Node"
 local Exception = require "thlua.Exception"
 local VisitorExtend = require "thlua.code.VisitorExtend"
 local SymbolVisitor = require "thlua.code.SymbolVisitor"
 local SearchVisitor = require "thlua.code.SearchVisitor"
 local HintGener = require "thlua.code.HintGener"
 local SplitCode = require "thlua.code.SplitCode"
+
 local class = require "thlua.class"
+local Node = require "thlua.code.Node"
 
 ;
-	  
-	  
 	    
 	   
 	   
@@ -2136,7 +2144,6 @@ end
 		
 		
 		
-		
 	
 
 function HintGener:rgnWrap(vNode) 
@@ -2216,24 +2223,6 @@ function HintGener:visitFunc(vNode )
 	local nFirstPar = nParList[1]
 	local nIsMember = nFirstPar and nFirstPar.tag == "Ident" and nFirstPar.isHidden or false
 	local nPolyParList = vNode.hintPolyParList
-	local nPolyUnpack = {}
-	if nPolyParList then
-		if #nPolyParList > 0 then
-			nPolyUnpack = {
-				" local ", self:concatList(nPolyParList, function(_, vPolyPar)
-					return vPolyPar[1]
-				end, ","), "=", self:concatList(nPolyParList, function(i, vPolyPar)
-					return self:rgnWrap(vPolyPar).POLY_PARAM_FROM("____polyArgList["..i.."]", tostring(vPolyPar.isPolyVar or false))
-				end, ","),
-			}
-		else
-			nPolyUnpack = {}
-		end
-		local nPolyDots = nPolyParList.dots
-		if nPolyDots then
-			nPolyUnpack[#nPolyUnpack + 1] = self:rgnWrap(nPolyDots).POLY_PARAM_DOTS(tostring(#nPolyParList), "____polyArgNum", "____polyArgList")
-		end
-	end
 	return self:stkWrap(vNode).FUNC_NEW(self:dictWrap({
 		_hasRetSome=tostring(vNode.retFlag or false),
 		_hasSuffixHint=tostring((not nIsChunk and vNode.hintSuffix) and true or false),
@@ -2247,11 +2236,15 @@ function HintGener:visitFunc(vNode )
 	   
 		self:fnWrap("____newStk","____polyArgNum", "____polyArgList", "____self")(
 			"local ____stk=____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
-			nPolyUnpack,
 			   
 			" local ____vDOTS=false ",
-			     
-			" return ", self:fnWrap("____termArgs", "...")(
+			nPolyParList and {
+				" local ____deduceTuple,", self:concatList(nPolyParList, function(_, vPolyPar)
+					return vPolyPar[1]
+				end, ","), "=", self:rgnWrap(nPolyParList).POLY_PARAM_DEDUCE("____polyArgNum", "____polyArgList")
+			} or "",
+			" return ", nPolyParList and "____deduceTuple" or "nil", ",",
+			self:fnWrap("____termArgs", "...")(
 				self:concatList (nParList, function(i, vParNode)
 					local nHintShort = vParNode.hintShort
 					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or self:stkWrap(vParNode).AUTO()
@@ -2616,7 +2609,6 @@ local Exception = require "thlua.Exception"
 	       
 	
 	
-	
 	  
 	  
  
@@ -2797,7 +2789,6 @@ local Node = {}
 ;
 
   
-	
 	
 	
 	
@@ -3039,6 +3030,9 @@ local parF = {
 	end,
 	identDefSelf=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "self", kind="def", isHidden=true}
+	end,
+	identDefPolySelf=function(vPos)
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "Self", kind="def", isHidden=true}
 	end,
 	identDefENV=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def", isHidden=true}
@@ -3302,11 +3296,9 @@ local G = lpeg.P { "TypeHintLua";
 		vv.PrimaryExpr
 	);]]
 
-	PolyIdentDef = symb("$") * vv.IdentDefN / function(obj) obj.isPolyVar = true return obj end + vv.IdentDefN;
-
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
 		lpeg.Cg(tagC.Dots(symb"..."), "dots") +
-		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * tagC.Dots(symb "...") + cc(false), "dots")
+		vvA.IdentDefN * (symb "," * vv.IdentDefN) ^ 0 * lpeg.Cg(symb "," * tagC.Dots(symb "...") + cc(false), "dots")
 	) * symbA(">")) / function(env, polyParList)
 		env.codeBuilder:markDel(polyParList.pos, polyParList.posEnd)
 		return polyParList
@@ -3577,8 +3569,22 @@ local G = lpeg.P { "TypeHintLua";
 			return Cpos * vv.FuncPrefix * vv.NameChain * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
+					-- member method sugar: add self ident for function parameter
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
+					-- member method sugar: add index for left side var
 					varPrefix = exprF.nameIndex(varPrefix, methodName)
+					-- member method sugar for polyPar
+					local hintPolyParList = funcExpr.hintPolyParList
+					local polySelf = parF.identDefPolySelf(pos)
+					--[[
+					if hintPolyParList then
+						table.insert(hintPolyParList, 1, polySelf)
+					else
+						funcExpr.hintPolyParList = {
+							tag="HintPolyParList", pos=pos, posEnd=pos, dots=false, polySelf
+						}
+					end
+					]]
 				end
 				return {
 					tag = "Set", pos=pos, posEnd=posEnd,
@@ -4151,7 +4157,6 @@ packages['thlua.code.SplitCode'] = function (...)
 local class = require "thlua.class"
 
 ;
-	
 	  
 	  
 		
@@ -4500,7 +4505,7 @@ local TagToVisiting = {
 	HintPolyParList=function(self, node)
 		self:reverseInHint(true)
 		for i=1, #node do
-			self:symbolDefine(node[i], node[i].isPolyVar and Enum.SymbolKind_POLY_VAR or Enum.SymbolKind_POLY_TYPE)
+			self:symbolDefine(node[i], Enum.SymbolKind_POLY)
 		::continue:: end
 		self:reverseInHint(false)
 	end,
@@ -4741,8 +4746,6 @@ local Node = require "thlua.code.Node"
 local Exception = require "thlua.Exception"
 
 ;
-
-  
 
    
 	
@@ -5052,10 +5055,6 @@ local RecurChain = require "thlua.context.RecurChain"
 local RefineTerm = require "thlua.term.RefineTerm"
 local ObjectField = require "thlua.type.object.ObjectField"
 
-;
-	  
-
-
 local ApplyContext = class (AssignContext)
 
 function ApplyContext:ctor(vNode, ...)
@@ -5219,7 +5218,6 @@ local ListDict = require "thlua.manager.ListDict"
 local OperContext = require "thlua.context.OperContext"
 
 ;
-	  
 	  
 	   
 
@@ -5406,7 +5404,9 @@ function AssignContext:assignTermToType(vAutoTerm, vDstType)
 	local nSrcType = vAutoTerm:getType()
 	local nDstType = vDstType:checkAtomUnion()
 	if not nSrcType then
-		vAutoTerm:setAutoCastType(self, nDstType)
+		vAutoTerm:assignDeduceTypeAsync(self, self._node, function()
+			return nDstType
+		end)
 	else
 		self:includeAndCast(nDstType, nSrcType)
 	end
@@ -5519,7 +5519,6 @@ local StringLiteral = require "thlua.type.basic.StringLiteral"
 local BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 
 ;
-	  
 	   
 		
 	
@@ -5604,10 +5603,6 @@ local OperContext = require "thlua.context.OperContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 
-;
-	  
-
-
 local LogicContext = class (OperContext)
 
 function LogicContext:ctor(
@@ -5670,10 +5665,6 @@ local OpenFunction = require "thlua.type.func.OpenFunction"
 local ApplyContext = require "thlua.context.ApplyContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
-
-;
-	  
-
 
 local MorePushContext = class (ApplyContext)
 
@@ -5788,10 +5779,6 @@ local ApplyContext = require "thlua.context.ApplyContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 
-;
-	  
-
-
 local NoPushContext = class (ApplyContext)
 
 function NoPushContext:pushFirstAndTuple(vFirstType, vTuple, vCase)
@@ -5812,17 +5799,13 @@ end end
 do local _ENV = _ENV
 packages['thlua.context.OnePushContext'] = function (...)
 
+local class = require "thlua.class"
 local RefineTerm = require "thlua.term.RefineTerm"
 local TermTuple = require "thlua.tuple.TermTuple"
-local class = require "thlua.class"
 local OpenFunction = require "thlua.type.func.OpenFunction"
 local ApplyContext = require "thlua.context.ApplyContext"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
-
-;
-	  
-
 
 local OnePushContext = class (ApplyContext)
 
@@ -5883,7 +5866,6 @@ local DotsTail = require "thlua.tuple.DotsTail"
 local AutoTail = require "thlua.auto.AutoTail"
 
 ;
-	  
 	  
 
 
@@ -6042,10 +6024,6 @@ packages['thlua.context.RecurChain'] = function (...)
 
 local class = require "thlua.class"
 
-;
-	  
-
-
 local RecurChain = class ()
 
 function RecurChain:ctor(vNode)
@@ -6081,10 +6059,6 @@ packages['thlua.context.ReturnContext'] = function (...)
 local class = require "thlua.class"
 local AssignContext = require "thlua.context.AssignContext"
 local TypedFunction = require "thlua.type.func.TypedFunction"
-
-;
-	  
-
 
 local ReturnContext = class (AssignContext)
 
@@ -6783,10 +6757,6 @@ packages['thlua.manager.HashableTypeSet'] = function (...)
 
 local class = require "thlua.class"
 
-;
-	  
-
-
 local HashableTypeSet = {}
 HashableTypeSet.__index = HashableTypeSet
 
@@ -7072,7 +7042,6 @@ local class = require "thlua.class"
 local ScheduleTask = require "thlua.manager.ScheduleTask"
 
 ;
-	  
 	   
 		  
 		  
@@ -7239,7 +7208,6 @@ end)()
 
 
 ;
-	  
 	     
 	   
 		  
@@ -7676,6 +7644,7 @@ local native = require "thlua.native"
 
 local TemplateCom = require "thlua.space.TemplateCom"
 local AsyncTypeCom = require "thlua.space.AsyncTypeCom"
+local AutoHolder = require "thlua.auto.AutoHolder"
 local EasyMapCom = require "thlua.space.EasyMapCom"
 local BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 
@@ -7981,7 +7950,7 @@ function TypeManager:buildUnion(vNode, ...)
 			if AsyncTypeCom.is(nItem) then
 				nTypeSet:putSet(nItem:getSetAwait())
 			else
-				nItem:foreach(function(vAtom)
+				nItem:foreachAwait(function(vAtom)
 					nTypeSet:putAtom(vAtom)
 				end)
 			end
@@ -8223,10 +8192,7 @@ function TypeManager:buildPfn(vNode, vFunc)
 	if nInfo.isvararg then
 		error("poly function can't be vararg")
 	end
-	return TypedPolyFunction.new(self, vNode, vFunc, {
-		dots=false,
-		num=nPolyParNum,
-	})
+	return TypedPolyFunction.new(self, vNode, self:convertFunctionToTemplateLambda(vFunc))
 end
 
 function TypeManager:buildFn(vNode, ...)
@@ -8240,8 +8206,8 @@ function TypeManager:checkedFn(...)
 	return TypedFunction.new(self, self._rootNode, nParTuple, false)
 end
 
-function TypeManager:SealPolyFunction(vNode, vFunc, vPolyParInfo, vStack)
-	return SealPolyFunction.new(self, vNode, vFunc, vPolyParInfo, vStack)
+function TypeManager:SealPolyFunction(...)
+	return SealPolyFunction.new(self, ...)
 end
 
 function TypeManager:AutoMemberFunction(vNode, vPolyFn)
@@ -8258,17 +8224,32 @@ function TypeManager:makeMetaEventCom(vObject )
 	return MetaEventCom.new(self, vObject)
 end
 
-function TypeManager:buildTemplate(vNode, vFunc)
+function TypeManager:convertFunctionToTemplateLambda(vFunc) 
 	local nInfo = debug.getinfo(vFunc)
-	local nParNum = nInfo.nparams
-	if nInfo.isvararg then
-		error("template's parameter number is undetermined")
-	end
-	return TemplateCom.new(self, vNode, vFunc, nParNum)
+	return function(vTupleBuilder)
+		local ok, exc = pcall(vFunc, table.unpack(vTupleBuilder:buildPolyArgs()))
+		local nNode = vTupleBuilder:getNode()
+		if ok then
+			return self:easyToMustType(nNode, exc)
+		else
+			if Exception.is(exc) then
+				error(exc)
+			else
+				error(nNode:toExc(tostring(exc)))
+			end
+		end
+	end, {
+		num=nInfo.nparams,
+		dots=nInfo.isvararg,
+	}
 end
 
-function TypeManager:buildTemplateWithParNum(vNode, vFunc, vParNum)
-	return TemplateCom.new(self, vNode, vFunc, vParNum)
+function TypeManager:buildTemplate(vNode, vFunc)
+	return TemplateCom.new(self, vNode, self:convertFunctionToTemplateLambda(vFunc))
+end
+
+function TypeManager:buildTemplateWithParNum(vNode, vFunc, vParInfo)
+	return TemplateCom.new(self, vNode, vFunc, vParInfo)
 end
 
 function TypeManager:NameReference(vParentSpace , vName)
@@ -8454,15 +8435,15 @@ end
 function TypeManager:easyToMustType(vNode, vData)
 	local t = type(vData)
 	if t == "table" then
-		if AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+		if AutoHolder.is(vData) or AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
 			return vData
 		else
 			local nRefer = SpaceValue.checkRefer(vData)
 			if nRefer then
-				return nRefer:waitAsyncTypeCom(vNode)
+				return nRefer:waitTypeCom(vNode)
 			else
 				if NameReference.is(vData) then
-					return vData:waitAsyncTypeCom(vNode)
+					return vData:waitTypeCom(vNode)
 				else
 					error(vNode:toExc("to type failed"))
 				end
@@ -8499,7 +8480,6 @@ TypeRelation.SOME = "&"
 TypeRelation.NONE = "~"
 
 ;
-	  
           
 
 
@@ -8998,13 +8978,15 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.BaseRuntime'] = function (...)
 
+local class = require "thlua.class"
+local Node = require "thlua.code.Node"
+
 local TypedFunction = require "thlua.type.func.TypedFunction"
 local TypeManager = require "thlua.manager.TypeManager"
 local OpenFunction = require "thlua.type.func.OpenFunction"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local TermTuple = require "thlua.tuple.TermTuple"
 local native = require "thlua.native"
-local Node = require "thlua.code.Node"
 local BaseReferSpace = require "thlua.space.BaseReferSpace"
 local LetSpace = require "thlua.space.LetSpace"
 local Exception = require "thlua.Exception"
@@ -9013,17 +8995,15 @@ local VariableCase = require "thlua.term.VariableCase"
 local BaseStack = require "thlua.runtime.BaseStack"
 local OpenStack = require "thlua.runtime.OpenStack"
 local SealStack = require "thlua.runtime.SealStack"
+local DeduceStack = require "thlua.runtime.DeduceStack"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 local NameReference = require "thlua.space.NameReference"
 
 local ScheduleManager = require "thlua.manager.ScheduleManager"
-local class = require "thlua.class"
 local CodeEnv = require "thlua.code.CodeEnv"
 local platform = require "thlua.platform"
 
 ;
-	  
-	  
 
 	   
 		  
@@ -9199,6 +9179,10 @@ end
 
 function BaseRuntime:SealStack(...)
 	return SealStack.new(self, ...)
+end
+
+function BaseRuntime:DeduceStack(...)
+	return DeduceStack.new(self, ...)
 end
 
 function BaseRuntime:OpenStack(...)
@@ -9477,6 +9461,8 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.BaseStack'] = function (...)
 
+local class = require "thlua.class"
+local Node = require "thlua.code.Node"
 local OpenTable = require "thlua.type.object.OpenTable"
 local SealTable = require "thlua.type.object.SealTable"
 local DoBuilder = require "thlua.builder.DoBuilder"
@@ -9490,7 +9476,6 @@ local RefineTerm = require "thlua.term.RefineTerm"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 local Reference = require "thlua.space.NameReference"
-local Node = require "thlua.code.Node"
 local LocalSymbol = require "thlua.term.LocalSymbol"
 local ImmutVariable = require "thlua.term.ImmutVariable"
 
@@ -9504,7 +9489,6 @@ local Truth = require "thlua.type.basic.Truth"
 
 local FunctionBuilder = require "thlua.builder.FunctionBuilder"
 local TableBuilder = require "thlua.builder.TableBuilder"
-local class = require "thlua.class"
 
 local OperContext = require "thlua.context.OperContext"
 local ApplyContext = require "thlua.context.ApplyContext"
@@ -9516,8 +9500,6 @@ local NoPushContext = require "thlua.context.NoPushContext"
 local LogicContext = require "thlua.context.LogicContext"
 
 ;
-	  
-	  
 
 	   
 		
@@ -9985,7 +9967,6 @@ local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local class = require "thlua.class"
 
 ;
-	
 	  
 	  
 
@@ -10267,6 +10248,71 @@ return CompletionRuntime
 end end
 --thlua.runtime.CompletionRuntime end ==========)
 
+--thlua.runtime.DeduceStack begin ==========(
+do local _ENV = _ENV
+packages['thlua.runtime.DeduceStack'] = function (...)
+
+local class = require "thlua.class"
+local AutoFlag = require "thlua.auto.AutoFlag"
+local AutoHolder = require "thlua.auto.AutoHolder"
+local Node = require "thlua.code.Node"
+local Exception = require "thlua.Exception"
+local TermTuple = require "thlua.tuple.TermTuple"
+local InstStack = require "thlua.runtime.InstStack"
+
+local DeduceStack = class (InstStack)
+
+function DeduceStack:ctor(
+	vRuntime,
+	vNode,
+	vUpState,
+	vBodyFn,
+	vApplyStack
+)
+	self._bodyFn = vBodyFn
+	self._applyStack = vApplyStack
+end
+
+function DeduceStack:PARAM_UNPACK(
+	vNode,
+	vTermTuple,
+	vIndex,
+	vHintType 
+)
+	local nHeadContext = self._headContext
+	if vHintType == AutoFlag then
+		return AutoHolder.new(self._manager, vNode)
+	else
+		if AutoHolder.is(vHintType) then
+			local nTerm = vTermTuple:get(nHeadContext, vIndex)
+			if AutoHolder.is(nTerm) then
+				error(self._node:toExc("type deduce failed"))
+			else
+				vHintType:assignDeduceTypeAsync(nHeadContext, self._node, function()
+					return nTerm:getType()
+				end)
+				return nTerm
+			end
+		else
+			local nHintType = self._manager:easyToMustType(self._node, vHintType)
+			return nHeadContext:RefineTerm(nHintType)
+		end
+	end
+end
+
+function DeduceStack:getSealStack()
+	return self._applyStack:getSealStack()
+end
+
+function DeduceStack:getApplyStack()
+	return self._applyStack
+end
+
+return DeduceStack
+
+end end
+--thlua.runtime.DeduceStack end ==========)
+
 --thlua.runtime.DiagnosticRuntime begin ==========(
 do local _ENV = _ENV
 packages['thlua.runtime.DiagnosticRuntime'] = function (...)
@@ -10277,7 +10323,6 @@ local ListDict = require "thlua.manager.ListDict"
 local class = require "thlua.class"
 
 ;
-	
 	
 
 
@@ -10350,6 +10395,9 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.InstStack'] = function (...)
 
+local class = require "thlua.class"
+local Node = require "thlua.code.Node"
+
 local DoBuilder = require "thlua.builder.DoBuilder"
 local Branch = require "thlua.runtime.Branch"
 local DotsTail = require "thlua.tuple.DotsTail"
@@ -10361,7 +10409,6 @@ local RefineTerm = require "thlua.term.RefineTerm"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 local Reference = require "thlua.space.NameReference"
-local Node = require "thlua.code.Node"
 local Enum = require "thlua.Enum"
 local LocalSymbol = require "thlua.term.LocalSymbol"
 local ImmutVariable = require "thlua.term.ImmutVariable"
@@ -10373,17 +10420,11 @@ local Truth = require "thlua.type.basic.Truth"
 
 local FunctionBuilder = require "thlua.builder.FunctionBuilder"
 local TableBuilder = require "thlua.builder.TableBuilder"
-local class = require "thlua.class"
 local BaseStack = require "thlua.runtime.BaseStack"
 
 local OperContext = require "thlua.context.OperContext"
 local ApplyContext = require "thlua.context.ApplyContext"
 local LogicContext = require "thlua.context.LogicContext"
-
-;
-	  
-	  
-
 
   
 local InstStack = class (BaseStack)
@@ -10740,17 +10781,26 @@ function InstStack:EVAL(vNode, vTerm)
 	end
 end
 
-function InstStack:POLY_PARAM_FROM(vNode, vSpaceValue, vIsVar)
-	if vIsVar then
-		return vSpaceValue
+function InstStack:POLY_PARAM_DEDUCE(vNode, vPolyArgNum, vPolyArgList) 
+	local nNamePolyArgList = {}
+	if vPolyArgNum then
+		for i, nIdentDef in ipairs(vNode) do
+			nNamePolyArgList[i] = self._manager:easyToMustType(nIdentDef, vPolyArgList[i])
+		::continue:: end
+		if vNode.dots then
+			self._polyDotsNum = vPolyArgNum - #vNode
+			self._polyDotsArgs = {table.unpack(vPolyArgList, #vNode + 1)}
+		end
+		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
 	else
-		return self._manager:easyToMustType(vNode, vSpaceValue)
+		for i, nIdentDef in ipairs(vNode) do
+			nNamePolyArgList[i] = AutoHolder.new(self._manager, nIdentDef)
+		::continue:: end
+		if vNode.dots then
+			print("dots deduce TODO")
+		end
+		return self._manager:spacePack(self:getNode(), table.unpack(nNamePolyArgList, 1, #vNode)), table.unpack(nNamePolyArgList, 1, #vNode)
 	end
-end
-
-function InstStack:POLY_PARAM_DOTS(vNode, vPolyParNum, vPolyArgNum, vPolyArgList)
-	self._polyDotsNum = vPolyArgNum - vPolyParNum
-	self._polyDotsArgs = {table.unpack(vPolyArgList, vPolyParNum + 1)}
 end
 
 function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
@@ -10835,7 +10885,7 @@ function InstStack:PARAM_UNPACK(
 		if vTermTuple then
 			return vTermTuple:get(nHeadContext, vIndex)
 		else
-			return AutoHolder.new(vNode, nHeadContext)
+			return AutoHolder.new(self._manager, vNode)
 		end
 	else
 		if vTermTuple then
@@ -10872,7 +10922,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 		end
 	else
 		if nHintDots == AutoFlag then
-			return self._headContext:UTermTupleByTail({}, AutoTail.new(vNode, self._headContext))
+			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._manager, vNode, self._headContext))
 		else
 			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, nHintDots))
 		end
@@ -11150,14 +11200,11 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.OpenStack'] = function (...)
 
+local class = require "thlua.class"
+local Node = require "thlua.code.Node"
 local Exception = require "thlua.Exception"
 local TermTuple = require "thlua.tuple.TermTuple"
-local class = require "thlua.class"
 local InstStack = require "thlua.runtime.InstStack"
-
-;
-	  
-
 
 local OpenStack = class (InstStack)
 
@@ -11179,6 +11226,22 @@ end
 
 function OpenStack:isRequire()
 	return self._isRequire
+end
+
+function OpenStack:POLY_PARAM_DEDUCE(vNode, vPolyArgNum, vPolyArgList) 
+	local nNamePolyArgList = {}
+	if vPolyArgNum then
+		for i in ipairs(vNode) do
+			nNamePolyArgList[i] = vPolyArgList[i]
+		::continue:: end
+		if vNode.dots then
+			self._polyDotsNum = vPolyArgNum - #vNode
+			self._polyDotsArgs = {table.unpack(vPolyArgList, #vNode + 1)}
+		end
+		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
+	else
+		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
+	end
 end
 
 function OpenStack:RAISE_ERROR(vContext, vType)
@@ -11238,16 +11301,15 @@ end end
 do local _ENV = _ENV
 packages['thlua.runtime.SealStack'] = function (...)
 
+local class = require "thlua.class"
 local TermTuple = require "thlua.tuple.TermTuple"
 local Exception = require "thlua.Exception"
-local class = require "thlua.class"
 local InstStack = require "thlua.runtime.InstStack"
 local ClassFactory = require "thlua.type.func.ClassFactory"
 local SealFunction = require "thlua.type.func.SealFunction"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 
 ;
-	  
 	  
 
 
@@ -13072,13 +13134,11 @@ end end
 do local _ENV = _ENV
 packages['thlua.space.AsyncTypeCom'] = function (...)
 
-local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local class = require "thlua.class"
+local BaseTypeCom = require "thlua.space.BaseTypeCom"
 local Exception = require "thlua.Exception"
 
-;  
-
-local AsyncTypeCom = class (BaseSpaceCom)
+local AsyncTypeCom = class (BaseTypeCom)
 
 function AsyncTypeCom.__tostring(self)
 	local l = {}
@@ -13094,51 +13154,8 @@ function AsyncTypeCom.__tostring(self)
 end
 
 function AsyncTypeCom:ctor(_, _)
-	local nManager = self._manager
-	local nTask = nManager:getScheduleManager():newTask(self._node)
-	self._task=nTask
-	self._assignNode=false;
-	self._mayRecursive=false;
 	self._typeSet=false;
-	self._resultType=false;
-	self._listBuildEvent=nTask:makeEvent()
-	self._resultBuildEvent=nTask:makeEvent()
-	self.id=nManager:genTypeId()
-end
-
-function AsyncTypeCom:detailString(v, vVerbose)
-	return "AsyncTypeCom detail string TODO"
-	
-	   
-	   
-		   
-	
-		  
-			 
-		
-			   
-		
-	
-	
-end
-
-function AsyncTypeCom:getResultType()
-	return self._resultType
-end
-
-function AsyncTypeCom:getTypeNowait() 
-	return self._resultType or self
-end
-
-function AsyncTypeCom:checkAtomUnion()
-	if not self._resultType then
-		self._resultBuildEvent:wait()
-	end
-	return (assert(self._resultType, "result type not setted"))
-end
-
-function AsyncTypeCom:mayRecursive()
-	return self._mayRecursive
+	self._listBuildEvent=self._task:makeEvent()
 end
 
 function AsyncTypeCom:getSetAwait()
@@ -13159,6 +13176,7 @@ function AsyncTypeCom:setTypeAsync(vNode, vFn)
 			self._resultType = nResultType:checkAtomUnion()
 			self._resultBuildEvent:wakeup()
 		else
+			local nResultType = nResultType:checkAtomUnion()
 			self._typeSet = nResultType:getTypeSet()
 			self._resultType = nResultType
 			self._listBuildEvent:wakeup()
@@ -13211,104 +13229,11 @@ function AsyncTypeCom:foreachAwait(vFunc)
 	end
 end
 
-function AsyncTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	local nResultType = self:getTypeNowait()
-	if not nResultType:isAsync() then
-		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
-	else
-		local nAllInclude = true
-		local nTypeSet = nResultType:getSetAwait()
-		vRight:foreachAwait(function(vAtomType)
-			if not nAllInclude then
-				return
-			end
-			local nCurInclude = false
-			for _, nType in pairs(nTypeSet:getDict()) do
-				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
-					nCurInclude = true
-					break
-				end
-			::continue:: end
-			if not nCurInclude then
-				nAllInclude = false
-			end
-		end)
-		return nAllInclude
-	end
-end
-
-function AsyncTypeCom:assumeIntersectSome(vAssumeSet, vRight)
-	local nResultType = self:getTypeNowait()
-	if not nResultType:isAsync() then
-		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
-	else
-		local nSomeIntersect = false
-		local nTypeSet = nResultType:getSetAwait()
-		vRight:foreachAwait(function(vAtomType)
-			if nSomeIntersect then
-				return
-			end
-			local nCurIntersect = false
-			for _, nType in pairs(nTypeSet:getDict()) do
-				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
-					nCurIntersect = true
-					break
-				end
-			::continue:: end
-			if nCurIntersect then
-				nSomeIntersect = true
-			end
-		end)
-		return nSomeIntersect
-	end
-end
-
-function AsyncTypeCom:foreachAwait(vFunc)
-	local nResultType = self:getTypeNowait()
-	if not nResultType:isAsync() then
-		nResultType:foreach(vFunc)
-	else
-		local nTypeSet = nResultType:getSetAwait()
-		for _, v in pairs(nTypeSet:getDict()) do
-			vFunc(v)
-		::continue:: end
-	end
-end
-
-function AsyncTypeCom:intersectAtom(vRightType)
-	return self:checkAtomUnion():intersectAtom(vRightType)
-end
-
-function AsyncTypeCom:includeAtom(vRightType)
-	return self:checkAtomUnion():includeAtom(vRightType)
-end
-
-function AsyncTypeCom:includeAll(vRight)
-	return self:assumeIncludeAll(nil, vRight)
-end
-
-function AsyncTypeCom:safeIntersect(vRight)
-	return self:checkAtomUnion():safeIntersect(vRight)
-end
-
-function AsyncTypeCom:intersectSome(vRight)
-	return self:assumeIntersectSome(nil, vRight)
-end
-
-function AsyncTypeCom:isAsync()
-	return true
-end
-
 function AsyncTypeCom:isNever()
 	return self:getSetAwait():getNum() <= 0
 end
 
-function AsyncTypeCom:getManager()
-	return self._manager
-end
-
 return AsyncTypeCom
-
 end end
 --thlua.space.AsyncTypeCom end ==========)
 
@@ -13316,17 +13241,13 @@ end end
 do local _ENV = _ENV
 packages['thlua.space.BaseReferSpace'] = function (...)
 
+local class = require "thlua.class"
 local AsyncTypeCom = require "thlua.space.AsyncTypeCom"
 local StringLiteral = require "thlua.type.basic.StringLiteral"
 local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local SpaceValue = require "thlua.space.SpaceValue"
 local BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 local Node = require "thlua.code.Node"
-local class = require "thlua.class"
-
-;
-	  
-
 
 local BaseReferSpace = class (BaseSpaceCom)
 BaseReferSpace.__tostring=function(_);
@@ -13360,10 +13281,7 @@ end end
 do local _ENV = _ENV
 packages['thlua.space.BaseSpaceCom'] = function (...)
 
-local Node = require "thlua.code.Node"
 local class = require "thlua.class"
-
-;  
 
 local BaseSpaceCom = class ()
 
@@ -13390,6 +13308,152 @@ return BaseSpaceCom
 end end
 --thlua.space.BaseSpaceCom end ==========)
 
+--thlua.space.BaseTypeCom begin ==========(
+do local _ENV = _ENV
+packages['thlua.space.BaseTypeCom'] = function (...)
+
+local class = require "thlua.class"
+local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
+local Exception = require "thlua.Exception"
+
+local BaseTypeCom = class (BaseSpaceCom)
+
+function BaseTypeCom:ctor(_, _)
+	local nManager = self._manager
+	local nTask = nManager:getScheduleManager():newTask(self._node)
+	self._task=nTask
+	self._assignNode=false;
+	self._mayRecursive=false;
+	self._resultType=false;
+	self._resultBuildEvent=nTask:makeEvent()
+	self.id=nManager:genTypeId()
+end
+
+function BaseTypeCom:detailString(v, vVerbose)
+	return "BaseTypeCom detail string TODO"
+	
+	   
+	   
+		   
+	
+		  
+			 
+		
+			   
+		
+	
+	
+end
+
+function BaseTypeCom:getResultType()
+	return self._resultType
+end
+
+function BaseTypeCom:getSetAwait();
+	error("not implement")
+end
+
+function BaseTypeCom:checkAtomUnion()
+	if not self._resultType then
+		self._resultBuildEvent:wait()
+	end
+	return (assert(self._resultType, "result type not setted"))
+end
+
+function BaseTypeCom:mayRecursive()
+	return self._mayRecursive
+end
+
+function BaseTypeCom:foreachAwait(vFunc)
+	error("not implement")
+end
+
+function BaseTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	local nResultType = self._resultType
+	if nResultType then
+		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	else
+		local nAllInclude = true
+		local nTypeSet = self:getSetAwait()
+		vRight:foreachAwait(function(vAtomType)
+			if not nAllInclude then
+				return
+			end
+			local nCurInclude = false
+			for _, nType in pairs(nTypeSet:getDict()) do
+				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
+					nCurInclude = true
+					break
+				end
+			::continue:: end
+			if not nCurInclude then
+				nAllInclude = false
+			end
+		end)
+		return nAllInclude
+	end
+end
+
+function BaseTypeCom:assumeIntersectSome(vAssumeSet, vRight)
+	local nResultType = self._resultType
+	if nResultType then
+		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
+	else
+		local nSomeIntersect = false
+		local nTypeSet = self:getSetAwait()
+		vRight:foreachAwait(function(vAtomType)
+			if nSomeIntersect then
+				return
+			end
+			local nCurIntersect = false
+			for _, nType in pairs(nTypeSet:getDict()) do
+				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
+					nCurIntersect = true
+					break
+				end
+			::continue:: end
+			if nCurIntersect then
+				nSomeIntersect = true
+			end
+		end)
+		return nSomeIntersect
+	end
+end
+
+function BaseTypeCom:intersectAtom(vRightType)
+	return self:checkAtomUnion():intersectAtom(vRightType)
+end
+
+function BaseTypeCom:includeAtom(vRightType)
+	return self:checkAtomUnion():includeAtom(vRightType)
+end
+
+function BaseTypeCom:includeAll(vRight)
+	return self:assumeIncludeAll(nil, vRight)
+end
+
+function BaseTypeCom:safeIntersect(vRight)
+	return self:checkAtomUnion():safeIntersect(vRight)
+end
+
+function BaseTypeCom:intersectSome(vRight)
+	return self:assumeIntersectSome(nil, vRight)
+end
+
+function BaseTypeCom:isNever();
+	error("not implement")
+	return false
+end
+
+function BaseTypeCom:getManager()
+	return self._manager
+end
+
+return BaseTypeCom
+
+end end
+--thlua.space.BaseTypeCom end ==========)
+
 --thlua.space.BuiltinFnCom begin ==========(
 do local _ENV = _ENV
 packages['thlua.space.BuiltinFnCom'] = function (...)
@@ -13411,7 +13475,7 @@ function BuiltinFnCom:ctor(_, _, vFunc, vName)
     self._name=vName
 end
 
-function BuiltinFnCom:call(vNode, ...)
+function BuiltinFnCom:flatCall(vNode, ...)
     local ok, ret = pcall(self._func, vNode, ...)
     if ok then
         return ret
@@ -13599,7 +13663,7 @@ local BaseUnionType = require "thlua.type.union.BaseUnionType"
 local BaseReferSpace = require "thlua.space.BaseReferSpace"
 local NameSpace = require "thlua.space.NameSpace"
 local LetSpace = require "thlua.space.LetSpace"
-local AsyncTypeCom = require "thlua.space.AsyncTypeCom"
+local BaseTypeCom = require "thlua.space.BaseTypeCom"
 local TemplateCom = require "thlua.space.TemplateCom"
 local BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 local EasyMapCom = require "thlua.space.EasyMapCom"
@@ -13669,10 +13733,10 @@ function NameReference:getComAwait()
 	return nCom
 end
 
-function NameReference:waitAsyncTypeCom(vNode)
+function NameReference:waitTypeCom(vNode) 
 	local nCom = self:getComAwait()
-	assert(AsyncTypeCom.is(nCom), vNode:toExc("type expected, but got some other value"))
-	return nCom
+	assert(BaseTypeCom.is(nCom), vNode:toExc("type expected, but got some other value"))
+	return nCom   
 end
 
 function NameReference:waitTemplateCom(vNode)
@@ -13750,19 +13814,18 @@ end
 function NameReference:triggerCall(vNode, ...)
 	local nCom = self._com
 	if BuiltinFnCom.is(nCom) then
-		return nCom:call(vNode, ...)
+		return nCom:flatCall(vNode, ...)
 	end
-	local nArgList = {...}
-	local nArgNum = select("#", ...)
+	local nTuple = self._manager:spacePack(vNode, ...)
 	if TemplateCom.is(nCom) then
-		return nCom:call(vNode, nArgNum, nArgList)
+		return nCom:cacheCall(vNode, nTuple)
 	elseif nCom then
 		error(vNode:toExc("template reference expected here"))
 	end
 	local nTypeCom = self._manager:AsyncTypeCom(vNode)
 	nTypeCom:setTypeAsync(vNode, function()
 		local nCom = self:waitTemplateCom(vNode)
-		return nCom:call(vNode, nArgNum, nArgList)
+		return nCom:cacheCall(vNode, nTuple)
 	end)
 	return nTypeCom
 end
@@ -13948,38 +14011,21 @@ local BaseReadyType = require "thlua.type.basic.BaseReadyType"
 
 local TemplateCom = class (BaseSpaceCom)
 
-function TemplateCom:ctor(_, _, vFunc, vParNum)
-	self._parNum=vParNum
+function TemplateCom:ctor(_, _, vFunc, vParamInfo)
+	self._paramInfo=vParamInfo
 	self._func=vFunc
 	self._cache={} 
 end
 
-function TemplateCom:call(vNode, vArgNum, vArgList)
-	local nManager = self._manager
-	local nFn = self._func
+function TemplateCom:cacheCall(vNode, vTupleBuilder);
+	vTupleBuilder:argsMatch(vNode, self._paramInfo)
 	local nAsyncTypeCom = self._manager:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
-		if vArgNum ~= self._parNum then
-			error(vNode:toExc("template args num not match"))
-		end
-		local nMustList = {}
-		for i=1, vArgNum do
-			nMustList[i] = nManager:easyToMustType(vNode, vArgList[i])
-		::continue:: end
-		local nKey = self._manager:signTemplateArgs(nMustList)
+		local nKey = vTupleBuilder:checkTemplateArgSign()
 		local nValue = self._cache[nKey]
 		if not nValue then
 			self._cache[nKey] = nAsyncTypeCom
-			local ok, exc = pcall(nFn, table.unpack(nMustList))
-			if ok then
-				return nManager:easyToMustType(vNode, exc)
-			else
-				if Exception.is(exc) then
-					error(exc)
-				else
-					error(vNode:toExc(tostring(exc)))
-				end
-			end
+			return self._func(vTupleBuilder)
 		else
 			return nValue
 		end
@@ -14894,10 +14940,6 @@ local class = require "thlua.class"
 
 ;
       
-      
-        
-        
-     
 
 
 local TupleBuilder = class ()
@@ -14907,7 +14949,9 @@ function TupleBuilder:ctor(vManager, vNode, ...)
 	self._node = vNode
     self._num = select("#", ...)
     self._list = {...} ; 
-    self._dots = nil  
+    self._dots = nil ; 
+    self._polyTypeArgList = nil ; 
+    self._polyTypeArgSign = nil  
 end
 
 function TupleBuilder:setRetDots()
@@ -14951,14 +14995,41 @@ function TupleBuilder:getArgList()
     return self._list
 end
 
+function TupleBuilder:checkTemplateArgSign()
+    if not self._polyTypeArgSign then
+        self._polyTypeArgSign = self._manager:signTemplateArgs(self:buildPolyArgs())
+    end
+    return self._polyTypeArgSign
+end
+
 function TupleBuilder:buildPolyArgs()
-    local nNode = self._node
-    local nSpaceTuple = self._list
-    local nTypeList = {}
-    for i=1, self._num do
-        nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
-    ::continue:: end
-    return nTypeList
+    if not self._polyTypeArgList then
+        assert(self._dots == nil, "tuple with dots can't checkout to typelist")
+        local nNode = self._node
+        local nSpaceTuple = self._list
+        local nTypeList = {}
+        for i=1, self._num do
+            nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i]):checkAtomUnion()
+        ::continue:: end
+        self._polyTypeArgList = nTypeList
+    end
+    return self._polyTypeArgList
+end
+
+function TupleBuilder:argsMatch(vNode, vParamInfo)
+	if vParamInfo.dots then
+		if self:getArgNum() < vParamInfo.num then
+			error(vNode:toExc("template args num not enough"))
+		end
+	else
+		if self:getArgNum() ~= vParamInfo.num then
+			error(vNode:toExc("template args num not match"))
+		end
+	end
+end
+
+function TupleBuilder:getNode()
+    return self._node
 end
 
 return TupleBuilder
@@ -15375,9 +15446,10 @@ local class = require "thlua.class"
   
 
    
-   
+    
   
    
+  
 
     
    
@@ -15421,7 +15493,6 @@ local class = require "thlua.class"
 	
 	   
 	   
-	
 	
 	
 
@@ -15633,10 +15704,6 @@ function BaseReadyType:withnilType()
 end
 
 function BaseReadyType:setAssigned(vContext)
-end
-
-function BaseReadyType:isAsync()
-	return false
 end
 
 function BaseReadyType:getTypeSet()
@@ -16475,7 +16542,6 @@ local AutoMemberFunction = class (MemberFunction)
 
 function AutoMemberFunction:ctor(_, _, vPolyFn)
 	self._polyFn = vPolyFn
-	self._useNodeSet = {}
 end
 
 function AutoMemberFunction:detailString(vToStringCache , vVerbose)
@@ -16486,7 +16552,7 @@ function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyTuple, vTypeTu
 	if vPolyTuple:getArgNum() == 0 and self:needPolyArgs() then
 		vContext:error("TODO poly member function called without poly args")
 	end
-	local nTypeFn = self._polyFn:noCtxCastPoly(vContext:getNode(), {vSelfType, table.unpack(vPolyTuple:buildPolyArgs())})
+	local nTypeFn = self._polyFn:noCtxCastPoly(vContext:getNode(), self._manager:spacePack(vContext:getNode(), vSelfType, table.unpack(vPolyTuple:buildPolyArgs())))
 	nTypeFn:meta_call(vContext, vTypeTuple)
 end
 
@@ -16495,7 +16561,7 @@ function AutoMemberFunction:needPolyArgs()
 end
 
 function AutoMemberFunction:indexAutoFn(vNode, vType)
-	local nFn = self._polyFn:noCtxCastPoly(vNode, {vType})
+	local nFn = self._polyFn:noCtxCastPoly(vNode, self._manager:spacePack(vNode, vType))
 	if AutoFunction.is(nFn) then
 		return nFn
 	else
@@ -16504,7 +16570,7 @@ function AutoMemberFunction:indexAutoFn(vNode, vType)
 end
 
 function AutoMemberFunction:indexTypeFn(vNode, vType)
-	local nFn = self._polyFn:noCtxCastPoly(vNode, {vType})
+	local nFn = self._polyFn:noCtxCastPoly(vNode, self._manager:spacePack(vNode, vType))
 	if AutoFunction.is(nFn) then
 		return nFn:getFnAwait()
 	elseif TypedFunction.is(nFn) then
@@ -16851,22 +16917,17 @@ function PolyFunction:getPolyParNum()
 	return self._paramInfo.num
 end
 
-function PolyFunction:makeFn(vTemplateSign, vTypeList); 
+function PolyFunction:makeFn(vTupleBuilder); 
 	error("not implement")
 end
 
-function PolyFunction:noCtxCastPoly(vNode, vTypeList); 
-	assert(#vTypeList == self._paramInfo.num, vNode:toExc("PolyFunction type args num not match"))
-	local nAtomUnionList = {}
-	for i=1, #vTypeList do
-		nAtomUnionList[i] = vTypeList[i]:checkAtomUnion()
-	::continue:: end
-	local nKey = self._manager:signTemplateArgs(nAtomUnionList)
-	return self:makeFn(nKey, nAtomUnionList)
+function PolyFunction:noCtxCastPoly(vNode, vTupleBuilder); 
+	vTupleBuilder:argsMatch(vNode, self._paramInfo)
+	return self:makeFn(vTupleBuilder)
 end
 
 function PolyFunction:castPoly(vContext, vPolyTuple)
-	local nFn = self:noCtxCastPoly(vContext:getNode(), vPolyTuple:buildPolyArgs())
+	local nFn = self:noCtxCastPoly(vContext:getNode(), vPolyTuple)
 	return nFn:getFnAwait()
 end
 
@@ -16875,8 +16936,7 @@ function PolyFunction:native_type()
 end
 
 function PolyFunction:meta_call(vContext, vTypeTuple)
-	error("poly function meta_call TODO")
-	 
+	error("typed poly function meta_call not implemented")
 end
 
 function PolyFunction:mayRecursive()
@@ -17031,18 +17091,20 @@ local SealFunction = require "thlua.type.func.SealFunction"
 
 local SealPolyFunction = class (PolyFunction)
 
-function SealPolyFunction:ctor(_,_,_,_, vLexStack)
+function SealPolyFunction:ctor(_,_,_,_, vLexStack, vDeduceFn )
 	self._fnDict = {} ;  
 	self._lexStack = vLexStack
 	self._useNodeSet = {}
+	self._deducePolyArgs = vDeduceFn
 end
 
-function SealPolyFunction:makeFn(vTemplateSign, vTypeList)
-	local nFn = self._fnDict[vTemplateSign]
+function SealPolyFunction:makeFn(vTupleBuilder)
+	local nSign = vTupleBuilder:checkTemplateArgSign()
+	local nFn = self._fnDict[nSign]
 	if not nFn then
-		local nResult = (self._makerFn(table.unpack(vTypeList)) ) 
+		local nResult = self._makerFn(vTupleBuilder)
 		if SealFunction.is(nResult) then
-			self._fnDict[vTemplateSign] = nResult
+			self._fnDict[nSign] = nResult
             self._lexStack:getSealStack():scheduleSealType(nResult)
 			return nResult
 		else
@@ -17051,6 +17113,15 @@ function SealPolyFunction:makeFn(vTemplateSign, vTypeList)
 	else
 		return nFn
 	end
+end
+
+function SealPolyFunction:meta_call(vContext, vTermTuple)
+	local nTupleBuilder = self._deducePolyArgs(self, vTermTuple)
+	self:makeFn(nTupleBuilder):meta_call(vContext, vTermTuple)
+end
+
+function SealPolyFunction:newStack(vNode, vApplyStack)
+	return self._manager:getRuntime():DeduceStack(vNode, false, self, vApplyStack)
 end
 
 return SealPolyFunction
@@ -17379,12 +17450,13 @@ function TypedPolyFunction:ctor(...)
 	self._fnDict = {}   
 end
 
-function TypedPolyFunction:makeFn(vTemplateSign, vTypeList)
-	local nFn = self._fnDict[vTemplateSign]
+function TypedPolyFunction:makeFn(vTupleBuilder)
+	local nSign = vTupleBuilder:checkTemplateArgSign()
+	local nFn = self._fnDict[nSign]
 	if not nFn then
-		local nResult = (self._makerFn(table.unpack(vTypeList)) ) 
+		local nResult = self._makerFn(vTupleBuilder)
 		if TypedFunction.is(nResult) then
-			self._fnDict[vTemplateSign] = nResult
+			self._fnDict[nSign] = nResult
 			return nResult
 		else
 			error("poly function must return mono-function type but got:"..tostring(nResult))

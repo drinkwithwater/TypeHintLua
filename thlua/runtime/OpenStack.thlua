@@ -1,5 +1,6 @@
 
 const class = require@<let.clazz> "thlua.class"
+const Node = require@<let.node> "thlua.code.Node"
 const Exception = require "thlua.Exception"
 const TermTuple = require "thlua.tuple.TermTuple"
 const InstStack = require "thlua.runtime.InstStack"
@@ -24,6 +25,22 @@ end
 
 function OpenStack:isRequire():Ret(Boolean)
 	return self._isRequire
+end
+
+function OpenStack:POLY_PARAM_DEDUCE(vNode:node.HintPolyParList, vPolyArgNum:OrFalse(Integer), vPolyArgList:List(clazz.USpaceAny)):RetDots(Nil, clazz.USpaceAny)
+	const nNamePolyArgList:List(clazz.USpaceAny) = {}
+	if vPolyArgNum then
+		for i in ipairs(vNode) do
+			nNamePolyArgList[i] = vPolyArgList[i]
+		end
+		if vNode.dots then
+			self._polyDotsNum = vPolyArgNum - #vNode
+			self._polyDotsArgs = {table.unpack(vPolyArgList, #vNode + 1)}
+		end
+		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
+	else
+		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
+	end
 end
 
 function OpenStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UMustType)

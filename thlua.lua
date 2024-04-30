@@ -3115,6 +3115,9 @@ local parF = {
 	identDefSelf=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "self", kind="def", isHidden=true}
 	end,
+	identDefPolySelf=function(vPos)
+		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "Self", kind="def", isHidden=true}
+	end,
 	identDefENV=function(vPos)
 		return {tag="Ident", pos=vPos, posEnd=vPos, [1] = "_ENV", kind="def", isHidden=true}
 	end,
@@ -3377,11 +3380,9 @@ local G = lpeg.P { "TypeHintLua";
 		vv.PrimaryExpr
 	);]]
 
-	PolyIdentDef = symb("$") * vv.IdentDefN / function(obj) obj.isPolyVar = true return obj end + vv.IdentDefN;
-
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
 		lpeg.Cg(tagC.Dots(symb"..."), "dots") +
-		vvA.PolyIdentDef * (symb "," * vv.PolyIdentDef) ^ 0 * lpeg.Cg(symb "," * tagC.Dots(symb "...") + cc(false), "dots")
+		vvA.IdentDefN * (symb "," * vv.IdentDefN) ^ 0 * lpeg.Cg(symb "," * tagC.Dots(symb "...") + cc(false), "dots")
 	) * symbA(">")) / function(env, polyParList)
 		env.codeBuilder:markDel(polyParList.pos, polyParList.posEnd)
 		return polyParList
@@ -3652,8 +3653,22 @@ local G = lpeg.P { "TypeHintLua";
 			return Cpos * vv.FuncPrefix * vv.NameChain * MethodName * Cpos * vv.FuncBody * Cpos / function (pos, hintPrefix, varPrefix, methodName, posMid, funcExpr, posEnd)
 				funcExpr.hintPrefix = hintPrefix
 				if methodName then
+					-- member method sugar: add self ident for function parameter
 					table.insert(funcExpr[1], 1, parF.identDefSelf(pos))
+					-- member method sugar: add index for left side var
 					varPrefix = exprF.nameIndex(varPrefix, methodName)
+					-- member method sugar for polyPar
+					local hintPolyParList = funcExpr.hintPolyParList
+					local polySelf = parF.identDefPolySelf(pos)
+					--[[
+					if hintPolyParList then
+						table.insert(hintPolyParList, 1, polySelf)
+					else
+						funcExpr.hintPolyParList = {
+							tag="HintPolyParList", pos=pos, posEnd=pos, dots=false, polySelf
+						}
+					end
+					]]
 				end
 				return {
 					tag = "Set", pos=pos, posEnd=posEnd,
