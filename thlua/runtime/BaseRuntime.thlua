@@ -212,7 +212,7 @@ end
 
 function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
 	const nCodeEnv, nFileName = self._loader.thluaGlobalFile(self, vPkg)
-	const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
+	const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
 	const nContext = self._rootStack:newNoPushContext(self._node)
 	const nTermTuple = nContext:FixedTermTuple({})
 	const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
@@ -230,7 +230,7 @@ function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret
 	local nLoadedState = self._loadedDict[vFileName]
 	if not nLoadedState then
 		const nCodeEnv = self._loader.thluaParseFile(self, vFileName)
-		const nOpenFn = nCodeEnv:getTypingFn()(nCodeEnv:getNodeList(), self._rootStack, self:makeGlobalTerm())
+		const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
 		nLoadedState = {
 			openFn=nOpenFn,
 			codeEnv=nCodeEnv,

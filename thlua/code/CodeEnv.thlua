@@ -5,13 +5,16 @@ const VisitorExtend = require "thlua.code.VisitorExtend"
 const SymbolVisitor = require "thlua.code.SymbolVisitor"
 const SearchVisitor = require "thlua.code.SearchVisitor"
 const HintGener = require "thlua.code.HintGener"
+const AutoFlag = require "thlua.code.AutoFlag"
 const SplitCode = require "thlua.code.SplitCode"
 
 const class = require@<let.clazz> "thlua.class"
 const Node = require@<let.node> "thlua.code.Node"
 
 (@do
-	let.TypingFn = Fn(List(node.IAstNode), clazz.BaseStack, clazz.RefineTerm):Ret(clazz.OpenFunction)
+	-- let.RawInjectFn = Fn(List(node.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
+	-- TODO TypingFn return may not be OpenFunction when inject mode
+	let.TypingFn = Fn(List(node.IAstNode), $AutoFlag, clazz.BaseStack, Union(clazz.RefineTerm, Fn(node.Ident_use):Ret(clazz.RefineTerm))):Ret(clazz.OpenFunction)
 	let.InjectFn = Fn(clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
 	let.LookupPair = Struct {
 		pos = Integer,
@@ -109,16 +112,16 @@ function.pass CodeEnv:_buildTypingFn():Ret(AnyFunction)
 	return nFunc
 end
 
-function CodeEnv:getNodeList():Ret(List(node.IAstNode))
-	return self._nodeList
-end
-
 function CodeEnv:getAstTree()
 	return self._astTree
 end
 
 function CodeEnv:getTypingCode()
 	return self._typingCode
+end
+
+function CodeEnv:callTypingFn(vStack:clazz.BaseStack, vGlobalTermOrInjectGetter):Ret(clazz.OpenFunction)
+	return self._typingFn(self._nodeList, AutoFlag, vStack, vGlobalTermOrInjectGetter)
 end
 
 function CodeEnv:getTypingFn():Ret(TypingFn)
@@ -198,12 +201,8 @@ function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String,
 	const nOkay, nInjectFn = pcall(function():Ret(InjectFn)
 		assert(nChunk.injectNode)
 		const nFocusEnv = CodeEnv.new(vSplitCode, vFileUri, nChunk)
-		(@do
-			let.RawInjectFn = Fn(List(node.IAstNode), clazz.BaseStack, Fn(node.Ident_use):Ret(clazz.RefineTerm)):Ret(Any)
-		end)
-		const nRawInjectFn = nFocusEnv:getTypingFn() @? RawInjectFn
 		return function(vStack, vGetter)
-			return nRawInjectFn(nFocusEnv:getNodeList(), vStack, vGetter)
+			return nFocusEnv:callTypingFn(vStack, vGetter)
 		end
 	end)
 	if nOkay then

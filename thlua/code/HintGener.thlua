@@ -37,7 +37,7 @@ local TagToVisiting:RealTraverser = {
 		const nInjectNode = node.injectNode
 		if not nInjectNode then
 			return {
-				'local ____nodes,____stk,____globalTerm=... ',
+				'local ____nodes,____autoFlag,____stk,____globalTerm=... ',
 				self:visitIdentDef(node[1], "____globalTerm"),
 				" return ", self:stkWrap(node).CHUNK_TYPE(self:visitFunc(node))
 			}
@@ -50,7 +50,7 @@ local TagToVisiting:RealTraverser = {
 				}
 			else
 				return {
-					'local ____nodes,____stk,____injectGetter=... ',
+					'local ____nodes,____autoFlag,____stk,____injectGetter=... ',
 					"local let, _ENV=____stk:SPACE() ",
 					" return ", self:fixIHintSpace(nInjectNode),
 				}
@@ -556,12 +556,11 @@ end
 
 function HintGener:visitIdentDef(vIdentNode:node.Ident_def, vValue:UGenResult, vIsParamOrRec:OrNil(True), vAutoPrimitive:OrNil(True)):Ret(UGenResult)
 	const nHintShort = vIdentNode.hintShort
-	const nAuto = self:stkWrap(vIdentNode).AUTO()
 	return {
 		line=vIdentNode.l,
 		" ", self:stkWrap(vIdentNode).SYMBOL_NEW(
 			string.format("%q", vIdentNode.symbolKind), tostring(vIdentNode.symbolModify or false),
-			vValue, vIsParamOrRec and nAuto or (nHintShort and self:fixIHintSpace(nHintShort) or nAuto),
+			vValue, vIsParamOrRec and "____autoFlag" or (nHintShort and self:fixIHintSpace(nHintShort) or "____autoFlag"),
 			tostring(vAutoPrimitive)
 		)
 	}
@@ -622,7 +621,6 @@ end
 
 (@do
 	let.StkNameEnum = Union(
-		"AUTO", -- just a flag
 
 		"CHUNK_TYPE",
 		"FUNC_NEW",
@@ -794,7 +792,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			self:fnWrap("____termArgs", "...")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
-					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or self:stkWrap(vParNode).AUTO()
+					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or "____autoFlag"
 					if vParNode.tag ~= "Dots" then
 						if i == 1 then
 							-- if i == 1 then use ____self as first type if setted
