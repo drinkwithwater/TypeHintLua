@@ -681,7 +681,6 @@ local G = lpeg.P { "TypeHintLua";
 					-- member method sugar for polyPar
 					local hintPolyParList = funcExpr.hintPolyParList
 					local polySelf = parF.identDefPolySelf(pos)
-					--[[
 					if hintPolyParList then
 						table.insert(hintPolyParList, 1, polySelf)
 					else
@@ -689,7 +688,6 @@ local G = lpeg.P { "TypeHintLua";
 							tag="HintPolyParList", pos=pos, posEnd=pos, dots=false, polySelf
 						}
 					end
-					]]
 				end
 				return {
 					tag = "Set", pos=pos, posEnd=posEnd,

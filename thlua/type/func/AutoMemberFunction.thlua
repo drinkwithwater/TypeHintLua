@@ -3,7 +3,7 @@ const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 
 const TypedFunction = require "thlua.type.func.TypedFunction"
-const PolyFunction = require "thlua.type.func.PolyFunction"
+const SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 const AutoFunction = require "thlua.type.func.AutoFunction"
 const MemberFunction = require "thlua.type.func.MemberFunction"
 const class = require "thlua.class"
@@ -12,30 +12,18 @@ const class = require "thlua.class"
 	let.clazz = import($class).clazz
 end)
 
-const AutoMemberFunction = class@<clazz.AutoMemberFunction, false>(MemberFunction)
-
-function.open AutoMemberFunction:ctor(_, _, vPolyFn:clazz.SealPolyFunction)
-	self._polyFn = vPolyFn
-end
+const AutoMemberFunction = class@<clazz.AutoMemberFunction, false>(SealPolyFunction)
 
 function AutoMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
 	return "AutoMemberFunction@"..tostring(self._node)
 end
 
-function AutoMemberFunction:meta_invoke(vContext, vSelfType, vPolyTuple, vTypeTuple)
-	if vPolyTuple:getArgNum() == 0 and self:needPolyArgs() then
-		vContext:error("TODO poly member function called without poly args")
-	end
-	const nTypeFn = self._polyFn:noCtxCastPoly(vContext:getNode(), self._manager:spacePack(vContext:getNode(), vSelfType, table.unpack(vPolyTuple:buildPolyArgs())))
-	nTypeFn:meta_call(vContext, vTypeTuple)
-end
-
 function AutoMemberFunction:needPolyArgs():Ret(Boolean)
-	return self._polyFn:getPolyParNum() > 1
+	return self._paramInfo.num > 1
 end
 
 function AutoMemberFunction:indexAutoFn(vNode:clazz.IBaseNode, vType:clazz.UMustType):Ret(clazz.AutoFunction)
-	const nFn = self._polyFn:noCtxCastPoly(vNode, self._manager:spacePack(vNode, vType))
+	const nFn = self:noCtxCastPoly(vNode, self._manager:spacePack(vNode, vType))
 	if AutoFunction.is(nFn) then
 		return nFn
 	else
@@ -44,7 +32,7 @@ function AutoMemberFunction:indexAutoFn(vNode:clazz.IBaseNode, vType:clazz.UMust
 end
 
 function AutoMemberFunction:indexTypeFn(vNode:clazz.IBaseNode, vType:clazz.UMustType):Ret(clazz.TypedFunction)
-	const nFn = self._polyFn:noCtxCastPoly(vNode, self._manager:spacePack(vNode, vType))
+	const nFn = self:noCtxCastPoly(vNode, self._manager:spacePack(vNode, vType))
 	if AutoFunction.is(nFn) then
 		return nFn:getFnAwait()
 	elseif TypedFunction.is(nFn) then

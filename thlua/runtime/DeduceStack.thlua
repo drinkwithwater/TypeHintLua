@@ -28,7 +28,8 @@ function DeduceStack:PARAM_UNPACK(
 ):Ret(clazz.UAutoTerm)
 	const nHeadContext = self._headContext
 	if vHintType == AutoFlag then
-		return AutoHolder.new(self._manager, vNode)
+		-- maybe param with autoFlag has no effect for deduce, so just return a Truth term
+		return nHeadContext:RefineTerm(self._manager.type.Truth)
 	else
 		if AutoHolder.is(vHintType) then
 			const nTerm = vTermTuple:get(nHeadContext, vIndex)
@@ -44,6 +45,29 @@ function DeduceStack:PARAM_UNPACK(
 			const nHintType = self._manager:easyToMustType(self._node, vHintType)
 			return nHeadContext:RefineTerm(nHintType)
 		end
+	end
+end
+
+function DeduceStack:PARAM_NODOTS_UNPACK(
+	vNode:node.IAstNode,
+	vTermTuple:OrFalse(clazz.UTermTuple),
+	vParNum:Integer
+)
+	-- do nothing
+end
+
+function DeduceStack:PARAM_DOTS_UNPACK(
+	vNode:node.IAstNode,
+	vTermTuple:OrFalse(clazz.UTermTuple),
+	vParNum:Integer,
+	vHintDots:Union(clazz.AutoFlag, clazz.USpaceAny)
+):Ret(False)
+	if AutoHolder.is(vHintDots) then
+		print("TODO, poly as dots type")
+		return false
+	else
+		-- nothing to do
+		return false
 	end
 end
 

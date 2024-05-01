@@ -3,6 +3,7 @@ const Node = require "thlua.code.Node"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
 const Exception = require "thlua.Exception"
 
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const TypedFunction = require "thlua.type.func.TypedFunction"
 const MemberFunction = require "thlua.type.func.MemberFunction"
 const class = require "thlua.class"
@@ -53,9 +54,19 @@ function TypedMemberFunction:Err(...:clazz.USpaceAny):Ret(clazz.MemberFunction)
 	return self
 end
 
-function TypedMemberFunction:meta_invoke(vContext, vSelfType, vPolyArgs, vTypeTuple)
-	const nTypeFn = self:toTypeFn(vSelfType)
-	nTypeFn:meta_call(vContext, vTypeTuple)
+function TypedMemberFunction:meta_call(vContext, vTermTuple)
+	const nFirstTerm = vTermTuple:rawget(1)
+	if nFirstTerm then
+		const nType = nFirstTerm:getType()
+		if BaseAtomType.is(nType) then
+			const nTypeFn = self:toTypeFn(nType)
+			nTypeFn:meta_call(vContext, vTermTuple)
+		else
+			vContext:error("atom type self expected when call typed member function")
+		end
+	else
+		vContext:error("type expected when call typed member function")
+	end
 end
 
 function TypedMemberFunction:needPolyArgs():Ret(Boolean)

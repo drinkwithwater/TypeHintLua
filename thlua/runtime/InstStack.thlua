@@ -213,10 +213,9 @@ function InstStack:META_INVOKE(
 	vNode:node.Invoke,
 	vSelfTerm:clazz.RefineTerm,
 	vName:String,
-	vPolyArgsGetter:Fn():Dots(clazz.USpaceAny):RetDots(clazz.USpaceAny),
+	vPolyArgsGetter:OrFalse(Fn():Dots(clazz.USpaceAny):RetDots(clazz.USpaceAny)),
 	vArgTuple:clazz.FixedTermTuple
 ):Ret(clazz.UOpenReturn)
-	const nPolyTuple = self._manager:spacePack(vNode, vPolyArgsGetter())
 	const nNil = self._manager.type.Nil
 	return self:withMorePushContextWithCase(vNode, vSelfTerm, function(vContext, vSelfType, vCase)
 		if vSelfType == nNil then
@@ -229,7 +228,15 @@ function InstStack:META_INVOKE(
 				if vSingleFuncType == nNil then
 					vContext:error("nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
-					vSingleFuncType:meta_invoke(vContext, vSelfType, nPolyTuple, nNewArgTuple)
+					if vPolyArgsGetter then
+						const nPolyTuple = self._manager:spacePack(vNode, vSelfType, vPolyArgsGetter(self:unpackPolyArgs()))
+						const nType = vSingleFuncType:castPoly(vContext, nPolyTuple)
+						if nType then
+							nType:meta_call(vContext, nNewArgTuple)
+						end
+					else
+						vSingleFuncType:meta_call(vContext, nNewArgTuple)
+					end
 				else
 					vContext:error("TODO non-function type called "..tostring(vSingleFuncType))
 				end

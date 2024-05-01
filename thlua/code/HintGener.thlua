@@ -281,7 +281,7 @@ local TagToVisiting:RealTraverser = {
 			self:stkWrap(node).META_INVOKE(
 				self:visit(node[1]),
 				"\""..node[2][1].."\"",
-				self:fnRetWrap({nHintPolyArgs and self:fixIHintSpace(nHintPolyArgs) or nil}),
+				nHintPolyArgs and self:fnRetWrap(self:fixIHintSpace(nHintPolyArgs)) or "false",
 				self:stkWrap(node).EXPRLIST_REPACK(
 					"false",
 					self:listWrap(#node[3] > 0 and self:visit(node[3]) or "")
@@ -779,7 +779,7 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 		_member=tostring(nIsMember),
 	}), nHintPrefix,
 	-- par ret maker
-		self:fnWrap("____newStk","____polyArgNum", "____polyArgList", "____self")(
+		self:fnWrap("____newStk","____polyArgNum", "____polyArgList")(
 			"local ____stk=____newStk:BEGIN(____stk,", self:codeNode(nBlockNode), ") ",
 			-- pre declare param
 			" local ____vDOTS=false ",
@@ -792,13 +792,10 @@ function HintGener:visitFunc(vNode:Union(node.Function, node.Chunk)):Ret(UGenRes
 			self:fnWrap("____termArgs", "...")(
 				self:concatList@<Union(node.Ident_def, node.Dots)>(nParList, function(i, vParNode)
 					const nHintShort = vParNode.hintShort
-					local nHintType = nHintShort and self:fixIHintSpace(nHintShort) or "____autoFlag"
+					local nHintType:UGenResult = nHintShort and self:fixIHintSpace(nHintShort) or "____autoFlag"
 					if vParNode.tag ~= "Dots" then
-						if i == 1 then
-							-- if i == 1 then use ____self as first type if setted
-							nHintType = {
-								"(____self or ", nHintType, ")"
-							}
+						if i == 1 and nIsMember then
+							nHintType = " Self or ____autoFlag "
 						end
 						return {
 							"local ____tempv"..i.."=",

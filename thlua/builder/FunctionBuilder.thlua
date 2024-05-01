@@ -202,12 +202,15 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 			end)
 		end
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
-			const nMustList = vTupleBuilder:buildPolyArgs()
-			const nTuple = self._manager:spacePack(self._node, table.unpack(nMustList, 2))
-			return nFnMaker(nTuple, nMustList[1]!)
-		end, {num=(nPolyParInfo and nPolyParInfo.num or 0) + 1,dots=nPolyParInfo and nPolyParInfo.dots or false}, self._stack)
-		return self._manager:AutoMemberFunction(self._node, nPolyFn)
+		assert(nPolyParInfo, "member function must has polyParInfo")
+		return self._manager:AutoMemberFunction(self._node, function(vTupleBuilder)
+			return nFnMaker(vTupleBuilder, false)
+		end, nPolyParInfo, self._stack, function(vPolyFn, vArgTermTuple)
+			const nMakerStack = vPolyFn:newStack(self._node, self._stack)
+			const nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {}, false)
+			nGenParam(vArgTermTuple)
+			return nDeduceTuple!
+		end)
 	end
 end
 
