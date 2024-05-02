@@ -20,7 +20,7 @@ const SpaceValue = require "thlua.space.SpaceValue"
 	clazz.AutoFlag = $AutoFlag
 	clazz.UBodyFunction = Union(clazz.AutoFunction, clazz.ClassFactory, clazz.OpenFunction, clazz.SealPolyFunction)
 
-	clazz.GenMaker = Fn(clazz.BaseStack, OrFalse(Integer), IList(clazz.USpaceAny), OrFalse(clazz.UMustType)):Ret(OrNil(clazz.TupleBuilder), clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
+	clazz.GenMaker = Fn(clazz.BaseStack, OrFalse(Integer), IList(clazz.USpaceAny)):Ret(OrNil(clazz.TupleBuilder), clazz.GenParam, clazz.TLongHintInfo(clazz.FnSuffixHint), clazz.GenFunc)
 	clazz.GenParam = Fn(OrFalse(clazz.UTermTuple)):Dots(clazz.USpaceAny):Ret(clazz.UTermTuple)
 	clazz.GenFunc = Fn():Dots(clazz.USpaceAny):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
 
@@ -140,13 +140,13 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 	const nNode = self._node
 	assert(nNode.tag == "Function", nNode:toExc("node must be function here"))
 	const nPolyParInfo = self._polyParInfo
-	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder), vSelfType:OrFalse(clazz.UMustType)):Ret(clazz.AutoFunction)
+	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder)):Ret(clazz.AutoFunction)
 		const nAutoFn = self._stack:newAutoFunction(nNode, self._lexCapture)
 		const nNewStack = nAutoFn:getBuildStack()
 		nAutoFn:initAsync(function()
 			const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 			const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-			const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, vSelfType)
+			const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList)
 			const nCastTypeFn = nAutoFn:pickCastTypeFn()
 			-- make par
 			const nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
@@ -187,15 +187,15 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 		return nAutoFn
 	end
 	if not nPolyParInfo then
-		const ret = nFnMaker(false, false)
+		const ret = nFnMaker(false)
 		self._stack:getSealStack():scheduleSealType(ret)
 		return ret
 	else
 		return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
-			return nFnMaker(vTupleBuilder, false)
+			return nFnMaker(vTupleBuilder)
 		end, nPolyParInfo, self._stack, function(vPolyFn, vArgTermTuple)
 			const nMakerStack = vPolyFn:newStack(self._node, self._stack)
-			const nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {}, false)
+			const nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {})
 			nGenParam(vArgTermTuple)
 			return nDeduceTuple!
 		end, self._member)
@@ -207,7 +207,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		const nGuardFn = self._stack:newOpenFunction(self._node, self._lexCapture)
 		const nMakerStack = nGuardFn:newStack(self._node, self._stack)
 		local nSetted = false
-		const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, 0, {}, false)
+		const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, 0, {})
 		const ok, err = pcall(nSuffixHint.caller, {
 			extends=function(vHint, _)
 				error(self._node:toExc("extends can only be used with function:class"))
@@ -250,7 +250,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 			const ok, runRet, runErr = xpcall(function()
 				const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 				const nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {} @ List(clazz.USpaceAny)
-				const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList, false)
+				const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList)
 				nGenParam(vTermTuple, self._stack:unpackPolyArgs())
 				return nGenFunc(self._stack:unpackPolyArgs())
 			end, function(err:Any):Ret(clazz.Exception)
@@ -365,7 +365,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		-- 1. build suffixhint from poly args
 		const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 		const nPolyArgList:List(clazz.UMustType) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
-		const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList, false)
+		const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList)
 		-- 2. init class
 		nFactory:initClassTableAsync(function()
 			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)

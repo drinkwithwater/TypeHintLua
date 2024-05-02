@@ -488,19 +488,20 @@ function InstStack:PARAM_UNPACK(
 ):Ret(clazz.UAutoTerm)
 	const nHintType = vHintType == AutoFlag and AutoFlag or self._manager:easyToMustType(vNode, vHintType)
 	const nHeadContext = self._headContext
-	if nHintType == AutoFlag then
-		if vTermTuple then
-			return vTermTuple:get(nHeadContext, vIndex)
+	if vTermTuple then
+		const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
+		if nHintType == AutoFlag then
+			return nAutoTerm
 		else
-			return AutoHolder.new(self._manager, vNode)
+			nHeadContext:assignTermToType(nAutoTerm, nHintType)
+			return nHeadContext:RefineTerm(nHintType)
 		end
 	else
-		if vTermTuple then
-			const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
-			nHeadContext:assignTermToType(nAutoTerm, nHintType)
+		if nHintType == AutoFlag then
+			return AutoHolder.new(self._manager, vNode)
+		else
+			return nHeadContext:RefineTerm(nHintType)
 		end
-		-- TODO check type match here...
-		return nHeadContext:RefineTerm(nHintType)
 	end
 end
 
