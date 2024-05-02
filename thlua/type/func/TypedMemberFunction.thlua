@@ -5,18 +5,22 @@ const Exception = require "thlua.Exception"
 
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const TypedFunction = require "thlua.type.func.TypedFunction"
-const MemberFunction = require "thlua.type.func.MemberFunction"
+const BaseFunction = require "thlua.type.func.BaseFunction"
 const class = require "thlua.class"
 
 (@do
 	let.clazz = import("thlua.type.TypeClass").clazz
 end)
 
-const TypedMemberFunction = class@<clazz.TypedMemberFunction, false>(MemberFunction)
+const TypedMemberFunction = class@<clazz.TypedMemberFunction, false>(BaseFunction)
 
 function.open TypedMemberFunction:ctor(_,_,vHeadlessFn:clazz.TypedFunction)
 	self._headlessFn = vHeadlessFn
 	self._typeFnDict = {}@Dict(clazz.IAtomType, clazz.TypedFunction)
+end
+
+function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
+	return ""
 end
 
 function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vVerbose:Boolean):Ret(String)
@@ -34,22 +38,22 @@ function TypedMemberFunction:detailString(vToStringCache:Dict(Truth, String), vV
 	return nResult
 end
 
-function TypedMemberFunction:Dots(vType:clazz.USpaceAny):Ret(clazz.MemberFunction)
+function TypedMemberFunction:Dots(vType:clazz.USpaceAny):Ret(clazz.TypedMemberFunction)
 	self._headlessFn:chainDots(Node.newDebugNode(), vType)
 	return self
 end
 
-function TypedMemberFunction:RetDots(...:clazz.USpaceAny):Ret(clazz.MemberFunction)
+function TypedMemberFunction:RetDots(...:clazz.USpaceAny):Ret(clazz.TypedMemberFunction)
 	self._headlessFn:attachRetBuilder():chainRetDots(Node.newDebugNode(), ...)
 	return self
 end
 
-function TypedMemberFunction:Ret(...:clazz.USpaceAny):Ret(clazz.MemberFunction)
+function TypedMemberFunction:Ret(...:clazz.USpaceAny):Ret(clazz.TypedMemberFunction)
 	self._headlessFn:attachRetBuilder():chainRet(Node.newDebugNode(), ...)
 	return self
 end
 
-function TypedMemberFunction:Err(...:clazz.USpaceAny):Ret(clazz.MemberFunction)
+function TypedMemberFunction:Err(...:clazz.USpaceAny):Ret(clazz.TypedMemberFunction)
 	self._headlessFn:attachRetBuilder():chainErr(Node.newDebugNode(), ...)
 	return self
 end
@@ -66,10 +70,6 @@ function TypedMemberFunction:meta_call(vContext, vTermTuple)
 	else
 		vContext:error("type expected when call typed member function")
 	end
-end
-
-function TypedMemberFunction:needPolyArgs():Ret(Boolean)
-	return false
 end
 
 function TypedMemberFunction:getHeadlessFn():Ret(clazz.TypedFunction)
