@@ -3,7 +3,7 @@ const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const Nil = require "thlua.type.basic.Nil"
 const TypedFunction = require "thlua.type.func.TypedFunction"
 const AutoFunction = require "thlua.type.func.AutoFunction"
-const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
+const SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 const class = require "thlua.class"
 
 (@do
@@ -62,11 +62,9 @@ const function buildFieldFromFn(vContext:clazz.OperContext, vEvent:String, vMeth
 		return {
 			typeFn=vMethodFn
 		}
-	elseif AutoMemberFunction.is(vMethodFn) then
+	elseif SealPolyFunction.is(vMethodFn) then
 		if vTypeFnOrNil then
-			const nSelfType = vTypeFnOrNil:getParTuple():get(1)
-			const nAutoFn = vMethodFn:indexAutoFn(vContext:getNode(), nSelfType)
-			nAutoFn:checkWhenCast(vContext, vTypeFnOrNil)
+			vMethodFn:castToTypedFn(vContext, vTypeFnOrNil)
 			return {
 				typeFn=vTypeFnOrNil,
 			}

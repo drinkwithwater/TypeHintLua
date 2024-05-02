@@ -55,11 +55,10 @@ function TypedMemberFunction:Err(...:clazz.USpaceAny):Ret(clazz.MemberFunction)
 end
 
 function TypedMemberFunction:meta_call(vContext, vTermTuple)
-	const nFirstTerm = vTermTuple:rawget(1)
-	if nFirstTerm then
-		const nType = nFirstTerm:getType()
-		if BaseAtomType.is(nType) then
-			const nTypeFn = self:toTypeFn(nType)
+	const nFirstType = vTermTuple:firstType()
+	if nFirstType then
+		if BaseAtomType.is(nFirstType) then
+			const nTypeFn = self:toTypeFn(nFirstType)
 			nTypeFn:meta_call(vContext, vTermTuple)
 		else
 			vContext:error("atom type self expected when call typed member function")

@@ -2,7 +2,7 @@
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const TypedObject = require "thlua.type.object.TypedObject"
 const BaseFunction = require "thlua.type.func.BaseFunction"
-const AutoMemberFunction = require "thlua.type.func.AutoMemberFunction"
+const SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 const OpenField = require "thlua.type.object.OpenField"
 const Nil = require "thlua.type.basic.Nil"
 
@@ -276,10 +276,8 @@ function OpenTable:memberFunctionFillSelf(vChain:clazz.RecurChain, vSelfTable:cl
 	const nNotRecursive = vChain:testAndRun(self, function()
 		for _, nField in pairs(self._fieldDict) do
 			const nSelfValue = nField:getValueType()
-			if AutoMemberFunction.is(nSelfValue) then
-				if not nSelfValue:needPolyArgs() then
-					nSelfValue:indexAutoFn(vChain:getNode(), vSelfTable)
-				end
+			if SealPolyFunction.is(nSelfValue) then
+				nSelfValue:tryMemberTrivialize(vChain:getNode(), vSelfTable)
 			end
 		end
 		return true

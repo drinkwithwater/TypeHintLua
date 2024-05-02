@@ -136,7 +136,7 @@ function FunctionBuilder:_makeRetTuples(vSuffixHint:clazz.TLongHintInfo(clazz.Fn
 	return nRetTuples
 end
 
-function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.AutoMemberFunction, clazz.SealPolyFunction))
+function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.SealPolyFunction))
 	const nNode = self._node
 	assert(nNode.tag == "Function", nNode:toExc("node must be function here"))
 	const nPolyParInfo = self._polyParInfo
@@ -186,31 +186,19 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Aut
 		end)
 		return nAutoFn
 	end
-	if not self._member then
-		if not nPolyParInfo then
-			const ret = nFnMaker(false, false)
-			self._stack:getSealStack():scheduleSealType(ret)
-			return ret
-		else
-			return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
-				return nFnMaker(vTupleBuilder, false)
-			end, nPolyParInfo, self._stack, function(vPolyFn, vArgTermTuple)
-				const nMakerStack = vPolyFn:newStack(self._node, self._stack)
-				const nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {}, false)
-				nGenParam(vArgTermTuple)
-				return nDeduceTuple!
-			end)
-		end
+	if not nPolyParInfo then
+		const ret = nFnMaker(false, false)
+		self._stack:getSealStack():scheduleSealType(ret)
+		return ret
 	else
-		assert(nPolyParInfo, "member function must has polyParInfo")
-		return self._manager:AutoMemberFunction(self._node, function(vTupleBuilder)
+		return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
 			return nFnMaker(vTupleBuilder, false)
 		end, nPolyParInfo, self._stack, function(vPolyFn, vArgTermTuple)
 			const nMakerStack = vPolyFn:newStack(self._node, self._stack)
 			const nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {}, false)
 			nGenParam(vArgTermTuple)
 			return nDeduceTuple!
-		end)
+		end, self._member)
 	end
 end
 

@@ -88,6 +88,25 @@ function TermTuple:get(vContext:clazz.OperContext, i:Integer):Ret($self._list[1]
 	end
 end
 
+function TermTuple:firstType():Ret(OrFalse(clazz.UAtomUnion))
+	const nList = self._list
+	if #nList >= 1 then
+		return nList[1]!:getType()
+	else
+		const nTail = self._tail
+		if nTail then
+			if AutoTail.is(nTail) then
+				const nHolder = nTail:getHolder(1)
+				return nHolder and nHolder:getType() or false
+			else
+				return nTail:getRepeatType():checkAtomUnion()
+			end
+		else
+			return false
+		end
+	end
+end
+
 function TermTuple:getContext():Ret(clazz.OperContext)
 	return self._context
 end
