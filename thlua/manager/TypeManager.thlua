@@ -230,7 +230,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
 		local nIntersectNextKey:OrFalse(clazz.UMustType) = self.type.Any
 		for i=1,#nObjectList do
-			local nTypedObject = nObjectList[i]!:checkAtomUnion()
+			local nTypedObject = nObjectList[i]!
 			if not TypedObject.is(nTypedObject) then
 				error("Interface or Struct is expected here")
 				break
@@ -633,7 +633,7 @@ end
 function TypeManager:convertFunctionToTemplateLambda(vFunc:AnyFunction):Ret(clazz.PolyLambda, clazz.ParamInfo)
 	const nInfo = debug.getinfo(vFunc)
 	return function(vTupleBuilder)
-		const ok, exc = pcall(vFunc, table.unpack(vTupleBuilder:buildPolyArgs()))
+		const ok, exc = pcall(vFunc, table.unpack(vTupleBuilder:buildNowaitPolyArgs()))
 		const nNode = vTupleBuilder:getNode()
 		if ok then
 			return self:easyToMustType(nNode, exc)
@@ -814,14 +814,6 @@ function TypeManager:literal2Primitive(vType:clazz.UAtomUnion):Ret(clazz.UAtomUn
 	else
 		return vType
 	end
-end
-
-function TypeManager:signTemplateArgs(vTypeList:IList(clazz.UMustType)):Ret(String)
-	const nIdList:List(Integer) = {}
-	for i=1,#vTypeList do
-		nIdList[i] = vTypeList[i]!.id
-	end
-	return table.concat(nIdList, "-")
 end
 
 function TypeManager:genTypeId():Ret(Integer)

@@ -26,12 +26,12 @@ function SealPolyFunction:tryMemberTrivialize(vNode:clazz.IBaseNode, vSelfType:c
 end
 
 function SealPolyFunction:makeFn(vTupleBuilder:clazz.TupleBuilder):Ret(clazz.SealFunction)
-	const nSign = vTupleBuilder:checkTemplateArgSign()
-	const nFn = self._fnDict[nSign]
+	const nHash = vTupleBuilder:calcPolyArgHash()
+	const nFn = self._fnDict[nHash]
 	if not nFn then
 		const nResult = self._makerFn(vTupleBuilder)
 		if SealFunction.is(nResult) then
-			self._fnDict[nSign] = nResult
+			self._fnDict[nHash] = nResult
             self._lexStack:getSealStack():scheduleSealType(nResult)
 			return nResult
 		else

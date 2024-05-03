@@ -7,14 +7,24 @@ end)
 
 const TupleBuilder = class@<clazz.TupleBuilder, false>()
 
+const function signTemplateArgs(vTypeList:IList(clazz.UMustType)):Ret(String)
+	const nIdList:List(Integer) = {}
+	for i=1,#vTypeList do
+		nIdList[i] = vTypeList[i]!.id
+	end
+	return table.concat(nIdList, "-")
+end
+
 function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
 	self._manager = vManager
 	self._node = vNode
     self._num = select("#", ...)
     self._list = {...} @ List(clazz.USpaceAny)
     self._dots = nil @ clazz.USpaceAny
-    self._polyTypeArgList = nil @ OrNil(List(clazz.UMustType))
-    self._polyTypeArgSign = nil @ OrNil(String)
+    self._nowaitPolyArgList = nil @ OrNil(List(clazz.UMustType))
+    self._nowaitPolyArgHash = nil @ OrNil(String)
+    self._polyArgList = nil @ OrNil(List(clazz.UAtomUnion))
+    self._polyArgHash = nil @ OrNil(String)
 end
 
 function TupleBuilder:setRetDots()
@@ -58,25 +68,46 @@ function TupleBuilder:getArgList():Ret(List(clazz.USpaceAny))
     return self._list
 end
 
-function TupleBuilder:checkTemplateArgSign():Ret(String)
-    if not self._polyTypeArgSign then
-        self._polyTypeArgSign = self._manager:signTemplateArgs(self:buildPolyArgs())
+function TupleBuilder:calcPolyArgHash():Ret(String)
+    if not self._polyArgHash then
+        self._polyArgHash = signTemplateArgs(self:buildPolyArgs())
     end
-    return self._polyTypeArgSign!
+    return self._polyArgHash!
 end
 
-function TupleBuilder:buildPolyArgs():Ret(List(clazz.UMustType))
-    if not self._polyTypeArgList then
+function TupleBuilder:calcNowaitPolyArgHash():Ret(String)
+    if not self._nowaitPolyArgHash then
+        self._nowaitPolyArgHash = signTemplateArgs(self:buildNowaitPolyArgs())
+    end
+    return self._nowaitPolyArgHash!
+end
+
+function TupleBuilder:buildNowaitPolyArgs():Ret(List(clazz.UMustType))
+    if not self._nowaitPolyArgList then
         assert(self._dots == nil, "tuple with dots can't checkout to typelist")
         const nNode = self._node
         const nSpaceTuple = self._list
         const nTypeList:List(clazz.UMustType) = {}
         for i=1, self._num do
+            nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
+        end
+        self._nowaitPolyArgList = nTypeList
+    end
+    return self._nowaitPolyArgList!
+end
+
+function TupleBuilder:buildPolyArgs():Ret(List(clazz.UAtomUnion))
+    if not self._polyArgList then
+        assert(self._dots == nil, "tuple with dots can't checkout to typelist")
+        const nNode = self._node
+        const nSpaceTuple = self._list
+        const nTypeList:List(clazz.UAtomUnion) = {}
+        for i=1, self._num do
             nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i]):checkAtomUnion()
         end
-        self._polyTypeArgList = nTypeList
+        self._polyArgList = nTypeList
     end
-    return self._polyTypeArgList!
+    return self._polyArgList!
 end
 
 function TupleBuilder:argsMatch(vNode:clazz.IBaseNode, vParamInfo:clazz.ParamInfo)

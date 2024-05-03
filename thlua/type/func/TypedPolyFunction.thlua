@@ -12,12 +12,12 @@ function.open TypedPolyFunction:ctor(...)
 end
 
 function TypedPolyFunction:makeFn(vTupleBuilder:clazz.TupleBuilder):Ret(clazz.TypedFunction)
-	const nSign = vTupleBuilder:checkTemplateArgSign()
-	const nFn = self._fnDict[nSign]
+	const nHash = vTupleBuilder:calcPolyArgHash()
+	const nFn = self._fnDict[nHash]
 	if not nFn then
 		const nResult = self._makerFn(vTupleBuilder)
 		if TypedFunction.is(nResult) then
-			self._fnDict[nSign] = nResult
+			self._fnDict[nHash] = nResult
 			return nResult
 		else
 			error("poly function must return mono-function type but got:"..tostring(nResult))
