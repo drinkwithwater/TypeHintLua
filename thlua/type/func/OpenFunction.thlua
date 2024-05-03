@@ -13,10 +13,10 @@ const class = require "thlua.class"
 
 const OpenFunction = class@<clazz.OpenFunction, false>(BaseFunction)
 
-function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexCapture))
+function.open OpenFunction:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexBranchCase))
 	self._func=nil@OrNil(clazz.OpenCaller)
 	self._polyWrapper=false@OrFalse(Fn(clazz.TupleBuilder):Ret(clazz.OpenFunction))
-	self._lexCapture = vUpState or false
+	self._lexBranchCase = vUpState or false
 	self._useNodeSet = {}
 end
 
@@ -41,7 +41,7 @@ function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo),
 	end
 	if vPolyParInfo then
 		self._polyWrapper = function(vPolyTuple)
-			const nOpenFn = OpenFunction.new(self._manager, self._node, self._lexCapture)
+			const nOpenFn = OpenFunction.new(self._manager, self._node, self._lexBranchCase)
 			nOpenFn:lateInit(function(vStack, vTermTuple)
 				return vFunc(vStack, vPolyTuple, vTermTuple)
 			end)
@@ -114,7 +114,7 @@ function OpenFunction:detailString(v, vVerbose)
 end
 
 function OpenFunction:newStack(vNode:clazz.IBaseNode, vApplyStack:clazz.BaseStack)
-	return self._manager:getRuntime():OpenStack(vNode, self._lexCapture, self, vApplyStack, false)
+	return self._manager:getRuntime():OpenStack(vNode, self._lexBranchCase, self, vApplyStack, false)
 end
 
 function OpenFunction:meta_call(vContext, vTermTuple)
@@ -125,7 +125,7 @@ end
 
 function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple, vIsRequire:Boolean):Ret(clazz.UOpenReturn, clazz.OpenStack)
 	const nNode = vContext:getNode()
-	const nNewStack = self._manager:getRuntime():OpenStack(nNode, self._lexCapture, self, vContext:getStack(), vIsRequire)
+	const nNewStack = self._manager:getRuntime():OpenStack(nNode, self._lexBranchCase, self, vContext:getStack(), vIsRequire)
 	const nTask = self._manager:getScheduleManager():getTask()
 	const nSealStack = nTask:getStack()
 	if not nSealStack then
@@ -135,11 +135,11 @@ function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:cla
 end
 
 function OpenFunction:findRequireStack():Ret(OrFalse(clazz.OpenStack))
-	const nLexCapture = self._lexCapture
-	if not nLexCapture then
+	const nLexBranchCase = self._lexBranchCase
+	if not nLexBranchCase then
 		return false
 	end
-	return nLexCapture.branch:getStack():findRequireStack()
+	return nLexBranchCase.branch:getStack():findRequireStack()
 end
 
 function OpenFunction:isSingleton()

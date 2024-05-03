@@ -39,7 +39,7 @@ const LogicContext = require "thlua.context.LogicContext"
 
 (@do
 
-	clazz.LexCapture = Struct {
+	clazz.LexBranchCase = Struct {
 		branch=clazz.Branch,
 		uvCase=clazz.VariableCase,
 	}
@@ -54,7 +54,7 @@ end
 function.open BaseStack:ctor(
 	vRuntime:clazz.BaseRuntime,
 	vNode:clazz.IBaseNode,
-	vUpState:OrFalse(clazz.LexCapture),
+	vUpState:OrFalse(clazz.LexBranchCase),
 	...
 )
 	const nManager = vRuntime:getTypeManager()
@@ -64,7 +64,7 @@ function.open BaseStack:ctor(
 	self._letspace=false@OrFalse(clazz.LetSpace)
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
-	self._lexCapture = vUpState
+	self._lexBranchCase = vUpState
 	const nTempBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
 	self._branchStack={nTempBranch}@List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
@@ -159,7 +159,7 @@ function BaseStack:newClassFactory(vNode:node.Function, ...):Ret(clazz.ClassFact
 	return nFactory
 end
 
-function BaseStack:newOpenFunction(vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexCapture)):Ret(clazz.OpenFunction)
+function BaseStack:newOpenFunction(vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexBranchCase)):Ret(clazz.OpenFunction)
 	const nOpenFn = OpenFunction.new(self._manager, vNode, vUpState)
 	return nOpenFn
 end

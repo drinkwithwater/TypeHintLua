@@ -8,9 +8,9 @@ const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 
 const SealPolyFunction = class@<clazz.SealPolyFunction, false>(PolyFunction)
 
-function.open SealPolyFunction:ctor(_,_,_,_, vLexStack:clazz.BaseStack, vDeduceFn:OrNil(Fn(clazz.SealPolyFunction, clazz.UTermTuple):Ret(clazz.TupleBuilder)), vIsMember:OrNil(Boolean))
+function.open SealPolyFunction:ctor(_,_,_,_, vLexBranchCase:clazz.LexBranchCase, vDeduceFn:OrNil(Fn(clazz.SealPolyFunction, clazz.UTermTuple):Ret(clazz.TupleBuilder)), vIsMember:OrNil(Boolean))
 	self._fnDict = {} @ Dict(String, clazz.SealFunction)
-	self._lexStack = vLexStack
+	self._lexBranchCase = vLexBranchCase
 	self._useNodeSet = {}
 	self._autoDeducePolyArgs = vDeduceFn or false
 	self._trivialMember = vIsMember and self._paramInfo.num == 1 or false
@@ -32,7 +32,7 @@ function SealPolyFunction:makeFn(vTupleBuilder:clazz.TupleBuilder):Ret(clazz.Sea
 		const nResult = self._makerFn(vTupleBuilder)
 		if SealFunction.is(nResult) then
 			self._fnDict[nHash] = nResult
-            self._lexStack:getSealStack():scheduleSealType(nResult)
+            self._lexBranchCase.branch:getStack():getSealStack():scheduleSealType(nResult)
 			return nResult
 		else
 			error("poly function must return mono-function type but got:"..tostring(nResult))
@@ -65,7 +65,7 @@ function SealPolyFunction:castToTypedFn(vContext:clazz.OperContext, vTypedFn:cla
 end
 
 function.pass SealPolyFunction:newStack(vNode:clazz.IBaseNode, vApplyStack:clazz.BaseStack):Ret(clazz.OpenStack)
-	return self._manager:getRuntime():DeduceStack(vNode, false, self, vApplyStack)
+	return self._manager:getRuntime():DeduceStack(vNode, self._lexBranchCase, self, vApplyStack)
 end
 
 return SealPolyFunction

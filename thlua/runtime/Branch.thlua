@@ -26,7 +26,6 @@ function:class(clazz.Branch) Branch.new(vStack:clazz.BaseStack, vVariableCase:cl
 		_nodeToSymbol={}@SymbolDict,
 		symbolToVariable={}@VariableDict,
 		_curCase=vVariableCase, -- case merged with prebranch
-		_headCase=vVariableCase, -- case merged in this branch
 	}, Branch)
 	if vPreBranch then
 		if vPreBranch:getStack() == vStack then
@@ -68,7 +67,6 @@ function Branch:SYMBOL_GET(vNode:node.Ident_use, vDefineNode:node.Ident_def, vAl
 	elseif ImmutVariable.is(nSymbol) then
 		return self:immutGet(nSymbolContext, nSymbol, vNode.notnil or false)
 	else
-		-- symbol is auto term
 		const nTerm = nSymbol:getRefineTerm()
 		if nTerm then
 			return self:immutGet(nSymbolContext, nTerm:attachImmutVariable(), vNode.notnil or false)
@@ -113,7 +111,6 @@ function Branch:mergeOneBranch(vContext:clazz.OperContext, vOneBranch:clazz.Bran
 	if vOneBranch:getStop() then
 		if vOtherCase then
 			self._curCase = self._curCase & vOtherCase
-			self._headCase = self._headCase & vOtherCase
 		end
 	else
 		const nSymbolToVariable = self.symbolToVariable
@@ -165,19 +162,17 @@ function Branch:mergeTwoBranch(vContext:clazz.OperContext, vTrueBranch:clazz.Bra
 	end
 	local nAndCase:OrNil(clazz.VariableCase)
 	if nFalseStop then
-		nAndCase = vTrueBranch._headCase
+		nAndCase = vTrueBranch:getCase()
 	elseif nTrueStop then
-		nAndCase = vFalseBranch._headCase
+		nAndCase = vFalseBranch:getCase()
 	end
 	if nAndCase then
 		self._curCase = self._curCase & nAndCase
-		self._headCase = self._headCase & nAndCase
 	end
 end
 
 function Branch:assertCase(vVariableCase:clazz.VariableCase)
 	self._curCase = self._curCase & vVariableCase
-	self._headCase = self._headCase & vVariableCase
 end
 
 function Branch:setStop()

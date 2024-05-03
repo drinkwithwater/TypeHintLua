@@ -54,7 +54,7 @@ FunctionBuilder.__index=FunctionBuilder
 function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vStack:clazz.BaseStack,
 	vNode:Union(node.Chunk, node.Function),
-	vUpState:clazz.LexCapture,
+	vUpState:clazz.LexBranchCase,
 	vInfo:clazz.FuncNewInfo,
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
@@ -64,7 +64,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_stack=vStack,
 		_manager=nManager,
 		_node=vNode,
-		_lexCapture=vUpState,
+		_lexBranchCase=vUpState,
 		_prefixHint=vPrefixHint,
 		_pass=vPrefixHint.attrSet.pass and true or false,
 		_parRetMaker=vParRetMaker,
@@ -141,7 +141,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 	assert(nNode.tag == "Function", nNode:toExc("node must be function here"))
 	const nPolyParInfo = self._polyParInfo
 	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder)):Ret(clazz.AutoFunction)
-		const nAutoFn = self._stack:newAutoFunction(nNode, self._lexCapture)
+		const nAutoFn = self._stack:newAutoFunction(nNode, self._lexBranchCase)
 		const nNewStack = nAutoFn:getBuildStack()
 		nAutoFn:initAsync(function()
 			const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
@@ -193,7 +193,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 	else
 		return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
 			return nFnMaker(vTupleBuilder)
-		end, nPolyParInfo, self._stack, function(vPolyFn, vArgTermTuple)
+		end, nPolyParInfo, self._lexBranchCase, function(vPolyFn, vArgTermTuple)
 			const nMakerStack = vPolyFn:newStack(self._node, self._stack)
 			const nDeduceTuple, nGenParam = self._parRetMaker(nMakerStack, false, {})
 			nGenParam(vArgTermTuple)
@@ -204,7 +204,7 @@ end
 
 function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 	if self._hasSuffixHint then
-		const nGuardFn = self._stack:newOpenFunction(self._node, self._lexCapture)
+		const nGuardFn = self._stack:newOpenFunction(self._node, self._lexBranchCase)
 		const nMakerStack = nGuardFn:newStack(self._node, self._stack)
 		local nSetted = false
 		const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nMakerStack, 0, {})
@@ -246,7 +246,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node, self._lexCapture):lateInitFromBuilder(self._polyParInfo, function(vContext, vPolyTuple, vTermTuple)
+		return self._stack:newOpenFunction(self._node, self._lexBranchCase):lateInitFromBuilder(self._polyParInfo, function(vContext, vPolyTuple, vTermTuple)
 			const ok, runRet, runErr = xpcall(function()
 				const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 				const nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {} @ List(clazz.USpaceAny)
@@ -360,7 +360,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			end
 			return nExtendsTable, nImplementsInterface
 		end
-		const nFactory = self._stack:newClassFactory(nNode, self._lexCapture)
+		const nFactory = self._stack:newClassFactory(nNode, self._lexBranchCase)
 		const nNewStack = nFactory:getBuildStack()
 		-- 1. build suffixhint from poly args
 		const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
@@ -400,7 +400,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	else
 		const nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
 			return nFnMaker(vTupleBuilder)
-		end, nPolyParInfo, self._stack)
+		end, nPolyParInfo, self._lexBranchCase)
 		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(vTupleBuilder)
 			const nFactory = nPolyFn:noCtxCastPoly(self._node, vTupleBuilder)
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
