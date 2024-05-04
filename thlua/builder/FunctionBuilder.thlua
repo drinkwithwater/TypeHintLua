@@ -76,7 +76,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	return self
 end
 
-function FunctionBuilder:_makeRetTuples(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(False):Ret(clazz.RetTuples)
+function FunctionBuilder:_makeRetTuples(vNewStack:clazz.BaseStack, vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(False):Ret(clazz.RetTuples)
 	const nRetBuilder:clazz.RetBuilder = RetBuilder.new(self._manager, self._node)
 	const ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
@@ -107,7 +107,7 @@ function FunctionBuilder:_makeRetTuples(vSuffixHint:clazz.TLongHintInfo(clazz.Fn
 			nRetBuilder:chainErr(self._node, vErrType)
 			return vHint
 		end,
-	}, self._stack:unpackPolyArgs())
+	}, vNewStack:unpackPolyArgs())
 	if not ok then
 		error(self._node:toExc(tostring(err)))
 	end
@@ -150,11 +150,11 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 			const nCastTypeFn = nAutoFn:pickCastTypeFn()
 			-- make par
 			const nCastArgs = nCastTypeFn and nCastTypeFn:getParTuple():makeTermTuple(nNewStack:inplaceOper())
-			const nParTermTuple = nGenParam(nCastArgs, self._stack:unpackPolyArgs())
+			const nParTermTuple = nGenParam(nCastArgs, nNewStack:unpackPolyArgs())
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			-- make ret
 			const nCastRet = nCastTypeFn and nCastTypeFn:getRetTuples()
-			const nHintRetTuples = self:_makeRetTuples(nSuffixHint)
+			const nHintRetTuples = self:_makeRetTuples(nNewStack, nSuffixHint)
 			if nHintRetTuples and nCastRet then
 				if not nCastRet:includeTuples(nHintRetTuples) then
 					nNewStack:inplaceOper():error("hint return not match when cast")
@@ -168,7 +168,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 					end
 					return nParTuple, nRetTuples
 				else
-					const nRetTermTuple, nErrType = nGenFunc(self._stack:unpackPolyArgs())
+					const nRetTermTuple, nErrType = nGenFunc(nNewStack:unpackPolyArgs())
 					const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 					if not nParTuple then
 						nNewStack:inplaceOper():error("auto parameter deduce failed")
@@ -240,19 +240,19 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 				nGuardFn:lateInitFromMapGuard(nMapObject)
 				return vHint
 			end,
-		}, self._stack:unpackPolyArgs())
+		}, nMakerStack:unpackPolyArgs())
 		if not ok then
 			error(Exception.new(tostring(err), self._node))
 		end
 		return nGuardFn
 	else
-		return self._stack:newOpenFunction(self._node, self._lexBranchCase):lateInitFromBuilder(self._polyParInfo, function(vContext, vPolyTuple, vTermTuple)
+		return self._stack:newOpenFunction(self._node, self._lexBranchCase):lateInitFromBuilder(self._polyParInfo, function(vStack, vPolyTuple, vTermTuple)
 			const ok, runRet, runErr = xpcall(function()
 				const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 				const nPolyArgList = vPolyTuple and vPolyTuple:getArgList() or {} @ List(clazz.USpaceAny)
-				const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vContext, nPolyArgNum, nPolyArgList)
-				nGenParam(vTermTuple, self._stack:unpackPolyArgs())
-				return nGenFunc(self._stack:unpackPolyArgs())
+				const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(vStack, nPolyArgNum, nPolyArgList)
+				nGenParam(vTermTuple, vStack:unpackPolyArgs())
+				return nGenFunc(vStack:unpackPolyArgs())
 			end, function(err:Any):Ret(clazz.Exception)
 				if Exception.is(err) then
 					return err
@@ -288,6 +288,8 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	const nRefer = assert(nReferOrNil, self._node:toExc("reference not setted when function:class"))
 	const nPolyParInfo = self._polyParInfo
 	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder)):Ret(clazz.ClassFactory)
+		const nFactory = self._stack:newClassFactory(nNode, self._lexBranchCase)
+		const nNewStack = nFactory:getBuildStack()
 		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface)
 			local nImplementsArg:OrNil(clazz.UMustType) = nil
 			local nExtendsArg:OrNil(clazz.UMustType) = nil
@@ -322,7 +324,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					error(self._node:toExc("mapguard can only be used with function.open"))
 					return vHint
 				end,
-			}, self._stack:unpackPolyArgs())
+			}, nNewStack:unpackPolyArgs())
 			if not ok then
 				error(Exception.new(tostring(err), self._node))
 			end
@@ -360,8 +362,6 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			end
 			return nExtendsTable, nImplementsInterface
 		end
-		const nFactory = self._stack:newClassFactory(nNode, self._lexBranchCase)
-		const nNewStack = nFactory:getBuildStack()
 		-- 1. build suffixhint from poly args
 		const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
 		const nPolyArgList:List(clazz.UAtomUnion) = vPolyTuple and vPolyTuple:buildPolyArgs() or {}
@@ -374,11 +374,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		-- 3. init factory
 		nFactory:initAsync(function()
 			const nClassTable = nFactory:waitClassTable()
-			const nParTermTuple = nGenParam(false, self._stack:unpackPolyArgs())
+			const nParTermTuple = nGenParam(false, nNewStack:unpackPolyArgs())
 			const nParTuple = nParTermTuple:checkTypeTuple()
 			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
-				nGenFunc(self._stack:unpackPolyArgs())
+				nGenFunc(nNewStack:unpackPolyArgs())
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
 				if not nParTuple then
 					nNewStack:inplaceOper():error("auto parameter deduce failed")
