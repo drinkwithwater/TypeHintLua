@@ -1,5 +1,4 @@
 
-const EasyMapCom = require "thlua.space.EasyMapCom"
 const Exception = require "thlua.Exception"
 const Node = require "thlua.code.Node"
 const type = type
@@ -31,8 +30,7 @@ function:class(clazz.LocalSpaceValue) SpaceValue.create(vRefer:clazz.NameReferen
 			if type(vKey) == "string" then
 				return vRefer:triggerReferChild(nNode, vKey @> String):getSpaceValue()
 			else
-				const nCom = vRefer:getComNowait()
-				assert(EasyMapCom.is(nCom), nNode:toExc("illegal indexing key"))
+				const nCom = vRefer:nowaitEasyMapCom(nNode)
 				return nCom:getValue(nNode, vKey)
 			end
 		end,
@@ -42,8 +40,7 @@ function:class(clazz.LocalSpaceValue) SpaceValue.create(vRefer:clazz.NameReferen
 				const nChild = vRefer:triggerReferChild(nNode, vKey @> String)
 				nChild:setAssignAsync(nNode, function() return vValue end)
 			else
-				const nCom = vRefer:getComNowait()
-				assert(EasyMapCom.is(nCom), nNode:toExc("illegal indexing key"))
+				const nCom = vRefer:nowaitEasyMapCom(nNode)
 				nCom:setValue(nNode, vKey, vValue)
 			end
 		end,
