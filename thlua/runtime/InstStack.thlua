@@ -374,8 +374,13 @@ function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(cla
 	return self:_nodeTerm(vNode, nTableType)
 end
 
-function InstStack:RUN_STAT(vNode:node.IAstNode, vStatFn:Fn():Dots(clazz.USpaceAny))
-	vStatFn(self:unpackPolyArgs())
+function InstStack:RUN_STAT(vNode:node.IAstNode, vStatFn:Fn():Dots(clazz.USpaceAny):Ret(clazz.USpaceAny))
+	const ret = vStatFn(self:unpackPolyArgs())
+	if ret == nil then
+		return self:_nodeTerm(vNode, self._manager.type.Nil)
+	else
+		return self:_nodeTerm(vNode, self._manager:easyToMustType(vNode, ret):checkAtomUnion())
+	end
 end
 
 function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)

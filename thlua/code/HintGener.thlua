@@ -292,12 +292,22 @@ local TagToVisiting:RealTraverser = {
 	HintSpace=function(self, node)
 		if node.kind == "ParenHintSpace" then
 			-- self:print("local block = function(self) ", node[1], " end block(self)\n")
-			return {
-				line = node.l,
-				self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
-					self:fixIHintSpace(node)
-				))
-			}
+			const inNode = node[1]
+			if inNode.tag == "Do" or inNode.tag == "Set" then
+				return {
+					line = node.l,
+					self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
+						self:fixIHintSpace(node)
+					))
+				}
+			else
+				return {
+					line = node.l,
+					self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
+						" return ", self:fixIHintSpace(node)
+					))
+				}
+			end
 		else
 			error("visit long space or short space in other function")
 			return {}
