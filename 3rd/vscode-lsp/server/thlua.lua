@@ -7003,6 +7003,9 @@ function ScheduleEvent:wait()
 end
 
 function ScheduleEvent:wakeup()
+	if self._task then
+		assert(self._scheduleManager:getTask() == self._task, "event must be waken up in it's own task")
+	end
 	local nWaitList = self._waitTaskList
 	if nWaitList then
 		self._waitTaskList = false
@@ -7015,6 +7018,10 @@ end
 
 function ScheduleEvent:getTask()
 	return self._task
+end
+
+function ScheduleEvent.is(v)
+	return getmetatable(v) == ScheduleEvent
 end
 
 return ScheduleEvent
@@ -7977,16 +7984,16 @@ function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict, vWhat)
 	   
 	local nIsInterface = vWhat == "interface"
 	local nIsOneOf = vWhat == "oneof"
-	local nUseAutoTable = getmetatable(vTable)
+	local nUseSealTable = getmetatable(vTable)
 	local nNewObject = nIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:buildInKeyAsync(vNode, function()
 		local nIndependentList = {}
 		local nFinalKeyTypeSet = self:HashableTypeSet()
 		local nFinalValueDict = {}   
-		if nUseAutoTable then
+		if nUseSealTable then
 			local nType = self:easyToMustType(vNode, vTable):checkAtomUnion()
-			if not AutoTable.is(nType) then
-				error(vNode:toExc("struct or interface can only take AutoTable or table without metatable as first arg"))
+			if not SealTable.is(nType) then
+				error(vNode:toExc("struct or interface can only take SealTable or table without metatable as first arg"))
 			end
 			nType:setLocked()
 			local nAutoDict = nType:getValueDict()
@@ -8028,7 +8035,7 @@ function TypeManager:_buildTypedObject(vNode, vTable, vMetaEventDict, vWhat)
 			::continue:: end
 		end
 		return nFinalKeyTypeSet, function(vKeyAtomUnion)
-			local nAutoNextKey = (nUseAutoTable or nIsOneOf) and vKeyAtomUnion or false
+			local nAutoNextKey = (nUseSealTable or nIsOneOf) and vKeyAtomUnion or false
 			if vMetaEventDict then
 				local nNewEventCom = self:makeMetaEventCom(nNewObject)
 				local nEventToType  = {}
@@ -13505,8 +13512,10 @@ end end
 do local _ENV = _ENV
 packages['thlua.space.EasyMapCom'] = function (...)
 
+local SpaceValue = require "thlua.space.SpaceValue"
 local AsyncTypeCom = require "thlua.space.AsyncTypeCom"
-local Exception = require "thlua.Exception"
+local TemplateCom = require "thlua.space.TemplateCom"
+local ScheduleEvent = require "thlua.manager.ScheduleEvent"
 local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
 local Node = require "thlua.code.Node"
@@ -13522,26 +13531,55 @@ EasyMapCom.__tostring=function(self)
 end
 
 function EasyMapCom:ctor(_, _)
-	self._atom2value = {}   
+	self._atom2value = {}     
 end
 
-function EasyMapCom:getValue(vNode, vKey)
+function EasyMapCom:_asyncBuild(vNode, vKey, vFunc )
 	local nTypeCom = self._manager:AsyncTypeCom(vNode)
 	nTypeCom:setSetAsync(vNode, function()
 		local nKeyMustType = self._manager:easyToMustType(vNode, vKey):checkAtomUnion()
-		       
 		local nTypeSet = self._manager:HashableTypeSet()
 		nKeyMustType:foreach(function(vAtomType)
-			local nCurTypeCom = self._atom2value[vAtomType]
-			if not nCurTypeCom then
-				nCurTypeCom = self._manager:AsyncTypeCom(vNode)
-				self._atom2value[vAtomType] = nCurTypeCom
+			local nCurValue = self._atom2value[vAtomType]
+			if not nCurValue then
+				local nEvent = self._manager:getScheduleManager():makeWildEvent()
+				self._atom2value[vAtomType] = nEvent
+				nEvent:wait()
+				nCurValue = self._atom2value[vAtomType]
+			elseif ScheduleEvent.is(nCurValue) then
+				nCurValue:wait()
+				nCurValue = self._atom2value[vAtomType]
 			end
-			nTypeSet:putSet(nCurTypeCom:getSetAwait())
+			if AsyncTypeCom.is(nCurValue) or TemplateCom.is(nCurValue) then
+				nTypeSet:putSet(vFunc(nCurValue):getSetAwait())
+			else
+				error(vNode:toExc("easymap's value must be type or template when get"))
+			end
 		end)
 		return nTypeSet
 	end)
 	return nTypeCom
+end
+
+function EasyMapCom:flatCall(vNode, vKey, ...)
+	local nTuple = self._manager:spacePack(vNode, ...)
+	return self:_asyncBuild(vNode, vKey, function(vCom)
+		if TemplateCom.is(vCom) then
+			return vCom:cacheCall(vNode, nTuple)
+		else
+			return vCom
+		end
+	end)
+end
+
+function EasyMapCom:getValue(vNode, vKey)
+	return self:_asyncBuild(vNode, vKey, function(vCom)
+		if AsyncTypeCom.is(vCom) then
+			return vCom
+		else
+			error(vNode:toExc("easymap's value, type expected here"))
+		end
+	end)
 end
 
 function EasyMapCom:setValue(vNode, vKey, vValue)
@@ -13549,14 +13587,22 @@ function EasyMapCom:setValue(vNode, vKey, vValue)
 	nTask:runAsync(function()
 		local nKeyMustType = self._manager:easyToMustType(vNode, vKey):checkAtomUnion()
 		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type when set"))
-		local nCurTypeCom = self._atom2value[nKeyMustType]
-		if not nCurTypeCom then
-			nCurTypeCom = self._manager:AsyncTypeCom(vNode)
-			self._atom2value[nKeyMustType] = nCurTypeCom
+		local nWaitEvent = self._atom2value[nKeyMustType]
+		if not nWaitEvent then
+			local nEvent = nTask:makeEvent()
+			self._atom2value[nKeyMustType] = nEvent
+			nWaitEvent = nEvent
+		elseif not ScheduleEvent.is(nWaitEvent) then
+			error(vNode:toExc("easymap set one key multi times"))
 		end
-		nCurTypeCom:setTypeAsync(vNode, function()
-			return self._manager:easyToMustType(vNode, vValue)
-		end)
+		local nRefer = SpaceValue.checkRefer(vValue)
+		local nCom = nRefer and nRefer:getComAwait() or vValue
+		if AsyncTypeCom.is(nCom) or TemplateCom.is(nCom) then
+			self._atom2value[nKeyMustType] = nCom
+			nWaitEvent:wakeup()
+		else
+			error(vNode:toExc("easymap's value must be type or template when set"))
+		end
 	end)
 end
 
@@ -13733,6 +13779,12 @@ function NameReference:getComNowait()
 	return self._com
 end
 
+function NameReference:nowaitEasyMapCom(vNode)
+	local nCom = self._com
+	assert(EasyMapCom.is(nCom), vNode:toExc("illegal indexing key"))
+	return nCom
+end
+
 function NameReference:getComAwait()
 	if not self._com then
 		self._assignComEvent:wait()
@@ -13821,7 +13873,7 @@ end
 
 function NameReference:triggerCall(vNode, ...)
 	local nCom = self._com
-	if BuiltinFnCom.is(nCom) then
+	if BuiltinFnCom.is(nCom) or EasyMapCom.is(nCom) then
 		return nCom:flatCall(vNode, ...)
 	end
 	local nTuple = self._manager:spacePack(vNode, ...)
@@ -13897,7 +13949,6 @@ end end
 do local _ENV = _ENV
 packages['thlua.space.SpaceValue'] = function (...)
 
-local EasyMapCom = require "thlua.space.EasyMapCom"
 local Exception = require "thlua.Exception"
 local Node = require "thlua.code.Node"
 local type = type
@@ -13929,8 +13980,7 @@ function SpaceValue.create(vRefer)
 			if type(vKey) == "string" then
 				return vRefer:triggerReferChild(nNode, vKey  ):getSpaceValue()
 			else
-				local nCom = vRefer:getComNowait()
-				assert(EasyMapCom.is(nCom), nNode:toExc("illegal indexing key"))
+				local nCom = vRefer:nowaitEasyMapCom(nNode)
 				return nCom:getValue(nNode, vKey)
 			end
 		end,
@@ -13940,8 +13990,7 @@ function SpaceValue.create(vRefer)
 				local nChild = vRefer:triggerReferChild(nNode, vKey  )
 				nChild:setAssignAsync(nNode, function() return vValue end)
 			else
-				local nCom = vRefer:getComNowait()
-				assert(EasyMapCom.is(nCom), nNode:toExc("illegal indexing key"))
+				local nCom = vRefer:nowaitEasyMapCom(nNode)
 				nCom:setValue(nNode, vKey, vValue)
 			end
 		end,
@@ -16721,7 +16770,6 @@ function OpenFunction:castPoly(vContext, vPolyTuple)
 	if nPolyWrapper then
 		return nPolyWrapper(vPolyTuple)
 	else
-		vContext:error("this open function can't cast poly")
 		return self
 	end
 end
@@ -17740,6 +17788,13 @@ function ClassTable:implInterface()
 end
 
 function ClassTable:ctxWait(vContext)
+	self._factory:waitTableBuild()
+end
+
+      
+             
+    
+function ClassTable:setLocked()
 	self._factory:waitTableBuild()
 end
 

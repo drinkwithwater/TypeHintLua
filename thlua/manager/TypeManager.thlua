@@ -398,16 +398,16 @@ function TypeManager:_buildTypedObject@<TWhat>(vNode:clazz.IBaseNode, vTable:cla
 	-- TODO check vMetaEventDict
 	const nIsInterface = vWhat == "interface"
 	const nIsOneOf = vWhat == "oneof"
-	const nUseAutoTable = getmetatable(vTable)
+	const nUseSealTable = getmetatable(vTable)
 	const nNewObject = nIsInterface and Interface.new(self, vNode) or Struct.new(self, vNode)
 	nNewObject:buildInKeyAsync(vNode, function()
 		local nIndependentList:List(clazz.UMustType) = {}
 		local nFinalKeyTypeSet = self:HashableTypeSet()
 		local nFinalValueDict = {} @ Dict(clazz.IAtomType, clazz.UMustType)
-		if nUseAutoTable then
+		if nUseSealTable then
 			const nType = self:easyToMustType(vNode, vTable):checkAtomUnion()
-			if not AutoTable.is(nType) then
-				error(vNode:toExc("struct or interface can only take AutoTable or table without metatable as first arg"))
+			if not SealTable.is(nType) then
+				error(vNode:toExc("struct or interface can only take SealTable or table without metatable as first arg"))
 			end
 			nType:setLocked()
 			const nAutoDict = nType:getValueDict()
@@ -449,7 +449,7 @@ function TypeManager:_buildTypedObject@<TWhat>(vNode:clazz.IBaseNode, vTable:cla
 			end
 		end
 		return nFinalKeyTypeSet, function(vKeyAtomUnion)
-			const nAutoNextKey = (nUseAutoTable or nIsOneOf) and vKeyAtomUnion or false
+			const nAutoNextKey = (nUseSealTable or nIsOneOf) and vKeyAtomUnion or false
 			if vMetaEventDict then
 				const nNewEventCom = self:makeMetaEventCom(nNewObject)
 				const nEventToType:Dict(String, clazz.UMustType) = {}
