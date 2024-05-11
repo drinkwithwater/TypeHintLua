@@ -13,7 +13,7 @@ const RefineTerm = require "thlua.term.RefineTerm"
 const VariableCase = require "thlua.term.VariableCase"
 const Exception = require "thlua.Exception"
 const Reference = require "thlua.space.NameReference"
-const Enum = require "thlua.Enum"
+const CodeKindEnum = require "thlua.code.CodeKindEnum"
 const LocalSymbol = require "thlua.term.LocalSymbol"
 const ImmutVariable = require "thlua.term.ImmutVariable"
 
@@ -416,7 +416,7 @@ end
 function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastKind:node.CastKindEnum, ...:clazz.USpaceAny):Ret(clazz.RefineTerm)
 	const nCastContext = self:newAssignContext(vNode)
 	-- TODO check cast valid
-	if vCastKind == Enum.CastKind_POLY then
+	if vCastKind == CodeKindEnum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
 		const nTupleBuilder = self._manager:spacePack(vNode, ...)
 		vTerm:foreach(function(vType, vVariableCase)
@@ -432,15 +432,15 @@ function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastK
 		const nDst = assert(..., "hint type can't be nil")
 		const nDstType = self._manager:easyToMustType(vNode, nDst):checkAtomUnion()
 		const nSrcType = vTerm:getType()
-		if vCastKind == Enum.CastKind_CONIL then
-			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), Enum.CastKind_CONIL)
-		elseif vCastKind == Enum.CastKind_COVAR then
-			nCastContext:includeAndCast(nDstType, nSrcType, Enum.CastKind_COVAR)
-		elseif vCastKind == Enum.CastKind_CONTRA then
+		if vCastKind == CodeKindEnum.CastKind_CONIL then
+			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), CodeKindEnum.CastKind_CONIL)
+		elseif vCastKind == CodeKindEnum.CastKind_COVAR then
+			nCastContext:includeAndCast(nDstType, nSrcType, CodeKindEnum.CastKind_COVAR)
+		elseif vCastKind == CodeKindEnum.CastKind_CONTRA then
 			if not (nSrcType:includeAll(nDstType) or nDstType:includeAll(nSrcType)) then
 				nCastContext:error("@> cast fail")
 			end
-		elseif vCastKind ~= Enum.CastKind_FORCE then
+		elseif vCastKind ~= CodeKindEnum.CastKind_FORCE then
 			vContext:error("unexcepted castkind:"..tostring(vCastKind))
 		end
 		return nCastContext:RefineTerm(nDstType)
@@ -544,7 +544,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
-	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
+	if not vTermOrNil and not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
 		nSymbolContext:warn("define a symbol without any type")
 	end
 	if vHintType ~= AutoFlag then
@@ -555,7 +555,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		if not nTermInHolder then
 			if vModify then
 				error(nSymbolContext:newException("auto variable can't be modified"))
-			elseif vKind == Enum.SymbolKind_LOCAL then
+			elseif vKind == CodeKindEnum.SymbolKind_LOCAL then
 				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
 			return nTopBranch:setSymbolByNode(vNode, nTerm)
@@ -563,7 +563,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		nTerm = nTermInHolder
 		const nFromType = nTerm:getType()
 		-- convert string literal to string, number literal to number, boolean literal to boolean
-		if vKind == Enum.SymbolKind_LOCAL and vAutoPrimitive then
+		if vKind == CodeKindEnum.SymbolKind_LOCAL and vAutoPrimitive then
 			const nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
 				nTerm = nSymbolContext:RefineTerm(nToType)

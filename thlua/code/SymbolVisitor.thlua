@@ -1,7 +1,7 @@
 
 const VisitorExtend = require "thlua.code.VisitorExtend"
 const Exception = require "thlua.Exception"
-const Enum = require "thlua.Enum"
+const CodeKindEnum = require "thlua.code.CodeKindEnum"
 
 (@do
 
@@ -75,7 +75,7 @@ local TagToVisiting:let.RealTraverser = {
 			nBlockNode = nSubNode
 		end
 		self:withScope(nBlockNode, nil, function()
-			self:symbolDefine(stm[1], Enum.SymbolKind_ITER)
+			self:symbolDefine(stm[1], CodeKindEnum.SymbolKind_ITER)
 			-- self:realVisit(stm[1])
 			-- TODO can't get block node's right type here, so assert this
 			self:realVisit(assert(nBlockNode))
@@ -90,7 +90,7 @@ local TagToVisiting:let.RealTraverser = {
 		end
 		self:withScope(nBlockNode, nil, function()
 			for i, name in ipairs(stm[1]) do
-				self:symbolDefine(name, Enum.SymbolKind_ITER)
+				self:symbolDefine(name, CodeKindEnum.SymbolKind_ITER)
 			end
 			self:realVisit(nBlockNode)
 		end)
@@ -128,7 +128,7 @@ local TagToVisiting:let.RealTraverser = {
 			local nParFullHint = true
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
-					self:symbolDefine(par, Enum.SymbolKind_PARAM)
+					self:symbolDefine(par, CodeKindEnum.SymbolKind_PARAM)
 					if not par.isHidden and not par.hintShort then
 						nParFullHint = false
 					end
@@ -174,7 +174,7 @@ local TagToVisiting:let.RealTraverser = {
 		self:realVisit(stm[2])
 		-- self:realVisit(nIdentList)
 		for i, name in ipairs(nIdentList) do
-			self:symbolDefine(name, stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
+			self:symbolDefine(name, stm.isConst and CodeKindEnum.SymbolKind_CONST or CodeKindEnum.SymbolKind_LOCAL)
 		end
 	end,
 	Set=function(self, stm)
@@ -188,7 +188,7 @@ local TagToVisiting:let.RealTraverser = {
 		self:rawVisit(stm)
 	end,
 	Localrec=function(self, stm)
-		self:symbolDefine(stm[1], stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
+		self:symbolDefine(stm[1], stm.isConst and CodeKindEnum.SymbolKind_CONST or CodeKindEnum.SymbolKind_LOCAL)
 		self:realVisit(stm[2])
 	end,
 	Dots=function(self, node)
@@ -208,7 +208,7 @@ local TagToVisiting:let.RealTraverser = {
 			chunk.hintSymbolTable = {}
 			chunk.hintSymbolTable.let=chunk.letNode
 			chunk.hintSymbolTable._ENV=chunk.hintEnvNode
-			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
+			self:symbolDefine(chunk[1], CodeKindEnum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
 				if name.tag == "Dots" then
 					chunk.symbol_dots = name
@@ -224,7 +224,7 @@ local TagToVisiting:let.RealTraverser = {
 	HintPolyParList=function(self, node)
 		self:reverseInHint(true)
 		for i=1, #node do
-			self:symbolDefine(node[i]!, Enum.SymbolKind_POLY)
+			self:symbolDefine(node[i]!, CodeKindEnum.SymbolKind_POLY)
 		end
 		self:reverseInHint(false)
 	end,
@@ -402,7 +402,7 @@ function SymbolVisitor:symbolUse(vIdentNode:node.Ident_use, vIsAssign:Boolean)
 		return
 	end
 	if vIsAssign then
-		if nDefineNode.symbolKind == Enum.SymbolKind_CONST then
+		if nDefineNode.symbolKind == CodeKindEnum.SymbolKind_CONST then
 			error(Exception.new("cannot assign to const variable '"..vIdentNode[1].."'", vIdentNode))
 		else
 			nDefineNode.symbolModify = true
