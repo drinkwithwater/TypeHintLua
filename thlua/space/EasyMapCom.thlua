@@ -5,7 +5,7 @@ const TemplateCom = require "thlua.space.TemplateCom"
 const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
-const Node = require "thlua.code.Node"
+const BaseReadyType = require "thlua.type.basic.BaseReadyType"
 const class = require "thlua.class"
 
 (@do
@@ -86,6 +86,13 @@ function EasyMapCom:setValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue
 		const nCom = nRefer and nRefer:getComAwait() or vValue
 		if AsyncTypeCom.is(nCom) or TemplateCom.is(nCom) then
 			self._atom2value[nKeyMustType] = nCom
+			nWaitEvent:wakeup()
+		elseif BaseReadyType.is(nCom) then
+			const nTypeCom = self._manager:AsyncTypeCom(vNode)
+			nTypeCom:setTypeAsync(vNode, function()
+				return nCom @? clazz.UAtomUnion
+			end)
+			self._atom2value[nKeyMustType] = nTypeCom
 			nWaitEvent:wakeup()
 		else
 			error(vNode:toExc("easymap's value must be type or template when set"))

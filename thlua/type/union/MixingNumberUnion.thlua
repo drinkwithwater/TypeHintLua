@@ -1,5 +1,6 @@
 
 const FloatLiteral = require "thlua.type.basic.FloatLiteral"
+const SubType = require "thlua.type.basic.SubType"
 const Number = require "thlua.type.basic.Number"
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 const IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
@@ -16,7 +17,8 @@ const MixingNumberUnion = class@<clazz.MixingNumberUnion, false>(BaseUnionType)
 
 function.open MixingNumberUnion:ctor(vTypeManager:clazz.TypeManager)
 	self._floatLiteralSet={} @Dict(clazz.FloatLiteral, True)
-	self._integerPart=false@OrFalse(clazz.Integer, clazz.IntegerLiteralUnion, clazz.IntegerLiteral)
+	self._numberSubTypeSet={} @Dict(clazz.SubType, True)
+	self._integerPart=false@OrFalse(clazz.Integer, clazz.IntegerLiteralUnion, clazz.IntegerLiteral, clazz.SubType)
 	self.bits=TYPE_BITS.NUMBER
 end
 
@@ -25,19 +27,21 @@ function MixingNumberUnion:putAwait(vType)
 		self._floatLiteralSet[vType] = true
 	elseif Integer.is(vType) then
 		self._integerPart = vType
-	elseif IntegerLiteral.is(vType) then
+	elseif SubType.is(vType) and Number.is(vType:getSuperType()) then
+		self._numberSubTypeSet[vType] = true
+	elseif IntegerLiteral.is(vType) or (SubType.is(vType) and Integer.is(vType:getSuperType())) then
 		const nIntegerPart = self._integerPart
 		if not nIntegerPart then
 			self._integerPart = vType
-		elseif IntegerLiteral.is(nIntegerPart) then
+		elseif Integer.is(nIntegerPart) or nIntegerPart == vType then
+			-- pass
+		elseif IntegerLiteral.is(nIntegerPart) or SubType.is(nIntegerPart) then
 			const nIntegerUnion = IntegerLiteralUnion.new(self._manager)
 			nIntegerUnion:putAwait(vType)
 			nIntegerUnion:putAwait(nIntegerPart)
 			self._integerPart = nIntegerUnion
 		elseif IntegerLiteralUnion.is(nIntegerPart) then
 			nIntegerPart:putAwait(vType)
-		elseif Integer.is(nIntegerPart) then
-			-- pass
 		else
 			error("set put wrong")
 		end
@@ -63,6 +67,12 @@ function MixingNumberUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 		else
 			return false
 		end
+	elseif SubType.is(vType) and Number.is(vType:getSuperType()) then
+		if self._numberSubTypeSet[vType] then
+			return vType
+		else
+			return false
+		end
 	else
 		const nIntegerPart = self._integerPart
 		return nIntegerPart and nIntegerPart:assumeIncludeAtom(vAssumeSet, vType, _)
@@ -72,6 +82,9 @@ end
 function MixingNumberUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._floatLiteralSet) do
 		vFunc(nLiteralType)
+	end
+	for nSubType, v in pairs(self._numberSubTypeSet) do
+		vFunc(nSubType)
 	end
 	const nIntegerPart = self._integerPart
 	if nIntegerPart then

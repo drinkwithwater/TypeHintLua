@@ -14,7 +14,7 @@ const Integer = require "thlua.type.basic.Integer"
 const BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 const Nil = require "thlua.type.basic.Nil"
 const Thread = require "thlua.type.basic.Thread"
-const Enum = require "thlua.type.basic.Enum"
+const SubType = require "thlua.type.basic.SubType"
 const LightUserdata = require "thlua.type.basic.LightUserdata"
 const Truth = require "thlua.type.basic.Truth"
 const TypedObject = require "thlua.type.object.TypedObject"
@@ -320,34 +320,19 @@ function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
 	return self:unifyAndBuild(nTypeSet)
 end
 
-function TypeManager:buildEnum(vNode:clazz.IBaseNode, vArgType:clazz.USpaceAny, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
+function TypeManager:buildSubType(vNode:clazz.IBaseNode, vArgType:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	const nAsyncTypeCom = self:AsyncTypeCom(vNode)
-	const nList:List(clazz.USpaceAny) = {...}
-	const nNum = select("#", ...)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
 		const nType = self:easyToMustType(vNode, vArgType):checkAtomUnion()
 		assert(BaseAtomType.is(nType) and not nType:isSingleton(), vNode:toExc("enum's supertype must be non-singleton atom type"))
-		const nEnum = Enum.new(self, vNode, nType)
-		for i=1, nNum do
-			nEnum:addType(vNode, nList[i])
+		if nType ~= self.type.String and nType ~= self.type.Number and nType ~= self.type.Integer then
+			error(vNode:toExc("current subtype only support integer, number, string. other type TODO"))
 		end
-		return nEnum
+		const nSubType = SubType.new(self, vNode, nType)
+		return nSubType
 	end)
 	return nAsyncTypeCom
 end
-
---[[function TypeManager:addEnum(vNode:clazz.IBaseNode, vEnumType:USpaceAny, ...:clazz.USpaceAny)
-	-- TODO, put this in an async thread
-	const nType = self._dirtyProcessor:easyToMustType(vNode, vEnumType)
-	local nEnumType = nType:checkAtomUnion()
-	assert(Enum.is(nEnumType), Exception.new("enum must take Enum as first arg", vNode))
-	local l = {...}
-	const nLen = select("#", ...)
-	for i=1, nLen do
-		local nItem = self._dirtyProcessor:easyToAllType(vNode, l[i])
-		nEnumType:addType(nItem)
-	end
-end]]
 
 function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	local l = {...}
@@ -374,7 +359,7 @@ function TypeManager:buildOneOf(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny):R
 	if type(vTable) == "table" then
 		return self:_buildTypedObject@<"oneof">(vNode, vTable @> clazz.USpaceDict, nil, "oneof")
 	else
-		error(vNode:toExc("interface must build with a table without meta"))
+		error(vNode:toExc("oneof must build with a table without meta"))
 	end
 end
 
@@ -390,7 +375,7 @@ function TypeManager:buildStruct(vNode:clazz.IBaseNode, vTable:clazz.USpaceAny, 
 	if type(vTable) == "table" then
 		return self:_buildTypedObject@<"struct">(vNode, vTable @> clazz.USpaceDict, vMetaEventDict @> OrNil(clazz.USpaceDict), "struct")
 	else
-		error(vNode:toExc("interface must build with a table without meta"))
+		error(vNode:toExc("struct must build with a table without meta"))
 	end
 end
 

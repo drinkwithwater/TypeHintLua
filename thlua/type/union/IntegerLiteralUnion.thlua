@@ -1,5 +1,6 @@
 
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
+const SubType = require "thlua.type.basic.SubType"
 const Integer = require "thlua.type.basic.Integer"
 const Number = require "thlua.type.basic.Number"
 const Truth = require "thlua.type.basic.Truth"
@@ -14,12 +15,15 @@ const IntegerLiteralUnion = class@<clazz.IntegerLiteralUnion, false>(BaseUnionTy
 
 function.open IntegerLiteralUnion:ctor(vTypeManager:clazz.TypeManager)
 	self._literalSet={} @Dict(clazz.IntegerLiteral, True)
+	self._subTypeSet={} @Dict(clazz.SubType, True)
 	self.bits=TYPE_BITS.NUMBER
 end
 
 function IntegerLiteralUnion:putAwait(vType)
 	if IntegerLiteral.is(vType) then
 		self._literalSet[vType] = true
+	elseif SubType.is(vType) and Integer.is(vType:getSuperType()) then
+		self._subTypeSet[vType] = true
 	else
 		error("set put wrong")
 	end
@@ -40,6 +44,12 @@ function IntegerLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 		else
 			return false
 		end
+	elseif SubType.is(vType) then
+		if self._subTypeSet[vType] then
+			return vType
+		else
+			return false
+		end
 	else
 		return false
 	end
@@ -48,6 +58,9 @@ end
 function IntegerLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
+	end
+	for nSubType, v in pairs(self._subTypeSet) do
+		vFunc(nSubType)
 	end
 end
 

@@ -5,6 +5,8 @@ const StringLiteralUnion = require "thlua.type.union.StringLiteralUnion"
 const MixingNumberUnion = require "thlua.type.union.MixingNumberUnion"
 const IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
 const FloatLiteral = require "thlua.type.basic.FloatLiteral"
+const SubType = require "thlua.type.basic.SubType"
+const Number = require "thlua.type.basic.Number"
 const ObjectUnion = require "thlua.type.union.ObjectUnion"
 const FuncUnion = require "thlua.type.union.FuncUnion"
 const ComplexUnion = require "thlua.type.union.ComplexUnion"
@@ -41,17 +43,14 @@ function:class(clazz.TypeCollection) TypeCollection.new(vManager:clazz.TypeManag
 		_manager=vManager,
 		_type=vManager.type,
 		_bitsToSet={} @ Dict(Integer, Dict(clazz.IAtomType,True)),
-		_metaSet={} @ Dict(Truth, True),
 		_bits=0 @ Integer,
  		_count=0 @ Integer,
 	}, TypeCollection)
 	return self
 end
 
-
 function TypeCollection:put(vAtomType:clazz.IAtomType)
 	const nBitsToSet = self._bitsToSet
-	const nMetaSet = self._metaSet
 	local nCurBits = self._bits
 	local nCurCount = self._count
 	nCurBits = nCurBits | vAtomType.bits
@@ -66,9 +65,6 @@ function TypeCollection:put(vAtomType:clazz.IAtomType)
 		nSet[vAtomType] = true
 		nCurCount = nCurCount + 1
 	end
-	-- 2. put into meta set
-	const nMeta = getmetatable(vAtomType)
-	nMetaSet[nMeta!] = true
 	self._bits = nCurBits
 	self._count = nCurCount
 end
@@ -82,12 +78,17 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 		if vSet[nNumberType] then
 			return nNumberType
 		end
-		const nHasFloatLiteral = self._metaSet[FloatLiteral.meta]
+		local nHasPartNumber = false
+		for nType,v in pairs(vSet) do
+			if FloatLiteral.is(nType) or (SubType.is(nType) and Number.is(nType:getSuperType())) then
+				nHasPartNumber = true
+			end
+		end
 		const nIntegerType = self._type.Integer
-		if vSet[nIntegerType] and not nHasFloatLiteral then
+		if vSet[nIntegerType] and not nHasPartNumber then
 			return nIntegerType
 		end
-		if nHasFloatLiteral then
+		if nHasPartNumber then
 			nUnionType = MixingNumberUnion.new(self._manager)
 		else
 			nUnionType = IntegerLiteralUnion.new(self._manager)

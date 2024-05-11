@@ -1,0 +1,63 @@
+
+const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require@<let.clazz> "thlua.class"
+
+const SubType = class@<clazz.SubType, false>(BaseAtomType)
+
+function.open SubType:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, vSuperType:clazz.IAtomType)
+    self._superType = vSuperType
+	self.bits = vSuperType.bits
+end
+
+function SubType:getSuperType():Ret(clazz.IAtomType)
+    return self._superType
+end
+
+function SubType:native_type()
+    const nSuperType = self._superType
+    if nSuperType:isUnion() then
+        return self._manager.type.String
+    else
+        return nSuperType:native_type()
+    end
+end
+
+function SubType:deEnum():Ret(clazz.IAtomType)
+	return self._superType
+end
+
+function SubType:assumeIncludeAtom(vAssumetSet, vType, _)
+    if self == vType then
+        return self
+    else
+        return false
+    end
+end
+
+function SubType:detailString(vCache, vVerbose)
+    return "SubType("..self._superType:detailString(vCache, vVerbose)..")"
+end
+
+function SubType:isSingleton()
+	return false
+end
+
+function SubType:native_getmetatable(vContext)
+	return self._superType:native_getmetatable(vContext)
+end
+
+function SubType:native_type()
+	return self._superType:native_type()
+end
+
+function SubType:meta_len(vContext)
+	return self._superType:meta_len(vContext)
+end
+
+function SubType:meta_get(vContext, vKeyType)
+	return self._superType:meta_get(vContext, vKeyType)
+end
+
+return SubType
