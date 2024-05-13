@@ -2995,12 +2995,12 @@ lpeg.setmaxstack(1000)
 lpeg.locale(lpeg)
 
 local ParseEnv = {}
-
 ParseEnv.__index = ParseEnv
 
 local Cenv = lpeg.Carg(1)
 local Cpos = lpeg.Cp()
 local cc = lpeg.Cc
+local select = select
 
 local function throw(vErr)
 	return lpeg.Cmt(Cenv, function(_, i, env)
@@ -3080,13 +3080,6 @@ local exprF = {
 		else
 			return {tag = "Op", pos=e1.pos, posEnd=e2.posEnd, op, e1, e2 }
 		end
-	end,
-	suffixed=function(e1, e2)
-		local e2tag = e2.tag
-		assert(e2tag == "HintAt" or e2tag == "Call" or e2tag == "Invoke" or e2tag == "Index", "exprSuffixed args exception")
-		e2.pos = e1.pos
-		e2[1] = e1
-		return e2
 	end,
 	hintAt=function(pos, e, hintShort, posEnd)
 		return { tag = "HintAt", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
@@ -3178,15 +3171,15 @@ local tagC=setmetatable({
 
 local hintC={
 	-- short hint
-	wrap=function(isStat, pattBegin, pattBody, pattEnd)
+	wrap=function(isParen, pattBegin, pattBody, pattEnd)
 		pattBody = Cenv * pattBody / function(env, ...) return {...} end
 		return Cenv *
 					Cpos * pattBegin * vv.HintBegin *
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env.codeBuilder:markDel(p1, p4, isStat)
-			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
+			env.codeBuilder:markDel(p1, p4, isParen)
+			local nHintSpace = env:buildIHintSpace(isParen and "ParenHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
 		end
@@ -3239,7 +3232,7 @@ local hintC={
 	-- string to be true or false
 	take=function(patt)
 		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
-			if not env.hinting then
+			if not env:hinting() then
 				env.codeBuilder:markDel(pos, posEnd)
 				return true
 			else
@@ -3258,100 +3251,33 @@ local function chainOp (pat, kwOrSymb, op1, ...)
   return lpeg.Cf(pat * lpeg.Cg(sep * pat)^0, exprF.binOp)
 end
 
-local function suffixedExprByPrimary(primaryExpr)
-	local notnil = lpeg.Cg(vv.NotnilHint*cc(true) + cc(false), "notnil")
-	local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
-	-- . index
-	local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
-	-- [] index
-	local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
-	-- invoke
-	local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * notnil * polyArgs * vvA.FuncArgs)
-	-- call
-	local call = tagC.Call(cc(false) * vv.FuncArgs)
-	-- atPoly
-	local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
-	-- add completion case
-	local succPatt = lpeg.Cf(primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
-	return lpeg.Cmt(Cpos*succPatt * Cenv * Cpos*((symb(".") + symb(":"))*cc(true) + cc(false)), function(_, _, pos, expr, env, posEnd, triggerCompletion)
-		if not triggerCompletion then
-			if expr.tag == "HintAt" then
-				local curExpr = expr[1]
-				while curExpr.tag == "HintAt" do
-					curExpr = curExpr[1]
-				end
-				-- if poly cast is after invoke or call, then add ()
-				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
-				end
-			end
-			return true, expr
-		else
-			local nNode = env:makeErrNode(posEnd+1, "syntax error : expect a name")
-			if not env.hinting then
-				nNode[2] = {
-					pos=pos,
-					capture=buildInjectChunk(expr),
-					script=env._subject:sub(pos, posEnd - 1),
-					traceList=env.scopeTraceList
-				}
-			else
-				local innerList = {expr}
-				local evalList = env:captureEvalByVisit(innerList)
-				local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, pos, pos, posEnd-1)
-				nNode[2] = {
-					pos=pos,
-					capture=buildHintInjectChunk(hintSpace),
-					script=env._subject:sub(pos, posEnd-1),
-					traceList=env.scopeTraceList
-				}
-			end
-			-- print("scope trace:", table.concat(env.scopeTraceList, ","))
-			error(nNode)
-			return false
-		end
-	end)
-end
-
 local G = lpeg.P { "TypeHintLua";
 	Shebang = lpeg.P("#") * (lpeg.P(1) - lpeg.P("\n"))^0 * lpeg.P("\n");
 	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
   -- hint & eval begin {{{
-	HintAssetNot = lpeg.Cmt(Cenv, function(_, i, env)
-		assert(not env.hinting, env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
+	HintAssertNot = lpeg.Cmt(Cenv, function(_, i, env)
+		env:assertNotHint(i, "syntax error : hint space only allow normal lua syntax")
 		return true
 	end);
 
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if not env.hinting then
-			env.hinting = true
-			return true
-		else
-			error(env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
-			return false
-		end
-	end);
+		env:assertHintBegin(i, "syntax error : hint space only allow normal lua syntax")
+		return true
+	 end);
 
-	HintEnd = lpeg.Cmt(Cenv, function(_, _, env)
-		assert(env.hinting, "hinting state error when lpeg parsing when success case")
-		env.hinting = false
+	HintEnd = lpeg.Cmt(Cenv, function(_, i, env)
+		env:assertHintEnd(i, "hinting state error when lpeg parsing when success case")
 		return true
 	end);
 
 	EvalBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if env.hinting then
-			env.hinting = false
-			return true
-		else
-			error(env:makeErrNode(i, "syntax error : eval syntax can only be used in hint"))
-			return false
-		end
+		env:assertEvalBegin(i, "syntax error : eval syntax can only be used in hint")
+		return true
 	end);
 
 	EvalEnd = lpeg.Cmt(Cenv, function(_, i, env)
-		assert(not env.hinting, "hinting state error when lpeg parsing when success case")
-		env.hinting = true
+		env:assertEvalEnd(i, "hinting state error when lpeg parsing when success case")
 		return true
 	end);
 
@@ -3371,14 +3297,9 @@ local G = lpeg.P { "TypeHintLua";
 
 	LongHint = hintC.long();
 
-	StatHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.DoStat + vv.ApplyOrAssignStat + vv.EvalExpr + throw("StatHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
+	ParenHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
+		vv.DoStat + vv.SuffixedExprOrAssignStat + vv.EvalExpr + throw("ParenHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
 	symbA(")"));
-
-	--[[HintTerm = suffixedExprByPrimary(
-		tagC.HintTerm(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
-		vv.PrimaryExpr
-	);]]
 
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
 		lpeg.Cg(tagC.Dots(symb"..."), "dots") +
@@ -3481,7 +3402,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 			return tableExpr
 		end
-		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
+		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssertNot * vv.NameChain
 		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
 			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
 			local listOrXmlList = {...}
@@ -3553,22 +3474,92 @@ local G = lpeg.P { "TypeHintLua";
 						tagC.True(kw"true") +
 						tagC.Nil(kw"nil") +
 						vv.FuncDef +
-						vv.SuffixedExpr +
+						lpeg.Cmt(Cenv*vv.SuffixedExpr, function(_, pos, env, suffixedExpr)
+							if suffixedExpr.tag == "HintSpace" then
+								env:assertNotRootLevel(pos, "paren hint can't be an expr outside hint space or eval space")
+							end
+							return true, suffixedExpr
+						end) +
 						tagC.Dots(symb"...") +
 						vv.EvalExpr
 					) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv/ exprF.hintExpr;
 
-	PrimaryExpr = vv.IdentUse + tagC.Paren(symb"(" * vv.Expr * symb")");
 
-	SuffixedExpr = suffixedExprByPrimary(vv.PrimaryExpr);
-
-	ApplyOrAssignStat = lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
-		if not ... then
-			if first.tag == "Call" or first.tag == "Invoke" then
-				return true, first
+	SuffixedExpr = (function()
+		local primaryExpr = vv.IdentUse + tagC.Paren(symb"(" * vv.Expr * symb")") + vv.ParenHintSpace
+		local notnil = lpeg.Cg(vv.NotnilHint*cc(true) + cc(false), "notnil")
+		local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
+		-- . index
+		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
+		-- [] index
+		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
+		-- invoke
+		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * notnil * polyArgs * vvA.FuncArgs)
+		-- call
+		local call = tagC.Call(cc(false) * vv.FuncArgs)
+		-- atPoly
+		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
+		-- add completion case
+		local succPatt = lpeg.Cmt(Cenv * primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, function(_, pos, env, primary, ...)
+				if ... then
+					if primary.tag == "HintSpace" then
+						env:assertNotRootLevel(pos, "paren hint can't take suffixed ouside hint space or eval space")
+					end
+					local firstExpr = primary
+					for i=1, select("#", ...) do
+						local secondExpr = select(i, ...)
+						secondExpr.pos = firstExpr.pos
+						secondExpr[1] = firstExpr
+						firstExpr = secondExpr
+					end
+					return true, firstExpr
+				else
+					return true, primary
+				end
+			end)
+		return lpeg.Cmt(Cpos*succPatt * Cenv * Cpos*((symb(".") + symb(":"))*cc(true) + cc(false)), function(_, _, pos, expr, env, posEnd, triggerCompletion)
+			if not triggerCompletion then
+				if expr.tag == "HintAt" then
+					local curExpr = expr[1]
+					while curExpr.tag == "HintAt" do
+						curExpr = curExpr[1]
+					end
+					-- if poly cast is after invoke or call, then add ()
+					if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
+						env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
+					end
+				end
+				return true, expr
 			else
-				error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
+				local nNode = env:makeErrNode(posEnd+1, "syntax error : expect a name")
+				if not env:hinting() then
+					nNode[2] = {
+						pos=pos,
+						capture=buildInjectChunk(expr),
+						script=env._subject:sub(pos, posEnd - 1),
+						traceList=env.scopeTraceList
+					}
+				else
+					local innerList = {expr}
+					local evalList = env:captureEvalByVisit(innerList)
+					local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, pos, pos, posEnd-1)
+					nNode[2] = {
+						pos=pos,
+						capture=buildHintInjectChunk(hintSpace),
+						script=env._subject:sub(pos, posEnd-1),
+						traceList=env.scopeTraceList
+					}
+				end
+				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
+				error(nNode)
+				return false
 			end
+		end)
+	end)();
+
+	SuffixedExprOrAssignStat = Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1 / function(env, first,...)
+		if not ... then
+			return first
 		else
 			local nVarList = {
 				tag="VarList", pos=first.pos, posEnd = 0,
@@ -3579,20 +3570,34 @@ local G = lpeg.P { "TypeHintLua";
 			nVarList.posEnd = nVarList[#nVarList].posEnd
 			for _, varExpr in ipairs(nVarList) do
 				if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
-					error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
+					error(env:makeErrNode(first.pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
 				elseif varExpr.notnil then
-					error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
+					error(env:makeErrNode(first.pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
 				end
 			end
-			return true, {
+			return {
 				tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
 				nVarList,nExprList
 			}
 		end
-	end);
+	end;
+
+	ApplyOrAssignStat = Cenv*vv.SuffixedExprOrAssignStat/function(env,exprOrStat)
+		if exprOrStat.tag == "Set" then
+			return exprOrStat
+		else
+			if exprOrStat.tag == "Call" or exprOrStat.tag == "Invoke" then
+				return exprOrStat
+			elseif exprOrStat.tag == "HintSpace" and exprOrStat.kind == "ParenHintSpace" then
+				return exprOrStat
+			else
+				error(env:makeErrNode(exprOrStat.pos, "syntax error: "..tostring(exprOrStat.tag).." expression can't be a single stat"))
+			end
+		end
+	end;
 
 	Block = lpeg.Cmt(Cenv, function(_,pos,env)
-		if not env.hinting then
+		if not env:hinting() then
 			--local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
 			--print(pos, nLineNum)
 			local len = #env.scopeTraceList
@@ -3603,7 +3608,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		return true
 	end) * tagC.Block(vv.Stat^0 * vv.RetStat^-1) * lpeg.Cmt(Cenv, function(_,_,env)
-		if not env.hinting then
+		if not env:hinting() then
 			env.scopeTraceList[#env.scopeTraceList] = nil
 		end
 		return true
@@ -3620,8 +3625,8 @@ local G = lpeg.P { "TypeHintLua";
 			vv.Block * kwA("end")*Cpos, function(_, _, env, pos, hintPolyParList, parList, hintSuffix, block, posEnd)
 				return true, {
 					tag="Function", pos=pos, posEnd=posEnd,
-					letNode=(not env.hinting) and parF.identDefLet(pos),
-					hintEnvNode=(not env.hinting) and parF.identDefENV(pos),
+					letNode=(not env:hinting()) and parF.identDefLet(pos),
+					hintEnvNode=(not env:hinting()) and parF.identDefENV(pos),
 					hintPolyParList=hintPolyParList,
 					hintSuffix=hintSuffix,
 					[1]=parList,[2]=block,
@@ -3643,7 +3648,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
-				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
+				Cenv * Cpos * kw"const" * vv.HintAssertNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
 					env.codeBuilder:markConst(pos)
 					t.isConst = true
 					return t
@@ -3690,7 +3695,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
-		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
+		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssertNot/function(env,node)
 			env.codeBuilder:continueMarkGoto(node.pos)
 			return node
 		end
@@ -3708,7 +3713,7 @@ local G = lpeg.P { "TypeHintLua";
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
-		return vv.StatHintSpace + LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
+		return LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
 				 vv.DoStat + Cenv*Cpos*vv.ApplyOrAssignStat / function(env, pos, stat)
 					env.codeBuilder:recordSuffixableStatPos(pos)
@@ -3790,12 +3795,12 @@ do
 	end
 
 	-- hint script to be delete
-	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsHintStat)
+	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsParenHint)
 		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			-- 1. save lua code
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
-			if vIsHintStat or self._statPosSet[vNextStartPos] then
+			if vIsParenHint or self._statPosSet[vNextStartPos] then
 				vContentList[#vContentList + 1] = ";"
 			end
 			-- 2. replace hint code with space and newline
@@ -3929,9 +3934,9 @@ end
 
 function ParseEnv.new(vSubject)
 	local self = setmetatable({
-		hinting = false,
 		scopeTraceList = {},
 		codeBuilder = nil,
+		_hintLevel = 0,
 		_subject = vSubject,
 	}, ParseEnv)
 	self.codeBuilder = CodeBuilder.new(vSubject, self)
@@ -3946,6 +3951,58 @@ function ParseEnv.new(vSubject)
 		self._astOrErr = nAstOrErr
 	end
 	return self
+end
+
+function ParseEnv:hinting()
+	return self._hintLevel % 2 == 1
+end
+
+function ParseEnv:assertNotRootLevel(vPos, vErrMsg)
+	if self._hintLevel == 0 then
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertNotHint(vPos, vErrMsg)
+	if self._hintLevel % 2 == 1 then
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertHintBegin(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 0 then
+		self._hintLevel = hintLevel + 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertHintEnd(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 1 then
+		self._hintLevel = hintLevel - 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertEvalBegin(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 1 then
+		self._hintLevel = hintLevel + 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertEvalEnd(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 0 then
+		self._hintLevel = hintLevel - 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
 end
 
 function ParseEnv:getAstOrErr()

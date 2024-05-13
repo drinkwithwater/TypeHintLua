@@ -12,29 +12,6 @@ local function require(path)
     end
 end
 
---thlua.Enum begin ==========(
-do local _ENV = _ENV
-packages['thlua.Enum'] = function (...)
-
-local Enum = {}
-
-Enum.SymbolKind_CONST = "const"
-Enum.SymbolKind_LOCAL = "local"
-Enum.SymbolKind_PARAM = "param"
-Enum.SymbolKind_ITER = "iter"
-Enum.SymbolKind_POLY = "poly"
-
-Enum.CastKind_COVAR = "@"
-Enum.CastKind_CONTRA = "@>"
-Enum.CastKind_CONIL = "@!"
-Enum.CastKind_FORCE = "@?"
-Enum.CastKind_POLY = "@<"
-
-return Enum
-
-end end
---thlua.Enum end ==========)
-
 --thlua.Exception begin ==========(
 do local _ENV = _ENV
 packages['thlua.Exception'] = function (...)
@@ -496,7 +473,6 @@ local AutoFlag = require "thlua.code.AutoFlag"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 local NameReference = require "thlua.space.NameReference"
 local Exception = require "thlua.Exception"
-local Enum = require "thlua.Enum"
 local Interface = require "thlua.type.object.Interface"
 local AutoHolder = require "thlua.auto.AutoHolder"
 local ClassFactory = require "thlua.type.func.ClassFactory"
@@ -1445,6 +1421,29 @@ return CodeEnv
 end end
 --thlua.code.CodeEnv end ==========)
 
+--thlua.code.CodeKindEnum begin ==========(
+do local _ENV = _ENV
+packages['thlua.code.CodeKindEnum'] = function (...)
+
+local CodeKindEnum = {}
+
+CodeKindEnum.SymbolKind_CONST = "const"
+CodeKindEnum.SymbolKind_LOCAL = "local"
+CodeKindEnum.SymbolKind_PARAM = "param"
+CodeKindEnum.SymbolKind_ITER = "iter"
+CodeKindEnum.SymbolKind_POLY = "poly"
+
+CodeKindEnum.CastKind_COVAR = "@"
+CodeKindEnum.CastKind_CONTRA = "@>"
+CodeKindEnum.CastKind_CONIL = "@!"
+CodeKindEnum.CastKind_FORCE = "@?"
+CodeKindEnum.CastKind_POLY = "@<"
+
+return CodeKindEnum
+
+end end
+--thlua.code.CodeKindEnum end ==========)
+
 --thlua.code.HintGener begin ==========(
 do local _ENV = _ENV
 packages['thlua.code.HintGener'] = function (...)
@@ -1740,14 +1739,26 @@ local TagToVisiting = {
 		)
 	end,
 	HintSpace=function(self, node)
-		if node.kind == "StatHintSpace" then
+		if node.kind == "ParenHintSpace" then
 			         
-			return {
-				line = node.l,
-				self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
-					self:fixIHintSpace(node)
-				))
-			}
+			local inNode = node[1]
+			if inNode.tag == "Do" or inNode.tag == "Set" then
+				return {
+					line = node.l,
+					self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
+						self:fixIHintSpace(node)
+					))
+				}
+			else
+				return {
+					line = node.l,
+					self:stkWrap(node).RUN_STAT(self:fnWrap("...")(
+						" local ____ret=",
+						self:fixIHintSpace(node),
+						" return ____ret "
+					))
+				}
+			end
 		else
 			error("visit long space or short space in other function")
 			return {}
@@ -2340,7 +2351,7 @@ do local _ENV = _ENV
 packages['thlua.code.Node'] = function (...)
 
 
-local Enum = require "thlua.Enum"
+local CodeKindEnum = require "thlua.code.CodeKindEnum"
 local Exception = require "thlua.Exception"
 
 ;
@@ -2456,7 +2467,7 @@ local Exception = require "thlua.Exception"
 
   
 	
-	    
+	     
  
 
     
@@ -2797,7 +2808,6 @@ local Node = {}
 	
 
 
-
 Node.__index=Node
 
 function Node.__tostring(self)
@@ -2904,12 +2914,12 @@ lpeg.setmaxstack(1000)
 lpeg.locale(lpeg)
 
 local ParseEnv = {}
-
 ParseEnv.__index = ParseEnv
 
 local Cenv = lpeg.Carg(1)
 local Cpos = lpeg.Cp()
 local cc = lpeg.Cc
+local select = select
 
 local function throw(vErr)
 	return lpeg.Cmt(Cenv, function(_, i, env)
@@ -2989,13 +2999,6 @@ local exprF = {
 		else
 			return {tag = "Op", pos=e1.pos, posEnd=e2.posEnd, op, e1, e2 }
 		end
-	end,
-	suffixed=function(e1, e2)
-		local e2tag = e2.tag
-		assert(e2tag == "HintAt" or e2tag == "Call" or e2tag == "Invoke" or e2tag == "Index", "exprSuffixed args exception")
-		e2.pos = e1.pos
-		e2[1] = e1
-		return e2
 	end,
 	hintAt=function(pos, e, hintShort, posEnd)
 		return { tag = "HintAt", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
@@ -3087,15 +3090,15 @@ local tagC=setmetatable({
 
 local hintC={
 	-- short hint
-	wrap=function(isStat, pattBegin, pattBody, pattEnd)
+	wrap=function(isParen, pattBegin, pattBody, pattEnd)
 		pattBody = Cenv * pattBody / function(env, ...) return {...} end
 		return Cenv *
 					Cpos * pattBegin * vv.HintBegin *
 					Cpos * pattBody * vv.HintEnd *
 					Cpos * (pattEnd and pattEnd * Cpos or Cpos) / function(env,p1,castKind,p2,innerList,p3,p4)
 			local evalList = env:captureEvalByVisit(innerList)
-			env.codeBuilder:markDel(p1, p4, isStat)
-			local nHintSpace = env:buildIHintSpace(isStat and "StatHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
+			env.codeBuilder:markDel(p1, p4, isParen)
+			local nHintSpace = env:buildIHintSpace(isParen and "ParenHintSpace" or "ShortHintSpace", innerList, evalList, p1, p2, p3-1)
 			nHintSpace.castKind = castKind
 			return nHintSpace
 		end
@@ -3148,7 +3151,7 @@ local hintC={
 	-- string to be true or false
 	take=function(patt)
 		return lpeg.Cmt(Cenv*Cpos*patt*Cpos, function(_, i, env, pos, posEnd)
-			if not env.hinting then
+			if not env:hinting() then
 				env.codeBuilder:markDel(pos, posEnd)
 				return true
 			else
@@ -3167,100 +3170,33 @@ local function chainOp (pat, kwOrSymb, op1, ...)
   return lpeg.Cf(pat * lpeg.Cg(sep * pat)^0, exprF.binOp)
 end
 
-local function suffixedExprByPrimary(primaryExpr)
-	local notnil = lpeg.Cg(vv.NotnilHint*cc(true) + cc(false), "notnil")
-	local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
-	-- . index
-	local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
-	-- [] index
-	local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
-	-- invoke
-	local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * notnil * polyArgs * vvA.FuncArgs)
-	-- call
-	local call = tagC.Call(cc(false) * vv.FuncArgs)
-	-- atPoly
-	local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
-	-- add completion case
-	local succPatt = lpeg.Cf(primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, exprF.suffixed);
-	return lpeg.Cmt(Cpos*succPatt * Cenv * Cpos*((symb(".") + symb(":"))*cc(true) + cc(false)), function(_, _, pos, expr, env, posEnd, triggerCompletion)
-		if not triggerCompletion then
-			if expr.tag == "HintAt" then
-				local curExpr = expr[1]
-				while curExpr.tag == "HintAt" do
-					curExpr = curExpr[1]
-				end
-				-- if poly cast is after invoke or call, then add ()
-				if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
-					env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
-				end
-			end
-			return true, expr
-		else
-			local nNode = env:makeErrNode(posEnd+1, "syntax error : expect a name")
-			if not env.hinting then
-				nNode[2] = {
-					pos=pos,
-					capture=buildInjectChunk(expr),
-					script=env._subject:sub(pos, posEnd - 1),
-					traceList=env.scopeTraceList
-				}
-			else
-				local innerList = {expr}
-				local evalList = env:captureEvalByVisit(innerList)
-				local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, pos, pos, posEnd-1)
-				nNode[2] = {
-					pos=pos,
-					capture=buildHintInjectChunk(hintSpace),
-					script=env._subject:sub(pos, posEnd-1),
-					traceList=env.scopeTraceList
-				}
-			end
-			-- print("scope trace:", table.concat(env.scopeTraceList, ","))
-			error(nNode)
-			return false
-		end
-	end)
-end
-
 local G = lpeg.P { "TypeHintLua";
 	Shebang = lpeg.P("#") * (lpeg.P(1) - lpeg.P("\n"))^0 * lpeg.P("\n");
 	TypeHintLua = vv.Shebang^-1 * vv.Chunk * (lpeg.P(-1) + throw("invalid chunk"));
 
   -- hint & eval begin {{{
-	HintAssetNot = lpeg.Cmt(Cenv, function(_, i, env)
-		assert(not env.hinting, env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
+	HintAssertNot = lpeg.Cmt(Cenv, function(_, i, env)
+		env:assertNotHint(i, "syntax error : hint space only allow normal lua syntax")
 		return true
 	end);
 
 	HintBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if not env.hinting then
-			env.hinting = true
-			return true
-		else
-			error(env:makeErrNode(i, "syntax error : hint space only allow normal lua syntax"))
-			return false
-		end
-	end);
+		env:assertHintBegin(i, "syntax error : hint space only allow normal lua syntax")
+		return true
+	 end);
 
-	HintEnd = lpeg.Cmt(Cenv, function(_, _, env)
-		assert(env.hinting, "hinting state error when lpeg parsing when success case")
-		env.hinting = false
+	HintEnd = lpeg.Cmt(Cenv, function(_, i, env)
+		env:assertHintEnd(i, "hinting state error when lpeg parsing when success case")
 		return true
 	end);
 
 	EvalBegin = lpeg.Cmt(Cenv, function(_, i, env)
-		if env.hinting then
-			env.hinting = false
-			return true
-		else
-			error(env:makeErrNode(i, "syntax error : eval syntax can only be used in hint"))
-			return false
-		end
+		env:assertEvalBegin(i, "syntax error : eval syntax can only be used in hint")
+		return true
 	end);
 
 	EvalEnd = lpeg.Cmt(Cenv, function(_, i, env)
-		assert(not env.hinting, "hinting state error when lpeg parsing when success case")
-		env.hinting = true
+		env:assertEvalEnd(i, "hinting state error when lpeg parsing when success case")
 		return true
 	end);
 
@@ -3280,14 +3216,9 @@ local G = lpeg.P { "TypeHintLua";
 
 	LongHint = hintC.long();
 
-	StatHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.DoStat + vv.ApplyOrAssignStat + vv.EvalExpr + throw("StatHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
+	ParenHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
+		vv.DoStat + vv.SuffixedExprOrAssignStat + vv.EvalExpr + throw("ParenHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
 	symbA(")"));
-
-	--[[HintTerm = suffixedExprByPrimary(
-		tagC.HintTerm(hintC.wrap(false, symb("(@") * cc(false), vv.EvalExpr + vv.SuffixedExpr, symbA(")"))) +
-		vv.PrimaryExpr
-	);]]
 
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
 		lpeg.Cg(tagC.Dots(symb"..."), "dots") +
@@ -3390,7 +3321,7 @@ local G = lpeg.P { "TypeHintLua";
 			end
 			return tableExpr
 		end
-		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssetNot * vv.NameChain
+		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssertNot * vv.NameChain
 		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
 			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
 			local listOrXmlList = {...}
@@ -3462,22 +3393,92 @@ local G = lpeg.P { "TypeHintLua";
 						tagC.True(kw"true") +
 						tagC.Nil(kw"nil") +
 						vv.FuncDef +
-						vv.SuffixedExpr +
+						lpeg.Cmt(Cenv*vv.SuffixedExpr, function(_, pos, env, suffixedExpr)
+							if suffixedExpr.tag == "HintSpace" then
+								env:assertNotRootLevel(pos, "paren hint can't be an expr outside hint space or eval space")
+							end
+							return true, suffixedExpr
+						end) +
 						tagC.Dots(symb"...") +
 						vv.EvalExpr
 					) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv/ exprF.hintExpr;
 
-	PrimaryExpr = vv.IdentUse + tagC.Paren(symb"(" * vv.Expr * symb")");
 
-	SuffixedExpr = suffixedExprByPrimary(vv.PrimaryExpr);
-
-	ApplyOrAssignStat = lpeg.Cmt(Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1, function(_,pos,env,first,...)
-		if not ... then
-			if first.tag == "Call" or first.tag == "Invoke" then
-				return true, first
+	SuffixedExpr = (function()
+		local primaryExpr = vv.IdentUse + tagC.Paren(symb"(" * vv.Expr * symb")") + vv.ParenHintSpace
+		local notnil = lpeg.Cg(vv.NotnilHint*cc(true) + cc(false), "notnil")
+		local polyArgs = lpeg.Cg(vv.AtPolyHint + cc(false), "hintPolyArgs")
+		-- . index
+		local index1 = tagC.Index(cc(false) * symb(".") * tagC.String(vv.Name) * notnil)
+		-- [] index
+		local index2 = tagC.Index(cc(false) * symb("[") * vvA.Expr * symbA("]") * notnil)
+		-- invoke
+		local invoke = tagC.Invoke(cc(false) * symb(":") * tagC.String(vv.Name) * notnil * polyArgs * vvA.FuncArgs)
+		-- call
+		local call = tagC.Call(cc(false) * vv.FuncArgs)
+		-- atPoly
+		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
+		-- add completion case
+		local succPatt = lpeg.Cmt(Cenv * primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, function(_, pos, env, primary, ...)
+				if ... then
+					if primary.tag == "HintSpace" then
+						env:assertNotRootLevel(pos, "paren hint can't take suffixed ouside hint space or eval space")
+					end
+					local firstExpr = primary
+					for i=1, select("#", ...) do
+						local secondExpr = select(i, ...)
+						secondExpr.pos = firstExpr.pos
+						secondExpr[1] = firstExpr
+						firstExpr = secondExpr
+					end
+					return true, firstExpr
+				else
+					return true, primary
+				end
+			end)
+		return lpeg.Cmt(Cpos*succPatt * Cenv * Cpos*((symb(".") + symb(":"))*cc(true) + cc(false)), function(_, _, pos, expr, env, posEnd, triggerCompletion)
+			if not triggerCompletion then
+				if expr.tag == "HintAt" then
+					local curExpr = expr[1]
+					while curExpr.tag == "HintAt" do
+						curExpr = curExpr[1]
+					end
+					-- if poly cast is after invoke or call, then add ()
+					if curExpr.tag == "Invoke" or curExpr.tag == "Call" then
+						env.codeBuilder:markParenWrap(pos, curExpr.posEnd-1)
+					end
+				end
+				return true, expr
 			else
-				error(env:makeErrNode(pos, "syntax error: "..tostring(first.tag).." expression can't be a single stat"))
+				local nNode = env:makeErrNode(posEnd+1, "syntax error : expect a name")
+				if not env:hinting() then
+					nNode[2] = {
+						pos=pos,
+						capture=buildInjectChunk(expr),
+						script=env._subject:sub(pos, posEnd - 1),
+						traceList=env.scopeTraceList
+					}
+				else
+					local innerList = {expr}
+					local evalList = env:captureEvalByVisit(innerList)
+					local hintSpace = env:buildIHintSpace("ShortHintSpace", innerList, evalList, pos, pos, posEnd-1)
+					nNode[2] = {
+						pos=pos,
+						capture=buildHintInjectChunk(hintSpace),
+						script=env._subject:sub(pos, posEnd-1),
+						traceList=env.scopeTraceList
+					}
+				end
+				-- print("scope trace:", table.concat(env.scopeTraceList, ","))
+				error(nNode)
+				return false
 			end
+		end)
+	end)();
+
+	SuffixedExprOrAssignStat = Cenv*vv.SuffixedExpr * ((symb(",") * vv.SuffixedExpr) ^ 0 * symb("=") * vv.ExprList)^-1 / function(env, first,...)
+		if not ... then
+			return first
 		else
 			local nVarList = {
 				tag="VarList", pos=first.pos, posEnd = 0,
@@ -3488,20 +3489,34 @@ local G = lpeg.P { "TypeHintLua";
 			nVarList.posEnd = nVarList[#nVarList].posEnd
 			for _, varExpr in ipairs(nVarList) do
 				if varExpr.tag ~= "Ident" and varExpr.tag ~= "Index" then
-					error(env:makeErrNode(pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
+					error(env:makeErrNode(first.pos, "syntax error: only identify or index can be left-hand-side in assign statement"))
 				elseif varExpr.notnil then
-					error(env:makeErrNode(pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
+					error(env:makeErrNode(first.pos, "syntax error: notnil can't be used on left-hand-side in assign statement"))
 				end
 			end
-			return true, {
+			return {
 				tag="Set", pos=first.pos, posEnd=nExprList.posEnd,
 				nVarList,nExprList
 			}
 		end
-	end);
+	end;
+
+	ApplyOrAssignStat = Cenv*vv.SuffixedExprOrAssignStat/function(env,exprOrStat)
+		if exprOrStat.tag == "Set" then
+			return exprOrStat
+		else
+			if exprOrStat.tag == "Call" or exprOrStat.tag == "Invoke" then
+				return exprOrStat
+			elseif exprOrStat.tag == "HintSpace" and exprOrStat.kind == "ParenHintSpace" then
+				return exprOrStat
+			else
+				error(env:makeErrNode(exprOrStat.pos, "syntax error: "..tostring(exprOrStat.tag).." expression can't be a single stat"))
+			end
+		end
+	end;
 
 	Block = lpeg.Cmt(Cenv, function(_,pos,env)
-		if not env.hinting then
+		if not env:hinting() then
 			--local nLineNum = select(2, env._subject:sub(1, pos):gsub('\n', '\n'))
 			--print(pos, nLineNum)
 			local len = #env.scopeTraceList
@@ -3512,7 +3527,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		return true
 	end) * tagC.Block(vv.Stat^0 * vv.RetStat^-1) * lpeg.Cmt(Cenv, function(_,_,env)
-		if not env.hinting then
+		if not env:hinting() then
 			env.scopeTraceList[#env.scopeTraceList] = nil
 		end
 		return true
@@ -3529,8 +3544,8 @@ local G = lpeg.P { "TypeHintLua";
 			vv.Block * kwA("end")*Cpos, function(_, _, env, pos, hintPolyParList, parList, hintSuffix, block, posEnd)
 				return true, {
 					tag="Function", pos=pos, posEnd=posEnd,
-					letNode=(not env.hinting) and parF.identDefLet(pos),
-					hintEnvNode=(not env.hinting) and parF.identDefENV(pos),
+					letNode=(not env:hinting()) and parF.identDefLet(pos),
+					hintEnvNode=(not env:hinting()) and parF.identDefENV(pos),
 					hintPolyParList=hintPolyParList,
 					hintSuffix=hintSuffix,
 					[1]=parList,[2]=block,
@@ -3552,7 +3567,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LocalAssign = tagC.Local(vv.LocalIdentList * (symb"=" * vvA.ExprList + tagC.ExprList()))
 		local LocalStat = kw"local" * (LocalFunc + LocalAssign + throw("wrong local-statement")) +
-				Cenv * Cpos * kw"const" * vv.HintAssetNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
+				Cenv * Cpos * kw"const" * vv.HintAssertNot * (LocalFunc + LocalAssign + throw("wrong const-statement")) / function(env, pos, t)
 					env.codeBuilder:markConst(pos)
 					t.isConst = true
 					return t
@@ -3599,7 +3614,7 @@ local G = lpeg.P { "TypeHintLua";
 		end
 		local LabelStat = tagC.Label(symb"::" * vv.Name * symb"::")
 		local BreakStat = tagC.Break(kw"break")
-		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssetNot/function(env,node)
+		local ContinueStat = Cenv*tagC.Continue(kw"continue")*vv.HintAssertNot/function(env,node)
 			env.codeBuilder:continueMarkGoto(node.pos)
 			return node
 		end
@@ -3617,7 +3632,7 @@ local G = lpeg.P { "TypeHintLua";
 			return kw("for") * (ForNum + ForIn + throw("wrong for-statement")) * kwA"end" * Cenv / loopMark
 		end)()
 		local BlockEnd = lpeg.P("return") + "end" + "elseif" + "else" + "until" + lpeg.P(-1)
-		return vv.StatHintSpace + LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
+		return LocalStat + FuncStat + LabelStat + BreakStat + GoToStat + ContinueStat +
 				 RepeatStat + ForStat + IfStat + WhileStat +
 				 vv.DoStat + Cenv*Cpos*vv.ApplyOrAssignStat / function(env, pos, stat)
 					env.codeBuilder:recordSuffixableStatPos(pos)
@@ -3699,12 +3714,12 @@ do
 	end
 
 	-- hint script to be delete
-	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsHintStat)
+	function CodeBuilder:markDel(vStartPos, vNextStartPos, vIsParenHint)
 		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
 			-- 1. save lua code
 			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
 			vContentList[#vContentList + 1] = nLuaCode
-			if vIsHintStat or self._statPosSet[vNextStartPos] then
+			if vIsParenHint or self._statPosSet[vNextStartPos] then
 				vContentList[#vContentList + 1] = ";"
 			end
 			-- 2. replace hint code with space and newline
@@ -3838,9 +3853,9 @@ end
 
 function ParseEnv.new(vSubject)
 	local self = setmetatable({
-		hinting = false,
 		scopeTraceList = {},
 		codeBuilder = nil,
+		_hintLevel = 0,
 		_subject = vSubject,
 	}, ParseEnv)
 	self.codeBuilder = CodeBuilder.new(vSubject, self)
@@ -3855,6 +3870,58 @@ function ParseEnv.new(vSubject)
 		self._astOrErr = nAstOrErr
 	end
 	return self
+end
+
+function ParseEnv:hinting()
+	return self._hintLevel % 2 == 1
+end
+
+function ParseEnv:assertNotRootLevel(vPos, vErrMsg)
+	if self._hintLevel == 0 then
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertNotHint(vPos, vErrMsg)
+	if self._hintLevel % 2 == 1 then
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertHintBegin(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 0 then
+		self._hintLevel = hintLevel + 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertHintEnd(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 1 then
+		self._hintLevel = hintLevel - 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertEvalBegin(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 1 then
+		self._hintLevel = hintLevel + 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
+end
+
+function ParseEnv:assertEvalEnd(vPos, vErrMsg)
+	local hintLevel = self._hintLevel
+	if hintLevel % 2 == 0 then
+		self._hintLevel = hintLevel - 1
+	else
+		error(self:makeErrNode(vPos, vErrMsg))
+	end
 end
 
 function ParseEnv:getAstOrErr()
@@ -4273,7 +4340,7 @@ packages['thlua.code.SymbolVisitor'] = function (...)
 
 local VisitorExtend = require "thlua.code.VisitorExtend"
 local Exception = require "thlua.Exception"
-local Enum = require "thlua.Enum"
+local CodeKindEnum = require "thlua.code.CodeKindEnum"
 
 ;
 
@@ -4347,7 +4414,7 @@ local TagToVisiting = {
 			nBlockNode = nSubNode
 		end
 		self:withScope(nBlockNode, nil, function()
-			self:symbolDefine(stm[1], Enum.SymbolKind_ITER)
+			self:symbolDefine(stm[1], CodeKindEnum.SymbolKind_ITER)
 			 
 			           
 			self:realVisit(assert(nBlockNode))
@@ -4362,7 +4429,7 @@ local TagToVisiting = {
 		end
 		self:withScope(nBlockNode, nil, function()
 			for i, name in ipairs(stm[1]) do
-				self:symbolDefine(name, Enum.SymbolKind_ITER)
+				self:symbolDefine(name, CodeKindEnum.SymbolKind_ITER)
 			::continue:: end
 			self:realVisit(nBlockNode)
 		end)
@@ -4400,7 +4467,7 @@ local TagToVisiting = {
 			local nParFullHint = true
 			for i, par in ipairs(func[1]) do
 				if par.tag == "Ident" then
-					self:symbolDefine(par, Enum.SymbolKind_PARAM)
+					self:symbolDefine(par, CodeKindEnum.SymbolKind_PARAM)
 					if not par.isHidden and not par.hintShort then
 						nParFullHint = false
 					end
@@ -4446,7 +4513,7 @@ local TagToVisiting = {
 		self:realVisit(stm[2])
 		 
 		for i, name in ipairs(nIdentList) do
-			self:symbolDefine(name, stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
+			self:symbolDefine(name, stm.isConst and CodeKindEnum.SymbolKind_CONST or CodeKindEnum.SymbolKind_LOCAL)
 		::continue:: end
 	end,
 	Set=function(self, stm)
@@ -4460,7 +4527,7 @@ local TagToVisiting = {
 		self:rawVisit(stm)
 	end,
 	Localrec=function(self, stm)
-		self:symbolDefine(stm[1], stm.isConst and Enum.SymbolKind_CONST or Enum.SymbolKind_LOCAL)
+		self:symbolDefine(stm[1], stm.isConst and CodeKindEnum.SymbolKind_CONST or CodeKindEnum.SymbolKind_LOCAL)
 		self:realVisit(stm[2])
 	end,
 	Dots=function(self, node)
@@ -4480,7 +4547,7 @@ local TagToVisiting = {
 			chunk.hintSymbolTable = {}
 			chunk.hintSymbolTable.let=chunk.letNode
 			chunk.hintSymbolTable._ENV=chunk.hintEnvNode
-			self:symbolDefine(chunk[1], Enum.SymbolKind_LOCAL)
+			self:symbolDefine(chunk[1], CodeKindEnum.SymbolKind_LOCAL)
 			for k, name in ipairs(chunk[2]) do
 				if name.tag == "Dots" then
 					chunk.symbol_dots = name
@@ -4496,13 +4563,13 @@ local TagToVisiting = {
 	HintPolyParList=function(self, node)
 		self:reverseInHint(true)
 		for i=1, #node do
-			self:symbolDefine(node[i], Enum.SymbolKind_POLY)
+			self:symbolDefine(node[i], CodeKindEnum.SymbolKind_POLY)
 		::continue:: end
 		self:reverseInHint(false)
 	end,
 	HintSpace=function(self, node)
 		self:reverseInHint(true)
-		if node.kind == "StatHintSpace" then
+		if node.kind == "ParenHintSpace" then
 			self:realVisit(node[1])
 		else
 			for i=1, #node do
@@ -4674,7 +4741,7 @@ function SymbolVisitor:symbolUse(vIdentNode, vIsAssign)
 		return
 	end
 	if vIsAssign then
-		if nDefineNode.symbolKind == Enum.SymbolKind_CONST then
+		if nDefineNode.symbolKind == CodeKindEnum.SymbolKind_CONST then
 			error(Exception.new("cannot assign to const variable '"..vIdentNode[1].."'", vIdentNode))
 		else
 			nDefineNode.symbolModify = true
@@ -4974,7 +5041,7 @@ local TagToTraverse = {
 		end
 	end,
 	HintSpace=function(self, node)
-		if node.kind == "StatHintSpace" then
+		if node.kind == "ParenHintSpace" then
 			self:realVisit(node[1])
 		else
 			for i=1, #node do
@@ -7413,6 +7480,8 @@ local StringLiteralUnion = require "thlua.type.union.StringLiteralUnion"
 local MixingNumberUnion = require "thlua.type.union.MixingNumberUnion"
 local IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
 local FloatLiteral = require "thlua.type.basic.FloatLiteral"
+local SubType = require "thlua.type.basic.SubType"
+local Number = require "thlua.type.basic.Number"
 local ObjectUnion = require "thlua.type.union.ObjectUnion"
 local FuncUnion = require "thlua.type.union.FuncUnion"
 local ComplexUnion = require "thlua.type.union.ComplexUnion"
@@ -7449,17 +7518,14 @@ function TypeCollection.new(vManager)
 		_manager=vManager,
 		_type=vManager.type,
 		_bitsToSet={}   ,
-		_metaSet={}   ,
 		_bits=0  ,
  		_count=0  ,
 	}, TypeCollection)
 	return self
 end
 
-
 function TypeCollection:put(vAtomType)
 	local nBitsToSet = self._bitsToSet
-	local nMetaSet = self._metaSet
 	local nCurBits = self._bits
 	local nCurCount = self._count
 	nCurBits = nCurBits | vAtomType.bits
@@ -7474,9 +7540,6 @@ function TypeCollection:put(vAtomType)
 		nSet[vAtomType] = true
 		nCurCount = nCurCount + 1
 	end
-	     
-	local nMeta = getmetatable(vAtomType)
-	nMetaSet[nMeta] = true
 	self._bits = nCurBits
 	self._count = nCurCount
 end
@@ -7490,12 +7553,17 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet )
 		if vSet[nNumberType] then
 			return nNumberType
 		end
-		local nHasFloatLiteral = self._metaSet[FloatLiteral.meta]
+		local nHasPartNumber = false
+		for nType,v in pairs(vSet) do
+			if FloatLiteral.is(nType) or (SubType.is(nType) and Number.is(nType:getSuperType())) then
+				nHasPartNumber = true
+			end
+		::continue:: end
 		local nIntegerType = self._type.Integer
-		if vSet[nIntegerType] and not nHasFloatLiteral then
+		if vSet[nIntegerType] and not nHasPartNumber then
 			return nIntegerType
 		end
-		if nHasFloatLiteral then
+		if nHasPartNumber then
 			nUnionType = MixingNumberUnion.new(self._manager)
 		else
 			nUnionType = IntegerLiteralUnion.new(self._manager)
@@ -7600,7 +7668,7 @@ local Integer = require "thlua.type.basic.Integer"
 local BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 local Nil = require "thlua.type.basic.Nil"
 local Thread = require "thlua.type.basic.Thread"
-local Enum = require "thlua.type.basic.Enum"
+local SubType = require "thlua.type.basic.SubType"
 local LightUserdata = require "thlua.type.basic.LightUserdata"
 local Truth = require "thlua.type.basic.Truth"
 local TypedObject = require "thlua.type.object.TypedObject"
@@ -7906,34 +7974,19 @@ function TypeManager:checkedUnion(...)
 	return self:unifyAndBuild(nTypeSet)
 end
 
-function TypeManager:buildEnum(vNode, vArgType, ...)
+function TypeManager:buildSubType(vNode, vArgType)
 	local nAsyncTypeCom = self:AsyncTypeCom(vNode)
-	local nList = {...}
-	local nNum = select("#", ...)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
 		local nType = self:easyToMustType(vNode, vArgType):checkAtomUnion()
 		assert(BaseAtomType.is(nType) and not nType:isSingleton(), vNode:toExc("enum's supertype must be non-singleton atom type"))
-		local nEnum = Enum.new(self, vNode, nType)
-		for i=1, nNum do
-			nEnum:addType(vNode, nList[i])
-		::continue:: end
-		return nEnum
+		if nType ~= self.type.String and nType ~= self.type.Number and nType ~= self.type.Integer then
+			error(vNode:toExc("current subtype only support integer, number, string. other type TODO"))
+		end
+		local nSubType = SubType.new(self, vNode, nType)
+		return nSubType
 	end)
 	return nAsyncTypeCom
 end
-
-   
-	       
-	    
-	   
-	        
-	   
-	    
-	   
-		    
-		
-	
-
 
 function TypeManager:buildUnion(vNode, ...)
 	local l = {...}
@@ -7960,7 +8013,7 @@ function TypeManager:buildOneOf(vNode, vTable)
 	if type(vTable) == "table" then
 		return self:_buildTypedObject(vNode, vTable  , nil, "oneof")
 	else
-		error(vNode:toExc("interface must build with a table without meta"))
+		error(vNode:toExc("oneof must build with a table without meta"))
 	end
 end
 
@@ -7976,7 +8029,7 @@ function TypeManager:buildStruct(vNode, vTable, vMetaEventDict)
 	if type(vTable) == "table" then
 		return self:_buildTypedObject(vNode, vTable  , vMetaEventDict  , "struct")
 	else
-		error(vNode:toExc("interface must build with a table without meta"))
+		error(vNode:toExc("struct must build with a table without meta"))
 	end
 end
 
@@ -9247,7 +9300,7 @@ function BaseRuntime:buildSimpleGlobal()
 			nGlobal[k] = v
 		::continue:: end
 		local l = {
-			Enum="buildEnum",
+			SubType="buildSubType",
 			Union="buildUnion",
 			Struct="buildStruct",
 			OneOf="buildOneOf",
@@ -9275,10 +9328,6 @@ function BaseRuntime:buildSimpleGlobal()
 		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
 			return nManager:Literal(v)
 		end, "Literal")
-		nGlobal.enum=nManager:BuiltinFn(function(vNode, vEnumType, ...)
-			error("enum TODO")
-			   
-		end, "enum")
 		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
 			return self:NameSpace(vNode, false)
 		end, "namespace")
@@ -10415,7 +10464,7 @@ local RefineTerm = require "thlua.term.RefineTerm"
 local VariableCase = require "thlua.term.VariableCase"
 local Exception = require "thlua.Exception"
 local Reference = require "thlua.space.NameReference"
-local Enum = require "thlua.Enum"
+local CodeKindEnum = require "thlua.code.CodeKindEnum"
 local LocalSymbol = require "thlua.term.LocalSymbol"
 local ImmutVariable = require "thlua.term.ImmutVariable"
 
@@ -10777,7 +10826,12 @@ function InstStack:TABLE_NEW(vNode, vHintInfo, vPairMaker)
 end
 
 function InstStack:RUN_STAT(vNode, vStatFn)
-	vStatFn(self:unpackPolyArgs())
+	local ret = vStatFn(self:unpackPolyArgs())
+	if ret == nil then
+		return self:_nodeTerm(vNode, self._manager.type.Nil)
+	else
+		return self:_nodeTerm(vNode, self._manager:easyToMustType(vNode, ret):checkAtomUnion())
+	end
 end
 
 function InstStack:EVAL(vNode, vTerm)
@@ -10813,7 +10867,7 @@ end
 function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
 	local nCastContext = self:newAssignContext(vNode)
 	    
-	if vCastKind == Enum.CastKind_POLY then
+	if vCastKind == CodeKindEnum.CastKind_POLY then
 		local nTypeCaseList = {}
 		local nTupleBuilder = self._manager:spacePack(vNode, ...)
 		vTerm:foreach(function(vType, vVariableCase)
@@ -10829,15 +10883,15 @@ function InstStack:CAST_HINT(vNode, vTerm, vCastKind, ...)
 		local nDst = assert(..., "hint type can't be nil")
 		local nDstType = self._manager:easyToMustType(vNode, nDst):checkAtomUnion()
 		local nSrcType = vTerm:getType()
-		if vCastKind == Enum.CastKind_CONIL then
-			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), Enum.CastKind_CONIL)
-		elseif vCastKind == Enum.CastKind_COVAR then
-			nCastContext:includeAndCast(nDstType, nSrcType, Enum.CastKind_COVAR)
-		elseif vCastKind == Enum.CastKind_CONTRA then
+		if vCastKind == CodeKindEnum.CastKind_CONIL then
+			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), CodeKindEnum.CastKind_CONIL)
+		elseif vCastKind == CodeKindEnum.CastKind_COVAR then
+			nCastContext:includeAndCast(nDstType, nSrcType, CodeKindEnum.CastKind_COVAR)
+		elseif vCastKind == CodeKindEnum.CastKind_CONTRA then
 			if not (nSrcType:includeAll(nDstType) or nDstType:includeAll(nSrcType)) then
 				nCastContext:error("@> cast fail")
 			end
-		elseif vCastKind ~= Enum.CastKind_FORCE then
+		elseif vCastKind ~= CodeKindEnum.CastKind_FORCE then
 			vContext:error("unexcepted castkind:"..tostring(vCastKind))
 		end
 		return nCastContext:RefineTerm(nDstType)
@@ -10941,7 +10995,7 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType , vAu
 	local nTopBranch = self:topBranch()
 	local nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
-	if not vTermOrNil and not vHintType and vKind == Enum.SymbolKind_LOCAL then
+	if not vTermOrNil and not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
 		nSymbolContext:warn("define a symbol without any type")
 	end
 	if vHintType ~= AutoFlag then
@@ -10952,7 +11006,7 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType , vAu
 		if not nTermInHolder then
 			if vModify then
 				error(nSymbolContext:newException("auto variable can't be modified"))
-			elseif vKind == Enum.SymbolKind_LOCAL then
+			elseif vKind == CodeKindEnum.SymbolKind_LOCAL then
 				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
 			return nTopBranch:setSymbolByNode(vNode, nTerm)
@@ -10960,7 +11014,7 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType , vAu
 		nTerm = nTermInHolder
 		local nFromType = nTerm:getType()
 		             
-		if vKind == Enum.SymbolKind_LOCAL and vAutoPrimitive then
+		if vKind == CodeKindEnum.SymbolKind_LOCAL and vAutoPrimitive then
 			local nToType = nSymbolContext:getTypeManager():literal2Primitive(nFromType)
 			if nFromType ~= nToType then
 				nTerm = nSymbolContext:RefineTerm(nToType)
@@ -13518,7 +13572,7 @@ local TemplateCom = require "thlua.space.TemplateCom"
 local ScheduleEvent = require "thlua.manager.ScheduleEvent"
 local BaseSpaceCom = require "thlua.space.BaseSpaceCom"
 local BaseAtomType = require "thlua.type.basic.BaseAtomType"
-local Node = require "thlua.code.Node"
+local BaseReadyType = require "thlua.type.basic.BaseReadyType"
 local class = require "thlua.class"
 
 ;
@@ -13599,6 +13653,13 @@ function EasyMapCom:setValue(vNode, vKey, vValue)
 		local nCom = nRefer and nRefer:getComAwait() or vValue
 		if AsyncTypeCom.is(nCom) or TemplateCom.is(nCom) then
 			self._atom2value[nKeyMustType] = nCom
+			nWaitEvent:wakeup()
+		elseif BaseReadyType.is(nCom) then
+			local nTypeCom = self._manager:AsyncTypeCom(vNode)
+			nTypeCom:setTypeAsync(vNode, function()
+				return nCom  
+			end)
+			self._atom2value[nKeyMustType] = nTypeCom
 			nWaitEvent:wakeup()
 		else
 			error(vNode:toExc("easymap's value must be type or template when set"))
@@ -15878,108 +15939,6 @@ return BooleanLiteral
 end end
 --thlua.type.basic.BooleanLiteral end ==========)
 
---thlua.type.basic.Enum begin ==========(
-do local _ENV = _ENV
-packages['thlua.type.basic.Enum'] = function (...)
-
-local OPER_ENUM = require "thlua.type.OPER_ENUM"
-local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local BaseAtomType = require "thlua.type.basic.BaseAtomType"
-local class = require "thlua.class"
-
-
-;
-      
-       
-        
-        
-    
-
-
-local Enum = class (BaseAtomType)
-
-function Enum:ctor(vManager, vNode, vSuperType)
-    self._superType = vSuperType
-    self._set = {} ;  
-    self._closed = false ; 
-    self._toAddList = {} ; 
-    self._addEvent = false ; 
-	self.bits = vSuperType.bits
-    local nTask = vManager:getScheduleManager():newTask(vNode)
-    self._task = nTask
-    self._task:runAsync(function()
-        while true do
-            local nAddList = self._toAddList
-            if #nAddList == 0 then
-                local nEvent = nTask:makeEvent()
-                self._addEvent = nEvent
-                nEvent:wait()
-                self._addEvent = false
-            end
-            self._toAddList = {}
-            for i, addPair in ipairs(nAddList) do
-                local nType = vManager:easyToMustType(addPair.node, addPair.value)
-                nType:foreachAwait(function(vAtomType)
-                    assert(vSuperType:includeAtom(vAtomType) and vAtomType, vNode:toExc("enum add invalid type"))
-                    assert(not self._closed, vNode:toExc("enum is closed"))
-                    self._set[vAtomType] = true
-                end)
-            ::continue:: end
-        ::continue:: end
-    end)
-end
-
-function Enum:getSuperType()
-    return self._superType
-end
-
-function Enum:addType(vNode, vValue)
-    local nAddList = self._toAddList
-    nAddList[#nAddList + 1] = {
-        node=vNode,
-        value=vValue,
-    }
-    local nAddEvent = self._addEvent
-    if nAddEvent then
-        nAddEvent:wakeup()
-    end
-end
-
-function Enum:native_type()
-    local nSuperType = self._superType
-    if nSuperType:isUnion() then
-        return self._manager.type.String
-    else
-        return nSuperType:native_type()
-    end
-end
-
-function Enum:deEnum()
-	return self._superType
-end
-
-function Enum:assumeIncludeAtom(vAssumetSet, vType, _)
-    self._closed = true
-    if self._set[vType] then
-        return vType
-    else
-        return false
-    end
-end
-
-function Enum:detailString(vCache, vVerbose)
-    return "Enum("..self._superType:detailString(vCache, vVerbose)..")"
-end
-
-function Enum:isSingleton()
-	return false
-end
-
-return Enum
-
-end end
---thlua.type.basic.Enum end ==========)
-
 --thlua.type.basic.FloatLiteral begin ==========(
 do local _ENV = _ENV
 packages['thlua.type.basic.FloatLiteral'] = function (...)
@@ -16394,6 +16353,76 @@ return StringLiteral
 
 end end
 --thlua.type.basic.StringLiteral end ==========)
+
+--thlua.type.basic.SubType begin ==========(
+do local _ENV = _ENV
+packages['thlua.type.basic.SubType'] = function (...)
+
+local OPER_ENUM = require "thlua.type.OPER_ENUM"
+local TYPE_BITS = require "thlua.type.TYPE_BITS"
+local BaseAtomType = require "thlua.type.basic.BaseAtomType"
+local class = require "thlua.class"
+
+local SubType = class (BaseAtomType)
+
+function SubType:ctor(vManager, vNode, vSuperType)
+    self._superType = vSuperType
+	self.bits = vSuperType.bits
+end
+
+function SubType:getSuperType()
+    return self._superType
+end
+
+function SubType:native_type()
+    local nSuperType = self._superType
+    if nSuperType:isUnion() then
+        return self._manager.type.String
+    else
+        return nSuperType:native_type()
+    end
+end
+
+function SubType:deEnum()
+	return self._superType
+end
+
+function SubType:assumeIncludeAtom(vAssumetSet, vType, _)
+    if self == vType then
+        return self
+    else
+        return false
+    end
+end
+
+function SubType:detailString(vCache, vVerbose)
+    return "SubType("..self._superType:detailString(vCache, vVerbose)..")"
+end
+
+function SubType:isSingleton()
+	return false
+end
+
+function SubType:native_getmetatable(vContext)
+	return self._superType:native_getmetatable(vContext)
+end
+
+function SubType:native_type()
+	return self._superType:native_type()
+end
+
+function SubType:meta_len(vContext)
+	return self._superType:meta_len(vContext)
+end
+
+function SubType:meta_get(vContext, vKeyType)
+	return self._superType:meta_get(vContext, vKeyType)
+end
+
+return SubType
+
+end end
+--thlua.type.basic.SubType end ==========)
 
 --thlua.type.basic.Thread begin ==========(
 do local _ENV = _ENV
@@ -19836,6 +19865,7 @@ do local _ENV = _ENV
 packages['thlua.type.union.IntegerLiteralUnion'] = function (...)
 
 local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
+local SubType = require "thlua.type.basic.SubType"
 local Integer = require "thlua.type.basic.Integer"
 local Number = require "thlua.type.basic.Number"
 local Truth = require "thlua.type.basic.Truth"
@@ -19850,12 +19880,15 @@ local IntegerLiteralUnion = class (BaseUnionType)
 
 function IntegerLiteralUnion:ctor(vTypeManager)
 	self._literalSet={} ; 
+	self._subTypeSet={} ; 
 	self.bits=TYPE_BITS.NUMBER
 end
 
 function IntegerLiteralUnion:putAwait(vType)
 	if IntegerLiteral.is(vType) then
 		self._literalSet[vType] = true
+	elseif SubType.is(vType) and Integer.is(vType:getSuperType()) then
+		self._subTypeSet[vType] = true
 	else
 		error("set put wrong")
 	end
@@ -19876,6 +19909,12 @@ function IntegerLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 		else
 			return false
 		end
+	elseif SubType.is(vType) then
+		if self._subTypeSet[vType] then
+			return vType
+		else
+			return false
+		end
 	else
 		return false
 	end
@@ -19884,6 +19923,9 @@ end
 function IntegerLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
+	::continue:: end
+	for nSubType, v in pairs(self._subTypeSet) do
+		vFunc(nSubType)
 	::continue:: end
 end
 
@@ -19897,6 +19939,7 @@ do local _ENV = _ENV
 packages['thlua.type.union.MixingNumberUnion'] = function (...)
 
 local FloatLiteral = require "thlua.type.basic.FloatLiteral"
+local SubType = require "thlua.type.basic.SubType"
 local Number = require "thlua.type.basic.Number"
 local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
@@ -19913,7 +19956,8 @@ local MixingNumberUnion = class (BaseUnionType)
 
 function MixingNumberUnion:ctor(vTypeManager)
 	self._floatLiteralSet={} ; 
-	self._integerPart=false;  
+	self._numberSubTypeSet={} ; 
+	self._integerPart=false;   
 	self.bits=TYPE_BITS.NUMBER
 end
 
@@ -19922,19 +19966,21 @@ function MixingNumberUnion:putAwait(vType)
 		self._floatLiteralSet[vType] = true
 	elseif Integer.is(vType) then
 		self._integerPart = vType
-	elseif IntegerLiteral.is(vType) then
+	elseif SubType.is(vType) and Number.is(vType:getSuperType()) then
+		self._numberSubTypeSet[vType] = true
+	elseif IntegerLiteral.is(vType) or (SubType.is(vType) and Integer.is(vType:getSuperType())) then
 		local nIntegerPart = self._integerPart
 		if not nIntegerPart then
 			self._integerPart = vType
-		elseif IntegerLiteral.is(nIntegerPart) then
+		elseif Integer.is(nIntegerPart) or nIntegerPart == vType then
+			 
+		elseif IntegerLiteral.is(nIntegerPart) or SubType.is(nIntegerPart) then
 			local nIntegerUnion = IntegerLiteralUnion.new(self._manager)
 			nIntegerUnion:putAwait(vType)
 			nIntegerUnion:putAwait(nIntegerPart)
 			self._integerPart = nIntegerUnion
 		elseif IntegerLiteralUnion.is(nIntegerPart) then
 			nIntegerPart:putAwait(vType)
-		elseif Integer.is(nIntegerPart) then
-			 
 		else
 			error("set put wrong")
 		end
@@ -19960,6 +20006,12 @@ function MixingNumberUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 		else
 			return false
 		end
+	elseif SubType.is(vType) and Number.is(vType:getSuperType()) then
+		if self._numberSubTypeSet[vType] then
+			return vType
+		else
+			return false
+		end
 	else
 		local nIntegerPart = self._integerPart
 		return nIntegerPart and nIntegerPart:assumeIncludeAtom(vAssumeSet, vType, _)
@@ -19969,6 +20021,9 @@ end
 function MixingNumberUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._floatLiteralSet) do
 		vFunc(nLiteralType)
+	::continue:: end
+	for nSubType, v in pairs(self._numberSubTypeSet) do
+		vFunc(nSubType)
 	::continue:: end
 	local nIntegerPart = self._integerPart
 	if nIntegerPart then
@@ -20184,6 +20239,7 @@ do local _ENV = _ENV
 packages['thlua.type.union.StringLiteralUnion'] = function (...)
 
 local StringLiteral = require "thlua.type.basic.StringLiteral"
+local SubType = require "thlua.type.basic.SubType"
 local String = require "thlua.type.basic.String"
 local Truth = require "thlua.type.basic.Truth"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
@@ -20196,13 +20252,16 @@ local class = require "thlua.class"
 local StringLiteralUnion = class (BaseUnionType)
 
 function StringLiteralUnion:ctor(vTypeManager)
-	self._literalSet={} ;    
+	self._literalSet={} ;     
+	self._subTypeSet={} ; 
 	self.bits=TYPE_BITS.STRING
 end
 
 function StringLiteralUnion:putAwait(vType)
 	if StringLiteral.is(vType) then
 		self._literalSet[vType] = true
+	elseif SubType.is(vType) and String.is(vType:getSuperType()) then
+		self._subTypeSet[vType] = true
 	else
 		error("set put wrong")
 	end
@@ -20223,6 +20282,12 @@ function StringLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
 		else
 			return false
 		end
+	elseif SubType.is(vType) then
+		if self._subTypeSet[vType] then
+			return vType
+		else
+			return false
+		end
 	else
 		return false
 	end
@@ -20232,10 +20297,12 @@ function StringLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
 	::continue:: end
+	for nSubType, v in pairs(self._subTypeSet) do
+		vFunc(nSubType)
+	::continue:: end
 end
 
 return StringLiteralUnion
-
 end end
 --thlua.type.union.StringLiteralUnion end ==========)
 
