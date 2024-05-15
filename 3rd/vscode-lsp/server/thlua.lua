@@ -8787,41 +8787,72 @@ function native.make(vRuntime)
 		require=native.polyNativeOpenFunction(nManager, function(vStack, vTupleBuilder, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nFileName = vTermTuple:get(vContext, 1):getType()
+				local nFirstArgForName = vTupleBuilder and vTupleBuilder:getArgList()[1]      
+				local nSecondArgForReturn = vTupleBuilder and vTupleBuilder:getArgList()[2]      
+				local nRetTerm = nil
 				if StringLiteral.is(nFileName) then
 					local nPath = nFileName:getLiteral()
-					local nOkay, nRetTerm, nOpenFn, nOpenStack = pcall(function()
+					local nOkay, nRetTermOrException, nOpenFn, nOpenStack = pcall(function()
 						return vRuntime:require(vStack:getNode(), nPath)
 					end)
 					if nOkay then
 						local nLetSpace = nOpenStack:getLetSpace()
 						if vTupleBuilder then
 							local nArgList = vTupleBuilder:getArgList()
-							for _, nPolyArg in ipairs(nArgList) do
-								local nRefer = SpaceValue.checkRefer(nPolyArg)
+							if nFirstArgForName then
+								local nRefer = SpaceValue.checkRefer(nFirstArgForName)
 								if nRefer then
 									nRefer:setAssignAsync(vStack:getNode(), function()
 										return nLetSpace:export()[nRefer:getName()]
 									end)
+								elseif not getmetatable(nFirstArgForName) and type(nFirstArgForName) == "table" then
+									for k,v in pairs(nFirstArgForName) do
+										if math.type(k) == "integer" then
+											local nRefer = SpaceValue.checkRefer(v)
+											if nRefer then
+												nRefer:setAssignAsync(vStack:getNode(), function()
+													return nLetSpace:export()[nRefer:getName()]
+												end)
+											else
+												vContext:error('namespace or letspace expected, use require as a poly function: require @<let.name1> or require @<{let.name1}> or require@<{[let.name3]="name1"}>')
+											end
+										else
+											local nRefer = SpaceValue.checkRefer(k)
+											if nRefer and type(v) == "string" then
+												nRefer:setAssignAsync(vStack:getNode(), function()
+													return nLetSpace:export()[v]
+												end)
+											else
+												vContext:error('namespace or letspace expected, use require as a poly function: require @<let.name1> or require @<{let.name1}> or require@<{[let.name3]="name1"}>')
+											end
+										end
+									::continue:: end
 								else
-									vContext:error('namespace or letspace expected, use require as a poly function: require @<space, "name1", "name2", ...>')
+									vContext:error('namespace or letspace expected, use require as a poly function: require @<let.name1> or require @<{let.name1}> or require@<{[let.name3]="name1"}>')
 								end
-							::continue:: end
+							end
 						end
 						vContext:addLookTarget(nOpenFn)
-						vContext:nativeOpenReturn(nRetTerm)
+						nRetTerm = nRetTermOrException
 					else
-						if Exception.is(nRetTerm) then
-							vRuntime:nodeError(nRetTerm.node, nRetTerm.msg)
+						if Exception.is(nRetTermOrException) then
+							vRuntime:nodeError(nRetTermOrException.node, nRetTermOrException.msg)
 						else
-							vContext:error(tostring(nRetTerm))
+							vContext:error(tostring(nRetTermOrException))
 						end
 						vContext:error("require error")
-						vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Truth))
 					end
 				else
 					vContext:warn("require take non-const type ")
-					vContext:nativeOpenReturn(vContext:RefineTerm(nManager.type.Truth))
 				end
+				if not nRetTerm then
+					if nSecondArgForReturn then
+						nRetTerm = vContext:RefineTerm(nManager:easyToMustType(vStack:getNode(), nSecondArgForReturn))
+					else
+						nRetTerm = vContext:RefineTerm(nManager.type.Truth)
+					end
+				end
+				vContext:nativeOpenReturn(nRetTerm)
 			end):mergeFirst()
 		end),
 		       
@@ -13703,6 +13734,7 @@ function LetSpace:ctor(_, _, _, vParentOrDict  )
 			  
 		
 	end
+    self._key2child["let"] = self._refer  
 end
 
 function LetSpace:parentHasKey(vKey)
