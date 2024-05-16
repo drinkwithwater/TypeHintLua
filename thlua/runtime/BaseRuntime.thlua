@@ -32,6 +32,12 @@ const platform = require "thlua.platform"
 		thluaGlobalFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv, String),
 	}
 
+	clazz.LevelLogger = Interface {
+		error=Mfn():Dots(Truth),
+		warn=Mfn():Dots(Truth),
+		info=Mfn():Dots(Truth),
+	}
+
 	clazz.Diagnostic = Struct {
 		node=clazz.IBaseNode,
 		msg=String,
@@ -74,11 +80,30 @@ const DefaultLoader:clazz.FileLoader = {
 	end
 }
 
+const DefaultLogger:clazz.LevelLogger = {
+	error=function.pass(_, ...)
+		local nInfo = debug.getinfo(2)
+		local nPrefix = nInfo.source..":"..nInfo.currentline
+		print("[ERROR]", nPrefix, ...)
+	end,
+	warn=function.pass(_, ...)
+		local nInfo = debug.getinfo(2)
+		local nPrefix = nInfo.source..":"..nInfo.currentline
+		print("[WARN]", nPrefix, ...)
+	end,
+	info=function.pass(_, ...)
+		local nInfo = debug.getinfo(2)
+		local nPrefix = nInfo.source..":"..nInfo.currentline
+		print("[INFO]", nPrefix, ...)
+	end,
+}
+
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader))
+function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader), vLogger:OrNil(clazz.LevelLogger))
 	self._searchPath = false @ OrFalse(String)
 	self._loader=vLoader or DefaultLoader
+	self._logger=vLogger or DefaultLogger
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._scheduleManager=ScheduleManager.new(self)
