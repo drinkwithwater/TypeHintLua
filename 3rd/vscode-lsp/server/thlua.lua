@@ -9089,6 +9089,12 @@ local platform = require "thlua.platform"
 		
 		
 		
+	
+
+	   
+		
+		
+		
 		
 		
 	
@@ -9121,11 +9127,30 @@ local DefaultLoader = {
 	end
 }
 
+local DefaultLogger = {
+	error=function(_, ...)
+		local nInfo = debug.getinfo(2)
+		local nPrefix = nInfo.source..":"..nInfo.currentline
+		print("[ERROR]", nPrefix, ...)
+	end,
+	warn=function(_, ...)
+		local nInfo = debug.getinfo(2)
+		local nPrefix = nInfo.source..":"..nInfo.currentline
+		print("[WARN]", nPrefix, ...)
+	end,
+	info=function(_, ...)
+		local nInfo = debug.getinfo(2)
+		local nPrefix = nInfo.source..":"..nInfo.currentline
+		print("[INFO]", nPrefix, ...)
+	end,
+}
+
 local BaseRuntime = class ()
 
-function BaseRuntime:ctor(vLoader)
+function BaseRuntime:ctor(vLoader, vLogger)
 	self._searchPath = false ; 
 	self._loader=vLoader or DefaultLoader
+	self._logger=vLogger or DefaultLogger
 	self._pathToFileName={}; 
 	self._loadedDict={}; 
 	self._scheduleManager=ScheduleManager.new(self)
@@ -10103,6 +10128,7 @@ function CompletionRuntime:focusSchedule(vFuncList)
 	for _, nAutoFn in ipairs(nAutoFnList) do
 		nAutoFn:startLateBuild()
 	::continue:: end
+	self._scheduleManager:runSchedule()
 end
 
 function CompletionRuntime:_injectForeach(vTracePos, vBlockNode, vFn, vCallback )
@@ -12264,7 +12290,7 @@ function FastServer:rerun(vFileUri)
 		rootFileUri = platform.path2uri(rootFileUri)
 		self:info("throot.thlua found:", rootFileUri)
 	end
-	local nRuntime=CompletionRuntime.new(self:makeLoader())
+	local nRuntime=CompletionRuntime.new(self:makeLoader(), self)
 	local ok, exc = nRuntime:pmain(rootFileUri)
 	if not ok then
 		if not self._runtime then
@@ -12959,7 +12985,7 @@ function SlowServer:rerun(vFileUri)
 		rootFileUri = platform.path2uri(rootFileUri)
 		self:info("throot.thlua found:", rootFileUri)
 	end
-	local nRuntime=DiagnosticRuntime.new(self:makeLoader())
+	local nRuntime=DiagnosticRuntime.new(self:makeLoader(), self)
 	local ok, exc = nRuntime:pmain(rootFileUri)
 	if not ok then
 		if not self._runtime then
