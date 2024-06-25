@@ -7072,7 +7072,7 @@ end
 function ScheduleEvent:wakeup()
 	local nSelfTask = self._task
 	if nSelfTask then
-		assert(self._scheduleManager:getTask() == self._task, "event must be waken up in it's own task ")
+		assert(self._scheduleManager:getTask() == self._task, "event must be waken up in it's own task "..tostring(nSelfTask:getNode()))
 	end
 	local nWaitList = self._waitTaskList
 	if nWaitList then
@@ -13968,9 +13968,11 @@ function NameReference:triggerReferChild(vNode, vKey)
 	local nParent = self._parentNodeOrSpace
 	if not nCom then
 		if NameSpace.is(nParent) then
-			nCom = NameSpace.new(self._manager, nParent:getNode(), self, nParent)
-			self._assignNode = nParent:getNode()
-			self:_setComAndWakeup(nCom)
+			local nParentNode = nParent:getNode()
+			nCom = NameSpace.new(self._manager, nParentNode, self, nParent)
+			self:setAssignAsync(nParentNode, function()
+				return nCom
+			end)
 		end
 	end
 	if BaseReferSpace.is(nCom) then
