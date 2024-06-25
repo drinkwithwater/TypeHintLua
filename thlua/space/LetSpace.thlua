@@ -2,8 +2,6 @@
 const class = require "thlua.class"
 const BaseReferSpace = require "thlua.space.BaseReferSpace"
 const SpaceValue = require "thlua.space.SpaceValue"
-const Exception = require "thlua.Exception"
-const StringLiteral = require "thlua.type.basic.StringLiteral"
 
 (@do
 	let.clazz = import($class).clazz
@@ -11,20 +9,20 @@ end)
 
 const LetSpace = class@<clazz.LetSpace, false>(BaseReferSpace)
 LetSpace.__tostring=function(self):Ret(String)
-	return "letspace-" .. tostring(self._node)
+    if self._parentSpace then
+        return "letspace-" .. tostring(self._node)
+    else
+        return "letspace-root"
+    end
 end
 
-function.open LetSpace:ctor(_, _, _, vParentOrDict:Union(Dict(String, clazz.NameReference), clazz.LetSpace))
+function.open LetSpace:ctor(_, _, _, vParentOrDict:OrFalse(clazz.LetSpace))
     self._parentSpace = false @ OrFalse(clazz.LetSpace)
-	self._closed=false@Boolean
-    self._envTable = SpaceValue.envCreate(self, self._refer @> clazz.NameReference, self._manager.spaceG)
-	if LetSpace.is(vParentOrDict) then
+    self._envTable = nil@! clazz.EnvSpaceValue
+	self._closed = false @ Boolean
+	if vParentOrDict then
         self._parentSpace = vParentOrDict
-    else
-        self._key2child = vParentOrDict
-		--[[for k,v in pairs(vParentOrDict) do
-			self._key2child[k] = v
-		end]]
+        self._envTable = SpaceValue.envCreate(self, self._refer @> clazz.NameReference, self._manager:getRuntime():getRootSpace(), self._manager.spaceG)
 	end
     self._key2child["let"] = self._refer @> clazz.NameReference
 end

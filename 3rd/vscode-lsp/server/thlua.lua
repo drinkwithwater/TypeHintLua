@@ -7070,8 +7070,9 @@ function ScheduleEvent:wait()
 end
 
 function ScheduleEvent:wakeup()
-	if self._task then
-		assert(self._scheduleManager:getTask() == self._task, "event must be waken up in it's own task")
+	local nSelfTask = self._task
+	if nSelfTask then
+		assert(self._scheduleManager:getTask() == self._task, "event must be waken up in it's own task ")
 	end
 	local nWaitList = self._waitTaskList
 	if nWaitList then
@@ -9158,7 +9159,8 @@ function BaseRuntime:ctor(vLoader, vLogger)
 	self._node=nil;
 	self._manager=nil;
 	self._globalTable=nil;
-	self._rootStack=nil
+	self._rootStack=nil;
+	self._rootSpace=false
 end
 
 function BaseRuntime:getCodeEnv(vFileName)
@@ -9219,7 +9221,7 @@ function BaseRuntime:pmain(vRootFileUri, vUseProfile);
 			self._rootStack = nRootStack
 			self._manager:lateInit()
 			self._globalTable = native.make(self)
-			nRootStack:rootSetLetSpace(self:rootLetSpace())
+			nRootStack:rootSetLetSpace(self:getRootSpace())
 			for _, pkg in ipairs(nGlobalPackage) do
 				local nLoadedState = self:_cacheLoadGlobal(pkg)
 				if pkg == "string" then
@@ -9345,9 +9347,8 @@ function BaseRuntime:require(vNode, vPath)
 	return nTerm, nLoadedState.openFn, nLoadedState.stack
 end
 
-function BaseRuntime:buildSimpleGlobal() 
+function BaseRuntime:buildSimpleGlobal(vRootSpace)
 	local nGlobal = {}    
-	local nRetGlobal = {}   
 	do
 		for k,v in pairs(self._manager.type) do
 			nGlobal[k] = v
@@ -9408,13 +9409,6 @@ function BaseRuntime:buildSimpleGlobal()
 		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
-		nGlobal.setRootSpace=nManager:BuiltinFn(function(vNode, vKey, vValue)
-			local nRefer = self._manager:NameReference(vNode, vKey)
-			nRetGlobal[vKey] = nRefer
-			nRefer:setAssignAsync(vNode, function()
-				return vValue
-			end)
-		end, "setRootSpace")
 		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
 			local nObject = self._manager:easyToMustType(vNode, vObject):checkAtomUnion()
 			local d = nObject:copyValueDict(nObject)
@@ -9442,36 +9436,33 @@ function BaseRuntime:buildSimpleGlobal()
 		end, "print")
 	end
 	for k,v in pairs(nGlobal) do
-		if NameReference.is(v) then
-			nRetGlobal[k] = v
-		else
-			local nRefer = self._manager:NameReference(self._node, k)
-			nRetGlobal[k] = nRefer
-			nRefer:setAssignAsync(self._node, function()
-				return v
-			end)
-		end
+		assert(not NameReference.is(v), "namerefer in namrefer")
+		vRootSpace:referChild(self._node, k):setAssignAsync(self._node, function()
+			return v
+		end)
 	::continue:: end
-	return nRetGlobal
 end
 
-function BaseRuntime:rootLetSpace()
-	local nRefer = self._manager:NameReference(self._node, "")
-	local nGlobal = self:buildSimpleGlobal()
-	local nSpace = nRefer:initWithSpace(self._node, nGlobal)
-	nSpace:close()
-	return nSpace
+function BaseRuntime:getRootSpace()
+	local nRootSpace = self._rootSpace
+	if not nRootSpace then
+		local nRefer = self._manager:NameReference(self._node, "")
+		nRootSpace = nRefer:initWithLetSpace(self._node, false)
+		self._rootSpace = nRootSpace
+		self:buildSimpleGlobal(nRootSpace)
+	end
+	return nRootSpace
 end
 
 function BaseRuntime:LetSpace(vRegionNode, vParentLet)
 	local nRefer = self._manager:NameReference(vParentLet, "")
-	local nSpace = nRefer:initWithSpace(self._node, vParentLet)
+	local nSpace = nRefer:initWithLetSpace(self._node, vParentLet)
 	return nSpace
 end
 
 function BaseRuntime:NameSpace(vNode, vParent)
 	local nRefer = self._manager:NameReference(vParent or vNode, "")
-	local nSpace = nRefer:initWithSpace(vNode, vParent)
+	local nSpace = nRefer:initWithNameSpace(vNode, vParent)
 	return nSpace
 end
 
@@ -13736,8 +13727,6 @@ packages['thlua.space.LetSpace'] = function (...)
 local class = require "thlua.class"
 local BaseReferSpace = require "thlua.space.BaseReferSpace"
 local SpaceValue = require "thlua.space.SpaceValue"
-local Exception = require "thlua.Exception"
-local StringLiteral = require "thlua.type.basic.StringLiteral"
 
 ;
 	  
@@ -13745,20 +13734,20 @@ local StringLiteral = require "thlua.type.basic.StringLiteral"
 
 local LetSpace = class (BaseReferSpace)
 LetSpace.__tostring=function(self)
-	return "letspace-" .. tostring(self._node)
+    if self._parentSpace then
+        return "letspace-" .. tostring(self._node)
+    else
+        return "letspace-root"
+    end
 end
 
-function LetSpace:ctor(_, _, _, vParentOrDict  )
+function LetSpace:ctor(_, _, _, vParentOrDict)
     self._parentSpace = false ; 
-	self._closed=false;
-    self._envTable = SpaceValue.envCreate(self, self._refer  , self._manager.spaceG)
-	if LetSpace.is(vParentOrDict) then
+    self._envTable = nil; 
+	self._closed = false  
+	if vParentOrDict then
         self._parentSpace = vParentOrDict
-    else
-        self._key2child = vParentOrDict
-		    
-			  
-		
+        self._envTable = SpaceValue.envCreate(self, self._refer  , self._manager:getRuntime():getRootSpace(), self._manager.spaceG)
 	end
     self._key2child["let"] = self._refer  
 end
@@ -13876,18 +13865,20 @@ function NameReference.new(vManager, vParentNodeOrSpace , vName)
 	return self
 end
 
-function NameReference:initWithSpace(vNode, vParent);     
+function NameReference:initWithLetSpace(vNode, vParent);
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
-	if not vParent or NameSpace.is(vParent) then
-		local nSpace = NameSpace.new(self._manager, vNode, self, vParent)
-		self._com = nSpace
-		return nSpace
-	else
-		local nSpace = LetSpace.new(self._manager, vNode, self, vParent)
-		self._com = nSpace
-		return nSpace
-	end
+	local nSpace = LetSpace.new(self._manager, vNode, self, vParent)
+	self._com = nSpace
+	return nSpace
+end
+
+function NameReference:initWithNameSpace(vNode, vParent);
+	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
+	self._assignNode = vNode
+	local nSpace = NameSpace.new(self._manager, vNode, self, vParent)
+	self._com = nSpace
+	return nSpace
 end
 
 function NameReference:getSpaceValue()
@@ -14125,9 +14116,10 @@ function SpaceValue.create(vRefer)
     })
 end
 
-function SpaceValue.envCreate(vLetSpace, vRefer, vG)
+function SpaceValue.envCreate(vLetSpace, vRefer, vRootSpace, vLuaGlobal)
     return setmetatable({
-		_G=vG
+		_G=vRootSpace:getRefer():getSpaceValue(),
+		lua=vLuaGlobal,
     }, {
 		__index=function(_,vKey)
 			if type(vKey) == "string" then

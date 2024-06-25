@@ -112,6 +112,7 @@ function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader), vLogger:OrNil(cl
 	self._manager=nil@!clazz.TypeManager
 	self._globalTable=nil@!clazz.AutoTable
 	self._rootStack=nil@!clazz.SealStack
+	self._rootSpace=false@OrFalse(clazz.LetSpace)
 end
 
 function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
@@ -172,7 +173,7 @@ function BaseRuntime:pmain(vRootFileUri:String, vUseProfile:OrNil(Boolean)):Ret(
 			self._rootStack = nRootStack
 			self._manager:lateInit()
 			self._globalTable = native.make(self)
-			nRootStack:rootSetLetSpace(self:rootLetSpace())
+			nRootStack:rootSetLetSpace(self:getRootSpace())
 			for _, pkg in ipairs(nGlobalPackage) do
 				const nLoadedState = self:_cacheLoadGlobal(pkg)
 				if pkg == "string" then
@@ -298,9 +299,8 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 	return nTerm, nLoadedState.openFn, nLoadedState.stack!
 end
 
-function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
+function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
-	const nRetGlobal = {} @ Dict(String, clazz.NameReference)
 	do.pass
 		for k,v in pairs(self._manager.type) do
 			nGlobal[k] = v
@@ -361,13 +361,6 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
-		nGlobal.setRootSpace=nManager:BuiltinFn(function(vNode, vKey, vValue)
-			const nRefer = self._manager:NameReference(vNode, vKey)
-			nRetGlobal[vKey] = nRefer
-			nRefer:setAssignAsync(vNode, function()
-				return vValue
-			end)
-		end, "setRootSpace")
 		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
 			const nObject = self._manager:easyToMustType(vNode, vObject):checkAtomUnion()
 			const d = nObject:copyValueDict(nObject)
@@ -395,36 +388,33 @@ function BaseRuntime:buildSimpleGlobal():Ret(Dict(String, clazz.NameReference))
 		end, "print")
 	end
 	for k,v in pairs(nGlobal) do
-		if NameReference.is(v) then
-			nRetGlobal[k] = v
-		else
-			const nRefer = self._manager:NameReference(self._node, k)
-			nRetGlobal[k] = nRefer
-			nRefer:setAssignAsync(self._node, function()
-				return v
-			end)
-		end
+		assert(not NameReference.is(v), "namerefer in namrefer")
+		vRootSpace:referChild(self._node, k):setAssignAsync(self._node, function()
+			return v
+		end)
 	end
-	return nRetGlobal
 end
 
-function BaseRuntime:rootLetSpace():Ret(clazz.LetSpace)
-	const nRefer = self._manager:NameReference(self._node, "")
-	const nGlobal = self:buildSimpleGlobal()
-	const nSpace = nRefer:initWithSpace@<$nGlobal>(self._node, nGlobal)
-	nSpace:close()
-	return nSpace
+function BaseRuntime:getRootSpace():Ret(clazz.LetSpace)
+	local nRootSpace = self._rootSpace
+	if not nRootSpace then
+		const nRefer = self._manager:NameReference(self._node, "")
+		nRootSpace = nRefer:initWithLetSpace(self._node, false)
+		self._rootSpace = nRootSpace
+		self:buildSimpleGlobal(nRootSpace)
+	end
+	return nRootSpace
 end
 
 function BaseRuntime:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
 	const nRefer = self._manager:NameReference(vParentLet, "")
-	const nSpace = nRefer:initWithSpace@<$vParentLet>(self._node, vParentLet)
+	const nSpace = nRefer:initWithLetSpace(self._node, vParentLet)
 	return nSpace
 end
 
 function BaseRuntime:NameSpace(vNode:node.Debug, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
 	const nRefer = self._manager:NameReference(vParent or vNode, "")
-	const nSpace = nRefer:initWithSpace@<$vParent>(vNode, vParent)
+	const nSpace = nRefer:initWithNameSpace(vNode, vParent)
 	return nSpace
 end
 

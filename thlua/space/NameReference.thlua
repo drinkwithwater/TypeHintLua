@@ -49,18 +49,20 @@ function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager
 	return self
 end
 
-function NameReference:initWithSpace@<T>(vNode:clazz.IBaseNode, vParent:T):Ret(Cond($(not vParent or NameSpace.is(vParent)), clazz.NameSpace, clazz.LetSpace))
+function NameReference:initWithLetSpace(vNode:clazz.IBaseNode, vParent:OrFalse(clazz.LetSpace)):Ret(clazz.LetSpace)
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
-	if not vParent or NameSpace.is(vParent) then
-		const nSpace = NameSpace.new(self._manager, vNode, self, vParent)
-		self._com = nSpace
-		return nSpace
-	else
-		const nSpace = LetSpace.new(self._manager, vNode, self, vParent)
-		self._com = nSpace
-		return nSpace
-	end
+	const nSpace = LetSpace.new(self._manager, vNode, self, vParent)
+	self._com = nSpace
+	return nSpace
+end
+
+function NameReference:initWithNameSpace(vNode:clazz.IBaseNode, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
+	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
+	self._assignNode = vNode
+	const nSpace = NameSpace.new(self._manager, vNode, self, vParent)
+	self._com = nSpace
+	return nSpace
 end
 
 function NameReference:getSpaceValue()
@@ -150,9 +152,11 @@ function NameReference:triggerReferChild(vNode:clazz.IBaseNode, vKey:String):Ret
 	const nParent = self._parentNodeOrSpace
 	if not nCom then
 		if NameSpace.is(nParent) then
-			nCom = NameSpace.new(self._manager, nParent:getNode(), self, nParent)
-			self._assignNode = nParent:getNode()
-			self:_setComAndWakeup(nCom)
+			const nParentNode = nParent:getNode()
+			nCom = NameSpace.new(self._manager, nParentNode, self, nParent)
+			self:setAssignAsync(nParentNode, function()
+				return nCom
+			end)
 		end
 	end
 	if BaseReferSpace.is(nCom) then
