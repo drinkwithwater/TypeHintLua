@@ -387,8 +387,17 @@ function native.make_mathematic(vManager:clazz.TypeManager, vIsDivide:OrNil(True
 end
 
 function native.make_comparison(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
-	local nNumber = vManager.type.Number
-	return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
+	const nNumber = vManager.type.Number
+	const nString = vManager.type.String
+	const nNumberCompare = vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
+	const nStringCompare = vManager:checkedFn(nString, nString):Ret(vManager.type.Boolean)
+	return vManager:buildPfn(vManager:getRuntime():getNode(), function(a:clazz.UAtomUnion, b:clazz.UAtomUnion):Ret(clazz.UAtomUnion)
+		if nString:includeAll(a) then
+			return nStringCompare
+		else
+			return nNumberCompare
+		end
+	end)
 end
 
 function native.make_bitwise(vManager:clazz.TypeManager):Ret(clazz.TypedFunction)

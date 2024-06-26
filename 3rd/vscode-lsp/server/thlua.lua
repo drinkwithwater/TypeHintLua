@@ -8981,7 +8981,16 @@ end
 
 function native.make_comparison(vManager)
 	local nNumber = vManager.type.Number
-	return vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
+	local nString = vManager.type.String
+	local nNumberCompare = vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
+	local nStringCompare = vManager:checkedFn(nString, nString):Ret(vManager.type.Boolean)
+	return vManager:buildPfn(vManager:getRuntime():getNode(), function(a, b)
+		if nString:includeAll(a) then
+			return nStringCompare
+		else
+			return nNumberCompare
+		end
+	end)
 end
 
 function native.make_bitwise(vManager)
@@ -14699,6 +14708,15 @@ function BaseTypeTuple:getRepeatType()
 	return false
 end
 
+function BaseTypeTuple:makeTupleBuilder()
+	local nTupleBuilder = self._manager:spacePack(self._node, table.unpack(self._list))
+	local nRepeatType = self:getRepeatType()
+	if nRepeatType then
+		nTupleBuilder:chainDots(nRepeatType)
+	end
+	return nTupleBuilder
+end
+
 return BaseTypeTuple
 
 end end
@@ -17022,8 +17040,8 @@ function PolyFunction:native_type()
 	return self._manager:Literal("function")
 end
 
-function PolyFunction:meta_call(vContext, vTypeTuple)
-	error("typed poly function meta_call not implemented")
+function PolyFunction:meta_call(vContext, vTermTuple)
+	error("polyfunction meta call not implement")
 end
 
 function PolyFunction:mayRecursive()
@@ -17588,6 +17606,16 @@ function TypedPolyFunction:makeFn(vTupleBuilder)
 		end
 	else
 		return nFn
+	end
+end
+
+function TypedPolyFunction:meta_call(vContext, vTermTuple)
+	local nTypeTuple = vTermTuple:checkTypeTuple()
+	if not nTypeTuple then
+		vContext:error("put auto term in poly function")
+	else
+		local nTupleBuilder = nTypeTuple:makeTupleBuilder()
+		self:makeFn(nTupleBuilder):meta_call(vContext, vTermTuple)
 	end
 end
 

@@ -27,4 +27,14 @@ function TypedPolyFunction:makeFn(vTupleBuilder:clazz.TupleBuilder):Ret(clazz.Ty
 	end
 end
 
+function TypedPolyFunction:meta_call(vContext, vTermTuple)
+	const nTypeTuple = vTermTuple:checkTypeTuple()
+	if not nTypeTuple then
+		vContext:error("put auto term in poly function")
+	else
+		const nTupleBuilder = nTypeTuple:makeTupleBuilder()
+		self:makeFn(nTupleBuilder):meta_call(vContext, vTermTuple)
+	end
+end
+
 return TypedPolyFunction
