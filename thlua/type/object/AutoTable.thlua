@@ -21,14 +21,14 @@ const AutoTable = class@<clazz.AutoTable, false>(SealTable)
 
 function.open AutoTable:ctor(vManager, ...)
 	self._name = false @OrFalse(String)
-	self._firstAssign = false@OrFalse(clazz.AssignContext)
+	self._assignCtxList = {}@List(clazz.AssignContext)
 	self._castDict = {} @ Dict(clazz.TypedObject, Boolean)
 	self._locked = false@Boolean
 	self._keyType = false @ OrFalse(clazz.UAtomUnion)
 end
 
 function AutoTable:detailString(v, vVerbose)
-	if not self._firstAssign then
+	if not self:isCastable() then
 		return "AutoTable@castable@"..tostring(self._node)
 	elseif next(self._castDict) then
 		return "AutoTable@casted@"..tostring(self._node)
@@ -77,18 +77,21 @@ function AutoTable:checkTypedObject()
 end
 
 function AutoTable:isCastable()
-	return not self._firstAssign
+	return #self._assignCtxList < 2
 end
 
 function AutoTable:setAssigned(vContext)
-	if not self._firstAssign then
+	const ctxList = self._assignCtxList
+	if #ctxList <= 0 then
 		if next(self._castDict) then
 			vContext:error("AutoTable is casted to some TypedObject")
 		end
-		self._firstAssign = vContext
+		ctxList[1] = vContext
 		for k, v in pairs(self._fieldDict) do
 			v:getValueType():setAssigned(vContext)
 		end
+	else
+		ctxList[#ctxList + 1] = vContext
 	end
 end
 

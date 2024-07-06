@@ -17658,14 +17658,14 @@ local AutoTable = class (SealTable)
 
 function AutoTable:ctor(vManager, ...)
 	self._name = false ;
-	self._firstAssign = false;
+	self._assignCtxList = {};
 	self._castDict = {} ;  
 	self._locked = false;
 	self._keyType = false  
 end
 
 function AutoTable:detailString(v, vVerbose)
-	if not self._firstAssign then
+	if not self:isCastable() then
 		return "AutoTable@castable@"..tostring(self._node)
 	elseif next(self._castDict) then
 		return "AutoTable@casted@"..tostring(self._node)
@@ -17714,18 +17714,21 @@ function AutoTable:checkTypedObject()
 end
 
 function AutoTable:isCastable()
-	return not self._firstAssign
+	return #self._assignCtxList < 2
 end
 
 function AutoTable:setAssigned(vContext)
-	if not self._firstAssign then
+	local ctxList = self._assignCtxList
+	if #ctxList <= 0 then
 		if next(self._castDict) then
 			vContext:error("AutoTable is casted to some TypedObject")
 		end
-		self._firstAssign = vContext
+		ctxList[1] = vContext
 		for k, v in pairs(self._fieldDict) do
 			v:getValueType():setAssigned(vContext)
 		::continue:: end
+	else
+		ctxList[#ctxList + 1] = vContext
 	end
 end
 
