@@ -4329,6 +4329,10 @@ function SplitCode:getLine(vLine)
 	return self._lineList[vLine]
 end
 
+function SplitCode:getLineNum()
+	return #self._lineList
+end
+
 return SplitCode
 
 end end
@@ -12085,7 +12089,7 @@ function BaseServer:readRequest()
 	if req.jsonrpc ~= "2.0" then
 		error("json-rpc is not 2.0, "..tostring(req.jsonrpc))
 	end
-	     
+	 
 	return req
 end
 
@@ -12207,7 +12211,7 @@ function BothServer:getInitializeResult();
 	return {
 		capabilities = {
 			textDocumentSync = {
-				change = 2,       
+				change = 1,       
 				openClose = true,
 				save = { includeText = true },
 			},
@@ -12259,7 +12263,7 @@ function FastServer:getInitializeResult();
 	return {
 		capabilities = {
 			textDocumentSync = {
-				change = 2,       
+				change = 1,       
 				openClose = true,
 				save = { includeText = true },
 			},
@@ -12609,6 +12613,7 @@ function FileState:syncChangeNoRerun(vParams)
 	for _, nChange in ipairs(nChanges) do
 		local nRawRange = nChange.range
 		if nRawRange then
+			error("change by range TODO")
 			local nRange = self:getWellformedRange(nRawRange)
 			local nChangeText = nChange.text
 			local nContent = nSplitCode:getContent()
@@ -12626,7 +12631,11 @@ function FileState:syncChangeNoRerun(vParams)
 			end
 			nSplitCode = SplitCode.new(nNewContent)
 		else
+			local nOldLineNum = nSplitCode:getLineNum()
 			nSplitCode = SplitCode.new(nChange.text)
+			if nOldLineNum ~= nSplitCode:getLineNum() then
+				nLineChange = true
+			end
 		end
 		if not self._changeState then
 			self._changeState = CHANGE_ANYTHING
@@ -12636,7 +12645,7 @@ function FileState:syncChangeNoRerun(vParams)
 	self._version = vParams.textDocument.version
 	local nRight = self:_checkRight()
 	if nRight then
-		if self._changeState == CHANGE_NONBLANK and nLineChange then
+		if nLineChange then
 			return true
 		else
 			return false
@@ -12887,7 +12896,7 @@ function SlowServer:getInitializeResult();
 	return {
 		capabilities = {
 			textDocumentSync = {
-				change = 2,       
+				change = 1,       
 				openClose = true,
 				save = { includeText = true },
 			},

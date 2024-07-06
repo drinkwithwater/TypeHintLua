@@ -70,6 +70,7 @@ function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Re
 	for _, nChange in ipairs(nChanges) do
 		const nRawRange = nChange.range
 		if nRawRange then
+			error("change by range TODO")
 			const nRange = self:getWellformedRange(nRawRange)
 			const nChangeText = nChange.text
 			const nContent = nSplitCode:getContent()
@@ -87,7 +88,11 @@ function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Re
 			end
 			nSplitCode = SplitCode.new(nNewContent)
 		else
+			const nOldLineNum = nSplitCode:getLineNum()
 			nSplitCode = SplitCode.new(nChange.text)
+			if nOldLineNum ~= nSplitCode:getLineNum() then
+				nLineChange = true
+			end
 		end
 		if not self._changeState then
 			self._changeState = CHANGE_ANYTHING
@@ -97,7 +102,7 @@ function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Re
 	self._version = vParams.textDocument.version
 	const nRight = self:_checkRight()
 	if nRight then
-		if self._changeState == CHANGE_NONBLANK and nLineChange then
+		if nLineChange then
 			return true
 		else
 			return false
