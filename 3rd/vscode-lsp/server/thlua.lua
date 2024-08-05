@@ -10354,6 +10354,10 @@ function DeduceStack:__tostring()
 	return "DeduceStack:"..tostring(self._node)
 end
 
+function DeduceStack:RAISE_ERROR(vContext, vType)
+	  
+end
+
 function DeduceStack:ctor(
 	vRuntime,
 	vNode,
