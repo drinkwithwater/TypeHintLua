@@ -118,6 +118,20 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 			end)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
+		rawget=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
+			const nTerm1 = vTermTuple:get(vContext, 1)
+			const nTerm2 = vTermTuple:get(vContext, 2)
+			local nTypeCaseList:List(clazz.TypeCasePair) = {}
+			nTerm1:foreach(function(vType1, vCase1)
+				nTerm2:foreach(function(vType2, vCase2)
+					nTypeCaseList[#nTypeCaseList + 1] = {
+						vType1:native_rawget(vContext, vType2),
+						vCase1 & vCase2,
+					}
+				end)
+			end)
+			return vContext:mergeToRefineTerm(nTypeCaseList)
+		end),
 		next=nManager.builtin.next,
 		ipairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)
 			const nTypeTuple = vType:meta_ipairs(vContext) or nManager:TypeTuple(vContext:getNode(), {nManager.builtin.inext, vType, nManager:Literal(0)})
@@ -195,7 +209,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 		require=native.polyNativeOpenFunction(nManager, function(vStack, vTupleBuilder, vTermTuple)
 			return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 				local nFileName = vTermTuple:get(vContext, 1):getType()
-				const nFirstArgForName = vTupleBuilder and vTupleBuilder:getArgList()[1] -- first arg for namespace return
+				const nFirstArgForName = vTupleBuilder and vTupleBuilder:getArgList()[1] -- first arg for namespace name
 				const nSecondArgForReturn = vTupleBuilder and vTupleBuilder:getArgList()[2] -- second arg for namespace return
 				local nRetTerm:OrNil(clazz.RefineTerm) = nil
 				if StringLiteral.is(nFileName) then

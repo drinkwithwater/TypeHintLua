@@ -6257,9 +6257,6 @@ end
 function.pass _ENV.rawset(a:Any, b:Any,c:Any)
 end
 
-function.pass _ENV.rawget(a:Any, b:Any):Ret(Any)
-end
-
 ]]
 end end
 --thlua.global.basic end ==========)
@@ -8712,6 +8709,20 @@ function native.make(vRuntime)
 					vType1:native_getmetatable(vContext),
 					vVariableCase,
 				}
+			end)
+			return vContext:mergeToRefineTerm(nTypeCaseList)
+		end),
+		rawget=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
+			local nTerm1 = vTermTuple:get(vContext, 1)
+			local nTerm2 = vTermTuple:get(vContext, 2)
+			local nTypeCaseList = {}
+			nTerm1:foreach(function(vType1, vCase1)
+				nTerm2:foreach(function(vType2, vCase2)
+					nTypeCaseList[#nTypeCaseList + 1] = {
+						vType1:native_rawget(vContext, vType2),
+						vCase1 & vCase2,
+					}
+				end)
 			end)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
 		end),
@@ -18961,7 +18972,6 @@ function SealTable:native_rawget(vContext, vKeyType);
 	local nField = self._fieldDict[vKeyType]
 	if nField then
 		local nValueType = nField:getValueType()
-		vContext:addLookTarget(nField)
 		return nValueType
 	else
 		return self._manager.type.Nil
