@@ -5445,18 +5445,14 @@ function AssignContext:includeAndCast(vDstType, vSrcType, vWhen)
 	local nIncludeType, nCastSucc = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
 	if nIncludeType then
 		self:runLateCast(nFnLateDict)
-		if not nCastSucc then
-			if vWhen then
-				self:error("type cast fail when "..tostring(vWhen))
-			else
-				self:error("type cast fail")
-			end
-		end
-	else
-		if vWhen then
-			self:error("type not match when "..tostring(vWhen))
+	end
+	if not nIncludeType or not nCastSucc then
+		local nLogPrefix = nIncludeType and "type cast fail " or "type not match "
+		local nLogSuffix = vWhen and "when "..tostring(vWhen) or ""
+		if vSrcType:includeAtom(self._manager.type.Truth) then
+			self:warn(nLogPrefix..nLogSuffix)
 		else
-			self:error("type not match")
+			self:error(nLogPrefix..nLogSuffix)
 		end
 	end
 	return nIncludeType
@@ -7500,6 +7496,7 @@ local FastBitsSet = {
 	[TYPE_BITS.THREAD]=true,
 	[TYPE_BITS.LIGHTUSERDATA]=true,
 	[TYPE_BITS.TRUTH]=true,
+	[TYPE_BITS.ANY]=true,
 }
 
 local TrueBitSet = {
@@ -7761,10 +7758,10 @@ local function makeBuiltinType(vManager, vRootNode)
 		Integer = Integer.new(vManager),
 		String = String.new(vManager),
 		Truth = Truth.new(vManager),
+		Any = nil  ,
 		LightUserdata = LightUserdata.new(vManager),
 		AnyFunction = AnyFunction.new(vManager, vRootNode),
 		Boolean = nil  ,
-		Any = nil  ,
 		AnyObject = nil  ,
 	}
 	return self
@@ -7799,7 +7796,7 @@ function TypeManager:lateInit()
 	local vRootNode = self._rootNode
 	self.type = makeBuiltinType(self, vRootNode)
 	self.type.Boolean = self:buildUnion(vRootNode, self.type.False, self.type.True)
-	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
+	self.type.Any = self:buildUnion(vRootNode, self.type.Truth, self.type.False, self.type.Nil)
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
 	self.MetaOrNil = self:buildUnion(vRootNode, self.type.Nil, self.type.Truth):checkAtomUnion()       
 	self.generic.Dict = self:buildTemplate(vRootNode, function(vKey,vValue)
@@ -7884,7 +7881,7 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vTupleBuilder)
 		local nKeyValuePairList   = {}
 		local nIntersectSet  = {}
 		local nMetaEventComList = {}
-		local nIntersectNextKey = self.type.Any
+		local nIntersectNextKey = self:buildUnion(self._rootNode, self.type.False, self.type.Nil, self.type.Truth)
 		for i=1,#nObjectList do
 			local nTypedObject = nObjectList[i]
 			if not TypedObject.is(nTypedObject) then
@@ -15469,6 +15466,7 @@ local TYPE_BITS = {
 	THREAD = 1 << 7,
 	LIGHTUSERDATA = 1 << 8,
 	TRUTH = 0x1FF-3,        
+	ANY = 0xFFFF,
 }
 
 return TYPE_BITS
@@ -15634,7 +15632,7 @@ function BaseAtomType:isNilable()
 end
 
 function BaseAtomType:assumeIncludeAtom(vAssumeSet, vRightType, vSelfType)
-	if self == vRightType:deEnum() then
+	if self == vRightType then
 		return self
 	else
 		return false
@@ -15660,10 +15658,6 @@ function BaseAtomType:setLocked()
 	  
 end
 
-function BaseAtomType:deEnum()
-	return self
-end
-
 function BaseAtomType:findRequireStack()
 	return false
 end
@@ -15672,6 +15666,23 @@ return BaseAtomType
 
 end end
 --thlua.type.basic.BaseAtomType end ==========)
+
+--thlua.type.basic.BasePrimsType begin ==========(
+do local _ENV = _ENV
+packages['thlua.type.basic.BasePrimsType'] = function (...)
+
+
+local class = require "thlua.class"
+local BaseAtomType = require "thlua.type.basic.BaseAtomType"
+
+;  
+
+local BasePrimsType = class (BaseAtomType)
+
+return BasePrimsType
+
+end end
+--thlua.type.basic.BasePrimsType end ==========)
 
 --thlua.type.basic.BaseReadyType begin ==========(
 do local _ENV = _ENV
@@ -15757,8 +15768,6 @@ local class = require "thlua.class"
 	
 
 	
-	
-
 	
 
 	
@@ -16090,12 +16099,13 @@ packages['thlua.type.basic.Integer'] = function (...)
 local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local BaseAtomType = require "thlua.type.basic.BaseAtomType"
+local BasePrimsType = require "thlua.type.basic.BasePrimsType"
+local SubType = require "thlua.type.basic.SubType"
 local class = require "thlua.class"
 
 ;  
 
-local Integer = class (BaseAtomType)
+local Integer = class (BasePrimsType)
 
 function Integer:ctor(vManager)
 	self.bits=TYPE_BITS.NUMBER
@@ -16120,10 +16130,13 @@ end
 function Integer:assumeIncludeAtom(vAssumetSet, vType, _)
 	if IntegerLiteral.is(vType) then
 		return self
-	elseif self == vType:deEnum() then
-		return self
 	else
-		return false
+		vType = SubType.is(vType) and vType:getSuperType() or vType
+		if self == vType then
+			return self
+		else
+			return false
+		end
 	end
 end
 
@@ -16286,12 +16299,13 @@ local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local Integer = require "thlua.type.basic.Integer"
 local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local BaseAtomType = require "thlua.type.basic.BaseAtomType"
+local BasePrimsType = require "thlua.type.basic.BasePrimsType"
+local SubType = require "thlua.type.basic.SubType"
 local class = require "thlua.class"
 
 ;  
 
-local Number = class (BaseAtomType)
+local Number = class (BasePrimsType)
 
 function Number:ctor(vManager)
 	self.bits=TYPE_BITS.NUMBER
@@ -16319,10 +16333,10 @@ function Number:assumeIncludeAtom(vAssumetSet, vType, _)
 	elseif IntegerLiteral.is(vType) then
 		return self
 	else
-		local nDeEnumType = vType:deEnum()
-		if Integer.is(nDeEnumType) then
+		vType = SubType.is(vType) and vType:getSuperType() or vType
+		if Integer.is(vType) then
 			return self
-		elseif self == nDeEnumType then
+		elseif self == vType then
 			return self
 		else
 			return false
@@ -16346,12 +16360,13 @@ packages['thlua.type.basic.String'] = function (...)
 local StringLiteral = require "thlua.type.basic.StringLiteral"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
-local BaseAtomType = require "thlua.type.basic.BaseAtomType"
+local BasePrimsType = require "thlua.type.basic.BasePrimsType"
+local SubType = require "thlua.type.basic.SubType"
 local class = require "thlua.class"
 
 ;  
 
-local String = class (BaseAtomType)
+local String = class (BasePrimsType)
 
 function String:ctor(vManager)
 	self.bits=TYPE_BITS.STRING
@@ -16380,10 +16395,13 @@ end
 function String:assumeIncludeAtom(vAssumeSet, vType, _)
 	if StringLiteral.is(vType) then
 		return self
-	elseif self == vType:deEnum() then
-		return self
 	else
-		return false
+		vType = SubType.is(vType) and vType:getSuperType() or vType
+		if self == vType then
+			return self
+		else
+			return false
+		end
 	end
 end
 
@@ -16475,10 +16493,6 @@ function SubType:native_type()
     else
         return nSuperType:native_type()
     end
-end
-
-function SubType:deEnum()
-	return self._superType
 end
 
 function SubType:assumeIncludeAtom(vAssumetSet, vType, _)
@@ -16584,7 +16598,6 @@ function Truth:native_getmetatable(vContext)
 end
 
 function Truth:native_type()
-	   
 	return self._manager.type.String
 end
 
@@ -16663,7 +16676,7 @@ function AnyFunction:meta_call(vContext, vTypeTuple)
 end
 
 function AnyFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
-	if BaseFunction.is(vRight:deEnum()) then
+	if BaseFunction.is(vRight) then
 		return self
 	else
 		return false
@@ -17426,7 +17439,6 @@ function TypedFunction:assumeIncludeFn(vAssumeSet , vRight)
 end
 
 function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
-	vRight = vRight:deEnum()
 	if self == vRight then
 		return self
 	end
@@ -17562,7 +17574,6 @@ end
 
 function TypedMemberFunction:assumeIncludeAtom(vAssumeSet, vRight, vSelfType)
 	 
-	vRight = vRight:deEnum()
 	if self == vRight then
 		return self
 	end
@@ -17947,7 +17958,6 @@ function ClassTable:checkTypedObject()
 end
 
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
-	vType = vType:deEnum()
 	if ClassTable.is(vType) then
 		local nMatchTable = vType
 		while nMatchTable ~= self do
@@ -19306,7 +19316,7 @@ function TypedObject:assumeIncludeObject(vAssumeSet , vRightObject);
 end
 
 function TypedObject:assumeIncludeAtom(vAssumeSet, vRightType, _)
-	local nRightStruct = vRightType:deEnum():checkTypedObject()
+	local nRightStruct = vRightType:checkTypedObject()
 	if not nRightStruct then
 		return false
 	end
