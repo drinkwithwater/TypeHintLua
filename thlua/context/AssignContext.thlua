@@ -185,18 +185,14 @@ function AssignContext:includeAndCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.
 	const nIncludeType, nCastSucc = self:tryIncludeCast(nFnLateDict, vDstType, vSrcType)
 	if nIncludeType then
 		self:runLateCast(nFnLateDict)
-		if not nCastSucc then
-			if vWhen then
-				self:error("type cast fail when "..tostring(vWhen))
-			else
-				self:error("type cast fail")
-			end
-		end
-	else
-		if vWhen then
-			self:error("type not match when "..tostring(vWhen))
+	end
+	if not nIncludeType or not nCastSucc then
+		const nLogPrefix = nIncludeType and "type cast fail " or "type not match "
+		const nLogSuffix = vWhen and "when "..tostring(vWhen) or ""
+		if vSrcType:includeAtom(self._manager.type.Truth) then
+			self:warn(nLogPrefix..nLogSuffix)
 		else
-			self:error("type not match")
+			self:error(nLogPrefix..nLogSuffix)
 		end
 	end
 	return nIncludeType
