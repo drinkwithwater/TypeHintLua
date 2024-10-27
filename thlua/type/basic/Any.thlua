@@ -1,0 +1,69 @@
+
+const TYPE_BITS = require "thlua.type.TYPE_BITS"
+
+const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const class = require "thlua.class"
+
+(@let.clazz = import($class).clazz)
+
+const Any = class@<clazz.Any, false>(BaseAtomType)
+
+function.open Any:ctor(vManager:clazz.TypeManager)
+	self.bits = TYPE_BITS.ANY
+end
+
+function Any:detailString(vToStringCache, vVerbose)
+	return "Any"
+end
+
+function Any:native_setmetatable(vContext, vMetaTableType)
+end
+
+function Any:native_getmetatable(vContext)
+	return self._manager.MetaOrNil
+end
+
+function Any:native_type()
+	return self._manager.type.String
+end
+
+function Any:native_rawget(vContext, vKeyType)
+	return self
+end
+
+function Any:native_rawset(vContext, vKeyType, vValueTypeSet)
+end
+
+function Any:meta_get(vContext, vKeyType)
+	vContext:pushFirstAndTuple(self)
+	return true
+end
+
+function Any:meta_set(vContext, vKeyType, vValueTerm)
+end
+
+function Any:meta_call(vContext, vTypeTuple)
+	vContext:pushRetTuples(self._manager:VoidRetTuples(vContext:getNode()))
+end
+
+function Any:meta_pairs(vContext)
+	return false
+end
+
+function Any:meta_ipairs(vContext)
+	return false
+end
+
+function Any:native_next(vContext, vInitType)
+	return self._manager.type.Never, {}
+end
+
+function Any:isSingleton()
+	return false
+end
+
+function Any:assumeIncludeAtom(vAssumeSet, vType, _)
+    return self
+end
+
+return Any

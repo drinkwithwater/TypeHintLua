@@ -17,6 +17,7 @@ const Thread = require "thlua.type.basic.Thread"
 const SubType = require "thlua.type.basic.SubType"
 const LightUserdata = require "thlua.type.basic.LightUserdata"
 const Truth = require "thlua.type.basic.Truth"
+const Any = require "thlua.type.basic.Any"
 const TypedObject = require "thlua.type.object.TypedObject"
 const Struct = require "thlua.type.object.Struct"
 const Interface = require "thlua.type.object.Interface"
@@ -105,10 +106,12 @@ const function:class(let.BuiltinType) makeBuiltinType(vManager:clazz.TypeManager
 		Integer = Integer.new(vManager),
 		String = String.new(vManager),
 		Truth = Truth.new(vManager),
+		-- TruthOrFalseOrNil = nil @! clazz.AsyncTypeCom,
+		Any = nil @! clazz.AsyncTypeCom,
+		-- Any = Any.new(vManager),
 		LightUserdata = LightUserdata.new(vManager),
 		AnyFunction = AnyFunction.new(vManager, vRootNode),
 		Boolean = nil @! clazz.AsyncTypeCom,
-		Any = nil @! clazz.AsyncTypeCom,
 		AnyObject = nil @! clazz.Interface,
 	}
 	return self
@@ -143,7 +146,7 @@ function TypeManager:lateInit()
 	const vRootNode = self._rootNode
 	self.type = makeBuiltinType(self, vRootNode)
 	self.type.Boolean = self:buildUnion(vRootNode, self.type.False, self.type.True)
-	self.type.Any = self:buildUnion(vRootNode, self.type.False, self.type.Nil, self.type.Truth)
+	self.type.Any = self:buildUnion(vRootNode, self.type.Truth, self.type.False, self.type.Nil)
 	self.type.AnyObject = self:buildInterface(vRootNode, {})
 	self.MetaOrNil = self:buildUnion(vRootNode, self.type.Nil, self.type.Truth):checkAtomUnion() -- TODO use object in the future
 	self.generic.Dict = self:buildTemplate(vRootNode, function(vKey:clazz.UMustType,vValue:clazz.UMustType)
@@ -228,7 +231,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UMustType}) = {}
 		const nIntersectSet:Dict(clazz.TypedObject, True) = {}
 		const nMetaEventComList:List(clazz.MetaEventCom) = {}
-		local nIntersectNextKey:OrFalse(clazz.UMustType) = self.type.Any
+		local nIntersectNextKey:OrFalse(clazz.UMustType) = self:buildUnion(self._rootNode, self.type.False, self.type.Nil, self.type.Truth)
 		for i=1,#nObjectList do
 			local nTypedObject = nObjectList[i]!
 			if not TypedObject.is(nTypedObject) then

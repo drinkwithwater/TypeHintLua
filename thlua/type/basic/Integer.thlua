@@ -2,12 +2,13 @@
 const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
 const TYPE_BITS = require "thlua.type.TYPE_BITS"
-const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const BasePrimsType = require "thlua.type.basic.BasePrimsType"
+const SubType = require "thlua.type.basic.SubType"
 const class = require "thlua.class"
 
 (@let.clazz = import($class).clazz)
 
-const Integer = class@<clazz.Integer, false>(BaseAtomType)
+const Integer = class@<clazz.Integer, false>(BasePrimsType)
 
 function.open Integer:ctor(vManager:clazz.TypeManager)
 	self.bits=TYPE_BITS.NUMBER
@@ -32,10 +33,13 @@ end
 function Integer:assumeIncludeAtom(vAssumetSet, vType, _)
 	if IntegerLiteral.is(vType) then
 		return self
-	elseif self == vType:deEnum() then
-		return self
 	else
-		return false
+		vType = SubType.is(vType) and vType:getSuperType() or vType
+		if self == vType then
+			return self
+		else
+			return false
+		end
 	end
 end
 
