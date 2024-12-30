@@ -47,6 +47,22 @@ set (THIRDPART_SRC ${THIRDPART_SRC} ${LPATH_SRC})
 set (THIRDPART_SRC ${THIRDPART_SRC} 3rd/lua-chrono.cpp)
 #end chrono
 
+if (NOT WASM)
+#begin luv
+  #begin libuv
+  include_directories(3rd/luv/deps/libuv/include)
+  add_subdirectory(3rd/luv/deps/libuv EXCLUDE_FROM_ALL)
+  add_definitions( -DBUILDING_UV_SHARED )
+  set(LIBUV_LIBRARIES uv_a)
+  set_target_properties(uv_a PROPERTIES COMPILE_FLAGS "-fPIC")
+  #end libuv
+include_directories(3rd/luv/src)
+set (THIRDPART_SRC ${THIRDPART_SRC} 3rd/luv/src/luv.c)
+#end luv
+endif()
+
+
+
 set (LUA_HPP 3rd)
 include_directories(
 	${LUA_HPP}
@@ -69,12 +85,12 @@ if (NOT WASM)
 	if ( WIN32 AND NOT CYGWIN )
 		target_link_libraries(lua
 			ws2_32
-			${THIRDPART_LIB}
+			${LIBUV_LIBRARIES}
 		)
 	else ( )
 		target_link_libraries(lua
 			m
-			${THIRDPART_LIB}
+			${LIBUV_LIBRARIES}
 		)
 	endif ( )
 endif()

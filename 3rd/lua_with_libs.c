@@ -21,6 +21,7 @@
 #include "lualib.h"
 
 #include "some_libs.h"
+#include "luv.h"
 
 #if !defined(LUA_PROGNAME)
 #define LUA_PROGNAME		"lua"
@@ -612,6 +613,8 @@ static void addPreload (lua_State *L) {
   lua_setfield(L, -2, "path.fs");
   lua_pushcfunction(L, &luaopen_chrono);
   lua_setfield(L, -2, "chrono");
+  lua_pushcfunction(L, &luaopen_luv);
+  lua_setfield(L, -2, "luv");
   lua_pop(L, 1);
 }
 
