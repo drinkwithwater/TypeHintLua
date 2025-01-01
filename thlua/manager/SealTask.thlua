@@ -1,0 +1,55 @@
+
+const Exception = require "thlua.Exception"
+
+const class = require@<let.clazz> "thlua.class"
+const ScheduleTask = require "thlua.manager.ScheduleTask"
+
+const SealTask = class@<clazz.SealTask, false>(ScheduleTask)
+
+function SealTask:__tostring()
+    return "SealTask"
+end
+
+function.open SealTask:ctor(_:clazz.ScheduleManager, vSealStack:clazz.SealStack)
+	self._stack = vSealStack
+	self._openStackList = {} @ List(clazz.OpenStack)
+end
+
+function SealTask:openCall(vFunc:clazz.OpenCaller, vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple)
+	const nList = self._openStackList
+	const nMoreLen = #nList + 1
+	nList[nMoreLen] = vStack
+	const nRet = vFunc(vStack, vTermTuple)
+	nList[nMoreLen] = nil
+	return nRet
+end
+
+function SealTask:_handleException(vExc:Any)
+	const nStack = self._stack
+	if Exception.is(vExc) then
+		nStack:getRuntime():nodeError(vExc.node, vExc.msg)
+		const nNodeList = vExc.otherNodes
+		if nNodeList then
+			for _, nNode in ipairs(nNodeList) do
+				nStack:getRuntime():nodeError(nNode, vExc.msg)
+			end
+		end
+	else
+		nStack:getRuntime():nodeError(nStack:getNode(), tostring(vExc))
+	end
+end
+
+function SealTask:traceStack():Ret(OrFalse(clazz.BaseStack))
+	const nList = self._openStackList
+	return nList[#nList] or self:getStack()
+end
+
+function SealTask:getNode():Ret(clazz.IBaseNode)
+	return self._stack:getNode()
+end
+
+function SealTask:getStack()
+	return self._stack
+end
+
+return SealTask

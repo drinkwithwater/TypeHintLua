@@ -125,12 +125,11 @@ end
 function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple, vIsRequire:Boolean):Ret(clazz.UOpenReturn, clazz.OpenStack)
 	const nNode = vContext:getNode()
 	const nNewStack = self._manager:getRuntime():OpenStack(nNode, self._lexBranchCase, self, vContext:getStack(), vIsRequire)
-	const nTask = self._manager:getScheduleManager():getTask()
-	const nSealStack = nTask:getStack()
-	if not nSealStack then
+	const nSealTask = self._manager:getScheduleManager():tryGetSealTask()
+	if not nSealTask then
 		error(nNode:toExc("open function must be called in an seal stack"))
 	end
-	return nTask:openCall(self._func!, nNewStack, vTermTuple), nNewStack
+	return nSealTask:openCall(self._func!, nNewStack, vTermTuple), nNewStack
 end
 
 function OpenFunction:findRequireStack():Ret(OrFalse(clazz.OpenStack))

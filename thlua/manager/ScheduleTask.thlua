@@ -21,7 +21,6 @@ end)()
 
 
 (@do
-	clazz.UTaskHost = Union(clazz.IBaseNode, clazz.SealStack, clazz.TypeRelation, clazz.NameReference)
 	clazz.ProfileInfo = Struct {
 		counter = Integer,
 		start = OrFalse(Integer),
@@ -32,8 +31,9 @@ end)
 
 const ScheduleTask = class@<clazz.ScheduleTask, false>()
 
-function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:clazz.UTaskHost)
+function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, ...)
 	self._scheduleManager = vScheduleManager
+	self._waitEvent = false @ OrFalse(clazz.ScheduleEvent)
 	self._fnToProfile = {} @ Dict(AnyFunction, clazz.ProfileInfo)
 	self._runFn = false @ OrFalse(Fn():Err(clazz.Exception))
 	self._selfCo = coroutine.create(function()
@@ -46,29 +46,13 @@ function.open ScheduleTask:ctor(vScheduleManager:clazz.ScheduleManager, vHost:cl
 		end
 		const ok, nExc = pcall(nRunFn)
 		if not ok then
-			const nHost = self._host
-			const nStack = SealStack.is(nHost) and nHost
-			if nStack then
-				if Exception.is(nExc) then
-					nStack:getRuntime():nodeError(nExc.node, nExc.msg)
-					const nNodeList = nExc.otherNodes
-					if nNodeList then
-						for _, nNode in ipairs(nNodeList) do
-							nStack:getRuntime():nodeError(nNode, nExc.msg)
-						end
-					end
-				else
-					nStack:getRuntime():nodeError(nStack:getNode(), tostring(nExc))
-				end
-			end
-			if not nStack then
-				error(nExc)
-			end
+			self:_handleException(nExc)
 		end
 	end)
-	self._host = vHost
-	self._waitEvent = false @ OrFalse(clazz.ScheduleEvent)
-	self._openStackList = {} @ List(clazz.OpenStack)
+end
+
+function ScheduleTask:_handleException(exc:Any)
+	error(exc)
 end
 
 function ScheduleTask:getWaitEvent()
@@ -81,10 +65,10 @@ function ScheduleTask:waitEvent(vEvent:clazz.ScheduleEvent)
 	coroutine.yield()
 end
 
-function ScheduleTask:wakeupEvent(vEvent:clazz.ScheduleEvent)
+function ScheduleTask:wakeupForEvent(vEvent:clazz.ScheduleEvent)
 	assert(self._waitEvent == vEvent)
 	self._waitEvent = false
-	self._scheduleManager:trySchedule(self)
+	self._scheduleManager:pushSchedule(self)
 end
 
 function ScheduleTask:resume():Ret(OrNil(True))
@@ -101,63 +85,22 @@ function ScheduleTask:resume():Ret(OrNil(True))
 	end
 end
 
-function ScheduleTask:openCall(vFunc:clazz.OpenCaller, vStack:clazz.OpenStack, vTermTuple:clazz.UTermTuple)
-	const nList = self._openStackList
-	const nMoreLen = #nList + 1
-	nList[nMoreLen] = vStack
-	const nRet = vFunc(vStack, vTermTuple)
-	nList[nMoreLen] = nil
-	return nRet
-end
-
-function ScheduleTask:traceStack():Ret(OrFalse(clazz.BaseStack))
-	const nList = self._openStackList
-	return nList[#nList] or self:getStack()
-end
-
 function ScheduleTask:getSelfCo():Ret(Thread)
 	return self._selfCo
 end
 
 function ScheduleTask:runAsync(vFunc:Fn())
 	self._runFn = vFunc
-	self._scheduleManager:trySchedule(self)
-end
-
-function ScheduleTask:getStack():Ret(OrFalse(clazz.SealStack))
-	const nHost = self._host
-	return SealStack.is(nHost) and nHost
+	self._scheduleManager:pushSchedule(self)
 end
 
 function ScheduleTask:makeEvent():Ret(clazz.ScheduleEvent)
 	return ScheduleEvent.new(self._scheduleManager, self)
 end
 
-function ScheduleTask:errorWaitByStack(vStack:clazz.SealStack)
-	const nHost = self._host
-	if SealStack.is(nHost) then
-		error(nHost:getNode():toExc("stack waiting error"))
-	elseif Node.is(nHost) then
-		error(nHost:toExc("type not setted"))
-	elseif NameReference.is(nHost) then
-		vStack:getRuntime():invalidReference(nHost)
-		error(vStack:getNode():toExc("refer not setted : "..tostring(nHost)))
-	else
-		error(vStack:getNode():toExc("type relation waiting exception when type relation"))
-	end
-end
-
 function ScheduleTask:getNode():Ret(OrFalse(clazz.IBaseNode))
-	const nHost = self._host
-	if SealStack.is(nHost) then
-		return nHost:getNode()
-	elseif Node.is(nHost) then
-		return nHost
-	elseif NameReference.is(nHost) then
-		return nHost:getAssignNode()
-	else
-		return false
-	end
+	error("not implement")
+	return false
 end
 
 function ScheduleTask:hook(vCase:Union("call", "return", "line"), vDepth:OrNil(Integer))

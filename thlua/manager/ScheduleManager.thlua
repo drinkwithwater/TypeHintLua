@@ -4,6 +4,8 @@ const Exception = require "thlua.Exception"
 const class = require@<let.clazz> "thlua.class"
 
 const ScheduleTask = require "thlua.manager.ScheduleTask"
+const SealTask = require "thlua.manager.SealTask"
+const HintTask = require "thlua.manager.HintTask"
 
 (@do
 	let.ProfileInfo = Struct {
@@ -24,8 +26,14 @@ function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self.useProfile = false @Boolean
 end
 
-function ScheduleManager:newTask(vTaskHost:clazz.UTaskHost)
-	const nTask = ScheduleTask.new(self, vTaskHost)
+function ScheduleManager:newHintTask(vHintHost:clazz.UHintHost)
+	const nTask = HintTask.new(self, vHintHost)
+	self._coToTask[nTask:getSelfCo()] = nTask
+	return nTask
+end
+
+function ScheduleManager:newSealTask(vSealStack:clazz.SealStack)
+	const nTask = SealTask.new(self, vSealStack)
 	self._coToTask[nTask:getSelfCo()] = nTask
 	return nTask
 end
@@ -34,13 +42,19 @@ function ScheduleManager:getTask():Ret(clazz.ScheduleTask)
 	return self._coToTask[coroutine.running()]!
 end
 
+function ScheduleManager:tryGetSealTask():Ret(OrNil(clazz.SealTask))
+	const nTask = self._coToTask[coroutine.running()]!
+	if SealTask.is(nTask) then
+		return nTask
+	else
+		return nil
+	end
+end
+
 function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDependTask:clazz.ScheduleTask)
-	-- stack can't wait async type
-	const nCurStack = vWaitingTask:getStack()
-	if nCurStack then
-		if not vDependTask:getStack() then
-			vDependTask:errorWaitByStack(nCurStack)
-		end
+	-- seal stack can't wait async hint type
+	if SealTask.is(vWaitingTask) and HintTask.is(vDependTask) then
+		vDependTask:errorWaitByStack(vWaitingTask:getStack())
 	end
 	local nCurTask = vDependTask
 	const nTaskList:List(clazz.ScheduleTask) = {}
@@ -72,6 +86,20 @@ function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDepend
 end
 
 function ScheduleManager:runSchedule()
+	--[[
+	while #self._scheduleList > 0 do
+		const len = #self._scheduleList
+		const nTask = self._scheduleList[len]
+		if not nTask then
+			self._scheduleList[len] = nil
+		else
+			const go = nTask:resume()
+			if not go then
+				self._scheduleList[len] = false
+			end
+		end
+	end
+	]]
 	while true do
 		const nScheduleList = self._scheduleList
 		if not nScheduleList[1] then
@@ -87,11 +115,11 @@ function ScheduleManager:runSchedule()
 	end
 end
 
-function ScheduleManager:trySchedule(vTask:clazz.ScheduleTask)
+function ScheduleManager:pushSchedule(vTask:clazz.ScheduleTask)
 	const nScheduleList = self._scheduleList
 	nScheduleList[#nScheduleList + 1] = vTask
 	const nTask = self._coToTask[coroutine.running()]
-	if nTask and nTask:getStack() then
+	if SealTask.is(nTask) then
 		coroutine.yield(true)
 	end
 end

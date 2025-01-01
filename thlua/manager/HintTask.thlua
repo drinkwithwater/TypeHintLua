@@ -1,0 +1,46 @@
+
+const Exception = require "thlua.Exception"
+
+const Node = require "thlua.code.Node"
+const NameReference = require "thlua.space.NameReference"
+const class = require@<let.clazz> "thlua.class"
+const ScheduleTask = require "thlua.manager.ScheduleTask"
+
+(@do
+	clazz.UHintHost=Union(clazz.IBaseNode, clazz.TypeRelation, clazz.NameReference)
+end)
+
+const HintTask = class@<clazz.HintTask, false>(ScheduleTask)
+
+function HintTask:__tostring()
+    return "HintTask"
+end
+
+function.open HintTask:ctor(_, vHost:clazz.UHintHost)
+	self._host = vHost
+end
+
+function HintTask:errorWaitByStack(vStack:clazz.SealStack)
+	const nHost = self._host
+	if Node.is(nHost) then
+		error(nHost:toExc("type not setted"))
+	elseif NameReference.is(nHost) then
+		vStack:getRuntime():invalidReference(nHost)
+		error(vStack:getNode():toExc("refer not setted : "..tostring(nHost)))
+	else
+		error(vStack:getNode():toExc("type relation waiting exception when type relation"))
+	end
+end
+
+function HintTask:getNode():Ret(OrFalse(clazz.IBaseNode))
+	const nHost = self._host
+	if Node.is(nHost) then
+		return nHost
+	elseif NameReference.is(nHost) then
+		return nHost:getAssignNode()
+	else
+		return false
+	end
+end
+
+return HintTask
