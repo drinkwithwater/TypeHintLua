@@ -61,11 +61,15 @@ end
 
 function ScheduleTask:waitEvent(vEvent:clazz.ScheduleEvent)
 	assert(not self._waitEvent)
+	const nDependTask = vEvent:getTask()
+	if nDependTask then
+		self._scheduleManager:checkRecursive(self, nDependTask)
+	end
 	self._waitEvent = vEvent
 	coroutine.yield()
 end
 
-function ScheduleTask:wakeupForEvent(vEvent:clazz.ScheduleEvent)
+function ScheduleTask:wakeupByEvent(vEvent:clazz.ScheduleEvent)
 	assert(self._waitEvent == vEvent)
 	self._waitEvent = false
 	self._scheduleManager:pushSchedule(self)

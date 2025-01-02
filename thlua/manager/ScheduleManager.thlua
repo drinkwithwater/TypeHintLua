@@ -3,11 +3,13 @@ const ScheduleEvent = require "thlua.manager.ScheduleEvent"
 const Exception = require "thlua.Exception"
 const class = require@<let.clazz> "thlua.class"
 
+const LuaPromise = require@<let.LuaPromise> "thlua.LuaPromise"
 const ScheduleTask = require "thlua.manager.ScheduleTask"
 const SealTask = require "thlua.manager.SealTask"
 const HintTask = require "thlua.manager.HintTask"
 
 (@do
+	let.uv_async_t = import("luv").uv_async_t
 	let.ProfileInfo = Struct {
 		counter = Integer,
 		start = OrFalse(Integer),
@@ -20,7 +22,8 @@ const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
 function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._coToTask={} @ Dict(Thread, clazz.ScheduleTask)
-	self._scheduleList={}@List(clazz.ScheduleTask)
+	self._sealTaskList={}@List(OrFalse(clazz.SealTask))
+	self._hintTaskList={}@List(clazz.HintTask)
 	self._selfCo=coroutine.running()
 	self._runtime = vRuntime
 	self.useProfile = false @Boolean
@@ -85,41 +88,72 @@ function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDepend
 	end
 end
 
-function ScheduleManager:runSchedule()
-	--[[
-	while #self._scheduleList > 0 do
-		const len = #self._scheduleList
-		const nTask = self._scheduleList[len]
-		if not nTask then
-			self._scheduleList[len] = nil
-		else
-			const go = nTask:resume()
-			if not go then
-				self._scheduleList[len] = false
-			end
-		end
-	end
-	]]
+function ScheduleManager:_tickTask():Ret(Boolean)
+	const nHintTaskList = self._hintTaskList
 	while true do
-		const nScheduleList = self._scheduleList
-		if not nScheduleList[1] then
+		const nDepth = #nHintTaskList
+		const nTask = nHintTaskList[nDepth]
+		if not nTask then
 			break
-		else
-			self._scheduleList = {}
-			for _, nTask in ipairs(nScheduleList) do
-				while nTask:resume() do
-					self:runSchedule()
-				end
-			end
+		end
+		nHintTaskList[nDepth] = nil
+		nTask:resume()
+	end
+	const nTaskList = self._sealTaskList
+	const depth = #nTaskList
+	if depth <= 0 then
+		return false
+	end
+	const nTask = nTaskList[depth]
+	if not nTask then
+		nTaskList[depth] = nil
+	else
+		const stay = nTask:resume()
+		if not stay then
+			nTaskList[depth] = false
 		end
 	end
+	return #nTaskList > 0
+end
+
+function ScheduleManager:promiseSchedule():Ret(LuaPromise(Nil))
+	const nPromise = LuaPromise.new@<Nil>()
+	local async = nil @! uv_async_t
+	local counter = 0
+	async = self._runtime:getPlatform().createAsync(function()
+		counter = counter + 1
+		const ok, retOrErr = pcall(self._tickTask, self)
+		if ok then
+			if retOrErr then
+				async:send()
+			else
+				async:close()
+				nPromise:resolve(nil)
+			end
+		else
+			if Exception.is(retOrErr) then
+				self._runtime:nodeError(retOrErr.node, retOrErr.msg)
+			else
+				self._runtime:nodeError(self._runtime:getNode(), retOrErr)
+			end
+			async:close()
+			nPromise:resolve(nil)
+		end
+	end)
+	async:send()
+	return nPromise
 end
 
 function ScheduleManager:pushSchedule(vTask:clazz.ScheduleTask)
-	const nScheduleList = self._scheduleList
-	nScheduleList[#nScheduleList + 1] = vTask
-	const nTask = self._coToTask[coroutine.running()]
-	if SealTask.is(nTask) then
+	if SealTask.is(vTask) then
+		const nList = self._sealTaskList
+		nList[#nList + 1] = vTask
+	else
+		const nList = self._hintTaskList
+		nList[#nList + 1] = vTask @> clazz.HintTask
+	end
+	const nCurTask = self._coToTask[coroutine.running()]
+	if SealTask.is(nCurTask) then
 		coroutine.yield(true)
 	end
 end

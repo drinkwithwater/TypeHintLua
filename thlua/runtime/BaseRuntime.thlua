@@ -1,6 +1,7 @@
 
 const class = require@<let.clazz> "thlua.class"
 const Node = require@<let.node> "thlua.code.Node"
+const LuaPromise = require@<let.LuaPromise> "thlua.LuaPromise"
 
 const TypedFunction = require "thlua.type.func.TypedFunction"
 const TypeManager = require "thlua.manager.TypeManager"
@@ -26,10 +27,13 @@ const platform = require "thlua.platform"
 
 (@do
 
-	clazz.FileLoader = Struct {
-		thluaSearch=Fn(clazz.BaseRuntime, String):Ret(Boolean, String),
-		thluaParseFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv),
-		thluaGlobalFile=Fn(clazz.BaseRuntime, String):Ret(clazz.CodeEnv, String),
+	let.uv_async_t = import("luv").uv_async_t
+	clazz.IPlatform = Interface {
+		searchPath=Fn(OrFalse(String), String):Ret(Boolean, String),
+		parseFile=Fn(String):Ret(clazz.CodeEnv),
+		parseGlobal=Fn(String):Ret(clazz.CodeEnv, String),
+		createAsync=Fn(Fn():Dots(Any)):Ret(uv_async_t),
+		logger=OrNil(clazz.LevelLogger),
 	}
 
 	clazz.LevelLogger = Interface {
@@ -54,15 +58,15 @@ const platform = require "thlua.platform"
 
 end)
 
-const DefaultLoader:clazz.FileLoader = {
-	thluaSearch=function(vRuntime, vPath)
-		local fileName, err1 = package.searchpath(vPath, vRuntime:getSearchPath() or "./?.thlua;./?.d.thlua")
+const DefaultPlatform:clazz.IPlatform = {
+	searchPath=function(vPrefix, vPath)
+		local fileName, err1 = package.searchpath(vPath, vPrefix or "./?.thlua;./?.d.thlua")
 		if not fileName then
 			return false, err1
 		end
 		return true, fileName
 	end,
-	thluaParseFile=function.pass(vRuntime, vFileName)
+	parseFile=function.pass(vFileName)
 		local file, err = io.open(vFileName, "r")
 		if not file then
 			error(err)
@@ -72,12 +76,16 @@ const DefaultLoader:clazz.FileLoader = {
 		const nCodeEnv = CodeEnv.new(nContent, vFileName)
 		return nCodeEnv
 	end,
-	thluaGlobalFile=function.pass(vRuntime, vPackage)
+	parseGlobal=function.pass(vPackage)
 		local nContent:String = require("thlua.global."..vPackage)
 		const nFileName = "@virtual-file:"..vPackage
 		const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
 		return nCodeEnv, nFileName
-	end
+	end,
+	createAsync=function(fn)
+		const uv = require "luv"
+		return uv.new_async(fn)
+	end,
 }
 
 const DefaultLogger:clazz.LevelLogger = {
@@ -100,10 +108,10 @@ const DefaultLogger:clazz.LevelLogger = {
 
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open BaseRuntime:ctor(vLoader:OrNil(clazz.FileLoader), vLogger:OrNil(clazz.LevelLogger))
+function.open BaseRuntime:ctor(vPlatform:OrNil(clazz.IPlatform))
 	self._searchPath = false @ OrFalse(String)
-	self._loader=vLoader or DefaultLoader
-	self._logger=vLogger or DefaultLogger
+	self._platform=vPlatform or DefaultPlatform
+	self._logger=self._platform.logger or DefaultLogger
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._scheduleManager=ScheduleManager.new(self)
@@ -161,55 +169,35 @@ const nGlobalPackage:List(String) = {
 	"utf8",
 }
 
-function BaseRuntime:pmain(vRootFileUri:String, vUseProfile:OrNil(Boolean)):Ret(True):Ret(False, Union(String, clazz.Exception))
+function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean))
 	self._scheduleManager.useProfile = vUseProfile or false
 	self._node=Node.newRootNode(vRootFileUri)
 	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
 	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
-	const t1 = os.clock()
-	const ok, err = pcall(function():Err(clazz.Exception)
-		nAutoFn:initAsync(function()
-			const nRootStack = nAutoFn:getBuildStack()
-			self._rootStack = nRootStack
-			self._manager:lateInit()
-			self._globalTable = native.make(self)
-			nRootStack:rootSetLetSpace(self:getRootSpace())
-			for _, pkg in ipairs(nGlobalPackage) do
-				const nLoadedState = self:_cacheLoadGlobal(pkg)
-				if pkg == "string" then
-					const nRetType = nLoadedState.term!:getType()
-					assert(not nRetType:isUnion(), "string lib's return can't be union")
-					self._manager:lateInitStringLib(nRetType)
-				end
+	nAutoFn:initAsync(function()
+		const nRootStack = nAutoFn:getBuildStack()
+		self._rootStack = nRootStack
+		self._manager:lateInit()
+		self._globalTable = native.make(self)
+		nRootStack:rootSetLetSpace(self:getRootSpace())
+		for _, pkg in ipairs(nGlobalPackage) do
+			const nLoadedState = self:_cacheLoadGlobal(pkg)
+			if pkg == "string" then
+				const nRetType = nLoadedState.term!:getType()
+				assert(not nRetType:isUnion(), "string lib's return can't be union")
+				self._manager:lateInitStringLib(nRetType)
 			end
-			return false, false, function()
-				const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
-				const nParTuple = self._manager:TypeTuple(self._node, {})
-				const nRetTuples = self._manager:VoidRetTuples(self._node)
-				return nParTuple, nRetTuples
-			end
-		end)
-		nAutoFn:startPreBuild()
-		nAutoFn:startLateBuild()
-		self._scheduleManager:runSchedule()
-	end)
-	if not ok then
-		if Exception.is(err) then
-			self:nodeError(err.node, err.msg)
-		else
-			self:nodeError(self._node, err)
 		end
-	end
-	const t2 = os.clock()
-	print(t2-t1)
-	local count1 = 0
-	for k,v in pairs(self._manager._hashToTypeSet) do
-		count1 = count1 + 1
-	end
-	print(count1)
-	self._scheduleManager:dump()
-	-- self:diffTestExpect()
-	return ok, err
+		return false, false, function()
+			const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
+			const nParTuple = self._manager:TypeTuple(self._node, {})
+			const nRetTuples = self._manager:VoidRetTuples(self._node)
+			return nParTuple, nRetTuples
+		end
+	end)
+	nAutoFn:startPreBuild()
+	nAutoFn:startLateBuild()
+	return self._scheduleManager:promiseSchedule()
 end
 
 function BaseRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
@@ -237,7 +225,7 @@ function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
 end
 
 function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
-	const nCodeEnv, nFileName = self._loader.thluaGlobalFile(self, vPkg)
+	const nCodeEnv, nFileName = self._platform.parseGlobal(vPkg)
 	const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
 	const nContext = self._rootStack:newNoPushContext(self._node)
 	const nTermTuple = nContext:FixedTermTuple({})
@@ -255,7 +243,7 @@ end
 function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret(LoadedState)
 	local nLoadedState = self._loadedDict[vFileName]
 	if not nLoadedState then
-		const nCodeEnv = self._loader.thluaParseFile(self, vFileName)
+		const nCodeEnv = self._platform.parseFile(vFileName)
 		const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
 		nLoadedState = {
 			openFn=nOpenFn,
@@ -274,7 +262,7 @@ end
 function BaseRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(LoadedState)
 	local nFileName = self._pathToFileName[vPath]
 	if not nFileName then
-		const nOkay, nSearchFileName = self._loader.thluaSearch(self, vPath)
+		const nOkay, nSearchFileName = self._platform.searchPath(self._searchPath, vPath)
 		if not nOkay then
 			error(Exception.new(nSearchFileName, vNode))
 		else
@@ -477,12 +465,12 @@ function BaseRuntime:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
 end
 
-function BaseRuntime:getRootStack():Ret(clazz.SealStack)
-	return self._rootStack
+function BaseRuntime:getPlatform():Ret(clazz.IPlatform)
+	return self._platform
 end
 
-function BaseRuntime:getSearchPath():Ret(OrFalse(String))
-	return self._searchPath
+function BaseRuntime:getRootStack():Ret(clazz.SealStack)
+	return self._rootStack
 end
 
 return BaseRuntime

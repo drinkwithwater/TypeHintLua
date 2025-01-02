@@ -68,13 +68,13 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
         }
     end
     const nRuntime = DiagnosticRuntime.new({
-        thluaSearch=function(vRuntime, vPath)
+        searchPath=function(vPrefix, vPath)
             return false, "can't use require on playground"
         end,
-        thluaParseFile=function(vRuntime, vFileName)
+        parseFile=function(vFileName)
             return CodeEnv.new(self._splitCode, vFileName)
         end,
-        thluaGlobalFile=function(vRuntime, vPackage)
+        parseGlobal=function(vPackage)
             vPackage = vPackage or "global"
             const nCodeEnv = self._globalToEnv[vPackage]
             const nFileName = "@virtual-file:"..vPackage
@@ -86,9 +86,18 @@ function PlayGround:_update(vName:String, vInput:UpdateInput):Ret(UpdateOutput)
             else
                 return nCodeEnv, nFileName
             end
+        end,
+        createAsync=function.pass(fn)
+            return {
+                send=function()
+                    fn()
+                end,
+                close=function()
+                end,
+            }
         end
     })
-    const nRunOkay, nExc = nRuntime:pmain(vName)
+    nRuntime:promiseMain(vName)
     const nDiaList:List(clazz.Diagnostic) = nRuntime:getAllDiagnostic()[vName] or {}
     const nAfterDiaList:List(clazz.Diagnostic) = {}
     for i, dia in ipairs(nDiaList) do

@@ -18,25 +18,21 @@ function ScheduleEvent:wait()
 		const nManager = self._scheduleManager
 		const nTask = nManager:getTask()
 		nWaitList[#nWaitList + 1] = nTask
-		const nSelfTask = self._task
-		if nSelfTask then
-			nManager:checkRecursive(nTask, nSelfTask)
-		end
 		nTask:waitEvent(self)
 	end
 end
 
 function ScheduleEvent:wakeup()
 	const nSelfTask = self._task
+	const nCurTask = self._scheduleManager:getTask()
 	if nSelfTask then
-		assert(self._scheduleManager:getTask() == self._task, "event must be waken up in it's own task "..tostring(nSelfTask:getNode()))
+		assert(nCurTask == self._task, "event must be waken up in it's own task "..tostring(nSelfTask:getNode()))
 	end
 	const nWaitList = self._waitTaskList
 	if nWaitList then
 		self._waitTaskList = false
-		const nManager = self._scheduleManager
 		for _, nTask in ipairs(nWaitList) do
-			nTask:wakeupForEvent(self)
+			nTask:wakeupByEvent(self)
 		end
 	end
 end

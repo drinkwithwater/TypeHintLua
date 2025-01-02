@@ -25,10 +25,10 @@ function:class(test.Case) TestCase.new(vScript:String)
 		_lineToResult = nLineToResult,
 	}, TestCase)
 	self._runtime = Runtime.new({
-		thluaSearch=function(vRuntime, vPath)
+		searchPath=function(vPrefix, vPath)
 			error("test case can't search path")
 		end,
-		thluaParseFile=function(vRuntime, vFileName)
+		parseFile=function(vFileName)
 			if vFileName == "[test]" then
 				const ok, nCodeEnv = pcall(CodeEnv.new, self._script, vFileName)
 				if not ok then
@@ -39,10 +39,14 @@ function:class(test.Case) TestCase.new(vScript:String)
 				error("test case can only parse its script")
 			end
 		end,
-		thluaGlobalFile=function.pass(vRuntime, vPackage)
+		parseGlobal=function.pass(vPackage)
 			local nContent:String = require("thlua.global."..vPackage)
-			const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
-			return nCodeEnv
+			const nFileName = "@virtual-file:"..vPackage
+			const nCodeEnv = CodeEnv.new(nContent, nFileName)
+			return nCodeEnv, nFileName
+		end,
+		createAsync=function.pass(fn)
+			error("create async TODO in test case")
 		end
 	})
 	return self

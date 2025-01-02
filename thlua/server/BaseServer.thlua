@@ -39,10 +39,10 @@ function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	end
 end
 
-function BaseServer:makeLoader():Ret(clazz.FileLoader)
+function BaseServer:makeLoader():Ret(clazz.IPlatform)
 	return {
-		thluaSearch=function(vRuntime, vPath)
-			const nSearchPath = vRuntime:getSearchPath() or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
+		searchPath=function(vPrefix, vPath)
+			const nSearchPath = vPrefix or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
 			const nList:List(String) = {}
 			const nSet:Dict(String, True) = {}
 			for nOnePath in nSearchPath:gmatch("[^;]+") do
@@ -58,13 +58,13 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
 			end
 			return true, platform.path2uri(fileName)
 		end,
-		thluaParseFile=function(vRuntime, vFileUri)
+		parseFile=function(vFileUri)
 			if not self._fileStateDict[vFileUri] then
 				self:attachFileState(vFileUri):syncFile()
 			end
 			return self._fileStateDict[vFileUri]!:checkLatestEnv()
 		end,
-		thluaGlobalFile=function(vRuntime, vPackage)
+		parseGlobal=function(vPackage)
 			const nFilePath = self._globalPath.."/"..vPackage..".d.thlua"
 			const nFileUri = platform.path2uri(nFilePath)
 			if not self._fileStateDict[nFileUri] then
@@ -72,6 +72,10 @@ function BaseServer:makeLoader():Ret(clazz.FileLoader)
             end
 			return self._fileStateDict[nFileUri]!:checkLatestEnv(), nFileUri
 		end,
+		createAsync=function.pass(fn)
+			error("create async TODO for default platform")
+		end,
+		logger=self,
 	}
 end
 

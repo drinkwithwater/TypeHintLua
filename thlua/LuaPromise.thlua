@@ -1,0 +1,113 @@
+const Promise = {}
+Promise.__index = Promise
+
+-- The state enumeration of the promise.
+local PENDING = 0
+local REJECTED = 1
+local RESOLVED = 2
+
+function:class(let.LuaPromise) Promise.new@<T>()
+    const self = setmetatable({.class
+        _state = PENDING @ Union($PENDING, $REJECTED, $RESOLVED),
+        _value = nil @ OrNil(T),
+        _reason = nil @ OrNil(String),
+        _thens = {} @ List(Fn(T)),
+        _fails = {} @ List(Fn(String)),
+        _stack = debug.traceback(nil, 2),
+        __type = nil @? T
+    }, Promise)
+    return self
+end
+
+Promise.create = Promise.new -- used for c#
+
+function Promise:reject(reason:String)
+    if self._state ~= PENDING then
+        error("ERROR In Promise reject: the promise has been notified.")
+        return
+    end
+    self._reason = reason
+    self._state = REJECTED
+    for _, v in ipairs(self._fails) do
+        v(reason)
+    end
+end
+
+function Promise:resolve(value:$self.__type)
+    if self._state ~= PENDING then
+        error("ERROR In Promise resolve: the promise has been notified.")
+        return
+    end
+    self._value = value
+    self._state = RESOLVED
+    for _, v in ipairs(self._thens) do
+        v(value)
+    end
+end
+
+const empty=function() end
+function.pass Promise:forget()
+    const trace = debug.traceback(nil, 2)
+    self:next(empty, function(err)
+        print("ERROR:", "forget error", err, trace)
+    end)
+end
+
+const function xerror(err)
+    const nInfo = debug.getinfo(3)
+    return nInfo.short_src.. ":" .. nInfo.currentline..":".. tostring(err)
+end
+function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T))), onRejected:OrNil(Fn(String))):Ret(LuaPromise(T))
+    local promise = Promise.new@<T>()
+    promise._stack = debug.traceback(nil, 2)
+    const doResolve:Fn($self.__type) = function.pass(value)
+        local ok, errOrRet = xpcall(onFulFilled, xerror, value)
+        if ok then
+            promise:_handleResolve(errOrRet)
+        else
+            promise:reject(errOrRet)
+        end
+    end
+    const doReject:Fn(String) = function.pass(reason)
+        if onRejected then
+            local ok, errOrRet = xpcall(onRejected, xerror, reason)
+            if ok then
+                promise:_handleResolve(errOrRet)
+            else
+                promise:reject(errOrRet)
+            end
+        else
+            -- print("ERROR:", reason)
+            promise:reject(reason)
+        end
+    end
+    if self._state == RESOLVED then
+        doResolve(self._value)
+    elseif self._state == REJECTED then
+        doReject(self._reason or "unknown reason")
+    elseif self._state == PENDING then
+        table.insert(self._thens, doResolve)
+        table.insert(self._fails, doReject)
+    end
+    return promise
+end
+
+function.pass Promise:_handleResolve(ret:Truth)
+    if Promise.is(ret) then
+        ret:next(function(v)
+            self:_handleResolve(v)
+        end, function(v)
+            self:reject(v)
+        end)
+    elseif self == ret then
+        self:reject("circle handle promise")
+    else
+        self:resolve(ret)
+    end
+end
+
+function.open Promise.is(v):isguard(let.LuaPromise(Truth))
+    return getmetatable(v) == Promise
+end
+
+return Promise

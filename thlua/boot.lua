@@ -4,10 +4,20 @@ local boot = require "thlua.code.ParseEnv"
 function boot.runCheck(vMainFileName, vUseProfile)
 	boot.patch()
 	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
-	local CompletionRuntime = require "thlua.runtime.CompletionRuntime"
 	local nRuntime = DiagnosticRuntime.new()
+	local t1 = os.clock()
 	--local nRuntime = CompletionRuntime.new()
-	assert(nRuntime:pmain(vMainFileName, vUseProfile))
+	nRuntime:promiseMain(vMainFileName, vUseProfile):next(function(_)
+		local t2 = os.clock()
+		print(t2-t1)
+		local count1 = 0
+		for k,v in pairs(nRuntime._manager._hashToTypeSet) do
+			count1 = count1 + 1
+		end
+		print(count1)
+	end)
+	local uv = require "luv"
+	uv.run()
 end
 
 -- make play groud
