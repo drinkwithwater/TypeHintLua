@@ -21,19 +21,11 @@ end)
 const CompletionRuntime = class@<clazz.CompletionRuntime, false>(BaseRuntime)
 
 function.open CompletionRuntime:ctor(...)
-	self._focusNodeSet = {} @ Dict(clazz.IBaseNode, True)
-	self._nodeToAutoFnList = ListDict@<clazz.IBaseNode, clazz.AutoFunction>()
+	--self._focusNodeSet = {} @ Dict(clazz.IBaseNode, True)
+	--self._nodeToAutoFnList = ListDict@<clazz.IBaseNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
 	self._nodeToApplyContextList = ListDict@<clazz.IBaseNode, clazz.ApplyContext>()
 	self._invalidReferSet = {} @ Dict(clazz.NameReference, True)
-end
-
-function CompletionRuntime:lateSchedule(vAutoFn:clazz.AutoFunction)
-	if self._focusNodeSet[vAutoFn:getNode()] then
-		vAutoFn:startLateBuild()
-	else
-		self._nodeToAutoFnList:putOne(vAutoFn:getNode(), vAutoFn)
-	end
 end
 
 function CompletionRuntime:invalidReference(vRefer:clazz.NameReference)
@@ -76,6 +68,7 @@ function CompletionRuntime:recordApplyContext(vNode:clazz.IBaseNode, vContext:cl
 end
 
 function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
+	--[[
 	-- 1. set focus functions
 	const nSet = self._focusNodeSet
 	const nAutoFnList:List(clazz.AutoFunction) = {}
@@ -92,6 +85,7 @@ function CompletionRuntime:focusSchedule(vFuncList:List(node.Function))
 		nAutoFn:startLateBuild()
 	end
 	self._scheduleManager:runSchedule()
+	]]
 end
 
 function CompletionRuntime:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.USpaceAny)))
