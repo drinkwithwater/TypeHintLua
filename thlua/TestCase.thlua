@@ -70,34 +70,35 @@ function TestCase.go(vScript:String, vName:OrNil(String))
 		print = function(...)
 		end
 	end
-	nRuntime:pmain("[test]")
-	print = oldprint
-	const nLineToResult = case._lineToResult
-	for _, nDiaList in pairs(nRuntime:getAllDiagnostic()) do
-		for _, nDiagnostic in pairs(nDiaList) do
-			const nLine = nDiagnostic.node.l
-			const nResult = nLineToResult[nLine]
-			if type(nResult) == "number" then
-				nLineToResult[nLine] = nResult + 1
-			else
-				nLineToResult[nLine] = nDiagnostic.msg
+	nRuntime:promiseMain("[test]"):next@<Nil>(function(_)
+		print = oldprint
+		const nLineToResult = case._lineToResult
+		for _, nDiaList in pairs(nRuntime:getAllDiagnostic()) do
+			for _, nDiagnostic in pairs(nDiaList) do
+				const nLine = nDiagnostic.node.l
+				const nResult = nLineToResult[nLine]
+				if type(nResult) == "number" then
+					nLineToResult[nLine] = nResult + 1
+				else
+					nLineToResult[nLine] = nDiagnostic.msg
+				end
 			end
 		end
-	end
-	const l:List(Struct {Integer, Union(Integer, String)}) = {}
-	for nLine, nResult in pairs(nLineToResult) do
-		l[#l + 1] = {nLine, nResult}
-	end
-	for _, nPair in pairs(l) do
-		const nLine, nResult = nPair[1], nPair[2]
-		if nResult == 0 then
-			print(nLine, "fail: no diagnostic")
-		elseif type(nResult) == "string" then
-			print(nLine, "fail: diagnostic unexpected", nResult)
-		else
-			print(nLine, "ok")
+		const l:List(Struct {Integer, Union(Integer, String)}) = {}
+		for nLine, nResult in pairs(nLineToResult) do
+			l[#l + 1] = {nLine, nResult}
 		end
-	end
+		for _, nPair in pairs(l) do
+			const nLine, nResult = nPair[1], nPair[2]
+			if nResult == 0 then
+				print(nLine, "fail: no diagnostic")
+			elseif type(nResult) == "string" then
+				print(nLine, "fail: diagnostic unexpected", nResult)
+			else
+				print(nLine, "ok")
+			end
+		end
+	end)
 end
 
 

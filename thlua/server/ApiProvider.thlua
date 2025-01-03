@@ -1,0 +1,549 @@
+
+const lpath = require "path"
+const json = require "thlua.server.json"
+const Exception = require "thlua.Exception"
+const FileState = require "thlua.server.FileState"
+const ErrorCodes = require "thlua.server.protocol".ErrorCodes
+const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
+const CodeEnv = require "thlua.code.CodeEnv"
+const FileState = require "thlua.server.FileState"
+const class = require "thlua.class"
+const platform = require "thlua.platform"
+const SeverityEnum = require "thlua.runtime.SeverityEnum"
+const class = require@<let.clazz> "thlua.class"
+
+(@do
+	let.lsp=import("thlua.server.protocol").lsp
+	let.node=import("thlua.code.Node").node
+	lsp.Position = Struct {
+		line=Integer,
+		character=Integer,
+	}
+
+	lsp.Range=Struct {
+		start=lsp.Position,
+		["end"]=lsp.Position,
+	}
+
+	let.TextDocumentIdentifier = Struct {
+		uri=String,
+	}
+
+	lsp.VersionedTextDocumentIdentifier = Struct {
+		version=Integer,
+		uri=String,
+	}
+
+	lsp.TextDocumentPositionParams = Interface {
+		textDocument=TextDocumentIdentifier,
+		position=lsp.Position,
+	}
+
+	lsp.ProgressToken = Union(Integer, String)
+
+	lsp.WorkDoneProgressParams = Interface {
+		workDoneToke=OrNil(lsp.ProgressToken),
+	}
+
+	do
+
+		let.PartialResultParams = Interface {
+			partialResultToken=OrNil(lsp.ProgressToken)
+		}
+
+		lsp.ReferenceParams = ExtendStruct ({
+			context = Struct {
+				includeDecleration = Boolean,
+			}
+		}, lsp.TextDocumentPositionParams, lsp.WorkDoneProgressParams, let.PartialResultParams)
+
+		lsp.TypeDefinitionParams = ExtendStruct ({
+		}, lsp.TextDocumentPositionParams, lsp.WorkDoneProgressParams, let.PartialResultParams)
+
+	end
+
+	lsp.DidChangeTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+		contentChanges=List(Struct {
+			range=OrNil(lsp.Range),
+			rangeLength=OrNil(Integer),
+			text=String,
+		}),
+	}
+
+	lsp.DidSaveTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+		text=OrNil(String),
+	}
+
+	lsp.DidCloseTextDocumentParams = Struct {
+		textDocument=lsp.VersionedTextDocumentIdentifier,
+	}
+
+	lsp.DidOpenTextDocumentParams = Struct {
+		textDocument = Struct {
+			uri=String,
+			languageId=String,
+			version=Integer,
+			text=String,
+		}
+	}
+
+	lsp.DefinitionParams = ExtendStruct({
+	}, lsp.TextDocumentPositionParams)
+
+	lsp.HoverParams = ExtendStruct({
+	}, lsp.TextDocumentPositionParams)
+
+	lsp.Hover = Struct {
+		contents=let.MarkupContent,
+		range=OrNil(lsp.Range),
+	}
+
+	lsp.CompletionParams = Struct {
+		textDocument = TextDocumentIdentifier,
+		position=lsp.Position,
+		context=OrNil(Struct {
+			triggerKind=Union(1,2,3),
+			triggerCharacter=OrNil(String),
+		}),
+	}
+
+	let.PublishDiagnosticsParams = Struct {
+		uri=String,
+		version=OrNil(Integer),
+		diagnostics=List(Struct {
+			range=lsp.Range,
+			severity=OrNil(Struct {
+			}),
+			code=OrNil(Integer, String),
+			codeDescription=OrNil(Struct {
+				href=String,
+			}),
+			source=OrNil(String),
+			message=String,
+			tags=OrNil(List(Union(1,2))),
+			-- relatedInformation
+			-- data
+		}),
+	}
+
+	lsp.Location = Struct {
+		uri=String,
+		range=lsp.Range,
+	}
+
+	lsp.CompletionItem = Struct {
+		label=String,
+		labelDetails=OrNil(Struct{}),
+		kind=OrNil(Integer),
+		--tags=CompletionItemTag,
+		detail=OrNil(String),
+		documentation=OrNil(String),
+		deprecated=OrNil(Boolean),
+		preselect=OrNil(Boolean),
+		sortText=OrNil(String),
+		filterText=OrNil(String),
+		insertText=OrNil(String),
+		--....
+	}
+
+	let.MarkupContent = Struct {
+		kind=Union("markdown", "plaintext"),
+		value=String,
+	}
+end)
+
+const ApiProvider = class@<lsp.ApiProvider, false>()
+
+function.open ApiProvider:ctor(server:lsp.LangServer)
+    self._server = server
+	self._fileStateDict={}@Dict(String, lsp.FileState)
+	self._readyRuntime=nil@OrNil(clazz.DiagnosticRuntime)
+	self._busyRuntime=nil@OrNil(clazz.DiagnosticRuntime)
+end
+
+function ApiProvider:scanAllFile()
+	const nRmList:List(String) = {}
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		const ok = pcall(function()
+			nFileState:syncFile()
+		end)
+		if not ok then
+			nRmList[#nRmList + 1] = nUri
+		end
+	end
+	for _, nUri in pairs(nRmList) do
+		self._fileStateDict[nUri] = nil
+	end
+end
+
+function ApiProvider:attachFileState(vFileUri:String, vFallbackFromFile:OrNil(True)):Ret(lsp.FileState)
+	local nFileState = self._fileStateDict[vFileUri]
+	if not nFileState then
+		const nNewState = FileState.new(self._server, vFileUri)
+        if vFallbackFromFile then
+            nNewState:syncFile()
+        end
+		self._fileStateDict[vFileUri] = nNewState
+		return nNewState
+	else
+		return nFileState
+	end
+end
+
+function ApiProvider:publishNormal()
+	const nRuntime = self._readyRuntime
+	if nRuntime then
+		local nFileToList = nRuntime:getAllDiagnostic()
+		self:publishFileToDiaList(nFileToList)
+	end
+end
+
+function ApiProvider:publishNoAttach(vExceptionUri:OrNil(String))
+	for nFileName, nFileState in pairs(self._fileStateDict) do
+		if not nFileState:getCheckFlag() then
+			const nDiaList:List(lsp.Diagnostic) = {}
+			nDiaList[1] = {
+				range={
+					start={
+						line=0,
+						character=0,
+					},
+					["end"]={
+						line=0,
+						character=10,
+					}
+				},
+				message=vExceptionUri and "exception happend in "..tostring(lpath.name(vExceptionUri)) or "current file("..lpath.name(nFileName)..") maybe not required",
+				severity=SeverityEnum.Warn,
+			}
+			self._server:_write({
+				jsonrpc = "2.0",
+				method = "textDocument/publishDiagnostics",
+				params = {
+					uri=nFileName,
+					version=nFileState:getVersion(),
+					diagnostics=json.array(nDiaList),
+				},
+			})
+		end
+	end
+end
+
+function ApiProvider:publishException(vException:Union(clazz.Exception, String)):Ret(String)
+	local nNode:OrNil(clazz.IBaseNode) = nil
+	local nMsg:String = ""
+	if Exception.is(vException) then
+		nNode = vException.node or self._readyRuntime!:getNode()
+		nMsg = vException.msg or "exception's msg field is missing"
+	else
+		nNode = self._readyRuntime!:getNode()
+		nMsg = "root error:"..tostring(vException)
+	end
+	const nFileState = self._fileStateDict[nNode.path]
+	if not nFileState then
+		self._server:error("exception in unknown file:", nNode.path)
+	else
+		nFileState:setCheckFlag(true)
+		self._server:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri=nNode.path,
+				version=nFileState:getVersion(),
+				diagnostics={ {
+					range={
+						start={
+							line=nNode.l-1,
+							character=0,
+						},
+						["end"]={
+							line=nNode.l-1,
+							character=100,
+						}
+					},
+					message=nMsg,
+				} }
+			},
+		})
+	end
+	return nNode.path
+end
+
+function ApiProvider:rerun(vFileUri:String)
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		nFileState:setCheckFlag(false)
+	end
+	local rootFileUri = lpath.isfile(self._server:getRootPath().. "/throot.thlua")
+	if not rootFileUri then
+		rootFileUri = vFileUri
+		self._server:info("throot.thlua not found, run single file:", rootFileUri)
+	else
+		rootFileUri = platform.path2uri(rootFileUri)
+		self._server:info("throot.thlua found:", rootFileUri)
+	end
+	const nBusyRuntime = self._busyRuntime
+	if nBusyRuntime then
+		self._server:info("cancel")
+		nBusyRuntime:getScheduleManager():cancelSchedule()
+	end
+	const nRuntime=DiagnosticRuntime.new(self._server:makeLoader())
+	self._busyRuntime = nRuntime
+	nRuntime:promiseMain(rootFileUri):next@<Nil>(function(_)
+		if self._busyRuntime == nRuntime then
+			self._readyRuntime = nRuntime
+			self._busyRuntime = nil
+			collectgarbage()
+			self:publishNormal()
+			self:publishNoAttach()
+		else
+			self._server:error("current busyRuntime is not this runtime???")
+		end
+	end, function(err)
+		self._server:info("runtime stop by reject:", err)
+		--[[
+			const nUri = self:publishException(exc @? Union(clazz.Exception, String))
+			self:publishNoAttach(nUri)
+		]]
+	end)
+end
+
+function ApiProvider:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.Diagnostic)), vFilePusher:OrNil(Fn(String, lsp.FileState, List(lsp.Diagnostic))))
+	for nFileName, nFileState in pairs(self._fileStateDict) do
+		const nRawDiaList:List(clazz.Diagnostic) = vFileToDiaList[nFileName] or {}
+		const nVersion = nFileState:getVersion()
+		const nDiaList:List(lsp.Diagnostic) = {}
+		const nSplitCode = nFileState:getSplitCode()
+		for _, dia in ipairs(nRawDiaList) do
+			local nNode = dia.node
+			const nLineContent = nSplitCode:getLine(nNode.l)
+			const nRangeEnd = nNode.pos == nNode.posEnd and {
+				nNode.l, nNode.c + (nLineContent and #nLineContent + 10 or 100)
+			} or {nSplitCode:fixupPos(nNode.posEnd)}
+			local nMsg = dia.msg
+			nDiaList[#nDiaList + 1] = {
+				range={
+					start={
+						line=nNode.l-1,
+						character=nNode.c-1,
+					},
+					["end"]={
+						line=nRangeEnd[1]-1,
+						character=nRangeEnd[2]-1,
+					}
+				},
+				message=nMsg,
+				severity=dia.severity,
+			}
+		end
+		const nLatestEnv = nFileState:getLatestEnv()
+		if nLatestEnv then
+			for _, ident in ipairs(nLatestEnv:getUnusedIdentList()) do
+				const el, ec = nSplitCode:fixupPos(ident.posEnd)
+				nDiaList[#nDiaList + 1] = {
+					range={
+						start={
+							line=ident.l-1,
+							character=ident.c-1,
+						},
+						["end"]={
+							line=el-1,
+							character=ec-1,
+						}
+					},
+					severity=SeverityEnum.Hint,
+					message="unused variable",
+					tags=json.array({1}@List(Union(1,2))),
+				}
+			end
+		end
+		if vFilePusher then
+			vFilePusher(nFileName, nFileState, nDiaList)
+		end
+		if #nDiaList > 0 then
+			nFileState:setCheckFlag(true)
+		end
+		self._server:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri=nFileName,
+				version=nVersion,
+				diagnostics=json.array(nDiaList),
+			},
+		})
+	end
+end
+
+function ApiProvider:checkFileState(vFileUri:String):Ret(lsp.FileState)
+	return (assert(self._fileStateDict[vFileUri], "file not existed:"..vFileUri))
+end
+
+-----------------------
+-- lsp method handle --
+-----------------------
+
+function ApiProvider:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
+	if self:attachFileState(vParams.textDocument.uri):syncChangeNoRerun(vParams) then
+		self:rerun(vParams.textDocument.uri)
+	end
+end
+
+function ApiProvider:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
+	const nContent = vParams.textDocument.text
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:attachFileState(nFileUri)
+	if nFileState:contentMismatch(nContent) then
+		self:scanAllFile()
+		nFileState:syncContent(nContent, vParams.textDocument.version)
+		self:rerun(nFileUri)
+	end
+end
+
+function ApiProvider:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
+	const nFileUri = vParams.textDocument.uri
+	const nContent = vParams.text
+	const nFileState = self:attachFileState(nFileUri)
+	if nContent then
+		if nFileState:contentMismatch(nContent) then
+            --[[
+                const a = assert(io.open("d:/diff.txt", "w"))
+                a:write(nContent)
+                a:write("\n\n\n-------------------------\n\n\n")
+                a:write(nFileState._splitCode:getContent())
+                a:close()
+            ]]
+			self:scanAllFile()
+			self._server:warn("content mismatch when save")
+		end
+	end
+	nFileState:onSaveAndGetChange()
+	self:rerun(nFileUri)
+end
+
+function ApiProvider:onDidClose(vParams:lsp.DidCloseTextDocumentParams)
+end
+
+function ApiProvider:onReferences(vParams:lsp.ReferenceParams):Ret(OrNil(List(lsp.Location)))
+	const nReadyRuntime = self._readyRuntime
+	if not nReadyRuntime then
+		return nil
+	end
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
+	const nNodeSet, nErrMsg = nReadyRuntime:gotoNodeByParams(
+		false, nFileUri, nFileState:getSplitCode(), vParams.position)
+	if not nNodeSet then
+		self._server:info("find references fail:", nErrMsg)
+		return nil
+	else
+		const nRetList:List(lsp.Location) = {}
+		for nLookupNode, _ in pairs(nNodeSet) do
+			nRetList[#nRetList + 1] = {
+				uri=nLookupNode.path,
+				range={
+					start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
+					["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c + 10 },
+				}
+			}
+		end
+		return nRetList
+	end
+end
+
+function ApiProvider:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(lsp.Location)))
+	const nReadyRuntime = self._readyRuntime
+	if not nReadyRuntime then
+		return nil
+	end
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
+	const nNodeSet, nErrMsg = nReadyRuntime:gotoNodeByParams(
+		true, nFileUri, nFileState:getSplitCode(), vParams.position)
+	if not nNodeSet then
+		self._server:info("goto definition fail:", nErrMsg)
+		return nil
+	else
+		const nRetList:List(lsp.Location) = {}
+		for nLookupNode, _ in pairs(nNodeSet) do
+			nRetList[#nRetList + 1] = {
+				uri=nLookupNode.path,
+				range={
+					start={ line=nLookupNode.l - 1, character=nLookupNode.c-1, },
+					["end"]={ line=nLookupNode.l - 1, character=nLookupNode.c - 1 },
+				}
+			}
+		end
+		return nRetList
+	end
+end
+
+function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(lsp.CompletionItem)))
+	const nReadyRuntime = self._readyRuntime
+	if not nReadyRuntime then
+		return nil
+	end
+	-- 1. get succ env
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
+	const nSuccEnv = nReadyRuntime:getCodeEnv(nFileUri)
+	if not nSuccEnv then
+		self._server:info("completion fail for some code error", nFileUri)
+		return nil
+	end
+	-- 2. cut code
+	const nSplitCode = nFileState:getSplitCode()
+	const nPos = nSplitCode:lspToPos(vParams.position)
+	const nWrongContent = nSplitCode:getContent():sub(1, nPos-1)
+	-- 3. parsing with error
+	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
+	if not nInjectFn then
+		return nil
+	end
+	-- TODO, using nInjectNode.pos maybe not right such as local a = a.fds ...
+	const nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
+	const nBlockNode = nSuccEnv:traceBlock(nTraceList)
+	nReadyRuntime:focusSchedule(nBlockNode:getFocusList())
+	-- 4. run inject
+	const nFieldCompletion = nReadyRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
+	if not nFieldCompletion then
+		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
+		return nil
+	end
+	const nRetList:List(lsp.CompletionItem) = {}
+	nFieldCompletion:foreach(function(vKey, vKind)
+		nRetList[#nRetList + 1] = {
+			label=vKey,
+			kind=vKind,
+		}
+	end)
+	return json.array(nRetList)
+end
+
+function ApiProvider:onHover(vParams:lsp.HoverParams):Ret(OrNil(lsp.Hover))
+	const nReadyRuntime = self._readyRuntime
+	if not nReadyRuntime then
+		return nil
+	end
+	const nFileUri = vParams.textDocument.uri
+	const nFileState = self:checkFileState(nFileUri)
+	const nSuccMsg, nErrMsg = nReadyRuntime:hoverNode(nFileUri, nFileState:getSplitCode(), vParams.position)
+	if not nSuccMsg then
+		self._server:info("hover fail:", nErrMsg)
+		return nil
+	else
+		return {
+			contents={
+				kind="plaintext",
+				value=nSuccMsg,
+			},
+			range=nil,
+		}
+	end
+end
+
+function ApiProvider:onTypeDefinition(vParams:lsp.TypeDefinitionParams)
+end
+
+return ApiProvider

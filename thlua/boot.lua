@@ -32,8 +32,8 @@ end
 -- run language server
 function boot.runServer(vMode, vGlobalPathOrNil)
 	boot.patch()
-	local BothServer = require "thlua.server.BothServer"
-	local server = BothServer.new(vGlobalPathOrNil)
+	local LangServer = require "thlua.server.LangServer"
+	local server = LangServer.new(vGlobalPathOrNil)
 
 	print=function(...)
 		--[[client:notify("window/logMessage", {

@@ -10,6 +10,7 @@ const platform = require "thlua.platform"
 const uv = require@<let.uv_async_t> "luv"
 const stdio = require "thlua.server.stdio"
 const LuaPromise = require@<let.LuaPromise> "thlua.LuaPromise"
+const ApiProvider = require "thlua.server.ApiProvider"
 
 (@do
 	let.clazz=import($class).clazz
@@ -17,49 +18,86 @@ const LuaPromise = require@<let.LuaPromise> "thlua.LuaPromise"
 	let.node=import("thlua.code.Node").node
 end)
 
-const BaseServer = class@<lsp.BaseServer, clazz.LevelLogger>()
+const LangServer = class@<lsp.LangServer, clazz.LevelLogger>()
 
-function.open BaseServer:ctor(vGlobalPath:OrNil(String))
+function.open LangServer:ctor(vGlobalPath:OrNil(String))
 	self.initialize=false@Boolean
 	self.shutdown=false@Boolean
 	self._rootPath=""@String
-	self._fileStateDict={}@Dict(String, lsp.FileState)
 	self._globalPath = vGlobalPath or lpath.cwd().."/global"
-	self._bufList = {} @ List(String)
+	const nApiProvider = ApiProvider.new(self)
+	self._provider = nApiProvider
+	self._methodHandler = {
+		initialize=function(vParam)
+			return self:onInitialize(vParam)
+		end,
+		shutdown=function()
+			self:onShutdown()
+		end,
+		exit=function()
+			self:onExit()
+		end,
+		["textDocument/didOpen"]=function(vParam)
+			nApiProvider:onDidOpen(vParam)
+		end,
+		["textDocument/didChange"]=function(vParam)
+			nApiProvider:onDidChange(vParam)
+		end,
+		["textDocument/didSave"]=function(vParam)
+			nApiProvider:onDidSave(vParam)
+		end,
+		["textDocument/didClose"]=function(vParam)
+			nApiProvider:onDidClose(vParam)
+		end,
+		["textDocument/completion"]=function(vParam)
+			const ok, ret = pcall(function()
+				return nApiProvider:onCompletion(vParam)
+			end)
+			if not ok then
+				self:error("onCompletion error", tostring(ret))
+			end
+			return ok and ret or json.array({})
+		end,
+		["textDocument/definition"]=function(vParam)
+			const ok, ret = pcall(function()
+				return nApiProvider:onDefinition(vParam)
+			end)
+			if not ok then
+				self:error("onDefinition error", tostring(ret))
+			end
+			return ok and ret or json.array({})
+		end,
+		["textDocument/typeDefinition"]=function(vParam)
+			const ok, ret = pcall(function()
+				return nApiProvider:onTypeDefinition(vParam)
+			end)
+			if not ok then
+				self:error("onTypeDefinition error", tostring(ret))
+			end
+			return ok and ret or json.array({})
+		end,
+		["textDocument/references"]=function(vParam)
+			const ok, ret = pcall(function()
+				return nApiProvider:onReferences(vParam)
+			end)
+			if not ok then
+				self:error("onReferences error", tostring(ret))
+			end
+			return ok and ret or json.array({})
+		end,
+		["textDocument/hover"]=function(vParam)
+			const ok, ret = pcall(function()
+				return nApiProvider:onHover(vParam)
+			end)
+			if not ok then
+				self:error("onHover error", tostring(ret))
+			end
+			return ok and ret or json.array({})
+		end,
+	}
 end
 
-function.pass BaseServer:getMethodHandler():Ret(Truth)
-	error("get method handler is not implement in BaseServer")
-end
-
-function BaseServer:scanAllFile()
-	const nRmList:List(String) = {}
-	for nUri, nFileState in pairs(self._fileStateDict) do
-		const ok = pcall(function()
-			nFileState:syncFile()
-		end)
-		if not ok then
-			nRmList[#nRmList + 1] = nUri
-		end
-	end
-	for _, nUri in pairs(nRmList) do
-		self._fileStateDict[nUri] = nil
-	end
-end
-
-
-function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
-	local nFileState = self._fileStateDict[vFileUri]
-	if not nFileState then
-		const nNewState = FileState.new(self, vFileUri)
-		self._fileStateDict[vFileUri] = nNewState
-		return nNewState
-	else
-		return nFileState
-	end
-end
-
-function BaseServer:makeLoader():Ret(clazz.IPlatform)
+function LangServer:makeLoader():Ret(clazz.IPlatform)
 	return {
 		searchPath=function(vPrefix, vPath)
 			const nSearchPath = vPrefix or lpath.abs(self._rootPath.."/?.thlua")..";"..lpath.abs(self._rootPath.."/?.d.thlua")
@@ -79,18 +117,12 @@ function BaseServer:makeLoader():Ret(clazz.IPlatform)
 			return true, platform.path2uri(fileName)
 		end,
 		parseFile=function(vFileUri)
-			if not self._fileStateDict[vFileUri] then
-				self:attachFileState(vFileUri):syncFile()
-			end
-			return self._fileStateDict[vFileUri]!:checkLatestEnv()
+			return self._provider:attachFileState(vFileUri, true):checkLatestEnv()
 		end,
 		parseGlobal=function(vPackage)
 			const nFilePath = self._globalPath.."/"..vPackage..".d.thlua"
 			const nFileUri = platform.path2uri(nFilePath)
-			if not self._fileStateDict[nFileUri] then
-				self:attachFileState(nFileUri):syncFile()
-            end
-			return self._fileStateDict[nFileUri]!:checkLatestEnv(), nFileUri
+			return self._provider:attachFileState(nFileUri, true):checkLatestEnv(), nFileUri
 		end,
 		createAsync=function(fn)
 			return uv.new_async(fn)
@@ -99,11 +131,7 @@ function BaseServer:makeLoader():Ret(clazz.IPlatform)
 	}
 end
 
-function BaseServer:checkFileState(vFileUri:String):Ret(lsp.FileState)
-	return (assert(self._fileStateDict[vFileUri], "file not existed:"..vFileUri))
-end
-
-function BaseServer:mainLoop()
+function LangServer:mainLoop()
 	self:notify("$/status/report", {
 		text="hello",
 		tooltip="hello",
@@ -126,7 +154,7 @@ local function reqToStr(vRequest:lsp.RequestMessage):Ret(String)
 	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
 end
 
-function.pass BaseServer:_handleRequest(request:lsp.RequestMessage)
+function.pass LangServer:_handleRequest(request:lsp.RequestMessage)
 	local methodName = request.method
 	local nId = request.id
 	if not methodName then
@@ -137,7 +165,7 @@ function.pass BaseServer:_handleRequest(request:lsp.RequestMessage)
 		end
 		return
 	end
-	const handler = self:getMethodHandler()[methodName]
+	const handler = self._methodHandler[methodName]
 	if not handler then
 		if nId then
 			self:writeError(nId, ErrorCodes.MethodNotFound, "method not found", "method="..tostring(methodName))
@@ -164,7 +192,7 @@ function.pass BaseServer:_handleRequest(request:lsp.RequestMessage)
 	end
 end
 
-function BaseServer:_readRequest():Ret(LuaPromise(lsp.RequestMessage))
+function LangServer:_readRequest():Ret(LuaPromise(lsp.RequestMessage))
 	-- 1 get header
 	local nLength:Integer = -1
 	const nHeadPromise = LuaPromise.new@<Nil>()
@@ -226,7 +254,7 @@ function BaseServer:_readRequest():Ret(LuaPromise(lsp.RequestMessage))
 	return nBodyPromise
 end
 
-function BaseServer:writeError(vId:Union(Integer, String, Nil), vCode:Integer, vMsg:String, vData:String):Ret()
+function LangServer:writeError(vId:Union(Integer, String, Nil), vCode:Integer, vMsg:String, vData:String):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -238,7 +266,7 @@ function BaseServer:writeError(vId:Union(Integer, String, Nil), vCode:Integer, v
 	})
 end
 
-function BaseServer:writeResult(vId:Union(Integer, String, Nil), vResult:Truth):Ret()
+function LangServer:writeResult(vId:Union(Integer, String, Nil), vResult:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		id = vId,
@@ -246,7 +274,7 @@ function BaseServer:writeResult(vId:Union(Integer, String, Nil), vResult:Truth):
 	})
 end
 
-function BaseServer:notify(vMethod:String, vParams:Truth):Ret()
+function LangServer:notify(vMethod:String, vParams:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
 		method = vMethod,
@@ -254,7 +282,7 @@ function BaseServer:notify(vMethod:String, vParams:Truth):Ret()
 	})
 end
 
-function BaseServer:_write(vPacket:Truth)
+function LangServer:_write(vPacket:Truth)
 	local data:String = json.encode(vPacket)
 	if platform.iswin() then
 		data = ("Content-Length: %d\n\n%s"):format(#data, data)
@@ -273,7 +301,7 @@ MessageType.WARNING = 2
 MessageType.INFO = 3
 MessageType.DEBUG = 4
 
-function BaseServer:packToString(vDepth, ...:Truth):Ret(String)
+function LangServer:packToString(vDepth, ...:Truth):Ret(String)
 	local nInfo = debug.getinfo(vDepth)
 	local nPrefix = nInfo.source..":"..nInfo.currentline
 	local l = {nPrefix} @ List(String)
@@ -283,7 +311,7 @@ function BaseServer:packToString(vDepth, ...:Truth):Ret(String)
 	return table.concat(l, " ")
 end
 
-function BaseServer:error(...:Truth):Ret()
+function LangServer:error(...:Truth):Ret()
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
@@ -291,7 +319,7 @@ function BaseServer:error(...:Truth):Ret()
 	})
 end
 
-function BaseServer:warn(...:Truth):Ret()
+function LangServer:warn(...:Truth):Ret()
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
@@ -299,7 +327,7 @@ function BaseServer:warn(...:Truth):Ret()
 	})
 end
 
-function BaseServer:info(...:Any)
+function LangServer:info(...:Any)
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
@@ -307,7 +335,7 @@ function BaseServer:info(...:Any)
 	})
 end
 
-function BaseServer:debug(...)
+function LangServer:debug(...)
 	const str = self:packToString(3, ...)
 	self:notify("window/logMessage", {
 		message = str,
@@ -315,10 +343,65 @@ function BaseServer:debug(...)
 	})
 end
 
-function BaseServer:setRoot(vRoot:String)
+function LangServer:setRootPath(vRoot:String)
 	--self.root = vRoot:gsub("/*$", "")
 	--self:info("root:", self.root, vRoot)
 	self._rootPath = vRoot
 end
 
-return BaseServer
+function LangServer:getRootPath()
+	return self._rootPath
+end
+
+function LangServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
+	if self.initialize then
+		error("already initialized!")
+	else
+		self.initialize = true
+	end
+	const rootUri = vParams.rootUri
+	const root  = vParams.rootPath or (rootUri and platform.uri2path(rootUri))
+	self:info("Config.root = ", root, vParams.rootPath, vParams.rootUri)
+	self:info("Platform = ", platform.iswin() and "win" or "not-win")
+	if root then
+		self:setRootPath(root)
+	end
+	return {
+		capabilities = {
+			textDocumentSync = {
+				change = 1, -- 1 is non-incremental, 2 is incremental
+				openClose = true,
+				save = { includeText = true },
+			},
+			definitionProvider = true,
+			referencesProvider = true,
+			hoverProvider = true,
+			completionProvider = {
+				triggerCharacters = {".",":"},
+				resolveProvider = false
+			},
+			--referencesProvider = true,
+			--documentLocalSymbolProvider = false,
+			--documentHighlightProvider = false,
+			--workspaceLocalSymbolProvider = false,
+			--codeActionProvider = false,
+			--documentFormattingProvider = false,
+			--documentRangeFormattingProvider = false,
+			--renameProvider = false,
+		},
+	}
+end
+
+function LangServer:onShutdown()
+	self.shutdown=true
+end
+
+function LangServer:onExit()
+	if self.shutdown then
+		os.exit()
+	else
+		os.exit()
+	end
+end
+
+return LangServer
