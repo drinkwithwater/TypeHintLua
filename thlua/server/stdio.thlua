@@ -1,0 +1,79 @@
+
+const uv = require "luv"
+const LuaPromise = require@<let.LuaPromise> "thlua.LuaPromise"
+
+const stdin = uv.new_pipe(false)
+uv.pipe_open(stdin, 0)
+const stdout = uv.new_pipe(false)
+uv.pipe_open(stdout, 1)
+const stderr = uv.new_pipe(false)
+uv.pipe_open(stderr, 2)
+
+local buffer = ""
+
+const function readline():Ret(LuaPromise(String))
+    const nPromise = LuaPromise.new@<String>()
+    const index = buffer:find("\n")
+    if index then
+        const line = buffer:sub(1, index-1)
+        buffer = buffer:sub(index+1)
+        nPromise:resolve(line)
+        return nPromise
+    else
+        const bufList:List(String) = {buffer}
+        stdin:read_start(function(interrupt, retOrErr)
+            assert(not interrupt, retOrErr)
+            if retOrErr then
+                bufList[#bufList + 1] = retOrErr
+                if retOrErr:find("\n") then
+                    stdin:read_stop()
+                    buffer = table.concat(bufList)
+                    const index = assert(buffer:find("\n"), "impossible... find \\n but no \\n")
+                    const line = buffer:sub(1, index-1)
+                    buffer = buffer:sub(index+1)
+                    nPromise:resolve(line)
+                end
+            end
+        end)
+        return nPromise
+    end
+end
+
+const function readlen(vLen:Integer):Ret(LuaPromise(String))
+    const nPromise = LuaPromise.new@<String>()
+    local nCurLen = #buffer
+    if nCurLen >= vLen then
+        const data = buffer:sub(1, vLen)
+        buffer = buffer:sub(vLen+1)
+        nPromise:resolve(data)
+        return nPromise
+    else
+        const bufList:List(String) = {buffer}
+        stdin:read_start(function(interrupt, retOrErr)
+            assert(not interrupt, retOrErr)
+            if retOrErr then
+                bufList[#bufList + 1] = retOrErr
+                nCurLen = nCurLen + #retOrErr
+                if nCurLen >= vLen then
+                    stdin:read_stop()
+                    buffer = table.concat(bufList)
+                    const data = buffer:sub(1, vLen)
+                    buffer = buffer:sub(vLen+1)
+                    nPromise:resolve(data)
+                end
+            end
+        end)
+        return nPromise
+    end
+end
+
+return {
+  readline = readline,
+  readlen = readlen,
+  writeerr = function(data:String)
+    stderr:write(data)
+  end,
+  writeout = function(data:String)
+    stdout:write(data)
+  end
+}

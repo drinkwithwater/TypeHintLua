@@ -170,21 +170,6 @@ function FastServer:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	end)
 end
 
-function FastServer:scanAllFile()
-	const nRmList:List(String) = {}
-	for nUri, nFileState in pairs(self._fileStateDict) do
-		const ok = pcall(function()
-			nFileState:syncFile()
-		end)
-		if not ok then
-			nRmList[#nRmList + 1] = nUri
-		end
-	end
-	for _, nUri in pairs(nRmList) do
-		self._fileStateDict[nUri] = nil
-	end
-end
-
 function FastServer:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
 	const nContent = vParams.textDocument.text
 	const nFileUri = vParams.textDocument.uri

@@ -7,6 +7,9 @@ const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
 const class = require "thlua.class"
 const platform = require "thlua.platform"
+const uv = require@<let.uv_async_t> "luv"
+const stdio = require "thlua.server.stdio"
+const LuaPromise = require@<let.LuaPromise> "thlua.LuaPromise"
 
 (@do
 	let.clazz=import($class).clazz
@@ -22,11 +25,28 @@ function.open BaseServer:ctor(vGlobalPath:OrNil(String))
 	self._rootPath=""@String
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 	self._globalPath = vGlobalPath or lpath.cwd().."/global"
+	self._bufList = {} @ List(String)
 end
 
 function.pass BaseServer:getMethodHandler():Ret(Truth)
 	error("get method handler is not implement in BaseServer")
 end
+
+function BaseServer:scanAllFile()
+	const nRmList:List(String) = {}
+	for nUri, nFileState in pairs(self._fileStateDict) do
+		const ok = pcall(function()
+			nFileState:syncFile()
+		end)
+		if not ok then
+			nRmList[#nRmList + 1] = nUri
+		end
+	end
+	for _, nUri in pairs(nRmList) do
+		self._fileStateDict[nUri] = nil
+	end
+end
+
 
 function BaseServer:attachFileState(vFileUri:String):Ret(lsp.FileState)
 	local nFileState = self._fileStateDict[vFileUri]
@@ -72,8 +92,8 @@ function BaseServer:makeLoader():Ret(clazz.IPlatform)
             end
 			return self._fileStateDict[nFileUri]!:checkLatestEnv(), nFileUri
 		end,
-		createAsync=function.pass(fn)
-			error("create async TODO for default platform")
+		createAsync=function(fn)
+			return uv.new_async(fn)
 		end,
 		logger=self,
 	}
@@ -89,17 +109,24 @@ function BaseServer:mainLoop()
 		tooltip="hello",
 	})
 	self:info("global path:", self._globalPath)
-	while not self.shutdown do
-		self:rpc()
-	end
+	local rpcAsync = nil@!uv_async_t
+	rpcAsync = uv.new_async(function()
+		self:info("read request")
+		self:_readRequest():next@<Nil>(function(msg)
+			self:info("read request:"..json.encode(msg))
+			self:_handleRequest(msg)
+			rpcAsync:send()
+		end)
+	end)
+	rpcAsync:send()
+	uv.run()
 end
 
 local function reqToStr(vRequest:lsp.RequestMessage):Ret(String)
 	return "["..tostring(vRequest.method)..(vRequest.id and ("$"..vRequest.id) or "").."]"
 end
 
-function.pass BaseServer:rpc()
-	local request = self:readRequest()
+function.pass BaseServer:_handleRequest(request:lsp.RequestMessage)
 	local methodName = request.method
 	local nId = request.id
 	if not methodName then
@@ -119,8 +146,10 @@ function.pass BaseServer:rpc()
 		end
 		return
 	end
-	const result = handler(request.params)
-	if result then
+	const ok, result = pcall(handler, request.params)
+	if not ok then
+		self:error("request handle error"..tostring(result))
+	elseif result then
 		if nId then
 			self:writeResult(nId, result)
 			-- self:info("write response:$"..tostring(nId))
@@ -135,47 +164,66 @@ function.pass BaseServer:rpc()
 	end
 end
 
-function BaseServer:readRequest():Ret(lsp.RequestMessage)
+function BaseServer:_readRequest():Ret(LuaPromise(lsp.RequestMessage))
 	-- 1 get header
-	local length:Integer = -1
-	while true do
-		local line = io.read("l")
-		if not line then
-			error("io.read fail")
-		end
-		line = line:gsub("\13", "")
-		if line == "" then
-			break
-		end
-		local key, val = line:match("([^:]+): (.+)")
-		if not key or not val then
-			error("header format error:"..line)
-		end
-		if key == "Content-Length" then
-			length = assert(math.tointeger(val), "Content-Length can't convert to integer"..tostring(val))
-		end
+	local nLength:Integer = -1
+	const nHeadPromise = LuaPromise.new@<Nil>()
+	const function readhead()
+		stdio.readline():next@<Nil>(function(line)
+			if not line then
+				nHeadPromise:reject("read failed")
+				return
+			end
+			line = line:gsub("\13", "")
+			if line == "" then
+				nHeadPromise:resolve(nil)
+				return
+			end
+			local key, val = line:match("([^:]+): (.+)")
+			if not key or not val then
+				nHeadPromise:reject("header format error:"..line)
+			end
+			if key == "Content-Length" then
+				const toInt = math.tointeger(val)
+				if not toInt then
+					nHeadPromise:reject("Content-Length can't convert to integer"..tostring(val))
+					return
+				else
+					nLength = toInt
+				end
+			end
+			readhead()
+		end)
 	end
-
-	if length < 0 then
-		error("Content-Length failed in rpc")
-	end
+	readhead()
 
 	-- 2 get body
-	local data = io.read(length)
-	if not data then
-		error("read nothing")
-	end
-	data = data:gsub("\13", "")
-	local obj, err = json.decode(data)
-	if type(obj) ~= "table" then
-		error("json decode error:"..tostring(err))
-	end
-	const req = obj @? lsp.RequestMessage
-	if req.jsonrpc ~= "2.0" then
-		error("json-rpc is not 2.0, "..tostring(req.jsonrpc))
-	end
-	--self:info("recv:"..reqToStr(req), json.encode(obj.params))
-	return req
+	const nBodyPromise = LuaPromise.new@<lsp.RequestMessage>()
+	nHeadPromise:next@<Nil>(function(_)
+		if nLength < 0 then
+			nBodyPromise:reject("Content-Length failed in rpc")
+			return
+		end
+		stdio.readlen(nLength):next@<Nil>(function(data)
+			data = data:gsub("\13", "")
+			local obj, err = json.decode(data)
+			if type(obj) ~= "table" then
+				nBodyPromise:reject("json decode error:"..tostring(err))
+				return
+			end
+			const req = obj @? lsp.RequestMessage
+			if req.jsonrpc ~= "2.0" then
+				nBodyPromise:reject("json-rpc is not 2.0, "..tostring(req.jsonrpc))
+				return
+			end
+			nBodyPromise:resolve(obj)
+		end, function(err)
+			nBodyPromise:reject(err)
+		end)
+	end, function(err)
+		nBodyPromise:reject(err)
+	end)
+	return nBodyPromise
 end
 
 function BaseServer:writeError(vId:Union(Integer, String, Nil), vCode:Integer, vMsg:String, vData:String):Ret()
@@ -213,6 +261,7 @@ function BaseServer:_write(vPacket:Truth)
 	else
 		data = ("Content-Length: %d\r\n\r\n%s"):format(#data, data)
 	end
+	-- stdio.writeout(data)
 	io.write(data)
 	io.flush()
 end

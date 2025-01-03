@@ -13,9 +13,6 @@ end)
 
 const FileState = class@<lsp.FileState, false>()
 
-const CHANGE_ANYTHING = 1
-const CHANGE_NONBLANK = 2
-
 function.open FileState:ctor(vServer:lsp.BaseServer, vFileName:String)
 	self._lspServer = vServer
 	self._rightEnv = false@OrFalse(clazz.CodeEnv)
@@ -23,7 +20,7 @@ function.open FileState:ctor(vServer:lsp.BaseServer, vFileName:String)
 	self._splitCode = SplitCode.new("")
 	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
-	self._changeState = false @OrFalse($CHANGE_ANYTHING, $CHANGE_NONBLANK)
+	self._changeState = false @ Boolean
 	self._checkFlag = false @ Boolean
 end
 
@@ -66,50 +63,20 @@ end
 function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
 	const nChanges = vParams.contentChanges
 	local nSplitCode = self._splitCode
-	local nLineChange = false
 	for _, nChange in ipairs(nChanges) do
 		const nRawRange = nChange.range
 		if nRawRange then
 			error("change by range TODO")
-			const nRange = self:getWellformedRange(nRawRange)
-			const nChangeText = nChange.text
-			const nContent = nSplitCode:getContent()
-			const nRangeStart = nRange.start
-			const nRangeEnd = nRange["end"]
-			const nStartPos = nSplitCode:lspToPos(nRangeStart)
-			const nFinishPos = nSplitCode:lspToPos(nRangeEnd)
-			const nNewContent = nContent:sub(1, nStartPos - 1) .. nChangeText .. nContent:sub(nFinishPos, #nContent)
-			const nRemoveText = nContent:sub(nStartPos, nFinishPos-1)
-			if nChangeText:find("[\n]") or nRemoveText:find("[\n]") then
-				nLineChange = true
-			end
-			if nChangeText:find("[^%s]") or nRemoveText:find("[^%s]") then
-				self._changeState = CHANGE_NONBLANK
-			end
-			nSplitCode = SplitCode.new(nNewContent)
 		else
-			const nOldLineNum = nSplitCode:getLineNum()
 			nSplitCode = SplitCode.new(nChange.text)
-			if nOldLineNum ~= nSplitCode:getLineNum() then
-				nLineChange = true
-			end
 		end
 		if not self._changeState then
-			self._changeState = CHANGE_ANYTHING
+			self._changeState = true
 		end
 	end
 	self._splitCode = nSplitCode
 	self._version = vParams.textDocument.version
-	const nRight = self:_checkRight()
-	if nRight then
-		if nLineChange then
-			return true
-		else
-			return false
-		end
-	else
-		return false
-	end
+	return self:_checkRight()
 end
 
 function FileState:_checkRight():Ret(Boolean)

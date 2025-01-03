@@ -162,16 +162,16 @@ function.open ApiServer:ctor(...)
 			self:onExit()
 		end,
 		["textDocument/didOpen"]=function(vParam)
-			return self:onDidOpen(vParam)
+			self:onDidOpen(vParam)
 		end,
 		["textDocument/didChange"]=function(vParam)
-			return self:onDidChange(vParam)
+			self:onDidChange(vParam)
 		end,
 		["textDocument/didSave"]=function(vParam)
-			return self:onDidSave(vParam)
+			self:onDidSave(vParam)
 		end,
 		["textDocument/didClose"]=function(vParam)
-			return self:onDidClose(vParam)
+			self:onDidClose(vParam)
 		end,
 		["textDocument/completion"]=function(vParam)
 			const ok, ret = pcall(function()
@@ -225,10 +225,6 @@ function ApiServer:getMethodHandler():Ret(Truth)
 	return self._methodHandler
 end
 
-function.pass ApiServer:getInitializeResult():Ret(lsp.InitializeResult)
-	error("getInitializeResult not implement in ApiServer")
-end
-
 function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
 	if self.initialize then
 		error("already initialized!")
@@ -242,7 +238,30 @@ function ApiServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.Initialize
 	if root then
 		self:setRoot(root)
 	end
-	return self:getInitializeResult()
+	return {
+		capabilities = {
+			textDocumentSync = {
+				change = 1, -- 1 is non-incremental, 2 is incremental
+				openClose = true,
+				save = { includeText = true },
+			},
+			definitionProvider = true,
+			referencesProvider = true,
+			hoverProvider = true,
+			completionProvider = {
+				triggerCharacters = {".",":"},
+				resolveProvider = false
+			},
+			--referencesProvider = true,
+			--documentLocalSymbolProvider = false,
+			--documentHighlightProvider = false,
+			--workspaceLocalSymbolProvider = false,
+			--codeActionProvider = false,
+			--documentFormattingProvider = false,
+			--documentRangeFormattingProvider = false,
+			--renameProvider = false,
+		},
+	}
 end
 
 function ApiServer:onShutdown()

@@ -32,17 +32,8 @@ end
 -- run language server
 function boot.runServer(vMode, vGlobalPathOrNil)
 	boot.patch()
-	local FastServer = require "thlua.server.FastServer"
-	local SlowServer = require "thlua.server.SlowServer"
 	local BothServer = require "thlua.server.BothServer"
-	local server
-	if vMode == "fast" then
-		server = FastServer.new(vGlobalPathOrNil)
-	elseif vMode == "slow" then
-		server = SlowServer.new(vGlobalPathOrNil)
-	else
-		server = BothServer.new(vGlobalPathOrNil)
-	end
+	local server = BothServer.new(vGlobalPathOrNil)
 
 	print=function(...)
 		--[[client:notify("window/logMessage", {

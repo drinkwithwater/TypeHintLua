@@ -1,0 +1,74 @@
+
+-- docs from https://github.com/luvit/luv/blob/master/docs.md
+-- just hint some api for my use
+const uv = {.open}
+
+-- uv_handle_t
+const function:class(let.uv_handle_t) __new_handle()
+	return {.class
+		close=uv.close,
+		is_closing=uv.is_closing,
+	}
+end
+
+function uv.close(handle:let.uv_handle_t, callback:OrNil(Fn()))
+end
+
+function.pass uv.is_closing(handle:let.uv_handle_t):Ret(Boolean)
+end
+
+-- uv_stream_t
+const function:class(let.uv_stream_t) __new_stream():extends(let.uv_handle_t)
+	return {.class
+		close=uv.close,
+		is_closing=uv.is_closing,
+		read_start=uv.read_start,
+		read_stop=uv.read_stop,
+		write=uv.write,
+	}
+end
+
+function uv.read_start(stream:let.uv_stream_t, callback:Fn(OrNil(True), OrNil(String)))
+end
+
+function uv.read_stop(stream:let.uv_stream_t)
+end
+
+function uv.write(stream:let.uv_stream_t, data:String, callback:OrNil(Fn(OrNil(String))))
+end
+
+--- uv_async_t
+function:class(let.uv_async_t) uv.new_async(callback:Fn():Dots(Any)):extends(let.uv_handle_t)
+	return {.class
+		close=uv.close,
+		is_closing=uv.is_closing,
+		send=uv.async_send
+	}
+end
+
+function uv.async_send(handle:let.uv_async_t, ...:Any)
+end
+
+--- uv_pipe_t
+-- The ipc argument is to indicate if this pipe will be used for handle passing between processes.
+function:class(let.uv_pipe_t) uv.new_pipe(ipc:OrNil(Boolean)):extends(let.uv_stream_t)
+	return {.class
+		close=uv.close,
+		is_closing=uv.is_closing,
+		read_start=uv.read_start,
+		read_stop=uv.read_stop,
+		write=uv.write,
+	}
+end
+
+function uv.pipe_open(pipe:let.uv_pipe_t, fd:Integer)
+end
+
+-- other
+function uv.run()
+end
+
+function uv.walk(callback:Fn(uv_handle_t))
+end
+
+return uv

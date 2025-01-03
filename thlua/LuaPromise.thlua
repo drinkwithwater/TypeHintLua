@@ -82,7 +82,7 @@ function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T
         end
     end
     if self._state == RESOLVED then
-        doResolve(self._value)
+        doResolve(self._value!)
     elseif self._state == REJECTED then
         doReject(self._reason or "unknown reason")
     elseif self._state == PENDING then
@@ -104,6 +104,10 @@ function.pass Promise:_handleResolve(ret:Truth)
     else
         self:resolve(ret)
     end
+end
+
+function Promise:isPending()
+    return self._state == PENDING
 end
 
 function.open Promise.is(v):isguard(let.LuaPromise(Truth))

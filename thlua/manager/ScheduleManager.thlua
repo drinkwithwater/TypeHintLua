@@ -26,6 +26,8 @@ function.open ScheduleManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._hintTaskList={}@List(clazz.HintTask)
 	self._selfCo=coroutine.running()
 	self._runtime = vRuntime
+	self._mainPromise = LuaPromise.new@<Nil>()
+	self._tickAsync = nil @! OrNil(uv_async_t)
 	self.useProfile = false @Boolean
 end
 
@@ -116,19 +118,31 @@ function ScheduleManager:_tickTask():Ret(Boolean)
 	return #nTaskList > 0
 end
 
+function ScheduleManager:cancelSchedule()
+	const tickAsync = assert(self._tickAsync, "cancelSchedule called but not schedule??")
+	if not tickAsync:is_closing() then
+		tickAsync:close(function()
+			const mainPromise = self._mainPromise
+			if mainPromise:isPending() then
+				mainPromise:reject("interrupt by cancelSchedule()")
+			end
+		end)
+	end
+end
+
 function ScheduleManager:promiseSchedule():Ret(LuaPromise(Nil))
-	const nPromise = LuaPromise.new@<Nil>()
-	local async = nil @! uv_async_t
+	assert(not self._tickAsync, "promiseSchedule called more than once")
+	const mainPromise = self._mainPromise
 	local counter = 0
-	async = self._runtime:getPlatform().createAsync(function()
+	self._tickAsync = self._runtime:getPlatform().createAsync(function()
 		counter = counter + 1
 		const ok, retOrErr = pcall(self._tickTask, self)
 		if ok then
 			if retOrErr then
-				async:send()
+				self._tickAsync!:send()
 			else
-				async:close()
-				nPromise:resolve(nil)
+				self._tickAsync!:close()
+				mainPromise:resolve(nil)
 			end
 		else
 			if Exception.is(retOrErr) then
@@ -136,12 +150,12 @@ function ScheduleManager:promiseSchedule():Ret(LuaPromise(Nil))
 			else
 				self._runtime:nodeError(self._runtime:getNode(), retOrErr)
 			end
-			async:close()
-			nPromise:resolve(nil)
+			self._tickAsync!:close()
+			mainPromise:resolve(nil)
 		end
 	end)
-	async:send()
-	return nPromise
+	self._tickAsync!:send()
+	return mainPromise
 end
 
 function ScheduleManager:pushSchedule(vTask:clazz.ScheduleTask)
