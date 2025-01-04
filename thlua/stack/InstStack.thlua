@@ -2,8 +2,8 @@
 const class = require@<let.clazz> "thlua.class"
 const Node = require@<let.node> "thlua.code.Node"
 
-const DoBuilder = require "thlua.builder.DoBuilder"
-const Branch = require "thlua.runtime.Branch"
+const DoBuilder = require "thlua.stack.builder.DoBuilder"
+const Branch = require "thlua.stack.Branch"
 const DotsTail = require "thlua.tuple.DotsTail"
 const AutoTail = require "thlua.auto.AutoTail"
 const AutoHolder = require "thlua.auto.AutoHolder"
@@ -22,13 +22,13 @@ const TypedObject = require "thlua.type.object.TypedObject"
 const OpenTable = require "thlua.type.object.OpenTable"
 const Truth = require "thlua.type.basic.Truth"
 
-const FunctionBuilder = require "thlua.builder.FunctionBuilder"
-const TableBuilder = require "thlua.builder.TableBuilder"
-const BaseStack = require "thlua.runtime.BaseStack"
+const FunctionBuilder = require "thlua.stack.builder.FunctionBuilder"
+const TableBuilder = require "thlua.stack.builder.TableBuilder"
+const BaseStack = require "thlua.stack.BaseStack"
 
-const OperContext = require "thlua.context.OperContext"
-const ApplyContext = require "thlua.context.ApplyContext"
-const LogicContext = require "thlua.context.LogicContext"
+const OperContext = require "thlua.stack.context.OperContext"
+const ApplyContext = require "thlua.stack.context.ApplyContext"
+const LogicContext = require "thlua.stack.context.LogicContext"
 
 -- instruction stack
 const InstStack = class@<clazz.InstStack, false>(BaseStack)
@@ -367,7 +367,7 @@ function InstStack:FUNC_NEW(vNode:Union(node.Function, node.Chunk),
 	return self:_nodeTerm(vNode, nFnType)
 end
 
-(@let.PairMaker = import("thlua.builder.TableBuilder").PairMaker)
+(@let.PairMaker = import("thlua.stack.builder.TableBuilder").PairMaker)
 function InstStack:TABLE_NEW(vNode:node.Table, vHintInfo:clazz.TLongHintInfo(clazz.TableLongHint), vPairMaker:PairMaker):Ret(clazz.RefineTerm)
 	local nBuilder = TableBuilder.new(self, vNode, vHintInfo, vPairMaker)
 	const nTableType = nBuilder:build()
