@@ -30,9 +30,10 @@ function NameReference.__tostring(self:clazz.NameReference):Ret(String)
 	return "Reference(key="..tostring(self._name)..")"
 end
 
-function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vName:String)
+function:class(clazz.NameReference) NameReference.new(vRuntime:clazz.BaseRuntime, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vName:String)
 	const self = setmetatable({.class
-		_typeManager = vManager,
+		_spaceManager = vRuntime:getSpaceManager(),
+		_typeManager = vRuntime:getTypeManager(),
 		_parentNodeOrSpace=vParentNodeOrSpace,
 		_name=vName,
 		_assignNode=false@OrFalse(clazz.IBaseNode),
@@ -43,7 +44,7 @@ function:class(clazz.NameReference) NameReference.new(vManager:clazz.TypeManager
 		_spaceValue=nil@!clazz.LocalSpaceValue,
 	}, NameReference)
 	self._spaceValue = SpaceValue.create(self)
-	const nTask = vManager:getScheduleManager():newHintTask(self)
+	const nTask = vRuntime:getScheduleManager():newHintTask(self)
 	self._task = nTask
 	self._assignComEvent = nTask:makeEvent()
 	return self

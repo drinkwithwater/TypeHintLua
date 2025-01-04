@@ -3,9 +3,7 @@ const class = require@<let.clazz> "thlua.class"
 const Node = require@<let.node> "thlua.code.Node"
 const LuaPromise = require@<let.LuaPromise> "thlua.utils.LuaPromise"
 
-const TypedFunction = require "thlua.type.func.TypedFunction"
 const TypeManager = require "thlua.type.TypeManager"
-const OpenFunction = require "thlua.type.func.OpenFunction"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
 const TermTuple = require "thlua.tuple.TermTuple"
 const native = require "thlua.type.native"
@@ -14,11 +12,9 @@ const LetSpace = require "thlua.space.LetSpace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
 
-const ContextManager = require "thlua.runtime.ContextManager"
-const BaseStack = require "thlua.stack.BaseStack"
+const StackManager = require "thlua.stack.StackManager"
+const SpaceManager = require "thlua.space.SpaceManager"
 const OpenStack = require "thlua.stack.OpenStack"
-const SealStack = require "thlua.stack.SealStack"
-const DeduceStack = require "thlua.stack.DeduceStack"
 const AutoFunction = require "thlua.type.func.AutoFunction"
 const NameReference = require "thlua.space.NameReference"
 
@@ -110,6 +106,7 @@ const DefaultLogger:clazz.LevelLogger = {
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
 function.open BaseRuntime:ctor(vStage:OrNil(clazz.StageApi))
+	self._diaList={}@List(clazz.Diagnostic)
 	self._searchPath = false @ OrFalse(String)
 	self._stage=vStage or DefaultStage
 	self._logger=self._stage.logger or DefaultLogger
@@ -119,6 +116,8 @@ function.open BaseRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	-- late init fields
 	self._node=nil@!node.Root
 	self._typeManager=nil@!clazz.TypeManager
+	self._stackManager=nil@!clazz.StackManager
+	self._spaceManager=nil@!clazz.SpaceManager
 	self._globalTable=nil@!clazz.AutoTable
 	self._rootStack=nil@!clazz.SealStack
 	self._rootSpace=false@OrFalse(clazz.LetSpace)
@@ -174,6 +173,8 @@ function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 	self._scheduleManager.useProfile = vUseProfile or false
 	self._node=Node.newRootNode(vRootFileUri)
 	self._typeManager=TypeManager.new(self, self._node, self._scheduleManager)
+	self._stackManager=StackManager.new(self)
+	self._spaceManager=SpaceManager.new(self)
 	const nAutoFn = AutoFunction.new(self._typeManager, self._node, false)
 	nAutoFn:initAsync(function()
 		const nRootStack = nAutoFn:getBuildStack()
@@ -207,18 +208,6 @@ end
 
 function BaseRuntime:recordApplyContext(vNode:clazz.IBaseNode, vContext:clazz.ApplyContext)
 	-- pass
-end
-
-function BaseRuntime:SealStack(...):Ret(clazz.SealStack)
-	return SealStack.new(self, ...)
-end
-
-function BaseRuntime:DeduceStack(...):Ret(clazz.DeduceStack)
-	return DeduceStack.new(self, ...)
-end
-
-function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
-	return OpenStack.new(self, ...)
 end
 
 function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
@@ -410,7 +399,17 @@ function BaseRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)
 end
 
 function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:Truth)
-	-- pass
+	local l:List(String) = {}
+	for i=1, select("#", ...) do
+		l[i] = tostring(select(i, ...))
+	end
+	local nMsg = table.concat(l, " ")
+	local nDiaList = self._diaList
+	nDiaList[#nDiaList + 1] = {
+		msg=nMsg,
+		node=vNode,
+		severity=vSeverity,
+	}
 end
 
 function BaseRuntime:invalidReference(vRefer:clazz.NameReference)
@@ -454,12 +453,43 @@ function BaseRuntime:makeException(vNode:clazz.IBaseNode, vMsg:String)
 	return Exception.new(vMsg, vNode)
 end
 
+function BaseRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
+	for _, nDia in pairs(self._diaList) do
+		const nPath = nDia.node.path
+		local nList = nFileToDiaList[nPath]
+		if not nList then
+			nList = {}
+			nFileToDiaList[nPath] = nList
+		end
+		nList[#nList + 1] = nDia
+	end
+	const name_FileToDiaList = self:getSpaceManager():getNameDiagnostic()
+	for nFile, nList in pairs(name_FileToDiaList) do
+		const nOldList = nFileToDiaList[nFile]
+		if nOldList then
+			table.move(nList, 1, #nList, #nOldList + 1, nOldList)
+		else
+			nFileToDiaList[nFile] = nList
+		end
+	end
+	return nFileToDiaList
+end
+
 function BaseRuntime:getTypeManager():Ret(clazz.TypeManager)
 	return self._typeManager
 end
 
+function BaseRuntime:getStackManager():Ret(clazz.StackManager)
+	return self._stackManager
+end
+
 function BaseRuntime:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
+end
+
+function BaseRuntime:getSpaceManager():Ret(clazz.SpaceManager)
+	return self._spaceManager
 end
 
 function BaseRuntime:getStage():Ret(clazz.StageApi)

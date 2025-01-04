@@ -25,32 +25,6 @@ function.open CompletionRuntime:ctor(...)
 	--self._nodeToAutoFnList = ListDict@<clazz.IBaseNode, clazz.AutoFunction>()
 	self._nodeToBranchList = ListDict@<node.Block, clazz.Branch>()
 	self._nodeToApplyContextList = ListDict@<clazz.IBaseNode, clazz.ApplyContext>()
-	self._invalidReferSet = {} @ Dict(clazz.NameReference, True)
-end
-
-function CompletionRuntime:invalidReference(vRefer:clazz.NameReference)
-	self._invalidReferSet[vRefer] = true
-end
-
-function CompletionRuntime:getNameDiagnostic(vUseWarn:OrNil(Boolean)):Ret(Dict(String, List(clazz.Diagnostic)))
-	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
-	for nRefer, _ in pairs(self._invalidReferSet) do
-		const nNodes = nRefer:getReferNodes()
-		for _, node in ipairs(nNodes) do
-			const nPath = node.path
-			local nList = nFileToDiaList[nPath]
-			if not nList then
-				nList = {}
-				nFileToDiaList[nPath] = nList
-			end
-			nList[#nList + 1] = {
-				msg="here refer not setted : "..tostring(nRefer),
-				node=node,
-				severity=vUseWarn and SeverityEnum.Warn or SeverityEnum.Error,
-			}
-		end
-	end
-	return nFileToDiaList
 end
 
 
@@ -283,6 +257,15 @@ end
 function CompletionRuntime:exprLookdown(vNode:clazz.IBaseNode):Ret(Dict(clazz.IBaseNode, True))
 	-- lookdown implement in DiagnosticRuntime
 	return {}
+end
+
+function CompletionRuntime:exprLookdown(vNode:clazz.IBaseNode):Ret(Dict(clazz.IBaseNode, True))
+	const nNodeSet:Dict(clazz.IBaseNode, true) = {}
+	const nCtxList:List(clazz.ApplyContext) = self._nodeToApplyContextList:get(vNode) or {}
+	for _, nContext in ipairs(nCtxList) do
+		nContext:outLookdownNode(nNodeSet)
+	end
+	return nNodeSet
 end
 
 return CompletionRuntime
