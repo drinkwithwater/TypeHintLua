@@ -120,7 +120,6 @@ function.open BaseRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	self._spaceManager=nil@!clazz.SpaceManager
 	self._globalTable=nil@!clazz.AutoTable
 	self._rootStack=nil@!clazz.SealStack
-	self._rootSpace=false@OrFalse(clazz.LetSpace)
 end
 
 function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
@@ -181,7 +180,9 @@ function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 		self._rootStack = nRootStack
 		self._typeManager:lateInit()
 		self._globalTable = native.make(self)
-		nRootStack:rootSetLetSpace(self:getRootSpace())
+		const nRootSpace = self._spaceManager:prebuildRootSpace()
+		self:buildSimpleGlobal(nRootSpace)
+		nRootStack:rootSetLetSpace(nRootSpace)
 		for _, pkg in ipairs(nGlobalPackage) do
 			const nLoadedState = self:_cacheLoadGlobal(pkg)
 			if pkg == "string" then
@@ -312,7 +313,7 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			return nManager:Literal(v)
 		end, "Literal")
 		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
-			return self:NameSpace(vNode, false)
+			return self._spaceManager:NameSpace(vNode, false)
 		end, "namespace")
 		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
 			return self:import(vNode, vPath)
@@ -368,29 +369,6 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			return v
 		end)
 	end
-end
-
-function BaseRuntime:getRootSpace():Ret(clazz.LetSpace)
-	local nRootSpace = self._rootSpace
-	if not nRootSpace then
-		const nRefer = self._typeManager:NameReference(self._node, "")
-		nRootSpace = nRefer:initWithLetSpace(self._node, false)
-		self._rootSpace = nRootSpace
-		self:buildSimpleGlobal(nRootSpace)
-	end
-	return nRootSpace
-end
-
-function BaseRuntime:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
-	const nRefer = self._typeManager:NameReference(vParentLet, "")
-	const nSpace = nRefer:initWithLetSpace(self._node, vParentLet)
-	return nSpace
-end
-
-function BaseRuntime:NameSpace(vNode:node.Debug, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
-	const nRefer = self._typeManager:NameReference(vParent or vNode, "")
-	const nSpace = nRefer:initWithNameSpace(vNode, vParent)
-	return nSpace
 end
 
 function BaseRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)

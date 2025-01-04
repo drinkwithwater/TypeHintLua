@@ -21,6 +21,7 @@ end)
 const SpaceManager = class@<clazz.SpaceManager, false>()
 function.open SpaceManager:ctor(vRuntime:clazz.BaseRuntime)
 	self._runtime=vRuntime
+	self._rootSpace=nil@OrNil(clazz.LetSpace)
 	self._invalidReferSet = {} @ Dict(clazz.NameReference, True)
 end
 
@@ -47,6 +48,30 @@ function SpaceManager:getNameDiagnostic(vUseWarn:OrNil(Boolean)):Ret(Dict(String
 		end
 	end
 	return nFileToDiaList
+end
+
+function SpaceManager:prebuildRootSpace():Ret(clazz.LetSpace)
+	assert(not self._rootSpace, "root space is built")
+	const nRefer = NameReference.new(self._runtime, self._runtime:getNode(), "")
+	const nRootSpace = nRefer:initWithLetSpace(self._runtime:getNode(), false)
+	self._rootSpace = nRootSpace
+	return nRootSpace
+end
+
+function SpaceManager:getRootSpace():Ret(clazz.LetSpace)
+	return self._rootSpace!
+end
+
+function SpaceManager:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
+	const nRefer = NameReference.new(self._runtime, vParentLet, "")
+	const nSpace = nRefer:initWithLetSpace(self._runtime:getNode(), vParentLet)
+	return nSpace
+end
+
+function SpaceManager:NameSpace(vNode:node.Debug, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
+	const nRefer = NameReference.new(self._runtime, vParent or vNode, "")
+	const nSpace = nRefer:initWithNameSpace(vNode, vParent)
+	return nSpace
 end
 
 return SpaceManager
