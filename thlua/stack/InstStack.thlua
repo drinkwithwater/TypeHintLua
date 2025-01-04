@@ -5,8 +5,8 @@ const Node = require@<let.node> "thlua.code.Node"
 const DoBuilder = require "thlua.stack.builder.DoBuilder"
 const Branch = require "thlua.stack.Branch"
 const DotsTail = require "thlua.tuple.DotsTail"
-const AutoTail = require "thlua.auto.AutoTail"
-const AutoHolder = require "thlua.auto.AutoHolder"
+const AutoTail = require "thlua.space.AutoTail"
+const AutoHolder = require "thlua.space.AutoHolder"
 const AutoFlag = require "thlua.code.AutoFlag"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -36,7 +36,7 @@ const InstStack = class@<clazz.InstStack, false>(BaseStack)
 function InstStack:BEGIN(vLexStack:clazz.BaseStack, vBlockNode:node.Block):Ret(clazz.InstStack)
 	assert(not self._letspace, "context can only begin once")
 	const nUpState = self._lexBranchCase
-	self._letspace = self._runtime:getSpaceManager():LetSpace(vBlockNode, vLexStack:getLetSpace())
+	self._letspace = self._spaceManager:LetSpace(vBlockNode, vLexStack:getLetSpace())
 	return self
 end
 
@@ -227,7 +227,7 @@ function InstStack:META_INVOKE(
 					vContext:error("nil as invoke func")
 				elseif Truth.is(vSingleFuncType) or BaseFunction.is(vSingleFuncType) then
 					if vPolyArgsGetter then
-						const nPolyTuple = self._typeManager:spacePack(vNode, vSelfType, vPolyArgsGetter(self:unpackPolyArgs()))
+						const nPolyTuple = self._spaceManager:spacePack(vNode, vSelfType, vPolyArgsGetter(self:unpackPolyArgs()))
 						const nType = vSingleFuncType:castPoly(vContext, nPolyTuple)
 						if nType then
 							nType:meta_call(vContext, nNewArgTuple)
@@ -379,7 +379,7 @@ function InstStack:RUN_STAT(vNode:node.IAstNode, vStatFn:Fn():Dots(clazz.USpaceA
 	if ret == nil then
 		return self:_nodeTerm(vNode, self._typeManager.type.Nil)
 	else
-		return self:_nodeTerm(vNode, self._typeManager:easyToMustType(vNode, ret):checkAtomUnion())
+		return self:_nodeTerm(vNode, self._spaceManager:spaceToMustType(vNode, ret):checkAtomUnion())
 	end
 end
 
@@ -395,7 +395,7 @@ function InstStack:POLY_PARAM_DEDUCE(vNode:node.HintPolyParList, vPolyArgNum:OrF
 	const nNamePolyArgList:List(clazz.USpaceAny) = {}
 	if vPolyArgNum then
 		for i, nIdentDef in ipairs(vNode) do
-			nNamePolyArgList[i] = self._typeManager:easyToMustType(nIdentDef, vPolyArgList[i])
+			nNamePolyArgList[i] = self._spaceManager:spaceToMustType(nIdentDef, vPolyArgList[i])
 		end
 		if vNode.dots then
 			self._polyDotsNum = vPolyArgNum - #vNode
@@ -404,12 +404,12 @@ function InstStack:POLY_PARAM_DEDUCE(vNode:node.HintPolyParList, vPolyArgNum:OrF
 		return nil, table.unpack(nNamePolyArgList, 1, #vNode)
 	else
 		for i, nIdentDef in ipairs(vNode) do
-			nNamePolyArgList[i] = AutoHolder.new(self._typeManager, nIdentDef)
+			nNamePolyArgList[i] = AutoHolder.new(self._spaceManager, nIdentDef)
 		end
 		if vNode.dots then
 			print("dots deduce TODO")
 		end
-		return self._typeManager:spacePack(self:getNode(), table.unpack(nNamePolyArgList, 1, #vNode)), table.unpack(nNamePolyArgList, 1, #vNode)
+		return self._spaceManager:spacePack(self:getNode(), table.unpack(nNamePolyArgList, 1, #vNode)), table.unpack(nNamePolyArgList, 1, #vNode)
 	end
 end
 
@@ -418,7 +418,7 @@ function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastK
 	-- TODO check cast valid
 	if vCastKind == CodeKindEnum.CastKind_POLY then
 		const nTypeCaseList:List(clazz.TypeCasePair) = {}
-		const nTupleBuilder = self._typeManager:spacePack(vNode, ...)
+		const nTupleBuilder = self._spaceManager:spacePack(vNode, ...)
 		vTerm:foreach(function(vType, vVariableCase)
 			const nAfterType = vType:castPoly(nCastContext, nTupleBuilder)
 			if nAfterType then
@@ -430,7 +430,7 @@ function InstStack:CAST_HINT(vNode:node.IAstNode, vTerm:clazz.RefineTerm, vCastK
 		return nCastContext:mergeToRefineTerm(nTypeCaseList)
 	else
 		const nDst = assert(..., "hint type can't be nil")
-		const nDstType = self._typeManager:easyToMustType(vNode, nDst):checkAtomUnion()
+		const nDstType = self._spaceManager:spaceToMustType(vNode, nDst):checkAtomUnion()
 		const nSrcType = vTerm:getType()
 		if vCastKind == CodeKindEnum.CastKind_CONIL then
 			nCastContext:includeAndCast(nDstType, nSrcType:notnilType(), CodeKindEnum.CastKind_CONIL)
@@ -452,7 +452,7 @@ function InstStack:NIL_TERM(vNode:node.IAstNode)
 end
 
 function InstStack:HINT_TERM(vNode:node.HintTerm, vItem:clazz.USpaceAny)
-	const nType = self._typeManager:easyToMustType(vNode, vItem):checkAtomUnion()
+	const nType = self._spaceManager:spaceToMustType(vNode, vItem):checkAtomUnion()
 	return self:_nodeTerm(vNode, nType)
 end
 
@@ -489,7 +489,7 @@ function InstStack:PARAM_UNPACK(
 	vIndex:Integer,
 	vHintType:Union(clazz.AutoFlag, clazz.USpaceAny)
 ):Ret(clazz.UAutoTerm)
-	const nHintType = vHintType == AutoFlag and AutoFlag or self._typeManager:easyToMustType(vNode, vHintType)
+	const nHintType = vHintType == AutoFlag and AutoFlag or self._spaceManager:spaceToMustType(vNode, vHintType)
 	const nHeadContext = self._headContext
 	if vTermTuple then
 		const nAutoTerm = vTermTuple:get(nHeadContext, vIndex)
@@ -501,7 +501,7 @@ function InstStack:PARAM_UNPACK(
 		end
 	else
 		if nHintType == AutoFlag then
-			return AutoHolder.new(self._typeManager, vNode)
+			return AutoHolder.new(self._spaceManager, vNode)
 		else
 			return nHeadContext:RefineTerm(nHintType)
 		end
@@ -524,7 +524,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 	vParNum:Integer,
 	vHintDots:Union(clazz.AutoFlag, clazz.USpaceAny)
 ):Ret(OrFalse(clazz.UTermTuple))
-	const nHintDots = vHintDots == AutoFlag and AutoFlag or self._typeManager:easyToMustType(vNode, vHintDots)
+	const nHintDots = vHintDots == AutoFlag and AutoFlag or self._spaceManager:spaceToMustType(vNode, vHintDots)
 	if vTermTuple then
 		if nHintDots == AutoFlag then
 			return self._headContext:matchArgsToAutoDots(vNode, vTermTuple, vParNum)
@@ -533,7 +533,7 @@ function InstStack:PARAM_DOTS_UNPACK(
 		end
 	else
 		if nHintDots == AutoFlag then
-			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._typeManager, vNode, self._headContext))
+			return self._headContext:UTermTupleByTail({}, AutoTail.new(self._spaceManager, vNode, self._headContext))
 		else
 			return self._headContext:UTermTupleByTail({}, DotsTail.new(self._headContext, nHintDots))
 		end
@@ -548,7 +548,7 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		nSymbolContext:warn("define a symbol without any type")
 	end
 	if vHintType ~= AutoFlag then
-		const nHintType = self._typeManager:easyToMustType(vNode, vHintType)
+		const nHintType = self._spaceManager:spaceToMustType(vNode, vHintType)
 		nTerm = nSymbolContext:assignTermToType(nTerm, nHintType)
 	else
 		const nTermInHolder = nTerm:getRefineTerm()

@@ -2,6 +2,8 @@
 
 const CodeEnv = require "thlua.code.CodeEnv"
 const SeverityEnum = require "thlua.runtime.SeverityEnum"
+const EasyMapCom = require "thlua.space.EasyMapCom"
+const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
 const FieldCompletion = require "thlua.stack.context.FieldCompletion"
 const TermTuple = require "thlua.tuple.TermTuple"
 const RefineTerm = require "thlua.term.RefineTerm"
@@ -9,8 +11,13 @@ const BaseReferSpace = require "thlua.space.BaseReferSpace"
 const SpaceValue = require "thlua.space.SpaceValue"
 const ListDict = require "thlua.utils.ListDict"
 const NameReference = require "thlua.space.NameReference"
+
 const BaseUnionType = require "thlua.type.union.BaseUnionType"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
+const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
+const AutoHolder = require "thlua.space.AutoHolder"
+
+const TupleBuilder = require "thlua.tuple.TupleBuilder"
 const class = require@<let.clazz> "thlua.class"
 
 (@do
@@ -20,6 +27,7 @@ end)
 
 const SpaceManager = class@<clazz.SpaceManager, false>()
 function.open SpaceManager:ctor(vRuntime:clazz.BaseRuntime)
+	self.spaceG = setmetatable({}, {__index=_G})
 	self._runtime=vRuntime
 	self._rootSpace=nil@OrNil(clazz.LetSpace)
 	self._invalidReferSet = {} @ Dict(clazz.NameReference, True)
@@ -52,8 +60,8 @@ end
 
 function SpaceManager:prebuildRootSpace():Ret(clazz.LetSpace)
 	assert(not self._rootSpace, "root space is built")
-	const nRefer = NameReference.new(self._runtime, self._runtime:getNode(), "")
-	const nRootSpace = nRefer:initWithLetSpace(self._runtime:getNode(), false)
+	const nRefer = NameReference.new(self._runtime, self._runtime:getRootNode(), "")
+	const nRootSpace = nRefer:initWithLetSpace(self._runtime:getRootNode(), false)
 	self._rootSpace = nRootSpace
 	return nRootSpace
 end
@@ -62,9 +70,14 @@ function SpaceManager:getRootSpace():Ret(clazz.LetSpace)
 	return self._rootSpace!
 end
 
+function SpaceManager:NameReference(vParentSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vName:String):Ret(clazz.NameReference)
+	const nRefer = NameReference.new(self._runtime, vParentSpace, vName)
+	return nRefer
+end
+
 function SpaceManager:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
 	const nRefer = NameReference.new(self._runtime, vParentLet, "")
-	const nSpace = nRefer:initWithLetSpace(self._runtime:getNode(), vParentLet)
+	const nSpace = nRefer:initWithLetSpace(self._runtime:getRootNode(), vParentLet)
 	return nSpace
 end
 
@@ -72,6 +85,48 @@ function SpaceManager:NameSpace(vNode:node.Debug, vParent:OrFalse(clazz.NameSpac
 	const nRefer = NameReference.new(self._runtime, vParent or vNode, "")
 	const nSpace = nRefer:initWithNameSpace(vNode, vParent)
 	return nSpace
+end
+
+function SpaceManager:buildEasyMap(vNode:clazz.IBaseNode):Ret(clazz.EasyMapCom)
+	return EasyMapCom.new(self, vNode)
+end
+
+function SpaceManager:BuiltinFn(vFn:AnyFunction, vName:String):Ret(clazz.BuiltinFnCom)
+	return BuiltinFnCom.new(self, self._runtime:getRootNode(), vFn, vName)
+end
+
+function SpaceManager:spacePack(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.TupleBuilder)
+	return TupleBuilder.new(self._runtime:getTypeManager(), vNode, ...)
+end
+
+function SpaceManager:spaceToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
+	local t = type(vData)
+	if t == "table" then
+		if AutoHolder.is(vData) or AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
+			return vData
+		else
+			const nRefer = SpaceValue.checkRefer(vData)
+			if nRefer then
+				return nRefer:waitTypeCom(vNode)
+			else
+				if NameReference.is(vData) then
+					return vData:waitTypeCom(vNode)
+				else
+					error(vNode:toExc("to type failed"))
+				end
+			end
+		end
+	elseif t == "number" or t == "string" or t == "boolean"then
+		return self._runtime:getTypeManager():Literal(vData @> Union(Number, String, Boolean))
+	elseif t == "nil" then
+		error(vNode:toExc("can't trans nil into type in hint space"))
+	else
+		error(vNode:toExc("can't trans this value into type in hint space"))
+	end
+end
+
+function SpaceManager:getRuntime()
+	return self._runtime
 end
 
 return SpaceManager

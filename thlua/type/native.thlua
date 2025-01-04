@@ -78,8 +78,8 @@ function native._toTable(vManager:clazz.TypeManager, vTable:StringToAtomUnion):R
 		const nKeyType = vManager:Literal(k)
 		nTypeDict[nKeyType] = v
 	end
-	const nTable = vManager:getRuntime():getRootStack():newAutoTable(vManager:getRuntime():getNode())
-	nTable:initByKeyValue(vManager:getRuntime():getNode(), nTypeDict)
+	const nTable = vManager:getRuntime():getRootStack():newAutoTable(vManager:getRuntime():getRootNode())
+	nTable:initByKeyValue(vManager:getRuntime():getRootNode(), nTypeDict)
 	return nTable
 end
 
@@ -269,7 +269,7 @@ function native.make(vRuntime:clazz.BaseRuntime):Ret(clazz.AutoTable)
 				end
 				if not nRetTerm then
 					if nSecondArgForReturn then
-						nRetTerm = vContext:RefineTerm(nManager:easyToMustType(vStack:getNode(), nSecondArgForReturn))
+						nRetTerm = vContext:RefineTerm(nManager:getSpaceManager():spaceToMustType(vStack:getNode(), nSecondArgForReturn))
 					else
 						nRetTerm = vContext:RefineTerm(nManager.type.Truth)
 					end
@@ -405,7 +405,7 @@ function native.make_comparison(vManager:clazz.TypeManager):Ret(clazz.IAtomType)
 	const nString = vManager.type.String
 	const nNumberCompare = vManager:checkedFn(nNumber, nNumber):Ret(vManager.type.Boolean)
 	const nStringCompare = vManager:checkedFn(nString, nString):Ret(vManager.type.Boolean)
-	return vManager:buildPfn(vManager:getRuntime():getNode(), function(a:clazz.UAtomUnion, b:clazz.UAtomUnion):Ret(clazz.UAtomUnion)
+	return vManager:buildPfn(vManager:getRuntime():getRootNode(), function(a:clazz.UAtomUnion, b:clazz.UAtomUnion):Ret(clazz.UAtomUnion)
 		if nString:includeAll(a) then
 			return nStringCompare
 		else

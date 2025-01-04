@@ -42,9 +42,6 @@ const ComplexUnion = require "thlua.type.union.ComplexUnion"
 const RetTuples = require "thlua.tuple.RetTuples"
 const TypeTuple = require "thlua.tuple.TypeTuple"
 const TypeTupleDots = require "thlua.tuple.TypeTupleDots"
-const TermTuple = require "thlua.tuple.TermTuple"
-const RefineTerm = require "thlua.term.RefineTerm"
-const ScheduleEvent = require "thlua.schedule.ScheduleEvent"
 
 const BaseReadyType = require "thlua.type.basic.BaseReadyType"
 const BaseAtomType = require "thlua.type.basic.BaseAtomType"
@@ -54,9 +51,7 @@ const native = require "thlua.type.native"
 
 const TemplateCom = require "thlua.space.TemplateCom"
 const AsyncTypeCom = require "thlua.space.AsyncTypeCom"
-const AutoHolder = require "thlua.auto.AutoHolder"
-const EasyMapCom = require "thlua.space.EasyMapCom"
-const BuiltinFnCom = require "thlua.space.BuiltinFnCom"
+const AutoHolder = require "thlua.space.AutoHolder"
 
 const TypeRelation = require "thlua.type.TypeRelation"
 const TupleBuilder = require "thlua.tuple.TupleBuilder"
@@ -125,7 +120,6 @@ function:class(clazz.TypeManager) TypeManager.new(
 		type=nil @! BuiltinType,
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TemplateCom),
-		spaceG = setmetatable({}, {__index=_G}),
 		MetaOrNil=nil @! clazz.UAtomUnion,
 		_hashToTypeSet={} @ Dict(Integer, clazz.HashableTypeSet),
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
@@ -203,16 +197,8 @@ function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
 end
 
-function TypeManager:buildEasyMap(vNode:clazz.IBaseNode):Ret(clazz.EasyMapCom)
-	return EasyMapCom.new(self, vNode)
-end
-
 function TypeManager:AsyncTypeCom(vNode:clazz.IBaseNode):Ret(clazz.AsyncTypeCom)
-	return AsyncTypeCom.new(self, vNode)
-end
-
-function TypeManager:BuiltinFn(vFn:AnyFunction, vName:String):Ret(clazz.BuiltinFnCom)
-	return BuiltinFnCom.new(self, self._rootNode, vFn, vName)
+	return AsyncTypeCom.new(self._runtime:getSpaceManager(), vNode)
 end
 
 function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boolean, vTupleBuilder:clazz.TupleBuilder):Ret(clazz.TypedObject)
@@ -290,12 +276,12 @@ function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpac
 	if type(vFirst) == "table" and not getmetatable(vFirst) then
 		vFirst = self:buildStruct(vNode, vFirst)
 	end
-	const nTupleBuilder = self:spacePack(vNode, vFirst, ...)
+	const nTupleBuilder = self:getSpaceManager():spacePack(vNode, vFirst, ...)
 	return self:_buildCombineObject(vNode, false, nTupleBuilder)
 end
 
 function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.TypedObject)
-	const nTupleBuilder = self:spacePack(vNode, ...)
+	const nTupleBuilder = self:getSpaceManager():spacePack(vNode, ...)
 	return self:_buildCombineObject(vNode, true, nTupleBuilder)
 end
 
@@ -323,7 +309,7 @@ end
 function TypeManager:buildSubType(vNode:clazz.IBaseNode, vArgType:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
 	const nAsyncTypeCom = self:AsyncTypeCom(vNode)
 	nAsyncTypeCom:setTypeAsync(vNode, function()
-		const nType = self:easyToMustType(vNode, vArgType):checkAtomUnion()
+		const nType = self:getSpaceManager():spaceToMustType(vNode, vArgType):checkAtomUnion()
 		assert(BaseAtomType.is(nType) and not nType:isSingleton(), vNode:toExc("enum's supertype must be non-singleton atom type"))
 		if nType ~= self.type.String and nType ~= self.type.Number and nType ~= self.type.Integer then
 			error(vNode:toExc("current subtype only support integer, number, string. other type TODO"))
@@ -341,7 +327,7 @@ function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(
 	nAsyncTypeCom:setSetAsync(vNode, function()
 		local nTypeSet = self:HashableTypeSet()
 		for i=1, nLen do
-			local nItem = self:easyToMustType(vNode, l[i])
+			local nItem = self:getSpaceManager():spaceToMustType(vNode, l[i])
 			if AsyncTypeCom.is(nItem) then
 				nTypeSet:putSet(nItem:getSetAwait())
 			else
@@ -390,7 +376,7 @@ function TypeManager:_buildTypedObject@<TWhat>(vNode:clazz.IBaseNode, vTable:cla
 		local nFinalKeyTypeSet = self:HashableTypeSet()
 		local nFinalValueDict = {} @ Dict(clazz.IAtomType, clazz.UMustType)
 		if nUseSealTable then
-			const nType = self:easyToMustType(vNode, vTable):checkAtomUnion()
+			const nType = self:getSpaceManager():spaceToMustType(vNode, vTable):checkAtomUnion()
 			if not SealTable.is(nType) then
 				error(vNode:toExc("struct or interface can only take SealTable or table without metatable as first arg"))
 			end
@@ -413,8 +399,8 @@ function TypeManager:_buildTypedObject@<TWhat>(vNode:clazz.IBaseNode, vTable:cla
 			end
 		else
 			for nKey, nValue in pairs(vTable @> clazz.USpaceDict) do
-				const nValueType = self:easyToMustType(vNode, nValue)
-				const nKeyType = self:easyToMustType(vNode, nKey)
+				const nValueType = self:getSpaceManager():spaceToMustType(vNode, nValue)
+				const nKeyType = self:getSpaceManager():spaceToMustType(vNode, nKey)
 				nIndependentList[#nIndependentList + 1] = nKeyType
 				nKeyType:checkAtomUnion():foreach(function(vAtomType)
 					nFinalKeyTypeSet:putAtom(vAtomType)
@@ -442,7 +428,7 @@ function TypeManager:_buildTypedObject@<TWhat>(vNode:clazz.IBaseNode, vTable:cla
 					if type(k) ~= "string" then
 						error(vNode:toExc("meta event must be string"))
 					end
-					nEventToType[k @> String] = self:easyToMustType(vNode, v)
+					nEventToType[k @> String] = self:getSpaceManager():spaceToMustType(vNode, v)
 				end
 				nNewEventCom:initByEventDict(vNode, nEventToType)
 				---------------------------------------------------------
@@ -621,7 +607,7 @@ function TypeManager:convertFunctionToTemplateLambda(vFunc:AnyFunction):Ret(claz
 		const ok, exc = pcall(vFunc, table.unpack(vTupleBuilder:buildNowaitPolyArgs()))
 		const nNode = vTupleBuilder:getNode()
 		if ok then
-			return self:easyToMustType(nNode, exc)
+			return self:getSpaceManager():spaceToMustType(nNode, exc)
 		else
 			if Exception.is(exc) then
 				error(exc)
@@ -636,16 +622,11 @@ function TypeManager:convertFunctionToTemplateLambda(vFunc:AnyFunction):Ret(claz
 end
 
 function TypeManager:buildTemplate(vNode:clazz.IBaseNode, vFunc:AnyFunction):Ret(clazz.TemplateCom)
-	return TemplateCom.new(self, vNode, self:convertFunctionToTemplateLambda(vFunc))
+	return TemplateCom.new(self._runtime:getSpaceManager(), vNode, self:convertFunctionToTemplateLambda(vFunc))
 end
 
 function TypeManager:buildTemplateWithParNum(vNode:clazz.IBaseNode, vFunc:clazz.PolyLambda, vParInfo:clazz.ParamInfo):Ret(clazz.TemplateCom)
-	return TemplateCom.new(self, vNode, vFunc, vParInfo)
-end
-
-function TypeManager:NameReference(vParentSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vName:String):Ret(clazz.NameReference)
-	const nRefer = NameReference.new(self._runtime, vParentSpace, vName)
-	return nRefer
+	return TemplateCom.new(self._runtime:getSpaceManager(), vNode, vFunc, vParInfo)
 end
 
 function TypeManager:typeCheckIndependent(vList:IList(clazz.UMustType), vFinalType:clazz.UAtomUnion):Ret(Boolean)
@@ -807,42 +788,16 @@ function TypeManager:genTypeId():Ret(Integer)
 	return nNewId
 end
 
-function TypeManager:spacePack(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.TupleBuilder)
-	return TupleBuilder.new(self, vNode, ...)
-end
-
-function TypeManager:easyToMustType(vNode:clazz.IBaseNode, vData:clazz.USpaceAny):Ret(clazz.UMustType)
-	local t = type(vData)
-	if t == "table" then
-		if AutoHolder.is(vData) or AsyncTypeCom.is(vData) or BaseAtomType.is(vData) or BaseUnionType.is(vData) then
-			return vData
-		else
-			const nRefer = SpaceValue.checkRefer(vData)
-			if nRefer then
-				return nRefer:waitTypeCom(vNode)
-			else
-				if NameReference.is(vData) then
-					return vData:waitTypeCom(vNode)
-				else
-					error(vNode:toExc("to type failed"))
-				end
-			end
-		end
-	elseif t == "number" or t == "string" or t == "boolean"then
-		return self:Literal(vData @> Union(Number, String, Boolean))
-	elseif t == "nil" then
-		error(vNode:toExc("can't trans nil into type in hint space"))
-	else
-		error(vNode:toExc("can't trans this value into type in hint space"))
-	end
-end
-
 function TypeManager:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
 end
 
 function TypeManager:getStackManager():Ret(clazz.StackManager)
 	return self._runtime:getStackManager()
+end
+
+function TypeManager:getSpaceManager():Ret(clazz.SpaceManager)
+	return self._runtime:getSpaceManager()
 end
 
 return TypeManager

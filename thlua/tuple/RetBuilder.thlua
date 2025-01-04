@@ -15,7 +15,7 @@ function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
 end
 
 function RetBuilder:chainRetDots(vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
-	const nBuilder = self._typeManager:spacePack(vNode, ...)
+	const nBuilder = self._typeManager:getSpaceManager():spacePack(vNode, ...)
 	nBuilder:setRetDots()
 	const nTupleList = self._tupleBuilderList
 	nTupleList[#nTupleList + 1] = nBuilder
@@ -23,7 +23,7 @@ end
 
 function RetBuilder:chainRet(vNode:clazz.IBaseNode, ...:Any)
 	const nTupleList = self._tupleBuilderList
-	nTupleList[#nTupleList + 1] = self._typeManager:spacePack(vNode, ...)
+	nTupleList[#nTupleList + 1] = self._typeManager:getSpaceManager():spacePack(vNode, ...)
 end
 
 function RetBuilder:chainErr(vNode:clazz.IBaseNode, vErrType:clazz.USpaceAny)
@@ -38,7 +38,7 @@ end
 function RetBuilder:build():Ret(clazz.RetTuples)
 	const nBuilderList = self._tupleBuilderList
 	const nErrType = self._errType
-	const nErrMustType = nErrType and self._typeManager:easyToMustType(self._node, nErrType)
+	const nErrMustType = nErrType and self._typeManager:getSpaceManager():spaceToMustType(self._node, nErrType)
 	if #nBuilderList == 0 then
 		return self._typeManager:VoidRetTuples(self._node, nErrMustType or nil)
 	else

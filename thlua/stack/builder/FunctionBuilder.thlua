@@ -7,7 +7,7 @@ const AutoFunction = require "thlua.type.func.AutoFunction"
 const NameReference = require "thlua.space.NameReference"
 const Exception = require "thlua.Exception"
 const Interface = require "thlua.type.object.Interface"
-const AutoHolder = require "thlua.auto.AutoHolder"
+const AutoHolder = require "thlua.space.AutoHolder"
 const ClassFactory = require "thlua.type.func.ClassFactory"
 const ClassTable = require "thlua.type.object.ClassTable"
 const TermTuple = require "thlua.tuple.TermTuple"
@@ -58,10 +58,10 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	vPrefixHint:clazz.TLongHintInfo(clazz.FnPrefixHint),
 	vParRetMaker:clazz.GenMaker
 )
-	const nManager = vStack:getTypeManager()
 	const self = {.class
 		_stack=vStack,
-		_typeManager=nManager,
+		_typeManager=vStack:getTypeManager(),
+		_spaceManager=vStack:getSpaceManager(),
 		_node=vNode,
 		_lexBranchCase=vUpState,
 		_prefixHint=vPrefixHint,
@@ -295,11 +295,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			-- local nErrType:OrNil(clazz.UMustType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
-					nImplementsArg = vInterface and self._typeManager:easyToMustType(self._node, vInterface) or nil
+					nImplementsArg = vInterface and self._spaceManager:spaceToMustType(self._node, vInterface) or nil
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
-					nExtendsArg = vBaseClass and self._typeManager:easyToMustType(self._node, vBaseClass) or nil
+					nExtendsArg = vBaseClass and self._spaceManager:spaceToMustType(self._node, vBaseClass) or nil
 					return vHint
 				end,
 				Ret=function(vHint, ...)

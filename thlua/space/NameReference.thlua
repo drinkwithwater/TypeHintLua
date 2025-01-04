@@ -32,6 +32,7 @@ end
 
 function:class(clazz.NameReference) NameReference.new(vRuntime:clazz.BaseRuntime, vParentNodeOrSpace:Union(clazz.IBaseNode, clazz.BaseReferSpace), vName:String)
 	const self = setmetatable({.class
+		_runtime = vRuntime,
 		_spaceManager = vRuntime:getSpaceManager(),
 		_typeManager = vRuntime:getTypeManager(),
 		_parentNodeOrSpace=vParentNodeOrSpace,
@@ -53,7 +54,7 @@ end
 function NameReference:initWithLetSpace(vNode:clazz.IBaseNode, vParent:OrFalse(clazz.LetSpace)):Ret(clazz.LetSpace)
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
-	const nSpace = LetSpace.new(self._typeManager, vNode, self, vParent)
+	const nSpace = LetSpace.new(self._spaceManager, vNode, self, vParent)
 	self._com = nSpace
 	return nSpace
 end
@@ -61,7 +62,7 @@ end
 function NameReference:initWithNameSpace(vNode:clazz.IBaseNode, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
 	assert(not self._assignNode, vNode:toExc("init space called after assignNode"))
 	self._assignNode = vNode
-	const nSpace = NameSpace.new(self._typeManager, vNode, self, vParent)
+	const nSpace = NameSpace.new(self._spaceManager, vNode, self, vParent)
 	self._com = nSpace
 	return nSpace
 end
@@ -154,7 +155,7 @@ function NameReference:triggerReferChild(vNode:clazz.IBaseNode, vKey:String):Ret
 	if not nCom then
 		if NameSpace.is(nParent) then
 			const nParentNode = nParent:getNode()
-			nCom = NameSpace.new(self._typeManager, nParentNode, self, nParent)
+			nCom = NameSpace.new(self._spaceManager, nParentNode, self, nParent)
 			self:setAssignAsync(nParentNode, function()
 				return nCom
 			end)
@@ -173,7 +174,7 @@ function NameReference:triggerCall(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):R
 	if BuiltinFnCom.is(nCom) or EasyMapCom.is(nCom) then
 		return nCom:flatCall(vNode, ...)
 	end
-	const nTuple = self._typeManager:spacePack(vNode, ...)
+	const nTuple = self._spaceManager:spacePack(vNode, ...)
 	if TemplateCom.is(nCom) then
 		return nCom:cacheCall(vNode, nTuple)
 	elseif nCom then

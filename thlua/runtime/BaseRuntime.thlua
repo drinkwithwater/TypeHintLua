@@ -283,6 +283,8 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 		for k,v in pairs(self._typeManager.generic) do
 			nGlobal[k] = v
 		end
+		local nSpaceManager = self._spaceManager
+		local nTypeManager = self._typeManager
 		local l = {
 			SubType="buildSubType",
 			Union="buildUnion",
@@ -292,7 +294,6 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			ExtendInterface="buildExtendInterface",
 			ExtendStruct="buildExtendStruct",
 			Template="buildTemplate",
-			easymap="buildEasyMap",
 			--IDict="buildIDict",
 			--IList="buildIList",
 			--Dict="buildDict",
@@ -303,22 +304,29 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			Pfn="buildPfn",
 			Mfn="buildMfn",
 		}
-		local nManager = self._typeManager
 		for k,v in pairs(l) do
-			nGlobal[k]=nManager:BuiltinFn(function(vNode, ...)
-				return nManager[v](nManager, vNode, ...)
+			nGlobal[k]=nSpaceManager:BuiltinFn(function(vNode, ...)
+				return nTypeManager[v](nTypeManager, vNode, ...)
 			end, k)
 		end
-		nGlobal.Literal=nManager:BuiltinFn(function(vNode, v)
-			return nManager:Literal(v)
+		local l = {
+			easymap="buildEasyMap",
+		}
+		for k,v in pairs(l) do
+			nGlobal[k]=nSpaceManager:BuiltinFn(function(vNode, ...)
+				return nSpaceManager[v](nSpaceManager, vNode, ...)
+			end, k)
+		end
+		nGlobal.Literal=nSpaceManager:BuiltinFn(function(vNode, v)
+			return nTypeManager:Literal(v)
 		end, "Literal")
-		nGlobal.namespace=nManager:BuiltinFn(function(vNode)
+		nGlobal.namespace=nSpaceManager:BuiltinFn(function(vNode)
 			return self._spaceManager:NameSpace(vNode, false)
 		end, "namespace")
-		nGlobal.import=nManager:BuiltinFn(function(vNode, vPath)
+		nGlobal.import=nSpaceManager:BuiltinFn(function(vNode, vPath)
 			return self:import(vNode, vPath)
 		end, "import")
-		nGlobal.traceFile=nManager:BuiltinFn(function(vNode, vDepth)
+		nGlobal.traceFile=nSpaceManager:BuiltinFn(function(vNode, vDepth)
 			local nRetNode = vNode
 			if vDepth then
 				const nSealTask = self._scheduleManager:getTask()
@@ -334,18 +342,18 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			end
 			return platform.uri2path(nRetNode.path)
 		end, "traceFile")
-		nGlobal.setPath=nManager:BuiltinFn(function(vNode, vPath)
+		nGlobal.setPath=nSpaceManager:BuiltinFn(function(vNode, vPath)
 			self._searchPath = vPath
 		end, "setPath")
-		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
-			const nObject = self._typeManager:easyToMustType(vNode, vObject):checkAtomUnion()
+		nGlobal.foreachPair=nSpaceManager:BuiltinFn(function(vNode, vObject, vFunc)
+			const nObject = self._spaceManager:spaceToMustType(vNode, vObject):checkAtomUnion()
 			const d = nObject:copyValueDict(nObject)
 			for k,v in pairs(d) do
 				vFunc(k,v)
 			end
 		end, "foreachPair")
-		nGlobal.literal=nManager:BuiltinFn(function(vNode, vType)
-			vType = self._typeManager:easyToMustType(vNode, vType):checkAtomUnion()
+		nGlobal.literal=nSpaceManager:BuiltinFn(function(vNode, vType)
+			vType = self._spaceManager:spaceToMustType(vNode, vType):checkAtomUnion()
 			if vType:isUnion() then
 				return nil
 			else
@@ -356,10 +364,10 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 				end
 			end
 		end, "literal")
-		nGlobal.same=nManager:BuiltinFn(function(vNode, vType1, vType2)
+		nGlobal.same=nSpaceManager:BuiltinFn(function(vNode, vType1, vType2)
 			return vType1:includeAll(vType2) and vType2:includeAll(vType1) and true or false
 		end, "same")
-		nGlobal.print=nManager:BuiltinFn(function(vNode, ...)
+		nGlobal.print=nSpaceManager:BuiltinFn(function(vNode, ...)
 			self:nodeInfo(vNode, ...)
 		end, "print")
 	end
@@ -423,7 +431,7 @@ function BaseRuntime:nodeInfo(vNode:clazz.IBaseNode, ...:Truth)
 	self:_save(3, vNode, ...)
 end
 
-function BaseRuntime:getNode():Ret(node.Root)
+function BaseRuntime:getRootNode():Ret(node.Root)
 	return self._node
 end
 
