@@ -4,7 +4,7 @@ const json = require "thlua.server.json"
 const Exception = require "thlua.Exception"
 const FileState = require "thlua.server.FileState"
 const ErrorCodes = require "thlua.server.protocol".ErrorCodes
-const DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
+const CodeRuntime = require "thlua.runtime.CodeRuntime"
 const CodeEnv = require "thlua.code.CodeEnv"
 const FileState = require "thlua.server.FileState"
 const class = require "thlua.class"
@@ -159,8 +159,9 @@ const ApiProvider = class@<lsp.ApiProvider, false>()
 function.open ApiProvider:ctor(server:lsp.LangServer)
     self._server = server
 	self._fileStateDict={}@Dict(String, lsp.FileState)
-	self._readyRuntime=nil@OrNil(clazz.DiagnosticRuntime)
-	self._busyRuntime=nil@OrNil(clazz.DiagnosticRuntime)
+	self._readyRuntime=nil@OrNil(clazz.CodeRuntime)
+	self._busyRuntime=nil@OrNil(clazz.CodeRuntime)
+	self._rerunCounter=0@Integer
 end
 
 function ApiProvider:scanAllFile()
@@ -189,14 +190,6 @@ function ApiProvider:attachFileState(vFileUri:String, vFallbackFromFile:OrNil(Tr
 		return nNewState
 	else
 		return nFileState
-	end
-end
-
-function ApiProvider:publishNormal()
-	const nRuntime = self._readyRuntime
-	if nRuntime then
-		local nFileToList = nRuntime:getAllDiagnostic()
-		self:publishFileToDiaList(nFileToList)
 	end
 end
 
@@ -288,20 +281,25 @@ function ApiProvider:rerun(vFileUri:String)
 		self._server:info("cancel")
 		nBusyRuntime:getScheduleManager():cancelSchedule()
 	end
-	const nRuntime=DiagnosticRuntime.new(self._server:makeStageApi())
+	const nRuntime=CodeRuntime.new(self._server:makeStageApi())
 	self._busyRuntime = nRuntime
+	const rerunCounter = self._rerunCounter + 1
+	self._rerunCounter = rerunCounter
+	self._server:info("rerun start", rerunCounter)
 	nRuntime:promiseMain(rootFileUri):next@<Nil>(function(_)
 		if self._busyRuntime == nRuntime then
 			self._readyRuntime = nRuntime
 			self._busyRuntime = nil
-			collectgarbage()
-			self:publishNormal()
+			local nFileToList = nRuntime:getAllDiagnostic()
+			self:publishFileToDiaList(nFileToList)
 			self:publishNoAttach()
+			self._server:info("rerun finish", rerunCounter)
+			collectgarbage()
 		else
 			self._server:error("current busyRuntime is not this runtime???")
 		end
 	end, function(err)
-		self._server:info("runtime stop by reject:", err)
+		self._server:info("rerun stop by reject", rerunCounter, "err:", err)
 		--[[
 			const nUri = self:publishException(exc @? Union(clazz.Exception, String))
 			self:publishNoAttach(nUri)
@@ -432,7 +430,7 @@ function ApiProvider:onReferences(vParams:lsp.ReferenceParams):Ret(OrNil(List(ls
 	end
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nNodeSet, nErrMsg = nReadyRuntime:gotoNodeByParams(
+	const nNodeSet, nErrMsg = nReadyRuntime:getStackManager():gotoNodeByParams(
 		false, nFileUri, nFileState:getSplitCode(), vParams.position)
 	if not nNodeSet then
 		self._server:info("find references fail:", nErrMsg)
@@ -459,7 +457,7 @@ function ApiProvider:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(l
 	end
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nNodeSet, nErrMsg = nReadyRuntime:gotoNodeByParams(
+	const nNodeSet, nErrMsg = nReadyRuntime:getStackManager():gotoNodeByParams(
 		true, nFileUri, nFileState:getSplitCode(), vParams.position)
 	if not nNodeSet then
 		self._server:info("goto definition fail:", nErrMsg)
@@ -504,9 +502,9 @@ function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(l
 	-- TODO, using nInjectNode.pos maybe not right such as local a = a.fds ...
 	const nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
 	const nBlockNode = nSuccEnv:traceBlock(nTraceList)
-	nReadyRuntime:focusSchedule(nBlockNode:getFocusList())
+	-- nReadyRuntime:focusSchedule(nBlockNode:getFocusList())
 	-- 4. run inject
-	const nFieldCompletion = nReadyRuntime:injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
+	const nFieldCompletion = nReadyRuntime:getStackManager():injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
 	if not nFieldCompletion then
 		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
 		return nil
@@ -528,7 +526,7 @@ function ApiProvider:onHover(vParams:lsp.HoverParams):Ret(OrNil(lsp.Hover))
 	end
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nSuccMsg, nErrMsg = nReadyRuntime:hoverNode(nFileUri, nFileState:getSplitCode(), vParams.position)
+	const nSuccMsg, nErrMsg = nReadyRuntime:getStackManager():hoverNode(nFileUri, nFileState:getSplitCode(), vParams.position)
 	if not nSuccMsg then
 		self._server:info("hover fail:", nErrMsg)
 		return nil

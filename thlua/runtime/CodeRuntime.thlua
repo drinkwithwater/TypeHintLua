@@ -103,9 +103,9 @@ const DefaultLogger:clazz.LevelLogger = {
 	end,
 }
 
-const BaseRuntime = class@<clazz.BaseRuntime, false>()
+const CodeRuntime = class@<clazz.CodeRuntime, false>()
 
-function.open BaseRuntime:ctor(vStage:OrNil(clazz.StageApi))
+function.open CodeRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	self._diaList={}@List(clazz.Diagnostic)
 	self._searchPath = false @ OrFalse(String)
 	self._stage=vStage or DefaultStage
@@ -114,15 +114,14 @@ function.open BaseRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._scheduleManager=ScheduleManager.new(self)
 	-- late init fields
-	self._node=nil@!node.Root
+	self._rootNode=nil@!node.Root
 	self._typeManager=nil@!clazz.TypeManager
 	self._stackManager=nil@!clazz.StackManager
 	self._spaceManager=nil@!clazz.SpaceManager
 	self._globalTable=nil@!clazz.AutoTable
-	self._rootStack=nil@!clazz.SealStack
 end
 
-function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
+function CodeRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
 	const nState = self._loadedDict[vFileName]
 	if nState then
 		return nState.codeEnv
@@ -131,7 +130,7 @@ function BaseRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
 	end
 end
 
-function BaseRuntime:import(vNode:clazz.IBaseNode, vDst:Truth):Ret(clazz.LocalSpaceValue)
+function CodeRuntime:import(vNode:clazz.IBaseNode, vDst:Truth):Ret(clazz.LocalSpaceValue)
 	-- TODO better style?
 	if type(vDst) == "string" then
 		const nPath = vDst @> String
@@ -168,21 +167,19 @@ const nGlobalPackage:List(String) = {
 	"utf8",
 }
 
-function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean))
+function CodeRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean))
 	self._scheduleManager.useProfile = vUseProfile or false
-	self._node=Node.newRootNode(vRootFileUri)
-	self._typeManager=TypeManager.new(self, self._node, self._scheduleManager)
+	self._rootNode=Node.newRootNode(vRootFileUri)
+	self._typeManager=TypeManager.new(self, self._rootNode, self._scheduleManager)
 	self._stackManager=StackManager.new(self)
 	self._spaceManager=SpaceManager.new(self)
-	const nAutoFn = AutoFunction.new(self._typeManager, self._node, false)
+	const nRootSpace = self._spaceManager:initRootSpace()
+	const nAutoFn = self._stackManager:initRootAutoFn()
 	nAutoFn:initAsync(function()
-		const nRootStack = nAutoFn:getBuildStack()
-		self._rootStack = nRootStack
 		self._typeManager:lateInit()
 		self._globalTable = native.make(self)
-		const nRootSpace = self._spaceManager:prebuildRootSpace()
 		self:buildSimpleGlobal(nRootSpace)
-		nRootStack:rootSetLetSpace(nRootSpace)
+		self._stackManager:getRootStack():rootSetLetSpace(nRootSpace)
 		for _, pkg in ipairs(nGlobalPackage) do
 			const nLoadedState = self:_cacheLoadGlobal(pkg)
 			if pkg == "string" then
@@ -192,9 +189,9 @@ function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 			end
 		end
 		return false, false, function()
-			const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
-			const nParTuple = self._typeManager:TypeTuple(self._node, {})
-			const nRetTuples = self._typeManager:VoidRetTuples(self._node)
+			const nLoadedState = self:_cacheLoadFile(self._rootNode, vRootFileUri)
+			const nParTuple = self._typeManager:TypeTuple(self._rootNode, {})
+			const nRetTuples = self._typeManager:VoidRetTuples(self._rootNode)
 			return nParTuple, nRetTuples
 		end
 	end)
@@ -203,18 +200,10 @@ function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 	return self._scheduleManager:promiseSchedule()
 end
 
-function BaseRuntime:recordBranch(vNode:node.Block, vBranch:clazz.Branch)
-	-- pass
-end
-
-function BaseRuntime:recordApplyContext(vNode:clazz.IBaseNode, vContext:clazz.ApplyContext)
-	-- pass
-end
-
-function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
+function CodeRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
 	const nCodeEnv, nFileName = self._stage.parseGlobal(vPkg)
-	const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
-	const nContext = self._rootStack:newNoPushContext(self._node)
+	const nOpenFn = nCodeEnv:callTypingFn(self._stackManager:getRootStack(), self:makeGlobalTerm())
+	const nContext = self._stackManager:getRootStack():newNoPushContext(self._rootNode)
 	const nTermTuple = nContext:FixedTermTuple({})
 	const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
 	const nLoadedState:LoadedState = {
@@ -227,17 +216,17 @@ function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
 	return nLoadedState
 end
 
-function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret(LoadedState)
+function CodeRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret(LoadedState)
 	local nLoadedState = self._loadedDict[vFileName]
 	if not nLoadedState then
 		const nCodeEnv = self._stage.parseFile(vFileName)
-		const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
+		const nOpenFn = nCodeEnv:callTypingFn(self._stackManager:getRootStack(), self:makeGlobalTerm())
 		nLoadedState = {
 			openFn=nOpenFn,
 			codeEnv=nCodeEnv,
 		}
 		self._loadedDict[vFileName] = nLoadedState
-		const nContext = self._rootStack:newNoPushContext(vNode)
+		const nContext = self._stackManager:getRootStack():newNoPushContext(vNode)
 		const nTermTuple = nContext:FixedTermTuple({})
 		const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
 		nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
@@ -246,7 +235,7 @@ function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret
 	return nLoadedState
 end
 
-function BaseRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(LoadedState)
+function CodeRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(LoadedState)
 	local nFileName = self._pathToFileName[vPath]
 	if not nFileName then
 		const nOkay, nSearchFileName = self._stage.searchPath(self._searchPath, vPath)
@@ -265,7 +254,7 @@ function BaseRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(Loa
 	return nLoadedState
 end
 
-function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
+function CodeRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
 	const nLoadedState = self:_cacheLoadPath(vNode, vPath)
 	const nTerm = nLoadedState.term
 	if not nTerm then
@@ -274,7 +263,7 @@ function BaseRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.Refi
 	return nTerm, nLoadedState.openFn, nLoadedState.stack!
 end
 
-function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
+function CodeRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
 	do.pass
 		for k,v in pairs(self._typeManager.type) do
@@ -373,18 +362,18 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 	end
 	for k,v in pairs(nGlobal) do
 		assert(not NameReference.is(v), "namerefer in namrefer")
-		vRootSpace:referChild(self._node, k):setAssignAsync(self._node, function()
+		vRootSpace:referChild(self._rootNode, k):setAssignAsync(self._rootNode, function()
 			return v
 		end)
 	end
 end
 
-function BaseRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)
-	const nHeadContext = self._rootStack:inplaceOper()
+function CodeRuntime:makeGlobalTerm():Ret(clazz.RefineTerm)
+	const nHeadContext = self._stackManager:getRootStack():inplaceOper()
 	return nHeadContext:RefineTerm(self._globalTable)
 end
 
-function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:Truth)
+function CodeRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:Truth)
 	local l:List(String) = {}
 	for i=1, select("#", ...) do
 		l[i] = tostring(select(i, ...))
@@ -398,11 +387,7 @@ function BaseRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:
 	}
 end
 
-function BaseRuntime:invalidReference(vRefer:clazz.NameReference)
-	-- pass
-end
-
-function BaseRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNode, ...:Truth)
+function CodeRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 	const nPrefix = "(open)"
@@ -416,30 +401,30 @@ function BaseRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNod
 	end
 end
 
-function BaseRuntime:nodeError(vNode:clazz.IBaseNode, ...:Truth)
+function CodeRuntime:nodeError(vNode:clazz.IBaseNode, ...:Truth)
 	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
-function BaseRuntime:nodeWarn(vNode:clazz.IBaseNode, ...:Truth)
+function CodeRuntime:nodeWarn(vNode:clazz.IBaseNode, ...:Truth)
 	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
-function BaseRuntime:nodeInfo(vNode:clazz.IBaseNode, ...:Truth)
+function CodeRuntime:nodeInfo(vNode:clazz.IBaseNode, ...:Truth)
 	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end
 
-function BaseRuntime:getRootNode():Ret(node.Root)
-	return self._node
+function CodeRuntime:getRootNode():Ret(node.Root)
+	return self._rootNode
 end
 
-function BaseRuntime:makeException(vNode:clazz.IBaseNode, vMsg:String)
+function CodeRuntime:makeException(vNode:clazz.IBaseNode, vMsg:String)
 	return Exception.new(vMsg, vNode)
 end
 
-function BaseRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
+function CodeRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic)))
 	local nFileToDiaList:Dict(String, List(clazz.Diagnostic)) = {}
 	for _, nDia in pairs(self._diaList) do
 		const nPath = nDia.node.path
@@ -462,28 +447,24 @@ function BaseRuntime:getAllDiagnostic():Ret(Dict(String, List(clazz.Diagnostic))
 	return nFileToDiaList
 end
 
-function BaseRuntime:getTypeManager():Ret(clazz.TypeManager)
+function CodeRuntime:getTypeManager():Ret(clazz.TypeManager)
 	return self._typeManager
 end
 
-function BaseRuntime:getStackManager():Ret(clazz.StackManager)
+function CodeRuntime:getStackManager():Ret(clazz.StackManager)
 	return self._stackManager
 end
 
-function BaseRuntime:getScheduleManager():Ret(clazz.ScheduleManager)
+function CodeRuntime:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
 end
 
-function BaseRuntime:getSpaceManager():Ret(clazz.SpaceManager)
+function CodeRuntime:getSpaceManager():Ret(clazz.SpaceManager)
 	return self._spaceManager
 end
 
-function BaseRuntime:getStage():Ret(clazz.StageApi)
+function CodeRuntime:getStage():Ret(clazz.StageApi)
 	return self._stage
 end
 
-function BaseRuntime:getRootStack():Ret(clazz.SealStack)
-	return self._rootStack
-end
-
-return BaseRuntime
+return CodeRuntime

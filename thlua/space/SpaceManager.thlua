@@ -26,11 +26,19 @@ const class = require@<let.clazz> "thlua.class"
 end)
 
 const SpaceManager = class@<clazz.SpaceManager, false>()
-function.open SpaceManager:ctor(vRuntime:clazz.BaseRuntime)
+function.open SpaceManager:ctor(vRuntime:clazz.CodeRuntime)
 	self.spaceG = setmetatable({}, {__index=_G})
 	self._runtime=vRuntime
 	self._rootSpace=nil@OrNil(clazz.LetSpace)
 	self._invalidReferSet = {} @ Dict(clazz.NameReference, True)
+end
+
+function SpaceManager:initRootSpace():Ret(clazz.LetSpace)
+	assert(not self._rootSpace, "root space is built")
+	const nRefer = NameReference.new(self._runtime, self._runtime:getRootNode(), "")
+	const nRootSpace = nRefer:initWithLetSpace(self._runtime:getRootNode(), false)
+	self._rootSpace = nRootSpace
+	return nRootSpace
 end
 
 function SpaceManager:invalidReference(vRefer:clazz.NameReference)
@@ -58,14 +66,6 @@ function SpaceManager:getNameDiagnostic(vUseWarn:OrNil(Boolean)):Ret(Dict(String
 	return nFileToDiaList
 end
 
-function SpaceManager:prebuildRootSpace():Ret(clazz.LetSpace)
-	assert(not self._rootSpace, "root space is built")
-	const nRefer = NameReference.new(self._runtime, self._runtime:getRootNode(), "")
-	const nRootSpace = nRefer:initWithLetSpace(self._runtime:getRootNode(), false)
-	self._rootSpace = nRootSpace
-	return nRootSpace
-end
-
 function SpaceManager:getRootSpace():Ret(clazz.LetSpace)
 	return self._rootSpace!
 end
@@ -77,7 +77,7 @@ end
 
 function SpaceManager:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
 	const nRefer = NameReference.new(self._runtime, vParentLet, "")
-	const nSpace = nRefer:initWithLetSpace(self._runtime:getRootNode(), vParentLet)
+	const nSpace = nRefer:initWithLetSpace(vRegionNode, vParentLet)
 	return nSpace
 end
 

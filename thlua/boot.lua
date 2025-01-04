@@ -3,19 +3,19 @@ local boot = require "thlua.code.ParseEnv"
 -- start check from a main file
 function boot.runCheck(vMainFileName, vUseProfile)
 	boot.patch()
-	local DiagnosticRuntime = require "thlua.runtime.DiagnosticRuntime"
-	local nRuntime = DiagnosticRuntime.new()
+	local CodeRuntime = require "thlua.runtime.CodeRuntime"
+	local nRuntime = CodeRuntime.new()
 	local t1 = os.clock()
 	--local nRuntime = CompletionRuntime.new()
 	nRuntime:promiseMain(vMainFileName, vUseProfile):next(function(_)
 		local t2 = os.clock()
 		print(t2-t1)
 		local count1 = 0
-		for k,v in pairs(nRuntime._manager._hashToTypeSet) do
+		for k,v in pairs(nRuntime:getTypeManager()._hashToTypeSet) do
 			count1 = count1 + 1
 		end
 		print(count1)
-	end)
+	end):forget()
 	local uv = require "luv"
 	uv.run()
 end
@@ -30,7 +30,7 @@ function boot.makePlayGround()
 end
 
 -- run language server
-function boot.runServer(vMode, vGlobalPathOrNil)
+function boot.runServer(vGlobalPathOrNil)
 	boot.patch()
 	local LangServer = require "thlua.server.LangServer"
 	local server = LangServer.new(vGlobalPathOrNil)
