@@ -41,7 +41,7 @@ TypeCollection.__index=TypeCollection
 
 function:class(clazz.TypeCollection) TypeCollection.new(vManager:clazz.TypeManager)
 	const self = setmetatable({.class
-		_manager=vManager,
+		_typeManager=vManager,
 		_type=vManager.type,
 		_bitsToSet={} @ Dict(Integer, Dict(clazz.IAtomType,True)),
 		_bits=0 @ Integer,
@@ -90,20 +90,20 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 			return nIntegerType
 		end
 		if nHasPartNumber then
-			nUnionType = MixingNumberUnion.new(self._manager)
+			nUnionType = MixingNumberUnion.new(self._typeManager)
 		else
-			nUnionType = IntegerLiteralUnion.new(self._manager)
+			nUnionType = IntegerLiteralUnion.new(self._typeManager)
 		end
 	elseif vBit == TYPE_BITS.STRING then
 		local nStringType = self._type.String
 		if vSet[nStringType] then
 			return nStringType
 		end
-		nUnionType = StringLiteralUnion.new(self._manager)
+		nUnionType = StringLiteralUnion.new(self._typeManager)
 	elseif vBit == TYPE_BITS.OBJECT then
-		nUnionType = ObjectUnion.new(self._manager)
+		nUnionType = ObjectUnion.new(self._typeManager)
 	elseif vBit == TYPE_BITS.FUNCTION then
-		nUnionType = FuncUnion.new(self._manager)
+		nUnionType = FuncUnion.new(self._typeManager)
 	elseif vBit == TYPE_BITS.THREAD then
 		return self._type.Thread
 	elseif vBit == TYPE_BITS.LIGHTUSERDATA then
@@ -117,10 +117,10 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 	if MixingNumberUnion.is(nUnionType) then
 		const nIntegerPart = nUnionType._integerPart
 		if IntegerLiteralUnion.is(nIntegerPart) then
-			nUnionType._integerPart = self._manager:unionUnifyToType(nIntegerPart) @> clazz.IntegerLiteralUnion
+			nUnionType._integerPart = self._typeManager:unionUnifyToType(nIntegerPart) @> clazz.IntegerLiteralUnion
 		end
 	end
-	return self._manager:unionUnifyToType(nUnionType)
+	return self._typeManager:unionUnifyToType(nUnionType)
 end
 
 function TypeCollection:mergeToAtomUnion():Ret(clazz.UAtomUnion)
@@ -154,15 +154,15 @@ function TypeCollection:mergeToAtomUnion():Ret(clazz.UAtomUnion)
 		nTrueType = self._type.Truth
 	elseif next(nTrueBitToType) then
 		-- if truablebits is not bit and has true part, then true part must has more than one case
-		const nComplexUnion = ComplexUnion.new(self._manager, nTruableBits, nTrueBitToType)
-		nTrueType = self._manager:unionUnifyToType(nComplexUnion)
+		const nComplexUnion = ComplexUnion.new(self._typeManager, nTruableBits, nTrueBitToType)
+		nTrueType = self._typeManager:unionUnifyToType(nComplexUnion)
 	end
 	-- 3. check false part
 	if nFalsableBits == 0 then
 		return nTrueType
 	else
-		local nUnionType = FalsableUnion.new(self._manager, nTrueType, nFalsableBits)
-		return self._manager:unionUnifyToType(nUnionType)
+		local nUnionType = FalsableUnion.new(self._typeManager, nTrueType, nFalsableBits)
+		return self._typeManager:unionUnifyToType(nUnionType)
 	end
 end
 

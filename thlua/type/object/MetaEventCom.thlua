@@ -19,7 +19,7 @@ MetaEventCom.__index=MetaEventCom
 
 function:class(clazz.MetaEventCom) MetaEventCom.new(vManager:clazz.TypeManager, vSelfType:Union(clazz.SealTable, clazz.TypedObject))
 	const self = setmetatable({.class
-		_manager=vManager,
+		_typeManager=vManager,
 		_selfType=vSelfType,
 		_bopEq=false,
 		_bopDict={}@Dict(String, MetaFnField),
@@ -91,7 +91,7 @@ end
 
 function MetaEventCom:initByTable(vContext:clazz.ApplyContext, vMetaTable:Union(clazz.OpenTable, clazz.SealTable))
 	const nSelfType = self._selfType
-	const nManager = self._manager
+	const nManager = self._typeManager
 	-- 1. build bop
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
 		const nMethodType = vMetaTable:native_rawget(vContext, nManager:Literal(nEvent))
@@ -135,7 +135,7 @@ const function buildFieldFromAllType(vEvent:String, vTypeFn:OrNil(clazz.UMustTyp
 end
 
 function MetaEventCom:initByEventDict(vNode:clazz.IBaseNode, vActionDict:Dict(String, clazz.UMustType))
-	const nManager = self._manager
+	const nManager = self._typeManager
 	-- 1. build bop
 	for nOper, nEvent in pairs(OPER_ENUM.bopNoEq) do
 		self._bopDict[nEvent] = buildFieldFromAllType(nEvent, vActionDict[nEvent])

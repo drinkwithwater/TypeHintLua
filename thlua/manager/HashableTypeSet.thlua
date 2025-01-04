@@ -6,7 +6,7 @@ HashableTypeSet.__index = HashableTypeSet
 
 function:class(clazz.HashableTypeSet) HashableTypeSet.new(vManager:clazz.TypeManager)
     const self = setmetatable({.class
-        _manager = vManager,
+        _typeManager = vManager,
         _typeDict = {} @ Dict(Integer, clazz.IAtomType),
         _typeResult = false @ OrFalse(clazz.UAtomUnion),
         _num = 0 @ Integer,
@@ -37,7 +37,7 @@ function HashableTypeSet:linkedSearchTypeOrAttachSet(vType:clazz.IUnionType):Ret
         if nNextTypeSet then
             return nNextTypeSet:linkedSearchTypeOrAttachSet(vType)
         else
-            const nNewTypeSet = self._manager:HashableTypeSet()
+            const nNewTypeSet = self._typeManager:HashableTypeSet()
             nNewTypeSet:initFromUnion(vType)
             self._next = nNewTypeSet
             return false, nNewTypeSet
@@ -151,7 +151,7 @@ end
 function HashableTypeSet:_buildType():Ret(clazz.UAtomUnion)
     local nResultType = self._typeResult
     if not nResultType then
-        const nCollection = self._manager:TypeCollection()
+        const nCollection = self._typeManager:TypeCollection()
         for k,v in pairs(self._typeDict) do
             nCollection:put(v)
         end

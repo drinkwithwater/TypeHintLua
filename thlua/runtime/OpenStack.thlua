@@ -21,8 +21,8 @@ function.open OpenStack:ctor(
 	self._applyStack = vApplyStack
 	self._bodyFn = vBodyFn
 	self._isRequire = vIsRequire
-	const nErrTypeSet = self._manager:HashableTypeSet()
-	nErrTypeSet:putAtom(self._manager.type.String)
+	const nErrTypeSet = self._typeManager:HashableTypeSet()
+	nErrTypeSet:putAtom(self._typeManager.type.String)
 	self._errTypeSet = nErrTypeSet
 end
 
@@ -57,7 +57,7 @@ function OpenStack:RETURN(vNode:clazz.IBaseNode, vTermTuple:clazz.UTermTuple)
 end
 
 function OpenStack:mergeEndErrType():Ret(clazz.UAtomUnion)
-	return self._manager:unifyAndBuild(self._errTypeSet)
+	return self._typeManager:unifyAndBuild(self._errTypeSet)
 end
 
 function OpenStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UAtomUnion)
@@ -65,9 +65,9 @@ function OpenStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UA
 	const nRetList = self._retList
 	const nLen = #nRetList
 	if nLen == 0 then
-		return self._fastOper:FixedTermTuple({}), self._manager:unifyAndBuild(self._errTypeSet)
+		return self._fastOper:FixedTermTuple({}), self._typeManager:unifyAndBuild(self._errTypeSet)
 	elseif nLen == 1 then
-		return nRetList[1]!, self._manager:unifyAndBuild(self._errTypeSet)
+		return nRetList[1]!, self._typeManager:unifyAndBuild(self._errTypeSet)
 	else
 		error(vNode:toExc("TODO : open-function has more than one return"))
 	end

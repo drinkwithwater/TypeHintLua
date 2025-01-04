@@ -43,7 +43,7 @@ function:class(clazz.TermTuple) TermTuple.new@<Auto>(
 )
 	const self = setmetatable({.class
 		_context=vContext,
-		_manager=vContext:getTypeManager(),
+		_typeManager=vContext:getTypeManager(),
 		_list=vTermList,
 		_tail=vTail,
 		_typeTuple=vTypeTuple,
@@ -83,7 +83,7 @@ function TermTuple:get(vContext:clazz.OperContext, i:Integer):Ret($self._list[1]
 		if nTail then
 			return nTail:getMore(vContext, nMore)
 		else
-			return vContext:RefineTerm(self._manager.type.Nil)
+			return vContext:RefineTerm(self._typeManager.type.Nil)
 		end
 	end
 end
@@ -130,7 +130,7 @@ function TermTuple:checkTypeTuple(vSeal:OrNil(True)):Ret(Cond($self._auto, OrFal
 				for i=1,#nTailTuple do
 					nTypeList[#nTypeList + 1] = nTailTuple:get(i)
 				end
-				const nFinalTuple = self._manager:TypeTuple(self._context:getNode(), nTypeList)
+				const nFinalTuple = self._typeManager:TypeTuple(self._context:getNode(), nTypeList)
 				const nRepeatType = nTailTuple:getRepeatType()
 				if nRepeatType then
 					return nFinalTuple:withDots(nRepeatType)
@@ -139,7 +139,7 @@ function TermTuple:checkTypeTuple(vSeal:OrNil(True)):Ret(Cond($self._auto, OrFal
 				end
 			end
 		else
-			const nTuple = self._manager:TypeTuple(self._context:getNode(), nTypeList)
+			const nTuple = self._typeManager:TypeTuple(self._context:getNode(), nTypeList)
 			if not nTail then
 				return nTuple
 			else
@@ -153,7 +153,7 @@ function TermTuple:checkTypeTuple(vSeal:OrNil(True)):Ret(Cond($self._auto, OrFal
 			for i,v in ipairs(self._list) do
 				nList[i] = v:getType()
 			end
-			nTypeTuple = self._manager:TypeTuple(self._context:getNode(), nList)
+			nTypeTuple = self._typeManager:TypeTuple(self._context:getNode(), nList)
 			const nTail = self._tail
 			if nTail then
 				nTypeTuple = nTypeTuple:withDots(nTail:getRepeatType())

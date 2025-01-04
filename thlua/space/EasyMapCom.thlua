@@ -22,14 +22,14 @@ function.open EasyMapCom:ctor(_, _)
 end
 
 function EasyMapCom:_asyncBuild(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vFunc:Fn(Union(clazz.AsyncTypeCom, clazz.TemplateCom)):Ret(clazz.AsyncTypeCom)):Ret(clazz.AsyncTypeCom)
-	const nTypeCom = self._manager:AsyncTypeCom(vNode)
+	const nTypeCom = self._typeManager:AsyncTypeCom(vNode)
 	nTypeCom:setSetAsync(vNode, function()
-		const nKeyMustType = self._manager:easyToMustType(vNode, vKey):checkAtomUnion()
-		const nTypeSet = self._manager:HashableTypeSet()
+		const nKeyMustType = self._typeManager:easyToMustType(vNode, vKey):checkAtomUnion()
+		const nTypeSet = self._typeManager:HashableTypeSet()
 		nKeyMustType:foreach(function(vAtomType)
 			local nCurValue = self._atom2value[vAtomType]
 			if not nCurValue then
-				const nEvent = self._manager:getScheduleManager():makeWildEvent()
+				const nEvent = self._typeManager:getScheduleManager():makeWildEvent()
 				self._atom2value[vAtomType] = nEvent
 				nEvent:wait()
 				nCurValue = self._atom2value[vAtomType]
@@ -49,7 +49,7 @@ function EasyMapCom:_asyncBuild(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vFu
 end
 
 function EasyMapCom:flatCall(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
-	const nTuple = self._manager:spacePack(vNode, ...)
+	const nTuple = self._typeManager:spacePack(vNode, ...)
 	return self:_asyncBuild(vNode, vKey, function(vCom)
 		if TemplateCom.is(vCom) then
 			return vCom:cacheCall(vNode, nTuple)
@@ -70,9 +70,9 @@ function EasyMapCom:getValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny):Ret(cl
 end
 
 function EasyMapCom:setValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue:clazz.USpaceAny)
-	const nTask = self._manager:getScheduleManager():newHintTask(vNode)
+	const nTask = self._typeManager:getScheduleManager():newHintTask(vNode)
 	nTask:runAsync(function()
-		const nKeyMustType = self._manager:easyToMustType(vNode, vKey):checkAtomUnion()
+		const nKeyMustType = self._typeManager:easyToMustType(vNode, vKey):checkAtomUnion()
 		assert(BaseAtomType.is(nKeyMustType), vNode:toExc("easymap's key must be atom type when set"))
 		local nWaitEvent = self._atom2value[nKeyMustType]
 		if not nWaitEvent then
@@ -88,7 +88,7 @@ function EasyMapCom:setValue(vNode:clazz.IBaseNode, vKey:clazz.USpaceAny, vValue
 			self._atom2value[nKeyMustType] = nCom
 			nWaitEvent:wakeup()
 		elseif BaseReadyType.is(nCom) then
-			const nTypeCom = self._manager:AsyncTypeCom(vNode)
+			const nTypeCom = self._typeManager:AsyncTypeCom(vNode)
 			nTypeCom:setTypeAsync(vNode, function()
 				return nCom @? clazz.UAtomUnion
 			end)

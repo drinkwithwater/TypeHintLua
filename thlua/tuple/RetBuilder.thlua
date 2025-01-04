@@ -8,14 +8,14 @@ const class = require "thlua.class"
 const RetBuilder = class@<clazz.RetBuilder, false>()
 
 function.open RetBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode)
-	self._manager = vManager
+	self._typeManager = vManager
 	self._tupleBuilderList = {} @ List(clazz.TupleBuilder)
 	self._errType = nil @ clazz.USpaceAny
 	self._node=vNode
 end
 
 function RetBuilder:chainRetDots(vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
-	const nBuilder = self._manager:spacePack(vNode, ...)
+	const nBuilder = self._typeManager:spacePack(vNode, ...)
 	nBuilder:setRetDots()
 	const nTupleList = self._tupleBuilderList
 	nTupleList[#nTupleList + 1] = nBuilder
@@ -23,7 +23,7 @@ end
 
 function RetBuilder:chainRet(vNode:clazz.IBaseNode, ...:Any)
 	const nTupleList = self._tupleBuilderList
-	nTupleList[#nTupleList + 1] = self._manager:spacePack(vNode, ...)
+	nTupleList[#nTupleList + 1] = self._typeManager:spacePack(vNode, ...)
 end
 
 function RetBuilder:chainErr(vNode:clazz.IBaseNode, vErrType:clazz.USpaceAny)
@@ -38,15 +38,15 @@ end
 function RetBuilder:build():Ret(clazz.RetTuples)
 	const nBuilderList = self._tupleBuilderList
 	const nErrType = self._errType
-	const nErrMustType = nErrType and self._manager:easyToMustType(self._node, nErrType)
+	const nErrMustType = nErrType and self._typeManager:easyToMustType(self._node, nErrType)
 	if #nBuilderList == 0 then
-		return self._manager:VoidRetTuples(self._node, nErrMustType or nil)
+		return self._typeManager:VoidRetTuples(self._node, nErrMustType or nil)
 	else
 		const nTupleList = {} @ List(clazz.UTypeTuple)
 		for i,builder in ipairs(nBuilderList) do
 			nTupleList[i] = builder:buildTuple()
 		end
-		return RetTuples.new(self._manager, self._node, nTupleList, nErrMustType or false)
+		return RetTuples.new(self._typeManager, self._node, nTupleList, nErrMustType or false)
 	end
 end
 

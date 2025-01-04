@@ -13,7 +13,7 @@ const BaseAtomType = class@<clazz.BaseAtomType, clazz.IAtomType>(BaseReadyType)
 function.open BaseAtomType:ctor(vManager:clazz.TypeManager, ...)
 	self.id = vManager:genTypeId()
 	self.bits = false @? Integer
-	self._typeSet = self._manager:atomUnifyToSet(self)
+	self._typeSet = self._typeManager:atomUnifyToSet(self)
 end
 
 function BaseAtomType:foreach(vFunc)
@@ -47,22 +47,22 @@ end
 
 function BaseAtomType:meta_call(vContext, vTypeTuple)
 	vContext:error(tostring(self).." can't take call")
-	vContext:pushRetTuples(self._manager:VoidRetTuples(vContext:getNode()))
+	vContext:pushRetTuples(self._typeManager:VoidRetTuples(vContext:getNode()))
 end
 
 function BaseAtomType:meta_bop_func(vContext, vOper)
 	if OPER_ENUM.mathematic[vOper] then
 		if vOper == "/" then
-			return false, self._manager.builtin.bop.mathematic_divide
+			return false, self._typeManager.builtin.bop.mathematic_divide
 		else
-			return false, self._manager.builtin.bop.mathematic_notdiv
+			return false, self._typeManager.builtin.bop.mathematic_notdiv
 		end
 	elseif OPER_ENUM.bitwise[vOper] then
-		return false, self._manager.builtin.bop.bitwise
+		return false, self._typeManager.builtin.bop.bitwise
 	elseif OPER_ENUM.comparison[vOper] then
-		return false, self._manager.builtin.bop.comparison
+		return false, self._typeManager.builtin.bop.comparison
 	elseif vOper == ".." then
-		return false, self._manager.builtin.bop.concat
+		return false, self._typeManager.builtin.bop.concat
 	else
 		vContext:error("invalid bop:"..tostring(vOper))
 		return false, nil
@@ -71,12 +71,12 @@ end
 
 function BaseAtomType:meta_len(vContext)
 	vContext:error(tostring(self).." can't take len oper")
-	return self._manager.type.Integer
+	return self._typeManager.type.Integer
 end
 
 function BaseAtomType:meta_uop_some(vContext, vOper)
 	vContext:error(tostring(self).." can't take uop :"..vOper)
-	return self._manager.type.Integer
+	return self._typeManager.type.Integer
 end
 
 --- native method --------------
@@ -85,12 +85,12 @@ function.pass BaseAtomType:native_next(vContext, vInitType)
 end
 
 function BaseAtomType:native_tostring()
-	return self._manager.type.String
+	return self._typeManager.type.String
 end
 
 function BaseAtomType:native_rawget(vContext, vKeyType)
 	vContext:error(tostring(self).." rawget not implement")
-	return self._manager.type.Nil
+	return self._typeManager.type.Nil
 end
 
 function BaseAtomType:native_rawset(vContext, vKeyType, vValueType)
@@ -104,11 +104,11 @@ end
 
 function BaseAtomType:native_type()
 	print("native_type not implement ")
-	return self._manager.type.String
+	return self._typeManager.type.String
 end
 
 function BaseAtomType:native_getmetatable(vContext)
-	return self._manager.MetaOrNil
+	return self._typeManager.MetaOrNil
 end
 
 function BaseAtomType:native_setmetatable(vContext, vTable)

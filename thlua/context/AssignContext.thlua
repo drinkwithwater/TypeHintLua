@@ -134,7 +134,7 @@ function AssignContext:tryIncludeCast(
 	vDstType:clazz.UAtomUnion,
 	vSrcType:clazz.UAtomUnion
 ):Ret(False):Ret(clazz.UAtomUnion, Boolean)
-	const nTypeSet = self._manager:HashableTypeSet()
+	const nTypeSet = self._typeManager:HashableTypeSet()
 	const nDstFnPart = vDstType:partTypedFunction()
 	const nDstObjPart = vDstType:partTypedObject()
 	local nIncludeSucc = true
@@ -176,7 +176,7 @@ function AssignContext:tryIncludeCast(
 		if not nCastSucc and nPutObjPart then
 			nTypeSet:putType(nDstObjPart)
 		end
-		return self._manager:unifyAndBuild(nTypeSet), nCastSucc
+		return self._typeManager:unifyAndBuild(nTypeSet), nCastSucc
 	end
 end
 
@@ -189,7 +189,7 @@ function AssignContext:includeAndCast(vDstType:clazz.UAtomUnion, vSrcType:clazz.
 	if not nIncludeType or not nCastSucc then
 		const nLogPrefix = nIncludeType and "type cast fail " or "type not match "
 		const nLogSuffix = vWhen and "when "..tostring(vWhen) or ""
-		if vSrcType:includeAtom(self._manager.type.Truth) then
+		if vSrcType:includeAtom(self._typeManager.type.Truth) then
 			self:warn(nLogPrefix..nLogSuffix)
 		else
 			self:error(nLogPrefix..nLogSuffix)
@@ -250,7 +250,7 @@ function AssignContext:unfoldTermTuple(vTermTuple:clazz.FixedTermTuple, vFunc:Fn
 				nTypeList[i] = assert(nTerm:getType():safeIntersect(nType), "unexcepted intersect when return")
 			end
 		end
-		const nTypeTuple = self._manager:TypeTuple(self._node, nTypeList)
+		const nTypeTuple = self._typeManager:TypeTuple(self._node, nTypeList)
 		const nTypeTuple = nRepeatType and nTypeTuple:withDots(nRepeatType) or nTypeTuple
 		vFunc(vAtomType, nTypeTuple, vCase)
 	end)

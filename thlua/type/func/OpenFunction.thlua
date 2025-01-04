@@ -40,7 +40,7 @@ function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo),
 	end
 	if vPolyParInfo then
 		self._polyWrapper = function(vPolyTuple)
-			const nOpenFn = OpenFunction.new(self._manager, self._node, self._lexBranchCase)
+			const nOpenFn = OpenFunction.new(self._typeManager, self._node, self._lexBranchCase)
 			nOpenFn:lateInit(function(vStack, vTermTuple)
 				return vFunc(vStack, vPolyTuple, vTermTuple)
 			end)
@@ -51,8 +51,8 @@ function OpenFunction:lateInitFromBuilder(vPolyParInfo:OrFalse(clazz.ParamInfo),
 end
 
 function OpenFunction:lateInitFromMapGuard(vMapObject:clazz.Interface)
-	const nNil = self._manager.type.Nil
-	const nFalse = self._manager.type.False
+	const nNil = self._typeManager.type.Nil
+	const nFalse = self._typeManager.type.False
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
 		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
@@ -81,10 +81,10 @@ function OpenFunction:lateInitFromMapGuard(vMapObject:clazz.Interface)
 end
 
 function OpenFunction:lateInitFromIsGuard(vType:clazz.USpaceAny)
-	const nTrue = self._manager.type.True
-	const nFalse = self._manager.type.False
+	const nTrue = self._typeManager.type.True
+	const nFalse = self._typeManager.type.False
 	const nFn:clazz.OpenCaller = function(vStack, vTermTuple)
-		const nGuardType = self._manager:easyToMustType(self._node, vType):checkAtomUnion()
+		const nGuardType = self._typeManager:easyToMustType(self._node, vType):checkAtomUnion()
 		assert(TermTuple.isFixed(vTermTuple), "guard function can't take auto term")
 		return vStack:withOnePushContext(vStack:getNode(), function(vContext)
 			const nTerm = vTermTuple:get(vContext, 1)
@@ -113,7 +113,7 @@ function OpenFunction:detailString(v, vVerbose)
 end
 
 function OpenFunction:newStack(vNode:clazz.IBaseNode, vApplyStack:clazz.BaseStack)
-	return self._manager:getRuntime():OpenStack(vNode, self._lexBranchCase, self, vApplyStack, false)
+	return self._typeManager:getRuntime():OpenStack(vNode, self._lexBranchCase, self, vApplyStack, false)
 end
 
 function OpenFunction:meta_call(vContext, vTermTuple)
@@ -124,8 +124,8 @@ end
 
 function OpenFunction:meta_open_call(vContext:clazz.ApplyContext, vTermTuple:clazz.UTermTuple, vIsRequire:Boolean):Ret(clazz.UOpenReturn, clazz.OpenStack)
 	const nNode = vContext:getNode()
-	const nNewStack = self._manager:getRuntime():OpenStack(nNode, self._lexBranchCase, self, vContext:getStack(), vIsRequire)
-	const nSealTask = self._manager:getScheduleManager():tryGetSealTask()
+	const nNewStack = self._typeManager:getRuntime():OpenStack(nNode, self._lexBranchCase, self, vContext:getStack(), vIsRequire)
+	const nSealTask = self._typeManager:getScheduleManager():tryGetSealTask()
 	if not nSealTask then
 		error(nNode:toExc("open function must be called in an seal stack"))
 	end

@@ -125,7 +125,7 @@ end)
 const BaseReadyType = class@<clazz.BaseReadyType, clazz.IReadyType>()
 
 function.open BaseReadyType:ctor(vManager:clazz.TypeManager, ...)
-	self._manager = vManager
+	self._typeManager = vManager
 	self._withnilType = false @ OrFalse(clazz.UAtomUnion)
 	self.id = 0 @ Integer
 	self._typeSet = false @? clazz.HashableTypeSet
@@ -204,10 +204,10 @@ function BaseReadyType:safeIntersect(vRight)
 		if nIntersect == true then
 			return false
 		else
-			return nIntersect or self._manager.type.Never
+			return nIntersect or self._typeManager.type.Never
 		end
 	else
-		const nTypeSet = self._manager:HashableTypeSet()
+		const nTypeSet = self._typeManager:HashableTypeSet()
 		nRight:foreach(function(vSubType)
 			local nIntersect = nLeft:assumeIntersectAtom(nil, vSubType)
 			if nIntersect then
@@ -218,7 +218,7 @@ function BaseReadyType:safeIntersect(vRight)
 				end
 			end
 		end)
-		return self._manager:unifyAndBuild(nTypeSet)
+		return self._typeManager:unifyAndBuild(nTypeSet)
 	end
 end
 
@@ -250,15 +250,15 @@ function BaseReadyType:isNilable()
 end
 
 function BaseReadyType:partTypedObject()
-	return self._manager.type.Never
+	return self._typeManager.type.Never
 end
 
 function BaseReadyType:partTypedFunction()
-	return self._manager.type.Never
+	return self._typeManager.type.Never
 end
 
 function BaseReadyType:falseType()
-	return self._manager.type.Never
+	return self._typeManager.type.Never
 end
 
 function.pass BaseReadyType:trueType()
@@ -268,10 +268,10 @@ end
 function BaseReadyType:withnilType()
 	local nWithNilType = self._withnilType
 	if not nWithNilType then
-		const nTypeSet = self._manager:HashableTypeSet()
+		const nTypeSet = self._typeManager:HashableTypeSet()
 		nTypeSet:putType(self @? clazz.UAtomUnion)
-		nTypeSet:putAtom(self._manager.type.Nil)
-		nWithNilType = self._manager:unifyAndBuild(nTypeSet)
+		nTypeSet:putAtom(self._typeManager.type.Nil)
+		nWithNilType = self._typeManager:unifyAndBuild(nTypeSet)
 		self._withnilType = nWithNilType
 	end
 	return nWithNilType
@@ -285,7 +285,7 @@ function BaseReadyType:getTypeSet()
 end
 
 function BaseReadyType:getManager()
-	return self._manager
+	return self._typeManager
 end
 
 return BaseReadyType

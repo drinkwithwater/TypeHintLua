@@ -62,7 +62,7 @@ function SealStack:RAISE_ERROR(vContext:clazz.OperContext, vRaiseErr:clazz.UMust
 	const nBodyFn = self._bodyFn
 	assert(SealFunction.is(nBodyFn))
 	const nRetTuples = nBodyFn:getRetTuples()
-	const nString = self._manager.type.String
+	const nString = self._typeManager.type.String
 	if nRetTuples then
 		const nHintErr = nRetTuples:getErrType()
 		if not nHintErr:includeAll(vRaiseErr) then
@@ -101,9 +101,9 @@ function SealStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UA
 	if AutoFunction.is(nBodyFn) and not nBodyFn:getRetTuples() then
 		const nLen = #nRetList
 		if nLen == 0 then
-			return self._fastOper:FixedTermTuple({}), self._manager.type.String
+			return self._fastOper:FixedTermTuple({}), self._typeManager.type.String
 		elseif nLen == 1 then
-			return nRetList[1]!, self._manager.type.String
+			return nRetList[1]!, self._typeManager.type.String
 		else
 			const nFirstTuple = nRetList[1]!:checkTypeTuple()
 			for i=2,#nRetList do
@@ -112,7 +112,7 @@ function SealStack:END(vNode:clazz.IBaseNode):Ret(clazz.FixedTermTuple, clazz.UA
 					error("auto-function can't implicit return mixing type, explicit hint with :Ret(xxx) ")
 				end
 			end
-			return nRetList[1]!, self._manager.type.String
+			return nRetList[1]!, self._typeManager.type.String
 		end
 	else
 		return nil@!clazz.FixedTermTuple, nil@!clazz.UAtomUnion

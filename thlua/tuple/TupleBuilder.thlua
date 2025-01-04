@@ -16,7 +16,7 @@ const function signTemplateArgs(vTypeList:IList(clazz.UMustType)):Ret(String)
 end
 
 function.open TupleBuilder:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode, ...:clazz.USpaceAny)
-	self._manager = vManager
+	self._typeManager = vManager
 	self._node = vNode
     self._num = select("#", ...)
     self._list = {...} @ List(clazz.USpaceAny)
@@ -48,14 +48,14 @@ function TupleBuilder:buildTuple():Ret(clazz.UTypeTuple)
     const nSpaceTuple = self._list
     const nTypeList:List(clazz.UMustType) = {}
     for i=1, self._num do
-        nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
+        nTypeList[i] = self._typeManager:easyToMustType(nNode, nSpaceTuple[i])
     end
-    const nTypeTuple = self._manager:TypeTuple(nNode, nTypeList)
+    const nTypeTuple = self._typeManager:TypeTuple(nNode, nTypeList)
     const nDotsType = self._dots
     if nDotsType == nil then
         return nTypeTuple
     else
-        const nDotsMustType = self._manager:easyToMustType(nNode, nDotsType)
+        const nDotsMustType = self._typeManager:easyToMustType(nNode, nDotsType)
         return nTypeTuple:withDots(nDotsMustType)
     end
 end
@@ -89,7 +89,7 @@ function TupleBuilder:buildNowaitPolyArgs():Ret(List(clazz.UMustType))
         const nSpaceTuple = self._list
         const nTypeList:List(clazz.UMustType) = {}
         for i=1, self._num do
-            nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i])
+            nTypeList[i] = self._typeManager:easyToMustType(nNode, nSpaceTuple[i])
         end
         self._nowaitPolyArgList = nTypeList
     end
@@ -103,7 +103,7 @@ function TupleBuilder:buildPolyArgs():Ret(List(clazz.UAtomUnion))
         const nSpaceTuple = self._list
         const nTypeList:List(clazz.UAtomUnion) = {}
         for i=1, self._num do
-            nTypeList[i] = self._manager:easyToMustType(nNode, nSpaceTuple[i]):checkAtomUnion()
+            nTypeList[i] = self._typeManager:easyToMustType(nNode, nSpaceTuple[i]):checkAtomUnion()
         end
         self._polyArgList = nTypeList
     end

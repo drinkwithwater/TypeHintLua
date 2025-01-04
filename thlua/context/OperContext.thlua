@@ -28,7 +28,7 @@ function.open OperContext:ctor(
 	...
 )
 	self._node=vNode
-	self._manager=vManager
+	self._typeManager=vManager
 	self._stack = vStack
 end
 
@@ -94,7 +94,7 @@ function OperContext:RefineTerm(vType:clazz.UMustType):Ret(clazz.RefineTerm)
 end
 
 function OperContext:NeverTerm():Ret(clazz.RefineTerm)
-	return RefineTerm.new(self._node, self._manager.type.Never)
+	return RefineTerm.new(self._node, self._typeManager.type.Never)
 end
 
 const function orReduceCase(vManager:clazz.TypeManager, vCaseList:IList(clazz.VariableCase)):Ret(clazz.VariableCase)
@@ -124,14 +124,14 @@ const function orReduceCase(vManager:clazz.TypeManager, vCaseList:IList(clazz.Va
 end
 
 function OperContext:mergeToRefineTerm(vTypeCasePairList:List(clazz.TypeCasePair)):Ret(clazz.RefineTerm)
-	const nKeyUnion, nTypeDict = self._manager:typeMapReduce@<clazz.VariableCase>(vTypeCasePairList, function(vList)
-		return orReduceCase(self._manager, vList)
+	const nKeyUnion, nTypeDict = self._typeManager:typeMapReduce@<clazz.VariableCase>(vTypeCasePairList, function(vList)
+		return orReduceCase(self._typeManager, vList)
 	end)
 	return RefineTerm.new(self._node, nKeyUnion, nTypeDict)
 end
 
 function OperContext:NilTerm():Ret(clazz.RefineTerm)
-	return RefineTerm.new(self._node, self._manager.type.Nil)
+	return RefineTerm.new(self._node, self._typeManager.type.Nil)
 end
 
 function OperContext:error(...:Truth)
@@ -156,7 +156,7 @@ function OperContext:getRuntime():Ret(clazz.BaseRuntime)
 end
 
 function OperContext:getTypeManager():Ret(clazz.TypeManager)
-	return self._manager
+	return self._typeManager
 end
 
 function OperContext:getStack()

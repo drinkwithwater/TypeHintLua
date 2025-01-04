@@ -34,7 +34,7 @@ end
 
 function SealTable:meta_len(vContext)
 	-- TODO
-	return self._manager.type.Integer
+	return self._typeManager.type.Integer
 end
 
 function SealTable:ctxWait(vContext:clazz.OperContext)
@@ -57,11 +57,11 @@ function SealTable:native_setmetatable(vContext, vMetaTableType)
 	self._metaTable = vMetaTableType
 	-- 1. copyout meta event items
 	assert(not self._metaEventCom, "meta event has been setted")
-	const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	const nMetaEventCom = self._typeManager:makeMetaEventCom(self)
 	nMetaEventCom:initByTable(vContext, vMetaTableType)
 	self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
-	local nManager = self._manager
+	local nManager = self._typeManager
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	const nNewIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__newindex"))
 	const nCallType = vMetaTableType:native_rawget(vContext, nManager:Literal("__call"))
@@ -133,7 +133,7 @@ function SealTable:meta_get(vContext, vKeyType)
 			end
 			]]
 			if not nIndexType then
-				vContext:pushFirstAndTuple(self._manager.type.Nil)
+				vContext:pushFirstAndTuple(self._typeManager.type.Nil)
 			end
 		end
 		local nOkay = nTrigger ~= NONE_TRIGGER
@@ -152,7 +152,7 @@ function SealTable:meta_get(vContext, vKeyType)
 	if nNotRecursive then
 		return nOkay
 	else
-		vContext:pushFirstAndTuple(self._manager.type.Nil)
+		vContext:pushFirstAndTuple(self._typeManager.type.Nil)
 		return false
 	end
 end
@@ -195,7 +195,7 @@ function SealTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 		const nValueType = nField:getValueType()
 		return nValueType
 	else
-		return self._manager.type.Nil
+		return self._typeManager.type.Nil
 	end
 end
 
@@ -251,8 +251,8 @@ function SealTable:native_next(vContext, vInitType)
 		for nKeyAtom, nField in pairs(self._fieldDict) do
 			nNextDict[nKeyAtom] = nField:getValueType()
 		end
-		local nNil = self._manager.type.Nil
-		const nValueTypeSet = self._manager:HashableTypeSet()
+		local nNil = self._typeManager.type.Nil
+		const nValueTypeSet = self._typeManager:HashableTypeSet()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
@@ -260,7 +260,7 @@ function SealTable:native_next(vContext, vInitType)
 			nValueTypeSet:putType(nNotnilType)
 		end
 		nValueTypeSet:putAtom(nNil)
-		nValueType = self._manager:unifyAndBuild(nValueTypeSet)
+		nValueType = self._typeManager:unifyAndBuild(nValueTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict
@@ -270,13 +270,13 @@ end
 
 function SealTable:native_getmetatable(vContext)
 	self:ctxWait(vContext)
-	return self._metaTable or self._manager.type.Nil
+	return self._metaTable or self._typeManager.type.Nil
 end
 
 function SealTable:meta_uop_some(vContext, vOper)
 	self:ctxWait(vContext)
 	vContext:error("meta uop TODO:"..tostring(vOper))
-	return self._manager.type.Never
+	return self._typeManager.type.Never
 end
 
 function SealTable:meta_bop_func(vContext, vOper)

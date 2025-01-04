@@ -59,7 +59,7 @@ function.open BaseStack:ctor(
 )
 	const nManager = vRuntime:getTypeManager()
 	self._runtime=vRuntime
-	self._manager=nManager
+	self._typeManager=nManager
 	self._node=vNode
 	self._letspace=false@OrFalse(clazz.LetSpace)
 	self._headContext=AssignContext.new(vNode, self, nManager)
@@ -107,7 +107,7 @@ function BaseStack:prepareMetaCall(
 	vFuncTerm:clazz.RefineTerm,
 	vLazyFunc:Fn():Ret(clazz.UTermTuple)
 ):Ret(clazz.MorePushContext)
-	const nNil = self._manager.type.Nil
+	const nNil = self._typeManager.type.Nil
 	return self:withMorePushContextWithCase(vNode, vFuncTerm, function(vContext, vFuncType, vCase)
 		local nArgTermTuple:OrNil(clazz.UTermTuple) = nil
 		self:_withBranch(vCase, function()
@@ -144,40 +144,40 @@ function BaseStack:getClassTable():Ret(OrFalse(clazz.ClassTable))
 end
 
 function BaseStack:newAutoTable(vNode:Union(node.Table, node.Root)):Ret(clazz.AutoTable)
-	const nAutoTable = AutoTable.new(self._manager, vNode, self)
+	const nAutoTable = AutoTable.new(self._typeManager, vNode, self)
 	self:getSealStack():getBodyFn():saveAutoTable(nAutoTable)
 	return nAutoTable
 end
 
 function BaseStack:newAutoFunction(vNode:Union(node.Function, node.Root), ...):Ret(clazz.AutoFunction)
-	const nAutoFn = AutoFunction.new(self._manager, vNode, ...)
+	const nAutoFn = AutoFunction.new(self._typeManager, vNode, ...)
 	return nAutoFn
 end
 
 function BaseStack:newClassFactory(vNode:node.Function, ...):Ret(clazz.ClassFactory)
-	const nFactory = ClassFactory.new(self._manager, vNode, ...)
+	const nFactory = ClassFactory.new(self._typeManager, vNode, ...)
 	return nFactory
 end
 
 function BaseStack:newOpenFunction(vNode:clazz.IBaseNode, vUpState:OrNil(False, clazz.LexBranchCase)):Ret(clazz.OpenFunction)
-	const nOpenFn = OpenFunction.new(self._manager, vNode, vUpState)
+	const nOpenFn = OpenFunction.new(self._typeManager, vNode, vUpState)
 	return nOpenFn
 end
 
 function BaseStack:withOnePushContext(vNode:clazz.IBaseNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.OnePushContext)
-	const nCtx = OnePushContext.new(vNode, self, self._manager, vNotnil or false)
+	const nCtx = OnePushContext.new(vNode, self, self._typeManager, vNotnil or false)
 	vFunc(nCtx)
 	return nCtx
 end
 
 function BaseStack:withMorePushContext(vNode:clazz.IBaseNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.MorePushContext)
-	const nCtx = MorePushContext.new(vNode, self, self._manager)
+	const nCtx = MorePushContext.new(vNode, self, self._typeManager)
 	vFunc(nCtx)
 	return nCtx
 end
 
 function BaseStack:withMorePushContextWithCase(vNode:clazz.IBaseNode, vTermOrTuple:Union(clazz.FixedTermTuple, clazz.RefineTerm), vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.MorePushContext)
-	const nCtx = MorePushContext.new(vNode, self, self._manager)
+	const nCtx = MorePushContext.new(vNode, self, self._typeManager)
 	const nTerm = TermTuple.isFixed(vTermOrTuple) and vTermOrTuple:checkFixed(nCtx, 1) or vTermOrTuple
 	nTerm:foreach(function(vType, vCase)
 		nCtx:withCase(vCase, function()
@@ -188,23 +188,23 @@ function BaseStack:withMorePushContextWithCase(vNode:clazz.IBaseNode, vTermOrTup
 end
 
 function BaseStack:newNoPushContext(vNode:clazz.IBaseNode)
-	return NoPushContext.new(vNode, self, self._manager)
+	return NoPushContext.new(vNode, self, self._typeManager)
 end
 
 function BaseStack:newLogicContext(vNode:clazz.IBaseNode):Ret(clazz.LogicContext)
-	return LogicContext.new(vNode, self, self._manager)
+	return LogicContext.new(vNode, self, self._typeManager)
 end
 
 function BaseStack:newOperContext(vNode:clazz.IBaseNode):Ret(clazz.OperContext)
-	return OperContext.new(vNode, self, self._manager)
+	return OperContext.new(vNode, self, self._typeManager)
 end
 
 function BaseStack:newReturnContext(vNode:clazz.IBaseNode):Ret(clazz.ReturnContext)
-	return ReturnContext.new(vNode, self, self._manager)
+	return ReturnContext.new(vNode, self, self._typeManager)
 end
 
 function BaseStack:newAssignContext(vNode:clazz.IBaseNode):Ret(clazz.AssignContext)
-	return AssignContext.new(vNode, self, self._manager)
+	return AssignContext.new(vNode, self, self._typeManager)
 end
 
 function.pass BaseStack:getSealStack():Ret(clazz.SealStack)
@@ -236,7 +236,7 @@ function BaseStack:getRuntime():Ret(clazz.BaseRuntime)
 end
 
 function BaseStack:getTypeManager():Ret(clazz.TypeManager)
-	return self._manager
+	return self._typeManager
 end
 
 function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn():Dots(clazz.USpaceAny), vNode:OrNil(node.Block)):Ret(clazz.Branch)

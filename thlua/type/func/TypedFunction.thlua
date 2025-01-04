@@ -26,7 +26,7 @@ end
 function TypedFunction:attachRetBuilder():Ret(clazz.RetBuilder)
 	local nRetBuilder = self._retBuilder
 	if not nRetBuilder then
-		nRetBuilder = RetBuilder.new(self._manager, self._node)
+		nRetBuilder = RetBuilder.new(self._typeManager, self._node)
 		self._retBuilder = nRetBuilder
 	end
 	return nRetBuilder
@@ -46,7 +46,7 @@ function TypedFunction:chainParams(vDebugNode:clazz.IBaseNode, ...:clazz.USpaceA
 	if self._parBuilder then
 		error(vDebugNode:toExc("fn params build more than once"))
 	end
-	self._parBuilder = self._manager:spacePack(vDebugNode, ...)
+	self._parBuilder = self._typeManager:spacePack(vDebugNode, ...)
 end
 
 function TypedFunction:chainDots(vDebugNode:clazz.IBaseNode, vType:clazz.USpaceAny)
@@ -101,7 +101,7 @@ function TypedFunction:buildParRet():Ret(clazz.UTypeTuple, clazz.RetTuples)
 end
 
 function TypedFunction:native_type()
-	return self._manager:Literal("function")
+	return self._typeManager:Literal("function")
 end
 
 function TypedFunction:detailString(vToStringCache, vVerbose)
@@ -142,8 +142,8 @@ function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
 	if not TypedFunction.is(vRight) then
 		return false
 	end
-	const nMgr = self._manager
-	const nPair = self._manager:makePair(self, vRight)
+	const nMgr = self._typeManager
+	const nPair = self._typeManager:makePair(self, vRight)
 	if not vAssumeSet then
 		return self:assumeIncludeFn({[nPair]=true}, vRight) and self
 	end

@@ -61,7 +61,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 	const nManager = vStack:getTypeManager()
 	const self = {.class
 		_stack=vStack,
-		_manager=nManager,
+		_typeManager=nManager,
 		_node=vNode,
 		_lexBranchCase=vUpState,
 		_prefixHint=vPrefixHint,
@@ -76,7 +76,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 end
 
 function FunctionBuilder:_makeRetTuples(vNewStack:clazz.BaseStack, vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(False):Ret(clazz.RetTuples)
-	const nRetBuilder:clazz.RetBuilder = RetBuilder.new(self._manager, self._node)
+	const nRetBuilder:clazz.RetBuilder = RetBuilder.new(self._typeManager, self._node)
 	const ok, err = pcall(vSuffixHint.caller, {
 		extends=function(vHint, _)
 			error(self._node:toExc("extends can only be used with function:class"))
@@ -159,7 +159,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 					nNewStack:inplaceOper():error("hint return not match when cast")
 				end
 			end
-			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._manager:VoidRetTuples(self._node))
+			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._typeManager:VoidRetTuples(self._node))
 			return nParTuple, nRetTuples, function()
 				if self._pass then
 					if not nParTuple or not nRetTuples then
@@ -173,7 +173,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 						nNewStack:inplaceOper():error("auto parameter deduce failed")
 						error(self._node:toExc("auto parameter deduce failed"))
 					end
-					const nRetTuples = nRetTuples or self._manager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple(), nErrType)
+					const nRetTuples = nRetTuples or self._typeManager:SingleRetTuples(self._node, nRetTermTuple:checkTypeTuple(), nErrType)
 					if not nRetTuples then
 						-- TODO, this case never happen, thinking how return deduce failed?
 						nNewStack:inplaceOper():error("auto return deduce failed")
@@ -190,7 +190,7 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 		self._stack:getSealStack():scheduleSealType(ret)
 		return ret
 	else
-		return self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+		return self._typeManager:SealPolyFunction(self._node, function(vTupleBuilder)
 			return nFnMaker(vTupleBuilder)
 		end, nPolyParInfo, self._lexBranchCase, function(vPolyFn, vArgTermTuple)
 			const nMakerStack = vPolyFn:newStack(self._node, self._stack)
@@ -234,7 +234,7 @@ function FunctionBuilder:_buildOpen():Ret(clazz.OpenFunction)
 				return vHint
 			end,
 			mapguard=function(vHint, vDict)
-				const nMapObject = self._manager:buildInterface(self._node, vDict)
+				const nMapObject = self._typeManager:buildInterface(self._node, vDict)
 				assert(not nSetted, self._node:toExc("isguard can only use once here"))
 				nGuardFn:lateInitFromMapGuard(nMapObject)
 				return vHint
@@ -295,11 +295,11 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			-- local nErrType:OrNil(clazz.UMustType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
 				implements=function(vHint, vInterface)
-					nImplementsArg = vInterface and self._manager:easyToMustType(self._node, vInterface) or nil
+					nImplementsArg = vInterface and self._typeManager:easyToMustType(self._node, vInterface) or nil
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
-					nExtendsArg = vBaseClass and self._manager:easyToMustType(self._node, vBaseClass) or nil
+					nExtendsArg = vBaseClass and self._typeManager:easyToMustType(self._node, vBaseClass) or nil
 					return vHint
 				end,
 				Ret=function(vHint, ...)
@@ -312,7 +312,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 				end,
 				Err=function(vHint, vErrType)
 					-- class take Err TODO
-					-- nErrType = self._manager:easyToMustType(self._node, vErrType)
+					-- nErrType = self._typeManager:easyToMustType(self._node, vErrType)
 					return vHint
 				end,
 				isguard=function(vHint, vType)
@@ -336,14 +336,14 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 				if ClassTable.is(nType) then
 					nExtendsTable = nType
 				else
-					if nType == self._manager.type.False or nType == self._manager.type.Nil then
+					if nType == self._typeManager.type.False or nType == self._typeManager.type.Nil then
 						-- false or nil means no base class
 					else
 						error(self._node:toExc("base class type must be ClassTable"))
 					end
 				end
 			end
-			local nImplementsInterface = nExtendsTable and nExtendsTable:getInterface() or self._manager.type.AnyObject
+			local nImplementsInterface = nExtendsTable and nExtendsTable:getInterface() or self._typeManager.type.AnyObject
 			if nImplementsArg then
 				const nType = nImplementsArg:checkAtomUnion()
 				if nType:isUnion() then
@@ -352,7 +352,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 				if Interface.is(nType) then
 					nImplementsInterface = nType
 				else
-					if nType == self._manager.type.False or nType == self._manager.type.Nil then
+					if nType == self._typeManager.type.False or nType == self._typeManager.type.Nil then
 						-- false or nil means no interface
 					else
 						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or false value")
@@ -375,7 +375,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 			const nClassTable = nFactory:waitClassTable()
 			const nParTermTuple = nGenParam(false, nNewStack:unpackPolyArgs())
 			const nParTuple = nParTermTuple:checkTypeTuple()
-			const nRetTuples = self._manager:SingleRetTuples(self._node, self._manager:TypeTuple(self._node, {nClassTable}), nil)
+			const nRetTuples = self._typeManager:SingleRetTuples(self._node, self._typeManager:TypeTuple(self._node, {nClassTable}), nil)
 			return nParTuple, nRetTuples, function()
 				nGenFunc(nNewStack:unpackPolyArgs())
 				const nParTuple = nParTuple or nParTermTuple:checkTypeTuple(true)
@@ -397,10 +397,10 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		self._stack:getSealStack():scheduleSealType(nFactory)
 		return nFactory
 	else
-		const nPolyFn = self._manager:SealPolyFunction(self._node, function(vTupleBuilder)
+		const nPolyFn = self._typeManager:SealPolyFunction(self._node, function(vTupleBuilder)
 			return nFnMaker(vTupleBuilder)
 		end, nPolyParInfo, self._lexBranchCase)
-		const nTemplateCom = self._manager:buildTemplateWithParNum(self._node, function(vTupleBuilder)
+		const nTemplateCom = self._typeManager:buildTemplateWithParNum(self._node, function(vTupleBuilder)
 			const nFactory = nPolyFn:noCtxCastPoly(self._node, vTupleBuilder)
 			assert(ClassFactory.is(nFactory), self._node:toExc("class factory's poly must return factory type"))
 			return nFactory:waitClassTable()

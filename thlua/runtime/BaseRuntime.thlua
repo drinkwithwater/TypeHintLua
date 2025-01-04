@@ -14,6 +14,7 @@ const LetSpace = require "thlua.space.LetSpace"
 const Exception = require "thlua.Exception"
 const VariableCase = require "thlua.term.VariableCase"
 
+const ContextManager = require "thlua.runtime.ContextManager"
 const BaseStack = require "thlua.runtime.BaseStack"
 const OpenStack = require "thlua.runtime.OpenStack"
 const SealStack = require "thlua.runtime.SealStack"
@@ -28,7 +29,7 @@ const platform = require "thlua.platform"
 (@do
 
 	let.uv_async_t = import("luv").uv_async_t
-	clazz.IPlatform = Interface {
+	clazz.StageApi = Interface {
 		searchPath=Fn(OrFalse(String), String):Ret(Boolean, String),
 		parseFile=Fn(String):Ret(clazz.CodeEnv),
 		parseGlobal=Fn(String):Ret(clazz.CodeEnv, String),
@@ -58,7 +59,7 @@ const platform = require "thlua.platform"
 
 end)
 
-const DefaultPlatform:clazz.IPlatform = {
+const DefaultStage:clazz.StageApi = {
 	searchPath=function(vPrefix, vPath)
 		local fileName, err1 = package.searchpath(vPath, vPrefix or "./?.thlua;./?.d.thlua")
 		if not fileName then
@@ -108,16 +109,16 @@ const DefaultLogger:clazz.LevelLogger = {
 
 const BaseRuntime = class@<clazz.BaseRuntime, false>()
 
-function.open BaseRuntime:ctor(vPlatform:OrNil(clazz.IPlatform))
+function.open BaseRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	self._searchPath = false @ OrFalse(String)
-	self._platform=vPlatform or DefaultPlatform
-	self._logger=self._platform.logger or DefaultLogger
+	self._stage=vStage or DefaultStage
+	self._logger=self._stage.logger or DefaultLogger
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._scheduleManager=ScheduleManager.new(self)
 	-- late init fields
 	self._node=nil@!node.Root
-	self._manager=nil@!clazz.TypeManager
+	self._typeManager=nil@!clazz.TypeManager
 	self._globalTable=nil@!clazz.AutoTable
 	self._rootStack=nil@!clazz.SealStack
 	self._rootSpace=false@OrFalse(clazz.LetSpace)
@@ -172,12 +173,12 @@ const nGlobalPackage:List(String) = {
 function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean))
 	self._scheduleManager.useProfile = vUseProfile or false
 	self._node=Node.newRootNode(vRootFileUri)
-	self._manager=TypeManager.new(self, self._node, self._scheduleManager)
-	const nAutoFn = AutoFunction.new(self._manager, self._node, false)
+	self._typeManager=TypeManager.new(self, self._node, self._scheduleManager)
+	const nAutoFn = AutoFunction.new(self._typeManager, self._node, false)
 	nAutoFn:initAsync(function()
 		const nRootStack = nAutoFn:getBuildStack()
 		self._rootStack = nRootStack
-		self._manager:lateInit()
+		self._typeManager:lateInit()
 		self._globalTable = native.make(self)
 		nRootStack:rootSetLetSpace(self:getRootSpace())
 		for _, pkg in ipairs(nGlobalPackage) do
@@ -185,13 +186,13 @@ function BaseRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 			if pkg == "string" then
 				const nRetType = nLoadedState.term!:getType()
 				assert(not nRetType:isUnion(), "string lib's return can't be union")
-				self._manager:lateInitStringLib(nRetType)
+				self._typeManager:lateInitStringLib(nRetType)
 			end
 		end
 		return false, false, function()
 			const nLoadedState = self:_cacheLoadFile(self._node, vRootFileUri)
-			const nParTuple = self._manager:TypeTuple(self._node, {})
-			const nRetTuples = self._manager:VoidRetTuples(self._node)
+			const nParTuple = self._typeManager:TypeTuple(self._node, {})
+			const nRetTuples = self._typeManager:VoidRetTuples(self._node)
 			return nParTuple, nRetTuples
 		end
 	end)
@@ -221,7 +222,7 @@ function BaseRuntime:OpenStack(...):Ret(clazz.OpenStack)
 end
 
 function BaseRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
-	const nCodeEnv, nFileName = self._platform.parseGlobal(vPkg)
+	const nCodeEnv, nFileName = self._stage.parseGlobal(vPkg)
 	const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
 	const nContext = self._rootStack:newNoPushContext(self._node)
 	const nTermTuple = nContext:FixedTermTuple({})
@@ -239,7 +240,7 @@ end
 function BaseRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret(LoadedState)
 	local nLoadedState = self._loadedDict[vFileName]
 	if not nLoadedState then
-		const nCodeEnv = self._platform.parseFile(vFileName)
+		const nCodeEnv = self._stage.parseFile(vFileName)
 		const nOpenFn = nCodeEnv:callTypingFn(self._rootStack, self:makeGlobalTerm())
 		nLoadedState = {
 			openFn=nOpenFn,
@@ -258,7 +259,7 @@ end
 function BaseRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(LoadedState)
 	local nFileName = self._pathToFileName[vPath]
 	if not nFileName then
-		const nOkay, nSearchFileName = self._platform.searchPath(self._searchPath, vPath)
+		const nOkay, nSearchFileName = self._stage.searchPath(self._searchPath, vPath)
 		if not nOkay then
 			error(Exception.new(nSearchFileName, vNode))
 		else
@@ -286,10 +287,10 @@ end
 function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
 	do.pass
-		for k,v in pairs(self._manager.type) do
+		for k,v in pairs(self._typeManager.type) do
 			nGlobal[k] = v
 		end
-		for k,v in pairs(self._manager.generic) do
+		for k,v in pairs(self._typeManager.generic) do
 			nGlobal[k] = v
 		end
 		local l = {
@@ -312,7 +313,7 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			Pfn="buildPfn",
 			Mfn="buildMfn",
 		}
-		local nManager = self._manager
+		local nManager = self._typeManager
 		for k,v in pairs(l) do
 			nGlobal[k]=nManager:BuiltinFn(function(vNode, ...)
 				return nManager[v](nManager, vNode, ...)
@@ -347,18 +348,18 @@ function BaseRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 			self._searchPath = vPath
 		end, "setPath")
 		nGlobal.foreachPair=nManager:BuiltinFn(function(vNode, vObject, vFunc)
-			const nObject = self._manager:easyToMustType(vNode, vObject):checkAtomUnion()
+			const nObject = self._typeManager:easyToMustType(vNode, vObject):checkAtomUnion()
 			const d = nObject:copyValueDict(nObject)
 			for k,v in pairs(d) do
 				vFunc(k,v)
 			end
 		end, "foreachPair")
 		nGlobal.literal=nManager:BuiltinFn(function(vNode, vType)
-			vType = self._manager:easyToMustType(vNode, vType):checkAtomUnion()
+			vType = self._typeManager:easyToMustType(vNode, vType):checkAtomUnion()
 			if vType:isUnion() then
 				return nil
 			else
-				if self._manager:isLiteral(vType) then
+				if self._typeManager:isLiteral(vType) then
 					return vType:getLiteral()
 				else
 					return nil
@@ -383,7 +384,7 @@ end
 function BaseRuntime:getRootSpace():Ret(clazz.LetSpace)
 	local nRootSpace = self._rootSpace
 	if not nRootSpace then
-		const nRefer = self._manager:NameReference(self._node, "")
+		const nRefer = self._typeManager:NameReference(self._node, "")
 		nRootSpace = nRefer:initWithLetSpace(self._node, false)
 		self._rootSpace = nRootSpace
 		self:buildSimpleGlobal(nRootSpace)
@@ -392,13 +393,13 @@ function BaseRuntime:getRootSpace():Ret(clazz.LetSpace)
 end
 
 function BaseRuntime:LetSpace(vRegionNode:clazz.IBaseNode, vParentLet:clazz.LetSpace):Ret(clazz.LetSpace)
-	const nRefer = self._manager:NameReference(vParentLet, "")
+	const nRefer = self._typeManager:NameReference(vParentLet, "")
 	const nSpace = nRefer:initWithLetSpace(self._node, vParentLet)
 	return nSpace
 end
 
 function BaseRuntime:NameSpace(vNode:node.Debug, vParent:OrFalse(clazz.NameSpace)):Ret(clazz.NameSpace)
-	const nRefer = self._manager:NameReference(vParent or vNode, "")
+	const nRefer = self._typeManager:NameReference(vParent or vNode, "")
 	const nSpace = nRefer:initWithNameSpace(vNode, vParent)
 	return nSpace
 end
@@ -454,15 +455,15 @@ function BaseRuntime:makeException(vNode:clazz.IBaseNode, vMsg:String)
 end
 
 function BaseRuntime:getTypeManager():Ret(clazz.TypeManager)
-	return self._manager
+	return self._typeManager
 end
 
 function BaseRuntime:getScheduleManager():Ret(clazz.ScheduleManager)
 	return self._scheduleManager
 end
 
-function BaseRuntime:getPlatform():Ret(clazz.IPlatform)
-	return self._platform
+function BaseRuntime:getStage():Ret(clazz.StageApi)
+	return self._stage
 end
 
 function BaseRuntime:getRootStack():Ret(clazz.SealStack)

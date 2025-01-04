@@ -33,7 +33,7 @@ end
 
 function OpenTable:meta_len(vContext)
 	-- TODO
-	return self._manager.type.Integer
+	return self._typeManager.type.Integer
 end
 
 function OpenTable:initByBranchKeyValue(vNode:clazz.IBaseNode, vBranch:clazz.Branch, vKeyType:clazz.UAtomUnion, vValueDict:Dict(clazz.IAtomType, clazz.UAtomUnion))
@@ -44,7 +44,7 @@ function OpenTable:initByBranchKeyValue(vNode:clazz.IBaseNode, vBranch:clazz.Bra
 end
 
 function OpenTable:native_getmetatable(vContext)
-	return self._metaTable or self._manager.type.Nil
+	return self._metaTable or self._typeManager.type.Nil
 end
 
 function OpenTable:native_setmetatable(vContext, vMetaTableType)
@@ -55,11 +55,11 @@ function OpenTable:native_setmetatable(vContext, vMetaTableType)
 	self._metaTable = vMetaTableType
 	-- TODO, opentable don't allow meta event except index & newindex, check other fields
 	--assert(not self._metaEventCom, "meta event has been setted")
-	--const nMetaEventCom = self._manager:makeMetaEventCom(self)
+	--const nMetaEventCom = self._typeManager:makeMetaEventCom(self)
 	--nMetaEventCom:initByBaseTable(vContext, vMetaTableType)
 	--self._metaEventCom = nMetaEventCom
 	-- 2. copyout index/newindex event items
-	local nManager = self._manager
+	local nManager = self._typeManager
 	-- 3. meta index
 	const nIndexType = vMetaTableType:native_rawget(vContext, nManager:Literal("__index"))
 	if nIndexType:isUnion() then
@@ -187,7 +187,7 @@ function OpenTable:native_rawset(vContext, vKeyType, vValueTerm)
 				vContext:error("assign to locked open-table")
 				return
 			end
-			self._keyType = self._manager:checkedUnion(self._keyType, vKeyType)
+			self._keyType = self._typeManager:checkedUnion(self._keyType, vKeyType)
 			const nField = OpenField.new(
 				vContext:getNode(), self,
 				vKeyType, vValueTerm:getType(),
@@ -216,7 +216,7 @@ function OpenTable:native_rawget(vContext, vKeyType):Ret(clazz.UAtomUnion)
 		nField:lock(vContext)
 		return nField:getValueType()
 	else
-		const nNil = self._manager.type.Nil
+		const nNil = self._typeManager.type.Nil
 		if not self._locked then
 			const nField = OpenField.new(vContext:getNode(), self, vKeyType, nNil, vContext:getStack():topBranch())
 			nField:lock(vContext)
@@ -235,8 +235,8 @@ function OpenTable:native_next(vContext, vInitType)
 		for nKeyAtom, nField in pairs(self._fieldDict) do
 			nNextDict[nKeyAtom] = nField:getValueType()
 		end
-		local nNil = self._manager.type.Nil
-		local nTypeSet = self._manager:HashableTypeSet()
+		local nNil = self._typeManager.type.Nil
+		local nTypeSet = self._typeManager:HashableTypeSet()
 		for nOneKey, nOneField in pairs(self._fieldDict) do
 			const nValueType = nOneField:getValueType()
 			const nNotnilType = nValueType:notnilType()
@@ -247,7 +247,7 @@ function OpenTable:native_next(vContext, vInitType)
 			nOneField:lock(vContext)
 		end
 		nTypeSet:putAtom(nNil)
-		nValueType = self._manager:unifyAndBuild(nTypeSet)
+		nValueType = self._typeManager:unifyAndBuild(nTypeSet)
 		nNextDict[nNil] = nNil
 		self._nextValue = nValueType
 		self._nextDict = nNextDict

@@ -14,7 +14,7 @@ function.open MorePushContext:ctor(
 	...
 )
 	self._retMaxLength = 0@Integer
-	self._retRepTypeSet = self._manager:HashableTypeSet()
+	self._retRepTypeSet = self._typeManager:HashableTypeSet()
 	self._retList = {} @TypeCaseTupleList
 end
 
@@ -45,8 +45,8 @@ end
 function MorePushContext:pcallMergeReturn(vErrType:clazz.UAtomUnion):Ret(clazz.UOpenReturn)
 	self._retMaxLength = self._retMaxLength + 1
 	const nRetList = self._retList
-	const nTrue = self._manager.type.True
-	const nFalse = self._manager.type.False
+	const nTrue = self._typeManager.type.True
+	const nFalse = self._typeManager.type.False
 	for i=1, #nRetList do
 		const nTypeCaseTuple = nRetList[i]!
 		nTypeCaseTuple[1] = nTrue
@@ -54,11 +54,11 @@ function MorePushContext:pcallMergeReturn(vErrType:clazz.UAtomUnion):Ret(clazz.U
 		if nTuple then
 			nTypeCaseTuple[3] = nTuple:leftAppend(nTrue)
 		else
-			nTypeCaseTuple[3] = self._manager:TypeTuple(self._node, {nTrue})
+			nTypeCaseTuple[3] = self._typeManager:TypeTuple(self._node, {nTrue})
 		end
 	end
 	nRetList[#nRetList + 1] = {
-		nFalse, VariableCase.new(), self._manager:TypeTuple(self._node, {nFalse, vErrType})
+		nFalse, VariableCase.new(), self._typeManager:TypeTuple(self._node, {nFalse, vErrType})
 	}
 	if self._retMaxLength < 2 then
 		self._retMaxLength = 2
@@ -70,7 +70,7 @@ function MorePushContext:mergeReturn():Ret(clazz.UOpenReturn)
 	-- merge seal call return
 	const nRetList = self._retList
 	const nMaxLength = self._retMaxLength
-	const nRepeatType = self._manager:unifyAndBuild(self._retRepTypeSet)
+	const nRepeatType = self._typeManager:unifyAndBuild(self._retRepTypeSet)
 	const nRepeatType = (not nRepeatType:isNever()) and nRepeatType or false
 	if nMaxLength <= 0 then
 		return self:FixedTermTuple({}, nRepeatType)
@@ -78,13 +78,13 @@ function MorePushContext:mergeReturn():Ret(clazz.UOpenReturn)
 	const nTermList:List(clazz.RefineTerm) = {}
 	-- step 3. merge 2 ~ nMaxLength
 	for i=2,nMaxLength do
-		const nTypeSet = self._manager:HashableTypeSet()
+		const nTypeSet = self._typeManager:HashableTypeSet()
 		for _, nType1TupleCase in pairs(nRetList) do
 			const nTypeTuple = nType1TupleCase[3]
-			const nType = nTypeTuple and nTypeTuple:get(i) or self._manager.type.Nil
+			const nType = nTypeTuple and nTypeTuple:get(i) or self._typeManager.type.Nil
 			nTypeSet:putType(nType:checkAtomUnion())
 		end
-		const nTypeI = self._manager:unifyAndBuild(nTypeSet)
+		const nTypeI = self._typeManager:unifyAndBuild(nTypeSet)
 		nTermList[i] = self:RefineTerm(nTypeI)
 	end
 	-- step 4. merge 1
@@ -94,7 +94,7 @@ function MorePushContext:mergeReturn():Ret(clazz.UOpenReturn)
 		const nCase = nType1TupleCase[2]:copy()
 		const nTypeTuple = nType1TupleCase[3]
 		for i=2,nMaxLength do
-			const nType = nTypeTuple and nTypeTuple:get(i):checkAtomUnion() or self._manager.type.Nil
+			const nType = nTypeTuple and nTypeTuple:get(i):checkAtomUnion() or self._typeManager.type.Nil
 			nCase:put_and(nTermList[i]!:attachImmutVariable(), nType)
 		end
 		nTypeCaseList[#nTypeCaseList + 1] = {
