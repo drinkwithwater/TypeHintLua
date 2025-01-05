@@ -95,7 +95,23 @@ function SplitCode:lspToPos(vLspPos:node.LspPos):Ret(Integer)
 	end
 end
 
-function SplitCode:fixupPos(vPos:Integer, vNode:OrNil(node.IAstNode)):Ret(Integer, Integer)
+function SplitCode:searchLineNearest(vLineContent:String, vLineIndex:Integer):Ret(OrFalse(Integer))
+	const nMatchIndexList:List(Integer) = {}
+	const nLineList = self._lineList
+	for i=1, #nLineList do
+		if nLineList[i] == vLineContent then
+			nMatchIndexList[#nMatchIndexList + 1] = i
+		end
+	end
+	if #nMatchIndexList < 1 then
+		return false
+	elseif #nMatchIndexList == 1 then
+		return nMatchIndexList[1]!
+	else
+	end
+end
+
+function SplitCode:fixupPos(vPos:Integer):Ret(Integer, Integer)
 	local line, lineInfo = self:binSearch@<node.LinePos>(self._linePosList, vPos)
 	if not line or not lineInfo then
 		if vPos > #self._content then

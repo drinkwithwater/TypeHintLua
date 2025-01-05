@@ -17,7 +17,7 @@ function.open FileState:ctor(vServer:lsp.LangServer, vFileName:String)
 	self._rightEnv = false@OrFalse(clazz.CodeEnv)
 	self._fileName = vFileName
 	self._splitCode = SplitCode.new("")
-	self._errOrEnv = nil@!Union(clazz.Exception, clazz.CodeEnv)
+	self._errOrEnv = nil@!Union(String, clazz.Exception, clazz.CodeEnv)
 	self._version = (-1) @Integer
 	self._changeState = false @ Boolean
 	self._checkFlag = false @ Boolean
@@ -49,17 +49,7 @@ function FileState:getWellformedRange(vRange:lsp.Range):Ret(lsp.Range)
 	end
 end
 
-function FileState:syncChangeMayRerun(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
-	const nCanRerun = self:syncChangeNoRerun(vParams)
-	if nCanRerun then
-		self._changeState = false
-		return true
-	else
-		return false
-	end
-end
-
-function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
+function FileState:syncChange(vParams:lsp.DidChangeTextDocumentParams):Ret(Boolean)
 	const nChanges = vParams.contentChanges
 	local nSplitCode = self._splitCode
 	for _, nChange in ipairs(nChanges) do
@@ -75,10 +65,10 @@ function FileState:syncChangeNoRerun(vParams:lsp.DidChangeTextDocumentParams):Re
 	end
 	self._splitCode = nSplitCode
 	self._version = vParams.textDocument.version
-	return self:_checkRight()
+	return self:_parseEnv()
 end
 
-function FileState:_checkRight():Ret(Boolean)
+function FileState:_parseEnv():Ret(Boolean)
 	const nOkay, nCodeEnv = pcall(CodeEnv.new, self._splitCode:getContent(), self._fileName)
 	if nOkay then
 		self._rightEnv = nCodeEnv
@@ -87,6 +77,8 @@ function FileState:_checkRight():Ret(Boolean)
 	else
 		if type(nCodeEnv) == "table" then
 			self._errOrEnv = nCodeEnv
+		else
+			self._errOrEnv = tostring(nCodeEnv)
 		end
 		return false
 	end
@@ -105,11 +97,11 @@ function FileState:syncFile()
 	end
 end
 
-function FileState:syncContent(vContent:String, vVersion:Integer):Ret(Boolean)
+function FileState:syncContent(vContent:String, vVersion:Integer)
 	self._version = vVersion
 	self._splitCode = SplitCode.new(vContent)
 	self._changeState = false
-	return self:_checkRight()
+	self:_parseEnv()
 end
 
 function FileState:getRightEnv():Ret(OrFalse(clazz.CodeEnv))
@@ -126,12 +118,15 @@ function FileState:contentMismatch(vContent:String):Ret(Boolean)
 	end
 end
 
-function FileState:getLatestException():Ret(OrFalse(clazz.Exception))
+function FileState:getLatestException():Ret(OrFalse(String, clazz.Exception))
 	const nLatest = self._errOrEnv
 	if Exception.is(nLatest) then
 		return nLatest
+	elseif CodeEnv.is(nLatest) then
+		return false
+	else
+		return nLatest
 	end
-	return false
 end
 
 function FileState:getLatestEnv():Ret(OrFalse(clazz.CodeEnv))

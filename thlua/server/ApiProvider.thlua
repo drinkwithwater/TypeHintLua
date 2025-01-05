@@ -1,6 +1,7 @@
 
 const lpath = require "path"
 const json = require "thlua.server.json"
+const Node = require@<let.node> "thlua.code.Node"
 const Exception = require "thlua.Exception"
 const FileState = require "thlua.server.FileState"
 const ErrorCodes = require "thlua.server.protocol".ErrorCodes
@@ -14,7 +15,6 @@ const class = require@<let.clazz> "thlua.class"
 
 (@do
 	let.lsp=import("thlua.server.protocol").lsp
-	let.node=import("thlua.code.Node").node
 	lsp.Position = Struct {
 		line=Integer,
 		character=Integer,
@@ -304,10 +304,10 @@ function ApiProvider:rerun(vFileUri:String)
 			const nUri = self:publishException(exc @? Union(clazz.Exception, String))
 			self:publishNoAttach(nUri)
 		]]
-	end)
+	end):forget()
 end
 
-function ApiProvider:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.Diagnostic)), vFilePusher:OrNil(Fn(String, lsp.FileState, List(lsp.Diagnostic))))
+function ApiProvider:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.Diagnostic)))
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = vFileToDiaList[nFileName] or {}
 		const nVersion = nFileState:getVersion()
@@ -356,8 +356,25 @@ function ApiProvider:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz
 				}
 			end
 		end
-		if vFilePusher then
-			vFilePusher(nFileName, nFileState, nDiaList)
+		const nExc = nFileState:getLatestException()
+		if nExc then
+			const isException = Exception.is(nExc)
+			const nNode = isException and nExc.node or Node.bind({l=1,c=1})
+			const nMsg = isException and nExc.msg or tostring(nExc)
+			nDiaList[#nDiaList + 1] = {
+				range={
+					start={
+						line=nNode.l-1,
+						character=0,
+					},
+					["end"]={
+						line=nNode.l-1,
+						character=100,
+					}
+				},
+				severity=SeverityEnum.Error,
+				message=nMsg,
+			}
 		end
 		if #nDiaList > 0 then
 			nFileState:setCheckFlag(true)
@@ -383,8 +400,13 @@ end
 -----------------------
 
 function ApiProvider:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
-	if self:attachFileState(vParams.textDocument.uri):syncChangeNoRerun(vParams) then
-		self:rerun(vParams.textDocument.uri)
+	const nFileUri = vParams.textDocument.uri
+	if self:attachFileState(nFileUri):syncChange(vParams) then
+		self:rerun(nFileUri)
+	else
+		self:publishFileToDiaList({
+			[nFileUri]={}
+		})
 	end
 end
 
