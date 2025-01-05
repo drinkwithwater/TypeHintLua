@@ -307,6 +307,45 @@ function ApiProvider:rerun(vFileUri:String)
 	end):forget()
 end
 
+function ApiProvider:publishSyntaxError(vFileUri:String)
+	const nFileState = self._fileStateDict[vFileUri]
+	if not nFileState then
+		self._server:error("exception in unknown file:", vFileUri)
+	else
+		const nExc = nFileState:getLatestException()
+		const nDiaList:List(lsp.Diagnostic) = {}
+		if nExc then
+			const isException = Exception.is(nExc)
+			const nNode = isException and nExc.node or Node.bind({l=1,c=1})
+			const nMsg = isException and nExc.msg or tostring(nExc)
+			nDiaList[1] = {
+				range={
+					start={
+						line=nNode.l-1,
+						character=0,
+					},
+					["end"]={
+						line=nNode.l-1,
+						character=100,
+					}
+				},
+				severity=SeverityEnum.Error,
+				message=nMsg,
+			}
+		end
+		nFileState:setCheckFlag(true)
+		self._server:_write({
+			jsonrpc = "2.0",
+			method = "textDocument/publishDiagnostics",
+			params = {
+				uri=vFileUri,
+				version=nFileState:getVersion(),
+				diagnostics=json.array(nDiaList),
+			},
+		})
+	end
+end
+
 function ApiProvider:publishFileToDiaList(vFileToDiaList:Dict(String, List(clazz.Diagnostic)))
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		const nRawDiaList:List(clazz.Diagnostic) = vFileToDiaList[nFileName] or {}
@@ -401,12 +440,10 @@ end
 
 function ApiProvider:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
-	if self:attachFileState(nFileUri):syncChange(vParams) then
+	const ok = self:attachFileState(nFileUri):syncChange(vParams)
+	self:publishSyntaxError(nFileUri)
+	if ok then
 		self:rerun(nFileUri)
-	else
-		self:publishFileToDiaList({
-			[nFileUri]={}
-		})
 	end
 end
 
