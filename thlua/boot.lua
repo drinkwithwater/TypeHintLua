@@ -8,6 +8,22 @@ function boot.runCheck(vMainFileName, vUseProfile)
 	local t1 = os.clock()
 	--local nRuntime = CompletionRuntime.new()
 	nRuntime:promiseMain(vMainFileName, vUseProfile):next(function(_)
+		for _, diaList in pairs(nRuntime:getAllDiagnostic()) do
+			for i, diagnostic in ipairs(diaList) do
+				local severity = diagnostic.severity
+				local prefix = "[???]"
+				if severity == 1 then
+					prefix = "[ERROR]"
+				elseif severity == 2 then
+					prefix = "[WARN]"
+				elseif severity == 3 then
+					prefix = "[INFO]"
+				elseif severity == 4 then
+					prefix = "[HINT]"
+				end
+				print(prefix.."\t"..tostring(diagnostic.node), diagnostic.msg)
+			end
+		end
 		local t2 = os.clock()
 		print(t2-t1)
 		local count1 = 0

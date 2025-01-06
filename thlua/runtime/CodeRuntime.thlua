@@ -30,7 +30,6 @@ const platform = require "thlua.platform"
 		parseFile=Fn(String):Ret(clazz.CodeEnv),
 		parseGlobal=Fn(String):Ret(clazz.CodeEnv, String),
 		createAsync=Fn(Fn():Dots(Any)):Ret(uv_async_t),
-		logger=OrNil(clazz.LevelLogger),
 	}
 
 	clazz.LevelLogger = Interface {
@@ -109,7 +108,6 @@ function.open CodeRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	self._diaList={}@List(clazz.Diagnostic)
 	self._searchPath = false @ OrFalse(String)
 	self._stage=vStage or DefaultStage
-	self._logger=self._stage.logger or DefaultLogger
 	self._pathToFileName={}@Dict(String, String)
 	self._loadedDict={}@Dict(String, LoadedState)
 	self._scheduleManager=ScheduleManager.new(self)
@@ -388,13 +386,11 @@ function CodeRuntime:_save(vSeverity:Union(1,2,3,4), vNode:clazz.IBaseNode, ...:
 end
 
 function CodeRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNode, ...:Truth)
-	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 	const nPrefix = "(open)"
 	while OpenStack.is(vStack) do
 		const nStackNode = vStack:getNode()
 		if nStackNode ~= vNode and not vStack:isRequire() then
-			print("[ERROR] "..tostring(nStackNode), nPrefix, ...)
 			self:_save(1, nStackNode, nPrefix, ...)
 		end
 		vStack = vStack:getApplyStack()
@@ -402,17 +398,14 @@ function CodeRuntime:stackNodeError(vStack:clazz.BaseStack, vNode:clazz.IBaseNod
 end
 
 function CodeRuntime:nodeError(vNode:clazz.IBaseNode, ...:Truth)
-	print("[ERROR] "..tostring(vNode), ...)
 	self:_save(1, vNode, ...)
 end
 
 function CodeRuntime:nodeWarn(vNode:clazz.IBaseNode, ...:Truth)
-	print("[WARN] "..tostring(vNode), ...)
 	self:_save(2, vNode, ...)
 end
 
 function CodeRuntime:nodeInfo(vNode:clazz.IBaseNode, ...:Truth)
-	print("[INFO] "..tostring(vNode), ...)
 	self:_save(3, vNode, ...)
 end
 
