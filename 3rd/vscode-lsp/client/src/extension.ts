@@ -18,9 +18,7 @@ import {
 
 
 // fast client for complete
-let fastClient: LanguageClient;
-// slow client for diagnostic
-let slowClient: LanguageClient;
+let langClient: LanguageClient;
 
 export function activate(context: ExtensionContext) {
 	let luaBin = "lua.exe"
@@ -62,7 +60,7 @@ export function activate(context: ExtensionContext) {
 	const serverCommandArg1 = context.asAbsolutePath(
 		path.join('server', 'thlua.lua')
 	);
-	const serverCommandArg3 = context.asAbsolutePath(
+	const serverCommandArg2 = context.asAbsolutePath(
 		path.join('server', 'global')
 	);
 
@@ -79,38 +77,24 @@ export function activate(context: ExtensionContext) {
 	};
 
 	// Create the language client and start the client.
-	slowClient = new LanguageClient(
-		'TypeHintLua_slow',
-		'TypeHintLua_slow',
+	langClient = new LanguageClient(
+		'TypeHintLua',
+		'TypeHintLua',
 		{ // server option
 			command : luaCommand,
-			args: [serverCommandArg1, "slow", serverCommandArg3]
-		},
-		clientOptions
-	);
-
-	fastClient = new LanguageClient(
-		'TypeHintLua_fast',
-		'TypeHintLua_fast',
-		{ // server option
-			command : luaCommand,
-			args: [serverCommandArg1, "fast", serverCommandArg3]
+			args: [serverCommandArg1, serverCommandArg2]
 		},
 		clientOptions
 	);
 
 	// Start the client. This will also launch the server
-	fastClient.start();
-	slowClient.start();
+	langClient.start();
 }
 
 export function deactivate(): Thenable<void> | undefined {
 	const promises:Thenable<void>[] = [];
-	if (!slowClient) {
-		promises.push(slowClient.stop());
-	}
-	if (!fastClient) {
-		promises.push(fastClient.stop());
+	if (!langClient) {
+		promises.push(langClient.stop());
 	}
 	return Promise.all(promises).then(() => undefined);
 }
