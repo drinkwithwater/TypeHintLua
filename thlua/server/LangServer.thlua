@@ -29,9 +29,6 @@ function.open LangServer:ctor(vGlobalPath:OrNil(String))
 	self._provider = nApiProvider
 	self._methodHandler = {
 		initialize=function(vParam)
-			stdio.debugPrint=function(...)
-				self:info(...)
-			end
 			return self:onInitialize(vParam)
 		end,
 		shutdown=function()
@@ -283,14 +280,17 @@ end
 
 function LangServer:_write(vPacket:Truth)
 	local data:String = json.encode(vPacket)
+	data = ("Content-Length: %d\r\n\r\n%s"):format(#data, data)
+	stdio.writeout(data)
+	--[[
 	if platform.iswin() then
 		data = ("Content-Length: %d\n\n%s"):format(#data, data)
 	else
 		data = ("Content-Length: %d\r\n\r\n%s"):format(#data, data)
 	end
-	stdio.writeout(data)
-	--io.write(data)
-	--io.flush()
+	io.write(data)
+	io.flush()
+	]]
 end
 
 local MessageType = {}
