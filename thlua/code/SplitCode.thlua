@@ -95,11 +95,16 @@ function SplitCode:lspToPos(vLspPos:node.LspPos):Ret(Integer)
 	end
 end
 
-function SplitCode:searchLineNearest(vLineContent:String, vLineIndex:Integer):Ret(OrFalse(Integer))
+function SplitCode:matchLineForDiff(vDiffCode:clazz.SplitCode, vTargetLineIndex:Integer):Ret(OrFalse(Integer))
+	const nNewLineList = vDiffCode._lineList
+	const nLineContent = nNewLineList[vTargetLineIndex]
+	if not nLineContent then
+		return false
+	end
 	const nMatchIndexList:List(Integer) = {}
-	const nLineList = self._lineList
-	for i=1, #nLineList do
-		if nLineList[i] == vLineContent then
+	const nOldLineList = self._lineList
+	for i=1, #nOldLineList do
+		if nOldLineList[i] == nLineContent then
 			nMatchIndexList[#nMatchIndexList + 1] = i
 		end
 	end
@@ -108,6 +113,39 @@ function SplitCode:searchLineNearest(vLineContent:String, vLineIndex:Integer):Re
 	elseif #nMatchIndexList == 1 then
 		return nMatchIndexList[1]!
 	else
+		-- calculate edit distance
+		const nLastIndex = nMatchIndexList[#nMatchIndexList]!
+		const editDist:List(List(Integer)) = {}
+		for i=0, vTargetLineIndex-1 do
+			editDist[i] = {[0]=i}
+		end
+		for j=0, nLastIndex-1 do
+			editDist[0]![j] = j
+		end
+		for i=1, vTargetLineIndex-1 do
+			const editDistI = editDist[i]!
+			const editDistI_1 = editDist[i-1]!
+			for j=1, nLastIndex-1 do
+				const d_i_j_1 = editDistI[j-1]!
+				const d_i_1_j = editDistI_1[j]!
+				const d_i_1_j_1 = editDistI_1[j-1]!
+				if nNewLineList[i] == nOldLineList[j] then
+					editDistI[j] = math.min(math.min(d_i_j_1, d_i_1_j) + 1, d_i_1_j_1) @> Integer
+				else
+					editDistI[j] = (math.min(d_i_j_1, d_i_1_j) + 1) @> Integer
+				end
+			end
+		end
+		local nMinDist = nLastIndex + vTargetLineIndex
+		local nMinIndex = nMatchIndexList[1]!
+		for _, nMatchIndex in ipairs(nMatchIndexList) do
+			const editDist = editDist[vTargetLineIndex-1]![nMatchIndex-1]!
+			if editDist < nMinDist then
+				nMinIndex = nMatchIndex
+				nMinDist = editDist
+			end
+		end
+		return nMinIndex
 	end
 end
 

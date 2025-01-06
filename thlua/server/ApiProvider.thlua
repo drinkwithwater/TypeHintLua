@@ -482,15 +482,44 @@ end
 function ApiProvider:onDidClose(vParams:lsp.DidCloseTextDocumentParams)
 end
 
+------------------------------
+-- hover & reference handle --
+------------------------------
+
+function ApiProvider:_searchReadyExprNode(vFileUri:String, vLspPos:lsp.Position):Ret(OrFalse(node.Expr, node.Ident))
+	const nReadyRuntime = self._readyRuntime
+	if not nReadyRuntime then
+		return false
+	end
+	const nFileState = self:checkFileState(vFileUri)
+	const nReadyCodeEnv = nReadyRuntime:getCodeEnv(vFileUri)
+	if nReadyCodeEnv then
+		const nReadySplitCode = nReadyCodeEnv:getSplitCode()
+		const matchLine = nReadySplitCode:matchLineForDiff(nFileState:getSplitCode(), vLspPos.line + 1)
+		if matchLine then
+			const nPos = nReadySplitCode:lspToPos({
+				line=matchLine-1,
+				character=vLspPos.character,
+			})
+			return nReadyCodeEnv:searchIdent(nPos) or nReadyCodeEnv:searchExprBySuffix(nPos)
+		end
+	end
+	return false
+end
+
 function ApiProvider:onReferences(vParams:lsp.ReferenceParams):Ret(OrNil(List(lsp.Location)))
 	const nReadyRuntime = self._readyRuntime
 	if not nReadyRuntime then
+		self._server:info("find references fail, no ready code runtime")
 		return nil
 	end
 	const nFileUri = vParams.textDocument.uri
-	const nFileState = self:checkFileState(nFileUri)
-	const nNodeSet, nErrMsg = nReadyRuntime:getStackManager():gotoNodeByParams(
-		false, nFileUri, nFileState:getSplitCode(), vParams.position)
+	const nExprNode = self:_searchReadyExprNode(nFileUri, vParams.position)
+	if not nExprNode then
+		self._server:info("find references fail, node not found")
+		return nil
+	end
+	const nNodeSet, nErrMsg = nReadyRuntime:getStackManager():gotoNode(false, nExprNode)
 	if not nNodeSet then
 		self._server:info("find references fail:", nErrMsg)
 		return nil
@@ -515,13 +544,17 @@ function ApiProvider:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(l
 		return nil
 	end
 	const nFileUri = vParams.textDocument.uri
-	const nFileState = self:checkFileState(nFileUri)
-	const nNodeSet, nErrMsg = nReadyRuntime:getStackManager():gotoNodeByParams(
-		true, nFileUri, nFileState:getSplitCode(), vParams.position)
+	const nExprNode = self:_searchReadyExprNode(nFileUri, vParams.position)
+	if not nExprNode then
+		self._server:info("find references fail, node not found")
+		return nil
+	end
+	const nNodeSet, nErrMsg = nReadyRuntime:getStackManager():gotoNode(true, nExprNode)
 	if not nNodeSet then
 		self._server:info("goto definition fail:", nErrMsg)
 		return nil
 	else
+		-- TODO fix dirty
 		const nRetList:List(lsp.Location) = {}
 		for nLookupNode, _ in pairs(nNodeSet) do
 			nRetList[#nRetList + 1] = {
