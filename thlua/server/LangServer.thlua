@@ -28,72 +28,78 @@ function.open LangServer:ctor(vGlobalPath:OrNil(String))
 	const nApiProvider = ApiProvider.new(self)
 	self._provider = nApiProvider
 	self._methodHandler = {
-		initialize=function(vParam)
-			return self:onInitialize(vParam)
-		end,
-		shutdown=function()
-			self:onShutdown()
-		end,
-		exit=function()
-			self:onExit()
-		end,
-		["textDocument/didOpen"]=function(vParam)
-			nApiProvider:onDidOpen(vParam)
-		end,
-		["textDocument/didChange"]=function(vParam)
-			nApiProvider:onDidChange(vParam)
-		end,
-		["textDocument/didSave"]=function(vParam)
-			nApiProvider:onDidSave(vParam)
-		end,
-		["textDocument/didClose"]=function(vParam)
-			nApiProvider:onDidClose(vParam)
-		end,
-		["textDocument/completion"]=function(vParam)
-			const ok, ret = pcall(function()
+		initialize={
+			fallback=false,
+			call=function(vParam)
+				return self:onInitialize(vParam)
+			end,
+		},
+		shutdown={
+			fallback=false,
+			call=function()
+				self:onShutdown()
+			end,
+		},
+		exit={
+			fallback=false,
+			call=function()
+				self:onExit()
+			end,
+		},
+		["textDocument/didOpen"]={
+			fallback=false,
+			call=function(vParam)
+				nApiProvider:onDidOpen(vParam)
+			end,
+		},
+		["textDocument/didChange"]={
+			fallback=false,
+			call=function(vParam)
+				nApiProvider:onDidChange(vParam)
+			end,
+		},
+		["textDocument/didSave"]={
+			fallback=false,
+			call=function(vParam)
+				nApiProvider:onDidSave(vParam)
+			end,
+		},
+		["textDocument/didClose"]={
+			fallback=false,
+			call=function(vParam)
+				nApiProvider:onDidClose(vParam)
+			end,
+		},
+		["textDocument/completion"]={
+			fallback=json.array({}),
+			call=function(vParam)
 				return nApiProvider:onCompletion(vParam)
-			end)
-			if not ok then
-				self:error("onCompletion error", tostring(ret))
-			end
-			return ok and ret or json.array({})
-		end,
-		["textDocument/definition"]=function(vParam)
-			const ok, ret = pcall(function()
+			end,
+		},
+		["textDocument/definition"]={
+			fallback=json.array({}),
+			call=function(vParam)
 				return nApiProvider:onDefinition(vParam)
-			end)
-			if not ok then
-				self:error("onDefinition error", tostring(ret))
-			end
-			return ok and ret or json.array({})
-		end,
-		["textDocument/typeDefinition"]=function(vParam)
-			const ok, ret = pcall(function()
+			end,
+		},
+		["textDocument/typeDefinition"]={
+			fallback=json.array({}),
+			call=function(vParam)
 				return nApiProvider:onTypeDefinition(vParam)
-			end)
-			if not ok then
-				self:error("onTypeDefinition error", tostring(ret))
-			end
-			return ok and ret or json.array({})
-		end,
-		["textDocument/references"]=function(vParam)
-			const ok, ret = pcall(function()
+			end,
+		},
+		["textDocument/references"]={
+			fallback=json.array({}),
+			call=function(vParam)
 				return nApiProvider:onReferences(vParam)
-			end)
-			if not ok then
-				self:error("onReferences error", tostring(ret))
-			end
-			return ok and ret or json.array({})
-		end,
-		["textDocument/hover"]=function(vParam)
-			const ok, ret = pcall(function()
+			end,
+		},
+		["textDocument/hover"]={
+			fallback=json.array({}),
+			call=function(vParam)
 				return nApiProvider:onHover(vParam)
-			end)
-			if not ok then
-				self:error("onHover error", tostring(ret))
-			end
-			return ok and ret or json.array({})
-		end,
+			end,
+		}
 	}
 end
 
@@ -171,17 +177,20 @@ function.pass LangServer:_handleRequest(request:lsp.RequestMessage)
 		end
 		return
 	end
-	const ok, result = pcall(handler, request.params)
+	const ok, result = xpcall(handler.call, function(err)
+		return tostring(err) --  .." "..tostring(debug.traceback())
+	end, request.params)
+	const response = ok and result or handler.fallback
 	if not ok then
-		self:error("request handle error"..tostring(result))
-	elseif result then
+		self:error("request handle method="..methodName..",error="..tostring(result))
+	end
+	if response then
 		if nId then
-			self:writeResult(nId, result)
+			self:writeResult(nId, response)
 			-- self:info("write response:$"..tostring(nId))
 		else
 			self:warn(reqToStr(request), "request without id ")
 		end
-		return
 	else
 		if nId then
 			self:warn(reqToStr(request), "request with id but no response")

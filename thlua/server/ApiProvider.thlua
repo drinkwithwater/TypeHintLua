@@ -524,6 +524,7 @@ function ApiProvider:onReferences(vParams:lsp.ReferenceParams):Ret(OrNil(List(ls
 		self._server:info("find references fail:", nErrMsg)
 		return nil
 	else
+		-- TODO fix dirty
 		const nRetList:List(lsp.Location) = {}
 		for nLookupNode, _ in pairs(nNodeSet) do
 			nRetList[#nRetList + 1] = {
@@ -569,6 +570,33 @@ function ApiProvider:onDefinition(vParams:lsp.DefinitionParams):Ret(OrNil(List(l
 	end
 end
 
+function ApiProvider:onHover(vParams:lsp.HoverParams):Ret(OrNil(lsp.Hover))
+	const nReadyRuntime = self._readyRuntime
+	if not nReadyRuntime then
+		return nil
+	end
+	const nFileUri = vParams.textDocument.uri
+	const nExprNode = self:_searchReadyExprNode(nFileUri, vParams.position)
+	if not nExprNode then
+		self._server:info("hover fail, node not found")
+		return nil
+	end
+	const nSuccMsg, nErrMsg = nReadyRuntime:getStackManager():hoverNode(nExprNode)
+	if not nSuccMsg then
+		self._server:info("hover fail:", nErrMsg)
+		return nil
+	else
+		self._server:info("hover success:", nSuccMsg)
+		return {
+			contents={
+				kind="plaintext",
+				value=tostring(nExprNode),
+			},
+			range=nil,
+		}
+	end
+end
+
 function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(lsp.CompletionItem)))
 	const nReadyRuntime = self._readyRuntime
 	if not nReadyRuntime then
@@ -609,28 +637,6 @@ function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(l
 		}
 	end)
 	return json.array(nRetList)
-end
-
-function ApiProvider:onHover(vParams:lsp.HoverParams):Ret(OrNil(lsp.Hover))
-	const nReadyRuntime = self._readyRuntime
-	if not nReadyRuntime then
-		return nil
-	end
-	const nFileUri = vParams.textDocument.uri
-	const nFileState = self:checkFileState(nFileUri)
-	const nSuccMsg, nErrMsg = nReadyRuntime:getStackManager():hoverNode(nFileUri, nFileState:getSplitCode(), vParams.position)
-	if not nSuccMsg then
-		self._server:info("hover fail:", nErrMsg)
-		return nil
-	else
-		return {
-			contents={
-				kind="plaintext",
-				value=nSuccMsg,
-			},
-			range=nil,
-		}
-	end
 end
 
 function ApiProvider:onTypeDefinition(vParams:lsp.TypeDefinitionParams)

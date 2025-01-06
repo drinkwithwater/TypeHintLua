@@ -102,26 +102,16 @@ function StackManager:injectCompletion(vTracePos:Integer, vBlockNode:node.Block,
 	return nFieldCompletion
 end
 
-function StackManager:hoverNode(vFileUri:String, vDirtySplitCode:clazz.SplitCode, vLspPos:node.LspPos):Ret(False, String):Ret(String)
-	const nSuccEnv = self._runtime:getCodeEnv(vFileUri)
-	if not nSuccEnv then
-		return false, "hover failed, success compiled code not found"
-	end
-	const nSuccSplitCode = nSuccEnv:getSplitCode()
-	const nPos = nSuccSplitCode:lspToPos(vLspPos)
-	if nSuccSplitCode:getLine(vLspPos.line + 1) ~= vDirtySplitCode:getLine(vLspPos.line + 1) or nPos ~= vDirtySplitCode:lspToPos(vLspPos) then
-		return false, "goto failed, code is dirty before pos"
-	end
-	const nHoverNode = nSuccEnv:searchIdent(nPos) or nSuccEnv:searchExprBySuffix(nPos)
-	if not nHoverNode then
-		return false, "not hover on an ident or expr node"
-	end
-	-- self:focusSchedule(nHoverNode:getFocusList())
-	const nBlockNode = nHoverNode:getBlockOutHint()
+function StackManager:hoverNode(vNode:Union(node.Expr, node.Ident)):Ret(False, String):Ret(String)
+	const nBlockNode = vNode:getBlockOutHint()
 	if not nBlockNode then
-		return false, "fatal error : expr not in a block"
+		return false, "expr not in a block"
 	end
-	const nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nSuccSplitCode, vFileUri, nHoverNode)
+	const nCodeEnv = self._runtime:getCodeEnv(vNode.path)
+	if not nCodeEnv then
+		return false, "code env not found"
+	end
+	const nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nCodeEnv:getSplitCode(), vNode.path, vNode)
 	if not nInjectFn then
 		return false, "gen inject fn fail"
 	end
