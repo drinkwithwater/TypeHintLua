@@ -8,72 +8,112 @@ const stdout = uv.new_pipe(false)
 uv.pipe_open(stdout, 1)
 const stderr = uv.new_pipe(false)
 uv.pipe_open(stderr, 2)
+--const a = assert(io.open("/mnt/d/debug.txt", "w"))
+
+const stdio = {}
+
+(@do
+    let.ReadState = Interface {
+        promise=LuaPromise(String),
+        info=Union(Integer, True), -- int means readlen, true means readline
+    }
+end)
 
 local buffer = ""
-
-const function readline():Ret(LuaPromise(String))
-    const nPromise = LuaPromise.new@<String>()
-    const index = buffer:find("\n")
-    if index then
-        const line = buffer:sub(1, index-1)
-        buffer = buffer:sub(index+1)
-        nPromise:resolve(line)
-        return nPromise
-    else
-        const bufList:List(String) = {buffer}
-        stdin:read_start(function(interrupt, retOrErr)
-            assert(not interrupt, retOrErr)
-            if retOrErr then
-                bufList[#bufList + 1] = retOrErr
-                if retOrErr:find("\n") then
-                    stdin:read_stop()
-                    buffer = table.concat(bufList)
-                    const index = assert(buffer:find("\n"), "impossible... find \\n but no \\n")
-                    const line = buffer:sub(1, index-1)
-                    buffer = buffer:sub(index+1)
-                    nPromise:resolve(line)
-                end
+local readState = nil @ OrNil(ReadState)
+local readCallback = function()
+    if readState then
+        const nPromise = readState.promise
+        const nInfo = readState.info
+        if nInfo == true then
+            const index = buffer:find("\n")
+            if index then
+                readState = nil
+                const line = buffer:sub(1, index-1)
+                buffer = buffer:sub(index+1)
+                nPromise:resolve(line)
             end
-        end)
-        return nPromise
+        else
+            if #buffer >= nInfo then
+                readState = nil
+                const data = buffer:sub(1, nInfo)
+                buffer = buffer:sub(nInfo + 1)
+                nPromise:resolve(data)
+            end
+        end
     end
 end
 
-const function readlen(vLen:Integer):Ret(LuaPromise(String))
-    const nPromise = LuaPromise.new@<String>()
-    local nCurLen = #buffer
-    if nCurLen >= vLen then
-        const data = buffer:sub(1, vLen)
-        buffer = buffer:sub(vLen+1)
-        nPromise:resolve(data)
-        return nPromise
-    else
-        const bufList:List(String) = {buffer}
-        stdin:read_start(function(interrupt, retOrErr)
-            assert(not interrupt, retOrErr)
-            if retOrErr then
-                bufList[#bufList + 1] = retOrErr
-                nCurLen = nCurLen + #retOrErr
-                if nCurLen >= vLen then
-                    stdin:read_stop()
-                    buffer = table.concat(bufList)
-                    const data = buffer:sub(1, vLen)
-                    buffer = buffer:sub(vLen+1)
-                    nPromise:resolve(data)
-                end
-            end
-        end)
-        return nPromise
+local readStarted = false @ Boolean
+const function readStart()
+    if readStarted then
+        return
     end
+    readStarted = true
+    stdin:read_start(function(interrupt, dataOrErr)
+        --[[
+        --a:write(tostring(interrupt).."\t"..tostring(dataOrErr).."\n")
+        --a:flush()
+        if stdio.debugPrint then
+            stdio.debugPrint!('on read', interrupt, dataOrErr)
+        end
+        ]]
+        if interrupt then
+            if readState then
+                const nPromise = readState.promise
+                readState = nil
+                nPromise:reject("stdin stop by err:"..tostring(dataOrErr))
+            end
+            error("read stop")
+            --stdin:read_stop()
+            return
+        end
+        if not dataOrErr then
+            if readState then
+                const nPromise = readState.promise
+                readState = nil
+                nPromise:reject("stdin stop by empty")
+            end
+            error("read stop")
+            return
+        end
+        buffer = buffer .. dataOrErr
+        readCallback()
+    end)
 end
 
-return {
-  readline = readline,
-  readlen = readlen,
-  writeerr = function(data:String)
+function stdio.readline():Ret(LuaPromise(String))
+    readStart()
+    assert(not readState, "is readline...")
+    const nPromise = LuaPromise.new@<String>()
+    readState = {
+        promise=nPromise,
+        info=true,
+    }
+    readCallback()
+    return nPromise
+end
+
+function stdio.readlen(vLen:Integer):Ret(LuaPromise(String))
+    readStart()
+    assert(not readState, "is readlen...")
+    const nPromise = LuaPromise.new@<String>()
+    readState = {
+        promise=nPromise,
+        info=vLen,
+    }
+    readCallback()
+    return nPromise
+end
+
+function stdio.writeerr(data:String)
     stderr:write(data)
-  end,
-  writeout = function(data:String)
+end
+
+function stdio.writeout(data:String)
     stdout:write(data)
-  end
-}
+end
+
+stdio.debugPrint = nil @ OrNil(Fn():Dots(Any))
+
+return stdio

@@ -29,6 +29,9 @@ function.open LangServer:ctor(vGlobalPath:OrNil(String))
 	self._provider = nApiProvider
 	self._methodHandler = {
 		initialize=function(vParam)
+			stdio.debugPrint=function(...)
+				self:info(...)
+			end
 			return self:onInitialize(vParam)
 		end,
 		shutdown=function()
@@ -185,7 +188,7 @@ function.pass LangServer:_handleRequest(request:lsp.RequestMessage)
 		return
 	else
 		if nId then
-			self:warn(reqToStr(request), "request with id but no resposne")
+			self:warn(reqToStr(request), "request with id but no response")
 		end
 	end
 end
@@ -246,9 +249,7 @@ function LangServer:_readRequest():Ret(LuaPromise(lsp.RequestMessage))
 		end, function(err)
 			nBodyPromise:reject(err)
 		end)
-	end, function(err)
-		nBodyPromise:reject(err)
-	end)
+	end):forget()
 	return nBodyPromise
 end
 
@@ -287,9 +288,9 @@ function LangServer:_write(vPacket:Truth)
 	else
 		data = ("Content-Length: %d\r\n\r\n%s"):format(#data, data)
 	end
-	-- stdio.writeout(data)
-	io.write(data)
-	io.flush()
+	stdio.writeout(data)
+	--io.write(data)
+	--io.flush()
 end
 
 local MessageType = {}
@@ -392,6 +393,7 @@ end
 
 function LangServer:onShutdown()
 	self.shutdown=true
+	os.exit()
 end
 
 function LangServer:onExit()
@@ -400,6 +402,13 @@ function LangServer:onExit()
 	else
 		os.exit()
 	end
+end
+
+function LangServer:debugTest()
+	--const a = assert(io.open("d:/debug.txt", "w"))
+	const a = assert(io.open("/mnt/d/debug.txt", "w"))
+	a:write("yesyesyes")
+	a:close()
 end
 
 return LangServer
