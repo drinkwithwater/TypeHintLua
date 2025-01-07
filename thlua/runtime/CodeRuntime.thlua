@@ -172,8 +172,7 @@ function CodeRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 	self._stackManager=StackManager.new(self)
 	self._spaceManager=SpaceManager.new(self)
 	const nRootSpace = self._spaceManager:initRootSpace()
-	const nAutoFn = self._stackManager:initRootAutoFn()
-	nAutoFn:initAsync(function()
+	self._stackManager:initRootFn(function()
 		self._typeManager:lateInit()
 		self._globalTable = native.make(self)
 		self:buildSimpleGlobal(nRootSpace)
@@ -186,15 +185,10 @@ function CodeRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 				self._typeManager:lateInitStringLib(nRetType)
 			end
 		end
-		return false, false, function()
-			const nLoadedState = self:_cacheLoadFile(self._rootNode, vRootFileUri)
-			const nParTuple = self._typeManager:TypeTuple(self._rootNode, {})
-			const nRetTuples = self._typeManager:VoidRetTuples(self._rootNode)
-			return nParTuple, nRetTuples
+		return function()
+			self:_cacheLoadFile(self._rootNode, vRootFileUri)
 		end
 	end)
-	nAutoFn:startPreBuild()
-	nAutoFn:startLateBuild()
 	return self._scheduleManager:promiseSchedule()
 end
 

@@ -26,9 +26,26 @@ function.open StackManager:ctor(vRuntime:clazz.CodeRuntime)
 	self._rootStack = nil @!clazz.SealStack
 end
 
-function StackManager:initRootAutoFn()
-	const nAutoFn = AutoFunction.new(self._runtime:getTypeManager(), self._runtime:getRootNode(), false)
+function StackManager:initRootFn(vHeadFn:Fn():Ret(Fn()))
+	const nAutoFn = self:_createScheduleFn(vHeadFn)
 	self._rootStack = nAutoFn:getBuildStack()
+end
+
+function StackManager:_createScheduleFn(vHeadFn:Fn():Ret(Fn())):Ret(clazz.AutoFunction)
+	const nTypeManager = self._runtime:getTypeManager()
+	const nRootNode = self._runtime:getRootNode()
+	const nAutoFn = AutoFunction.new(nTypeManager, nRootNode, false)
+	nAutoFn:initAsync(function()
+		const nBodyFn = vHeadFn()
+		return false, false, function()
+			nBodyFn()
+			const nParTuple = nTypeManager:TypeTuple(nRootNode, {})
+			const nRetTuples = nTypeManager:VoidRetTuples(nRootNode)
+			return nParTuple, nRetTuples
+		end
+	end)
+	nAutoFn:startPreBuild()
+	nAutoFn:startLateBuild()
 	return nAutoFn
 end
 
@@ -46,44 +63,47 @@ function StackManager:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, v
 		return
 	end
 	-- 3. run inject fn in each branches
-	for _, nBranch in pairs(nBranchList) do
-		const nStack = nBranch:getStack()
-		const nResult = vFn(nStack, function(vIdent)
-			-- 1. lookup local symbol
-			const nName = vIdent[1]
-			local nDefineIdent = vBlockNode.symbolTable[nName]
-			while nDefineIdent and nDefineIdent.pos > vTracePos do
-				nDefineIdent = nDefineIdent.lookupIdent
-			end
-			if nDefineIdent then
-				const nAutoTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
-				if RefineTerm.is(nAutoTerm) then
-					return nAutoTerm
+	self:_createScheduleFn(function()
+		for _, nBranch in pairs(nBranchList) do
+			const nStack = nBranch:getStack()
+			const nResult = vFn(nStack, function(vIdent)
+				-- 1. lookup local symbol
+				const nName = vIdent[1]
+				local nDefineIdent = vBlockNode.symbolTable[nName]
+				while nDefineIdent and nDefineIdent.pos > vTracePos do
+					nDefineIdent = nDefineIdent.lookupIdent
+				end
+				if nDefineIdent then
+					const nAutoTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
+					if RefineTerm.is(nAutoTerm) then
+						return nAutoTerm
+					else
+						return nStack:NIL_TERM(vIdent)
+					end
+				end
+				-- 2. lookup global symbol
+				const nName = "_ENV"
+				local nDefineIdent = vBlockNode.symbolTable[nName]
+				while nDefineIdent and nDefineIdent.pos > vTracePos do
+					nDefineIdent = nDefineIdent.lookupIdent
+				end
+				if nDefineIdent then
+					const nEnvTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
+					assert(RefineTerm.is(nEnvTerm), "auto can't be used here")
+					const nAutoTerm = nStack:META_GET(vIdent, nEnvTerm, nStack:LITERAL_TERM(vIdent, vIdent[1]), false)
+					if RefineTerm.is(nAutoTerm) then
+						return nAutoTerm
+					else
+						return nStack:NIL_TERM(vIdent)
+					end
 				else
 					return nStack:NIL_TERM(vIdent)
 				end
-			end
-			-- 2. lookup global symbol
-			const nName = "_ENV"
-			local nDefineIdent = vBlockNode.symbolTable[nName]
-			while nDefineIdent and nDefineIdent.pos > vTracePos do
-				nDefineIdent = nDefineIdent.lookupIdent
-			end
-			if nDefineIdent then
-				const nEnvTerm = nBranch:SYMBOL_GET(vIdent, nDefineIdent, false)
-				assert(RefineTerm.is(nEnvTerm), "auto can't be used here")
-				const nAutoTerm = nStack:META_GET(vIdent, nEnvTerm, nStack:LITERAL_TERM(vIdent, vIdent[1]), false)
-				if RefineTerm.is(nAutoTerm) then
-					return nAutoTerm
-				else
-					return nStack:NIL_TERM(vIdent)
-				end
-			else
-				return nStack:NIL_TERM(vIdent)
-			end
-		end)
-		vCallback(nResult)
-	end
+			end)
+			vCallback(nResult)
+		end
+	end)
+	self._runtime:getScheduleManager():lateSchedule()
 end
 
 function StackManager:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(clazz.FieldCompletion)
@@ -113,7 +133,7 @@ function StackManager:hoverNode(vNode:Union(node.Expr, node.Ident)):Ret(False, S
 	end
 	const nInjectFn, nInjectTrace = CodeEnv.genInjectByExpr(nCodeEnv:getSplitCode(), vNode.path, vNode)
 	if not nInjectFn then
-		return false, "gen inject fn fail"
+		return false, "gen inject fn fail:"..tostring(nInjectTrace)
 	end
 	const nStrList:List(String) = {}
 	self:_injectForeach(nInjectTrace.pos, nBlockNode, nInjectFn, function(vResult)

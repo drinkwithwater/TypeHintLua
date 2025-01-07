@@ -76,7 +76,11 @@ function CodeEnv:_prepare()
 	const nVisitor = VisitorExtend(function(visitor:node.IVisitor, vNode:node.IAstNode)
 		-- 1. prepare
 		self:_prepareAstNode(vNode, nStack[#nStack] or false)
-		-- 2. recurive visit
+		-- 2. rm hintParPoly for func hint space
+		if vNode.tag == "Function" and vNode:inHintSpace() then
+			(vNode @> node.Function).hintPolyParList = false
+		end
+		-- 3. recurive visit
 		nStack[#nStack + 1] = vNode
 		visitor:rawVisit(vNode)
 		nStack[#nStack] = nil
@@ -188,14 +192,15 @@ function CodeEnv:getUnusedIdentList()
 	return nUnusedList
 end
 
-function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String, vWrongContent:String):Ret(False):Ret(InjectFn, node.InjectTrace)
+function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String, vWrongContent:String):Ret(False, String):Ret(InjectFn, node.InjectTrace)
 	const nRightAst, nErrNode = ParseEnv.parse(vWrongContent)
 	if nRightAst then
-		return false
+		return false, "fake wrong content failed"
 	end
 	const nInjectTrace = nErrNode[2]
 	if not nInjectTrace then
-		return false
+		const content = vWrongContent:gsub("\n", " ")
+		return false, tostring(content)
 	end
 	const nChunk = nInjectTrace.capture
 	const nOkay, nInjectFn = pcall(function():Ret(InjectFn)
@@ -208,12 +213,12 @@ function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String,
 	if nOkay then
 		return nInjectFn, nInjectTrace
 	else
-		return false
+		return false, tostring(nInjectFn)
 	end
 end
 
 
-function CodeEnv.genInjectByExpr(vSplitCode:clazz.SplitCode, vFileUri:String, vExprNode:Union(node.Expr, node.Ident_def)):Ret(False):Ret(InjectFn, node.InjectTrace)
+function CodeEnv.genInjectByExpr(vSplitCode:clazz.SplitCode, vFileUri:String, vExprNode:Union(node.Expr, node.Ident_def)):Ret(False, String):Ret(InjectFn, node.InjectTrace)
 	const nExprContent = vSplitCode:getContent():sub(vExprNode.pos, vExprNode.posEnd - 1)
 	-- TODO, deal with ident in hint space...
 	const nFakeContent = vExprNode:inHintSpace()
