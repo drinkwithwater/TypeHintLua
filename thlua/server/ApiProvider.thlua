@@ -627,14 +627,9 @@ function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(l
 	-- TODO, using nInjectNode.pos maybe not right such as local a = a.fds ...
 	const nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
 	const nBlockNode = nReadyEnv:traceBlock(nTraceList)
-	self._server:info("completion block:", tostring(nBlockNode))
 	-- nReadyRuntime:focusSchedule(nBlockNode:getFocusList())
 	-- 4. run inject
 	const nFieldCompletion = nReadyRuntime:getStackManager():injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
-	if not nFieldCompletion then
-		self:info("completion fail for no branch", nBlockNode, nBlockNode.tag)
-		return nil
-	end
 	const nRetList:List(lsp.CompletionItem) = {}
 	nFieldCompletion:foreach(function(vKey, vKind)
 		nRetList[#nRetList + 1] = {

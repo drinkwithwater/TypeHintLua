@@ -179,19 +179,19 @@ function BaseStack:newOpenFunction(vNode:clazz.IBaseNode, vUpState:OrNil(False, 
 end
 
 function BaseStack:withOnePushContext(vNode:clazz.IBaseNode, vFunc:Fn(clazz.OnePushContext), vNotnil:OrNil(Boolean)):Ret(clazz.OnePushContext)
-	const nCtx = OnePushContext.new(vNode, self, self._typeManager, vNotnil or false)
+	const nCtx = self:newOnePushContext(vNode, vNotnil or false)
 	vFunc(nCtx)
 	return nCtx
 end
 
 function BaseStack:withMorePushContext(vNode:clazz.IBaseNode, vFunc:Fn(clazz.MorePushContext)):Ret(clazz.MorePushContext)
-	const nCtx = MorePushContext.new(vNode, self, self._typeManager)
+	const nCtx = self:newMorePushContext(vNode)
 	vFunc(nCtx)
 	return nCtx
 end
 
 function BaseStack:withMorePushContextWithCase(vNode:clazz.IBaseNode, vTermOrTuple:Union(clazz.FixedTermTuple, clazz.RefineTerm), vFunc:Fn(clazz.MorePushContext, clazz.IAtomType, clazz.VariableCase)):Ret(clazz.MorePushContext)
-	const nCtx = MorePushContext.new(vNode, self, self._typeManager)
+	const nCtx = self:newMorePushContext(vNode)
 	const nTerm = TermTuple.isFixed(vTermOrTuple) and vTermOrTuple:checkFixed(nCtx, 1) or vTermOrTuple
 	nTerm:foreach(function(vType, vCase)
 		nCtx:withCase(vCase, function()
@@ -201,8 +201,22 @@ function BaseStack:withMorePushContextWithCase(vNode:clazz.IBaseNode, vTermOrTup
 	return nCtx
 end
 
+function BaseStack:newMorePushContext(vNode:clazz.IBaseNode)
+	const ctx = MorePushContext.new(vNode, self, self._typeManager)
+	self._stackManager:recordApplyContext(vNode, ctx)
+	return ctx
+end
+
+function BaseStack:newOnePushContext(vNode:clazz.IBaseNode, vNotNil:Boolean)
+	const ctx = OnePushContext.new(vNode, self, self._typeManager, vNotNil)
+	self._stackManager:recordApplyContext(vNode, ctx)
+	return ctx
+end
+
 function BaseStack:newNoPushContext(vNode:clazz.IBaseNode)
-	return NoPushContext.new(vNode, self, self._typeManager)
+	const ctx = NoPushContext.new(vNode, self, self._typeManager)
+	self._stackManager:recordApplyContext(vNode, ctx)
+	return ctx
 end
 
 function BaseStack:newLogicContext(vNode:clazz.IBaseNode):Ret(clazz.LogicContext)
@@ -213,12 +227,12 @@ function BaseStack:newOperContext(vNode:clazz.IBaseNode):Ret(clazz.OperContext)
 	return OperContext.new(vNode, self, self._typeManager)
 end
 
-function BaseStack:newReturnContext(vNode:clazz.IBaseNode):Ret(clazz.ReturnContext)
-	return ReturnContext.new(vNode, self, self._typeManager)
-end
-
 function BaseStack:newAssignContext(vNode:clazz.IBaseNode):Ret(clazz.AssignContext)
 	return AssignContext.new(vNode, self, self._typeManager)
+end
+
+function BaseStack:newReturnContext(vNode:clazz.IBaseNode):Ret(clazz.ReturnContext)
+	return ReturnContext.new(vNode, self, self._typeManager)
 end
 
 function.pass BaseStack:getSealStack():Ret(clazz.SealStack)
