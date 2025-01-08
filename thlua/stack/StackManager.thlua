@@ -142,14 +142,27 @@ function StackManager:hoverNode(vNode:Union(node.Expr, node.Ident)):Ret(False, S
 	if not nInjectFn then
 		return false, "gen inject fn fail:"..tostring(nInjectTrace)
 	end
-	const nStrList:List(String) = {}
+	const nTypeSet:Dict(clazz.IAtomType, True) = {}
 	self:_injectForeach(nInjectTrace.pos, nBlockNode, nInjectFn, function(vResult)
 		if RefineTerm.is(vResult) then
-			nStrList[#nStrList + 1] = tostring(vResult:getType())
+			vResult:getType():foreach(function(vType)
+				nTypeSet[vType] = true
+			end)
 		else
-			nStrList[#nStrList + 1] = tostring(vResult)
+			--nStrList[#nStrList + 1] = tostring(vResult)
 		end
 	end)
+	const nTypeList:List(clazz.IAtomType) = {}
+	for t,_ in pairs(nTypeSet) do
+		nTypeList[#nTypeList + 1] = t
+	end
+	table.sort(nTypeList, function(a,b)
+		return a.id < b.id
+	end)
+	const nStrList:List(String) = {}
+	for i, t in ipairs(nTypeList) do
+		nStrList[i] = t:detailString(true)
+	end
 	return nBlockNode, table.concat(nStrList, ",")
 end
 
