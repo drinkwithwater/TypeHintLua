@@ -67,12 +67,24 @@ function.open BaseStack:ctor(
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
 	self._lexBranchCase = vUpState
-	const nTempBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
-	self._branchStack={nTempBranch}@List(clazz.Branch)
+	self._branchStack=nil@!List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
 	self._retList={} @ List(clazz.FixedTermTuple)
 	self._polyDotsNum = 0 @ Integer
 	self._polyDotsArgs = {} @ List(clazz.USpaceAny)
+end
+
+function BaseStack:initTopBranch()
+	local nBranchNode = nil @ OrNil(node.Block)
+	const nNode = self._node
+	if nNode.tag == "Function" then
+		nBranchNode = (nNode @> node.Function)[2]
+	elseif nNode.tag == "Chunk" then
+		nBranchNode = (nNode @> node.Chunk)[3]
+	end
+	const nUpState = self._lexBranchCase
+	const nTopBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, nBranchNode)
+	self._branchStack = {nTopBranch}
 end
 
 function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UMustType)

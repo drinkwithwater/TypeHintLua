@@ -214,10 +214,8 @@ function native.make(vRuntime:clazz.CodeRuntime):Ret(clazz.AutoTable)
 				local nRetTerm:OrNil(clazz.RefineTerm) = nil
 				if StringLiteral.is(nFileName) then
 					local nPath = nFileName:getLiteral()
-					const nOkay, nRetTermOrException, nOpenFn, nOpenStack = pcall(function()
-						return vRuntime:require(vStack:getNode(), nPath)
-					end)
-					if nOkay then
+					const nRetTermOrFalse, nOpenFn, nOpenStack = vRuntime:require(vStack:getNode(), nPath)
+					if nRetTermOrFalse then
 						const nLetSpace = nOpenStack:getLetSpace()
 						if vTupleBuilder then
 							const nArgList = vTupleBuilder:getArgList()
@@ -255,13 +253,8 @@ function native.make(vRuntime:clazz.CodeRuntime):Ret(clazz.AutoTable)
 							end
 						end
 						vContext:addLookTarget(nOpenFn)
-						nRetTerm = nRetTermOrException
+						nRetTerm = nRetTermOrFalse
 					else
-						if Exception.is(nRetTermOrException) then
-							vRuntime:nodeError(nRetTermOrException.node, nRetTermOrException.msg)
-						else
-							vContext:error(tostring(nRetTermOrException))
-						end
 						vContext:error("require error")
 					end
 				else

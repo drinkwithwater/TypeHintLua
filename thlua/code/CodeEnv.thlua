@@ -116,7 +116,7 @@ function.pass CodeEnv:_buildTypingFn():Ret(AnyFunction)
 	return nFunc
 end
 
-function CodeEnv:getAstTree()
+function CodeEnv:getAstTree():Ret(node.Chunk)
 	return self._astTree
 end
 
@@ -199,8 +199,8 @@ function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String,
 	end
 	const nInjectTrace = nErrNode[2]
 	if not nInjectTrace then
-		const content = vWrongContent:gsub("\n", " ")
-		return false, tostring(content)
+		--return false, "inject node not a expr" .. tostring(vWrongContent)
+		return false, "inject node not a expr"
 	end
 	const nChunk = nInjectTrace.capture
 	const nOkay, nInjectFn = pcall(function():Ret(InjectFn)
@@ -210,20 +210,31 @@ function CodeEnv.genInjectFnByError(vSplitCode:clazz.SplitCode, vFileUri:String,
 			return nFocusEnv:callTypingFn(vStack, vGetter)
 		end
 	end)
-	if nOkay then
-		return nInjectFn, nInjectTrace
-	else
+	if not nOkay then
 		return false, tostring(nInjectFn)
 	end
+	return nInjectFn, nInjectTrace
 end
 
 
 function CodeEnv.genInjectByExpr(vSplitCode:clazz.SplitCode, vFileUri:String, vExprNode:Union(node.Expr, node.Ident_def)):Ret(False, String):Ret(InjectFn, node.InjectTrace)
-	const nExprContent = vSplitCode:getContent():sub(vExprNode.pos, vExprNode.posEnd - 1)
+	local nExprContent = ""
+	if vExprNode.tag == "Ident" then
+		nExprContent = vExprNode[1]
+	else
+		nExprContent = vSplitCode:getContent():sub(vExprNode.pos, vExprNode.posEnd - 1)
+		if vExprNode.tag == "Index" then
+			nExprContent = nExprContent:gsub("[:]([_a-zA-Z0-9]+)$", function(a)
+				return "."..a -- modify member fn index like a:dosth
+			end)
+		end
+	end
+	const nPrefixContent = string.rep(" ", vExprNode.pos)
+	-- const nPrefixContent = vSplitCode:getContent():sub(1, vExprNode.pos-1)
 	-- TODO, deal with ident in hint space...
 	const nFakeContent = vExprNode:inHintSpace()
-		and string.rep(" ", vExprNode.pos) .. "(@" .. nExprContent .. "."
-		or string.rep(" ", vExprNode.pos) .. nExprContent .. "."
+		and nPrefixContent .. "(@" .. nExprContent .. "."
+		or nPrefixContent .. nExprContent .. "."
 	return CodeEnv.genInjectFnByError(vSplitCode, vFileUri, nFakeContent)
 end
 

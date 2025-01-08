@@ -117,6 +117,11 @@ function.open CodeRuntime:ctor(vStage:OrNil(clazz.StageApi))
 	self._stackManager=nil@!clazz.StackManager
 	self._spaceManager=nil@!clazz.SpaceManager
 	self._globalTable=nil@!clazz.AutoTable
+	self._readyFail = false @ Boolean
+end
+
+function CodeRuntime:isReadyFail()
+	return self._readyFail
 end
 
 function CodeRuntime:getCodeEnv(vFileName:String):Ret(OrFalse(clazz.CodeEnv))
@@ -186,16 +191,31 @@ function CodeRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 			end
 		end
 		return function()
-			self:_cacheLoadFile(self._rootNode, vRootFileUri)
+			self:pcallForReady(self._rootNode, function()
+				self:_cacheLoadFile(self._rootNode, vRootFileUri)
+			end)
 		end
 	end)
 	return self._scheduleManager:promiseSchedule()
 end
 
+function CodeRuntime:pcallForReady(vNode:node.IBaseNode, vFn:Fn()):Ret(Boolean)
+	const ok, err = pcall(vFn)
+	if not ok then
+		self._readyFail = true
+		if Exception.is(err) then
+			self:nodeError(err.node, err.msg)
+		else
+			self:nodeError(vNode, err)
+		end
+	end
+	return ok
+end
+
 function CodeRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
 	const nCodeEnv, nFileName = self._stage.parseGlobal(vPkg)
 	const nOpenFn = nCodeEnv:callTypingFn(self._stackManager:getRootStack(), self:makeGlobalTerm())
-	const nContext = self._stackManager:getRootStack():newNoPushContext(self._rootNode)
+	const nContext = self._stackManager:getRootStack():newNoPushContext(nCodeEnv:getAstTree())
 	const nTermTuple = nContext:FixedTermTuple({})
 	const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
 	const nLoadedState:LoadedState = {
@@ -218,7 +238,7 @@ function CodeRuntime:_cacheLoadFile(vNode:clazz.IBaseNode, vFileName:String):Ret
 			codeEnv=nCodeEnv,
 		}
 		self._loadedDict[vFileName] = nLoadedState
-		const nContext = self._stackManager:getRootStack():newNoPushContext(vNode)
+		const nContext = self._stackManager:getRootStack():newNoPushContext(nCodeEnv:getAstTree())
 		const nTermTuple = nContext:FixedTermTuple({})
 		const nRet, nStack = nOpenFn:meta_open_call(nContext, nTermTuple, true)
 		nLoadedState.term = TermTuple.is(nRet) and nRet:checkFixed(nContext, 1) or nRet:checkRefineTerm(nContext)
@@ -246,13 +266,21 @@ function CodeRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(Loa
 	return nLoadedState
 end
 
-function CodeRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
-	const nLoadedState = self:_cacheLoadPath(vNode, vPath)
-	const nTerm = nLoadedState.term
-	if not nTerm then
-		error(Exception.new("recursive require:"..vPath, vNode))
+function CodeRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(False):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
+	local nRequireTerm = nil @ OrNil(clazz.RefineTerm)
+	local nLoadedState = nil @ OrNil(LoadedState)
+	const ok = self:pcallForReady(vNode, function()
+		nLoadedState = self:_cacheLoadPath(vNode, vPath)
+		nRequireTerm = nLoadedState.term
+		if not nRequireTerm then
+			error(Exception.new("recursive require:"..vPath, vNode))
+		end
+	end)
+	if ok then
+		return nRequireTerm!, nLoadedState!.openFn, nLoadedState!.stack!
+	else
+		return false
 	end
-	return nTerm, nLoadedState.openFn, nLoadedState.stack!
 end
 
 function CodeRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)

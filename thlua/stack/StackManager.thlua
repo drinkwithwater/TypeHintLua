@@ -60,7 +60,10 @@ end
 function StackManager:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.USpaceAny)))
 	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
+		print("no branch when inject foreach")
 		return
+	else
+		print("when inject foreach branchlen = ", #nBranchList)
 	end
 	-- 3. run inject fn in each branches
 	self:_createScheduleFn(function()
@@ -108,10 +111,13 @@ end
 
 function StackManager:injectCompletion(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vServer:Truth):Ret(clazz.FieldCompletion)
 	const nFieldCompletion = FieldCompletion.new()
+	print("inject begin")
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if RefineTerm.is(vResult) then
+			print("inject middle 1")
 			vResult:getType():putCompletion(nFieldCompletion)
 		else
+			print("inject middle 2")
 			const nRefer = SpaceValue.checkRefer(vResult)
 			const nSpace = nRefer and nRefer:getComNowait()
 			if BaseReferSpace.is(nSpace) then
@@ -119,10 +125,11 @@ function StackManager:injectCompletion(vTracePos:Integer, vBlockNode:node.Block,
 			end
 		end
 	end)
+	print("inject end")
 	return nFieldCompletion
 end
 
-function StackManager:hoverNode(vNode:Union(node.Expr, node.Ident)):Ret(False, String):Ret(String)
+function StackManager:hoverNode(vNode:Union(node.Expr, node.Ident)):Ret(False, String):Ret(node.Block, String)
 	const nBlockNode = vNode:getBlockOutHint()
 	if not nBlockNode then
 		return false, "expr not in a block"
@@ -143,7 +150,7 @@ function StackManager:hoverNode(vNode:Union(node.Expr, node.Ident)):Ret(False, S
 			nStrList[#nStrList + 1] = tostring(vResult)
 		end
 	end)
-	return table.concat(nStrList, ",")
+	return nBlockNode, table.concat(nStrList, ",")
 end
 
 function StackManager:gotoNode(vIsLookup:Boolean, vNode:Union(node.Expr, node.Ident)):Ret(False, String):Ret(Dict(clazz.IBaseNode, True))
@@ -245,15 +252,21 @@ function StackManager:exprLookdown(vNode:clazz.IBaseNode):Ret(Dict(clazz.IBaseNo
 end
 
 function StackManager:SealStack(...):Ret(clazz.SealStack)
-	return SealStack.new(self._runtime, ...)
+	const nStack = SealStack.new(self._runtime, ...)
+	nStack:initTopBranch()
+	return nStack
 end
 
 function StackManager:DeduceStack(...):Ret(clazz.DeduceStack)
-	return DeduceStack.new(self._runtime, ...)
+	const nStack = DeduceStack.new(self._runtime, ...)
+	nStack:initTopBranch()
+	return nStack
 end
 
 function StackManager:OpenStack(...):Ret(clazz.OpenStack)
-	return OpenStack.new(self._runtime, ...)
+	const nStack = OpenStack.new(self._runtime, ...)
+	nStack:initTopBranch()
+	return nStack
 end
 
 function StackManager:getRootStack():Ret(clazz.SealStack)

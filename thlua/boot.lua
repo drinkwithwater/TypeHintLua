@@ -50,14 +50,6 @@ function boot.runServer(vGlobalPathOrNil)
 	boot.patch()
 	local LangServer = require "thlua.server.LangServer"
 	local server = LangServer.new(vGlobalPathOrNil)
-
-	print=function(...)
-		--[[client:notify("window/logMessage", {
-			message = client:packToString(3, ...),
-			type = 3,
-		})]]
-	end
-
 	server:mainLoop()
 end
 

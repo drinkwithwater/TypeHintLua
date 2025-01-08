@@ -160,6 +160,7 @@ function.open ApiProvider:ctor(server:lsp.LangServer)
     self._server = server
 	self._fileStateDict={}@Dict(String, lsp.FileState)
 	self._readyRuntime=nil@OrNil(clazz.CodeRuntime)
+	self._finishRuntime=nil@OrNil(clazz.CodeRuntime)
 	self._busyRuntime=nil@OrNil(clazz.CodeRuntime)
 	self._rerunCounter=0@Integer
 end
@@ -265,7 +266,7 @@ function ApiProvider:publishException(vException:Union(clazz.Exception, String))
 end
 
 function ApiProvider:rerun(vFileUri:String)
-	for nUri, nFileState in pairs(self._fileStateDict) do
+	for _, nFileState in pairs(self._fileStateDict) do
 		nFileState:setCheckFlag(false)
 	end
 	local rootFileUri = lpath.isfile(self._server:getRootPath().. "/throot.thlua")
@@ -288,8 +289,11 @@ function ApiProvider:rerun(vFileUri:String)
 	self._server:info("rerun start", rerunCounter)
 	nRuntime:promiseMain(rootFileUri):next@<Nil>(function(_)
 		if self._busyRuntime == nRuntime then
-			self._readyRuntime = nRuntime
+			self._finishRuntime = nRuntime
 			self._busyRuntime = nil
+			if not nRuntime:isReadyFail() then
+				self._readyRuntime = nRuntime
+			end
 			local nFileToList = nRuntime:getAllDiagnostic()
 			self:publishFileToDiaList(nFileToList)
 			self:publishNoAttach()
@@ -581,16 +585,16 @@ function ApiProvider:onHover(vParams:lsp.HoverParams):Ret(OrNil(lsp.Hover))
 		self._server:info("hover fail, node not found")
 		return nil
 	end
-	const nSuccMsg, nErrMsg = nReadyRuntime:getStackManager():hoverNode(nExprNode)
-	if not nSuccMsg then
-		self._server:info("hover fail:", nErrMsg)
+	const nBlockNode, nRetMsg = nReadyRuntime:getStackManager():hoverNode(nExprNode)
+	if not nBlockNode then
+		self._server:info("hover fail:", nRetMsg)
 		return nil
 	else
-		self._server:info("hover success:", nSuccMsg)
+		self._server:info("hover success:", nRetMsg)
 		return {
 			contents={
 				kind="plaintext",
-				value=tostring(nExprNode),
+				value=nBlockNode.tag.."-"..tostring(nBlockNode).."\n"..nExprNode.tag.."-"..tostring(nExprNode),
 			},
 			range=nil,
 		}
@@ -605,8 +609,8 @@ function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(l
 	-- 1. get succ env
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:checkFileState(nFileUri)
-	const nSuccEnv = nReadyRuntime:getCodeEnv(nFileUri)
-	if not nSuccEnv then
+	const nReadyEnv = nReadyRuntime:getCodeEnv(nFileUri)
+	if not nReadyEnv then
 		self._server:info("completion fail for some code error", nFileUri)
 		return nil
 	end
@@ -617,11 +621,13 @@ function ApiProvider:onCompletion(vParams:lsp.CompletionParams):Ret(OrNil(List(l
 	-- 3. parsing with error
 	const nInjectFn, nInjectTrace = CodeEnv.genInjectFnByError(nSplitCode, nFileUri, nWrongContent)
 	if not nInjectFn then
+		self._server:info("completion fail for inject error", tostring(nInjectTrace))
 		return nil
 	end
 	-- TODO, using nInjectNode.pos maybe not right such as local a = a.fds ...
 	const nInjectNode, nTraceList = assert(nInjectTrace.capture.injectNode), nInjectTrace.traceList
-	const nBlockNode = nSuccEnv:traceBlock(nTraceList)
+	const nBlockNode = nReadyEnv:traceBlock(nTraceList)
+	self._server:info("completion block:", tostring(nBlockNode))
 	-- nReadyRuntime:focusSchedule(nBlockNode:getFocusList())
 	-- 4. run inject
 	const nFieldCompletion = nReadyRuntime:getStackManager():injectCompletion(nInjectNode.pos, nBlockNode, nInjectFn, self)
