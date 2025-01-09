@@ -67,24 +67,12 @@ function.open BaseStack:ctor(
 	self._headContext=AssignContext.new(vNode, self, nManager)
 	self._fastOper=OperContext.new(vNode, self, nManager)
 	self._lexBranchCase = vUpState
-	self._branchStack=nil@!List(clazz.Branch)
+	const nTopBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
+	self._branchStack = {nTopBranch} @ List(clazz.Branch)
 	self._bodyFn=nil@!clazz.UBodyFunction
 	self._retList={} @ List(clazz.FixedTermTuple)
 	self._polyDotsNum = 0 @ Integer
 	self._polyDotsArgs = {} @ List(clazz.USpaceAny)
-end
-
-function BaseStack:initTopBranch()
-	local nBranchNode = nil @ OrNil(node.Block)
-	const nNode = self._node
-	if nNode.tag == "Function" then
-		nBranchNode = (nNode @> node.Function)[2]
-	elseif nNode.tag == "Chunk" then
-		nBranchNode = (nNode @> node.Chunk)[3]
-	end
-	const nUpState = self._lexBranchCase
-	const nTopBranch = Branch.new(self, nUpState and nUpState.uvCase or VariableCase.new(), nUpState and nUpState.branch or false, nBranchNode)
-	self._branchStack = {nTopBranch}
 end
 
 function BaseStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UMustType)
@@ -275,15 +263,24 @@ function BaseStack:getStackManager():Ret(clazz.StackManager)
 	return self._stackManager
 end
 
-function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn():Dots(clazz.USpaceAny), vNode:OrNil(node.Block)):Ret(clazz.Branch)
+function BaseStack:_pushNewBranch(vVariableCase:OrNil(clazz.VariableCase), vNode:OrNil(node.Block)):Ret(Integer, clazz.Branch)
 	const nStack = self._branchStack
 	const nLen = #nStack
 	const nNewLen = nLen + 1
 	const nOldBranch = nStack[nLen]!
-	const nNewBranch = Branch.new(self, vVariableCase & nOldBranch:getCase(), nOldBranch, vNode)
+	const nCurCase = vVariableCase and (vVariableCase & nOldBranch:getCase()) or nOldBranch:getCase()
+	const nNewBranch = Branch.new(self, nCurCase, nOldBranch, vNode)
+	if vNode then
+		self._stackManager:recordBranch(vNode, nNewBranch)
+	end
 	nStack[nNewLen] = nNewBranch
+	return nNewLen, nNewBranch
+end
+
+function BaseStack:_withBranch(vVariableCase:clazz.VariableCase, vFunc:Fn():Dots(clazz.USpaceAny), vNode:OrNil(node.Block)):Ret(clazz.Branch)
+	const nNewLen, nNewBranch = self:_pushNewBranch(vVariableCase, vNode)
 	vFunc(self:unpackPolyArgs())
-	nStack[nNewLen] = nil
+	self._branchStack[nNewLen] = nil
 	return nNewBranch
 end
 

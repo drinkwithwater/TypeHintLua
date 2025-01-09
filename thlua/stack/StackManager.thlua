@@ -57,7 +57,7 @@ function StackManager:recordApplyContext(vNode:clazz.IBaseNode, vContext:clazz.A
 	self._nodeToApplyContextList:putOne(vNode, vContext)
 end
 
-function StackManager:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.USpaceAny)))
+function StackManager:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, vInjectFn:InjectFn, vCallback:Fn(Union(clazz.RefineTerm, clazz.USpaceAny)))
 	const nBranchList = self._nodeToBranchList:get(vBlockNode)
 	if not nBranchList then
 		print("no branch when inject foreach")
@@ -69,7 +69,7 @@ function StackManager:_injectForeach(vTracePos:Integer, vBlockNode:node.Block, v
 	self:_createScheduleFn(function()
 		for _, nBranch in pairs(nBranchList) do
 			const nStack = nBranch:getStack()
-			const nResult = vFn(nStack, function(vIdent)
+			const nResult = vInjectFn(nStack, function(vIdent)
 				-- 1. lookup local symbol
 				const nName = vIdent[1]
 				local nDefineIdent = vBlockNode.symbolTable[nName]
@@ -266,19 +266,16 @@ end
 
 function StackManager:SealStack(...):Ret(clazz.SealStack)
 	const nStack = SealStack.new(self._runtime, ...)
-	nStack:initTopBranch()
 	return nStack
 end
 
 function StackManager:DeduceStack(...):Ret(clazz.DeduceStack)
 	const nStack = DeduceStack.new(self._runtime, ...)
-	nStack:initTopBranch()
 	return nStack
 end
 
 function StackManager:OpenStack(...):Ret(clazz.OpenStack)
 	const nStack = OpenStack.new(self._runtime, ...)
-	nStack:initTopBranch()
 	return nStack
 end
 
