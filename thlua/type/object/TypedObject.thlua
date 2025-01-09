@@ -46,6 +46,19 @@ function TypedObject:lateCheck()
 	end
 end
 
+function TypedObject:_kvDetailString():Ret(String)
+	const l = {"{"} @List(String)
+	for k,v in pairs(assert(self._valueDict)) do
+		l[#l+1] = "\t["
+		l[#l+1] = k:detailString(false)
+		l[#l+1] = "]="
+		l[#l+1] = v:detailString(false)
+		l[#l+1] = "]=\n"
+	end
+	l[#l+1] = "}\n"
+	return table.concat(l)
+end
+
 function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.IAtomType, clazz.UMustType):Ret(Boolean)):Ret(Boolean)
 	const nValueDict = self:getValueDict()
 	for nLeftKey, nLeftValue in pairs(nValueDict) do
@@ -167,6 +180,7 @@ function TypedObject:_keyIncludeAtom(vType:clazz.IAtomType):Ret(clazz.IAtomType,
 		local nField = self._fieldDict[nKey]
 		if not nField then
 			nField = ObjectField.new(self._node, self, nKey, assert(self._valueDict)[nKey]!:checkAtomUnion())
+			self._fieldDict[nKey] = nField
 		end
 		return nKey, nField
 	else
