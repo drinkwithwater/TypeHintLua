@@ -199,17 +199,20 @@ function CodeRuntime:promiseMain(vRootFileUri:String, vUseProfile:OrNil(Boolean)
 	return self._scheduleManager:promiseSchedule()
 end
 
-function CodeRuntime:pcallForReady(vNode:node.IBaseNode, vFn:Fn()):Ret(Boolean)
+function CodeRuntime:pcallForReady(vNode:node.IBaseNode, vFn:Fn()):Ret(True):Ret(False, String)
 	const ok, err = pcall(vFn)
 	if not ok then
 		self._readyFail = true
 		if Exception.is(err) then
 			self:nodeError(err.node, err.msg)
+			return false, tostring(err.msg)
 		else
 			self:nodeError(vNode, err)
+			return false, tostring(err)
 		end
+	else
+		return true
 	end
-	return ok
 end
 
 function CodeRuntime:_cacheLoadGlobal(vPkg:String):Ret(LoadedState)
@@ -266,10 +269,10 @@ function CodeRuntime:_cacheLoadPath(vNode:clazz.IBaseNode, vPath:String):Ret(Loa
 	return nLoadedState
 end
 
-function CodeRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(False):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
+function CodeRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(False, String):Ret(clazz.RefineTerm, clazz.OpenFunction, clazz.OpenStack)
 	local nRequireTerm = nil @ OrNil(clazz.RefineTerm)
 	local nLoadedState = nil @ OrNil(LoadedState)
-	const ok = self:pcallForReady(vNode, function()
+	const ok, err = self:pcallForReady(vNode, function()
 		nLoadedState = self:_cacheLoadPath(vNode, vPath)
 		nRequireTerm = nLoadedState.term
 		if not nRequireTerm then
@@ -279,7 +282,7 @@ function CodeRuntime:require(vNode:clazz.IBaseNode, vPath:String):Ret(False):Ret
 	if ok then
 		return nRequireTerm!, nLoadedState!.openFn, nLoadedState!.stack!
 	else
-		return false
+		return false, tostring(err)
 	end
 end
 
