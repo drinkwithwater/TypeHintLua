@@ -291,7 +291,12 @@ function ApiProvider:rerun(vFileUri:String)
 		if self._busyRuntime == nRuntime then
 			self._finishRuntime = nRuntime
 			self._busyRuntime = nil
-			if not nRuntime:isReadyFail() then
+			if nRuntime:isReadyFail() then
+				const nCurReadyRuntime = self._readyRuntime
+				if not nCurReadyRuntime or nCurReadyRuntime:isReadyFail() then
+					self._readyRuntime = nRuntime
+				end
+			else
 				self._readyRuntime = nRuntime
 			end
 			local nFileToList = nRuntime:getAllDiagnostic()

@@ -5178,17 +5178,20 @@ function CodeRuntime:promiseMain(vRootFileUri, vUseProfile)
 	return self._scheduleManager:promiseSchedule()
 end
 
-function CodeRuntime:pcallForReady(vNode, vFn)
+function CodeRuntime:pcallForReady(vNode, vFn) 
 	local ok, err = pcall(vFn)
 	if not ok then
 		self._readyFail = true
 		if Exception.is(err) then
 			self:nodeError(err.node, err.msg)
+			return false, tostring(err.msg)
 		else
 			self:nodeError(vNode, err)
+			return false, tostring(err)
 		end
+	else
+		return true
 	end
-	return ok
 end
 
 function CodeRuntime:_cacheLoadGlobal(vPkg)
@@ -5245,10 +5248,10 @@ function CodeRuntime:_cacheLoadPath(vNode, vPath)
 	return nLoadedState
 end
 
-function CodeRuntime:require(vNode, vPath)  
+function CodeRuntime:require(vNode, vPath)   
 	local nRequireTerm = nil  
 	local nLoadedState = nil  
-	local ok = self:pcallForReady(vNode, function()
+	local ok, err = self:pcallForReady(vNode, function()
 		nLoadedState = self:_cacheLoadPath(vNode, vPath)
 		nRequireTerm = nLoadedState.term
 		if not nRequireTerm then
@@ -5258,7 +5261,7 @@ function CodeRuntime:require(vNode, vPath)
 	if ok then
 		return nRequireTerm, nLoadedState.openFn, nLoadedState.stack
 	else
-		return false
+		return false, tostring(err)
 	end
 end
 
@@ -6349,7 +6352,12 @@ function ApiProvider:rerun(vFileUri)
 		if self._busyRuntime == nRuntime then
 			self._finishRuntime = nRuntime
 			self._busyRuntime = nil
-			if not nRuntime:isReadyFail() then
+			if nRuntime:isReadyFail() then
+				local nCurReadyRuntime = self._readyRuntime
+				if not nCurReadyRuntime or nCurReadyRuntime:isReadyFail() then
+					self._readyRuntime = nRuntime
+				end
+			else
 				self._readyRuntime = nRuntime
 			end
 			local nFileToList = nRuntime:getAllDiagnostic()
@@ -17697,7 +17705,7 @@ function native.make(vRuntime)
 						vContext:addLookTarget(nOpenFn)
 						nRetTerm = nRetTermOrFalse
 					else
-						vContext:error("require error")
+						vContext:error("require error : "..tostring(nOpenFn))
 					end
 				else
 					vContext:warn("require take non-const type ")
