@@ -6508,6 +6508,24 @@ end
     
 
 
+function ApiProvider:onDidChangeWatchedFiles(vParams)
+	local rerun = false
+	for i, change in ipairs(vParams.changes) do
+		local nFileState = self._fileStateDict[change.uri]
+		if nFileState and not nFileState:getOpened() then
+			local ok, mismatch = pcall(function()
+				return nFileState:syncFile()
+			end)
+			if ok and mismatch then
+				rerun = change.uri
+			end
+		end
+	::continue:: end
+	if rerun then
+		self:rerun(rerun)
+	end
+end
+
 function ApiProvider:onDidChange(vParams)
 	local nFileUri = vParams.textDocument.uri
 	local ok = self:attachFileState(nFileUri):syncChange(vParams)
@@ -6518,9 +6536,11 @@ function ApiProvider:onDidChange(vParams)
 end
 
 function ApiProvider:onDidOpen(vParams)
+	self._server:watchThluaFile()
 	local nContent = vParams.textDocument.text
 	local nFileUri = vParams.textDocument.uri
 	local nFileState = self:attachFileState(nFileUri)
+	nFileState:setOpened(true)
 	if nFileState:contentMismatch(nContent) then
 		self:scanAllFile()
 		nFileState:syncContent(nContent, vParams.textDocument.version)
@@ -6550,6 +6570,8 @@ function ApiProvider:onDidSave(vParams)
 end
 
 function ApiProvider:onDidClose(vParams)
+	local nFileState = self:attachFileState(vParams.textDocument.uri)
+	nFileState:setOpened(false)
 end
 
 
@@ -6738,7 +6760,16 @@ function FileState:ctor(vServer, vFileName)
 	self._errOrEnv = nil;  
 	self._version = (-1) ;
 	self._changeState = false ; 
-	self._checkFlag = false  
+	self._checkFlag = false ; 
+	self._opened = false  
+end
+
+function FileState:getOpened()
+	return self._opened
+end
+
+function FileState:setOpened(vOpened)
+	self._opened = vOpened
 end
 
 function FileState:getCheckFlag()
@@ -6812,6 +6843,9 @@ function FileState:syncFile()
 	file:close()
 	if nContent ~= self._splitCode:getContent() then
 		self:syncContent(nContent, self._version)
+		return true
+	else
+		return false
 	end
 end
 
@@ -6911,6 +6945,9 @@ function LangServer:ctor(vGlobalPath)
 	self._globalPath = vGlobalPath or lpath.cwd().."/global"
 	local nApiProvider = ApiProvider.new(self)
 	self._provider = nApiProvider
+	self._reqIdCounter = 0 ; 
+	self._watchFileSupported = false ; 
+	self._watchFileRegistered = false ; 
 	self._methodHandler = {
 		initialize={
 			fallback=false,
@@ -6928,6 +6965,12 @@ function LangServer:ctor(vGlobalPath)
 			fallback=false,
 			call=function()
 				self:onExit()
+			end,
+		},
+		["workspace/didChangeWatchedFiles"]={
+			fallback=false,
+			call=function(vParam)
+				nApiProvider:onDidChangeWatchedFiles(vParam)
 			end,
 		},
 		["textDocument/didOpen"]={
@@ -7043,6 +7086,11 @@ end
 
 function LangServer:_handleRequest(request)
 	local methodName = request.method
+	if methodName and methodName:sub(1,1) == "$" then
+		    
+	elseif not methodName then
+		   
+	end
 	local nId = request.id
 	if not methodName then
 		if nId then
@@ -7162,6 +7210,17 @@ function LangServer:writeResult(vId  , vResult);
 	})
 end
 
+function LangServer:requestClient(vMethod, vParams)
+	local genId = self._reqIdCounter + 1
+	self._reqIdCounter = genId
+	self:_write({
+		jsonrpc = "2.0",
+		id=genId,
+		method = vMethod,
+		params = vParams,
+	})
+end
+
 function LangServer:notify(vMethod, vParams);
 	self:_write({
 		jsonrpc = "2.0",
@@ -7244,6 +7303,29 @@ function LangServer:getRootPath()
 	return self._rootPath
 end
 
+  
+function LangServer:watchThluaFile()
+	if not self._watchFileSupported then
+		return
+	end
+	if self._watchFileRegistered then
+		return
+	end
+	self._watchFileRegistered = true
+	self:requestClient("client/registerCapability", { 
+		registrations={{
+			id="didChangeWatchedFiles",
+			method="workspace/didChangeWatchedFiles",
+			registerOptions={
+				watchers={{
+					globPattern="**/*.thlua",
+					kind=7,
+				}},
+			},
+		}}
+	})
+end
+
 function LangServer:onInitialize(vParams)
 	if self.initialize then
 		error("already initialized!")
@@ -7263,6 +7345,9 @@ function LangServer:onInitialize(vParams)
 	if root then
 		self:setRootPath(root)
 	end
+	local workspace = vParams.capabilities.workspace
+	self._watchFileSupported = workspace and workspace.didChangeWatchedFiles and workspace.didChangeWatchedFiles.dynamicRegistration or false
+	self:info("watchFileSupported="..tostring(self._watchFileSupported))
 	return {
 		capabilities = {
 			textDocumentSync = {
@@ -7581,7 +7666,23 @@ local ErrorCodes = {
 	
 	
 	
-	
+	  
+		
+			   
+				
+					        
+					         
+					        
+				
+				
+				
+					        
+					  
+					
+					  
+				
+				
+			
 		
 		
 		
@@ -7593,8 +7694,35 @@ local ErrorCodes = {
 	   
 
 
+
    
+	   
+		
+		   
+			
+				            
+				            
+				           
+				           
+				            
+				        
+				              
+				          
+				              
+				          
+				    
+			
+			
+			 
+			   
+				
+			
+		
 	
+
+
+   
+	  
 		
 			
 			
@@ -7610,6 +7738,20 @@ local ErrorCodes = {
 		  
 		  
 		  
+		  
+			   
+				
+				 
+			
+			 
+				
+				
+				
+				
+				
+				
+			
+		
 	
 	 
 		
@@ -7628,6 +7770,62 @@ local ErrorCodes = {
 	
 	
 	
+	
+
+
+   
+	  
+		
+			              
+			   
+			            
+			           
+			           
+			          
+			     
+			              
+			          
+			              
+			         
+			     
+			
+			  
+		
+		
+		
+			          
+			      
+			   
+		
+		
+	
+
+
+   
+	   
+		
+		
+		
+	
+
+
+   
+	   
+		
+		
+			    
+			
+			    
+			
+			    
+			
+			    
+			
+			    
+			
+			    
+		
+		
 	
 
 
@@ -18760,7 +18958,7 @@ function OpenTable:meta_set(vContext, vKeyType, vValueTerm)
 				local nField = self._fieldDict[nKeyIncludeType]
 				vContext:addLookTarget(nField)
 				if nField:getLockCtx() then
-					vContext:error("field is locked"..tostring(vKeyType))
+					vContext:error("field is locked : "..tostring(vKeyType))
 				else
 					local nTopBranch = vContext:getStack():topBranch()
 					if nField:getAssignBranch() == nTopBranch then
