@@ -447,6 +447,24 @@ end
 -- lsp method handle --
 -----------------------
 
+function ApiProvider:onDidChangeWatchedFiles(vParams:lsp.DidChangeWatchedFilesParams)
+	local rerun:OrFalse(String) = false
+	for i, change in ipairs(vParams.changes) do
+		const nFileState = self._fileStateDict[change.uri]
+		if nFileState and not nFileState:getOpened() then
+			const ok, mismatch = pcall(function()
+				return nFileState:syncFile()
+			end)
+			if ok and mismatch then
+				rerun = change.uri
+			end
+		end
+	end
+	if rerun then
+		self:rerun(rerun)
+	end
+end
+
 function ApiProvider:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 	const nFileUri = vParams.textDocument.uri
 	const ok = self:attachFileState(nFileUri):syncChange(vParams)
@@ -457,9 +475,11 @@ function ApiProvider:onDidChange(vParams:lsp.DidChangeTextDocumentParams)
 end
 
 function ApiProvider:onDidOpen(vParams:lsp.DidOpenTextDocumentParams)
+	self._server:watchThluaFile()
 	const nContent = vParams.textDocument.text
 	const nFileUri = vParams.textDocument.uri
 	const nFileState = self:attachFileState(nFileUri)
+	nFileState:setOpened(true)
 	if nFileState:contentMismatch(nContent) then
 		self:scanAllFile()
 		nFileState:syncContent(nContent, vParams.textDocument.version)
@@ -489,6 +509,8 @@ function ApiProvider:onDidSave(vParams:lsp.DidSaveTextDocumentParams)
 end
 
 function ApiProvider:onDidClose(vParams:lsp.DidCloseTextDocumentParams)
+	const nFileState = self:attachFileState(vParams.textDocument.uri)
+	nFileState:setOpened(false)
 end
 
 ------------------------------

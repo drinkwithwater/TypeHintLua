@@ -101,8 +101,24 @@ lsp.InitializeParams = Struct {
 	locale=OrNil(String),
 	rootPath=OrNil(String),
 	rootUri=OrNil(String),
-	capabilities=Struct{
-		workspace=OrNil(Struct{}),
+	capabilities=Struct{ -- ClientCapabilities
+		workspace=OrNil(Struct{
+			didChangeWatchedFiles=OrNil(Struct { -- DidChangeWatchedFilesClientCapabilities;
+				--[[
+					* Did change watched files notification supports dynamic registration.
+					* Please note that the current protocol doesn't support static
+					* configuration for file changes from the server side.
+				]]
+				dynamicRegistration=OrNil(Boolean),
+				--[[
+					* Whether the client has support for relative patterns
+					* or not.
+					*
+					* @since 3.17.0
+				]]
+				relativePatternSupport=OrNil(Boolean),
+			})
+		}),
 		textDocument=OrNil(Struct{}),
 		notebookDocument=OrNil(Struct{}),
 		window=OrNil(Struct{}),
@@ -113,8 +129,35 @@ lsp.InitializeParams = Struct {
 	trace=Union("off", "messages", "compact", "verbose")
 }
 
+
+lsp.FileOperationRegistrationOptions = Struct {
+	filters=List(Struct { -- FileOperationFilter
+		schema=OrNil(String),
+		pattern=Struct { -- FileOperationPattern
+			--[[
+				* The glob pattern to match. Glob patterns can have the following syntax:
+				* - `*` to match one or more characters in a path segment
+				* - `?` to match on one character in a path segment
+				* - `**` to match any number of path segments, including none
+				* - `{}` to group sub patterns into an OR expression. (e.g. `**​/*.{ts,js}`
+				*   matches all TypeScript and JavaScript files)
+				* - `[]` to declare a range of characters to match in a path segment
+				*   (e.g., `example.[0-9]` to match on `example.0`, `example.1`, …)
+				* - `[!...]` to negate a range of characters to match in a path segment
+				*   (e.g., `example.[!0-9]` to match on `example.a`, `example.b`, but
+				*   not `example.0`)
+			]]
+			glob=String,
+			matches=OrNil("file", "folder"),
+			options=OrNil(Struct { -- FileOperationPatternOptions
+				ignoreCase=OrNil(Boolean),
+			})
+		},
+	})
+}
+
 lsp.InitializeResult = Struct {
-	capabilities=Struct{
+	capabilities=Struct{ -- ServerCapabilities
 		completionProvider=OrNil(Struct{
 			triggerCharacters=List(String),
 			resolveProvider=Boolean,
@@ -130,6 +173,20 @@ lsp.InitializeResult = Struct {
 		hoverProvider = OrNil(Boolean),
 		referencesProvider = OrNil(Boolean),
 		documentLocalSymbolProvider = OrNil(Boolean),
+		workspace = OrNil(Struct{
+			workspaceFolders=OrNil(Struct { -- WorkspaceFoldersServerCapabilities
+				supported=OrNil(Boolean),
+				changeNotifications=OrNil(String, Boolean),
+			}),
+			fileOperations=OrNil(Struct {
+				didCreate=OrNil(lsp.FileOperationRegistrationOptions),
+				willCreate=OrNil(lsp.FileOperationRegistrationOptions),
+				didRename=OrNil(lsp.FileOperationRegistrationOptions),
+				willRename=OrNil(lsp.FileOperationRegistrationOptions),
+				didDelete=OrNil(lsp.FileOperationRegistrationOptions),
+				willDelete=OrNil(lsp.FileOperationRegistrationOptions),
+			})
+		})
 	},
 	serverInfo=OrNil(Struct {
 		name=String,
@@ -149,6 +206,62 @@ lsp.Diagnostic = Struct {
 	source=OrNil(String),
 	message=String,
 	tags=OrNil(List(Union(1,2))),
+}
+
+lsp.DidChangeWatchedFilesRegistrationOptions = Struct {
+	watchers=List(Struct { --FileSystemWatcher
+		--[[
+			* The glob pattern to watch relative to the base path. Glob patterns can have
+			* the following syntax:
+			* - `*` to match one or more characters in a path segment
+			* - `?` to match on one character in a path segment
+			* - `**` to match any number of path segments, including none
+			* - `{}` to group conditions (e.g. `**​/*.{ts,js}` matches all TypeScript
+			*   and JavaScript files)
+			* - `[]` to declare a range of characters to match in a path segment
+			*   (e.g., `example.[0-9]` to match on `example.0`, `example.1`, …)
+			* - `[!...]` to negate a range of characters to match in a path segment
+			*   (e.g., `example.[!0-9]` to match on `example.a`, `example.b`,
+			*   but not `example.0`)
+			*
+			* @since 3.17.0
+		]]
+		globPattern=String,
+		--[[
+			* The kind of events of interest. If omitted it defaults
+			* to WatchKind.Create | WatchKind.Change | WatchKind.Delete
+			* which is 7.
+		]]
+		kind=OrNil(Integer);
+	})
+}
+
+lsp.RegistrationParams = Struct {
+	registrations=List(Struct { -- Registration
+		id=String,
+		method=String,
+		registerOptions=OrNil(lsp.DidChangeWatchedFilesRegistrationOptions),
+	})
+}
+
+lsp.DidChangeWatchedFilesParams = Struct {
+	changes=List(Struct { -- FileEvent:w
+		uri=String,
+		--[[
+			* The file got created.
+			*/
+			export const Created = 1;
+			/**
+			* The file got changed.
+			*/
+			export const Changed = 2;
+			/**
+			* The file got deleted.
+			*/
+			export const Deleted = 3;
+		]]
+		type=Union(1,2,3),
+	})
 }
 
 end)

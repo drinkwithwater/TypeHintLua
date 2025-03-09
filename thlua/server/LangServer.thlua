@@ -27,6 +27,9 @@ function.open LangServer:ctor(vGlobalPath:OrNil(String))
 	self._globalPath = vGlobalPath or lpath.cwd().."/global"
 	const nApiProvider = ApiProvider.new(self)
 	self._provider = nApiProvider
+	self._reqIdCounter = 0 @ Integer
+	self._watchFileSupported = false @ Boolean
+	self._watchFileRegistered = false @ Boolean
 	self._methodHandler = {
 		initialize={
 			fallback=false,
@@ -44,6 +47,12 @@ function.open LangServer:ctor(vGlobalPath:OrNil(String))
 			fallback=false,
 			call=function()
 				self:onExit()
+			end,
+		},
+		["workspace/didChangeWatchedFiles"]={
+			fallback=false,
+			call=function(vParam)
+				nApiProvider:onDidChangeWatchedFiles(vParam)
 			end,
 		},
 		["textDocument/didOpen"]={
@@ -159,6 +168,11 @@ end
 
 function.pass LangServer:_handleRequest(request:lsp.RequestMessage)
 	local methodName = request.method
+	if methodName and methodName:sub(1,1) == "$" then
+		-- self:error("error message", methodName, json.encode(request))
+	elseif not methodName then
+		-- self:info("response message:", json.encode(request))
+	end
 	local nId = request.id
 	if not methodName then
 		if nId then
@@ -278,6 +292,17 @@ function LangServer:writeResult(vId:Union(Integer, String, Nil), vResult:Truth):
 	})
 end
 
+function LangServer:requestClient(vMethod:String, vParams:Truth):Ret()
+	const genId = self._reqIdCounter + 1
+	self._reqIdCounter = genId
+	self:_write({
+		jsonrpc = "2.0",
+		id=genId,
+		method = vMethod,
+		params = vParams,
+	})
+end
+
 function LangServer:notify(vMethod:String, vParams:Truth):Ret()
 	self:_write({
 		jsonrpc = "2.0",
@@ -360,6 +385,29 @@ function LangServer:getRootPath()
 	return self._rootPath
 end
 
+-- TODO 后续改成根据throot中的path的后缀名监听文件
+function LangServer:watchThluaFile()
+	if not self._watchFileSupported then
+		return
+	end
+	if self._watchFileRegistered then
+		return
+	end
+	self._watchFileRegistered = true
+	self:requestClient("client/registerCapability", { --lsp.RegistrationParams
+		registrations={{
+			id="didChangeWatchedFiles",
+			method="workspace/didChangeWatchedFiles",
+			registerOptions={
+				watchers={{
+					globPattern="**/*.thlua",
+					kind=7,
+				}},
+			},
+		}}
+	})
+end
+
 function LangServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.InitializeResult)
 	if self.initialize then
 		error("already initialized!")
@@ -379,6 +427,9 @@ function LangServer:onInitialize(vParams:lsp.InitializeParams):Ret(lsp.Initializ
 	if root then
 		self:setRootPath(root)
 	end
+	const workspace = vParams.capabilities.workspace
+	self._watchFileSupported = workspace and workspace.didChangeWatchedFiles and workspace.didChangeWatchedFiles!.dynamicRegistration or false
+	self:info("watchFileSupported="..tostring(self._watchFileSupported))
 	return {
 		capabilities = {
 			textDocumentSync = {

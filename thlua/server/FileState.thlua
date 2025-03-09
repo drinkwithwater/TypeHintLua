@@ -21,6 +21,15 @@ function.open FileState:ctor(vServer:lsp.LangServer, vFileName:String)
 	self._version = (-1) @Integer
 	self._changeState = false @ Boolean
 	self._checkFlag = false @ Boolean
+	self._opened = false @ Boolean
+end
+
+function FileState:getOpened()
+	return self._opened
+end
+
+function FileState:setOpened(vOpened:Boolean)
+	self._opened = vOpened
 end
 
 function FileState:getCheckFlag()
@@ -84,7 +93,7 @@ function FileState:_parseEnv():Ret(Boolean)
 	end
 end
 
-function FileState:syncFile()
+function FileState:syncFile():Ret(Boolean)
 	const nFilePath = platform.uri2path(self._fileName)
 	const file, err = io.open(nFilePath, "r")
 	if not file then
@@ -94,6 +103,9 @@ function FileState:syncFile()
 	file:close()
 	if nContent ~= self._splitCode:getContent() then
 		self:syncContent(nContent, self._version)
+		return true
+	else
+		return false
 	end
 end
 
