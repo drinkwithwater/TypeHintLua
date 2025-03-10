@@ -8334,7 +8334,7 @@ function BaseReferSpace:spaceCompletion(vCompletion, vValue)
 end
 
 function BaseReferSpace:getRefer()
-	return self._refer  
+	return self._refer
 end
 
 return BaseReferSpace
@@ -8354,7 +8354,7 @@ function BaseSpaceCom:ctor(vSpaceManager, vNode, ...)
     self._spaceManager = vSpaceManager
     self._typeManager = vSpaceManager:getRuntime():getTypeManager()
     self._node = vNode
-    self._refer = false  
+    self._refer = nil  
 end
 
 function BaseSpaceCom:setRefer(vRefer)
@@ -8712,7 +8712,7 @@ function LetSpace:chainGet(vKey)
 end
 
 function LetSpace:export() 
-    return (self._refer  ):getSpaceValue(), self._envTable
+    return self._refer:getSpaceValue(), self._envTable
 end
 
 function LetSpace:spaceCompletion(vCompletion, vValue)
@@ -17871,7 +17871,7 @@ function native.make(vRuntime)
 								local nRefer = SpaceValue.checkRefer(nFirstArgForName)
 								if nRefer then
 									nRefer:setAssignAsync(vStack:getNode(), function()
-										return nLetSpace:export()[nRefer:getName()]
+										return nLetSpace:getRefer():triggerReferChild(vStack:getNode(), nRefer:getName()):getSpaceValue()
 									end)
 								elseif not getmetatable(nFirstArgForName) and type(nFirstArgForName) == "table" then
 									for k,v in pairs(nFirstArgForName) do
@@ -17879,7 +17879,7 @@ function native.make(vRuntime)
 											local nRefer = SpaceValue.checkRefer(v)
 											if nRefer then
 												nRefer:setAssignAsync(vStack:getNode(), function()
-													return nLetSpace:export()[nRefer:getName()]
+													return nLetSpace:getRefer():triggerReferChild(vStack:getNode(), nRefer:getName()):getSpaceValue()
 												end)
 											else
 												vContext:error('namespace or letspace expected, use require as a poly function: require @<let.name1> or require @<{let.name1}> or require@<{[let.name3]="name1"}>')
@@ -17888,7 +17888,7 @@ function native.make(vRuntime)
 											local nRefer = SpaceValue.checkRefer(k)
 											if nRefer and type(v) == "string" then
 												nRefer:setAssignAsync(vStack:getNode(), function()
-													return nLetSpace:export()[v]
+													return nLetSpace:getRefer():triggerReferChild(vStack:getNode(), v):getSpaceValue()
 												end)
 											else
 												vContext:error('namespace or letspace expected, use require as a poly function: require @<let.name1> or require @<{let.name1}> or require@<{[let.name3]="name1"}>')
