@@ -12120,6 +12120,7 @@ local AutoTail = require "thlua.space.AutoTail"
 
 local ListDict = require "thlua.utils.ListDict"
 local OperContext = require "thlua.stack.context.OperContext"
+local CodeKindEnum = require "thlua.code.CodeKindEnum"
 
 ;
 	  
@@ -12291,7 +12292,7 @@ function AssignContext:includeAndCast(vDstType, vSrcType, vWhen)
 	if not nIncludeType or not nCastSucc then
 		local nLogPrefix = nIncludeType and "type cast fail " or "type not match "
 		local nLogSuffix = vWhen and "when "..tostring(vWhen) or ""
-		if vSrcType:includeAtom(self._typeManager.type.Truth) then
+		if vSrcType:includeAtom(self._typeManager.type.Truth) or vWhen == CodeKindEnum.CastKind_COVAR then
 			self:warn(nLogPrefix..nLogSuffix)
 		else
 			self:error(nLogPrefix..nLogSuffix)
