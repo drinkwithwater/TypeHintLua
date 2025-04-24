@@ -4300,7 +4300,7 @@ function.pass debug.gethook(co:OrNil(Thread))
 end
 
 
-(@let.WhatOrNil = OrNil("n", "S", "l", "t", "u", "f", "r", "L"))
+(@let.WhatOrNil = OrNil("n", "S", "l", "t", "u", "f", "r", "L", String))
 const function.pass _getinfo(f:Union(Integer, AnyFunction), what:WhatOrNil):Ret(DebugInfo) end
 function.open debug.getinfo(coOrF, ...)
     if type(coOrF) == "thread" then
