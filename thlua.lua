@@ -3369,101 +3369,9 @@ local G = lpeg.P { "TypeHintLua";
 		local BXorExpr = chainOp(BAndExpr, symb, "~")
 		local BOrExpr = chainOp(BXorExpr, symb, "|")
 		local RelExpr = chainOp(BOrExpr, symb, "~=", "==", "<=", ">=", "<", ">")
-		local AndExpr = chainOp(RelExpr + Cenv*vv.XmlExpr/function(env, expr)
-			env.codeBuilder:xmlMarkEnd(expr.closeXmlPos, expr.posEnd, false)
-			return expr
-		end, kw, "and")
+		local AndExpr = chainOp(RelExpr, kw, "and")
 		local OrExpr = chainOp(AndExpr, kw, "or")
 		return OrExpr
-	end)();
-
-	XmlExpr = (function()
-		local BUILTIN__THLUAX= "__thluax"
-		local function nameAppend(nameList, primaryNode)
-			if primaryNode.tag == "Index" then
-				nameAppend(nameList, primaryNode[1])
-				nameList[#nameList + 1] = primaryNode[2][1]
-			else
-				nameList[#nameList + 1] = primaryNode[1]
-			end
-			return nameList
-		end
-		local function replaceMark(patt, after)
-			return Cenv * Cpos * patt / function(env, startPos)
-				env.codeBuilder:xmlMarkReplace(startPos, after)
-			end
-		end
-		local xmlAttr = tagC.Pair(tagC.String(vv.Name) * symb"=" * vv.SimpleExpr)
-		local xmlAttrTable = Cenv*Cpos*tagC.Table(xmlAttr^1) / function(env, pos, tableExpr)
-			env.codeBuilder:xmlMarkInsert(pos-1, ",{")
-			for i=1, #tableExpr-1 do
-				local pairNode = tableExpr[i]
-				env.codeBuilder:xmlMarkInsert(pairNode.posEnd, ",")
-			end
-			return tableExpr
-		end
-		local xmlPrefix = replaceMark(symb "<", " "..BUILTIN__THLUAX.."(") * vv.HintAssertNot * vv.NameChain
-		local xmlChildren = Cenv*Cpos*(vv.FuncArgs + vv.XmlExpr)^0/function(env, pos, ...)
-			local retExprList = {tag="ExprList", pos=pos, posEnd=pos, false, false}
-			local listOrXmlList = {...}
-			for i=1,#listOrXmlList do
-				local listOrXml = listOrXmlList[i]
-				if listOrXml.tag == "ExprList" then
-					-- 1. append to expr list
-					for _, expr in ipairs(listOrXml) do
-						retExprList[#retExprList+1] = expr
-					end
-					-- 2. code convert
-					if listOrXml.closeParenPos then
-						env.codeBuilder:xmlMarkReplace(listOrXml.pos, "")
-						env.codeBuilder:xmlMarkReplace(listOrXml.closeParenPos, i<#listOrXmlList and #listOrXml > 0 and "," or "")
-					else
-						if i<#listOrXmlList then
-							local oneExpr = listOrXml[1]
-							while oneExpr.tag ~= "String" and oneExpr.tag ~= "Table" do
-								oneExpr = oneExpr[1]
-							end
-							if oneExpr.closePosEnd then
-								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePosEnd-1)
-							else
-								env.codeBuilder:xmlMarkAppendComma(oneExpr.closePos)
-							end
-						end
-					end
-				else
-					retExprList[#retExprList+1] = listOrXml
-					env.codeBuilder:xmlMarkEnd(listOrXml.closeXmlPos, listOrXml.posEnd, i<#listOrXmlList)
-				end
-			end
-			return retExprList
-		end
-		return lpeg.Cmt(Cenv * xmlPrefix * (xmlAttrTable + cc(nil)) * Cpos * (
-			symb ">" * xmlChildren * Cpos* symbA "</" * vv.NameChain * symbA ">" +
-			cc(nil) * Cpos * symb "/>" * cc(nil) +
-			throw("xtag not close")
-		) * Cpos, function(_, _, env, prefix, attrTable, posMid, children, closePos, finish, posEnd)
-			-- 1. build children
-			local attrExpr = attrTable or {tag="Nil", pos=posMid, posEnd=posMid}
-			if children then
-				local openName = table.concat(nameAppend({}, prefix), ".")
-				local closeName = table.concat(nameAppend({}, finish), ".")
-				if openName ~= closeName then
-					error(env:makeErrNode(finish.pos, string.format("xtag close unexpected: %s ~= %s", openName, closeName)))
-				end
-				children[1] = prefix
-				children[2] = attrExpr
-			else
-				children = {tag="ExprList", pos=posMid, posEnd=posMid, prefix, attrExpr}
-			end
-			-- 2. mark attribute
-			if attrTable then
-				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and "}" or "},")
-			elseif not attrTable then
-				env.codeBuilder:xmlMarkReplace(posMid, #children == 2 and ",nil" or ",nil,")
-			end
-			local caller = parF.identUse(prefix.pos, BUILTIN__THLUAX, false, prefix.pos)
-			return true, {tag="Call", pos=prefix.pos, posEnd=posEnd, closeXmlPos=closePos, caller, children}
-		end)
 	end)();
 
 	SimpleArgExpr = Cpos * (vv.Constructor + vv.String) * (vv.AtCastHint + cc(nil)) * Cpos * Cenv / exprF.hintExpr;
@@ -3842,66 +3750,6 @@ do
 			self._posToChange[vEndStartPos] = self:_insertChange("end ::continue::", vEndStartPos)
 		else
 			self._posToChange[vEndStartPos] = self:_insertChange("::continue::", vEndStartPos)
-		end
-	end
-
-	function CodeBuilder:xmlMarkBegin(vStartPos)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
-			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
-			vContentList[#vContentList + 1] = nLuaCode
-			vContentList[#vContentList + 1] = ","
-			return vStartPos
-		end
-	end
-
-	function CodeBuilder:xmlMarkAppendComma(vEndPos)
-		self._posToChange[vEndPos] = function(vContentList, vRemainStartPos)
-			-- 1. save lua code
-			local nLuaCode = self._subject:sub(vRemainStartPos, vEndPos)
-			vContentList[#vContentList + 1] = nLuaCode
-			vContentList[#vContentList + 1] = ","
-			-- 2. replace xml-end code with space and newline
-			return vEndPos + 1
-		end
-	end
-
-	function CodeBuilder:xmlMarkInsert(vStartPos, vAfterStr)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
-			-- 1. save lua code
-			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
-			vContentList[#vContentList + 1] = nLuaCode
-			vContentList[#vContentList + 1] = vAfterStr
-			-- 2. replace xml-end code with space and newline
-			return vStartPos
-		end
-	end
-
-	function CodeBuilder:xmlMarkReplace(vStartPos, vAfterStr)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
-			-- 1. save lua code
-			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
-			vContentList[#vContentList + 1] = nLuaCode
-			vContentList[#vContentList + 1] = vAfterStr
-			-- 2. replace xml-end code with space and newline
-			return vStartPos + 1
-		end
-	end
-
-	function CodeBuilder:xmlMarkEnd(vStartPos, vNextStartPos, vAppendComma)
-		self._posToChange[vStartPos] = function(vContentList, vRemainStartPos)
-			-- 1. save lua code
-			local nLuaCode = self._subject:sub(vRemainStartPos, vStartPos-1)
-			vContentList[#vContentList + 1] = nLuaCode
-			vContentList[#vContentList + 1] = ")"
-			if vAppendComma then
-				vContentList[#vContentList + 1] = ","
-			elseif self._statPosSet[vNextStartPos] then
-				vContentList[#vContentList + 1] = ";"
-			end
-			-- 2. replace xml-end code with space and newline
-			local nEndCode = self._subject:sub(vStartPos, vNextStartPos - 1)
-			vContentList[#vContentList + 1] = nEndCode:gsub("[^\r\n\t ]", "")
-			return vNextStartPos
 		end
 	end
 
