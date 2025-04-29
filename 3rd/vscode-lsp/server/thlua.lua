@@ -664,9 +664,6 @@ local TagToVisiting = {
 			end
 		end
 	end,
-	HintTerm=function(self, node)
-		return self:stkWrap(node).HINT_TERM(self:fixIHintSpace(node[1]))
-	end,
 	Block=function(self, node)
 		return self:concatList(node, function(i, vStatNode)
 			return self:visit(vStatNode)
@@ -1143,7 +1140,15 @@ function HintGener:fixIHintSpace(vHintSpace)
 				nLast.line = nil
 			end
 		else
-			nResult[#nResult + 1] = self:stkWrap(v).EVAL(self:visit(v[1]))
+			local evalTarget = v[1]
+			if evalTarget.tag == "Do" then
+				nResult[#nResult + 1] = self:stkWrap(evalTarget).EVAL_DO(
+					self:visitLongHint(evalTarget.hintLong),
+					self:fnWrap("...")(self:visit(evalTarget[1]))
+				)
+			else
+				nResult[#nResult + 1] = self:stkWrap(v).EVAL_EXPR(self:visit(evalTarget))
+			end
 			nResult[#nResult + 1] = {
 				line=v.endLine, " "
 			}
@@ -1271,6 +1276,7 @@ end
 		
 		
 
+		
 		
 		
 		
@@ -1629,11 +1635,6 @@ local Exception = require "thlua.Exception"
  
 
     
-
-  
-	
-	
- 
 
   
 	  
@@ -2158,7 +2159,7 @@ local exprF = {
 			return {tag = "Op", pos=e1.pos, posEnd=e2.posEnd, op, e1, e2 }
 		end
 	end,
-	hintAt=function(pos, e, hintShort, posEnd)
+	hintPoly=function(pos, e, hintShort, posEnd)
 		return { tag = "HintAt", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
 	end,
 	hintExpr=function(pos, e, hintShort, posEnd, env)
@@ -2169,7 +2170,7 @@ local exprF = {
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
 				env.codeBuilder:markParenWrap(pos, hintShort.pos-1)
 			end
-			-- TODO, use other tag
+			-- both poly & expr cast use tag="HintAt"
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
 		end
 	end
@@ -2389,7 +2390,7 @@ local G = lpeg.P { "TypeHintLua";
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
 		vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.DoStat + vvA.SimpleExpr) * vv.EvalEnd);
 
   -- hint & eval end }}}
 
@@ -2483,7 +2484,7 @@ local G = lpeg.P { "TypeHintLua";
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
 		-- atPoly
-		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
+		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintPoly
 		-- add completion case
 		local succPatt = lpeg.Cmt(Cenv * primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, function(_, pos, env, primary, ...)
 				if ... then
@@ -3895,9 +3896,6 @@ local TagToTraverse = {
 		if nInjectExpr then
 			self:realVisit(nInjectExpr)
 		end
-	end,
-	HintTerm=function(self,node)
-		self:realVisit(node[1])
 	end,
 	Block=function(self, node)
 		for i=1,#node do
@@ -9220,6 +9218,7 @@ function BaseStack:ctor(
 	self._lexBranchCase = vUpState
 	local nTopBranch = Branch.new(self, vUpState and vUpState.uvCase or VariableCase.new(), vUpState and vUpState.branch or false)
 	self._branchStack = {nTopBranch} ; 
+	self._evalDoStack = {} ; 
 	self._bodyFn=nil;
 	self._retList={} ; 
 	self._polyDotsNum = 0 ; 
@@ -10150,11 +10149,44 @@ function InstStack:RUN_STAT(vNode, vStatFn)
 	end
 end
 
-function InstStack:EVAL(vNode, vTerm)
+function InstStack:EVAL_EXPR(vNode, vTerm)
 	if RefineTerm.is(vTerm) then
+		  
 		return vTerm:getType()
 	else
-		error(vNode:toExc("hint eval fail"))
+		error(vNode:toExc("hint eval expr fail"))
+	end
+end
+
+function InstStack:tryReturnInEvalDo(vNode, vTermTuple)
+	local nTypeList = self._evalDoStack[#self._evalDoStack]
+	if not nTypeList then
+		return false
+	else
+		local nRetContext = self:newReturnContext(vNode)
+		if #nTypeList >= 1 then
+			nRetContext:warn("eval-do can only have one return statement")
+		else
+			local nType = vTermTuple:get(nRetContext, 1):getType()
+			nTypeList[1] = nType
+		end
+		return true
+	end
+end
+
+function InstStack:EVAL_DO(vNode, vHintInfo, vDoFunc)
+	local nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if nBuilder:takeNoCheck() then
+		self:getRuntime():nodeWarn(vNode, "nocheck in eval-do statement")
+		return self._typeManager.type.Nil
+	else
+		local index = #self._evalDoStack + 1
+		local nTypeList = {}
+		self._evalDoStack[index] = nTypeList
+		self:_withBranch(VariableCase.new(), vDoFunc, vNode[1])
+		self._evalDoStack[index] = nil
+		return nTypeList[1] or self._typeManager.type.Nil
 	end
 end
 
@@ -10216,11 +10248,6 @@ end
 
 function InstStack:NIL_TERM(vNode)
 	return self:_nodeTerm(vNode, self._typeManager.type.Nil)
-end
-
-function InstStack:HINT_TERM(vNode, vItem)
-	local nType = self._spaceManager:spaceToMustType(vNode, vItem):checkAtomUnion()
-	return self:_nodeTerm(vNode, nType)
 end
 
 function InstStack:LITERAL_TERM(vNode, vValue  )
@@ -10631,6 +10658,10 @@ end
 
 function OpenStack:RETURN(vNode, vTermTuple)
 	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
+	if self:tryReturnInEvalDo(vNode, vTermTuple) then
+		self:topBranch():setStop()
+		return
+	end
 	table.insert(self._retList, vTermTuple)
 	self:topBranch():setStop()
 end
@@ -10764,6 +10795,10 @@ end
 
 function SealStack:RETURN(vNode, vTermTuple)
 	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
+	if self:tryReturnInEvalDo(vNode, vTermTuple) then
+		self:topBranch():setStop()
+		return
+	end
 	local nRetContext = self:newReturnContext(vNode)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getTail() then
