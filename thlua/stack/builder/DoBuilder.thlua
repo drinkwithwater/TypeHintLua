@@ -10,17 +10,21 @@ function:class(let.DoBuilder) DoBuilder.new(vContext:clazz.BaseStack, vNode:claz
 	return setmetatable({.class
 		_context=vContext,
 		_node=vNode,
-		pass=false@Boolean,
+		_nocheck=false@Boolean,
 	}, DoBuilder)
 end
 
 function DoBuilder:build(vHintInfo:clazz.TLongHintInfo(Nil)):Ret()
 	const key = next(vHintInfo.attrSet)
-	if key == "pass" then
-		self.pass = true
+	if key == "nocheck" then
+		self._nocheck = true
 	elseif key then
-		self._context:getRuntime():nodeError(self._node, "do can only take pass as hint")
+		self._context:getRuntime():nodeError(self._node, "do can only take nocheck as hint")
 	end
+end
+
+function DoBuilder:takeNoCheck()
+	return self._nocheck
 end
 
 return DoBuilder

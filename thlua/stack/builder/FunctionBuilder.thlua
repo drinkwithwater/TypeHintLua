@@ -65,7 +65,7 @@ function:class(clazz.FunctionBuilder) FunctionBuilder.new(
 		_node=vNode,
 		_lexBranchCase=vUpState,
 		_prefixHint=vPrefixHint,
-		_pass=vPrefixHint.attrSet.pass and true or false,
+		_nocheck=vPrefixHint.attrSet.nocheck and true or false,
 		_parRetMaker=vParRetMaker,
 	}
 	for k,v in pairs(vInfo) do
@@ -115,7 +115,7 @@ function FunctionBuilder:_makeRetTuples(vNewStack:clazz.BaseStack, vSuffixHint:c
 	end
 	const nRetTuples = nRetBuilder:build()
 	if not self._hasRetSome then
-		if nRetTuples and not self._pass then
+		if nRetTuples and not self._nocheck then
 			local hasVoid = false
 			local hasSome = false
 			nRetTuples:foreachWithFirst(function(vTypeTuple, _)
@@ -126,7 +126,7 @@ function FunctionBuilder:_makeRetTuples(vNewStack:clazz.BaseStack, vSuffixHint:c
 				end
 			end)
 			if hasSome and not hasVoid then
-				if not self._pass then
+				if not self._nocheck then
 					self._stack:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
 				end
 			end
@@ -161,9 +161,9 @@ function FunctionBuilder:_buildInnerFn():Ret(Union(clazz.AutoFunction, clazz.Sea
 			end
 			const nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._typeManager:VoidRetTuples(self._node))
 			return nParTuple, nRetTuples, function()
-				if self._pass then
+				if self._nocheck then
 					if not nParTuple or not nRetTuples then
-						error(self._node:toExc("pass function can't take auto return or auto parameter"))
+						error(self._node:toExc("nocheck function can't take auto return or auto parameter"))
 					end
 					return nParTuple, nRetTuples
 				else

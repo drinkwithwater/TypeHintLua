@@ -629,7 +629,7 @@ end
 function InstStack:WHILE(vNode:node.While, vHintInfo:clazz.TLongHintInfo(Nil), vTerm:clazz.RefineTerm, vTrueFunction:Fn():Dots(clazz.USpaceAny))
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
-	if not nBuilder.pass then
+	if not nBuilder:takeNoCheck() then
 		const nTrueCase = vTerm:caseTrue()
 		self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction, vNode[2])
 	end
@@ -638,7 +638,7 @@ end
 function InstStack:DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn():Dots(clazz.USpaceAny))
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
-	if not nBuilder.pass then
+	if not nBuilder:takeNoCheck() then
 		self:_withBranch(VariableCase.new(), vDoFunc, vNode[1])
 	end
 end
@@ -697,7 +697,7 @@ function InstStack:FOR_IN(vNode:node.Forin, vHintInfo:clazz.TLongHintInfo(Nil), 
 			nTermList[i] = nTerm
 		end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
-		if not nBuilder.pass then
+		if not nBuilder:takeNoCheck() then
 			self:_withBranch(vCase, function(...)
 				vFunc(nNewTuple, ...)
 			end, vNode[3])
@@ -716,7 +716,7 @@ function InstStack:FOR_NUM(
 )
 	const nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
-	if not nBuilder.pass then
+	if not nBuilder:takeNoCheck() then
 		const nForContext = self:newOperContext(vNode)
 		self:_withBranch(VariableCase.new(), function(...)
 			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer), ...)
