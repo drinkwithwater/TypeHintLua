@@ -4175,17 +4175,17 @@ _ENV._VERSION = "" @ String
 -- builtin
 -- _ENV.assert = nil
 
-function.pass _ENV.collectgarbage(
+function.nocheck _ENV.collectgarbage(
     opt:OrNil("collect", "stop", "restart", "count", "step", "isrunning", "incremental", "generational"),
     arg:OrNil(Integer)
 )
 end
 
 
-function.pass _ENV.loadfile(name:String, mode:OrNil(String), env:OrNil(Truth)):Ret(AnyFunction):Ret(Nil, String)
+function.nocheck _ENV.loadfile(name:String, mode:OrNil(String), env:OrNil(Truth)):Ret(AnyFunction):Ret(Nil, String)
 end
 
-function.pass _ENV.load(chunk:String, name:String, mode:OrNil(String), env:OrNil(Truth)):Ret(AnyFunction):Ret(Nil, String)
+function.nocheck _ENV.load(chunk:String, name:String, mode:OrNil(String), env:OrNil(Truth)):Ret(AnyFunction):Ret(Nil, String)
 end
 
 -- builtin
@@ -4217,13 +4217,13 @@ function.open _ENV.tonumber(v:Any, base)
     return 0.0@OrNil(Number)
 end
 
-function.pass _ENV.tostring(v:Any):Ret(String)
+function.nocheck _ENV.tostring(v:Any):Ret(String)
 end
 
-function.pass _ENV.print(...:Any)
+function.nocheck _ENV.print(...:Any)
 end
 
-function.pass _ENV.rawset(a:Any, b:Any,c:Any)
+function.nocheck _ENV.rawset(a:Any, b:Any,c:Any)
 end
 
 ]]
@@ -4237,28 +4237,28 @@ return [[
 
 const coroutine = {}
 
-function.pass coroutine.close(co:Thread)
+function.nocheck coroutine.close(co:Thread)
 end
 
-function.pass coroutine.create(f:AnyFunction):Ret(Thread)
+function.nocheck coroutine.create(f:AnyFunction):Ret(Thread)
 end
 
-function.pass coroutine.isyieldable(co:OrNil(Thread)):Ret(Boolean)
+function.nocheck coroutine.isyieldable(co:OrNil(Thread)):Ret(Boolean)
 end
 
-function.pass coroutine.resume(co:Thread, ...:Any):Ret(True):Ret(False, String)
+function.nocheck coroutine.resume(co:Thread, ...:Any):Ret(True):Ret(False, String)
 end
 
-function.pass coroutine.running():Ret(Thread, Boolean)
+function.nocheck coroutine.running():Ret(Thread, Boolean)
 end
 
-function.pass coroutine.status(co:Thread):Ret(Union("running", "suspended", "normal", "dead"))
+function.nocheck coroutine.status(co:Thread):Ret(Union("running", "suspended", "normal", "dead"))
 end
 
-function.pass coroutine.wrap(f:AnyFunction):Ret(AnyFunction)
+function.nocheck coroutine.wrap(f:AnyFunction):Ret(AnyFunction)
 end
 
-function.pass coroutine.yield(...:Any):RetDots(Any)
+function.nocheck coroutine.yield(...:Any):RetDots(Any)
 end
 
 _ENV.coroutine = coroutine
@@ -4293,15 +4293,15 @@ const debug = {}
     name=OrNil(String),
 })
 
-function.pass debug.debug()
+function.nocheck debug.debug()
 end
 
-function.pass debug.gethook(co:OrNil(Thread))
+function.nocheck debug.gethook(co:OrNil(Thread))
 end
 
 
 (@let.WhatOrNil = OrNil("n", "S", "l", "t", "u", "f", "r", "L", String))
-const function.pass _getinfo(f:Union(Integer, AnyFunction), what:WhatOrNil):Ret(DebugInfo) end
+const function.nocheck _getinfo(f:Union(Integer, AnyFunction), what:WhatOrNil):Ret(DebugInfo) end
 function.open debug.getinfo(coOrF, ...)
     if type(coOrF) == "thread" then
         return _getinfo(...)
@@ -4310,7 +4310,7 @@ function.open debug.getinfo(coOrF, ...)
     end
 end
 
-const function.pass _getlocal(f:Union(Integer, AnyFunction), local_:Integer):Ret(Nil):Ret(String, Any) end
+const function.nocheck _getlocal(f:Union(Integer, AnyFunction), local_:Integer):Ret(Nil):Ret(String, Any) end
 function.open debug.getlocal(coOrF, ...)
     if type(coOrF) == "thread" then
         return _getlocal(...)
@@ -4319,19 +4319,19 @@ function.open debug.getlocal(coOrF, ...)
     end
 end
 
-function.pass debug.getmetatable(value:Any):Ret(Any)
+function.nocheck debug.getmetatable(value:Any):Ret(Any)
 end
 
-function.pass debug.getregistry():Ret(Any)
+function.nocheck debug.getregistry():Ret(Any)
 end
 
-function.pass debug.getupvalue(f:AnyFunction, up:Integer):Ret(String, Any)
+function.nocheck debug.getupvalue(f:AnyFunction, up:Integer):Ret(String, Any)
 end
 
-function.pass debug.getuservalue(u:Any, n:OrNil(Integer)):Ret(Any, Boolean)
+function.nocheck debug.getuservalue(u:Any, n:OrNil(Integer)):Ret(Any, Boolean)
 end
 
-const function.pass _sethook(hook:AnyFunction, mask:String, count:OrNil(Integer)) end
+const function.nocheck _sethook(hook:AnyFunction, mask:String, count:OrNil(Integer)) end
 function.open debug.sethook(coOrF,...)
     if type(coOrF) == "thread" then
         return _sethook(...)
@@ -4340,7 +4340,7 @@ function.open debug.sethook(coOrF,...)
     end
 end
 
-const function.pass _setlocal(level:Integer, local_:Integer, value:Any) end
+const function.nocheck _setlocal(level:Integer, local_:Integer, value:Any) end
 function.open debug.setlocal(coOrLevel, ...)
     if type(coOrLevel) == "thread" then
         return _setlocal(...)
@@ -4349,13 +4349,13 @@ function.open debug.setlocal(coOrLevel, ...)
     end
 end
 
-function.pass debug.setmetatable(t:Any, v:OrNil(Any)):Ret(Any)
+function.nocheck debug.setmetatable(t:Any, v:OrNil(Any)):Ret(Any)
 end
 
-function.pass debug.setupvalue(f:AnyFunction, up:Integer, value:Any):Ret(String)
+function.nocheck debug.setupvalue(f:AnyFunction, up:Integer, value:Any):Ret(String)
 end
 
-const function.pass _traceback(message:OrNil(String), level:OrNil(Integer)):Ret(String) end
+const function.nocheck _traceback(message:OrNil(String), level:OrNil(Integer)):Ret(String) end
 function.open debug.traceback(coOrMsg, ...)
     if type(coOrMsg) == "thread" then
         return _traceback(...)
@@ -4396,39 +4396,39 @@ const function:class(let.File) newFile()
     })
 end
 
-function.pass file:close()
+function.nocheck file:close()
 end
 
-function.pass file:flush()
+function.nocheck file:flush()
 end
 
-function.pass file:lines(...:ReadMode):Ret(Fn():Ret(OrNil(String)))
+function.nocheck file:lines(...:ReadMode):Ret(Fn():Ret(OrNil(String)))
 end
 
-function.pass file:read(...:ReadMode):Ret(OrNil(String))
+function.nocheck file:read(...:ReadMode):Ret(OrNil(String))
 end
 
-function.pass file:seek(whence:OrNil("set", "cur", "end"), offset:OrNil(Integer)):Ret(Integer, OrNil(String))
+function.nocheck file:seek(whence:OrNil("set", "cur", "end"), offset:OrNil(Integer)):Ret(Integer, OrNil(String))
 end
 
-function.pass file:setvbuf(mode:Union("no", "full", "line"), size:OrNil(Integer))
+function.nocheck file:setvbuf(mode:Union("no", "full", "line"), size:OrNil(Integer))
 end
 
-function.pass file:write(...:Union(String,Number)):Ret(File):Ret(Nil, String)
+function.nocheck file:write(...:Union(String,Number)):Ret(File):Ret(Nil, String)
 end
 
 const io = {}
 
-function.pass io.close(file:OrNil(File))
+function.nocheck io.close(file:OrNil(File))
 end
 
-function.pass io.flush()
+function.nocheck io.flush()
 end
 
-function.pass io.input(file:OrNil(String, File)):Ret(File)
+function.nocheck io.input(file:OrNil(String, File)):Ret(File)
 end
 
-function.pass io.lines(filename:OrNil(String), ...:ReadMode):Ret(Fn():Ret(OrNil(String)), Nil, Nil, OrNil(File))
+function.nocheck io.lines(filename:OrNil(String), ...:ReadMode):Ret(Fn():Ret(OrNil(String)), Nil, Nil, OrNil(File))
 end
 
 (@let.OpenMode = Union(
@@ -4437,25 +4437,25 @@ end
     "rb", "wb", "ab",
     "r+b", "w+b", "a+b"
 ))
-function.pass io.open(filename:String, mode:OpenMode):Ret(File):Ret(Nil, String)
+function.nocheck io.open(filename:String, mode:OpenMode):Ret(File):Ret(Nil, String)
 end
 
-function.pass io.output(file:OrNil(String, File)):Ret(File)
+function.nocheck io.output(file:OrNil(String, File)):Ret(File)
 end
 
-function.pass io.popen(prog:String, mode:OrNil("r", "w")):Ret(File):Ret(Nil, String)
+function.nocheck io.popen(prog:String, mode:OrNil("r", "w")):Ret(File):Ret(Nil, String)
 end
 
-function.pass io.read(...:ReadMode):Ret(OrNil(String))
+function.nocheck io.read(...:ReadMode):Ret(OrNil(String))
 end
 
-function.pass io.tmpfile():Ret(File)
+function.nocheck io.tmpfile():Ret(File)
 end
 
 function.open io.type(file):mapguard({file=File, ["closed file"]=File})
 end
 
-function.pass io.write(...:Union(String, Number)):Ret(File):Ret(Nil, String)
+function.nocheck io.write(...:Union(String, Number)):Ret(File):Ret(Nil, String)
 end
 
 _ENV.io = io
@@ -4472,82 +4472,82 @@ return [[
 
 const math = {}
 
-function.pass math.abs(x:Number):Ret(Number)
+function.nocheck math.abs(x:Number):Ret(Number)
 end
 
-function.pass math.acos(x:Number):Ret(Number)
+function.nocheck math.acos(x:Number):Ret(Number)
 end
 
-function.pass math.asin(x:Number):Ret(Number)
+function.nocheck math.asin(x:Number):Ret(Number)
 end
 
-function.pass math.atan(y:Number, x:OrNil(Number)):Ret(Number)
+function.nocheck math.atan(y:Number, x:OrNil(Number)):Ret(Number)
 end
 
-function.pass math.ceil(x:Number):Ret(Integer)
+function.nocheck math.ceil(x:Number):Ret(Integer)
 end
 
-function.pass math.cos(x:Number):Ret(Number)
+function.nocheck math.cos(x:Number):Ret(Number)
 end
 
-function.pass math.deg(x:Number):Ret(Number)
+function.nocheck math.deg(x:Number):Ret(Number)
 end
 
-function.pass math.exp(x:Number):Ret(Number)
+function.nocheck math.exp(x:Number):Ret(Number)
 end
 
-function.pass math.floor(x:Number):Ret(Integer)
+function.nocheck math.floor(x:Number):Ret(Integer)
 end
 
-function.pass math.fmod(x:Number, y:Number):Ret(Number)
+function.nocheck math.fmod(x:Number, y:Number):Ret(Number)
 end
 
 math.huge = nil @! Literal(1.0/0.0)
 
-function.pass math.log(x:Number, base:OrNil(Number)):Ret(Number)
+function.nocheck math.log(x:Number, base:OrNil(Number)):Ret(Number)
     base = base or math.exp(1)
 end
 
-function.pass math.max(x:Number, ...:Number):Ret(Number)
+function.nocheck math.max(x:Number, ...:Number):Ret(Number)
 end
 
 math.maxinteger = nil@! Literal(9223372036854775807)
 
-function.pass math.min(x:Number, ...:Number):Ret(Number)
+function.nocheck math.min(x:Number, ...:Number):Ret(Number)
 end
 
 math.mininteger = nil@! Literal(-9223372036854775808)
 
-function.pass math.modf(x:Number):Ret(Integer, Number)
+function.nocheck math.modf(x:Number):Ret(Integer, Number)
 end
 
 math.pi = 3.14159265358979323846
 
-function.pass math.rad(x:Number):Ret(Number)
+function.nocheck math.rad(x:Number):Ret(Number)
 end
 
-function.pass math.random(m:OrNil(Integer), n:OrNil(Integer)):Ret(Number)
+function.nocheck math.random(m:OrNil(Integer), n:OrNil(Integer)):Ret(Number)
 end
 
-function.pass math.randomseed(x:OrNil(Integer), y:OrNil(Integer))
+function.nocheck math.randomseed(x:OrNil(Integer), y:OrNil(Integer))
 end
 
-function.pass math.sin(x:Number):Ret(Number)
+function.nocheck math.sin(x:Number):Ret(Number)
 end
 
-function.pass math.sqrt(x:Number):Ret(Number)
+function.nocheck math.sqrt(x:Number):Ret(Number)
 end
 
-function.pass math.tan(x:Number):Ret(Number)
+function.nocheck math.tan(x:Number):Ret(Number)
 end
 
-function.pass math.tointeger(x:Any):Ret(OrNil(Integer))
+function.nocheck math.tointeger(x:Any):Ret(OrNil(Integer))
 end
 
 function.open math.type(x):mapguard({float=Number, integer=Integer})
 end
 
-function.pass math.ult(m:Integer, n:Integer):Ret(Boolean)
+function.nocheck math.ult(m:Integer, n:Integer):Ret(Boolean)
 end
 
 _ENV.math = math
@@ -4563,16 +4563,16 @@ return [[
 
 const os = {}
 
-function.pass os.clock():Ret(Number)
+function.nocheck os.clock():Ret(Number)
 end
 
-function.pass os.exit(code:OrNil(Boolean, Integer), close:OrNil(True)):Ret(Number)
+function.nocheck os.exit(code:OrNil(Boolean, Integer), close:OrNil(True)):Ret(Number)
 end
 
-function.pass os.time():Ret(Integer)
+function.nocheck os.time():Ret(Integer)
 end
 
-function.pass os.date(date:OrNil(String)):Ret(String)
+function.nocheck os.date(date:OrNil(String)):Ret(String)
 end
 
 _ENV.os = os
@@ -4589,7 +4589,7 @@ return [[
 
 const package = {}
 
-function.pass package.searchpath(name:String, path:String, sep:OrNil(String), rep:OrNil(String)):Ret(Nil, String):Ret(String)
+function.nocheck package.searchpath(name:String, path:String, sep:OrNil(String), rep:OrNil(String)):Ret(Nil, String):Ret(String)
 end
 
 package.config = ""@String
@@ -4609,33 +4609,33 @@ return [[
 const string = {}
 
 -- Returns the internal numeric codes of the characters s[i], s[i+1], ..., s[j].
-function.pass string.byte(s:String, i:OrNil(Integer), j:OrNil(Integer)):RetDots(Integer)
+function.nocheck string.byte(s:String, i:OrNil(Integer), j:OrNil(Integer)):RetDots(Integer)
 end
 
 -- Receives zero or more integers. Returns a string with length equal to the number of arguments
-function.pass string.char(...:Integer):RetDots(String)
+function.nocheck string.char(...:Integer):RetDots(String)
     -- TODO, maybe use open function ?
 end
 
 -- Returns a string containing a binary representation (a binary chunk) of the given function.
-function.pass string.dump(fn:AnyFunction, strip:OrNil(Boolean)):Ret(String)
+function.nocheck string.dump(fn:AnyFunction, strip:OrNil(Boolean)):Ret(String)
 end
 
 -- Looks for the first match of pattern in the string s.
-function.pass string.find(s:String, pattern:String, init:OrNil(Integer), plain:OrNil(Boolean)):RetDots(Integer, Integer, String):Ret(Nil)
+function.nocheck string.find(s:String, pattern:String, init:OrNil(Integer), plain:OrNil(Boolean)):RetDots(Integer, Integer, String):Ret(Nil)
 end
 
 -- Returns a formatted version of its variable number of arguments following the description given in its first argument, which must be a string. The format string follows the same rules as the ISO C function sprintf. The only differences are that the conversion specifiers and modifiers F, n, *, h, L, and l are not supported and that there is an extra specifier, q. Both width and precision, when present, are limited to two digits.
-function.pass string.format(s:String, ...:Any):Ret(String)
+function.nocheck string.format(s:String, ...:Any):Ret(String)
     -- TODO, use open function to check formatstring matching
 end
 
 -- Returns an iterator function that, each time it is called, returns the next captures from pattern over the string s.
-function.pass string.gmatch(s:String, pattern:String, init:OrNil(Integer)):Ret(Fn():RetDots(String))
+function.nocheck string.gmatch(s:String, pattern:String, init:OrNil(Integer)):Ret(Fn():RetDots(String))
 end
 
 -- Returns a copy of s in which all (or the first n, if given) occurrences of the pattern have been replaced by a replacement string specified by repl,
-function.pass string.gsub(
+function.nocheck string.gsub(
     s:String,
     pattern:String,
     repl:Union(String, Fn(String):Dots(String):Ret(String), Dict(String, String)),
@@ -4644,45 +4644,45 @@ function.pass string.gsub(
 end
 
 -- Receives a string and returns its length.
-function.pass string.len(s:String):Ret(Integer)
+function.nocheck string.len(s:String):Ret(Integer)
 end
 
 -- Receives a string and returns a copy of this string with all uppercase letters changed to lowercase.
-function.pass string.lower(s:String):Ret(String)
+function.nocheck string.lower(s:String):Ret(String)
 end
 
 -- Looks for the first match of the pattern in the string s.
-function.pass string.match(s:String, pattern:String, init:OrNil(Integer)):RetDots(String)
+function.nocheck string.match(s:String, pattern:String, init:OrNil(Integer)):RetDots(String)
 end
 
 -- Returns a binary string containing the values v1, v2.
-function.pass string.pack(fmt:String, ...:Union(String, Number)):Ret(String)
+function.nocheck string.pack(fmt:String, ...:Union(String, Number)):Ret(String)
     -- TODO use open function?
 end
 
 -- Returns the size of a string resulting from string.pack with the given format.
-function.pass string.packsize(fmt:String):Ret(Integer)
+function.nocheck string.packsize(fmt:String):Ret(Integer)
 end
 
 -- Returns a string that is the concatenation of n copies of the string s separated by the string sep.
-function.pass string.rep(s:String, n:Integer, sep:OrNil(String)):Ret(String)
+function.nocheck string.rep(s:String, n:Integer, sep:OrNil(String)):Ret(String)
 end
 
 -- Returns a string that is the string s reversed.
-function.pass string.reverse(s:String):Ret(String)
+function.nocheck string.reverse(s:String):Ret(String)
 end
 
 -- Returns the substring of s that starts at i and continues until j; i and j can be negative.
-function.pass string.sub(s:String, i:Integer, j:OrNil(Integer)):Ret(String)
+function.nocheck string.sub(s:String, i:Integer, j:OrNil(Integer)):Ret(String)
 end
 
 -- Returns the values packed in string s (see string.pack) according to the format string fmt.
-function.pass string.unpack(fmt:String, s:Integer, pos:OrNil(Integer)):RetDots(Union(String, Number))
+function.nocheck string.unpack(fmt:String, s:Integer, pos:OrNil(Integer)):RetDots(Union(String, Number))
     -- TODO use open function?
 end
 
 -- Receives a string and returns a copy of this string with all lowercase letters changed to uppercase.
-function.pass string.upper(s:String):Ret(String)
+function.nocheck string.upper(s:String):Ret(String)
 end
 
 _ENV.string = string
@@ -4757,21 +4757,21 @@ return [[
 
 const utf8 = {}
 
-function.pass utf8.char(...:Integer):Ret(String)
+function.nocheck utf8.char(...:Integer):Ret(String)
 end
 
 utf8.charpattern = "" @ String
 
-function.pass utf8.codes(s:String, lax:OrNil(Boolean)):Ret(Fn(String, Integer):Ret(Integer, Integer):Ret(Nil), String, Integer)
+function.nocheck utf8.codes(s:String, lax:OrNil(Boolean)):Ret(Fn(String, Integer):Ret(Integer, Integer):Ret(Nil), String, Integer)
 end
 
-function.pass utf8.codepoint(s:String, i:OrNil(Integer), j:OrNil(Integer), ilax:OrNil(Boolean)):RetDots(Integer)
+function.nocheck utf8.codepoint(s:String, i:OrNil(Integer), j:OrNil(Integer), ilax:OrNil(Boolean)):RetDots(Integer)
 end
 
-function.pass utf8.len(s:String, i:OrNil(Integer), j:OrNil(Integer), ilax:OrNil(Boolean)):Ret(Integer)
+function.nocheck utf8.len(s:String, i:OrNil(Integer), j:OrNil(Integer), ilax:OrNil(Boolean)):Ret(Integer)
 end
 
-function.pass utf8.offset(s:String, n:Integer, i:OrNil(Integer)):Ret(Integer)
+function.nocheck utf8.offset(s:String, n:Integer, i:OrNil(Integer)):Ret(Integer)
 end
 
 _ENV.utf8 = utf8
@@ -10400,7 +10400,7 @@ end
 function InstStack:WHILE(vNode, vHintInfo, vTerm, vTrueFunction)
 	local nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
-	if not nBuilder.pass then
+	if not nBuilder:takeNoCheck() then
 		local nTrueCase = vTerm:caseTrue()
 		self:_withBranch(nTrueCase or VariableCase.new(), vTrueFunction, vNode[2])
 	end
@@ -10409,7 +10409,7 @@ end
 function InstStack:DO(vNode, vHintInfo, vDoFunc)
 	local nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
-	if not nBuilder.pass then
+	if not nBuilder:takeNoCheck() then
 		self:_withBranch(VariableCase.new(), vDoFunc, vNode[1])
 	end
 end
@@ -10468,7 +10468,7 @@ function InstStack:FOR_IN(vNode, vHintInfo, vFunc, vNextSelfInit)
 			nTermList[i] = nTerm
 		::continue:: end
 		local nNewTuple = nForContext:FixedTermTuple(nTermList)
-		if not nBuilder.pass then
+		if not nBuilder:takeNoCheck() then
 			self:_withBranch(vCase, function(...)
 				vFunc(nNewTuple, ...)
 			end, vNode[3])
@@ -10487,7 +10487,7 @@ function InstStack:FOR_NUM(
 )
 	local nBuilder = DoBuilder.new(self, vNode)
 	nBuilder:build(vHintInfo)
-	if not nBuilder.pass then
+	if not nBuilder:takeNoCheck() then
 		local nForContext = self:newOperContext(vNode)
 		self:_withBranch(VariableCase.new(), function(...)
 			vFunc(nForContext:RefineTerm(self:getTypeManager().type.Integer), ...)
@@ -11166,17 +11166,21 @@ function DoBuilder.new(vContext, vNode)
 	return setmetatable({
 		_context=vContext,
 		_node=vNode,
-		pass=false,
+		_nocheck=false,
 	}, DoBuilder)
 end
 
 function DoBuilder:build(vHintInfo)
 	local key = next(vHintInfo.attrSet)
-	if key == "pass" then
-		self.pass = true
+	if key == "nocheck" then
+		self._nocheck = true
 	elseif key then
-		self._context:getRuntime():nodeError(self._node, "do can only take pass as hint")
+		self._context:getRuntime():nodeError(self._node, "do can only take nocheck as hint")
 	end
+end
+
+function DoBuilder:takeNoCheck()
+	return self._nocheck
 end
 
 return DoBuilder
@@ -11254,7 +11258,7 @@ function FunctionBuilder.new(
 		_node=vNode,
 		_lexBranchCase=vUpState,
 		_prefixHint=vPrefixHint,
-		_pass=vPrefixHint.attrSet.pass and true or false,
+		_nocheck=vPrefixHint.attrSet.nocheck and true or false,
 		_parRetMaker=vParRetMaker,
 	}
 	for k,v in pairs(vInfo) do
@@ -11304,7 +11308,7 @@ function FunctionBuilder:_makeRetTuples(vNewStack, vSuffixHint)
 	end
 	local nRetTuples = nRetBuilder:build()
 	if not self._hasRetSome then
-		if nRetTuples and not self._pass then
+		if nRetTuples and not self._nocheck then
 			local hasVoid = false
 			local hasSome = false
 			nRetTuples:foreachWithFirst(function(vTypeTuple, _)
@@ -11315,7 +11319,7 @@ function FunctionBuilder:_makeRetTuples(vNewStack, vSuffixHint)
 				end
 			end)
 			if hasSome and not hasVoid then
-				if not self._pass then
+				if not self._nocheck then
 					self._stack:getRuntime():nodeError(self._node, "hint return something but block has no RetStat")
 				end
 			end
@@ -11350,9 +11354,9 @@ function FunctionBuilder:_buildInnerFn()
 			end
 			local nRetTuples = nHintRetTuples or nCastRet or (not self._hasRetSome and self._typeManager:VoidRetTuples(self._node))
 			return nParTuple, nRetTuples, function()
-				if self._pass then
+				if self._nocheck then
 					if not nParTuple or not nRetTuples then
-						error(self._node:toExc("pass function can't take auto return or auto parameter"))
+						error(self._node:toExc("nocheck function can't take auto return or auto parameter"))
 					end
 					return nParTuple, nRetTuples
 				else

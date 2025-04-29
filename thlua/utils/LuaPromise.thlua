@@ -46,7 +46,7 @@ function Promise:resolve(value:$self.__type)
 end
 
 const empty=function() end
-function.pass Promise:forget()
+function.nocheck Promise:forget()
     const trace = debug.traceback(nil, 2)
     self:next(empty, function(err)
         print("ERROR:", "forget error", err, trace)
@@ -60,7 +60,7 @@ end
 function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T))), onRejected:OrNil(Fn(String))):Ret(LuaPromise(T))
     local promise = Promise.new@<T>()
     promise._stack = debug.traceback(nil, 2)
-    const doResolve:Fn($self.__type) = function.pass(value)
+    const doResolve:Fn($self.__type) = function.nocheck(value)
         local ok, errOrRet = xpcall(onFulFilled, xerror, value)
         if ok then
             promise:_handleResolve(errOrRet)
@@ -68,7 +68,7 @@ function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T
             promise:reject(errOrRet)
         end
     end
-    const doReject:Fn(String) = function.pass(reason)
+    const doReject:Fn(String) = function.nocheck(reason)
         if onRejected then
             local ok, errOrRet = xpcall(onRejected, xerror, reason)
             if ok then
@@ -92,7 +92,7 @@ function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T
     return promise
 end
 
-function.pass Promise:_handleResolve(ret:Truth)
+function.nocheck Promise:_handleResolve(ret:Truth)
     if Promise.is(ret) then
         ret:next(function(v)
             self:_handleResolve(v)

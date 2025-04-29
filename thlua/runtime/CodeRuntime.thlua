@@ -62,7 +62,7 @@ const DefaultStage:clazz.StageApi = {
 		end
 		return true, fileName
 	end,
-	parseFile=function.pass(vFileName)
+	parseFile=function.nocheck(vFileName)
 		local file, err = io.open(vFileName, "r")
 		if not file then
 			error(err)
@@ -72,7 +72,7 @@ const DefaultStage:clazz.StageApi = {
 		const nCodeEnv = CodeEnv.new(nContent, vFileName)
 		return nCodeEnv
 	end,
-	parseGlobal=function.pass(vPackage)
+	parseGlobal=function.nocheck(vPackage)
 		local nContent:String = require("thlua.global."..vPackage)
 		const nFileName = "@virtual-file:"..vPackage
 		const nCodeEnv = CodeEnv.new(nContent, "@virtual-file:"..vPackage)
@@ -85,17 +85,17 @@ const DefaultStage:clazz.StageApi = {
 }
 
 const DefaultLogger:clazz.LevelLogger = {
-	error=function.pass(_, ...)
+	error=function.nocheck(_, ...)
 		local nInfo = debug.getinfo(2)
 		local nPrefix = nInfo.source..":"..nInfo.currentline
 		print("[ERROR]", nPrefix, ...)
 	end,
-	warn=function.pass(_, ...)
+	warn=function.nocheck(_, ...)
 		local nInfo = debug.getinfo(2)
 		local nPrefix = nInfo.source..":"..nInfo.currentline
 		print("[WARN]", nPrefix, ...)
 	end,
-	info=function.pass(_, ...)
+	info=function.nocheck(_, ...)
 		local nInfo = debug.getinfo(2)
 		local nPrefix = nInfo.source..":"..nInfo.currentline
 		print("[INFO]", nPrefix, ...)
@@ -288,7 +288,7 @@ end
 
 function CodeRuntime:buildSimpleGlobal(vRootSpace:clazz.LetSpace)
 	const nGlobal = {} @ Dict(String, Union(clazz.NameReference, clazz.BaseSpaceCom))
-	do.pass
+	do.nocheck
 		for k,v in pairs(self._typeManager.type) do
 			nGlobal[k] = v
 		end
