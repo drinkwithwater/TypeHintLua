@@ -50,8 +50,12 @@ function OpenStack:RAISE_ERROR(vContext:clazz.OperContext, vType:clazz.UMustType
 	self._errTypeSet:putType(vType:checkAtomUnion())
 end
 
-function OpenStack:RETURN(vNode:clazz.IBaseNode, vTermTuple:clazz.UTermTuple)
+function OpenStack:RETURN(vNode:node.Return, vTermTuple:clazz.UTermTuple)
 	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
+	if self:tryReturnInEvalDo(vNode, vTermTuple) then
+		self:topBranch():setStop()
+		return
+	end
 	table.insert(self._retList, vTermTuple)
 	self:topBranch():setStop()
 end

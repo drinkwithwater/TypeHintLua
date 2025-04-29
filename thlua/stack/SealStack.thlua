@@ -79,8 +79,12 @@ function SealStack:RAISE_ERROR(vContext:clazz.OperContext, vRaiseErr:clazz.UMust
 	end
 end
 
-function SealStack:RETURN(vNode:clazz.IBaseNode, vTermTuple:clazz.UTermTuple)
+function SealStack:RETURN(vNode:node.Return, vTermTuple:clazz.UTermTuple)
 	assert(TermTuple.isFixed(vTermTuple), Exception.new("can't return auto term", vNode))
+	if self:tryReturnInEvalDo(vNode, vTermTuple) then
+		self:topBranch():setStop()
+		return
+	end
 	const nRetContext = self:newReturnContext(vNode)
 	table.insert(self._retList, vTermTuple)
 	if #vTermTuple <= 0 or vTermTuple:getTail() then

@@ -379,11 +379,44 @@ function InstStack:RUN_STAT(vNode:node.IAstNode, vStatFn:Fn():Dots(clazz.USpaceA
 	end
 end
 
-function InstStack:EVAL(vNode:node.IAstNode, vTerm:Truth):Ret(clazz.UAtomUnion)
+function InstStack:EVAL_EXPR(vNode:node.HintEval, vTerm:Truth):Ret(clazz.UAtomUnion)
 	if RefineTerm.is(vTerm) then
+		-- eval expr
 		return vTerm:getType()
 	else
-		error(vNode:toExc("hint eval fail"))
+		error(vNode:toExc("hint eval expr fail"))
+	end
+end
+
+function InstStack:tryReturnInEvalDo(vNode:node.Return, vTermTuple:clazz.FixedTermTuple):Ret(Boolean)
+	const nTypeList = self._evalDoStack[#self._evalDoStack]
+	if not nTypeList then
+		return false
+	else
+		const nRetContext = self:newReturnContext(vNode)
+		if #nTypeList >= 1 then
+			nRetContext:warn("eval-do can only have one return statement")
+		else
+			const nType = vTermTuple:get(nRetContext, 1):getType()
+			nTypeList[1] = nType
+		end
+		return true
+	end
+end
+
+function InstStack:EVAL_DO(vNode:node.Do, vHintInfo:clazz.TLongHintInfo(Nil), vDoFunc:Fn():Dots(clazz.USpaceAny)):Ret(clazz.UAtomUnion)
+	const nBuilder = DoBuilder.new(self, vNode)
+	nBuilder:build(vHintInfo)
+	if nBuilder:takeNoCheck() then
+		self:getRuntime():nodeWarn(vNode, "nocheck in eval-do statement")
+		return self._typeManager.type.Nil
+	else
+		const index = #self._evalDoStack + 1
+		const nTypeList:List(clazz.UAtomUnion) = {}
+		self._evalDoStack[index] = nTypeList
+		self:_withBranch(VariableCase.new(), vDoFunc, vNode[1])
+		self._evalDoStack[index] = nil
+		return nTypeList[1] or self._typeManager.type.Nil
 	end
 end
 
@@ -445,11 +478,6 @@ end
 
 function InstStack:NIL_TERM(vNode:node.IAstNode)
 	return self:_nodeTerm(vNode, self._typeManager.type.Nil)
-end
-
-function InstStack:HINT_TERM(vNode:node.HintTerm, vItem:clazz.USpaceAny)
-	const nType = self._spaceManager:spaceToMustType(vNode, vItem):checkAtomUnion()
-	return self:_nodeTerm(vNode, nType)
 end
 
 function InstStack:LITERAL_TERM(vNode:node.IAstNode, vValue:Union(String, Number, Boolean))

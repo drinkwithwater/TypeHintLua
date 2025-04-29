@@ -57,9 +57,6 @@ local TagToVisiting:RealTraverser = {
 			end
 		end
 	end,
-	HintTerm=function(self, node)
-		return self:stkWrap(node).HINT_TERM(self:fixIHintSpace(node[1]))
-	end,
 	Block=function(self, node)
 		return self:concatList@<node.Stat>(node, function(i, vStatNode)
 			return self:visit(vStatNode)
@@ -536,7 +533,15 @@ function HintGener:fixIHintSpace(vHintSpace:node.IHintSpace):Ret(GenResult)
 				nLast.line = nil
 			end
 		else
-			nResult[#nResult + 1] = self:stkWrap(v).EVAL(self:visit(v[1]))
+			const evalTarget = v[1]
+			if evalTarget.tag == "Do" then
+				nResult[#nResult + 1] = self:stkWrap(evalTarget).EVAL_DO(
+					self:visitLongHint(evalTarget.hintLong),
+					self:fnWrap("...")(self:visit(evalTarget[1]))
+				)
+			else
+				nResult[#nResult + 1] = self:stkWrap(v).EVAL_EXPR(self:visit(evalTarget))
+			end
 			nResult[#nResult + 1] = {
 				line=v.endLine, " "
 			}
@@ -666,7 +671,8 @@ end
 
 		"RUN_STAT",
 		"CAST_HINT",
-		"EVAL"
+		"EVAL_EXPR",
+		"EVAL_DO"
 	)
 end)
 function.nocheck HintGener:stkWrap(vNode:node.IAstNode):Ret(Dict(StkNameEnum, Fn():Dots(UGenResult):Ret(GenResult)))

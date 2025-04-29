@@ -102,7 +102,7 @@ local exprF = {
 			return {tag = "Op", pos=e1.pos, posEnd=e2.posEnd, op, e1, e2 }
 		end
 	end,
-	hintAt=function(pos, e, hintShort, posEnd)
+	hintPoly=function(pos, e, hintShort, posEnd)
 		return { tag = "HintAt", pos = pos, [1] = e, hintShort=hintShort, posEnd=posEnd}
 	end,
 	hintExpr=function(pos, e, hintShort, posEnd, env)
@@ -113,7 +113,7 @@ local exprF = {
 			if eTag == "Dots" or eTag == "Call" or eTag == "Invoke" then
 				env.codeBuilder:markParenWrap(pos, hintShort.pos-1)
 			end
-			-- TODO, use other tag
+			-- both poly & expr cast use tag="HintAt"
 			return { tag = "HintAt", pos = pos, [1] = e, hintShort = hintShort, posEnd=posEnd}
 		end
 	end
@@ -333,7 +333,7 @@ local G = lpeg.P { "TypeHintLua";
 	AtPolyHint = hintC.wrap(false, symb("@<") * cc("@<"),
 		vvA.SimpleExpr * (symb"," * vv.SimpleExpr)^0, symbA(">"));
 
-	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * vvA.SimpleExpr * vv.EvalEnd);
+	EvalExpr = tagC.HintEval(symb("$") * vv.EvalBegin * (vv.DoStat + vvA.SimpleExpr) * vv.EvalEnd);
 
   -- hint & eval end }}}
 
@@ -427,7 +427,7 @@ local G = lpeg.P { "TypeHintLua";
 		-- call
 		local call = tagC.Call(cc(false) * vv.FuncArgs)
 		-- atPoly
-		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintAt
+		local atPoly= Cpos * cc(false) * vv.AtPolyHint * Cpos / exprF.hintPoly
 		-- add completion case
 		local succPatt = lpeg.Cmt(Cenv * primaryExpr * (index1 + index2 + invoke + call + atPoly)^0, function(_, pos, env, primary, ...)
 				if ... then
