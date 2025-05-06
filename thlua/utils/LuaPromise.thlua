@@ -1,35 +1,90 @@
 const Promise = {}
 Promise.__index = Promise
 
+const LuaError = {}
+LuaError.__index = LuaError
+
+function:class(let.LuaError) LuaError.new(vReason:Truth, vStack:String)
+    return setmetatable({.class
+        reason=vReason,
+        stack=vStack,
+    }, LuaError)
+end
+
+function LuaError:__tostring()
+    return "LuaError:"..tostring(self.reason).."\n"..tostring(self.stack)
+end
+
+function.open LuaError.is(v):isguard(let.LuaError)
+    return getmetatable(v) == LuaError
+end
+
+const UnknownError = LuaError.new("unknown reason", "")
+
+Promise.LuaError = LuaError
+
 -- The state enumeration of the promise.
 local PENDING = 0
 local REJECTED = 1
 local RESOLVED = 2
 
+const function lineinfo(depth:Integer)
+    return debug.getinfo(depth, "Slnt")
+end
+
 function:class(let.LuaPromise) Promise.new@<T>()
     const self = setmetatable({.class
         _state = PENDING @ Union($PENDING, $REJECTED, $RESOLVED),
         _value = nil @ OrNil(T),
-        _reason = nil @ OrNil(String),
+        _reason = nil @ OrNil(LuaError),
         _thens = {} @ List(Fn(T)),
-        _fails = {} @ List(Fn(String)),
-        _stack = debug.traceback(nil, 2),
-        __type = nil @? T
+        _fails = {} @ List(Fn(LuaError)),
+        _parent = false @ OrFalse(LuaPromise(Truth)),
+        _line = lineinfo(3),
+        __type = false @? T
     }, Promise)
     return self
 end
 
-Promise.create = Promise.new -- used for c#
+Promise.create = Promise.new -- use create to avoid keyword 'new' for c#
 
-function Promise:reject(reason:String)
+function Promise:reject(excOrReason:Truth, stack:OrNil(String))
     if self._state ~= PENDING then
         error("ERROR In Promise reject: the promise has been notified.")
         return
     end
-    self._reason = reason
+    const exc = LuaError.is(excOrReason) and excOrReason or LuaError.new(excOrReason, stack or "(stack ???)")
+    self._reason = exc
     self._state = REJECTED
+    local handleReject = false
     for _, v in ipairs(self._fails) do
-        v(reason)
+        v(exc)
+        handleReject = true
+    end
+    if not handleReject then
+        const lineList:List(String) = {}
+        local promise = self @? OrFalse(LuaPromise(Truth))
+        while promise do
+            const lineInfo = promise._line
+            if lineInfo.currentline <= 0 then
+                lineList[#lineList+1] = string.format("\n\t(promise) %s: in ", lineInfo.short_src)
+            else
+                lineList[#lineList+1] = string.format("\n\t(promise) %s:%d: in ", lineInfo.short_src, lineInfo.currentline)
+            end
+            const what = lineInfo.what
+            const namewhat = lineInfo.namewhat
+            if namewhat ~= "" then
+                lineList[#lineList+1] = string.format("%s '%s'", namewhat, lineInfo.name)
+            elseif what == "main" then
+                lineList[#lineList+1] = "main chunk"
+            elseif what ~= "C" then
+                lineList[#lineList+1] = string.format("function <%s:%d>", lineInfo.short_src, lineInfo.linedefined)
+            else
+                lineList[#lineList+1] = "?"
+            end
+            promise = promise._parent
+        end
+        print("ERROR: promise reject not handle:"..tostring(exc)..table.concat(lineList))
     end
 end
 
@@ -47,44 +102,44 @@ end
 
 const empty=function() end
 function.nocheck Promise:forget()
-    const trace = debug.traceback(nil, 2)
     self:next(empty, function(err)
-        print("ERROR:", "forget error", err, trace)
+        print("ERROR:", "forget error", err)
     end)
 end
 
-const function xerror(err)
-    const nInfo = debug.getinfo(3)
-    return nInfo.short_src.. ":" .. nInfo.currentline..":".. tostring(err)
+const function xerror(excOrReason:Truth)
+    -- TODO maybe chain exc stack??
+    return LuaError.is(excOrReason) and excOrReason or LuaError.new(excOrReason, debug.traceback(nil, 2))
 end
-function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T))), onRejected:OrNil(Fn(String))):Ret(LuaPromise(T))
+function Promise:next@<T>(onFulFilled:Fn($self.__type):Ret(Union(T, LuaPromise(T))), onRejected:OrNil(Fn(let.LuaError))):Ret(LuaPromise(T))
     local promise = Promise.new@<T>()
-    promise._stack = debug.traceback(nil, 2)
+    promise._line = lineinfo(3)
+    promise._parent = self @? LuaPromise(Truth)
     const doResolve:Fn($self.__type) = function.nocheck(value)
-        local ok, errOrRet = xpcall(onFulFilled, xerror, value)
+        local ok, excOrRet = xpcall(onFulFilled, xerror, value)
         if ok then
-            promise:_handleResolve(errOrRet)
+            promise:_handleResolve(excOrRet)
         else
-            promise:reject(errOrRet)
+            promise:reject(excOrRet)
         end
     end
-    const doReject:Fn(String) = function.nocheck(reason)
+    const doReject:Fn(LuaError) = function.nocheck(lastExc)
         if onRejected then
-            local ok, errOrRet = xpcall(onRejected, xerror, reason)
+            local ok, excOrRet = xpcall(onRejected, xerror, lastExc)
             if ok then
-                promise:_handleResolve(errOrRet)
+                promise:_handleResolve(excOrRet)
             else
-                promise:reject(errOrRet)
+                promise:reject(excOrRet)
             end
         else
             -- print("ERROR:", reason)
-            promise:reject(reason)
+            promise:reject(lastExc)
         end
     end
     if self._state == RESOLVED then
         doResolve(self._value!)
     elseif self._state == REJECTED then
-        doReject(self._reason or "unknown reason")
+        doReject(self._reason or UnknownError)
     elseif self._state == PENDING then
         table.insert(self._thens, doResolve)
         table.insert(self._fails, doReject)
