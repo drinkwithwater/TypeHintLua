@@ -90,6 +90,15 @@ function ScheduleManager:checkRecursive(vWaitingTask:clazz.ScheduleTask, vDepend
 	end
 end
 
+function ScheduleManager:_resumeTask(vTask:clazz.ScheduleTask):Ret(OrNil(True))
+	const ok, ret = coroutine.resume(vTask:getSelfCo())
+	if not ok then
+		error(ret)
+	else
+		return ret
+	end
+end
+
 function ScheduleManager:_tickTask():Ret(Boolean)
 	const nHintTaskList = self._hintTaskList
 	while true do
@@ -99,7 +108,7 @@ function ScheduleManager:_tickTask():Ret(Boolean)
 			break
 		end
 		nHintTaskList[nDepth] = nil
-		nTask:resume()
+		self:_resumeTask(nTask)
 	end
 	const nTaskList = self._sealTaskList
 	const depth = #nTaskList
@@ -110,7 +119,7 @@ function ScheduleManager:_tickTask():Ret(Boolean)
 	if not nTask then
 		nTaskList[depth] = nil
 	else
-		const stay = nTask:resume()
+		const stay = self:_resumeTask(nTask)
 		if not stay then
 			nTaskList[depth] = false
 		end

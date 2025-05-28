@@ -59,33 +59,13 @@ function ScheduleTask:getWaitEvent()
 	return self._waitEvent
 end
 
-function ScheduleTask:waitEvent(vEvent:clazz.ScheduleEvent)
-	assert(not self._waitEvent)
-	const nDependTask = vEvent:getTask()
-	if nDependTask then
-		self._scheduleManager:checkRecursive(self, nDependTask)
-	end
-	self._waitEvent = vEvent
-	coroutine.yield()
-end
-
-function ScheduleTask:wakeupByEvent(vEvent:clazz.ScheduleEvent)
-	assert(self._waitEvent == vEvent)
-	self._waitEvent = false
-	self._scheduleManager:pushSchedule(self)
-end
-
-function ScheduleTask:resume():Ret(OrNil(True))
-	--[[if self._scheduleManager.useProfile then
-		for k, profile in pairs(self._fnToProfile) do
-			profile.start = chrono.now()
-		end
-	end]]
-	const ok, ret = coroutine.resume(self._selfCo)
-	if not ok then
-		error(ret)
+function ScheduleTask:triggerByEvent(vEvent:clazz.ScheduleEvent, vWait:Boolean)
+	if vWait then
+		assert(not self._waitEvent)
+		self._waitEvent = vEvent
 	else
-		return ret
+		assert(self._waitEvent == vEvent)
+		self._waitEvent = false
 	end
 end
 
