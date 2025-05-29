@@ -5,6 +5,7 @@ const StringLiteralUnion = require "thlua.type.union.StringLiteralUnion"
 const MixingNumberUnion = require "thlua.type.union.MixingNumberUnion"
 const IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
 const FloatLiteral = require "thlua.type.basic.FloatLiteral"
+const IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 const SubType = require "thlua.type.basic.SubType"
 const Number = require "thlua.type.basic.Number"
 const ObjectUnion = require "thlua.type.union.ObjectUnion"
@@ -23,7 +24,6 @@ const FastBitsSet = {
 	[TYPE_BITS.THREAD]=true,
 	[TYPE_BITS.LIGHTUSERDATA]=true,
 	[TYPE_BITS.TRUTH]=true,
-	[TYPE_BITS.ANY]=true,
 }
 
 const TrueBitSet = {
@@ -79,27 +79,51 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 		if vSet[nNumberType] then
 			return nNumberType
 		end
-		local nHasPartNumber = false
+		const floatLiteralSet={} @Dict(clazz.FloatLiteral, True)
+		const integerLiteralSet={} @Dict(clazz.IntegerLiteral, True)
+		local integerLiteralCnt = 0 @Integer
+		local hasInteger = false @Boolean
 		for nType,v in pairs(vSet) do
-			if FloatLiteral.is(nType) or (SubType.is(nType) and Number.is(nType:getSuperType())) then
-				nHasPartNumber = true
+			if IntegerLiteral.is(nType) then
+				integerLiteralSet[nType] = true
+				integerLiteralCnt = integerLiteralCnt + 1
+			elseif FloatLiteral.is(nType) then
+				floatLiteralSet[nType] = true
+			elseif nType == self._type.Integer then
+				hasInteger = true
+			else
+				error("invalid case")
 			end
 		end
-		const nIntegerType = self._type.Integer
-		if vSet[nIntegerType] and not nHasPartNumber then
-			return nIntegerType
+		local nIntegerPart:OrFalse(clazz.Integer, clazz.IntegerLiteralUnion, clazz.IntegerLiteral) = false
+		if hasInteger then
+			nIntegerPart = self._type.Integer
+		elseif integerLiteralCnt == 1 then
+			nIntegerPart = next(integerLiteralSet) or false
+		elseif integerLiteralCnt > 1 then
+			const integerUnion = IntegerLiteralUnion.new(self._typeManager, integerLiteralSet)
+			nIntegerPart = self._typeManager:unionUnifyToType(integerUnion) @> $integerUnion
 		end
-		if nHasPartNumber then
-			nUnionType = MixingNumberUnion.new(self._typeManager)
-		else
-			nUnionType = IntegerLiteralUnion.new(self._typeManager)
+		if not next(floatLiteralSet) then
+			return assert(nIntegerPart)
 		end
+		nUnionType = MixingNumberUnion.new(self._typeManager, floatLiteralSet, nIntegerPart)
+		return self._typeManager:unionUnifyToType(nUnionType)
 	elseif vBit == TYPE_BITS.STRING then
 		local nStringType = self._type.String
 		if vSet[nStringType] then
 			return nStringType
 		end
-		nUnionType = StringLiteralUnion.new(self._typeManager)
+		local stringLiteralCnt = 1
+		for k,v in pairs(vSet) do
+			stringLiteralCnt = stringLiteralCnt + 1
+		end
+		if stringLiteralCnt <= 1 then
+			return assert(next(vSet))
+		else
+			nUnionType = StringLiteralUnion.new(self._typeManager, vSet @ Truth)
+			return self._typeManager:unionUnifyToType(nUnionType)
+		end
 	elseif vBit == TYPE_BITS.OBJECT then
 		nUnionType = ObjectUnion.new(self._typeManager)
 	elseif vBit == TYPE_BITS.FUNCTION then
@@ -113,12 +137,6 @@ function TypeCollection:_makeSimpleTrueType(vBit:Integer, vSet:Dict(clazz.IAtomT
 	end
 	for nType, _ in pairs(vSet) do
 		nUnionType:putAwait(nType)
-	end
-	if MixingNumberUnion.is(nUnionType) then
-		const nIntegerPart = nUnionType._integerPart
-		if IntegerLiteralUnion.is(nIntegerPart) then
-			nUnionType._integerPart = self._typeManager:unionUnifyToType(nIntegerPart) @> clazz.IntegerLiteralUnion
-		end
 	end
 	return self._typeManager:unionUnifyToType(nUnionType)
 end

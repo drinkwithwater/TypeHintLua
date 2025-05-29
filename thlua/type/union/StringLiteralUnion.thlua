@@ -12,20 +12,9 @@ const class = require "thlua.class"
 
 const StringLiteralUnion = class@<clazz.StringLiteralUnion, false>(BaseUnionType)
 
-function.open StringLiteralUnion:ctor(vTypeManager:clazz.TypeManager)
-	self._literalSet={} @Dict(clazz.StringLiteral, True) -- literal to true
-	self._subTypeSet={} @Dict(clazz.SubType, True)
+function.open StringLiteralUnion:ctor(vTypeManager:clazz.TypeManager, vStringLiteralSet:Dict(clazz.StringLiteral, True))
+	self._literalSet=vStringLiteralSet
 	self.bits=TYPE_BITS.STRING
-end
-
-function StringLiteralUnion:putAwait(vType)
-	if StringLiteral.is(vType) then
-		self._literalSet[vType] = true
-	elseif SubType.is(vType) and String.is(vType:getSuperType()) then
-		self._subTypeSet[vType] = true
-	else
-		error("set put wrong")
-	end
 end
 
 function StringLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
@@ -37,18 +26,8 @@ function StringLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 end
 
 function StringLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
-	if StringLiteral.is(vType) then
-		if self._literalSet[vType] then
-			return vType
-		else
-			return false
-		end
-	elseif SubType.is(vType) then
-		if self._subTypeSet[vType] then
-			return vType
-		else
-			return false
-		end
+	if self._typeSet:findAtom(vType) then
+		return vType
 	else
 		return false
 	end
@@ -57,9 +36,6 @@ end
 function StringLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
-	end
-	for nSubType, v in pairs(self._subTypeSet) do
-		vFunc(nSubType)
 	end
 end
 
