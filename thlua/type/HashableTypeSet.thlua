@@ -1,5 +1,6 @@
 
 const class = require@<let.clazz> "thlua.class"
+const FrozenTypeSet = require "thlua.type.FrozenTypeSet"
 
 const HashableTypeSet = {}
 HashableTypeSet.__index = HashableTypeSet
@@ -13,76 +14,28 @@ function:class(clazz.HashableTypeSet) HashableTypeSet.new(vManager:clazz.TypeMan
         _addValue = 0 @ Integer,
         _xorValue = 0 @ Integer,
         _hash = 0 @ Integer,
-        _next = false @ OrFalse(clazz.HashableTypeSet),
     }, HashableTypeSet)
     return self
 end
 
--- true means found, false means not found
-function HashableTypeSet:linkedSearchTypeOrAttachSet(vType:clazz.IUnionType):Ret(True, clazz.UAtomUnion):Ret(False, clazz.HashableTypeSet)
-    local nCount = 0
-    local nMatch = true
-    const nTypeDict = self._typeDict
-    vType:foreach(function(vAtomType)
-        if not nTypeDict[vAtomType.id] then
-            nMatch = false
-        end
-        nCount = nCount + 1
-    end)
-    if nCount ~= self._num then
-        nMatch = false
-    end
-    if not nMatch then
-        const nNextTypeSet = self._next
-        if nNextTypeSet then
-            return nNextTypeSet:linkedSearchTypeOrAttachSet(vType)
-        else
-            const nNewTypeSet = self._typeManager:HashableTypeSet()
-            nNewTypeSet:initFromUnion(vType)
-            self._next = nNewTypeSet
-            return false, nNewTypeSet
-        end
-    else
-        const nResultType = self._typeResult
-        if nResultType then
-            return true, nResultType
-        else
-            self._typeResult = vType
-            return false, self
-        end
-    end
+--[[
+function:class(clazz.AsyncTypeSet) HashableTypeSet.newAsync(vManager:clazz.TypeManager, vTypeCom:clazz.AsyncTypeCom)
+    const self = setmetatable({.class
+        _typeManager = vManager,
+        _asyncTypeCom = vTypeCom,
+        _typeDict = {} @ Dict(Integer, clazz.IAtomType),
+        _typeResult = false @ OrFalse(clazz.UAtomUnion),
+        _num = 0 @ Integer,
+        _addValue = 0 @ Integer,
+        _xorValue = 0 @ Integer,
+        _hash = 0 @ Integer,
+        _next = false @ OrFalse(clazz.HashableTypeSet),
+    }, HashableTypeSet)
+    return self
 end
+]]
 
-function HashableTypeSet:linkedSearchOrLink(vConflictTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
-    local nMatch = true
-    const nSelfTypeDict = self._typeDict
-    for k,v in pairs(vConflictTypeSet._typeDict) do
-        if not nSelfTypeDict[k] then
-            nMatch = false
-            break
-        end
-    end
-    if self._num ~= vConflictTypeSet._num then
-        nMatch = false
-    end
-    if nMatch then
-        return self
-    else
-        const nNextTypeSet = self._next
-        if not nNextTypeSet then
-            self._next = vConflictTypeSet
-            return vConflictTypeSet
-        else
-            return nNextTypeSet:linkedSearchOrLink(vConflictTypeSet)
-        end
-    end
-end
-
-function HashableTypeSet:findAtom(vAtomType:clazz.IAtomType)
-    return self._typeDict[vAtomType.id]
-end
-
-function HashableTypeSet:putSet(vTypeSet:clazz.HashableTypeSet)
+function HashableTypeSet:putSet(vTypeSet:clazz.FrozenTypeSet)
     for k,v in pairs(vTypeSet._typeDict) do
         self:putAtom(v)
     end
@@ -148,17 +101,8 @@ function HashableTypeSet:getResultType():Ret(OrFalse(clazz.UAtomUnion))
     return self._typeResult
 end
 
-function HashableTypeSet:_buildType():Ret(clazz.UAtomUnion)
-    local nResultType = self._typeResult
-    if not nResultType then
-        const nCollection = self._typeManager:TypeCollection()
-        for k,v in pairs(self._typeDict) do
-            nCollection:put(v)
-        end
-        nResultType = nCollection:mergeToAtomUnion()
-        self._typeResult = nResultType
-    end
-    return nResultType
+function HashableTypeSet:frozen()
+    return FrozenTypeSet.new(self._typeManager, self)
 end
 
 return HashableTypeSet

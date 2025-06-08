@@ -19,11 +19,11 @@ function AsyncTypeCom.__tostring(self:clazz.AsyncTypeCom)
 end
 
 function.open AsyncTypeCom:ctor(_, _)
-	self._typeSet=false@OrFalse(clazz.HashableTypeSet)
+	self._typeSet=false@OrFalse(clazz.FrozenTypeSet)
 	self._listBuildEvent=self._task:makeEvent()
 end
 
-function AsyncTypeCom:getSetAwait():Ret(clazz.HashableTypeSet)
+function AsyncTypeCom:getSetAwait():Ret(clazz.FrozenTypeSet)
 	if not self._typeSet then
 		self._listBuildEvent:wait()
 	end
@@ -54,25 +54,26 @@ function AsyncTypeCom:setSetAsync(vNode:clazz.IBaseNode, vGetSetLateRunner:Fn():
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
-		const nTypeSet , nLateRunner = vGetSetLateRunner()
+		const nHashableTypeSet , nLateRunner = vGetSetLateRunner()
 		-- step 1. set list
-		self._typeSet = self._typeManager:unifyTypeSet(nTypeSet)
-		for k, v in pairs(nTypeSet:getDict()) do
+		const nFrozenTypeSet = self._typeManager:unifyTypeSet(nHashableTypeSet)
+		self._typeSet = nFrozenTypeSet
+		for k, v in pairs(nFrozenTypeSet:getDict()) do
 			if v:mayRecursive() then
 				self._mayRecursive = true
 			end
 		end
 		self._listBuildEvent:wakeup()
-		const nTypeNum = nTypeSet:getNum()
+		const nTypeNum = nFrozenTypeSet:getNum()
 		-- step 2. merge to result type
 		local nResultType:OrNil(clazz.UAtomUnion) = nil
 		if nTypeNum == 0 then
 			nResultType = self._typeManager.type.Never
 		elseif nTypeNum == 1 then
-			const _, nFirstType = next(nTypeSet:getDict())
+			const _, nFirstType = next(nFrozenTypeSet:getDict())
 			nResultType = nFirstType!
 		else
-			nResultType = nTypeSet:_buildType()
+			nResultType = nFrozenTypeSet:_buildType()
 		end
 		self._resultType = nResultType
 		self._resultBuildEvent:wakeup()

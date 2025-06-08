@@ -121,7 +121,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TemplateCom),
 		MetaOrNil=nil @! clazz.UAtomUnion,
-		_hashToTypeSet={} @ Dict(Integer, clazz.HashableTypeSet),
+		_hashToTypeSet={} @ Dict(Integer, clazz.FrozenTypeSet),
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
 		_integerLiteralDict = {}@Dict(Integer, clazz.IntegerLiteral),
@@ -192,6 +192,12 @@ end
 function TypeManager:HashableTypeSet():Ret(clazz.HashableTypeSet)
 	return HashableTypeSet.new(self)
 end
+
+--[[
+function TypeManager:AsyncTypeSet(vTypeCom:clazz.AsyncTypeCom):Ret(clazz.AsyncTypeSet)
+	return HashableTypeSet.newAsync(self, vTypeCom)
+end
+]]
 
 function TypeManager:TypeCollection():Ret(clazz.TypeCollection)
 	return TypeCollection.new(self)
@@ -463,15 +469,20 @@ function TypeManager:unifyAndBuild(vTypeSet:clazz.HashableTypeSet):Ret(clazz.UAt
 	return self:unifyTypeSet(vTypeSet):_buildType()
 end
 
-function TypeManager:unifyTypeSet(vTypeSet:clazz.HashableTypeSet):Ret(clazz.HashableTypeSet)
+function TypeManager:unifyTypeSet(vTypeSet:clazz.HashableTypeSet, vMustNew:OrNil(True)):Ret(clazz.FrozenTypeSet)
 	const nHashToTypeSet = self._hashToTypeSet
 	const nHash = vTypeSet:getHash()
 	const nCurTypeSet = nHashToTypeSet[nHash]
+	const nFrozenTypeSet = vTypeSet:frozen()
 	if not nCurTypeSet then
-		nHashToTypeSet[nHash] = vTypeSet
-		return vTypeSet
+		nHashToTypeSet[nHash] = nFrozenTypeSet
+		return nFrozenTypeSet
 	else
-		return nCurTypeSet:linkedSearchOrLink(vTypeSet)
+		const ret = nCurTypeSet:linkedSearchOrLink(nFrozenTypeSet)
+		if vMustNew then
+			assert(ret == nFrozenTypeSet, "maybe atom type unify error")
+		end
+		return ret
 	end
 end
 
@@ -481,8 +492,9 @@ function TypeManager:unionUnifyToType(vNewUnion:clazz.IUnionType):Ret(clazz.UAto
 	if not nCurTypeSet then
 		const nHashableTypeSet = self:HashableTypeSet()
 		nHashableTypeSet:initFromUnion(vNewUnion)
-		self._hashToTypeSet[nHashValue] = nHashableTypeSet
-		vNewUnion:initWithTypeId(self:genTypeId(), nHashableTypeSet)
+		const nFrozenTypeSet = nHashableTypeSet:frozen()
+		self._hashToTypeSet[nHashValue] = nFrozenTypeSet
+		vNewUnion:initWithTypeId(self:genTypeId(), nFrozenTypeSet)
 		return vNewUnion
 	else
 		const nFound, nTypeOrSet = nCurTypeSet:linkedSearchTypeOrAttachSet(vNewUnion)
@@ -495,11 +507,11 @@ function TypeManager:unionUnifyToType(vNewUnion:clazz.IUnionType):Ret(clazz.UAto
 	end
 end
 
-function TypeManager:atomUnifyToSet(vNewAtom:clazz.IAtomType):Ret(clazz.HashableTypeSet)
+function TypeManager:atomUnifyToSet(vNewAtom:clazz.IAtomType):Ret(clazz.FrozenTypeSet)
 	const nHashableTypeSet = self:HashableTypeSet()
 	nHashableTypeSet:initFromAtom(vNewAtom)
-	const nTypeSet = self:unifyTypeSet(nHashableTypeSet)
-	assert(nTypeSet == nHashableTypeSet, "but atom build type id conflict")
+	const nTypeSet = self:unifyTypeSet(nHashableTypeSet, true)
+	--assert(nTypeSet == nHashableTypeSet, "but atom build type id conflict")
 	return nTypeSet
 end
 

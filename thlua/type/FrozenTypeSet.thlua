@@ -1,0 +1,119 @@
+
+const class = require@<let.clazz> "thlua.class"
+
+const FrozenTypeSet = {}
+FrozenTypeSet.__index = FrozenTypeSet
+
+function:class(clazz.FrozenTypeSet) FrozenTypeSet.new(vManager:clazz.TypeManager, vHashableTypeSet:clazz.HashableTypeSet)
+    const self = setmetatable({.class
+        _typeManager = vManager,
+        _typeDict = {} @ Dict(Integer, clazz.IAtomType),
+        _typeResult = false @ OrFalse(clazz.UAtomUnion),
+        _num = 0 @ Integer,
+        _hash = 0 @ Integer,
+        _next = false @ OrFalse(clazz.FrozenTypeSet),
+    }, FrozenTypeSet)
+    for k,v in pairs(vHashableTypeSet:getDict()) do
+        self._typeDict[k] = v
+    end
+    self._typeResult = vHashableTypeSet:getResultType()
+    self._num = vHashableTypeSet:getNum()
+    self._hash = vHashableTypeSet:getHash()
+    return self
+end
+
+-- true means found, false means not found
+function FrozenTypeSet:linkedSearchTypeOrAttachSet(vType:clazz.IUnionType):Ret(True, clazz.UAtomUnion):Ret(False, clazz.FrozenTypeSet)
+    local nCount = 0
+    local nMatch = true
+    const nTypeDict = self._typeDict
+    vType:foreach(function(vAtomType)
+        if not nTypeDict[vAtomType.id] then
+            nMatch = false
+        end
+        nCount = nCount + 1
+    end)
+    if nCount ~= self._num then
+        nMatch = false
+    end
+    if not nMatch then
+        const nNextTypeSet = self._next
+        if nNextTypeSet then
+            return nNextTypeSet:linkedSearchTypeOrAttachSet(vType)
+        else
+            const nHashableTypeSet = self._typeManager:HashableTypeSet()
+            nHashableTypeSet:initFromUnion(vType)
+            const nNewTypeSet = nHashableTypeSet:frozen()
+            self._next = nNewTypeSet
+            return false, nNewTypeSet
+        end
+    else
+        const nResultType = self._typeResult
+        if nResultType then
+            return true, nResultType
+        else
+            self._typeResult = vType
+            return false, self
+        end
+    end
+end
+
+function FrozenTypeSet:linkedSearchOrLink(vConflictTypeSet:clazz.FrozenTypeSet):Ret(clazz.FrozenTypeSet)
+    local nMatch = true
+    const nSelfTypeDict = self._typeDict
+    for k,v in pairs(vConflictTypeSet._typeDict) do
+        if not nSelfTypeDict[k] then
+            nMatch = false
+            break
+        end
+    end
+    if self._num ~= vConflictTypeSet._num then
+        nMatch = false
+    end
+    if nMatch then
+        return self
+    else
+        const nNextTypeSet = self._next
+        if not nNextTypeSet then
+            self._next = vConflictTypeSet
+            return vConflictTypeSet
+        else
+            return nNextTypeSet:linkedSearchOrLink(vConflictTypeSet)
+        end
+    end
+end
+
+function FrozenTypeSet:findAtom(vAtomType:clazz.IAtomType)
+    return self._typeDict[vAtomType.id]
+end
+
+function FrozenTypeSet:getDict()
+    return self._typeDict
+end
+
+function FrozenTypeSet:getNum()
+    return self._num
+end
+
+function FrozenTypeSet:getHash()
+    return self._hash
+end
+
+function FrozenTypeSet:getResultType():Ret(OrFalse(clazz.UAtomUnion))
+    return self._typeResult
+end
+
+function FrozenTypeSet:_buildType():Ret(clazz.UAtomUnion)
+    local nResultType = self._typeResult
+    if not nResultType then
+        const nCollection = self._typeManager:TypeCollection()
+        for k,v in pairs(self._typeDict) do
+            nCollection:put(v)
+        end
+        nResultType = nCollection:mergeToAtomUnion()
+        self._typeResult = nResultType
+    end
+    return nResultType
+end
+
+return FrozenTypeSet
