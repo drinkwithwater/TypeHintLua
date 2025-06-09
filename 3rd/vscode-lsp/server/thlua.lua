@@ -5402,9 +5402,14 @@ function ScheduleEvent:wait()
 	local nWaitList = self._waitTaskList
 	if nWaitList then
 		local nManager = self._scheduleManager
-		local nTask = nManager:getTask()
-		nWaitList[#nWaitList + 1] = nTask
-		nTask:waitEvent(self)
+		local nCurTask = nManager:getTask()
+		nWaitList[#nWaitList + 1] = nCurTask
+		local nDependTask = self._task
+		if nDependTask then
+			self._scheduleManager:checkRecursive(nCurTask, nDependTask)
+		end
+		nCurTask:triggerByEvent(self, true)
+		coroutine.yield()
 	end
 end
 
@@ -5418,7 +5423,8 @@ function ScheduleEvent:wakeup()
 	if nWaitList then
 		self._waitTaskList = false
 		for _, nTask in ipairs(nWaitList) do
-			nTask:wakeupByEvent(self)
+			nTask:triggerByEvent(self, false)
+			self._scheduleManager:pushSchedule(nTask)
 		::continue:: end
 	end
 end
@@ -5501,6 +5507,8 @@ function ScheduleManager:checkRecursive(vWaitingTask, vDependTask)
 	       
 	if SealTask.is(vWaitingTask) and HintTask.is(vDependTask) then
 		vDependTask:errorWaitByStack(vWaitingTask:getStack())
+	elseif HintTask.is(vWaitingTask) and SealTask.is(vDependTask) then
+		error("wrong case: HintTask wait SealTask")
 	end
 	local nCurTask = vDependTask
 	local nTaskList = {}
@@ -5531,6 +5539,15 @@ function ScheduleManager:checkRecursive(vWaitingTask, vDependTask)
 	::continue:: end
 end
 
+function ScheduleManager:_resumeTask(vTask)
+	local ok, ret = coroutine.resume(vTask:getSelfCo())
+	if not ok then
+		error(ret)
+	else
+		return ret
+	end
+end
+
 function ScheduleManager:_tickTask()
 	local nHintTaskList = self._hintTaskList
 	while true do
@@ -5540,7 +5557,7 @@ function ScheduleManager:_tickTask()
 			break
 		end
 		nHintTaskList[nDepth] = nil
-		nTask:resume()
+		self:_resumeTask(nTask)
 	::continue:: end
 	local nTaskList = self._sealTaskList
 	local depth = #nTaskList
@@ -5551,7 +5568,7 @@ function ScheduleManager:_tickTask()
 	if not nTask then
 		nTaskList[depth] = nil
 	else
-		local stay = nTask:resume()
+		local stay = self:_resumeTask(nTask)
 		if not stay then
 			nTaskList[depth] = false
 		end
@@ -5736,33 +5753,13 @@ function ScheduleTask:getWaitEvent()
 	return self._waitEvent
 end
 
-function ScheduleTask:waitEvent(vEvent)
-	assert(not self._waitEvent)
-	local nDependTask = vEvent:getTask()
-	if nDependTask then
-		self._scheduleManager:checkRecursive(self, nDependTask)
-	end
-	self._waitEvent = vEvent
-	coroutine.yield()
-end
-
-function ScheduleTask:wakeupByEvent(vEvent)
-	assert(self._waitEvent == vEvent)
-	self._waitEvent = false
-	self._scheduleManager:pushSchedule(self)
-end
-
-function ScheduleTask:resume()
-	  
-		     
-			  
-		
-	
-	local ok, ret = coroutine.resume(self._selfCo)
-	if not ok then
-		error(ret)
+function ScheduleTask:triggerByEvent(vEvent, vWait)
+	if vWait then
+		assert(not self._waitEvent)
+		self._waitEvent = vEvent
 	else
-		return ret
+		assert(self._waitEvent == vEvent)
+		self._waitEvent = false
 	end
 end
 
@@ -7873,25 +7870,26 @@ function AsyncTypeCom:setSetAsync(vNode, vGetSetLateRunner )
 	assert(not self._assignNode, "async type has setted")
 	self._assignNode = vNode
 	self._task:runAsync(function()
-		local nTypeSet , nLateRunner = vGetSetLateRunner()
+		local nHashableTypeSet , nLateRunner = vGetSetLateRunner()
 		    
-		self._typeSet = self._typeManager:unifyTypeSet(nTypeSet)
-		for k, v in pairs(nTypeSet:getDict()) do
+		local nFrozenTypeSet = self._typeManager:unifyTypeSet(nHashableTypeSet)
+		self._typeSet = nFrozenTypeSet
+		for k, v in pairs(nFrozenTypeSet:getDict()) do
 			if v:mayRecursive() then
 				self._mayRecursive = true
 			end
 		::continue:: end
 		self._listBuildEvent:wakeup()
-		local nTypeNum = nTypeSet:getNum()
+		local nTypeNum = nFrozenTypeSet:getNum()
 		      
 		local nResultType = nil
 		if nTypeNum == 0 then
 			nResultType = self._typeManager.type.Never
 		elseif nTypeNum == 1 then
-			local _, nFirstType = next(nTypeSet:getDict())
+			local _, nFirstType = next(nFrozenTypeSet:getDict())
 			nResultType = nFirstType
 		else
-			nResultType = nTypeSet:_buildType()
+			nResultType = nFrozenTypeSet:_buildType()
 		end
 		self._resultType = nResultType
 		self._resultBuildEvent:wakeup()
@@ -14068,31 +14066,35 @@ return TypeTupleDots
 end end
 --thlua.tuple.TypeTupleDots end ==========)
 
---thlua.type.HashableTypeSet begin ==========(
+--thlua.type.FrozenTypeSet begin ==========(
 do local _ENV = _ENV
-packages['thlua.type.HashableTypeSet'] = function (...)
+packages['thlua.type.FrozenTypeSet'] = function (...)
 
 local class = require "thlua.class"
 
-local HashableTypeSet = {}
-HashableTypeSet.__index = HashableTypeSet
+local FrozenTypeSet = {}
+FrozenTypeSet.__index = FrozenTypeSet
 
-function HashableTypeSet.new(vManager)
+function FrozenTypeSet.new(vManager, vHashableTypeSet)
     local self = setmetatable({
         _typeManager = vManager,
         _typeDict = {}   ,
         _typeResult = false  ,
         _num = 0  ,
-        _addValue = 0  ,
-        _xorValue = 0  ,
         _hash = 0  ,
         _next = false  ,
-    }, HashableTypeSet)
+    }, FrozenTypeSet)
+    for k,v in pairs(vHashableTypeSet:getDict()) do
+        self._typeDict[k] = v
+    ::continue:: end
+    self._typeResult = vHashableTypeSet:getResultType()
+    self._num = vHashableTypeSet:getNum()
+    self._hash = vHashableTypeSet:getHash()
     return self
 end
 
        
-function HashableTypeSet:linkedSearchTypeOrAttachSet(vType)  
+function FrozenTypeSet:linkedSearchTypeOrAttachSet(vType)  
     local nCount = 0
     local nMatch = true
     local nTypeDict = self._typeDict
@@ -14110,8 +14112,9 @@ function HashableTypeSet:linkedSearchTypeOrAttachSet(vType)
         if nNextTypeSet then
             return nNextTypeSet:linkedSearchTypeOrAttachSet(vType)
         else
-            local nNewTypeSet = self._typeManager:HashableTypeSet()
-            nNewTypeSet:initFromUnion(vType)
+            local nHashableTypeSet = self._typeManager:HashableTypeSet()
+            nHashableTypeSet:initFromUnion(vType)
+            local nNewTypeSet = nHashableTypeSet:frozen()
             self._next = nNewTypeSet
             return false, nNewTypeSet
         end
@@ -14126,7 +14129,7 @@ function HashableTypeSet:linkedSearchTypeOrAttachSet(vType)
     end
 end
 
-function HashableTypeSet:linkedSearchOrLink(vConflictTypeSet)
+function FrozenTypeSet:linkedSearchOrLink(vConflictTypeSet)
     local nMatch = true
     local nSelfTypeDict = self._typeDict
     for k,v in pairs(vConflictTypeSet._typeDict) do
@@ -14151,9 +14154,82 @@ function HashableTypeSet:linkedSearchOrLink(vConflictTypeSet)
     end
 end
 
-function HashableTypeSet:findAtom(vAtomType)
+function FrozenTypeSet:findAtom(vAtomType)
     return self._typeDict[vAtomType.id]
 end
+
+function FrozenTypeSet:getDict()
+    return self._typeDict
+end
+
+function FrozenTypeSet:getNum()
+    return self._num
+end
+
+function FrozenTypeSet:getHash()
+    return self._hash
+end
+
+function FrozenTypeSet:getResultType()
+    return self._typeResult
+end
+
+function FrozenTypeSet:_buildType()
+    local nResultType = self._typeResult
+    if not nResultType then
+        local nCollection = self._typeManager:TypeCollection()
+        for k,v in pairs(self._typeDict) do
+            nCollection:put(v)
+        ::continue:: end
+        nResultType = nCollection:mergeToAtomUnion()
+        self._typeResult = nResultType
+    end
+    return nResultType
+end
+
+return FrozenTypeSet
+end end
+--thlua.type.FrozenTypeSet end ==========)
+
+--thlua.type.HashableTypeSet begin ==========(
+do local _ENV = _ENV
+packages['thlua.type.HashableTypeSet'] = function (...)
+
+local class = require "thlua.class"
+local FrozenTypeSet = require "thlua.type.FrozenTypeSet"
+
+local HashableTypeSet = {}
+HashableTypeSet.__index = HashableTypeSet
+
+function HashableTypeSet.new(vManager)
+    local self = setmetatable({
+        _typeManager = vManager,
+        _typeDict = {}   ,
+        _typeResult = false  ,
+        _num = 0  ,
+        _addValue = 0  ,
+        _xorValue = 0  ,
+        _hash = 0  ,
+    }, HashableTypeSet)
+    return self
+end
+
+
+  
+       
+          
+          
+             
+            
+            
+            
+            
+            
+            
+     
+     
+
+
 
 function HashableTypeSet:putSet(vTypeSet)
     for k,v in pairs(vTypeSet._typeDict) do
@@ -14221,17 +14297,8 @@ function HashableTypeSet:getResultType()
     return self._typeResult
 end
 
-function HashableTypeSet:_buildType()
-    local nResultType = self._typeResult
-    if not nResultType then
-        local nCollection = self._typeManager:TypeCollection()
-        for k,v in pairs(self._typeDict) do
-            nCollection:put(v)
-        ::continue:: end
-        nResultType = nCollection:mergeToAtomUnion()
-        self._typeResult = nResultType
-    end
-    return nResultType
+function HashableTypeSet:frozen()
+    return FrozenTypeSet.new(self._typeManager, self)
 end
 
 return HashableTypeSet
@@ -14317,7 +14384,6 @@ local TYPE_BITS = {
 	THREAD = 1 << 7,
 	LIGHTUSERDATA = 1 << 8,
 	TRUTH = 0x1FF-3,        
-	ANY = 0xFFFF,
 }
 
 return TYPE_BITS
@@ -14335,6 +14401,7 @@ local StringLiteralUnion = require "thlua.type.union.StringLiteralUnion"
 local MixingNumberUnion = require "thlua.type.union.MixingNumberUnion"
 local IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
 local FloatLiteral = require "thlua.type.basic.FloatLiteral"
+local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local SubType = require "thlua.type.basic.SubType"
 local Number = require "thlua.type.basic.Number"
 local ObjectUnion = require "thlua.type.union.ObjectUnion"
@@ -14353,7 +14420,6 @@ local FastBitsSet = {
 	[TYPE_BITS.THREAD]=true,
 	[TYPE_BITS.LIGHTUSERDATA]=true,
 	[TYPE_BITS.TRUTH]=true,
-	[TYPE_BITS.ANY]=true,
 }
 
 local TrueBitSet = {
@@ -14409,27 +14475,51 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet )
 		if vSet[nNumberType] then
 			return nNumberType
 		end
-		local nHasPartNumber = false
+		local floatLiteralSet={}  
+		local integerLiteralSet={}  
+		local integerLiteralCnt = 0 
+		local hasInteger = false 
 		for nType,v in pairs(vSet) do
-			if FloatLiteral.is(nType) or (SubType.is(nType) and Number.is(nType:getSuperType())) then
-				nHasPartNumber = true
+			if IntegerLiteral.is(nType) then
+				integerLiteralSet[nType] = true
+				integerLiteralCnt = integerLiteralCnt + 1
+			elseif FloatLiteral.is(nType) then
+				floatLiteralSet[nType] = true
+			elseif nType == self._type.Integer then
+				hasInteger = true
+			else
+				error("invalid case")
 			end
 		::continue:: end
-		local nIntegerType = self._type.Integer
-		if vSet[nIntegerType] and not nHasPartNumber then
-			return nIntegerType
+		local nIntegerPart   = false
+		if hasInteger then
+			nIntegerPart = self._type.Integer
+		elseif integerLiteralCnt == 1 then
+			nIntegerPart = next(integerLiteralSet) or false
+		elseif integerLiteralCnt > 1 then
+			local integerUnion = IntegerLiteralUnion.new(self._typeManager, integerLiteralSet)
+			nIntegerPart = (self._typeManager:unionUnifyToType(integerUnion) ) 
 		end
-		if nHasPartNumber then
-			nUnionType = MixingNumberUnion.new(self._typeManager)
-		else
-			nUnionType = IntegerLiteralUnion.new(self._typeManager)
+		if not next(floatLiteralSet) then
+			return assert(nIntegerPart)
 		end
+		nUnionType = MixingNumberUnion.new(self._typeManager, floatLiteralSet, nIntegerPart)
+		return self._typeManager:unionUnifyToType(nUnionType)
 	elseif vBit == TYPE_BITS.STRING then
 		local nStringType = self._type.String
 		if vSet[nStringType] then
 			return nStringType
 		end
-		nUnionType = StringLiteralUnion.new(self._typeManager)
+		local stringLiteralCnt = 1
+		for k,v in pairs(vSet) do
+			stringLiteralCnt = stringLiteralCnt + 1
+		::continue:: end
+		if stringLiteralCnt <= 1 then
+			return assert(next(vSet))
+		else
+			nUnionType = StringLiteralUnion.new(self._typeManager, vSet  )
+			return self._typeManager:unionUnifyToType(nUnionType)
+		end
 	elseif vBit == TYPE_BITS.OBJECT then
 		nUnionType = ObjectUnion.new(self._typeManager)
 	elseif vBit == TYPE_BITS.FUNCTION then
@@ -14444,12 +14534,6 @@ function TypeCollection:_makeSimpleTrueType(vBit, vSet )
 	for nType, _ in pairs(vSet) do
 		nUnionType:putAwait(nType)
 	::continue:: end
-	if MixingNumberUnion.is(nUnionType) then
-		local nIntegerPart = nUnionType._integerPart
-		if IntegerLiteralUnion.is(nIntegerPart) then
-			nUnionType._integerPart = (self._typeManager:unionUnifyToType(nIntegerPart) ) 
-		end
-	end
 	return self._typeManager:unionUnifyToType(nUnionType)
 end
 
@@ -14702,6 +14786,12 @@ end
 function TypeManager:HashableTypeSet()
 	return HashableTypeSet.new(self)
 end
+
+
+ 
+	  
+
+
 
 function TypeManager:TypeCollection()
 	return TypeCollection.new(self)
@@ -14973,15 +15063,20 @@ function TypeManager:unifyAndBuild(vTypeSet)
 	return self:unifyTypeSet(vTypeSet):_buildType()
 end
 
-function TypeManager:unifyTypeSet(vTypeSet)
+function TypeManager:unifyTypeSet(vTypeSet, vMustNew)
 	local nHashToTypeSet = self._hashToTypeSet
 	local nHash = vTypeSet:getHash()
 	local nCurTypeSet = nHashToTypeSet[nHash]
+	local nFrozenTypeSet = vTypeSet:frozen()
 	if not nCurTypeSet then
-		nHashToTypeSet[nHash] = vTypeSet
-		return vTypeSet
+		nHashToTypeSet[nHash] = nFrozenTypeSet
+		return nFrozenTypeSet
 	else
-		return nCurTypeSet:linkedSearchOrLink(vTypeSet)
+		local ret = nCurTypeSet:linkedSearchOrLink(nFrozenTypeSet)
+		if vMustNew then
+			assert(ret == nFrozenTypeSet, "maybe atom type unify error")
+		end
+		return ret
 	end
 end
 
@@ -14991,8 +15086,9 @@ function TypeManager:unionUnifyToType(vNewUnion)
 	if not nCurTypeSet then
 		local nHashableTypeSet = self:HashableTypeSet()
 		nHashableTypeSet:initFromUnion(vNewUnion)
-		self._hashToTypeSet[nHashValue] = nHashableTypeSet
-		vNewUnion:initWithTypeId(self:genTypeId(), nHashableTypeSet)
+		local nFrozenTypeSet = nHashableTypeSet:frozen()
+		self._hashToTypeSet[nHashValue] = nFrozenTypeSet
+		vNewUnion:initWithTypeId(self:genTypeId(), nFrozenTypeSet)
 		return vNewUnion
 	else
 		local nFound, nTypeOrSet = nCurTypeSet:linkedSearchTypeOrAttachSet(vNewUnion)
@@ -15008,8 +15104,8 @@ end
 function TypeManager:atomUnifyToSet(vNewAtom)
 	local nHashableTypeSet = self:HashableTypeSet()
 	nHashableTypeSet:initFromAtom(vNewAtom)
-	local nTypeSet = self:unifyTypeSet(nHashableTypeSet)
-	assert(nTypeSet == nHashableTypeSet, "but atom build type id conflict")
+	local nTypeSet = self:unifyTypeSet(nHashableTypeSet, true)
+	        
 	return nTypeSet
 end
 
@@ -20310,20 +20406,9 @@ local class = require "thlua.class"
 
 local IntegerLiteralUnion = class (BaseUnionType)
 
-function IntegerLiteralUnion:ctor(vTypeManager)
-	self._literalSet={} ; 
-	self._subTypeSet={} ; 
+function IntegerLiteralUnion:ctor(vTypeManager, vDict )
+	self._literalSet=vDict
 	self.bits=TYPE_BITS.NUMBER
-end
-
-function IntegerLiteralUnion:putAwait(vType)
-	if IntegerLiteral.is(vType) then
-		self._literalSet[vType] = true
-	elseif SubType.is(vType) and Integer.is(vType:getSuperType()) then
-		self._subTypeSet[vType] = true
-	else
-		error("set put wrong")
-	end
 end
 
 function IntegerLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
@@ -20335,18 +20420,8 @@ function IntegerLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 end
 
 function IntegerLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
-	if IntegerLiteral.is(vType) then
-		if self._literalSet[vType] then
-			return vType
-		else
-			return false
-		end
-	elseif SubType.is(vType) then
-		if self._subTypeSet[vType] then
-			return vType
-		else
-			return false
-		end
+	if self._typeSet:findAtom(vType) then
+		return vType
 	else
 		return false
 	end
@@ -20355,9 +20430,6 @@ end
 function IntegerLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
-	::continue:: end
-	for nSubType, v in pairs(self._subTypeSet) do
-		vFunc(nSubType)
 	::continue:: end
 end
 
@@ -20386,39 +20458,14 @@ local class = require "thlua.class"
 
 local MixingNumberUnion = class (BaseUnionType)
 
-function MixingNumberUnion:ctor(vTypeManager)
-	self._floatLiteralSet={} ; 
-	self._numberSubTypeSet={} ; 
-	self._integerPart=false;   
+function MixingNumberUnion:ctor(
+	vTypeManager,
+	vFloatLiteralSet ,
+	vIntegerPart  
+)
+	self._floatLiteralSet=vFloatLiteralSet
+	self._integerPart=vIntegerPart
 	self.bits=TYPE_BITS.NUMBER
-end
-
-function MixingNumberUnion:putAwait(vType)
-	if FloatLiteral.is(vType) then
-		self._floatLiteralSet[vType] = true
-	elseif Integer.is(vType) then
-		self._integerPart = vType
-	elseif SubType.is(vType) and Number.is(vType:getSuperType()) then
-		self._numberSubTypeSet[vType] = true
-	elseif IntegerLiteral.is(vType) or (SubType.is(vType) and Integer.is(vType:getSuperType())) then
-		local nIntegerPart = self._integerPart
-		if not nIntegerPart then
-			self._integerPart = vType
-		elseif Integer.is(nIntegerPart) or nIntegerPart == vType then
-			 
-		elseif IntegerLiteral.is(nIntegerPart) or SubType.is(nIntegerPart) then
-			local nIntegerUnion = IntegerLiteralUnion.new(self._typeManager)
-			nIntegerUnion:putAwait(vType)
-			nIntegerUnion:putAwait(nIntegerPart)
-			self._integerPart = nIntegerUnion
-		elseif IntegerLiteralUnion.is(nIntegerPart) then
-			nIntegerPart:putAwait(vType)
-		else
-			error("set put wrong")
-		end
-	else
-		error("set put wrong")
-	end
 end
 
 function MixingNumberUnion:assumeIntersectAtom(vAssumeSet, vType)
@@ -20432,18 +20479,8 @@ function MixingNumberUnion:assumeIntersectAtom(vAssumeSet, vType)
 end
 
 function MixingNumberUnion:assumeIncludeAtom(vAssumeSet, vType, _)
-	if FloatLiteral.is(vType) then
-		if self._floatLiteralSet[vType] then
-			return vType
-		else
-			return false
-		end
-	elseif SubType.is(vType) and Number.is(vType:getSuperType()) then
-		if self._numberSubTypeSet[vType] then
-			return vType
-		else
-			return false
-		end
+	if self._typeSet:findAtom(vType) then
+		return vType
 	else
 		local nIntegerPart = self._integerPart
 		return nIntegerPart and nIntegerPart:assumeIncludeAtom(vAssumeSet, vType, _)
@@ -20453,9 +20490,6 @@ end
 function MixingNumberUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._floatLiteralSet) do
 		vFunc(nLiteralType)
-	::continue:: end
-	for nSubType, v in pairs(self._numberSubTypeSet) do
-		vFunc(nSubType)
 	::continue:: end
 	local nIntegerPart = self._integerPart
 	if nIntegerPart then
@@ -20683,20 +20717,9 @@ local class = require "thlua.class"
 
 local StringLiteralUnion = class (BaseUnionType)
 
-function StringLiteralUnion:ctor(vTypeManager)
-	self._literalSet={} ;     
-	self._subTypeSet={} ; 
+function StringLiteralUnion:ctor(vTypeManager, vStringLiteralSet )
+	self._literalSet=vStringLiteralSet
 	self.bits=TYPE_BITS.STRING
-end
-
-function StringLiteralUnion:putAwait(vType)
-	if StringLiteral.is(vType) then
-		self._literalSet[vType] = true
-	elseif SubType.is(vType) and String.is(vType:getSuperType()) then
-		self._subTypeSet[vType] = true
-	else
-		error("set put wrong")
-	end
 end
 
 function StringLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
@@ -20708,18 +20731,8 @@ function StringLiteralUnion:assumeIntersectAtom(vAssumeSet, vType)
 end
 
 function StringLiteralUnion:assumeIncludeAtom(vAssumeSet, vType, _)
-	if StringLiteral.is(vType) then
-		if self._literalSet[vType] then
-			return vType
-		else
-			return false
-		end
-	elseif SubType.is(vType) then
-		if self._subTypeSet[vType] then
-			return vType
-		else
-			return false
-		end
+	if self._typeSet:findAtom(vType) then
+		return vType
 	else
 		return false
 	end
@@ -20728,9 +20741,6 @@ end
 function StringLiteralUnion:foreach(vFunc)
 	for nLiteralType, v in pairs(self._literalSet) do
 		vFunc(nLiteralType)
-	::continue:: end
-	for nSubType, v in pairs(self._subTypeSet) do
-		vFunc(nSubType)
 	::continue:: end
 end
 
@@ -20803,10 +20813,36 @@ packages['thlua.utils.LuaPromise'] = function (...)
 local Promise = {}
 Promise.__index = Promise
 
+local LuaError = {}
+LuaError.__index = LuaError
+
+function LuaError.new(vReason, vStack)
+    return setmetatable({
+        reason=vReason,
+        stack=vStack,
+    }, LuaError)
+end
+
+function LuaError:__tostring()
+    return "LuaError:"..tostring(self.reason).."\n"..tostring(self.stack)
+end
+
+function LuaError.is(v)
+    return getmetatable(v) == LuaError
+end
+
+local UnknownError = LuaError.new("unknown reason", "")
+
+Promise.LuaError = LuaError
+
       
 local PENDING = 0
 local REJECTED = 1
 local RESOLVED = 2
+
+local function lineinfo(depth)
+    return debug.getinfo(depth, "Slnt")
+end
 
 function Promise.new()
     local self = setmetatable({
@@ -20815,24 +20851,53 @@ function Promise.new()
         _reason = nil  ,
         _thens = {}  ,
         _fails = {}  ,
-        _stack = debug.traceback(nil, 2),
-        __type = nil  
+        _parent = false  ,
+        _line = lineinfo(3),
+        __type = false  
     }, Promise)
     return self
 end
 
-Promise.create = Promise.new    
+Promise.create = Promise.new         
 
-function Promise:reject(reason)
+function Promise:reject(excOrReason, stack)
     if self._state ~= PENDING then
         error("ERROR In Promise reject: the promise has been notified.")
         return
     end
-    self._reason = reason
+    local exc = LuaError.is(excOrReason) and excOrReason or LuaError.new(excOrReason, stack or "(stack ???)")
+    self._reason = exc
     self._state = REJECTED
+    local handleReject = false
     for _, v in ipairs(self._fails) do
-        v(reason)
+        v(exc)
+        handleReject = true
     ::continue:: end
+    if not handleReject then
+        local lineList = {}
+        local promise = self  
+        while promise do
+            local lineInfo = promise._line
+            if lineInfo.currentline <= 0 then
+                lineList[#lineList+1] = string.format("\n\t(promise) %s: in ", lineInfo.short_src)
+            else
+                lineList[#lineList+1] = string.format("\n\t(promise) %s:%d: in ", lineInfo.short_src, lineInfo.currentline)
+            end
+            local what = lineInfo.what
+            local namewhat = lineInfo.namewhat
+            if namewhat ~= "" then
+                lineList[#lineList+1] = string.format("%s '%s'", namewhat, lineInfo.name)
+            elseif what == "main" then
+                lineList[#lineList+1] = "main chunk"
+            elseif what ~= "C" then
+                lineList[#lineList+1] = string.format("function <%s:%d>", lineInfo.short_src, lineInfo.linedefined)
+            else
+                lineList[#lineList+1] = "?"
+            end
+            promise = promise._parent
+        ::continue:: end
+        print("ERROR: promise reject not handle:"..tostring(exc)..table.concat(lineList))
+    end
 end
 
 function Promise:resolve(value)
@@ -20849,44 +20914,44 @@ end
 
 local empty=function() end
 function Promise:forget()
-    local trace = debug.traceback(nil, 2)
     self:next(empty, function(err)
-        print("ERROR:", "forget error", err, trace)
+        print("ERROR:", "forget error", err)
     end)
 end
 
-local function xerror(err)
-    local nInfo = debug.getinfo(3)
-    return nInfo.short_src.. ":" .. nInfo.currentline..":".. tostring(err)
+local function xerror(excOrReason)
+         
+    return LuaError.is(excOrReason) and excOrReason or LuaError.new(excOrReason, debug.traceback(nil, 2))
 end
 function Promise:next(onFulFilled , onRejected)
     local promise = Promise.new()
-    promise._stack = debug.traceback(nil, 2)
+    promise._line = lineinfo(3)
+    promise._parent = self  
     local doResolve = function(value)
-        local ok, errOrRet = xpcall(onFulFilled, xerror, value)
+        local ok, excOrRet = xpcall(onFulFilled, xerror, value)
         if ok then
-            promise:_handleResolve(errOrRet)
+            promise:_handleResolve(excOrRet)
         else
-            promise:reject(errOrRet)
+            promise:reject(excOrRet)
         end
     end
-    local doReject = function(reason)
+    local doReject = function(lastExc)
         if onRejected then
-            local ok, errOrRet = xpcall(onRejected, xerror, reason)
+            local ok, excOrRet = xpcall(onRejected, xerror, lastExc)
             if ok then
-                promise:_handleResolve(errOrRet)
+                promise:_handleResolve(excOrRet)
             else
-                promise:reject(errOrRet)
+                promise:reject(excOrRet)
             end
         else
               
-            promise:reject(reason)
+            promise:reject(lastExc)
         end
     end
     if self._state == RESOLVED then
         doResolve(self._value)
     elseif self._state == REJECTED then
-        doReject(self._reason or "unknown reason")
+        doReject(self._reason or UnknownError)
     elseif self._state == PENDING then
         table.insert(self._thens, doResolve)
         table.insert(self._fails, doReject)
