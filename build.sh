@@ -8,10 +8,13 @@ cd build
 #cmake ../ -DWASM=1 -DCMAKE_CXX_FLAGS="$FLAG" -DCMAKE_C_FLAGS="$FLAG"
 
 #linux build:
-cmake -DCMAKE_BUILD_TYPE=Release ../
+#cmake -DCMAKE_BUILD_TYPE=Release ../
 
 #mac x86_64 build
 #cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=x86_64 ../
+
+#mac arm64 build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES=arm64 ../
 
 cd ..
 cmake --build build --config Release
