@@ -212,9 +212,9 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 	nNewObject:buildInKeyAsync(vNode, function()
 		const nObjectList = vTupleBuilder:buildPolyArgs()
 		if vIsInterface then
-			assert(#nObjectList>=1, "Intersect must take at least one arguments")
+			assert(#nObjectList >= 1, "ExtendInterface must take at least one arguments")
 		else
-			assert(#nObjectList >= 2, "StructExtend must take at least one interface after struct")
+			assert(#nObjectList >= 1, "ExtendStruct must take at least one arguments")
 		end
 		const nKeyTypeSet = self:HashableTypeSet()
 		const nKeyValuePairList:List(Struct {clazz.IAtomType, clazz.UMustType}) = {}
@@ -227,19 +227,7 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 				error("Interface or Struct is expected here")
 				break
 			end
-			if i == 1 then
-				if vIsInterface then
-					assert(Interface.is(nTypedObject), "Intersect must take Interface")
-					nIntersectSet[nTypedObject] = true
-				else
-					assert(not Interface.is(nTypedObject), "StructExtend must take Struct as first argument")
-				end
-			else
-				assert(Interface.is(nTypedObject), vIsInterface
-					and "Intersect must take Interface as args"
-					or "StructExtend must take Interface after first argument")
-				nIntersectSet[nTypedObject] = true
-			end
+			nIntersectSet[nTypedObject] = true
 			local nValueDict = nTypedObject:getValueDict()
 			const nKeyRefer, nNextKey = nTypedObject:getKeyTypes()
 			for _, nKeyType in pairs(nKeyRefer:getSetAwait():getDict()) do
@@ -286,8 +274,11 @@ function TypeManager:buildExtendStruct(vNode:clazz.IBaseNode, vFirst:clazz.USpac
 	return self:_buildCombineObject(vNode, false, nTupleBuilder)
 end
 
-function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.TypedObject)
-	const nTupleBuilder = self:getSpaceManager():spacePack(vNode, ...)
+function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, vFirst:clazz.USpaceAny, ...:clazz.USpaceAny):Ret(clazz.TypedObject)
+	if type(vFirst) == "table" and not getmetatable(vFirst) then
+		vFirst = self:buildInterface(vNode, vFirst)
+	end
+	const nTupleBuilder = self:getSpaceManager():spacePack(vNode, vFirst, ...)
 	return self:_buildCombineObject(vNode, true, nTupleBuilder)
 end
 
