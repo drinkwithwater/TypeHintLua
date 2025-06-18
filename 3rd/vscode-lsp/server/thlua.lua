@@ -11232,7 +11232,7 @@ local AutoFlag = require "thlua.code.AutoFlag"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 local NameReference = require "thlua.space.NameReference"
 local Exception = require "thlua.Exception"
-local Interface = require "thlua.type.object.Interface"
+local TypedObject = require "thlua.type.object.TypedObject"
 local AutoHolder = require "thlua.space.AutoHolder"
 local ClassFactory = require "thlua.type.func.ClassFactory"
 local ClassTable = require "thlua.type.object.ClassTable"
@@ -11515,13 +11515,13 @@ function FunctionBuilder:_buildClass()
 	local nFnMaker = function(vPolyTuple)
 		local nFactory = self._stack:newClassFactory(nNode, self._lexBranchCase)
 		local nNewStack = nFactory:getBuildStack()
-		local nInterfaceGetter = function(vSuffixHint) 
+		local nImplementGetter = function(vSuffixHint) 
 			local nImplementsArg = nil
 			local nExtendsArg = nil
 			    
 			local ok, err = pcall(vSuffixHint.caller, {
-				implements=function(vHint, vInterface)
-					nImplementsArg = vInterface and self._spaceManager:spaceToMustType(self._node, vInterface) or nil
+				implements=function(vHint, vImplementValue)
+					nImplementsArg = vImplementValue and self._spaceManager:spaceToMustType(self._node, vImplementValue) or nil
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
@@ -11569,23 +11569,23 @@ function FunctionBuilder:_buildClass()
 					end
 				end
 			end
-			local nImplementsInterface = nExtendsTable and nExtendsTable:getInterface() or self._typeManager.type.AnyObject
+			local nImplementsType = nExtendsTable and nExtendsTable:getImplemented() or self._typeManager.type.AnyObject
 			if nImplementsArg then
 				local nType = nImplementsArg:checkAtomUnion()
 				if nType:isUnion() then
 					error(self._node:toExc("interface can't be union"))
 				end
-				if Interface.is(nType) then
-					nImplementsInterface = nType
+				if TypedObject.is(nType) then
+					nImplementsType = nType
 				else
 					if nType == self._typeManager.type.False or nType == self._typeManager.type.Nil then
 						      
 					else
-						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or false value")
+						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or Struct or false value")
 					end
 				end
 			end
-			return nExtendsTable, nImplementsInterface
+			return nExtendsTable, nImplementsType
 		end
 		      
 		local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
@@ -11593,7 +11593,7 @@ function FunctionBuilder:_buildClass()
 		local _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList)
 		   
 		nFactory:initClassTableAsync(function()
-			local nExtends, nImplements = nInterfaceGetter(nSuffixHint)
+			local nExtends, nImplements = nImplementGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
 		   
@@ -14806,9 +14806,9 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vTupleBuilder)
 	nNewObject:buildInKeyAsync(vNode, function()
 		local nObjectList = vTupleBuilder:buildPolyArgs()
 		if vIsInterface then
-			assert(#nObjectList>=1, "Intersect must take at least one arguments")
+			assert(#nObjectList >= 1, "ExtendInterface must take at least one arguments")
 		else
-			assert(#nObjectList >= 2, "StructExtend must take at least one interface after struct")
+			assert(#nObjectList >= 1, "ExtendStruct must take at least one arguments")
 		end
 		local nKeyTypeSet = self:HashableTypeSet()
 		local nKeyValuePairList   = {}
@@ -14821,19 +14821,7 @@ function TypeManager:_buildCombineObject(vNode, vIsInterface, vTupleBuilder)
 				error("Interface or Struct is expected here")
 				break
 			end
-			if i == 1 then
-				if vIsInterface then
-					assert(Interface.is(nTypedObject), "Intersect must take Interface")
-					nIntersectSet[nTypedObject] = true
-				else
-					assert(not Interface.is(nTypedObject), "StructExtend must take Struct as first argument")
-				end
-			else
-				assert(Interface.is(nTypedObject), vIsInterface
-					and "Intersect must take Interface as args"
-					or "StructExtend must take Interface after first argument")
-				nIntersectSet[nTypedObject] = true
-			end
+			nIntersectSet[nTypedObject] = true
 			local nValueDict = nTypedObject:getValueDict()
 			local nKeyRefer, nNextKey = nTypedObject:getKeyTypes()
 			for _, nKeyType in pairs(nKeyRefer:getSetAwait():getDict()) do
@@ -14880,8 +14868,11 @@ function TypeManager:buildExtendStruct(vNode, vFirst, ...)
 	return self:_buildCombineObject(vNode, false, nTupleBuilder)
 end
 
-function TypeManager:buildExtendInterface(vNode, ...)
-	local nTupleBuilder = self:getSpaceManager():spacePack(vNode, ...)
+function TypeManager:buildExtendInterface(vNode, vFirst, ...)
+	if type(vFirst) == "table" and not getmetatable(vFirst) then
+		vFirst = self:buildInterface(vNode, vFirst)
+	end
+	local nTupleBuilder = self:getSpaceManager():spacePack(vNode, vFirst, ...)
 	return self:_buildCombineObject(vNode, true, nTupleBuilder)
 end
 
@@ -18281,11 +18272,11 @@ function ClassTable:ctor(
 	vLexStack,
 	vFactory,
 	vBaseClass,
-	vInterface
+	vImplemented
 )
 	self._factory = vFactory
 	self._baseClass = vBaseClass
-	self._interface = vInterface
+	self._implemented = vImplemented
 	self._buildFinish = false
 end
 
@@ -18301,15 +18292,16 @@ end
 function ClassTable:onBuildFinish()
 	if not self._buildFinish then
 		self._buildFinish = true
-		self:implInterface()
+		self:_testImplemented()
 		local nRecurChain = RecurChain.new(self._node)
 		self:memberFunctionFillSelf(nRecurChain, self)
 		self._factory:wakeupTableBuild()
 	end
 end
 
-function ClassTable:implInterface()
-	local nInterfaceKeyValue = self._interface:copyValueDict(self)
+ 
+function ClassTable:_testImplemented()
+	local nInterfaceKeyValue = self._implemented:copyValueDict(self)
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
 		local nContext = self._factory:getBuildStack():withOnePushContext(self._factory:getNode(), function(vSubContext)
 			vSubContext:withCase(VariableCase.new(), function()
@@ -18326,7 +18318,7 @@ function ClassTable:implInterface()
 			end
 		else
 			if not nValue:includeAll(nSelfValue) then
-				nContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
+				nContext:error("implemented's field must be supertype for table's field, key="..tostring(nKeyAtom))
 			end
 		end
 	::continue:: end
@@ -18347,12 +18339,12 @@ function ClassTable:getBaseClass()
 	return self._baseClass
 end
 
-function ClassTable:getInterface()
-	return self._interface
+function ClassTable:getImplemented()
+	return self._implemented
 end
 
 function ClassTable:checkTypedObject()
-	return self._interface
+	return self._implemented
 end
 
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
