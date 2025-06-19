@@ -24,11 +24,11 @@ function.open ClassTable:ctor(
 	vLexStack:clazz.BaseStack,
 	vFactory:clazz.ClassFactory,
 	vBaseClass:OrFalse(clazz.ClassTable),
-	vImplemented:clazz.TypedObject
+	vInterface:clazz.Interface
 )
 	self._factory = vFactory
 	self._baseClass = vBaseClass
-	self._implemented = vImplemented
+	self._interface = vInterface
 	self._buildFinish = false@Boolean
 end
 
@@ -44,16 +44,15 @@ end
 function ClassTable:onBuildFinish()
 	if not self._buildFinish then
 		self._buildFinish = true
-		self:_testImplemented()
+		self:implInterface()
 		const nRecurChain = RecurChain.new(self._node)
 		self:memberFunctionFillSelf(nRecurChain, self)
 		self._factory:wakeupTableBuild()
 	end
 end
 
--- 目前只测试getter
-function ClassTable:_testImplemented()
-	const nInterfaceKeyValue = self._implemented:copyValueDict(self)
+function ClassTable:implInterface()
+	const nInterfaceKeyValue = self._interface:copyValueDict(self)
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
 		const nContext = self._factory:getBuildStack():withOnePushContext(self._factory:getNode(), function(vSubContext)
 			vSubContext:withCase(VariableCase.new(), function()
@@ -70,7 +69,7 @@ function ClassTable:_testImplemented()
 			end
 		else
 			if not nValue:includeAll(nSelfValue) then
-				nContext:error("implemented's field must be supertype for table's field, key="..tostring(nKeyAtom))
+				nContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
 			end
 		end
 	end
@@ -91,12 +90,12 @@ function ClassTable:getBaseClass()
 	return self._baseClass
 end
 
-function ClassTable:getImplemented()
-	return self._implemented
+function ClassTable:getInterface()
+	return self._interface
 end
 
 function ClassTable:checkTypedObject()
-	return self._implemented
+	return self._interface
 end
 
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)

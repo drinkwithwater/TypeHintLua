@@ -201,6 +201,18 @@ function TypedObject:meta_get(vContext, vType)
 	return true
 end
 
+function TypedObject:meta_set(vContext, vKeyType, vValueTerm)
+	vContext:pushNothing()
+	const nValueType = vValueTerm:getType()
+	const nKey, nField = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		const nSetType = nField:getValueType()
+		vContext:includeAndCast(nSetType, nValueType, "set")
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType).."), field not exist")
+	end
+end
+
 function TypedObject:meta_bop_func(vContext, vOper)
 	local nMethodEvent = OPER_ENUM.bopNoEq[vOper]!
 	const nCom = self:getMetaEventCom()

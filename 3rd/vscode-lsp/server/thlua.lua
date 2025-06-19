@@ -11232,7 +11232,7 @@ local AutoFlag = require "thlua.code.AutoFlag"
 local AutoFunction = require "thlua.type.func.AutoFunction"
 local NameReference = require "thlua.space.NameReference"
 local Exception = require "thlua.Exception"
-local TypedObject = require "thlua.type.object.TypedObject"
+local Interface = require "thlua.type.object.Interface"
 local AutoHolder = require "thlua.space.AutoHolder"
 local ClassFactory = require "thlua.type.func.ClassFactory"
 local ClassTable = require "thlua.type.object.ClassTable"
@@ -11515,13 +11515,13 @@ function FunctionBuilder:_buildClass()
 	local nFnMaker = function(vPolyTuple)
 		local nFactory = self._stack:newClassFactory(nNode, self._lexBranchCase)
 		local nNewStack = nFactory:getBuildStack()
-		local nImplementGetter = function(vSuffixHint) 
+		local nInterfaceGetter = function(vSuffixHint) 
 			local nImplementsArg = nil
 			local nExtendsArg = nil
 			    
 			local ok, err = pcall(vSuffixHint.caller, {
-				implements=function(vHint, vImplementValue)
-					nImplementsArg = vImplementValue and self._spaceManager:spaceToMustType(self._node, vImplementValue) or nil
+				implements=function(vHint, vInterface)
+					nImplementsArg = vInterface and self._spaceManager:spaceToMustType(self._node, vInterface) or nil
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
@@ -11569,23 +11569,23 @@ function FunctionBuilder:_buildClass()
 					end
 				end
 			end
-			local nImplementsType = nExtendsTable and nExtendsTable:getImplemented() or self._typeManager.type.AnyObject
+			local nImplementsInterface = nExtendsTable and nExtendsTable:getInterface() or self._typeManager.type.AnyObject
 			if nImplementsArg then
 				local nType = nImplementsArg:checkAtomUnion()
 				if nType:isUnion() then
 					error(self._node:toExc("interface can't be union"))
 				end
-				if TypedObject.is(nType) then
-					nImplementsType = nType
+				if Interface.is(nType) then
+					nImplementsInterface = nType
 				else
 					if nType == self._typeManager.type.False or nType == self._typeManager.type.Nil then
 						      
 					else
-						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or Struct or false value")
+						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or false value")
 					end
 				end
 			end
-			return nExtendsTable, nImplementsType
+			return nExtendsTable, nImplementsInterface
 		end
 		      
 		local nPolyArgNum = vPolyTuple and vPolyTuple:getArgNum() or 0
@@ -11593,7 +11593,7 @@ function FunctionBuilder:_buildClass()
 		local _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList)
 		   
 		nFactory:initClassTableAsync(function()
-			local nExtends, nImplements = nImplementGetter(nSuffixHint)
+			local nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
 		   
@@ -18272,11 +18272,11 @@ function ClassTable:ctor(
 	vLexStack,
 	vFactory,
 	vBaseClass,
-	vImplemented
+	vInterface
 )
 	self._factory = vFactory
 	self._baseClass = vBaseClass
-	self._implemented = vImplemented
+	self._interface = vInterface
 	self._buildFinish = false
 end
 
@@ -18292,16 +18292,15 @@ end
 function ClassTable:onBuildFinish()
 	if not self._buildFinish then
 		self._buildFinish = true
-		self:_testImplemented()
+		self:implInterface()
 		local nRecurChain = RecurChain.new(self._node)
 		self:memberFunctionFillSelf(nRecurChain, self)
 		self._factory:wakeupTableBuild()
 	end
 end
 
- 
-function ClassTable:_testImplemented()
-	local nInterfaceKeyValue = self._implemented:copyValueDict(self)
+function ClassTable:implInterface()
+	local nInterfaceKeyValue = self._interface:copyValueDict(self)
 	for nKeyAtom, nValue in pairs(nInterfaceKeyValue) do
 		local nContext = self._factory:getBuildStack():withOnePushContext(self._factory:getNode(), function(vSubContext)
 			vSubContext:withCase(VariableCase.new(), function()
@@ -18318,7 +18317,7 @@ function ClassTable:_testImplemented()
 			end
 		else
 			if not nValue:includeAll(nSelfValue) then
-				nContext:error("implemented's field must be supertype for table's field, key="..tostring(nKeyAtom))
+				nContext:error("interface's field must be supertype for table's field, key="..tostring(nKeyAtom))
 			end
 		end
 	::continue:: end
@@ -18339,12 +18338,12 @@ function ClassTable:getBaseClass()
 	return self._baseClass
 end
 
-function ClassTable:getImplemented()
-	return self._implemented
+function ClassTable:getInterface()
+	return self._interface
 end
 
 function ClassTable:checkTypedObject()
-	return self._implemented
+	return self._interface
 end
 
 function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
@@ -18512,10 +18511,6 @@ function Interface:assumeIntersectInterface(vAssumeSet , vRightObject)
 			return false
 		end
 	end)
-end
-
-function Interface:meta_set(vContext, vKeyType, vValueType)
-	vContext:error("interface is readonly")
 end
 
 function Interface:native_rawset(vContext, vKeyType, vValueType)
@@ -19613,18 +19608,6 @@ function Struct:assumeIncludeObject(vAssumeSet , vRightObject)
 	return true
 end
 
-function Struct:meta_set(vContext, vKeyType, vValueTerm)
-	vContext:pushNothing()
-	local nValueType = vValueTerm:getType()
-	local nKey, nField = self:_keyIncludeAtom(vKeyType)
-	if nKey then
-		local nSetType = nField:getValueType()
-		vContext:includeAndCast(nSetType, nValueType, "set")
-	else
-		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType)..") in struct, field not exist")
-	end
-end
-
 return Struct
 
 end end
@@ -19834,6 +19817,18 @@ function TypedObject:meta_get(vContext, vType)
 		vContext:addLookTarget(nField)
 	end
 	return true
+end
+
+function TypedObject:meta_set(vContext, vKeyType, vValueTerm)
+	vContext:pushNothing()
+	local nValueType = vValueTerm:getType()
+	local nKey, nField = self:_keyIncludeAtom(vKeyType)
+	if nKey then
+		local nSetType = nField:getValueType()
+		vContext:includeAndCast(nSetType, nValueType, "set")
+	else
+		vContext:error("error2:set("..tostring(vKeyType)..","..tostring(nValueType).."), field not exist")
+	end
 end
 
 function TypedObject:meta_bop_func(vContext, vOper)

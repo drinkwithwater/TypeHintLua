@@ -6,7 +6,7 @@ const AutoFlag = require "thlua.code.AutoFlag"
 const AutoFunction = require "thlua.type.func.AutoFunction"
 const NameReference = require "thlua.space.NameReference"
 const Exception = require "thlua.Exception"
-const TypedObject = require "thlua.type.object.TypedObject"
+const Interface = require "thlua.type.object.Interface"
 const AutoHolder = require "thlua.space.AutoHolder"
 const ClassFactory = require "thlua.type.func.ClassFactory"
 const ClassTable = require "thlua.type.object.ClassTable"
@@ -289,13 +289,13 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 	const nFnMaker = function(vPolyTuple:OrFalse(clazz.TupleBuilder)):Ret(clazz.ClassFactory)
 		const nFactory = self._stack:newClassFactory(nNode, self._lexBranchCase)
 		const nNewStack = nFactory:getBuildStack()
-		const nImplementGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.TypedObject)
+		const nInterfaceGetter = function(vSuffixHint:clazz.TLongHintInfo(clazz.FnSuffixHint)):Ret(OrFalse(clazz.ClassTable), clazz.Interface)
 			local nImplementsArg:OrNil(clazz.UMustType) = nil
 			local nExtendsArg:OrNil(clazz.UMustType) = nil
 			-- local nErrType:OrNil(clazz.UMustType) = nil
 			const ok, err = pcall(vSuffixHint.caller, {
-				implements=function(vHint, vImplementValue)
-					nImplementsArg = vImplementValue and self._spaceManager:spaceToMustType(self._node, vImplementValue) or nil
+				implements=function(vHint, vInterface)
+					nImplementsArg = vInterface and self._spaceManager:spaceToMustType(self._node, vInterface) or nil
 					return vHint
 				end,
 				extends=function(vHint, vBaseClass)
@@ -343,23 +343,23 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 					end
 				end
 			end
-			local nImplementsType = nExtendsTable and nExtendsTable:getImplemented() or self._typeManager.type.AnyObject
+			local nImplementsInterface = nExtendsTable and nExtendsTable:getInterface() or self._typeManager.type.AnyObject
 			if nImplementsArg then
 				const nType = nImplementsArg:checkAtomUnion()
 				if nType:isUnion() then
 					error(self._node:toExc("interface can't be union"))
 				end
-				if TypedObject.is(nType) then
-					nImplementsType = nType
+				if Interface.is(nType) then
+					nImplementsInterface = nType
 				else
 					if nType == self._typeManager.type.False or nType == self._typeManager.type.Nil then
 						-- false or nil means no interface
 					else
-						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or Struct or false value")
+						self._stack:getRuntime():nodeError(self._node, "implements must take Interface or false value")
 					end
 				end
 			end
-			return nExtendsTable, nImplementsType
+			return nExtendsTable, nImplementsInterface
 		end
 		-- 1. build suffixhint from poly args
 		const nPolyArgNum:Integer = vPolyTuple and vPolyTuple:getArgNum() or 0
@@ -367,7 +367,7 @@ function FunctionBuilder:_buildClass():Ret(Union(clazz.ClassFactory, clazz.SealP
 		const _, nGenParam, nSuffixHint, nGenFunc = self._parRetMaker(nNewStack, nPolyArgNum, nPolyArgList)
 		-- 2. init class
 		nFactory:initClassTableAsync(function()
-			const nExtends, nImplements = nImplementGetter(nSuffixHint)
+			const nExtends, nImplements = nInterfaceGetter(nSuffixHint)
 			return nExtends, nImplements
 		end)
 		-- 3. init factory
