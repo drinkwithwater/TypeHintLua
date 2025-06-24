@@ -168,6 +168,7 @@ end
 
 function.nocheck LangServer:_handleRequest(request:lsp.RequestMessage)
 	local methodName = request.method
+	self:log("on server message", methodName)
 	if methodName and methodName:sub(1,1) == "$" then
 		-- self:error("error message", methodName, json.encode(request))
 	elseif not methodName then
@@ -331,7 +332,8 @@ local MessageType = {}
 MessageType.ERROR = 1
 MessageType.WARNING = 2
 MessageType.INFO = 3
-MessageType.DEBUG = 4
+MessageType.LOG = 4
+MessageType.DEBUG = 5
 
 function LangServer:packToString(vDepth, ...:Truth):Ret(String)
 	local nInfo = debug.getinfo(vDepth)
@@ -364,6 +366,14 @@ function LangServer:info(...:Any)
 	self:notify("window/logMessage", {
 		message = str,
 		type = MessageType.INFO,
+	})
+end
+
+function LangServer:log(...)
+	const str = self:packToString(3, ...)
+	self:notify("window/logMessage", {
+		message = str,
+		type = MessageType.LOG,
 	})
 end
 
