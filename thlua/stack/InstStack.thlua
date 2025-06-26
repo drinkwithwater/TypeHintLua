@@ -568,6 +568,10 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
+	if not vTermOrNil and vKind == CodeKindEnum.SymbolKind_CONST then
+		nSymbolContext:warn("empty const symbol regard as auto")
+		nTerm = AutoHolder.new(self._spaceManager, vNode)
+	end
 	if not vTermOrNil and not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
 		nSymbolContext:warn("define a symbol without any type")
 	end

@@ -6930,6 +6930,7 @@ end
 
 function LangServer:_handleRequest(request)
 	local methodName = request.method
+	self:log("on server message", methodName)
 	if methodName and methodName:sub(1,1) == "$" then
 		    
 	elseif not methodName then
@@ -7093,7 +7094,8 @@ local MessageType = {}
 MessageType.ERROR = 1
 MessageType.WARNING = 2
 MessageType.INFO = 3
-MessageType.DEBUG = 4
+MessageType.LOG = 4
+MessageType.DEBUG = 5
 
 function LangServer:packToString(vDepth, ...)
 	local nInfo = debug.getinfo(vDepth)
@@ -7126,6 +7128,14 @@ function LangServer:info(...)
 	self:notify("window/logMessage", {
 		message = str,
 		type = MessageType.INFO,
+	})
+end
+
+function LangServer:log(...)
+	local str = self:packToString(3, ...)
+	self:notify("window/logMessage", {
+		message = str,
+		type = MessageType.LOG,
 	})
 end
 
@@ -10336,6 +10346,10 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType , vAu
 	local nTopBranch = self:topBranch()
 	local nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
+	if not vTermOrNil and vKind == CodeKindEnum.SymbolKind_CONST then
+		nSymbolContext:warn("empty const symbol regard as auto")
+		nTerm = AutoHolder.new(self._spaceManager, vNode)
+	end
 	if not vTermOrNil and not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
 		nSymbolContext:warn("define a symbol without any type")
 	end
