@@ -144,6 +144,15 @@ function TypeManager:lateInit()
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
+	self.generic.Equal = self:buildTemplate(vRootNode, function(vLeft:clazz.UMustType,vRight:clazz.UMustType)
+		const nType1 = vLeft:checkAtomUnion()
+		const nType2 = vRight:checkAtomUnion()
+		if nType1:includeAll(nType2) and nType2:includeAll(nType1) then
+			return self.type.True
+		else
+			return self.type.False
+		end
+	end)
 	self.generic.Cond = self:buildTemplate(vRootNode, function(vCond:clazz.UMustType,v1:clazz.UMustType,v2:clazz.UMustType)
 		local nType = vCond:checkAtomUnion()
 		if nType:isUnion() then
