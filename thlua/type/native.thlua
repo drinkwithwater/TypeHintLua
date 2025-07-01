@@ -23,6 +23,7 @@ const native = {}
 	let.StringToAtomUnion = Dict(String, clazz.UAtomUnion)
 end)
 
+-- 构建一个参数不允许auto holder的native open function
 function native.fixedNativeOpenFunction(vManager:clazz.TypeManager,
 	vNativeFunc:Fn(clazz.OperContext, clazz.FixedTermTuple):Ret(Union(clazz.FixedTermTuple, clazz.RefineTerm), OrNil(clazz.UAtomUnion))
 ):Ret(clazz.OpenFunction)
@@ -34,6 +35,7 @@ function native.fixedNativeOpenFunction(vManager:clazz.TypeManager,
 	return nOpenFn
 end
 
+-- 构建一个只有单个参数的native open function，用于ipairs和pairs
 function native.metaNativeOpenFunction(vManager:clazz.TypeManager,
 	vNativeFunc:Fn(clazz.ApplyContext, clazz.IAtomType)
 ):Ret(clazz.OpenFunction)
@@ -47,6 +49,7 @@ function native.metaNativeOpenFunction(vManager:clazz.TypeManager,
 	return nOpenFn
 end
 
+-- 构建一个暴露了最大自由度的native open function
 function native.stackNativeOpenFunction(vManager:clazz.TypeManager,
 	vFn:clazz.OpenCaller
 ):Ret(clazz.OpenFunction)
@@ -55,6 +58,7 @@ function native.stackNativeOpenFunction(vManager:clazz.TypeManager,
 	return nOpenFn
 end
 
+-- 构建一个poly多态的native open function
 function native.polyNativeOpenFunction(vManager:clazz.TypeManager,
 	vPolyFn:clazz.OpenPolyCaller
 ):Ret(clazz.OpenFunction)
@@ -131,6 +135,18 @@ function native.make(vRuntime:clazz.CodeRuntime):Ret(clazz.AutoTable)
 				end)
 			end)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
+		end),
+		rawset=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
+			const nTerm1 = vTermTuple:get(vContext, 1)
+			const nTerm2 = vTermTuple:get(vContext, 2)
+			const nTerm3 = vTermTuple:get(vContext, 3)
+			const nApplyContext = vContext:getStack():newNoPushContext(vContext:getNode())
+			nTerm1:foreach(function(vType1, vCase1)
+				nTerm2:foreach(function(vType2, vCase2)
+					vType1:native_rawset(nApplyContext, vType2, nTerm3)
+				end)
+			end)
+			return nTerm1
 		end),
 		next=nManager.builtin.next,
 		ipairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)

@@ -4221,9 +4221,6 @@ end
 function.nocheck _ENV.print(...:Any)
 end
 
-function.nocheck _ENV.rawset(a:Any, b:Any,c:Any)
-end
-
 ]]
 end end
 --thlua.global.basic end ==========)
@@ -5124,7 +5121,6 @@ function CodeRuntime:buildSimpleGlobal(vRootSpace)
 		local nSpaceManager = self._spaceManager
 		local nTypeManager = self._typeManager
 		local l = {
-			SubType="buildSubType",
 			Union="buildUnion",
 			Struct="buildStruct",
 			OneOf="buildOneOf",
@@ -5132,10 +5128,6 @@ function CodeRuntime:buildSimpleGlobal(vRootSpace)
 			ExtendInterface="buildExtendInterface",
 			ExtendStruct="buildExtendStruct",
 			Template="buildTemplate",
-			
-			
-			
-			
 			OrNil="buildOrNil",
 			OrFalse="buildOrFalse",
 			Fn="buildFn",
@@ -14416,7 +14408,6 @@ local MixingNumberUnion = require "thlua.type.union.MixingNumberUnion"
 local IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
 local FloatLiteral = require "thlua.type.basic.FloatLiteral"
 local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
-local SubType = require "thlua.type.basic.SubType"
 local Number = require "thlua.type.basic.Number"
 local ObjectUnion = require "thlua.type.union.ObjectUnion"
 local FuncUnion = require "thlua.type.union.FuncUnion"
@@ -14622,7 +14613,6 @@ local Integer = require "thlua.type.basic.Integer"
 local BooleanLiteral= require "thlua.type.basic.BooleanLiteral"
 local Nil = require "thlua.type.basic.Nil"
 local Thread = require "thlua.type.basic.Thread"
-local SubType = require "thlua.type.basic.SubType"
 local LightUserdata = require "thlua.type.basic.LightUserdata"
 local Truth = require "thlua.type.basic.Truth"
 local TypedObject = require "thlua.type.object.TypedObject"
@@ -14752,6 +14742,18 @@ function TypeManager:lateInit()
 		assert(vKey and vValue, "key or value can't be nil when build Dict")
 		return self:buildStruct(vRootNode, {[vKey]=vValue}, {__Next=vKey})
 	end)
+	self.generic.IDict = self:buildTemplate(vRootNode, function(vKey,vValue)
+		assert(vKey and vValue, "key or value can't be nil when build IDict")
+		return self:buildInterface(vRootNode, {[vKey]=vValue})
+	end)
+	self.generic.List = self:buildTemplate(vRootNode, function(vValue)
+		assert(vValue, "value can't be nil when build List")
+		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
+	end)
+	self.generic.IList = self:buildTemplate(vRootNode, function(vValue)
+		assert(vValue, "value can't be nil when build IList")
+		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
+	end)
 	self.generic.Equal = self:buildTemplate(vRootNode, function(vLeft,vRight)
 		local nType1 = vLeft:checkAtomUnion()
 		local nType2 = vRight:checkAtomUnion()
@@ -14767,18 +14769,6 @@ function TypeManager:lateInit()
 			error("Cond's first value can't be union")
 		end
 		return (nType == self.type.Nil or nType == self.type.False) and v2 or v1
-	end)
-	self.generic.IDict = self:buildTemplate(vRootNode, function(vKey,vValue)
-		assert(vKey and vValue, "key or value can't be nil when build IDict")
-		return self:buildInterface(vRootNode, {[vKey]=vValue}, {__Next=vKey})
-	end)
-	self.generic.List = self:buildTemplate(vRootNode, function(vValue)
-		assert(vValue, "value can't be nil when build List")
-		return self:buildStruct(vRootNode, {[self.type.Integer]=vValue}, {__Next=self.type.Integer, __len=self.type.Integer})
-	end)
-	self.generic.IList = self:buildTemplate(vRootNode, function(vValue)
-		assert(vValue, "value can't be nil when build IList")
-		return self:buildInterface(vRootNode, {[self.type.Integer]=vValue}, {__len=self.type.Integer})
 	end)
 	self.generic.KeyOf = self:buildTemplate(vRootNode, function(vOneType)
 		local nObject = vOneType:checkAtomUnion()
@@ -14918,20 +14908,6 @@ function TypeManager:checkedUnion(...)
 		end)
 	::continue:: end
 	return self:unifyAndBuild(nTypeSet)
-end
-
-function TypeManager:buildSubType(vNode, vArgType)
-	local nAsyncTypeCom = self:AsyncTypeCom(vNode)
-	nAsyncTypeCom:setTypeAsync(vNode, function()
-		local nType = self:getSpaceManager():spaceToMustType(vNode, vArgType):checkAtomUnion()
-		assert(BaseAtomType.is(nType) and not nType:isSingleton(), vNode:toExc("enum's supertype must be non-singleton atom type"))
-		if nType ~= self.type.String and nType ~= self.type.Number and nType ~= self.type.Integer then
-			error(vNode:toExc("current subtype only support integer, number, string. other type TODO"))
-		end
-		local nSubType = SubType.new(self, vNode, nType)
-		return nSubType
-	end)
-	return nAsyncTypeCom
 end
 
 function TypeManager:buildUnion(vNode, ...)
@@ -16121,7 +16097,6 @@ local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BasePrimsType = require "thlua.type.basic.BasePrimsType"
-local SubType = require "thlua.type.basic.SubType"
 local class = require "thlua.class"
 
 ;  
@@ -16152,7 +16127,6 @@ function Integer:assumeIncludeAtom(vAssumetSet, vType, _)
 	if IntegerLiteral.is(vType) then
 		return self
 	else
-		vType = SubType.is(vType) and vType:getSuperType() or vType
 		if self == vType then
 			return self
 		else
@@ -16321,7 +16295,6 @@ local Integer = require "thlua.type.basic.Integer"
 local OPER_ENUM = require "thlua.type.OPER_ENUM"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 local BasePrimsType = require "thlua.type.basic.BasePrimsType"
-local SubType = require "thlua.type.basic.SubType"
 local class = require "thlua.class"
 
 ;  
@@ -16354,7 +16327,6 @@ function Number:assumeIncludeAtom(vAssumetSet, vType, _)
 	elseif IntegerLiteral.is(vType) then
 		return self
 	else
-		vType = SubType.is(vType) and vType:getSuperType() or vType
 		if Integer.is(vType) then
 			return self
 		elseif self == vType then
@@ -16382,7 +16354,6 @@ local StringLiteral = require "thlua.type.basic.StringLiteral"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
 
 local BasePrimsType = require "thlua.type.basic.BasePrimsType"
-local SubType = require "thlua.type.basic.SubType"
 local class = require "thlua.class"
 
 ;  
@@ -16417,7 +16388,6 @@ function String:assumeIncludeAtom(vAssumeSet, vType, _)
 	if StringLiteral.is(vType) then
 		return self
 	else
-		vType = SubType.is(vType) and vType:getSuperType() or vType
 		if self == vType then
 			return self
 		else
@@ -16486,72 +16456,6 @@ return StringLiteral
 
 end end
 --thlua.type.basic.StringLiteral end ==========)
-
---thlua.type.basic.SubType begin ==========(
-do local _ENV = _ENV
-packages['thlua.type.basic.SubType'] = function (...)
-
-local OPER_ENUM = require "thlua.type.OPER_ENUM"
-local TYPE_BITS = require "thlua.type.TYPE_BITS"
-local BaseAtomType = require "thlua.type.basic.BaseAtomType"
-local class = require "thlua.class"
-
-local SubType = class (BaseAtomType)
-
-function SubType:ctor(vManager, vNode, vSuperType)
-    self._superType = vSuperType
-	self.bits = vSuperType.bits
-end
-
-function SubType:getSuperType()
-    return self._superType
-end
-
-function SubType:native_type()
-    local nSuperType = self._superType
-    if nSuperType:isUnion() then
-        return self._typeManager.type.String
-    else
-        return nSuperType:native_type()
-    end
-end
-
-function SubType:assumeIncludeAtom(vAssumetSet, vType, _)
-    if self == vType then
-        return self
-    else
-        return false
-    end
-end
-
-function SubType:detailString(vVerbose)
-    return "SubType("..self._superType:detailString(vVerbose)..")"
-end
-
-function SubType:isSingleton()
-	return false
-end
-
-function SubType:native_getmetatable(vContext)
-	return self._superType:native_getmetatable(vContext)
-end
-
-function SubType:native_type()
-	return self._superType:native_type()
-end
-
-function SubType:meta_len(vContext)
-	return self._superType:meta_len(vContext)
-end
-
-function SubType:meta_get(vContext, vKeyType)
-	return self._superType:meta_get(vContext, vKeyType)
-end
-
-return SubType
-
-end end
---thlua.type.basic.SubType end ==========)
 
 --thlua.type.basic.Thread begin ==========(
 do local _ENV = _ENV
@@ -17670,6 +17574,7 @@ local native = {}
 	   
 
 
+    
 function native.fixedNativeOpenFunction(vManager,
 	vNativeFunc   
 )
@@ -17681,6 +17586,7 @@ function native.fixedNativeOpenFunction(vManager,
 	return nOpenFn
 end
 
+   
 function native.metaNativeOpenFunction(vManager,
 	vNativeFunc 
 )
@@ -17694,6 +17600,7 @@ function native.metaNativeOpenFunction(vManager,
 	return nOpenFn
 end
 
+   
 function native.stackNativeOpenFunction(vManager,
 	vFn
 )
@@ -17702,6 +17609,7 @@ function native.stackNativeOpenFunction(vManager,
 	return nOpenFn
 end
 
+   
 function native.polyNativeOpenFunction(vManager,
 	vPolyFn
 )
@@ -17778,6 +17686,18 @@ function native.make(vRuntime)
 				end)
 			end)
 			return vContext:mergeToRefineTerm(nTypeCaseList)
+		end),
+		rawset=native.fixedNativeOpenFunction(nManager, function(vContext, vTermTuple)
+			local nTerm1 = vTermTuple:get(vContext, 1)
+			local nTerm2 = vTermTuple:get(vContext, 2)
+			local nTerm3 = vTermTuple:get(vContext, 3)
+			local nApplyContext = vContext:getStack():newNoPushContext(vContext:getNode())
+			nTerm1:foreach(function(vType1, vCase1)
+				nTerm2:foreach(function(vType2, vCase2)
+					vType1:native_rawset(nApplyContext, vType2, nTerm3)
+				end)
+			end)
+			return nTerm1
 		end),
 		next=nManager.builtin.next,
 		ipairs=native.metaNativeOpenFunction(nManager, function(vContext, vType)
@@ -20403,7 +20323,6 @@ do local _ENV = _ENV
 packages['thlua.type.union.IntegerLiteralUnion'] = function (...)
 
 local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
-local SubType = require "thlua.type.basic.SubType"
 local Integer = require "thlua.type.basic.Integer"
 local Number = require "thlua.type.basic.Number"
 local Truth = require "thlua.type.basic.Truth"
@@ -20453,7 +20372,6 @@ do local _ENV = _ENV
 packages['thlua.type.union.MixingNumberUnion'] = function (...)
 
 local FloatLiteral = require "thlua.type.basic.FloatLiteral"
-local SubType = require "thlua.type.basic.SubType"
 local Number = require "thlua.type.basic.Number"
 local IntegerLiteral = require "thlua.type.basic.IntegerLiteral"
 local IntegerLiteralUnion = require "thlua.type.union.IntegerLiteralUnion"
@@ -20715,7 +20633,6 @@ do local _ENV = _ENV
 packages['thlua.type.union.StringLiteralUnion'] = function (...)
 
 local StringLiteral = require "thlua.type.basic.StringLiteral"
-local SubType = require "thlua.type.basic.SubType"
 local String = require "thlua.type.basic.String"
 local Truth = require "thlua.type.basic.Truth"
 local TYPE_BITS = require "thlua.type.TYPE_BITS"
