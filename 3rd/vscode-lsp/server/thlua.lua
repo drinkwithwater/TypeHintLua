@@ -4853,6 +4853,7 @@ local platform = require "thlua.platform"
 		
 		 
 		
+		
 	
 
 	   
@@ -4905,6 +4906,9 @@ local DefaultStage = {
 		local uv = require "luv"
 		return uv.new_async(fn)
 	end,
+	print=function(...)
+		print(...)
+	end
 }
 
 local DefaultLogger = {
@@ -4927,7 +4931,8 @@ local DefaultLogger = {
 
 local CodeRuntime = class ()
 
-function CodeRuntime:ctor(vStage)
+function CodeRuntime:ctor(vStage, vVersion)
+	self._version = string.format("[%s]", vVersion or 0)
 	self._diaList={};
 	self._searchPath = false ; 
 	self._stage=vStage or DefaultStage
@@ -5250,6 +5255,10 @@ end
 
 function CodeRuntime:nodeInfo(vNode, ...)
 	self:_save(3, vNode, ...)
+end
+
+function CodeRuntime:print(...)
+	self._stage.print(self._version, ...)
 end
 
 function CodeRuntime:getRootNode()
@@ -6179,10 +6188,10 @@ function ApiProvider:rerun(vFileUri)
 		self._server:info("cancel")
 		nBusyRuntime:getScheduleManager():cancelSchedule()
 	end
-	local nRuntime=CodeRuntime.new(self._server:makeStageApi())
-	self._busyRuntime = nRuntime
 	local rerunCounter = self._rerunCounter + 1
 	self._rerunCounter = rerunCounter
+	local nRuntime=CodeRuntime.new(self._server:makeStageApi(), rerunCounter)
+	self._busyRuntime = nRuntime
 	self._server:info("rerun start", rerunCounter)
 	nRuntime:promiseMain(rootFileUri):next(function(_)
 		if self._busyRuntime == nRuntime then
@@ -6896,6 +6905,9 @@ function LangServer:makeStageApi()
 		createAsync=function(fn)
 			return uv.new_async(fn)
 		end,
+		print=function(...)
+			self:log(...)
+		end
 	}
 end
 
@@ -7345,7 +7357,10 @@ function PlayGround:_update(vName, vInput)
                 close=function()
                 end,
             }
-        end
+        end,
+        print=function(...)
+            print(...)
+        end,
     })
     nRuntime:promiseMain(vName)
     local nDiaList = nRuntime:getAllDiagnostic()[vName] or {}
@@ -10338,12 +10353,13 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType , vAu
 	local nTopBranch = self:topBranch()
 	local nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
-	if not vTermOrNil and vKind == CodeKindEnum.SymbolKind_CONST then
-		nSymbolContext:warn("empty const symbol regard as auto")
-		nTerm = AutoHolder.new(self._spaceManager, vNode)
-	end
-	if not vTermOrNil and not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
-		nSymbolContext:warn("define a symbol without any type")
+	if not vTermOrNil then
+		if vHintType == AutoFlag and (vKind == CodeKindEnum.SymbolKind_CONST or vKind == CodeKindEnum.SymbolKind_LOCAL) then
+			nSymbolContext:warn("empty const symbol regard as auto")
+			nTerm = AutoHolder.new(self._spaceManager, vNode)
+		elseif not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
+			nSymbolContext:warn("define a symbol without any type")
+		end
 	end
 	if vHintType ~= AutoFlag then
 		local nHintType = self._spaceManager:spaceToMustType(vNode, vHintType)
@@ -10353,8 +10369,6 @@ function InstStack:SYMBOL_NEW(vNode, vKind, vModify, vTermOrNil, vHintType , vAu
 		if not nTermInHolder then
 			if vModify then
 				error(nSymbolContext:newException("auto variable can't be modified"))
-			elseif vKind == CodeKindEnum.SymbolKind_LOCAL then
-				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
 			return nTopBranch:setSymbolByNode(vNode, nTerm)
 		end
@@ -11014,13 +11028,13 @@ end
 
 function StackManager:injectCompletion(vTracePos, vBlockNode, vFn, vServer)
 	local nFieldCompletion = FieldCompletion.new()
-	print("inject begin")
+	self._runtime:print("inject begin")
 	self:_injectForeach(vTracePos, vBlockNode, vFn, function(vResult)
 		if RefineTerm.is(vResult) then
-			print("inject middle 1")
+			self._runtime:print("inject middle 1")
 			vResult:getType():putCompletion(nFieldCompletion)
 		else
-			print("inject middle 2")
+			self._runtime:print("inject middle 2")
 			local nRefer = SpaceValue.checkRefer(vResult)
 			local nSpace = nRefer and nRefer:getComNowait()
 			if BaseReferSpace.is(nSpace) then
@@ -11028,7 +11042,7 @@ function StackManager:injectCompletion(vTracePos, vBlockNode, vFn, vServer)
 			end
 		end
 	end)
-	print("inject end")
+	self._runtime:print("inject end")
 	return nFieldCompletion
 end
 

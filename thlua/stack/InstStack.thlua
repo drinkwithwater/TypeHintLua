@@ -568,12 +568,13 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 	const nTopBranch = self:topBranch()
 	const nSymbolContext = self:newAssignContext(vNode)
 	local nTerm = vTermOrNil or nSymbolContext:NilTerm()
-	if not vTermOrNil and vKind == CodeKindEnum.SymbolKind_CONST then
-		nSymbolContext:warn("empty const symbol regard as auto")
-		nTerm = AutoHolder.new(self._spaceManager, vNode)
-	end
-	if not vTermOrNil and not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
-		nSymbolContext:warn("define a symbol without any type")
+	if not vTermOrNil then
+		if vHintType == AutoFlag and (vKind == CodeKindEnum.SymbolKind_CONST or vKind == CodeKindEnum.SymbolKind_LOCAL) then
+			nSymbolContext:warn("empty const symbol regard as auto")
+			nTerm = AutoHolder.new(self._spaceManager, vNode)
+		elseif not vHintType and vKind == CodeKindEnum.SymbolKind_LOCAL then
+			nSymbolContext:warn("define a symbol without any type")
+		end
 	end
 	if vHintType ~= AutoFlag then
 		const nHintType = self._spaceManager:spaceToMustType(vNode, vHintType)
@@ -583,8 +584,6 @@ function InstStack:SYMBOL_NEW(vNode:node.Ident_def, vKind:node.SymbolKindEnum, v
 		if not nTermInHolder then
 			if vModify then
 				error(nSymbolContext:newException("auto variable can't be modified"))
-			elseif vKind == CodeKindEnum.SymbolKind_LOCAL then
-				error(nSymbolContext:newException("auto variable can't be defined as local"))
 			end
 			return nTopBranch:setSymbolByNode(vNode, nTerm)
 		end

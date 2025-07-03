@@ -30,6 +30,7 @@ const platform = require "thlua.platform"
 		parseFile=Fn(String):Ret(clazz.CodeEnv),
 		parseGlobal=Fn(String):Ret(clazz.CodeEnv, String),
 		createAsync=Fn(Fn():Dots(Any)):Ret(uv_async_t),
+		print=Fn():Dots(Any),
 	}
 
 	clazz.LevelLogger = Interface {
@@ -82,6 +83,9 @@ const DefaultStage:clazz.StageApi = {
 		const uv = require "luv"
 		return uv.new_async(fn)
 	end,
+	print=function(...)
+		print(...)
+	end
 }
 
 const DefaultLogger:clazz.LevelLogger = {
@@ -104,7 +108,8 @@ const DefaultLogger:clazz.LevelLogger = {
 
 const CodeRuntime = class@<clazz.CodeRuntime, false>()
 
-function.open CodeRuntime:ctor(vStage:OrNil(clazz.StageApi))
+function.open CodeRuntime:ctor(vStage:OrNil(clazz.StageApi), vVersion:OrNil(Integer))
+	self._version = string.format("[%s]", vVersion or 0)
 	self._diaList={}@List(clazz.Diagnostic)
 	self._searchPath = false @ OrFalse(String)
 	self._stage=vStage or DefaultStage
@@ -427,6 +432,10 @@ end
 
 function CodeRuntime:nodeInfo(vNode:clazz.IBaseNode, ...:Truth)
 	self:_save(3, vNode, ...)
+end
+
+function CodeRuntime:print(...:Any)
+	self._stage.print(self._version, ...)
 end
 
 function CodeRuntime:getRootNode():Ret(node.Root)
