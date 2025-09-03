@@ -52,7 +52,11 @@ end
 
 function SealTable:native_setmetatable(vContext, vMetaTableType)
 	if self._metaTable then
-		vContext:error("can only setmetatable once for one table")
+		if self._metaTable == vMetaTableType then
+			vContext:warn("setmetatable called more than once for one table")
+		else
+			vContext:error("setmetatable called more than once and set different meta table for one table")
+		end
 		return
 	end
 	self._metaTable = vMetaTableType
