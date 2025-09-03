@@ -2,6 +2,7 @@
 const ClassTable = require "thlua.type.object.ClassTable"
 const SealFunction = require "thlua.type.func.SealFunction"
 const Exception = require "thlua.Exception"
+const RecurChain = require "thlua.stack.context.RecurChain"
 
 const class = require@<let.clazz> "thlua.class"
 
@@ -39,14 +40,22 @@ function ClassFactory:waitClassTable():Ret(clazz.ClassTable)
 	end
 end
 
-function ClassFactory:wakeupTableBuild()
-	self._classBuildEvent:wakeup()
+function ClassFactory:finishTableBuild()
+	if not self._classBuildEvent:isWaken() then
+		const nClassTable = self._classTableOrInitEvent
+		assert(ClassTable.is(nClassTable), "class is not inited")
+		nClassTable:implInterface()
+		const nRecurChain = RecurChain.new(self._node)
+		nClassTable:memberFunctionFillSelf(nRecurChain, nClassTable)
+		self._classBuildEvent:wakeup()
+	end
 end
 
 function ClassFactory:waitTableBuild()
 	self:waitClassTable()
 	self:startPreBuild()
 	self:startLateBuild()
+	-- class的factory不用等，其他的function需要等待build完成
 	if coroutine.running() ~= self._task:getSelfCo() then
 		self._classBuildEvent:wait()
 	end

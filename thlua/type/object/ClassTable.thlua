@@ -3,11 +3,6 @@ const VariableCase = require "thlua.term.VariableCase"
 const StringLiteral = require "thlua.type.basic.StringLiteral"
 const SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 const TypedFunction = require "thlua.type.func.TypedFunction"
-const AutoFunction = require "thlua.type.func.AutoFunction"
-const BaseFunction = require "thlua.type.func.BaseFunction"
-const OPER_ENUM = require "thlua.type.OPER_ENUM"
-const RecurChain = require "thlua.stack.context.RecurChain"
-const Nil = require "thlua.type.basic.Nil"
 
 const SealTable = require "thlua.type.object.SealTable"
 const class = require "thlua.class"
@@ -29,7 +24,6 @@ function.open ClassTable:ctor(
 	self._factory = vFactory
 	self._baseClass = vBaseClass
 	self._interface = vInterface
-	self._buildFinish = false@Boolean
 end
 
 function ClassTable:detailString(vVerbose:Boolean)
@@ -37,17 +31,13 @@ function ClassTable:detailString(vVerbose:Boolean)
 end
 
 function ClassTable:onSetMetaTable(vContext:clazz.ApplyContext)
-	self._factory:wakeupTableBuild()
-	self:onBuildFinish()
+	self._factory:finishTableBuild()
 end
 
 function ClassTable:onBuildFinish()
-	if not self._buildFinish then
-		self._buildFinish = true
-		self:implInterface()
-		const nRecurChain = RecurChain.new(self._node)
-		self:memberFunctionFillSelf(nRecurChain, self)
-		self._factory:wakeupTableBuild()
+	self._factory:finishTableBuild()
+	if not self._locked then
+		self._locked = true
 	end
 end
 
@@ -79,11 +69,9 @@ function ClassTable:ctxWait(vContext:clazz.OperContext)
 	self._factory:waitTableBuild()
 end
 
--- TODO, thinking how to design this...
--- setLocked called by buildStruct, so wait for table build, but duplicate with ctxWait
--- how to refactor this?
 function ClassTable:setLocked()
 	self._factory:waitTableBuild()
+	self._locked=true
 end
 
 function ClassTable:getBaseClass()
@@ -114,10 +102,6 @@ function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
 		-- TODO check struct
 		return false
 	end
-end
-
-function ClassTable:isLocked():Ret(Boolean)
-	return self._buildFinish
 end
 
 return ClassTable
