@@ -3006,14 +3006,14 @@ function ParseEnv:genLuaCode()
 end
 
 local boot = {}
--- return luacode | false, errmsg
+-- return luacode | nil, errmsg
 function boot.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
 	local nAstOrFalse, nCodeOrErr = boot.parse(vContent)
 	if not nAstOrFalse then
 		local nLineNum = select(2, vContent:sub(1, nCodeOrErr.pos):gsub('\n', '\n'))
 		local nMsg = vChunkName..":".. nLineNum .." ".. nCodeOrErr[1]
-		return false, nMsg
+		return nil, nMsg
 	else
 		return nCodeOrErr
 	end
@@ -5397,6 +5397,10 @@ function ScheduleEvent.new(vManager, vTask)
 		_task=vTask,
 		_waitTaskList={},
 	}, ScheduleEvent)
+end
+
+function ScheduleEvent:isWaken()
+	return not self._waitTaskList
 end
 
 function ScheduleEvent:wait()
@@ -16751,6 +16755,7 @@ packages['thlua.type.func.ClassFactory'] = function (...)
 local ClassTable = require "thlua.type.object.ClassTable"
 local SealFunction = require "thlua.type.func.SealFunction"
 local Exception = require "thlua.Exception"
+local RecurChain = require "thlua.stack.context.RecurChain"
 
 local class = require "thlua.class"
 
@@ -16788,14 +16793,22 @@ function ClassFactory:waitClassTable()
 	end
 end
 
-function ClassFactory:wakeupTableBuild()
-	self._classBuildEvent:wakeup()
+function ClassFactory:finishTableBuild()
+	if not self._classBuildEvent:isWaken() then
+		local nClassTable = self._classTableOrInitEvent
+		assert(ClassTable.is(nClassTable), "class is not inited")
+		nClassTable:implInterface()
+		local nRecurChain = RecurChain.new(self._node)
+		nClassTable:memberFunctionFillSelf(nRecurChain, nClassTable)
+		self._classBuildEvent:wakeup()
+	end
 end
 
 function ClassFactory:waitTableBuild()
 	self:waitClassTable()
 	self:startPreBuild()
 	self:startLateBuild()
+	 
 	if coroutine.running() ~= self._task:getSelfCo() then
 		self._classBuildEvent:wait()
 	end
@@ -18032,7 +18045,6 @@ function AutoTable:ctor(vManager, ...)
 	self._name = false ;
 	self._assignCtxList = {};
 	self._castDict = {} ;  
-	self._locked = false;
 	self._keyType = false  
 end
 
@@ -18122,14 +18134,6 @@ function AutoTable:checkKeyTypes()
 	return nKeyType
 end
 
-function AutoTable:setLocked()
-	self._locked = true
-end
-
-function AutoTable:isLocked()
-	return self._locked
-end
-
 return AutoTable
 
 end end
@@ -18208,11 +18212,6 @@ local VariableCase = require "thlua.term.VariableCase"
 local StringLiteral = require "thlua.type.basic.StringLiteral"
 local SealPolyFunction = require "thlua.type.func.SealPolyFunction"
 local TypedFunction = require "thlua.type.func.TypedFunction"
-local AutoFunction = require "thlua.type.func.AutoFunction"
-local BaseFunction = require "thlua.type.func.BaseFunction"
-local OPER_ENUM = require "thlua.type.OPER_ENUM"
-local RecurChain = require "thlua.stack.context.RecurChain"
-local Nil = require "thlua.type.basic.Nil"
 
 local SealTable = require "thlua.type.object.SealTable"
 local class = require "thlua.class"
@@ -18234,7 +18233,6 @@ function ClassTable:ctor(
 	self._factory = vFactory
 	self._baseClass = vBaseClass
 	self._interface = vInterface
-	self._buildFinish = false
 end
 
 function ClassTable:detailString(vVerbose)
@@ -18242,17 +18240,13 @@ function ClassTable:detailString(vVerbose)
 end
 
 function ClassTable:onSetMetaTable(vContext)
-	self._factory:wakeupTableBuild()
-	self:onBuildFinish()
+	self._factory:finishTableBuild()
 end
 
 function ClassTable:onBuildFinish()
-	if not self._buildFinish then
-		self._buildFinish = true
-		self:implInterface()
-		local nRecurChain = RecurChain.new(self._node)
-		self:memberFunctionFillSelf(nRecurChain, self)
-		self._factory:wakeupTableBuild()
+	self._factory:finishTableBuild()
+	if not self._locked then
+		self._locked = true
 	end
 end
 
@@ -18284,11 +18278,9 @@ function ClassTable:ctxWait(vContext)
 	self._factory:waitTableBuild()
 end
 
-      
-             
-    
 function ClassTable:setLocked()
 	self._factory:waitTableBuild()
+	self._locked=true
 end
 
 function ClassTable:getBaseClass()
@@ -18319,10 +18311,6 @@ function ClassTable:assumeIncludeAtom(vAssumeSet, vType, _)
 		   
 		return false
 	end
-end
-
-function ClassTable:isLocked()
-	return self._buildFinish
 end
 
 return ClassTable
@@ -19160,7 +19148,8 @@ function SealTable:ctor(vManager, vNode, vLexStack, ...)
 	self._nextDict=false;  
 	self._metaTable=false; 
 	self._metaIndex=false;
-	self._callType=false
+	self._callType=false;
+	self._locked = false
 end
 
 function SealTable:meta_len(vContext)
@@ -19463,9 +19452,12 @@ function SealTable:putCompletion(vCompletion)
 	end
 end
 
-function SealTable:isLocked();
-	error("isLocked not implement")
-	return false
+function SealTable:setLocked()
+	self._locked = true
+end
+
+function SealTable:isLocked()
+	return self._locked
 end
 
 return SealTable

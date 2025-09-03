@@ -3928,14 +3928,14 @@ function ParseEnv:genLuaCode()
 end
 
 local boot = {}
--- return luacode | false, errmsg
+-- return luacode | nil, errmsg
 function boot.compile(vContent, vChunkName)
 	vChunkName = vChunkName or "[anonymous script]"
 	local nAstOrFalse, nCodeOrErr = boot.parse(vContent)
 	if not nAstOrFalse then
 		local nLineNum = select(2, vContent:sub(1, nCodeOrErr.pos):gsub('\n', '\n'))
 		local nMsg = vChunkName..":".. nLineNum .." ".. nCodeOrErr[1]
-		return false, nMsg
+		return nil, nMsg
 	else
 		return nCodeOrErr
 	end
