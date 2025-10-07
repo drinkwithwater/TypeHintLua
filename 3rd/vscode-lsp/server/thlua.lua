@@ -2376,7 +2376,7 @@ local G = lpeg.P { "TypeHintLua";
 	LongHint = hintC.long();
 
 	ParenHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.DoStat + vv.SuffixedExprOrAssignStat + vv.EvalExpr + throw("ParenHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
+		vv.DoStat + vv.SuffixedExprOrAssignStat + vv.EvalExpr + throw("ParenHintSpace expect DoStat or Apply or AssignStat or EvalExpr inside"),
 	symbA(")"));
 
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
@@ -10161,11 +10161,7 @@ end
 
 function InstStack:RUN_STAT(vNode, vStatFn)
 	local ret = vStatFn(self:unpackPolyArgs())
-	if ret == nil then
-		return self:_nodeTerm(vNode, self._typeManager.type.Nil)
-	else
-		return self:_nodeTerm(vNode, self._spaceManager:spaceToMustType(vNode, ret):checkAtomUnion())
-	end
+	   
 end
 
 function InstStack:EVAL_EXPR(vNode, vTerm)
