@@ -319,7 +319,7 @@ local G = lpeg.P { "TypeHintLua";
 	LongHint = hintC.long();
 
 	ParenHintSpace = hintC.wrap(true, symb("(@") * cc(nil),
-		vv.DoStat + vv.SuffixedExprOrAssignStat + vv.EvalExpr + throw("ParenHintSpace need DoStat or Apply or AssignStat or EvalExpr inside"),
+		vv.DoStat + vv.SuffixedExprOrAssignStat + vv.EvalExpr + throw("ParenHintSpace expect DoStat or Apply or AssignStat or EvalExpr inside"),
 	symbA(")"));
 
 	HintPolyParList = Cenv * tagC.HintPolyParList(symb("@<") * (
