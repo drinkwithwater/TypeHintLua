@@ -10,6 +10,87 @@ function platform.iswin():Ret(Boolean)
 	end
 end
 
+-- 以下代码从lua-language-server项目中的file-uri.lua中copy并做了部分修改
+
+local escPatt = '[^%w%-%.%_%~%/]'
+
+const function esc(c:String):Ret(String)
+    return ('%%%02X'):format(c:byte())
+end
+
+const function normalize(str:String):Ret(String)
+    return (str:gsub('%%(%x%x)', function (n:String)
+        return string.char(tonumber(n, 16) @> Integer) @> String
+    end))
+end
+
+-- c:\my\files               --> file:///c%3A/my/files
+-- /usr/home                 --> file:///usr/home
+-- \\server\share\some\path  --> file://server/share/some/path
+
+function platform.path2uri(path:String):Ret(String)
+    local authority = ''
+    if platform.iswin() then
+        path = path:gsub('\\', '/')
+    end
+
+    if path:sub(1, 2) == '//' then
+        local idx = path:find('/', 3)
+        if idx then
+            authority = path:sub(3, idx)
+            path = path:sub(idx + 1)
+            if path == '' then
+                path = '/'
+            end
+        else
+            authority = path:sub(3)
+            path = '/'
+        end
+    end
+
+    if path:sub(1, 1) ~= '/' then
+        path = '/' .. path
+    end
+
+    --lower-case windows drive letters in /C:/fff or C:/fff
+    local start, finish, drive = path:find '/(%u):'
+    if drive and finish then
+        path = path:sub(1, start) .. drive:lower() .. path:sub(finish, -1)
+    end
+
+    local uri = 'file://'
+        .. authority:gsub(escPatt, esc)
+        .. path:gsub(escPatt, esc)
+    return uri
+end
+
+-- file:///c%3A/my/files          --> c:\my\files
+-- file:///usr/home               --> /usr/home
+-- file://server/share/some/path  --> \\server\share\some\path
+
+function platform.uri2path(uri:String):Ret(String)
+    local scheme, authority, path = uri:match('([^:]*):?/?/?([^/]*)(.*)')
+    if not scheme then
+        return ''
+    end
+    scheme    = normalize(scheme)
+    authority = normalize(authority!)
+    path      = normalize(path!)
+    local value = nil@!String
+    if scheme == 'file' and #authority > 0 and #path > 1 then
+        value = '//' .. authority .. path
+    elseif path:match '/%a:' then
+        value = path:sub(2, 2):upper() .. path:sub(3)
+    else
+        value = path
+    end
+    if platform.iswin() then
+        value = value:gsub('/', '\\')
+    end
+    return value
+end
+
+--[[
 function platform.uri2path(vUri:String):Ret(String)
 	const nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
 		const num = assert(tonumber(c, 16)) @> Integer
@@ -33,5 +114,6 @@ function platform.path2uri(vPath:String):Ret(String)
 		return "file://"..vPath
 	end
 end
+]]
 
 return platform

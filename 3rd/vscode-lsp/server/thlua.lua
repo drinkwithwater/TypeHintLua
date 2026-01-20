@@ -4790,29 +4790,111 @@ function platform.iswin()
 	end
 end
 
-function platform.uri2path(vUri)
-	local nPath = vUri:gsub("+", ""):gsub("%%(..)", function(c)
-		local num = (assert(tonumber(c, 16)) ) 
-		local char = string.char(num)
-		return char
-	end)
-	if platform.iswin() then
-		return (nPath:gsub("^file:///", ""):gsub("/$", ""))
-	else
-		return (nPath:gsub("^file://", ""):gsub("/$", ""))
-	end
+ 
+
+local escPatt = '[^%w%-%.%_%~%/]'
+
+local function esc(c)
+    return ('%%%02X'):format(c:byte())
 end
 
-function platform.path2uri(vPath)
-	if platform.iswin() then
-		local nUri = vPath:gsub("\\", "/"):gsub("([a-zA-Z]):", function(driver)
-			return driver:lower().."%3A"
-		end)
-		return "file:///"..nUri
-	else
-		return "file://"..vPath
-	end
+local function normalize(str)
+    return (str:gsub('%%(%x%x)', function (n)
+        return (string.char((tonumber(n, 16) ) ) ) 
+    end))
 end
+
+                 
+                   
+    
+
+function platform.path2uri(path)
+    local authority = ''
+    if platform.iswin() then
+        path = path:gsub('\\', '/')
+    end
+
+    if path:sub(1, 2) == '//' then
+        local idx = path:find('/', 3)
+        if idx then
+            authority = path:sub(3, idx)
+            path = path:sub(idx + 1)
+            if path == '' then
+                path = '/'
+            end
+        else
+            authority = path:sub(3)
+            path = '/'
+        end
+    end
+
+    if path:sub(1, 1) ~= '/' then
+        path = '/' .. path
+    end
+
+           
+    local start, finish, drive = path:find '/(%u):'
+    if drive and finish then
+        path = path:sub(1, start) .. drive:lower() .. path:sub(finish, -1)
+    end
+
+    local uri = 'file://'
+        .. authority:gsub(escPatt, esc)
+        .. path:gsub(escPatt, esc)
+    return uri
+end
+
+            
+                 
+    
+
+function platform.uri2path(uri)
+    local scheme, authority, path = uri:match('([^:]*):?/?/?([^/]*)(.*)')
+    if not scheme then
+        return ''
+    end
+    scheme    = normalize(scheme)
+    authority = normalize(authority)
+    path      = normalize(path)
+    local value = nil
+    if scheme == 'file' and #authority > 0 and #path > 1 then
+        value = '//' .. authority .. path
+    elseif path:match '/%a:' then
+        value = path:sub(2, 2):upper() .. path:sub(3)
+    else
+        value = path
+    end
+    if platform.iswin() then
+        value = value:gsub('/', '\\')
+    end
+    return value
+end
+
+
+ 
+	     
+		      
+		   
+		 
+	
+	  
+		   
+	
+		   
+	
+
+
+ 
+	  
+		     
+			 
+		
+		 
+	
+		 
+	
+
+
 
 return platform
 end end
@@ -6104,6 +6186,7 @@ function ApiProvider:attachFileState(vFileUri, vFallbackFromFile)
 	end
 end
 
+ 
 function ApiProvider:publishNoAttach(vExceptionUri)
 	for nFileName, nFileState in pairs(self._fileStateDict) do
 		if not nFileState:getCheckFlag() then
