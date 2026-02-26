@@ -19,9 +19,8 @@ set(LUA_SRC_PATH 3rd/lua)
 #begin lua-rapidjson
 set (RAPIDJSON_SRC
 	3rd/lua-rapidjson/source/rapidjson.cpp
-	3rd/xlua/i64lib.c
 )
-list(APPEND THIRDPART_INC 3rd/lua-rapidjson/include 3rd/xlua)
+list(APPEND THIRDPART_INC 3rd/lua-rapidjson/include)
 set (THIRDPART_SRC ${THIRDPART_SRC} ${RAPIDJSON_SRC})
 #end lua-rapidjson
 
@@ -76,6 +75,15 @@ aux_source_directory(${LUA_SRC_PATH} LUA_CORE)
 list(REMOVE_ITEM LUA_CORE ${LUA_SRC_PATH}/luac.c ${LUA_SRC_PATH}/onelua.c ${LUA_SRC_PATH}/lua.c)
 
 if (NOT WASM)
+
+	if ( APPLE )
+		add_definitions( -DLUA_USE_MACOSX)
+	elseif ( WIN32 AND NOT CYGWIN )
+		add_definitions( -DLUA_USE_WINDOWS)
+	else ()
+		add_definitions( -DLUA_USE_LINUX)
+	endif()
+
 	add_executable(lua
 		3rd/lua_with_libs.c
 		${LUA_CORE}
@@ -87,9 +95,10 @@ if (NOT WASM)
 			ws2_32
 			${LIBUV_LIBRARIES}
 		)
-	else ( )
+	else ()
 		target_link_libraries(lua
 			m
+			dl
 			${LIBUV_LIBRARIES}
 		)
 	endif ( )

@@ -7,8 +7,6 @@
 
 #include "lua.hpp"
 
-#include "i64lib.h"
-
 // __SSE2__ and __SSE4_2__ are recognized by gcc, clang, and the Intel compiler.
 // We use -march=native with gmake to enable -msse2 and -msse4.2, if supported.
 #if defined(__SSE4_2__)
@@ -220,12 +218,12 @@ struct ToLuaHandler {
 		return true;
 	}
 	bool Int64(int64_t i) {
-		lua_pushint64(L, i);
+		lua_pushinteger(L, static_cast<lua_Integer>(i));
 		current_.submit(L);
 		return true;
 	}
 	bool Uint64(uint64_t u) {
-		lua_pushuint64(L, u);
+		lua_pushinteger(L, static_cast<lua_Integer>(u));
 		current_.submit(L);
 		return true;
 	}
@@ -478,7 +476,7 @@ private:
 				return;
 			}
 		case LUA_TUSERDATA:
-		    if (lua_isint64(L, idx))
+		    /*if (lua_isint64(L, idx))
 			{
 				writer->Int64(lua_toint64(L, idx));
 				return;
@@ -487,7 +485,7 @@ private:
 			{
 				writer->Uint64(lua_touint64(L, idx));
 				return;
-			}
+			}*/
 			// otherwise fall thought
 		case LUA_TLIGHTUSERDATA: // fall thought
 		case LUA_TTHREAD: // fall thought
