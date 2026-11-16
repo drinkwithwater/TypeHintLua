@@ -5,19 +5,20 @@ edition = "2021"
 build = "rust/build.rs"
 
 [[bin]]
-name = "lua"
+name = "thlua"
 path = "rust/main.rs"
 
 [dependencies]
-mlua = { version = "0.9", features = ["lua54", "vendored"] }
-ouroboros = "0.18.3"
-rustyline = "14.0"
+mlua = { version = "0.11.6", features = ["lua54", "vendored", "serialize"] }
+serde_json = "1.0"
 
 [build-dependencies.cc]
 version = "1.0"
 
-[build-dependencies.cmake]
-version = "0.1"
-
-[build-dependencies.lua-src]
-version = ">= 547.0.0, < 547.1.0"
+[profile.release]
+opt-level = "z"      # 优化目标：最小体积 ("s" 是兼顾，"z" 是极致)
+lto = true           # 开启链接时优化 (Link Time Optimization)，跨 crate 剔除死代码
+codegen-units = 1    # 限制并行编译单元数为 1，允许更彻底的全局优化
+# mlua callbacks must unwind so Lua pcall can catch host errors on Windows.
+panic = "unwind"
+strip = true         # 自动从二进制文件中去除调试符号（Rust 1.59+ 支持）
