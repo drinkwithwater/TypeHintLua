@@ -107,7 +107,7 @@ Rust 负责 Content-Length 帧、JSON-RPC 分发和 shutdown/exit 生命周期�
 | 打包后缺模块、桥接行为不一致 | `rust/build.rs`、`runtime.rs`、`host.rs` |
 | LSP 挂起、消息损坏、文档诊断不更新 | `rust/lsp.rs`，再看 `FileState`、`ApiProvider` |
 
-验证入口见 `AGENTS.md`。`test/rust_cli.py` 使用 Python unittest 验证独立程序；`test/case*/` 是语言回归用例，`thlua/TestCase.thlua` 识别行尾 `--E` 标记。历史 `test.py` 依赖 pyskynet，不能直接视为无依赖的 Cargo 测试入口。
+统一验证入口是 `python test.py`：运行 Cargo 单元测试、构建，再执行语言、测试器和独立程序测试；`--release` 验证发布版本。用例清单和精确诊断预期位于 `test/cases/manifest.json`，覆盖范围、旧测试迁移及已知失败见 [测试指南](../test/README.md)。`thlua/TestCase.thlua` 保留单文件兼容入口，支持按级别识别行尾标记，错误会抛出异常；正式套件还逐条核对诊断数量和消息。Python 测试仅使用标准库，不再依赖 pyskynet。
 
 ## 8. 尚需按任务继续核实的部分
 

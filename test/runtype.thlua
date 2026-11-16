@@ -1,0 +1,60 @@
+
+(@do
+
+let.type2type = easymap()
+
+type2type[let.IntType] = Integer
+type2type[let.StringType] = String
+
+end)
+
+const function:class(let.IntType) IntType()
+	return {.class
+		fds=321,
+		rew=321,
+	}
+end
+
+const function:class(let.StringType) StringType()
+	return {.class
+		fds=321,
+		rew=321,
+	}
+end
+
+const Int = IntType()
+const String = IntType()
+
+
+const function.open component(vName, vFieldToType, vBaseCls)
+	(@do
+		local name = literal($vName)
+		local lastName = let.gamecore
+		local lastLastName = nil
+		local lastPart = nil
+		for part in name:gmatch("[^.]+") do
+			lastLastName = lastName
+			lastName = lastName[part]
+			lastPart = part
+		end
+		lastLastName[lastPart] = let.cls
+	end)
+	const cls = class@<let.cls, false>(vBaseCls)
+	function.open cls:ctor()
+		for k,v in pairs(vFieldToType) do
+			self[k] = v:default()
+		end
+	end
+	cls.fieldToType = vFieldToType
+	return cls
+end
+
+const SecondCom = component("first.second", {
+	fds = Int,
+	rew = String,
+	component = ref("first.second"),
+}, false)
+
+
+function SecondCom:init()
+end

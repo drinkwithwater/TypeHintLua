@@ -19,7 +19,9 @@ cargo build --release --locked       # 构建独立可执行文件
 cargo fmt --check                    # 检查 Rust 代码格式
 cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked                  # 运行 Rust 单元测试
-python test/rust_cli.py target/release/thlua.exe
+python test.py                       # 构建并运行完整测试
+python test.py --release             # 验证发布版本
+python test.py --no-build --filter types_optional
 cargo run -- compile examples/0_helloworld.thlua
 cargo run -- lsp --stdio
 ```
@@ -32,7 +34,7 @@ Rust 使用 rustfmt 默认格式，模块及函数使用 `snake_case`，类型�
 
 ## 测试要求
 
-Rust 测试使用 `#[test]`；可执行程序测试使用 Python `unittest`，测试方法以 `test_` 开头。为行为变更添加有针对性的回归测试。保留 `test/case*/` 语言用例中表示预期诊断的 `--E` 标记。目前没有固定的覆盖率门槛。集成测试应按变更范围验证独立运行、退出码、JSON 数据保真、UTF-8 路径及 LSP 生命周期。
+Rust 测试使用 `#[test]`；语言、CLI 和 LSP 使用 Python `unittest`。新增语言用例放在 `test/cases/` 并登记到 `manifest.json`，说明见 [测试指南](test/README.md)。诊断数量、位置、级别和消息需与预期一致；合法用例还应验证生成 Lua 可加载，适用时验证运行结果。保留旧用例的 `--E/--W/--I/--H` 标记并同步 manifest。已知缺陷必须说明原因，不得通过放宽断言隐藏错误。目前没有固定覆盖率门槛。
 
 ## 提交与合并请求规范
 

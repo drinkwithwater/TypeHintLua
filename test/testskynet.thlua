@@ -1,0 +1,37 @@
+
+(@do
+
+let.Service1 = SubType(Integer)
+let.Service2 = SubType(Integer)
+
+
+let.service2command = easymap()
+
+service2command[Service1] = $({})
+
+end)
+
+const cmd2fn = {.open}
+
+const function.open dispatch@<Service>(cmdDict)
+	const cmd2fn = cmd2fn @? service2command[Service]
+	for cmd, fn in pairs(cmdDict) do
+		cmd2fn[cmd] = fn
+	end
+end
+
+
+const function.open call(service, cmd, ...)
+	(cmd2fn @? service2command[$service])[cmd](...)
+end
+
+dispatch@<Service1>({
+	fds=function(...:Integer)
+		local a,b,c = ...
+		(@print($a,$b,$c))
+	end
+})
+
+const l = 321 @? Service1
+
+call(l, "fds", 321,123)

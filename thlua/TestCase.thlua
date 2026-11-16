@@ -1,7 +1,6 @@
-
+-- Compatibility helper for callers of TestCase.go. The canonical suite is test.py.
 const Runtime = require "thlua.runtime.CodeRuntime"
 const CodeEnv = require "thlua.code.CodeEnv"
-const SplitCode = require "thlua.code.SplitCode"
 (@do
 	let.test = namespace()
 	let.clazz = import("thlua.class").clazz
@@ -11,43 +10,34 @@ const TestCase = {}
 TestCase.__index = TestCase
 
 function:class(test.Case) TestCase.new(vScript:String)
-	const nLineToResult:Dict(Integer, Union(String, Integer)) = {}
-	const nLineList:List(String) = {}
-	for nLine in string.gmatch(vScript, "([^\n]*)") do
-		nLineList[#nLineList + 1] = nLine
-		if nLine:match("--E$") then
-			nLineToResult[#nLineList] = 0
-		end
+	const expected:Dict(Integer, Integer) = {}
+	const severity = {E=1, W=2, I=3, H=4}
+	local lineNumber = 0
+	for line in (vScript.."\n"):gmatch("(.-)\n") do
+		lineNumber = lineNumber + 1
+		const marker = line:match("%-%-([EWIH])%s*$") or line:match("%-%-([EWIH]):")
+		if marker then expected[lineNumber] = severity[marker]! end
 	end
 	const self = setmetatable({.class
+		_expected = expected,
 		_runtime = nil @! clazz.CodeRuntime,
-		_script = vScript,
-		_lineToResult = nLineToResult,
 	}, TestCase)
 	self._runtime = Runtime.new({
 		searchPath=function(vPrefix, vPath)
-			error("test case can't search path")
+			error("TestCase.go only supports single-file cases; use test.py for projects")
 		end,
 		parseFile=function(vFileName)
-			if vFileName == "[test]" then
-				const ok, nCodeEnv = pcall(CodeEnv.new, self._script, vFileName)
-				if not ok then
-					error(nCodeEnv)
-				end
-				return nCodeEnv
-			else
-				error("test case can only parse its script")
-			end
+			assert(vFileName == "[test]", "unexpected file in single-file case")
+			return CodeEnv.new(vScript, vFileName)
 		end,
-		parseGlobal=function.nocheck(vPackage)
-			local nContent:String = require("thlua.global."..vPackage)
-			const nFileName = "@virtual-file:"..vPackage
-			const nCodeEnv = CodeEnv.new(nContent, nFileName)
-			return nCodeEnv, nFileName
+		parseGlobal=function(vPackage)
+			const name = "@virtual-file:"..vPackage
+			return CodeEnv.new(require("thlua.global."..vPackage), name), name
 		end,
 		createAsync=function.nocheck(fn)
-			error("create async TODO in test case")
-		end
+			return require("luv").new_async(fn)
+		end,
+		print=function(...) end,
 	})
 	return self
 end
@@ -57,49 +47,35 @@ function TestCase:getRuntime()
 end
 
 function TestCase.go(vScript:String, vName:OrNil(String))
-	if not vName then
-		const nInfo = debug.getinfo(2)
-		print(nInfo.source..":"..nInfo.currentline..":")
-	else
-		print(vName)
-	end
 	const case = TestCase.new(vScript)
-	const nRuntime = case:getRuntime()
-	const oldprint = print
-	do.nocheck
-		print = function(...)
-		end
-	end
-	nRuntime:promiseMain("[test]"):next@<Nil>(function(_)
-		print = oldprint
-		const nLineToResult = case._lineToResult
-		for _, nDiaList in pairs(nRuntime:getAllDiagnostic()) do
-			for _, nDiagnostic in pairs(nDiaList) do
-				const nLine = nDiagnostic.node.l
-				const nResult = nLineToResult[nLine]
-				if type(nResult) == "number" then
-					nLineToResult[nLine] = nResult + 1
+	const runtime = case:getRuntime()
+	const failures:List(String) = {}
+	local complete = false @ Boolean
+	runtime:promiseMain("[test]"):next@<Nil>(function(_)
+		const seen:Dict(Integer, True) = {}
+		for _, list in pairs(runtime:getAllDiagnostic()) do
+			for _, diagnostic in ipairs(list) do
+				const line = diagnostic.node.l
+				if diagnostic.node.path ~= "[test]" or case._expected[line] ~= diagnostic.severity then
+					failures[#failures + 1] = tostring(diagnostic.node)..": "..diagnostic.msg
 				else
-					nLineToResult[nLine] = nDiagnostic.msg
+					seen[line] = true
 				end
 			end
 		end
-		const l:List(Struct {Integer, Union(Integer, String)}) = {}
-		for nLine, nResult in pairs(nLineToResult) do
-			l[#l + 1] = {nLine, nResult}
-		end
-		for _, nPair in pairs(l) do
-			const nLine, nResult = nPair[1], nPair[2]
-			if nResult == 0 then
-				print(nLine, "fail: no diagnostic")
-			elseif type(nResult) == "string" then
-				print(nLine, "fail: diagnostic unexpected", nResult)
-			else
-				print(nLine, "ok")
+		for line, _ in pairs(case._expected) do
+			if not seen[line] then
+				failures[#failures + 1] = "line "..line..": expected diagnostic missing"
 			end
 		end
-	end)
+		complete = true
+	end, function(reason)
+		failures[#failures + 1] = tostring(reason)
+		complete = true
+	end):forget()
+	require("luv").run()
+	assert(complete, "test did not finish: "..(vName or "[test]"))
+	assert(#failures == 0, (vName or "[test]").."\n"..table.concat(failures, "\n"))
 end
-
 
 return TestCase

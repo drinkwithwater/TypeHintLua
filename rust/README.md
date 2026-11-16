@@ -104,12 +104,15 @@ LSP 客户端配置为启动 `thlua`，参数 `['lsp', '--stdio']`。
 ```sh
 cargo fmt --check
 cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-cargo build --release --locked
-python test/rust_cli.py target/release/thlua.exe
-# Linux/macOS: python3 test/rust_cli.py target/release/thlua
+python test.py
+python test.py --release
+# 已构建的独立程序：
+python test.py --binary target/release/thlua.exe
+# Linux/macOS 使用 python3 和 target/release/thlua
 ```
 
+完整套件包括语法、提示擦除、生成 Lua、类型诊断和多文件工程测试，
+使用 Python 3.10+ 标准库；覆盖范围、基准维护和已知失败见 [测试指南](../test/README.md)。
 CLI 测试会把单个可执行文件复制到包含中文路径的临时目录，清空 Lua 模块
 搜索环境，并验证编译、运行、工程检查、JSON/回调桥接，以及真实 stdio LSP
 初始化、文档修改、诊断、hover、错误响应、shutdown 和 exit。
