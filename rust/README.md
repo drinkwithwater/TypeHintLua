@@ -14,17 +14,18 @@ release 使用 `panic = "unwind"`，以便 Lua 的 `pcall` 能正常捕获 Rust 
 [mlua 对应问题](https://github.com/mlua-rs/mlua/issues/628)。
 
 ```sh
-git submodule update --init 3rd/lua
 cargo build --release --locked
+# POSIX shell 下也可运行 ./build.sh，额外参数会传递给 Cargo
 ```
 
 产物：`target/release/thlua.exe` 或 `target/release/thlua`。
 首次构建需要下载 Cargo 依赖，之后可以使用 `--offline`。
-`3rd/lua` 仅提供 LPeg 所需的 Lua 5.4 头文件，解释器源码由 mlua 的
-`vendored` 功能提供，不会再编译仓库中的旧解释器。
+`3rd/lua54-headers` 仅保留 LPeg 需要的三份 Lua 5.4 公共头文件，解释器源码由
+mlua 的 `vendored` 功能提供。无需初始化 Git 子模块。
 
-原来的 CMake、`build.sh`、`bin/` 和 VS Code 扩展内置的 Lua 程序继续保留，
-供旧版或 WASM 工作流使用；它们不是 Rust 可执行文件的构建或运行依赖。
+旧 Lua、luv/libuv、lpath、RapidJSON 源码及 C++ 宿主、CMake 构建已删除，
+`build.sh` 也已改用 Cargo。`3rd/web/` 的历史 Web 产物仍保留，但旧 Emscripten
+构建链已移除；当前 Cargo 入口提供原生 CLI/LSP，不提供 Web/WASM 构建。
 
 ## 命令
 
@@ -62,11 +63,16 @@ thlua run main.thlua arg1 arg2
 调试输出进入 stderr。
 
 LSP 客户端配置为启动 `thlua`，参数 `['lsp', '--stdio']`。
-仓库中的 VS Code 扩展仍使用旧启动方式，接入新版入口时需要修改扩展的
-server command 和参数。LSP 的 stdout 仅包含 Content-Length 帧，支持
+仓库中的 VS Code 扩展使用 Rust 入口：可将 `TypeHintLua.executablePath` 设置为
+可执行文件的绝对路径；未配置时优先使用扩展 `server/` 中的 `thlua.exe` 或
+`thlua`，否则从 PATH 查找 `thlua`。扩展的运行命令使用 `thlua run`。
+修改可执行文件设置后需要重新加载扩展。LSP 的 stdout 仅包含 Content-Length 帧，支持
 `shutdown` 返回 `null` 后等待 `exit`。未经 shutdown 的 exit 返回 1。
 内置标准库的定义位置使用 `thlua://global/` 虚拟 URI；需要在编辑器中打开这些
 定义时，客户端应提供相应的虚拟文档，或改用 `--global` 的磁盘声明文件。
+仓库扩展默认传入其 `server/global/` 声明目录，以便定义跳转可以打开磁盘文件。
+打包扩展时将目标平台的 Rust 产物复制为 `server/thlua.exe`（Windows）或
+`server/thlua`（Linux/macOS），这些生成文件已加入扩展的 `.gitignore`。
 
 ## 结构与依赖替换
 

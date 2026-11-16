@@ -5,15 +5,15 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { workspace, ExtensionContext, Diagnostic } from 'vscode';
+import { workspace, ExtensionContext } from 'vscode';
 import * as os from 'os';
+import * as fs from 'fs';
 import {spawn} from 'child_process'
 
 import {
 	LanguageClient,
 	LanguageClientOptions,
-	ServerOptions,
-	TransportKind
+	ServerOptions
 } from 'vscode-languageclient/node';
 
 
@@ -21,46 +21,34 @@ import {
 let langClient: LanguageClient;
 
 export function activate(context: ExtensionContext) {
-	let luaBin = "lua.exe"
-	if(os.platform() == "win32") {
-		luaBin = "lua.exe";
-	} else if (os.platform() == "linux"){
-		luaBin = "linux_lua";
-	} else if (os.platform() == "darwin"){
-		if(os.arch() == "x64"){
-			luaBin = "osx_x64_lua";
-		} else {
-			luaBin = "osx_arm_lua";
-		}
-	}
-	let luaCommand = context.asAbsolutePath(
-		path.join('server', luaBin)
+	const bundledCommand = context.asAbsolutePath(
+		path.join('server', os.platform() === 'win32' ? 'thlua.exe' : 'thlua')
 	);
+	const configuredCommand = workspace.getConfiguration('TypeHintLua').get<string>('executablePath', '').trim();
+	const thluaCommand = configuredCommand || (fs.existsSync(bundledCommand) ? bundledCommand : 'thlua');
+	const term = vscode.window.createOutputChannel('TypeHintLua');
+	context.subscriptions.push(term);
 	context.subscriptions.push(vscode.commands.registerCommand("TypeHintLua.runCode", ()=>{
-		const term = vscode.window.createOutputChannel("TypeHintLua");
 		const activeEditor = vscode.window.activeTextEditor;
 		if(activeEditor){
 			//For Getting File Path
 			let filePath = activeEditor.document.uri.fsPath;
 			term.show();
-			const process = spawn(luaCommand, [filePath]);
+			const cwd = workspace.getWorkspaceFolder(activeEditor.document.uri)?.uri.fsPath || path.dirname(filePath);
+			const process = spawn(thluaCommand, ['run', filePath], {cwd});
 			process.stdout.on('data', (data) => {
-				term.append(data);
+				term.append(data.toString());
 			});
 
 			process.stderr.on('data', (data) => {
-				term.append(data);
+				term.append(data.toString());
 			});
 
-			process.on('close', (code) => {
-			});
+			process.on('error', (error) => term.appendLine(error.message));
 		}
 	}));
 
-	const serverCommandArg1 = context.asAbsolutePath(
-		path.join('server', 'thlua.lua')
-	);
-	const serverCommandArg2 = context.asAbsolutePath(
+	const globalDirectory = context.asAbsolutePath(
 		path.join('server', 'global')
 	);
 
@@ -76,14 +64,15 @@ export function activate(context: ExtensionContext) {
 		}
 	};
 
+	const serverOptions: ServerOptions = {
+		command: thluaCommand,
+		args: ['lsp', '--stdio', '--global', globalDirectory]
+	};
 	// Create the language client and start the client.
 	langClient = new LanguageClient(
 		'TypeHintLua',
 		'TypeHintLua',
-		{ // server option
-			command : luaCommand,
-			args: [serverCommandArg1, serverCommandArg2]
-		},
+		serverOptions,
 		clientOptions
 	);
 
@@ -93,7 +82,7 @@ export function activate(context: ExtensionContext) {
 
 export function deactivate(): Thenable<void> | undefined {
 	const promises:Thenable<void>[] = [];
-	if (!langClient) {
+	if (langClient) {
 		promises.push(langClient.stop());
 	}
 	return Promise.all(promises).then(() => undefined);

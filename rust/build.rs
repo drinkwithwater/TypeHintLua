@@ -23,10 +23,10 @@ fn collect(dir: &Path, modules: &mut Vec<(String, String)>) {
 }
 
 fn main() {
-    // LPeg uses the stable Lua 5.4 C ABI. Only headers from 3rd/lua are used;
+    // LPeg uses the stable Lua 5.4 C ABI. Only the public headers are vendored;
     // mlua's vendored Lua provides the single linked interpreter.
     cc::Build::new()
-        .include("3rd/lua")
+        .include("3rd/lua54-headers")
         .files([
             "3rd/lpeg/lpcap.c",
             "3rd/lpeg/lpcode.c",
@@ -36,9 +36,7 @@ fn main() {
         ])
         .compile("lpeg");
     println!("cargo:rerun-if-changed=3rd/lpeg");
-    println!("cargo:rerun-if-changed=3rd/lua/lua.h");
-    println!("cargo:rerun-if-changed=3rd/lua/luaconf.h");
-    println!("cargo:rerun-if-changed=3rd/lua/lauxlib.h");
+    println!("cargo:rerun-if-changed=3rd/lua54-headers");
     println!("cargo:rerun-if-changed=rust/build.rs");
     let mut modules = Vec::new();
     collect(Path::new("thlua"), &mut modules);

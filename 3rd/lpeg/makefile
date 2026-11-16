@@ -1,5 +1,5 @@
 LIBNAME = lpeg
-LUADIR = ../lua/
+LUADIR = ../lua54-headers/
 
 COPT = -O2 -DNDEBUG
 # COPT = -g
