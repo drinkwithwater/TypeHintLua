@@ -4,11 +4,15 @@
 
 ## 1. 先建立整体认识
 
+- **类型计算复用 Lua 本身。** Hint Space 中用 Lua 的函数、表、循环和分支组织类型计算；`Struct {...}`、`Union(...)`、`Template(function(...) ... end)` 是提示环境中的构造器调用，不必分别设计一套类型计算语法。类型对象及其关系规则仍由检查器实现。
+- **同一源码有两种生成结果。** 编译运行时擦除提示，得到用户程序的 Lua；检查时保留提示中的 Lua 计算，把普通程序改写为类型、符号和控制流分析操作，两者组成可执行的 Lua typing code。执行它推进静态检查，普通用户调用则按分析语义处理。
 - **语言实现主要由 thlua 自举。** `thlua/` 中的解析、类型检查和编辑器业务是阅读重点。
 - **Rust 是宿主与分发入口。** `rust/` 管理 Lua VM、模块嵌入、原生能力桥接、CLI 和 LSP 传输，并未重写类型推导算法。
 - **启动编译器是普通 Lua。** `thlua/code/ParseEnv.lua` 可以先由 Lua 加载，再用于编译其余 `.thlua` 模块，因此启动不依赖已有的 thlua 可执行文件。
 - **编译与类型检查是独立操作。** `compile` 转换源码，`check` 执行类型分析，`run` 转换后执行用户代码；`run` 不会自动先完成类型检查。
 - **仍然使用 C 实现的 Lua 和 LPeg。** Lua 由 mlua 的 vendored 依赖构建，仓库只保留 LPeg 源码及三份 Lua 公共头文件。旧 luv、lpath、RapidJSON 等原生实现已经移除。
+
+上述两种空间是理解项目的首要线索。最小示例、生成行为、提示环境以及与其他语言的比较见 [核心设计：用 Lua 计算类型](core-design.md)。其中 `lua` 是提示中访问宿主 Lua 库的入口，`_G` 是类型根名字空间；`$expr` 取得分析所得类型。这些区别也适用于阅读检查器自身的 `.thlua` 源码。
 
 ## 2. 阅读 thlua 时常见的记号
 
@@ -28,7 +32,7 @@
 | `function.open`、`function.nocheck` | 函数检查模式提示。具体行为应继续追踪函数类型与 stack 实现，不能按其他语言的同名概念推断。 |
 | `function:class(T)`、`{.class ...}` | 类构造及实例表相关提示；`thlua/class.thlua` 同时包含真实的 Lua 类辅助逻辑和类型提示。 |
 
-最直接的语法样例是 `examples/1_1_syntax_hint.thlua`、`1_2_syntax_cast.thlua`、`3_template.thlua`；说明更完整的中文资料位于根目录 `README.txt`。
+最直接的语法样例是 `examples/1_1_syntax_hint.thlua`、`1_2_syntax_cast.thlua`、`3_template.thlua`；根目录 `README.txt` 保留了更完整的中文语法说明及历史用法。当前核心设计与提示环境以 [核心设计](core-design.md) 为准，构建、分发和命令行以 [Rust 主程序文档](../rust/README.md) 为准。
 
 ## 3. 两条代码生成路径
 

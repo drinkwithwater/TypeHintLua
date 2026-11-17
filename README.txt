@@ -1,5 +1,6 @@
 TypeHintLua说明文档
 TypeHintLua的语法分为两部分，一部分是Lua的语法，另一部分也是Lua的语法。
+当前文档入口：核心设计（docs/core-design.md）、架构与源码路线（docs/architecture.md）、独立可执行程序的构建与用法（rust/README.md）。下文保留早期Lua打包入口等历史说明，当前构建和启动方式以rust/README.md为准。
 一、背景
 1.	Lua是一门在游戏行业被广泛使用的语言。但它动态类型的特性不利于大型项目开发。
 2.	市面上已经有一些工具尝试解决Lua的类型系统问题，包括：
@@ -56,11 +57,11 @@ Lua
                 "./",
         }
         local pathList = {}
-        for _, rawPath in _G.pairs(rawList) do
+        for _, rawPath in lua.pairs(rawList) do
                 pathList[#pathList + 1] = rawPath .. "?.d.thlua"
                 pathList[#pathList + 1] = rawPath .. "?.thlua"
         end
-        setPath(_G.table.concat(pathList, ";"))
+        setPath(lua.table.concat(pathList, ";"))
 end)
 -- main.thlua以及其require到的thlua、d.thlua文件都会进行类型检查
 require "main"
