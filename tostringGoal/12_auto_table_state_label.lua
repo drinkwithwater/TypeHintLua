@@ -1,0 +1,15 @@
+local H = require "tostringGoal.support"
+H.withTypes(function(manager, node)
+	local stack = manager:getStackManager():getRootStack()
+	local object = stack:newAutoTable(node)
+	local context = stack:newNoPushContext(node)
+	assert(object:isCastable())
+	H.show("initial-auto-table", tostring(object))
+	object:setAssigned(context)
+	object:setAssigned(context)
+	assert(not object:isCastable())
+	H.show("uncastable-auto-table", tostring(object))
+	print("actual-isCastable", object:isCastable())
+	assert(not tostring(object):find("@castable@", 1, true),
+		"T12: an uncastable AutoTable must not be labelled castable")
+end)

@@ -1,0 +1,10 @@
+local H = require "tostringGoal.support"
+H.withTypes(function(manager, node)
+	local object = manager:buildInterface(node, {x=manager.type.Integer})
+	object:getValueDict()
+	local text = object:_kvDetailString()
+	H.show("private-field-helper", text)
+	assert(text:find("Integer]=\n", 1, true), "private helper formatting changed; review observation")
+	assert(not tostring(object):find("Integer", 1, true))
+	print("private malformed helper is not used by public display")
+end)

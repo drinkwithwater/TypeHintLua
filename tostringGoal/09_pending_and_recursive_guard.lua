@@ -1,0 +1,16 @@
+local H = require "tostringGoal.support"
+H.withTypes(function(manager, node)
+	local ref = manager:AsyncTypeCom(node)
+	local before = ref:getResultType()
+	local pending = manager:getScheduleManager():withoutWaiting(function() return tostring(ref) end)
+	assert(before == false and ref:getResultType() == false and #pending > 0)
+	local recursive = manager:buildInterface(node, {next=manager:buildOrNil(node, ref), value=manager.type.Integer})
+	ref:setTypeAsync(node, function() return recursive end)
+	assert(ref:checkAtomUnion() == recursive)
+	local rendered = tostring(recursive)
+	H.show("pending-nonblocking", pending)
+	H.show("recursive-current-display", rendered)
+	-- This protects termination only. Address-like output does not describe recursion.
+	assert(#rendered > 0 and #rendered < 1024)
+	print("pending printing is nonblocking; recursive object printing terminates")
+end)
