@@ -16,13 +16,13 @@ Linux/macOS 使用 `python3`，可执行文件没有 `.exe` 后缀。`--filter` 
 
 ## 目录与覆盖范围
 
-当前 manifest 有 149 个语言用例，展开为 288 项编译、运行和检查测试，另有 9 项测试器测试、10 项 CLI/LSP 测试、19 项类型 API 测试及 2 项 Rust 单元测试。语法覆盖是功能矩阵，不是行覆盖率，也不代表完整 Lua 5.4 兼容性。
+当前 manifest 有 150 个语言用例，展开为 291 项编译、运行和检查测试，另有 9 项测试器测试、10 项 CLI/LSP 测试、19 项类型 API 测试及 2 项 Rust 单元测试。语法覆盖是功能矩阵，不是行覆盖率，也不代表完整 Lua 5.4 兼容性。
 
 | 位置 / 分类 | 数量 | 覆盖内容 |
 | --- | ---: | --- |
 | `cases/syntax/` | 35 | 数字、字符串与转义、注释、运算符、表、作用域、函数、可变参数、多返回值、分支、循环、goto/label、continue、换行和文件头 |
 | `cases/hints/` | 14 | const、参数/返回提示、HintSpace、$、四类 cast、非空断言、泛型、模板、open/nocheck、表模式和提示擦除 |
-| `cases/types/` | 42 | 基础类型、字面量/联合、可空收窄、Struct/Interface/交叉接口、递归、函数参数/返回、泛型、集合、class、guard、cast 和错误诊断 |
+| `cases/types/` | 43 | 基础类型、字面量/联合、可空收窄、Struct/Interface/交叉接口、递归、函数参数/返回、泛型、集合、class、guard、cast 和错误诊断 |
 | `cases/invalid/` | 31 | 缺失/多余 token、非法赋值、保留字、未闭合字符串/表/调用/提示/泛型，以及非法提示位置 |
 | `cases/projects/` 和 `caseRequire/` | 7 | require/import、嵌套模块、声明解析、依赖诊断、缺失模块、循环依赖和类模块 |
 | `caseClass/`、`caseFlow/`、`caseFunc/`、`caseReturn/`、`caseTable/`、`caseType/`、`codeUnreachable.thlua` | 20 | 保留并迁移已有单文件回归 |

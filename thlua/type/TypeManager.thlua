@@ -300,10 +300,11 @@ end
 
 function TypeManager:tryResolveType(vType:clazz.UMustType):Ret(OrFalse(clazz.UAtomUnion))
 	assert(vType:getManager() == self, "type belongs to another TypeManager")
-	if BaseReadyType.is(vType) then
-		return vType @> clazz.UAtomUnion
+	-- Guard the concrete pending classes: a class guard cannot exclude ready interfaces.
+	if AsyncTypeCom.is(vType) or AutoHolder.is(vType) then
+		return (vType @ clazz.BaseTypeCom):getResultType()
 	end
-	return (vType @> clazz.AsyncTypeCom):getResultType()
+	return vType @> clazz.UAtomUnion
 end
 
 function TypeManager:_assertReady(vType:clazz.UAtomUnion)

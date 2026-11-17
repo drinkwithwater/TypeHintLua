@@ -79,6 +79,14 @@ LPeg 解析规则位于 `thlua/code/ParseEnv.lua`。解析过程同时构造 AST
 
 标准库的特殊之处：`thlua/global/*.thlua` 通常返回一段声明文本，检查器再把文本交给 `CodeEnv`。用户工程的 `throot.thlua` 则通过提示中的 `setPath(...)` 配置依赖搜索路径，并以 `require` 指定检查入口；不要把仓库自己的 `throot.thlua` 当成通用工程模板。
 
+### 类守卫、接口与转换的边界（已复现）
+
+`UMustType` 定义为 `Union(IAtomType, IUnionType, AsyncTypeCom, AutoHolder)`，前两项是结构接口，后两项是 `BaseTypeCom` 的子类。`BaseReadyType.is` 的守卫目标是名义类 `BaseReadyType`。类实现接口不表示接口的所有值都属于该类，因此该守卫的假分支不会删除整个 `IAtomType` / `IUnionType` 分支。`OpenFunction:lateInitFromIsGuard` 只有在守卫类型完整包含某个输入分支时，才不再为该分支产生 false 结果。
+
+`InstStack:CAST_HINT` 对 `@>` 的检查为 `src:includeAll(dst) or dst:includeAll(src)`，要求至少一侧完整包含另一侧，并非只需存在相交分支。因此 `tryResolveType` 原来的 `vType @> AsyncTypeCom` 可以通过（源联合包含这个子类）；改为 `vType @> BaseTypeCom` 会失败（源联合不包含整个父类，父类也不包含两个接口分支）。这不代表 `AsyncTypeCom` 到 `BaseTypeCom` 的协变失效，也不能据原转换成功认定源类型只剩 `AsyncTypeCom`；`AutoHolder` 同样仍在联合中。
+
+独立复现及对照见 [class_guard_interface_cast.thlua](../test/cases/types/class_guard_interface_cast.thlua)：子类和两个子类的联合均可协变为父类；名义类守卫后直接转换到父类失败；将守卫目标改为接口本身后可正常收窄。`tryResolveType` 现先正向判断 `AsyncTypeCom.is(vType) or AutoHolder.is(vType)`，在真分支用 `(vType @ clazz.BaseTypeCom):getResultType()`，其余分支返回 `vType @> clazz.UAtomUnion`，避免把包含 `AutoHolder` 的值逆变为 `AsyncTypeCom`。用例同时验证该正向收窄及两种子类的结果读取；[G10](../goal/10_union_can_wait.lua) 验证实际解析器对未就绪和已就绪 `AsyncTypeCom` / `AutoHolder` 的非等待查询。整工程自举检查仍有已有诊断，不能据此声称已全部通过。
+
 ## 5. Rust 启动、自举与兼容桥接
 
 1. `rust/build.rs` 扫描 `thlua/`，生成嵌入源码清单，并静态编译 LPeg；`.d.thlua` 不作为运行模块注册。

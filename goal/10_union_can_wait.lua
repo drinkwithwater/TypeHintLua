@@ -30,6 +30,17 @@ H.withTypes(function(manager, node)
 	assert(table.concat(events, ",") == "before,resolved,after")
 	assert(result:includeAll(manager.type.Integer) and result:includeAll(manager.type.String))
 	assert(manager:tryResolveType(delayed) == manager.type.Integer)
+	-- Both pending subclasses expose the BaseTypeCom result without waiting.
+	local AutoHolder = require "thlua.space.AutoHolder"
+	local holder = AutoHolder.new(manager:getSpaceManager(), node)
+	local context = manager:getStackManager():getRootStack():newAssignContext(node)
+	assert(manager:tryResolveType(holder) == false)
+	holder:assignDeduceTypeAsync(context, node, function()
+		return manager.type.String
+	end)
+	assert(manager:tryResolveType(holder) == false)
+	assert(manager:resolveType(holder) == manager.type.String)
+	assert(manager:tryResolveType(holder) == manager.type.String)
 	local ready = manager:unionReady(manager.type.Integer, manager.type.String)
 	assert(H.equivalent(ready, result))
 	assert(manager:intersectReady(manager.type.Integer, manager.type.String):isEmpty())

@@ -1,0 +1,77 @@
+(@let.IReady = Interface {ready = Boolean})
+
+const ReadyMeta = {}
+const AsyncMeta = {}
+const AutoMeta = {}
+const function:class(let.Ready) makeReady():implements(IReady)
+	return setmetatable({.class ready = true @ Boolean}, ReadyMeta)
+end
+const function:class(let.Base) makeBase()
+	return {.class result = false @ OrFalse(Integer)}
+end
+const function:class(let.Async) makeAsync():extends(Base)
+	return setmetatable({.class result = false @ OrFalse(Integer)}, AsyncMeta)
+end
+const function:class(let.Auto) makeAuto():extends(Base)
+	return setmetatable({.class result = false @ OrFalse(Integer)}, AutoMeta)
+end
+const function.open isReady(v):isguard(Ready)
+	return getmetatable(v) == ReadyMeta
+end
+const function.open isReadyInterface(v):isguard(IReady)
+	return type(v.ready) == "boolean"
+end
+
+-- Covariance works for a subclass and for the union of both subclasses.
+const function upcast(v:Async):Ret(Base)
+	return v @ Base
+end
+const function siblings(v:Union(Async, Auto)):Ret(Base)
+	return v @ Base
+end
+
+-- A nominal class guard cannot remove the whole structural interface.
+const function resolve(v:Union(IReady, Async, Auto)):Ret(OrFalse(Integer))
+	if isReady(v) then
+		return false
+	end
+	const async = v @> Async
+	const base = async @ Base
+	return (v @> Base).result --E: neither side contains the other
+end
+
+-- Guarding the interface itself removes that complete union branch.
+const function resolveInterface(v:Union(IReady, Async, Auto)):Ret(OrFalse(Integer))
+	if isReadyInterface(v) then
+		return false
+	end
+	const base:Base = v
+	return base.result
+end
+
+const function.open isAsync(v):isguard(Async)
+	return getmetatable(v) == AsyncMeta
+end
+const function.open isAuto(v):isguard(Auto)
+	return getmetatable(v) == AutoMeta
+end
+
+-- Match tryResolveType: positively guard both subclasses before upcasting.
+const function resolvePending(v:Union(IReady, Async, Auto)):Ret(OrFalse(Integer))
+	if isAsync(v) or isAuto(v) then
+		return (v @ Base).result
+	end
+	const ready:IReady = v
+	return false
+end
+
+const async = makeAsync()
+const auto = makeAuto()
+assert(resolvePending(async) == false)
+assert(resolvePending(auto) == false)
+async.result = 1
+auto.result = 2
+assert(resolvePending(async) == 1)
+assert(resolvePending(auto) == 2)
+assert(resolvePending(makeReady()) == false)
+print("ok")
