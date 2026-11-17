@@ -34,6 +34,7 @@ function ObjectUnion:foreach(vFunc)
 end
 
 function ObjectUnion:putAwait(vType:clazz.IAtomType)
+	assert(self.id == 0, "union already published")
 	if self:includeAtom(vType) then
 		return
 	end
@@ -62,11 +63,6 @@ function ObjectUnion:putAwait(vType:clazz.IAtomType)
 		for nTypedObject, _ in pairs(self._typedObjectDict) do
 			if vType:includeAtom(nTypedObject) then
 				nDeleteList2[#nDeleteList2 + 1] = nTypedObject
-			else
-				const nIntersect = vType:intersectAtom(nTypedObject)
-				if nIntersect then
-					error("unexpected intersect when union object")
-				end
 			end
 		end
 		for _, nTypedObject in pairs(nDeleteList2) do

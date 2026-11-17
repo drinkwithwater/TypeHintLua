@@ -15,7 +15,7 @@ function Interface:detailString(vVerbose:Boolean)
 	return "Interface@"..tostring(self._node)
 end
 
-function Interface:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.TypedObject):Ret(Boolean)
+function Interface:assumeIncludeObject(vAssumeSet:clazz.QueryContext, vRightObject:clazz.TypedObject):Ret(Boolean)
 	if vRightObject._intersectSet[self] then
 		return true
 	end
@@ -43,7 +43,7 @@ function Interface:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRight
 			end
 			return vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) and true
 		else -- key is not merged, iter for one matched
-			for _, nRightMoreKey in pairs(nRightKeyRefer:getSetAwait():getDict()) do
+			for nRightMoreKey in nRightKeyRefer:getSetAwait():atoms() do
 				if nRightMoreKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					const nRightValue = nRightValueDict[nRightMoreKey]
 					if nRightValue and vLeftValue:assumeIncludeAll(vAssumeSet, nRightValue, vRightObject) then
@@ -60,9 +60,9 @@ function Interface:assumeIntersectAtom(vAssumeSet, vRightType)
 	if not Interface.is(vRightType) then
 		if self == vRightType then
 			return self
-		elseif vRightType:assumeIncludeAtom(nil, self) then
+		elseif vRightType:assumeIncludeAtom(vAssumeSet, self) then
 			return self
-		elseif self:assumeIncludeAtom(nil, vRightType) then
+		elseif self:assumeIncludeAtom(vAssumeSet, vRightType) then
 			return vRightType
 		else
 			return false
@@ -88,24 +88,12 @@ function Interface:assumeIntersectAtom(vAssumeSet, vRightType)
 		end
 	end
 	assert(vAssumeSet, "assume set must be existed here")
-	const _, nLRPair, nRLPair = self._typeManager:makeDuPair(self, nRightStruct)
-	const nAssumeResult = vAssumeSet[nLRPair]
-	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
-	vAssumeSet[nLRPair] = true
-	vAssumeSet[nRLPair] = true
-	local nAssumeIntersect = self:assumeIntersectInterface(vAssumeSet, nRightStruct)
-	if not nAssumeIntersect then
-		vAssumeSet[nLRPair] = false
-		vAssumeSet[nRLPair] = false
-		return false
-	else
-		return true
-	end
+	return vAssumeSet:overlap(self, nRightStruct, function()
+		return self:assumeIntersectInterface(vAssumeSet, nRightStruct)
+	end)
 end
 
-function Interface:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.Interface):Ret(Boolean)
+function Interface:assumeIntersectInterface(vAssumeSet:clazz.QueryContext, vRightObject:clazz.Interface):Ret(Boolean)
 	const nRightValueDict = vRightObject:getValueDict()
 	const nRightKeyRefer, nRightNextKey = vRightObject:getKeyTypes()
 	const nRightResultType = nRightKeyRefer:getResultType()
@@ -122,15 +110,15 @@ function Interface:assumeIntersectInterface(vAssumeSet:Dict(Integer, Boolean), v
 				return false
 			end
 		else
-			for _, nRightKey in pairs(nRightKeyRefer:getSetAwait():getDict()) do
+			for nRightKey in nRightKeyRefer:getSetAwait():atoms() do
 				if nRightKey:assumeIncludeAtom(vAssumeSet, vLeftKey) then
 					const nRightValue = nRightValueDict[nRightKey]!
-					if vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
-						return true
+					if not vLeftValue:assumeIntersectSome(vAssumeSet, nRightValue) then
+						return false
 					end
 				end
 			end
-			return false
+			return true
 		end
 	end)
 end

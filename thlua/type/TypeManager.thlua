@@ -56,6 +56,7 @@ const TypeRelation = require "thlua.type.TypeRelation"
 const TupleBuilder = require "thlua.tuple.TupleBuilder"
 
 const HashableTypeSet = require "thlua.type.HashableTypeSet"
+const TypeSetInterner = require "thlua.type.TypeSetInterner"
 const SpaceValue = require "thlua.space.SpaceValue"
 
 const type = type
@@ -120,7 +121,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		builtin=nil @! BuiltinFunc,
 		generic={} @ Dict(String, clazz.TemplateCom),
 		MetaOrNil=nil @! clazz.UAtomUnion,
-		_hashToTypeSet={} @ Dict(Integer, clazz.FrozenTypeSet),
+		_typeSetInterner=nil @! clazz.TypeSetInterner,
 		_pairToRelation={} @ Dict(Integer, clazz.TypeRelation),
 		_floatLiteralDict = {}@Dict(Number, clazz.FloatLiteral),
 		_integerLiteralDict = {}@Dict(Integer, clazz.IntegerLiteral),
@@ -129,6 +130,7 @@ function:class(clazz.TypeManager) TypeManager.new(
 		_rootNode=vRootNode,
 		_scheduleManager=vScheduleManager,
 	}, TypeManager)
+	self._typeSetInterner = TypeSetInterner.new(self)
 	return self
 end
 
@@ -238,14 +240,14 @@ function TypeManager:_buildCombineObject(vNode:clazz.IBaseNode, vIsInterface:Boo
 			nIntersectSet[nTypedObject] = true
 			local nValueDict = nTypedObject:getValueDict()
 			const nKeyRefer, nNextKey = nTypedObject:getKeyTypes()
-			for _, nKeyType in pairs(nKeyRefer:getSetAwait():getDict()) do
+			for nKeyType in nKeyRefer:getSetAwait():atoms() do
 				nKeyTypeSet:putAtom(nKeyType)
 				nKeyValuePairList[#nKeyValuePairList + 1] = {nKeyType, nValueDict[nKeyType]!}
 			end
 			nMetaEventComList[#nMetaEventComList + 1] = nTypedObject:getMetaEventCom() or nil
 			if nIntersectNextKey then
 				if nNextKey then
-					const nTypeOrFalse = nIntersectNextKey:safeIntersect(nNextKey)
+					const nTypeOrFalse = self:resolveIntersect(nIntersectNextKey, nNextKey):getType()
 					if not nTypeOrFalse then
 						error("intersect error")
 					else
@@ -290,25 +292,68 @@ function TypeManager:buildExtendInterface(vNode:clazz.IBaseNode, vFirst:clazz.US
 	return self:_buildCombineObject(vNode, true, nTupleBuilder)
 end
 
-function TypeManager:checkedIntersect(vLeft:clazz.UMustType, vRight:clazz.UMustType):Ret(clazz.UAtomUnion)
-	const nLeft = vLeft:checkAtomUnion()
-	const nTypeOrFalse = nLeft:safeIntersect(vRight)
-	if nTypeOrFalse then
-		return nTypeOrFalse
-	else
-		error("unexpected intersect")
-	end
+-- Resolution is allowed to wait, including on structural dependencies.
+function TypeManager:resolveType(vType:clazz.UMustType):Ret(clazz.UAtomUnion)
+	assert(vType:getManager() == self, "type belongs to another TypeManager")
+	return vType:checkAtomUnion()
 end
 
-function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
-	const l:List(clazz.UMustType) = {...}
+function TypeManager:tryResolveType(vType:clazz.UMustType):Ret(OrFalse(clazz.UAtomUnion))
+	assert(vType:getManager() == self, "type belongs to another TypeManager")
+	if BaseReadyType.is(vType) then
+		return vType @> clazz.UAtomUnion
+	end
+	return (vType @> clazz.AsyncTypeCom):getResultType()
+end
+
+function TypeManager:_assertReady(vType:clazz.UAtomUnion)
+	assert(BaseReadyType.is(vType) and vType.id > 0, "ready type operation requires an initialized atom or union")
+	assert(vType:getManager() == self, "type belongs to another TypeManager")
+end
+
+function TypeManager:unionReady(...:clazz.UAtomUnion):Ret(clazz.UAtomUnion)
+	const nTypes:List(clazz.UAtomUnion) = {...}
+	const nCount = select("#", ...)
+	return self._scheduleManager:withoutWaiting@<clazz.UAtomUnion>(function()
+		const nSet = self:HashableTypeSet()
+		for i=1, nCount do
+			const nType = nTypes[i]!
+			self:_assertReady(nType)
+			nSet:putType(nType)
+		end
+		return self:unifyAndBuild(nSet)
+	end)
+end
+
+function TypeManager:intersectReady(vLeft:clazz.UAtomUnion, vRight:clazz.UAtomUnion):Ret(clazz.IntersectionResult)
+	self:_assertReady(vLeft)
+	self:_assertReady(vRight)
+	return self._scheduleManager:withoutWaiting@<clazz.IntersectionResult>(function()
+		return vLeft:intersectResult(vRight)
+	end)
+end
+
+function TypeManager:resolveIntersect(vLeft:clazz.UMustType, vRight:clazz.UMustType):Ret(clazz.IntersectionResult)
+	return self:resolveType(vLeft):intersectResult(self:resolveType(vRight))
+end
+
+function TypeManager:checkedIntersect(vLeft:clazz.UMustType, vRight:clazz.UMustType):Ret(clazz.UAtomUnion)
+	const nResult = self:resolveIntersect(vLeft, vRight)
+	return assert(nResult:getType(), "unexpected intersect: non-representable overlap")
+end
+
+function TypeManager:resolveUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
+	const nTypes:List(clazz.UMustType) = {...}
 	const nTypeSet = self:HashableTypeSet()
 	for i=1, select("#", ...) do
-		l[i]!:checkAtomUnion():foreach(function(vAtomType)
-			nTypeSet:putAtom(vAtomType)
-		end)
+		nTypeSet:putType(self:resolveType(nTypes[i]!))
 	end
 	return self:unifyAndBuild(nTypeSet)
+end
+
+-- Compatibility alias for callers that intentionally resolve pending types.
+function TypeManager:checkedUnion(...:clazz.UMustType):Ret(clazz.UAtomUnion)
+	return self:resolveUnion(...)
 end
 
 function TypeManager:buildUnion(vNode:clazz.IBaseNode, ...:clazz.USpaceAny):Ret(clazz.AsyncTypeCom)
@@ -454,50 +499,33 @@ function TypeManager:unifyAndBuild(vTypeSet:clazz.HashableTypeSet):Ret(clazz.UAt
 	return self:unifyTypeSet(vTypeSet):_buildType()
 end
 
+-- Compatibility name for identity interning, not semantic equality.
 function TypeManager:unifyTypeSet(vTypeSet:clazz.HashableTypeSet, vMustNew:OrNil(True)):Ret(clazz.FrozenTypeSet)
-	const nHashToTypeSet = self._hashToTypeSet
-	const nHash = vTypeSet:getHash()
-	const nCurTypeSet = nHashToTypeSet[nHash]
-	const nFrozenTypeSet = vTypeSet:frozen()
-	if not nCurTypeSet then
-		nHashToTypeSet[nHash] = nFrozenTypeSet
-		return nFrozenTypeSet
-	else
-		const ret = nCurTypeSet:linkedSearchOrLink(nFrozenTypeSet)
-		if vMustNew then
-			assert(ret == nFrozenTypeSet, "maybe atom type unify error")
-		end
-		return ret
-	end
+	return self._typeSetInterner:intern(vTypeSet, vMustNew)
 end
 
 function TypeManager:unionUnifyToType(vNewUnion:clazz.IUnionType):Ret(clazz.UAtomUnion)
-	const nHashValue = HashableTypeSet.hashType(vNewUnion)
-	const nCurTypeSet = self._hashToTypeSet[nHashValue]
-	if not nCurTypeSet then
-		const nHashableTypeSet = self:HashableTypeSet()
-		nHashableTypeSet:initFromUnion(vNewUnion)
-		const nFrozenTypeSet = nHashableTypeSet:frozen()
-		self._hashToTypeSet[nHashValue] = nFrozenTypeSet
-		vNewUnion:initWithTypeId(self:genTypeId(), nFrozenTypeSet)
-		return vNewUnion
-	else
-		const nFound, nTypeOrSet = nCurTypeSet:linkedSearchTypeOrAttachSet(vNewUnion)
-		if nFound then
-			return nTypeOrSet
-		else
-			vNewUnion:initWithTypeId(self:genTypeId(), nTypeOrSet)
-			return vNewUnion
-		end
+	assert(vNewUnion:getManager() == self, "type belongs to another TypeManager")
+	const nBuilder = self:HashableTypeSet()
+	nBuilder:initFromUnion(vNewUnion)
+	const nSet = self:unifyTypeSet(nBuilder)
+	const nCached = nSet:getResultType()
+	if nCached then
+		return nCached
+	elseif nSet:getNum() == 1 then
+		return nSet:_buildType()
 	end
+	vNewUnion:initWithTypeId(self:genTypeId(), nSet)
+	nSet:_cacheResult(vNewUnion)
+	return vNewUnion
 end
 
 function TypeManager:atomUnifyToSet(vNewAtom:clazz.IAtomType):Ret(clazz.FrozenTypeSet)
-	const nHashableTypeSet = self:HashableTypeSet()
-	nHashableTypeSet:initFromAtom(vNewAtom)
-	const nTypeSet = self:unifyTypeSet(nHashableTypeSet, true)
-	--assert(nTypeSet == nHashableTypeSet, "but atom build type id conflict")
-	return nTypeSet
+	const nBuilder = self:HashableTypeSet()
+	nBuilder:initFromAtom(vNewAtom)
+	const nSet = self:unifyTypeSet(nBuilder, true)
+	nSet:_cacheResult(vNewAtom)
+	return nSet
 end
 
 function TypeManager:newNativeOpenFunction():Ret(clazz.OpenFunction)
@@ -696,7 +724,7 @@ function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(claz
 		local nFinalType = nFirst:checkAtomUnion()
 		for i=2, #vList do
 			const nCurType = vList[i]!
-			const nInterType = nFinalType:safeIntersect(nCurType)
+			const nInterType = self:resolveIntersect(nFinalType, nCurType):getType()
 			if not nInterType then
 				error("unexpected intersect")
 			else
@@ -712,12 +740,14 @@ function TypeManager:intersectReduceType(vNode:clazz.IBaseNode, vList:IList(claz
 end
 
 function TypeManager:makePair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Integer)
+	assert(vLeft:getManager() == self and vRight:getManager() == self, "type belongs to another TypeManager")
 	const nLeftId, nRightId = vLeft.id, vRight.id
 	assert(nLeftId ~= 0 and nRightId ~=0, "use id ==0")
 	return TypeRelation.shiftPair(nLeftId, nRightId)
 end
 
 function TypeManager:makeDuPair(vLeft:clazz.IAtomType, vRight:clazz.IAtomType):Ret(Boolean, Integer, Integer)
+	assert(vLeft:getManager() == self and vRight:getManager() == self, "type belongs to another TypeManager")
 	const nLeftId, nRightId = vLeft.id, vRight.id
 	if nLeftId < nRightId then
 		return false, TypeRelation.shiftPair(nLeftId, nRightId), TypeRelation.shiftPair(nRightId, nLeftId)
@@ -781,6 +811,7 @@ end
 
 function TypeManager:genTypeId():Ret(Integer)
 	local nNewId = self._typeIdCounter + 1
+	assert(nNewId <= 0xffffffff, "TypeManager exhausted 32-bit type identities")
 	self._typeIdCounter = nNewId
 	return nNewId
 end

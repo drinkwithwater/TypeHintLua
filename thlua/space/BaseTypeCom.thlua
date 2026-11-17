@@ -56,6 +56,7 @@ function BaseTypeCom:foreachAwait(vFunc:Fn(clazz.IAtomType))
 end
 
 function BaseTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
 	const nResultType = self._resultType
 	if nResultType then
 		return nResultType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
@@ -67,7 +68,7 @@ function BaseTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 				return
 			end
 			local nCurInclude:Boolean = false
-			for _, nType in pairs(nTypeSet:getDict()) do
+			for nType in nTypeSet:atoms() do
 				if nType:assumeIncludeAtom(vAssumeSet, vAtomType, vSelfType) then
 					nCurInclude = true
 					break
@@ -82,6 +83,7 @@ function BaseTypeCom:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
 end
 
 function BaseTypeCom:assumeIntersectSome(vAssumeSet, vRight)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
 	const nResultType = self._resultType
 	if nResultType then
 		return nResultType:assumeIntersectSome(vAssumeSet, vRight)
@@ -93,8 +95,9 @@ function BaseTypeCom:assumeIntersectSome(vAssumeSet, vRight)
 				return
 			end
 			local nCurIntersect:Boolean = false
-			for _, nType in pairs(nTypeSet:getDict()) do
-				if nType:assumeIntersectAtom(vAssumeSet, vAtomType) then
+			for nType in nTypeSet:atoms() do
+				const nPart = nType:assumeIntersectAtom(vAssumeSet, vAtomType)
+				if nPart == true or (nPart and not nPart:isNever()) then
 					nCurIntersect = true
 					break
 				end
@@ -111,8 +114,20 @@ function BaseTypeCom:intersectAtom(vRightType)
 	return self:checkAtomUnion():intersectAtom(vRightType)
 end
 
+function BaseTypeCom:findCoveringAtom(vRightType)
+	return self:checkAtomUnion():findCoveringAtom(vRightType)
+end
+
+function BaseTypeCom:containsAtom(vRightType)
+	return self:findCoveringAtom(vRightType) ~= false
+end
+
 function BaseTypeCom:includeAtom(vRightType)
-	return self:checkAtomUnion():includeAtom(vRightType)
+	return self:findCoveringAtom(vRightType)
+end
+
+function BaseTypeCom:intersectResult(vRight)
+	return self:checkAtomUnion():intersectResult(vRight)
 end
 
 function BaseTypeCom:includeAll(vRight)

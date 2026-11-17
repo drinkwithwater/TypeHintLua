@@ -62,12 +62,18 @@ LPeg 解析规则位于 `thlua/code/ParseEnv.lua`。解析过程同时构造 AST
 | 模块 | 已确认的职责与入口 |
 | --- | --- |
 | `runtime/CodeRuntime.thlua` | 组织单次检查，加载标准库和依赖模块，维护加载缓存，汇总诊断。`CodeRuntime` 是类型分析运行环境，不是 Lua VM。 |
-| `type/TypeManager.thlua` | 创建与管理类型；细分类别位于 `basic/`、`union/`、`object/`、`func/`。 |
+| `type/TypeManager.thlua` | 创建与管理类型；细分类别位于 `basic/`、`union/`、`object/`、`func/`。集合、规范化、关系与等待边界见下文及 [类型运算契约](type-algebra.md)。 |
 | `stack/` | 承接 typing code 发出的分析操作；从 `BaseStack.thlua` 及其 builder、context 继续追踪。 |
 | `term/` | 表达式分析结果与变量条件。`RefineTerm` 保存类型及类型分支对应的 `VariableCase`，不仅是一个简单类型标签。 |
 | `tuple/` | 函数参数、返回值和可变参数相关的元组表示。 |
 | `space/` | 提示环境、名字引用、类型模板和延迟求值相关对象。 |
 | `schedule/` | 使用 Lua coroutine、HintTask、SealTask 和事件依赖推进检查；`promiseSchedule` 通过异步回调安排后续工作。 |
+
+类型运算已拆分为：`HashableTypeSet` 收集可变成员，`FrozenTypeSet` 保存成员快照及延迟结果，`TypeSetInterner` 负责身份驻留和哈希冲突，`TypeCollection` 做语义规范化。集合身份相同不是类型语义等价的唯一条件；集合并/交/差按成员身份工作。
+
+`findCoveringAtom` 返回覆盖分支见证，`containsAtom`/`includeAll` 返回 Boolean；`includeAtom` 保留旧见证协议，RefineTerm 已显式使用新名称。`IntersectionResult` 区分 empty、exact 和 overlap，防止把不可表示交集误当 Never。`safeIntersect` 是兼容适配，overlap 仍返回 false。`QueryContext` 隔离当前路径的包含与相交假设；最终对象关系才进入 TypeManager 的缓存。
+
+`unionReady`/`intersectReady` 禁止隐式等待，`tryResolveType` 查询是否已有最终类型，`resolveType`/`resolveUnion`/`resolveIntersect` 可在注册任务内等待。`checkedUnion` 是解析联合的兼容名称。成员集合就绪与最终类型就绪仍分离，递归类型没有被强制全部展开。TypedObject 单次发布复制输入、公开字段查询返回快照；跨管理器类型不能混入集合或关系缓存。公开 API 的稳定性不禁止 Open/Auto 推导状态正常推进，也不提供增量失效机制。
 
 `CodeRuntime:promiseMain` 初始化 TypeManager、StackManager、SpaceManager，加载标准库声明，再分析根文件。`StageApi` 中的 `searchPath`、`parseFile`、`parseGlobal`、`createAsync` 等接口使同一检查器能够服务于 CLI、LSP 等入口。
 
@@ -107,7 +113,7 @@ Rust 负责 Content-Length 帧、JSON-RPC 分发和 shutdown/exit 生命周期�
 | 打包后缺模块、桥接行为不一致 | `rust/build.rs`、`runtime.rs`、`host.rs` |
 | LSP 挂起、消息损坏、文档诊断不更新 | `rust/lsp.rs`，再看 `FileState`、`ApiProvider` |
 
-统一验证入口是 `python test.py`：运行 Cargo 单元测试、构建，再执行语言、测试器和独立程序测试；`--release` 验证发布版本。用例清单和精确诊断预期位于 `test/cases/manifest.json`，覆盖范围、旧测试迁移及已知失败见 [测试指南](../test/README.md)。`thlua/TestCase.thlua` 保留单文件兼容入口，支持按级别识别行尾标记，错误会抛出异常；正式套件还逐条核对诊断数量和消息。Python 测试仅使用标准库，不再依赖 pyskynet。
+统一验证入口是 `python test.py`：运行 Cargo 单元测试、构建，再执行语言、测试器和独立程序测试；`--release` 验证发布版本。用例清单和精确诊断预期位于 `test/cases/manifest.json`，覆盖范围、旧测试迁移及已知失败见 [测试指南](../test/README.md)。`thlua/TestCase.thlua` 保留单文件兼容入口，支持按级别识别行尾标记，错误会抛出异常；正式套件还逐条核对诊断数量和消息。`goal/` 的 19 项内部类型契约探针也通过 `test/test_type_algebra.py` 加入正式入口。Python 测试仅使用标准库，不再依赖 pyskynet。
 
 ## 8. 尚需按任务继续核实的部分
 

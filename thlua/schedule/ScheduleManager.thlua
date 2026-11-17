@@ -22,6 +22,7 @@ const ScheduleManager = class@<clazz.ScheduleManager, false>()
 
 function.open ScheduleManager:ctor(vRuntime:clazz.CodeRuntime)
 	self._coToTask={} @ Dict(Thread, clazz.ScheduleTask)
+	self._noWaitDepth={} @ Dict(Thread, Integer)
 	self._sealTaskList={}@List(OrFalse(clazz.SealTask))
 	self._hintTaskList={}@List(clazz.HintTask)
 	self._selfCo=coroutine.running()
@@ -45,6 +46,23 @@ end
 
 function ScheduleManager:getTask():Ret(clazz.ScheduleTask)
 	return self._coToTask[coroutine.running()]!
+end
+
+-- A ready operation must not yield, even when an atom hides structural work.
+function ScheduleManager:withoutWaiting@<T>(vFn:Fn():Ret(T)):Ret(T)
+	const nCo = coroutine.running()
+	const nDepth = self._noWaitDepth[nCo] or 0
+	self._noWaitDepth[nCo] = nDepth + 1
+	const nOK, nResult = pcall(vFn)
+	self._noWaitDepth[nCo] = nDepth > 0 and nDepth or nil
+	if not nOK then
+		error(nResult)
+	end
+	return nResult
+end
+
+function ScheduleManager:isWaitingForbidden():Ret(Boolean)
+	return (self._noWaitDepth[coroutine.running()] or 0) > 0
 end
 
 function ScheduleManager:tryGetSealTask():Ret(OrNil(clazz.SealTask))
@@ -187,7 +205,7 @@ function ScheduleManager:pushSchedule(vTask:clazz.ScheduleTask)
 		nList[#nList + 1] = vTask @> clazz.HintTask
 	end
 	const nCurTask = self._coToTask[coroutine.running()]
-	if SealTask.is(nCurTask) then
+	if SealTask.is(nCurTask) and not self:isWaitingForbidden() then
 		coroutine.yield(true)
 	end
 end

@@ -27,10 +27,20 @@ function.open TypedObject:ctor(vManager:clazz.TypeManager, vNode:clazz.IBaseNode
 end
 
 function TypedObject:lateInit(vIntersectSet:Dict(clazz.TypedObject,True), vValueDict:Dict(clazz.IAtomType, clazz.UMustType), vNextKey:OrFalse(clazz.UMustType), vMetaEventCom:OrFalse(clazz.MetaEventCom))
+	assert(not self._valueDict, "object description already published")
+	const nValues = {} @ Dict(clazz.IAtomType, clazz.UMustType)
+	for k,v in pairs(vValueDict) do
+		assert(k:getManager() == self._typeManager and v:getManager() == self._typeManager, "type belongs to another TypeManager")
+		nValues[k] = v
+	end
+	const nIntersects = {} @ Dict(clazz.TypedObject, True)
+	for k,v in pairs(vIntersectSet) do
+		nIntersects[k] = v
+	end
 	self._nextKey = vNextKey
-	self._intersectSet = vIntersectSet
+	self._intersectSet = nIntersects
 	self._metaEventCom = vMetaEventCom
-	self._valueDict = vValueDict
+	self._valueDict = nValues
 end
 
 function TypedObject:lateCheck()
@@ -78,7 +88,7 @@ function TypedObject:_everyWith(vRightObject:clazz.TypedObject, vFunc:Fn(clazz.I
 	return true
 end
 
-function TypedObject:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.TypedObject):Ret(Boolean)
+function TypedObject:assumeIncludeObject(vAssumeSet:clazz.QueryContext, vRightObject:clazz.TypedObject):Ret(Boolean)
 	error("assume include Object not implement")
 	return false
 end
@@ -102,19 +112,9 @@ function TypedObject:assumeIncludeAtom(vAssumeSet, vRightType, _)
 	else
 		assert(vAssumeSet, "assume set must be existed here")
 	end
-	const nPair = self._typeManager:makePair(self, nRightStruct)
-	const nAssumeResult = vAssumeSet[nPair]
-	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
-	vAssumeSet[nPair] = true
-	local nAssumeInclude = self:assumeIncludeObject(vAssumeSet, nRightStruct)
-	if not nAssumeInclude then
-		vAssumeSet[nPair] = false
-		return false
-	else
-		return self
-	end
+	return vAssumeSet:include(self, nRightStruct, function()
+		return self:assumeIncludeObject(vAssumeSet, nRightStruct)
+	end) and self or false
 end
 
 function TypedObject:meta_len(vContext)
@@ -244,7 +244,11 @@ end
 
 function TypedObject:getValueDict():Ret(Dict(clazz.IAtomType, clazz.UMustType))
 	self._keyRefer:getSetAwait()
-	return (assert(self._valueDict, "member list is not setted after waiting"))
+	const nCopy = {} @ Dict(clazz.IAtomType, clazz.UMustType)
+	for k,v in pairs(assert(self._valueDict, "member list is not setted after waiting")) do
+		nCopy[k] = v
+	end
+	return nCopy
 end
 
 function TypedObject:copyValueDict(vSelfObject:Union(clazz.SealTable, clazz.TypedObject)):Ret(Dict(clazz.IAtomType, clazz.UMustType))

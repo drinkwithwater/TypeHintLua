@@ -9,9 +9,9 @@ function AsyncTypeCom.__tostring(self:clazz.AsyncTypeCom)
 	const l:List(String) = {}
 	const nTypeSet = self._typeSet
 	if nTypeSet then
-		for i, v in pairs(nTypeSet:getDict()) do
-			l[i] = tostring(v)
-		end
+		nTypeSet:foreach(function(v)
+			l[#l + 1] = tostring(v)
+		end)
 		return "AsyncTypeCom("..table.concat(l, ",")..")"
 	else
 		return "AsyncTypeCom(?)"
@@ -58,23 +58,14 @@ function AsyncTypeCom:setSetAsync(vNode:clazz.IBaseNode, vGetSetLateRunner:Fn():
 		-- step 1. set list
 		const nFrozenTypeSet = self._typeManager:unifyTypeSet(nHashableTypeSet)
 		self._typeSet = nFrozenTypeSet
-		for k, v in pairs(nFrozenTypeSet:getDict()) do
+		nFrozenTypeSet:foreach(function(v)
 			if v:mayRecursive() then
 				self._mayRecursive = true
 			end
-		end
+		end)
 		self._listBuildEvent:wakeup()
-		const nTypeNum = nFrozenTypeSet:getNum()
-		-- step 2. merge to result type
-		local nResultType:OrNil(clazz.UAtomUnion) = nil
-		if nTypeNum == 0 then
-			nResultType = self._typeManager.type.Never
-		elseif nTypeNum == 1 then
-			const _, nFirstType = next(nFrozenTypeSet:getDict())
-			nResultType = nFirstType!
-		else
-			nResultType = nFrozenTypeSet:_buildType()
-		end
+		-- The frozen set owns normalization and its cache, for every cardinality.
+		const nResultType = nFrozenTypeSet:_buildType()
 		self._resultType = nResultType
 		self._resultBuildEvent:wakeup()
 		if nLateRunner then
@@ -89,9 +80,7 @@ function AsyncTypeCom:foreachAwait(vFunc)
 		nResultType:foreach(vFunc)
 	else
 		local nTypeSet = self:getSetAwait()
-		for _, v in pairs(nTypeSet:getDict()) do
-			vFunc(v)
-		end
+		nTypeSet:foreach(vFunc)
 	end
 end
 

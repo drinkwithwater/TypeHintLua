@@ -1,0 +1,32 @@
+const class = require@<let.clazz> "thlua.class"
+
+(@let.clazz.IntersectionKind = Union("empty", "exact", "overlap"))
+
+-- overlap means nonempty, but the current type representation cannot express it.
+-- It must never be treated as empty or silently replaced with a partial union.
+const IntersectionResult = {}
+IntersectionResult.__index = IntersectionResult
+
+function:class(clazz.IntersectionResult) IntersectionResult.new(vKind:clazz.IntersectionKind, vType:OrFalse(clazz.UAtomUnion))
+	assert(vKind == "empty" or vKind == "exact" or vKind == "overlap", "invalid intersection kind")
+	assert((vKind == "overlap") == (vType == false), "invalid intersection result")
+	assert(not vType or ((vKind == "empty") == vType:isNever()), "intersection kind disagrees with type")
+	return setmetatable({.class
+		_kind = vKind,
+		_type = vType,
+	}, IntersectionResult)
+end
+
+function IntersectionResult:getKind()
+	return self._kind
+end
+
+function IntersectionResult:getType():Ret(OrFalse(clazz.UAtomUnion))
+	return self._type
+end
+
+function IntersectionResult:isEmpty():Ret(Boolean)
+	return self._kind == "empty"
+end
+
+return IntersectionResult

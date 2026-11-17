@@ -32,6 +32,8 @@ Linux/macOS 下使用 `python3` 和 `target/release/thlua`。`./build.sh` 封装
 
 Rust 使用 rustfmt 默认格式，模块及函数使用 `snake_case`，类型使用 `PascalCase`。thlua 和 TypeScript 沿用现有的制表符缩进及 camelCase 方法命名；Python 使用四空格缩进。thlua 类模块采用 `ScheduleTask.thlua` 这样的命名。语言实现的修改应落在 `thlua/`，不要直接修改 `thlua.lua` 等生成的打包文件。
 
+TypeHintLua 当前不支持泛型参数的自动推导。调用泛型函数或方法时，必须通过 `@<...>` 显式填写类型参数，不能依赖实参类型或返回值上下文推导。例如，调用 `withoutWaiting@<T>` 时应写为 `manager:withoutWaiting@<clazz.UAtomUnion>(callback)`。新增或修改泛型调用时应逐一检查调用点；仅通过编译或运行不能证明泛型调用的类型检查正确，因为执行代码会擦除类型提示。
+
 ## 测试要求
 
 Rust 测试使用 `#[test]`；语言、CLI 和 LSP 使用 Python `unittest`。新增语言用例放在 `test/cases/` 并登记到 `manifest.json`，说明见 [测试指南](test/README.md)。诊断数量、位置、级别和消息需与预期一致；合法用例还应验证生成 Lua 可加载，适用时验证运行结果。保留旧用例的 `--E/--W/--I/--H` 标记并同步 manifest。已知缺陷必须说明原因，不得通过放宽断言隐藏错误。目前没有固定覆盖率门槛。

@@ -1,0 +1,34 @@
+const class = require@<let.clazz> "thlua.class"
+
+-- Identity sharing only: semantic normalization belongs to TypeCollection.
+const TypeSetInterner = {}
+TypeSetInterner.__index = TypeSetInterner
+
+function:class(clazz.TypeSetInterner) TypeSetInterner.new(vManager:clazz.TypeManager)
+	return setmetatable({.class
+		_typeManager = vManager,
+		_buckets = {} @ Dict(Integer, List(clazz.FrozenTypeSet)),
+	}, TypeSetInterner)
+end
+
+function TypeSetInterner:intern(vBuilder:clazz.HashableTypeSet, vMustNew:OrNil(True)):Ret(clazz.FrozenTypeSet)
+	assert(vBuilder:getManager() == self._typeManager, "type set belongs to another TypeManager")
+	const nHash = vBuilder:getHash()
+	local nBucket = self._buckets[nHash]
+	if nBucket then
+		for _, nSet in ipairs(nBucket) do
+			if nSet:sameMembers(vBuilder) then
+				assert(not vMustNew, "type identity already interned")
+				return nSet
+			end
+		end
+	else
+		nBucket = {}
+		self._buckets[nHash] = nBucket
+	end
+	const nSet = vBuilder:frozen()
+	nBucket[#nBucket + 1] = nSet
+	return nSet
+end
+
+return TypeSetInterner

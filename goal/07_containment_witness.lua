@@ -11,5 +11,8 @@ H.withTypes(function(manager)
 	local cases = {[container] = "integer branch"}
 	assert(cases[witness] == "integer branch" and cases[true] == nil)
 	assert(container:includeAtom(manager.type.String) == false)
+	assert(manager.type.Integer:containsAtom(manager:Literal(1)) == true)
+	assert(manager.type.Integer:containsAtom(manager.type.String) == false)
+	assert(manager.type.Integer:findCoveringAtom(manager:Literal(1)) == manager.type.Integer)
 	print("includeAll is boolean; includeAtom returns a covering atom or false")
 end)

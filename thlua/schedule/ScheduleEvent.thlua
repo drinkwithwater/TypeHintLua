@@ -20,7 +20,8 @@ function ScheduleEvent:wait()
 	const nWaitList = self._waitTaskList
 	if nWaitList then
 		const nManager = self._scheduleManager
-		const nCurTask = nManager:getTask()
+		assert(not nManager:isWaitingForbidden(), "ready type operation has an unresolved dependency")
+		const nCurTask = assert(nManager:getTask(), "type resolution requires a registered checker task")
 		nWaitList[#nWaitList + 1] = nCurTask
 		const nDependTask = self._task
 		if nDependTask then

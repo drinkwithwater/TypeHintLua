@@ -27,6 +27,7 @@ def main():
     import test_language
     import test_harness
     import rust_cli
+    import test_type_algebra
     suite = unittest.TestSuite()
     def select(tests):
         for test in tests:
@@ -37,7 +38,7 @@ def main():
                     print(test.id())
                 suite.addTest(test)
     loader = unittest.TestLoader()
-    for module in (test_language, test_harness, rust_cli):
+    for module in (test_language, test_harness, rust_cli, test_type_algebra):
         select(loader.loadTestsFromModule(module))
     if not suite.countTestCases():
         parser.error("no tests matched; refusing a vacuous success")

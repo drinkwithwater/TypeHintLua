@@ -1,0 +1,44 @@
+const class = require@<let.clazz> "thlua.class"
+
+-- Coinductive hypotheses belong to the active path, never the final cache.
+-- Inclusion and overlap are different propositions, even for the same pair.
+const QueryContext = {}
+QueryContext.__index = QueryContext
+
+function:class(clazz.QueryContext) QueryContext.new(vManager:clazz.TypeManager)
+	return setmetatable({.class
+		_typeManager = vManager,
+		_include = {} @ Dict(Integer, True),
+		_overlap = {} @ Dict(Integer, True),
+	}, QueryContext)
+end
+
+function QueryContext:include(vLeft:clazz.IAtomType, vRight:clazz.IAtomType, vCheck:Fn():Ret(Boolean)):Ret(Boolean)
+	const nPair = self._typeManager:makePair(vLeft, vRight)
+	if self._include[nPair] then
+		return true
+	end
+	self._include[nPair] = true
+	const nOK, nResult = pcall(vCheck)
+	self._include[nPair] = nil
+	if not nOK then
+		error(nResult)
+	end
+	return nResult
+end
+
+function QueryContext:overlap(vLeft:clazz.IAtomType, vRight:clazz.IAtomType, vCheck:Fn():Ret(Boolean)):Ret(Boolean)
+	const _, nPair = self._typeManager:makeDuPair(vLeft, vRight)
+	if self._overlap[nPair] then
+		return true
+	end
+	self._overlap[nPair] = true
+	const nOK, nResult = pcall(vCheck)
+	self._overlap[nPair] = nil
+	if not nOK then
+		error(nResult)
+	end
+	return nResult
+end
+
+return QueryContext

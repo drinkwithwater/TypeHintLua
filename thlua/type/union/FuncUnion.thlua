@@ -26,26 +26,27 @@ function.open FuncUnion:ctor(vManager:clazz.TypeManager)
 end
 
 function FuncUnion:foreach(vFunc)
+	const nAnyFn = self._anyFn
+	if nAnyFn then
+		vFunc(nAnyFn)
+		return
+	end
 	for nType, _ in pairs(self._openFnDict) do
 		vFunc(nType)
 	end
-	const nAnyFn = self._anyFn
-	if not nAnyFn then
-		for nType, _ in pairs(self._typeFnDict) do
-			vFunc(nType)
-		end
-		for nType, _ in pairs(self._typeMfnDict) do
-			vFunc(nType)
-		end
-		for nType, _ in pairs(self._notTypeFnDict) do
-			vFunc(nType)
-		end
-	else
-		vFunc(nAnyFn)
+	for nType, _ in pairs(self._typeFnDict) do
+		vFunc(nType)
+	end
+	for nType, _ in pairs(self._typeMfnDict) do
+		vFunc(nType)
+	end
+	for nType, _ in pairs(self._notTypeFnDict) do
+		vFunc(nType)
 	end
 end
 
 function FuncUnion:putAwait(vType)
+	assert(self.id == 0, "union already published")
 	if self:includeAtom(vType) then
 		return
 	end
@@ -56,6 +57,8 @@ function FuncUnion:putAwait(vType)
 		do.nocheck
 			self._notTypeFnDict = {}
 			self._typeFnDict = {}
+			self._typeMfnDict = {}
+			self._openFnDict = {}
 		end
 	-- TODO lua fn may be typefn or polyfn or openfn, deal by case TODO
 	elseif TypedFunction.is(vType) then
@@ -100,25 +103,30 @@ function FuncUnion:putAwait(vType)
 end
 
 function FuncUnion:assumeIntersectAtom(vAssumeSet, vType)
-	if Truth.is(vType) then
+	if Truth.is(vType) or AnyFunction.is(vType) then
 		return self
 	end
-	if self:includeAtom(vType) then
+	if self:assumeIncludeAtom(vAssumeSet, vType) then
 		return vType
 	end
 	if TypedFunction.is(vType) or TypedMemberFunction.is(vType) then
 		const nTypeSet = self._typeManager:HashableTypeSet()
 		self:foreach(function(vSubType)
-			if vType:includeAtom(vSubType) then
+			if vType:assumeIncludeAtom(vAssumeSet, vSubType) then
 				nTypeSet:putAtom(vSubType)
 			end
 		end)
-		return self._typeManager:unifyAndBuild(nTypeSet)
+		if nTypeSet:getNum() > 0 then
+			return self._typeManager:unifyAndBuild(nTypeSet)
+		end
 	end
 	return false
 end
 
 function FuncUnion:assumeIncludeAtom(vAssumeSet, vType, vSelfType)
+	if self._anyFn and BaseFunction.is(vType) then
+		return self._anyFn
+	end
 	if OpenFunction.is(vType) then
 		if self._openFnDict[vType] then
 			return vType

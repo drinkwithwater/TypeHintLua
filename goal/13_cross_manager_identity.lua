@@ -1,14 +1,28 @@
 local H = require "goal.support"
-local foreign
-H.withTypes(function(manager) foreign = manager:Literal("foreign atom") end)
+local foreign, foreignNever, foreignSet
+H.withTypes(function(manager)
+	foreign = manager:Literal("foreign atom")
+	foreignNever = manager.type.Never
+	foreignSet = manager:HashableTypeSet()
+	foreignSet:putAtom(foreign)
+end)
 H.withTypes(function(manager)
 	local localAtom = manager:Literal(123456)
 	assert(foreign:getManager() ~= manager and foreign.id == localAtom.id)
 	local set = manager:HashableTypeSet()
-	set:putAtom(foreign)
+	local function rejects(fn)
+		local ok, reason = pcall(fn)
+		assert(not ok and tostring(reason):find("another TypeManager", 1, true), tostring(reason))
+	end
+	rejects(function() set:putAtom(foreign) end)
+	rejects(function() set:putType(foreignNever) end)
+	rejects(function() manager:unifyTypeSet(foreignSet) end)
+	rejects(function() manager:checkedUnion(localAtom, foreign) end)
+	rejects(function() localAtom:includeAll(foreign) end)
+	rejects(function() localAtom:intersectResult(foreign) end)
+	rejects(function() manager:makePair(localAtom, foreign) end)
+	assert(set:getNum() == 0)
 	set:putAtom(localAtom)
-	print("different managers and values, same id; retained members", set:getNum())
-	assert(set:getNum() == 1, "ownership handling changed; review this characterization")
-	-- Deliberate unsupported mixing, not evidence that normal checks mix managers.
-	-- A future public handle API should reject it before collection insertion.
+	assert(not set:findAtom(foreign) and not set:frozen():findAtom(foreign))
+	print("cross-manager identities rejected; retained members", set:getNum())
 end)

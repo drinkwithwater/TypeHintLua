@@ -15,7 +15,7 @@ function Struct:detailString(vVerbose:Boolean)
 	return "Struct@"..tostring(self._node)
 end
 
-function Struct:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObject:clazz.TypedObject):Ret(Boolean)
+function Struct:assumeIncludeObject(vAssumeSet:clazz.QueryContext, vRightObject:clazz.TypedObject):Ret(Boolean)
 	local nAssumeInclude:Boolean = false
 	if not Struct.is(vRightObject) then
 		return false
@@ -63,7 +63,7 @@ function Struct:assumeIncludeObject(vAssumeSet:Dict(Integer, Boolean), vRightObj
 			nRightValueDict[nRightKey] = nil
 		else -- key is not merged, iter for one matched
 			local nMatchedKey:OrNil(clazz.IAtomType) = nil
-			for _, nRightKey in pairs(nRightKeyRefer:getSetAwait():getDict()) do
+			for nRightKey in nRightKeyRefer:getSetAwait():atoms() do
 				if nRightKey:assumeIncludeAtom(vAssumeSet, nLeftKey) then
 					const nRightValue = nRightValueDict[nRightKey]
 					if nRightValue and isMatchedKeyValue(nLeftKey, nLeftValue, nRightKey, nRightValue) then

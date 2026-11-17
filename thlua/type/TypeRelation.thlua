@@ -1,6 +1,7 @@
 
 const class = require@<let.clazz> "thlua.class"
 const Interface = require "thlua.type.object.Interface"
+const QueryContext = require "thlua.type.QueryContext"
 
 const TypeRelation = {}
 TypeRelation.__index = TypeRelation
@@ -48,14 +49,19 @@ function TypeRelation:buildByObject(vLeft:clazz.TypedObject, vRight:clazz.TypedO
     if vLeft.id > vRight.id then
         vLeft, vRight = vRight, vLeft
     end
-    self._smallIdObj = vLeft
-    self._bigIdObj = vRight
+    const nSmallLeft = vLeft
+    const nBigRight = vRight
+    self._smallIdObj = nSmallLeft
+    self._bigIdObj = nBigRight
     self._task:runAsync(function()
-        const nLeftId = vLeft.id
-        const nRightId = vRight.id
-        const nLRPair, nRLPair = shiftPair(nLeftId, nRightId), TypeRelation.shiftPair(nRightId, nLeftId)
-        const nLRInclude = vLeft:assumeIncludeObject({[nLRPair]=true}, vRight)
-        const nRLInclude = vRight:assumeIncludeObject({[nRLPair]=true}, vLeft)
+        const nLRContext = QueryContext.new(self._typeManager)
+        const nLRInclude = nLRContext:include(nSmallLeft, nBigRight, function()
+            return nSmallLeft:assumeIncludeObject(nLRContext, nBigRight)
+        end)
+        const nRLContext = QueryContext.new(self._typeManager)
+        const nRLInclude = nRLContext:include(nBigRight, nSmallLeft, function()
+            return nBigRight:assumeIncludeObject(nRLContext, nSmallLeft)
+        end)
         if nLRInclude and nRLInclude then
             self._result = TypeRelation.EQUAL
         elseif nLRInclude then
@@ -63,8 +69,11 @@ function TypeRelation:buildByObject(vLeft:clazz.TypedObject, vRight:clazz.TypedO
         elseif nRLInclude then
             self._result = TypeRelation.IN
         else
-            if Interface.is(vLeft) and Interface.is(vRight) then
-                const nIntersect = vLeft:assumeIntersectInterface({[nLRPair]=true,[nRLPair]=true}, vRight)
+            if Interface.is(nSmallLeft) and Interface.is(nBigRight) then
+                const nContext = QueryContext.new(self._typeManager)
+                const nIntersect = nContext:overlap(nSmallLeft, nBigRight, function()
+                    return nSmallLeft:assumeIntersectInterface(nContext, nBigRight)
+                end)
                 if nIntersect then
                     self._result = TypeRelation.SOME
                 else

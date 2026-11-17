@@ -6,6 +6,7 @@ const TermTuple = require "thlua.tuple.TermTuple"
 const RetBuilder = require "thlua.tuple.RetBuilder"
 const TupleBuilder = require "thlua.tuple.TupleBuilder"
 const Node = require "thlua.code.Node"
+const QueryContext = require "thlua.type.QueryContext"
 
 const BaseFunction = require "thlua.type.func.BaseFunction"
 const class = require@<let.clazz> "thlua.class"
@@ -115,7 +116,7 @@ function TypedFunction:meta_call(vContext, vTermTuple)
 	vContext:pushRetTuples(nRetTuples)
 end
 
-function TypedFunction:assumeIncludeFn(vAssumeSet:Dict(Integer, Boolean), vRight:clazz.TypedFunction):Ret(Boolean)
+function TypedFunction:assumeIncludeFn(vAssumeSet:clazz.QueryContext, vRight:clazz.TypedFunction):Ret(Boolean)
 	local nLeftParTuple, nLeftRetTuples = self:buildParRet()
 	local nRightParTuple, nRightRetTuples = vRight:buildParRet()
 	if not nRightParTuple:assumeIncludeTuple(vAssumeSet, nLeftParTuple) then
@@ -134,23 +135,10 @@ function TypedFunction:assumeIncludeAtom(vAssumeSet, vRight, _)
 	if not TypedFunction.is(vRight) then
 		return false
 	end
-	const nMgr = self._typeManager
-	const nPair = self._typeManager:makePair(self, vRight)
-	if not vAssumeSet then
-		return self:assumeIncludeFn({[nPair]=true}, vRight) and self
-	end
-	const nAssumeResult = vAssumeSet[nPair]
-	if nAssumeResult ~= nil then
-		return nAssumeResult and self
-	end
-	vAssumeSet[nPair] = true
-	local nAssumeInclude = self:assumeIncludeFn(vAssumeSet, vRight)
-	if not nAssumeInclude then
-		vAssumeSet[nPair] = false
-		return false
-	else
-		return self
-	end
+	const nContext = vAssumeSet or QueryContext.new(self._typeManager)
+	return nContext:include(self, vRight, function()
+		return self:assumeIncludeFn(nContext, vRight)
+	end) and self or false
 end
 
 function TypedFunction:getParTuple():Ret(clazz.UTypeTuple)

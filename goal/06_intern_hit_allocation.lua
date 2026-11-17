@@ -16,6 +16,6 @@ H.withTypes(function(manager)
 	HashableTypeSet.frozen = freeze
 	assert(ok, reason)
 	print("cache hits", 5, "FrozenTypeSet constructions", calls)
-	-- Characterization, not a semantic bug or a timing benchmark.
-	assert(calls == 5, "allocation strategy changed; review this characterization")
+	-- This checks allocation count, not elapsed time or an acceleration factor.
+	assert(calls == 0, "intern hits must compare the builder before freezing")
 end)

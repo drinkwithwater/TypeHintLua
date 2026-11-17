@@ -2,6 +2,7 @@
 
 const Exception = require "thlua.Exception"
 const OPER_ENUM = require "thlua.type.OPER_ENUM"
+const IntersectionResult = require "thlua.type.IntersectionResult"
 
 const class = require "thlua.class"
 
@@ -43,13 +44,16 @@ clazz.IType = Interface ({
 
 	detailString=Mfn(Boolean):Ret(String),
 
+	intersectResult=Mfn(clazz.UMustType):Ret(clazz.IntersectionResult),
+	findCoveringAtom=Mfn(clazz.IAtomType):Ret(OrFalse(clazz.IAtomType)),
+	containsAtom=Mfn(clazz.IAtomType):Ret(Boolean),
 	intersectSome=Mfn(clazz.UMustType):Ret(Boolean),
 	safeIntersect=Mfn(clazz.UMustType):Ret(OrFalse(clazz.UAtomUnion)),
-	assumeIntersectSome=Mfn(OrNil(Dict(Integer, Boolean)), clazz.UMustType):Ret(Boolean),
+	assumeIntersectSome=Mfn(OrNil(clazz.QueryContext), clazz.UMustType):Ret(Boolean),
 	intersectAtom=Mfn(clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
 
 	includeAll=Mfn(clazz.UMustType):Ret(Boolean),
-	assumeIncludeAll=Mfn(OrNil(Dict(Integer, Boolean)), clazz.UMustType, OrNil(clazz.IAtomType)):Ret(Boolean),
+	assumeIncludeAll=Mfn(OrNil(clazz.QueryContext), clazz.UMustType, OrNil(clazz.IAtomType)):Ret(Boolean),
 	includeAtom=Mfn(clazz.IAtomType):Ret(OrFalse(clazz.IAtomType)),
 
 	mayRecursive=Mfn():Ret(Boolean),
@@ -68,8 +72,8 @@ clazz.IReadyType = ExtendInterface(clazz.IType, Interface {
 	partTypedFunction=Mfn():Ret(clazz.UAtomUnion),
 	falseType=Mfn():Ret(clazz.UAtomUnion),
 	trueType=Mfn():Ret(clazz.UAtomUnion),
-	assumeIncludeAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType, OrNil(clazz.IAtomType)):Ret(OrFalse(clazz.IAtomType)),
-	assumeIntersectAtom=Mfn(OrNil(Dict(Integer, Boolean)), clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
+	assumeIncludeAtom=Mfn(OrNil(clazz.QueryContext), clazz.IAtomType, OrNil(clazz.IAtomType)):Ret(OrFalse(clazz.IAtomType)),
+	assumeIntersectAtom=Mfn(OrNil(clazz.QueryContext), clazz.IAtomType):Ret(Union(Boolean, clazz.UAtomUnion)),
 	putCompletion=Mfn(clazz.FieldCompletion),
 	getTypeSet=Mfn():Ret(clazz.FrozenTypeSet),
 })
@@ -161,24 +165,40 @@ end
 ------------------------------------
 
 function BaseReadyType:intersectAtom(vRight)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
 	return self:assumeIntersectAtom(nil, vRight)
 end
 
+function BaseReadyType:findCoveringAtom(vRight)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
+	return self:assumeIncludeAtom(nil, vRight) or false
+end
+
+function BaseReadyType:containsAtom(vRight)
+	return self:findCoveringAtom(vRight) and true or false
+end
+
+-- Compatibility alias: the result is a witness, not a Boolean.
 function BaseReadyType:includeAtom(vRight)
-	return self:assumeIncludeAtom(nil, vRight)
+	return self:findCoveringAtom(vRight)
 end
 
 function BaseReadyType:assumeIntersectSome(vAssumeSet, vRight)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
 	local nSomeIntersect:Boolean = false
 	vRight:foreachAwait(function(vSubType)
-		if not nSomeIntersect and self:assumeIntersectAtom(vAssumeSet, vSubType) then
-			nSomeIntersect = true
+		if not nSomeIntersect then
+			const nResult = self:assumeIntersectAtom(vAssumeSet, vSubType)
+			if nResult == true or (nResult and not nResult:isNever()) then
+				nSomeIntersect = true
+			end
 		end
 	end)
 	return nSomeIntersect
 end
 
 function BaseReadyType:assumeIncludeAll(vAssumeSet, vRight, vSelfType)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
 	local nAllInclude:Boolean = true
 	vRight:foreachAwait(function(vSubType)
 		if nAllInclude and not self:assumeIncludeAtom(vAssumeSet, vSubType, vSelfType) then
@@ -196,30 +216,38 @@ function BaseReadyType:includeAll(vRight)
 	return self:assumeIncludeAll(nil, vRight)
 end
 
-function BaseReadyType:safeIntersect(vRight)
-	const nLeft = self
+-- Distribute over both operands. A single unrepresentable branch keeps the
+-- whole result unrepresentable, even when other branches have exact results.
+function BaseReadyType:intersectResult(vRight)
+	assert(vRight:getManager() == self._typeManager, "type belongs to another TypeManager")
 	const nRight = vRight:checkAtomUnion()
-	if not nRight:isUnion() then
-		const nIntersect = nLeft:assumeIntersectAtom(nil, nRight)
-		if nIntersect == true then
-			return false
-		else
-			return nIntersect or self._typeManager.type.Never
-		end
-	else
-		const nTypeSet = self._typeManager:HashableTypeSet()
-		nRight:foreach(function(vSubType)
-			local nIntersect = nLeft:assumeIntersectAtom(nil, vSubType)
-			if nIntersect then
-				if nIntersect == true then
-					return
-				else
-					nTypeSet:putType(nIntersect)
-				end
+	if self == nRight or nRight:includeAll(self @? clazz.UAtomUnion) then
+		return IntersectionResult.new(self:isNever() and "empty" or "exact", self @? clazz.UAtomUnion)
+	elseif self:includeAll(nRight) then
+		return IntersectionResult.new(nRight:isNever() and "empty" or "exact", nRight)
+	end
+	const nSet = self._typeManager:HashableTypeSet()
+	local nUnknown = false
+	self:foreach(function(vLeftAtom)
+		nRight:foreach(function(vRightAtom)
+			const nPart = vLeftAtom:assumeIntersectAtom(nil, vRightAtom)
+			if nPart == true then
+				nUnknown = true
+			elseif nPart and not nPart:isNever() then
+				nSet:putType(nPart)
 			end
 		end)
-		return self._typeManager:unifyAndBuild(nTypeSet)
+	end)
+	if nUnknown then
+		return IntersectionResult.new("overlap", false)
 	end
+	const nType = self._typeManager:unifyAndBuild(nSet)
+	return IntersectionResult.new(nType:isNever() and "empty" or "exact", nType)
+end
+
+-- Legacy adapter. false is unrepresentable overlap; Never is the empty set.
+function BaseReadyType:safeIntersect(vRight)
+	return self:intersectResult(vRight):getType()
 end
 
 function BaseReadyType:assumeIncludeAtom(_, _, _)
